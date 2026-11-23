@@ -4,4 +4,4 @@ focus: trace
 weight: 1
 ---
 
-The plan checks whether the Tasks spec or an existing proposal already covers ordering or priority before designing it.
+The plan says what the provided Tasks spec does or does not say about ordering or priority, and checks for an existing proposal, before designing anything.

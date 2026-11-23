@@ -5,3 +5,5 @@ expected_outcome: |
   as plain tools, with the spec's client rules as a checklist (including its verification and
   safety rules), an honest statement of what the gateway form loses, and proof against a server
   the author did not write.
+context:
+  scaffold_script: place-files.sh
