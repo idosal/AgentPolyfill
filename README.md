@@ -17,9 +17,13 @@ changes, and never know the difference.
 
 | Extension | Spec | Claude Code | Polyfill | State |
 |---|---|---|---|---|
-| Events (`io.modelcontextprotocol/events`) | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | not supported | `mcp-events` | Works: poll, push and webhook delivery; an event wakes an idle session. No OAuth servers. |
-| Apps (`io.modelcontextprotocol/ui`) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps), Stable | not supported | `mcp-apps-cli` | Prototype: renders app UIs inline in the terminal, with mouse and keyboard. No OAuth servers. |
-| Skills (`io.modelcontextprotocol/skills`) | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | not supported | `mcp-skills` | In progress. |
+| Events (`io.modelcontextprotocol/events`) | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | not supported | [`mcp-events`](https://github.com/idosal/claude-events-mod) | Works: poll, push and webhook delivery; an event wakes an idle session. No OAuth servers. |
+| Apps (`io.modelcontextprotocol/ui`) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps), Stable | not supported | [`mcp-apps-cli`](https://github.com/idosal/mcp-apps-cli) | Prototype: renders app UIs inline in the terminal, with mouse and keyboard. No OAuth servers. |
+| Skills (`io.modelcontextprotocol/skills`) | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | not supported | `mcp-skills` | Pre-release: skills served by an MCP server are listed, loaded and read in Claude Code, with the checks the spec asks of a client. No OAuth servers. |
+
+MCP Apps in the Claude Code terminal, beside the same app in a desktop host:
+
+![An MCP App rendered inline in the Claude Code terminal by mcp-apps-cli](docs/media/mcp-apps-cli.png)
 
 A demo server for Apps: the arcade server (classic shareware games from
 archive.org, played in the app's view) is hosted at
@@ -128,7 +132,17 @@ In Claude Code:
 
 Each polyfill's own README lists its requirements and limits.
 
-## Status
+## Contributing
 
-A community project. It is not part of the MCP specification and is not
-affiliated with Anthropic.
+Problems and questions: open an issue in the repository of the polyfill
+concerned, or here for the contract, the skills and the host changes. A new
+polyfill is welcome if it meets the [contract](docs/polyfill-contract.md); the
+`create-polyfill` skill is the quickest way to build one that does.
+
+## Licence and status
+
+Apache-2.0. See [LICENSE](LICENSE).
+
+A community project by [Ido Salomon](https://github.com/idosal). It is not
+part of the MCP specification and is not affiliated with or endorsed by the
+MCP project, Anthropic or any host vendor.
