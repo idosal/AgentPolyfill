@@ -7,7 +7,7 @@ Renders MCP Apps (the interactive UIs MCP servers ship) inline in the
 terminal `claude` CLI, under the tool call that produced them. Clicks, drags
 and keys go to the app. Existing servers work unmodified, configured as usual.
 
-[`docs/demo-side-by-side.mp4`](demo-side-by-side.mp4) (57 s): the
+[The demo video](https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4) (57 s, MP4, attached to the 0.1.0 release): the
 same prompts side by side, real pixels on the left (the terminal identified
 itself to Claude Code as iTerm2) and character cells on the right (a
 terminal without images). First DOOM through the arcade MCP Apps server
@@ -338,11 +338,14 @@ says so instead of the app, and the next view looks again. Nothing else:
 no Node, no packages.
 
 The plugin is released as one zip carrying a helper for each platform it
-supports, installed from this repository's marketplace as an `archive`
-source pinned by the zip's SHA-256: see [Packaging and
-releasing](#packaging-and-releasing) and the [README](../README.md#install)
-for the commands. From a checkout, after building the helper for your
-machine (`helper-rs/build-into-plugin.sh`), run `claude --plugin-dir mod`.
+supports, installed from the MCPolyfill marketplace
+([`.claude-plugin/marketplace.json`](../../../../.claude-plugin/marketplace.json)
+at the repository's root) as an `archive` source pinned by the zip's
+SHA-256: see [Packaging and releasing](#packaging-and-releasing) and the
+[README](../README.md#install) for the commands. From a checkout, in this
+polyfill's folder (`polyfills/claude-code/apps`), after building the helper
+for your machine (`helper-rs/build-into-plugin.sh`), run
+`claude --plugin-dir mod`.
 
 Then once: `/tui fullscreen` (lets Claude Code receive the mouse), and in
 iTerm2 Settings → Profiles → Terminal → Enable mouse reporting (in tmux:
@@ -366,13 +369,17 @@ Try it without installing. Start an example server from a checkout of
 PORT=3112 node examples/cohort-heatmap-server/dist/index.js
 ```
 
-Then, from this repository's root:
+Then, from this polyfill's folder (`polyfills/claude-code/apps`):
 
 ```bash
 CLAUDE_CODE_NO_FLICKER=1 claude --plugin-dir mod --mcp-config demo.mcp.json
 ```
 
 ## Packaging and releasing
+
+Paths in this section are inside this polyfill's folder
+(`polyfills/claude-code/apps`), except the workflow and the marketplace
+file, which are at the repository's root.
 
 One package serves every platform: it carries the helper for each, and the
 plugin runs the one for the machine (`mod/hooks/helper.ts`, `helperArgv`).
@@ -397,17 +404,26 @@ old or new.
   the manifest, the hooks module, its types, the README and every helper
   in `mod/helper/bin/` (each checked to be the format and processor its
   folder names, Linux ones static), nothing else. The same inputs give the
-  same bytes. It writes the zip's SHA-256 and a `marketplace.json` that
-  installs it as an `archive` source pinned by that SHA-256, which Claude
-  Code checks before unpacking. `--require-all` insists on all five.
-- **`.github/workflows/release.yml`** builds and checks the helper on each
-  platform, on that platform; on a tag `v<version>` it packs all five,
-  records build provenance for the zip and each binary, publishes the zip
-  as a release and opens a pull request pointing
-  `.claude-plugin/marketplace.json` at it. It signs and notarizes the Mac
-  binaries where the repository holds Apple certificates; Windows
-  Authenticode signing has its place marked. Unsigned, both still run:
-  Claude Code's install marks nothing as downloaded.
+  same bytes. It writes the zip's SHA-256 and `marketplace-entry.json`,
+  the plugin's entry for the repository's marketplace file: an `archive`
+  source pinned by that SHA-256, which Claude Code checks before
+  unpacking. `--require-all` insists on all five.
+- **`.github/workflows/mcp-apps-cli-release.yml`** (at the repository's
+  root) builds and checks the helper on each platform, on that platform,
+  whenever the helper, the Node helper, the packing script or the bench
+  checks change, and packs all five into the zip, which the run keeps as an
+  artifact. On a tag `mcp-apps-cli-v<version>` (the version in
+  `mod/.claude-plugin/plugin.json`) it also records build provenance for
+  the zip and each binary, publishes the zip as a release and opens a pull
+  request that sets the `source` of the mcp-apps-cli entry in
+  `.claude-plugin/marketplace.json` to it, leaving the other entries as
+  they are. The tag names the plugin so that each polyfill in the
+  repository releases on its own. It signs and notarizes the Mac binaries
+  where the repository holds Apple certificates; Windows Authenticode
+  signing has its place marked. Unsigned, both still run: Claude Code's
+  install marks nothing as downloaded. A pull request opened with the
+  workflow's own token starts no workflows; close and reopen it to run its
+  checks.
 
 Why a zip and not the alternatives Claude Code offers: a git source would
 put about 19 MB of binaries in the repository's history at each release; an

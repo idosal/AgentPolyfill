@@ -1,23 +1,43 @@
 # Actions are pinned by commit: this workflow publishes binaries people run.
 #
-# Builds and checks the Rust helper on each platform the plugin ships for,
-# on that platform; on a tag `v<version>` (the version in
-# mod/.claude-plugin/plugin.json), packs the plugin with every helper
-# (package/package.sh), records each file's build provenance, publishes the
-# zip as a release, and opens a pull request pointing
+# The Apps polyfill (polyfills/claude-code/apps, plugin mcp-apps-cli): builds
+# and checks its Rust helper on each platform the plugin ships for, on that
+# platform, then packs the plugin with all five helpers
+# (package/package.sh) and keeps the zip as a run artifact. On a tag
+# `mcp-apps-cli-v<version>` (the version in mod/.claude-plugin/plugin.json)
+# it also records each file's build provenance, publishes the zip as a
+# release, and opens a pull request that points the mcp-apps-cli entry of
 # .claude-plugin/marketplace.json at it (an `archive` source pinned by its
 # SHA-256). Users get the release once that pull request is merged.
 #
-# This file is written for the plugin's own repository, whose root is this
-# folder (prototypes/cli-apps in the ext-apps checkout it was made in).
+# Tags name the plugin, so each polyfill in this repository releases on its
+# own: mcp-apps-cli-v0.1.0, mcp-events-v0.3.3 and so on.
 
-name: helper and release
+name: "mcp-apps-cli: helper and release"
 
-# Run by hand for now (Actions → "helper and release" → Run workflow): on a
-# branch it builds and checks the helpers; on a tag `v<version>`, with every
-# platform, it also publishes. Pushes and pull requests will trigger it once
-# it has run clean.
 on:
+  push:
+    branches: ["**"]
+    tags: ["mcp-apps-cli-v*"]
+    # Everything that goes into the helper or its checks: the helper itself,
+    # the host page it compiles in (mod/helper/host/), the Node helper its
+    # parity tests compare against, the packing script and the bench checks.
+    # (Path filters do not apply to tags.)
+    paths:
+      - "polyfills/claude-code/apps/helper-rs/**"
+      - "polyfills/claude-code/apps/mod/helper/**"
+      - "polyfills/claude-code/apps/package/**"
+      - "polyfills/claude-code/apps/bench/*-check.mjs"
+      - ".github/workflows/mcp-apps-cli-release.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see the build job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/claude-code/apps/helper-rs/**"
+      - "polyfills/claude-code/apps/mod/helper/**"
+      - "polyfills/claude-code/apps/package/**"
+      - "polyfills/claude-code/apps/bench/*-check.mjs"
+      - ".github/workflows/mcp-apps-cli-release.yml"
   workflow_dispatch:
     inputs:
       platforms:
@@ -28,8 +48,13 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: mcp-apps-cli-release-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 jobs:
   platforms:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.pick.outputs.matrix }}
@@ -63,6 +88,7 @@ jobs:
     defaults:
       run:
         shell: bash
+        working-directory: polyfills/claude-code/apps
     env:
       EXE: ${{ startsWith(matrix.key, 'win32') && '.exe' || '' }}
       # Chrome's sandbox stays on, as on a person's machine (Ubuntu 22.04
@@ -88,21 +114,21 @@ jobs:
       # The checks' own MCP servers use the MCP SDK from here; the plugin
       # runs nothing from it.
       - name: The checks' packages
-        working-directory: mod/helper
+        working-directory: polyfills/claude-code/apps/mod/helper
         run: npm ci --omit=dev --no-audit --no-fund
       - name: Chromium (Linux on Arm has no Google Chrome)
         if: matrix.key == 'linux-arm64'
-        working-directory: mod/helper
+        working-directory: polyfills/claude-code/apps/mod/helper
         run: |
           npx playwright-core install --with-deps chromium
           echo "MCP_APPS_CLI_CHROME=$(node -e 'console.log(require("playwright-core").chromium.executablePath())')" >> "$GITHUB_ENV"
       - name: Unit tests
-        working-directory: helper-rs
+        working-directory: polyfills/claude-code/apps/helper-rs
         run: |
           node crates/render/tests/make-fixtures.mjs
           cargo test --release --locked --workspace --target ${{ matrix.target }}
       - name: Build
-        working-directory: helper-rs
+        working-directory: polyfills/claude-code/apps/helper-rs
         run: ./build-into-plugin.sh --target ${{ matrix.target }}
       - name: Static, as shipped
         if: contains(matrix.target, 'musl')
@@ -129,7 +155,7 @@ jobs:
       # the build keeps its ad-hoc signature (build-into-plugin.sh), which
       # runs: Claude Code's install marks nothing for quarantine.
       - name: Sign and notarize (macOS)
-        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/v') && env.HAS_MACOS_SIGNING == 'true'
+        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/mcp-apps-cli-v') && env.HAS_MACOS_SIGNING == 'true'
         env:
           MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
@@ -161,12 +187,50 @@ jobs:
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: helper-${{ matrix.key }}
-          path: mod/helper/bin/${{ matrix.key }}/mcp-apps-cli-helper${{ env.EXE }}
+          path: polyfills/claude-code/apps/mod/helper/bin/${{ matrix.key }}/mcp-apps-cli-helper${{ env.EXE }}
+          if-no-files-found: error
+
+  # Packs the zip on every run that built all five, tag or not, so a branch
+  # proves the release would pack; only a tag publishes it (next job).
+  pack:
+    needs: [platforms, build]
+    if: needs.platforms.outputs.all == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: polyfills/claude-code/apps
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: The plugin's version
+        run: |
+          version=$(sed -n 's/^  "version": *"\([^"]*\)".*/\1/p' mod/.claude-plugin/plugin.json | head -1)
+          [ -n "$version" ] || { echo "no version in mod/.claude-plugin/plugin.json" >&2; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          pattern: helper-*
+          path: artifacts
+      - name: Each helper where the plugin looks for it
+        run: |
+          for key in darwin-arm64 darwin-x64 linux-x64 linux-arm64 win32-x64; do
+            mkdir -p "mod/helper/bin/$key"
+            cp "$GITHUB_WORKSPACE/artifacts/helper-$key/"* "mod/helper/bin/$key/"
+          done
+      - name: Pack the plugin
+        run: package/package.sh --require-all --url "https://github.com/$GITHUB_REPOSITORY/releases/download/mcp-apps-cli-v$VERSION/mcp-apps-cli-$VERSION.zip"
+      - name: What was packed
+        run: |
+          unzip -l "package/dist/mcp-apps-cli-$VERSION.zip"
+          cat "package/dist/mcp-apps-cli-$VERSION.zip.sha256" package/dist/marketplace-entry.json
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: mcp-apps-cli-package
+          path: polyfills/claude-code/apps/package/dist/
           if-no-files-found: error
 
   release:
-    needs: [platforms, build]
-    if: startsWith(github.ref, 'refs/tags/v') && needs.platforms.outputs.all == 'true'
+    needs: [platforms, pack]
+    if: startsWith(github.ref, 'refs/tags/mcp-apps-cli-v') && needs.platforms.outputs.all == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -178,43 +242,47 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: The tag is the plugin's version
         run: |
-          version=$(sed -n 's/^  "version": *"\([^"]*\)".*/\1/p' mod/.claude-plugin/plugin.json | head -1)
-          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME, but plugin.json says $version" >&2; exit 1; }
+          version=$(sed -n 's/^  "version": *"\([^"]*\)".*/\1/p' polyfills/claude-code/apps/mod/.claude-plugin/plugin.json | head -1)
+          [ "mcp-apps-cli-v$version" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME, but plugin.json says $version" >&2; exit 1; }
           echo "VERSION=$version" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           pattern: helper-*
           path: artifacts
-      - name: Each helper where the plugin looks for it
-        run: |
-          for key in darwin-arm64 darwin-x64 linux-x64 linux-arm64 win32-x64; do
-            mkdir -p "mod/helper/bin/$key"
-            cp "artifacts/helper-$key/"* "mod/helper/bin/$key/"
-          done
-      - name: Pack the plugin
-        run: package/package.sh --require-all --url "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/mcp-apps-cli-$VERSION.zip"
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: mcp-apps-cli-package
+          path: dist
       - name: Build provenance for the zip and each helper
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
-            package/dist/mcp-apps-cli-*.zip
-            mod/helper/bin/*/mcp-apps-cli-helper*
+            dist/mcp-apps-cli-*.zip
+            artifacts/helper-*/mcp-apps-cli-helper*
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" package/dist/mcp-apps-cli-$VERSION.zip package/dist/mcp-apps-cli-$VERSION.zip.sha256 package/dist/marketplace.json \
-            --title "mcp-apps-cli $VERSION" --notes "The plugin with its helper for macOS (Apple Silicon, Intel), Linux (x64, Arm) and Windows x64. Installed through the marketplace file once its pull request is merged."
+          gh release create "$GITHUB_REF_NAME" dist/mcp-apps-cli-$VERSION.zip dist/mcp-apps-cli-$VERSION.zip.sha256 \
+            --title "mcp-apps-cli $VERSION" --notes "The Apps polyfill (mcp-apps-cli) with its helper for macOS (Apple Silicon, Intel), Linux (x64, Arm) and Windows x64. Installed through this repository's marketplace once its pull request is merged: \`claude plugin marketplace add $GITHUB_REPOSITORY\`, then \`claude plugin install mcp-apps-cli@mcpolyfill\`."
+      # Only this plugin's source changes; the rest of the marketplace file,
+      # the entry's description included, stays as it is. A pull request
+      # opened with the workflow's token starts no workflows: close and
+      # reopen it (or push to it) to have its checks run.
       - name: Pull request pointing the marketplace at this release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          branch="release/marketplace-$GITHUB_REF_NAME"
-          git switch -c "$branch"
-          mkdir -p .claude-plugin
-          cp package/dist/marketplace.json .claude-plugin/marketplace.json
-          git add .claude-plugin/marketplace.json
+          branch="release/$GITHUB_REF_NAME"
+          git fetch --no-tags origin main
+          git switch -c "$branch" origin/main
+          file=.claude-plugin/marketplace.json
+          jq -e --slurpfile entry dist/marketplace-entry.json 'any(.plugins[]; .name == $entry[0].name)' "$file" >/dev/null \
+            || { echo "$file lists no mcp-apps-cli" >&2; exit 1; }
+          jq --slurpfile entry dist/marketplace-entry.json '.plugins |= map(if .name == $entry[0].name then .source = $entry[0].source else . end)' "$file" > "$RUNNER_TEMP/marketplace.json"
+          mv "$RUNNER_TEMP/marketplace.json" "$file"
+          git add "$file"
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Marketplace: mcp-apps-cli $VERSION"
           git push origin "$branch"
           gh pr create --base main --head "$branch" --title "Marketplace: mcp-apps-cli $VERSION" \
-            --body "Points .claude-plugin/marketplace.json at the $GITHUB_REF_NAME release's zip, pinned by its SHA-256 ($(cut -d' ' -f1 package/dist/mcp-apps-cli-$VERSION.zip.sha256))."
+            --body "Points the mcp-apps-cli entry of $file at the $GITHUB_REF_NAME release's zip, pinned by its SHA-256 ($(cut -d' ' -f1 dist/mcp-apps-cli-$VERSION.zip.sha256))."

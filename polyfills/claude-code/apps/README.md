@@ -11,7 +11,7 @@ type into it. Existing MCP servers work unmodified.
 
 ![Real pixels on the left, character cells on the right](docs/demo-side-by-side.png)
 
-The video ([`docs/demo-side-by-side.mp4`](docs/demo-side-by-side.mp4), 57 s)
+The [video](https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4) (57 s, MP4)
 shows the same prompts in two terminals: pixels on the left, cells on the
 right. It plays DOOM through an arcade MCP App, then a cohort heatmap, a
 three.js scene Claude writes, and a live system monitor. Each side is one
@@ -22,18 +22,20 @@ real `claude` session.
 In a terminal:
 
 ```bash
-claude plugin marketplace add idosal/mcp-apps-cli
+claude plugin marketplace add idosal/MCPolyfill
 ```
 
 ```bash
-claude plugin install mcp-apps-cli@mcp-apps-cli
+claude plugin install mcp-apps-cli@mcpolyfill
 ```
 
-Or, at the prompt of a `claude` session, `/plugin marketplace add idosal/mcp-apps-cli`
-and then `/plugin install mcp-apps-cli@mcp-apps-cli`.
+Or, at the prompt of a `claude` session, `/plugin marketplace add idosal/MCPolyfill`
+and then `/plugin install mcp-apps-cli@mcpolyfill`.
 
-The plugin is one zip, checked against the SHA-256 in this repository's
-marketplace file before Claude Code unpacks it. It carries a small helper
+The plugin is one zip, attached to a release of this repository and checked
+against the SHA-256 in the repository's marketplace file
+([`.claude-plugin/marketplace.json`](../../../.claude-plugin/marketplace.json))
+before Claude Code unpacks it. It carries a small helper
 program for each platform and needs nothing else installed, not even Node.
 
 ## Requirements
@@ -117,6 +119,8 @@ or cells. Your clicks and keys go the other way.
 
 ### Building from source
 
+From this folder (`polyfills/claude-code/apps` in the repository):
+
 ```bash
 helper-rs/build-into-plugin.sh
 ```
@@ -125,17 +129,21 @@ helper-rs/build-into-plugin.sh
 package/package.sh
 ```
 
-The first builds the helper for this machine into `mod/helper/bin/`; the
-second packs the plugin zip and its marketplace file into `package/dist/`.
-To try a local build, run `claude --plugin-dir mod`.
+The first builds the helper for this machine into `mod/helper/bin/` (it
+needs Rust, and several GB of disk for the build); the second packs the
+plugin zip, and its entry for the repository's marketplace file, into
+`package/dist/`. To try a local build, run `claude --plugin-dir mod`.
+Releases are built on GitHub Actions
+([`mcp-apps-cli-release.yml`](../../../.github/workflows/mcp-apps-cli-release.yml)):
+see [Packaging and releasing](docs/DESIGN.md#packaging-and-releasing).
 
 ## Related
 
-Part of [MCPolyfill](https://github.com/idosal/MCPolyfill): MCP extensions
-for hosts that haven't shipped them yet.
+Part of [MCPolyfill](../../../README.md): MCP extensions for hosts that
+haven't shipped them yet.
 
 ## License
 
-Apache-2.0 ([LICENSE](LICENSE)). The helper includes third-party crates and
+Apache-2.0 ([LICENSE](../../../LICENSE)). The helper includes third-party crates and
 npm packages under their own licenses:
 [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt).
