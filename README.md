@@ -21,9 +21,11 @@ changes, and never know the difference.
 | Apps (`io.modelcontextprotocol/ui`) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps), Stable | not supported | [`mcp-apps-cli`](https://github.com/idosal/mcp-apps-cli) | Prototype: renders app UIs inline in the terminal, with mouse and keyboard. No OAuth servers. |
 | Skills (`io.modelcontextprotocol/skills`) | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | not supported | `mcp-skills` | Pre-release: skills served by an MCP server are listed, loaded and read in Claude Code, with the checks the spec asks of a client. No OAuth servers. |
 
-MCP Apps in the Claude Code terminal, beside the same app in a desktop host:
+MCP Apps in the Claude Code terminal with `mcp-apps-cli`: real pixels on the
+left, character cells on the right
+([full video, 57 s](https://github.com/idosal/mcp-apps-cli/blob/main/docs/demo-side-by-side.mp4)).
 
-![An MCP App rendered inline in the Claude Code terminal by mcp-apps-cli](docs/media/mcp-apps-cli.png)
+![Two Claude Code terminals side by side. In each, an arcade game, a cohort heatmap and a 3D scene appear under the tool call that returned them, and respond to the mouse.](docs/media/mcp-apps-cli.gif)
 
 A demo server for Apps: the arcade server (classic shareware games from
 archive.org, played in the app's view) is hosted at
@@ -92,8 +94,9 @@ server's tools over Claude Code's own connection. That is the host half of
 almost any extension.
 
 The protocol half is missing. Over Claude Code's connection a mod can call a
-tool, and nothing else: it cannot send `events/poll` or `skills/list`, see what
-a server advertised, or receive a server's notifications. So each polyfill here
+tool and read a resource's contents, and nothing else: it cannot send
+`events/poll` or `skills/list`, see what a server advertised, or receive a
+server's notifications. So each polyfill here
 opens a second connection of its own, using the headers in your config. A
 second connection cannot use Claude Code's sign-in, which is why none of them
 reaches servers behind OAuth.
