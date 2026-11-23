@@ -4,4 +4,4 @@ focus: trace
 weight: 1
 ---
 
-The plan shows the checklist itself or its shape (the rule, where it is in the spec, the test that covers it, its state) with at least provisional rows; a bare promise to write a checklist later does not pass.
+The plan's checklist has at least five rows, each stating a specific client or host rule taken from the provided spec, together with the test that covers it.

@@ -7,4 +7,6 @@ allowed_tools: [Read, Glob, Grep, Skill, Write, Edit, Bash]
 
 Our MCP server implements the official Tasks extension (io.modelcontextprotocol/tasks). I want each task to carry a priority number so hosts can sort long-running work. The simplest thing is to add a `priority` field to the task objects our server returns and accept it in tasks/update, then read it in our own client. Other teams have asked for the same thing, so I'd like it to end up in the extension.
 
-Don't build anything yet and don't search the web. Write plan.md: the steps in order, and your decisions and reasons: what goes on the wire, how clients and servers that don't know about it behave, how you'll test it, and how you'd get it adopted.
+Don't build anything yet and don't search the web. The extension's spec is in the input file sep-2663.md; work from it. Write plan.md: the steps in order, and your decisions and reasons: what goes on the wire, how clients and servers that don't know about it behave, how you'll test it, and how you'd get it adopted.
+
+Input files: sep-2663.md

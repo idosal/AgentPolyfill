@@ -22,6 +22,9 @@ Check these, in order, from the primary sources (see "Sources" in the
    extension concerned for a place meant for this: a tool's or event type's
    `inputSchema` arguments, a resource, a prompt, a settings object, a
    namespaced `_meta` key. Use a primitive for what the spec says it is for.
+   Do not stretch one to a nearby meaning: a hint defined as "this tool may
+   destroy data" does not also mean "this tool spends money". Where the
+   published meaning stops short of what you need, the remainder is new.
    Example: filtering which events a subscription receives is what an event
    type's subscription arguments are for; it needs no extension.
 2. **An existing extension or proposal.** The extensions page, the `ext-*` and
@@ -113,6 +116,7 @@ and what they reported, is worth keeping from the first day.
 |---|---|
 | Adding a parameter or field to a published extension's request | Its own method, or a namespaced `_meta` key, declared under your own identifier. |
 | Designing before checking for an existing slot or proposal | Step 1, written down. |
+| Reusing an existing field for a meaning it was not defined for | Use it for what it covers; the remainder is new and gets its own namespaced key or extension. |
 | Putting the feature into the polyfill "for now" | A separate plugin. The polyfill stays exact. |
 | An identifier under `io.modelcontextprotocol/` | A reversed domain you control. |
 | Sending the new messages and seeing whether the other side copes | Declaration first; part 4. |

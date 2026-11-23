@@ -9,4 +9,6 @@ I've built a polyfill for the MCP Events extension in Claude Code. Now I want tw
 
 For reference: MCP has an extensions mechanism (capabilities.extensions, extension identifiers, SEPs). In the Events extension, each event type has an inputSchema for subscription arguments.
 
-Don't build anything yet and don't search the web. Write plan.md: the steps in order, and your decisions and reasons: where each feature lives, what it is called on the wire, how a server or client that doesn't know about it behaves, how you'll test it, and what you'd do to get it adopted.
+Don't build anything yet and don't search the web. The extension's spec is in the input file sep-3415.md; work from it. Write plan.md: the steps in order, and your decisions and reasons: where each feature lives, what it is called on the wire, how a server or client that doesn't know about it behaves, how you'll test it, and what you'd do to get it adopted.
+
+Input files: sep-3415.md

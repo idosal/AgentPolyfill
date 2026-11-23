@@ -6,3 +6,5 @@ expected_outcome: |
   extension beside Tasks (a namespaced _meta key or its own method) without changing the Tasks
   messages or reusing its identifier, with declared support, defined fallback and negotiation
   tests.
+context:
+  scaffold_script: place-files.sh
