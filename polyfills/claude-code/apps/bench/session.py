@@ -33,7 +33,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 os.makedirs(S, exist_ok=True)
 COLS, ROWS = CFG.get("cols", 140), CFG.get("rows", 52)
 CELL_W, CELL_H = CFG.get("cell_w", 8), CFG.get("cell_h", 16)
-REPO = os.path.abspath(os.path.join(HERE, ".."))
+# This polyfill's folder (polyfills/claude-code/apps in the repository), which
+# holds mod/, the plugin; the session starts here unless a scenario names "cwd".
+POLYFILL = os.path.abspath(os.path.join(HERE, ".."))
 SOCKET_FILE = f"{S}/demo-helper.sock.txt"
 
 _report = pyte.Screen.report_device_status
@@ -42,8 +44,8 @@ pyte.Screen.report_device_status = lambda self, mode=0, *a, **k: None if k.get("
 CMD = [
     "claude", "--model", CFG.get("model", "sonnet"),
     # "plugin_dir" runs another copy of the plugin (an installed package, say),
-    # relative to the scenario file; the working tree's mod/ by default.
-    "--plugin-dir", os.path.join(os.path.dirname(SCENARIO), CFG["plugin_dir"]) if CFG.get("plugin_dir") else f"{REPO}/mod",
+    # relative to the scenario file; this polyfill's mod/ by default.
+    "--plugin-dir", os.path.join(os.path.dirname(SCENARIO), CFG["plugin_dir"]) if CFG.get("plugin_dir") else f"{POLYFILL}/mod",
     # Relative to the scenario file.
     "--mcp-config", os.path.join(os.path.dirname(SCENARIO), CFG["mcp_config"]), "--strict-mcp-config",
     # "setting_sources" lets a scenario read the user's settings too; null reads
@@ -89,7 +91,7 @@ if os.path.exists(SOCKET_FILE):
 pid, fd = pty.fork()
 if pid == 0:
     # "cwd" (relative to the scenario file) starts the session in another folder.
-    os.chdir(os.path.join(os.path.dirname(SCENARIO), CFG["cwd"]) if CFG.get("cwd") else REPO)
+    os.chdir(os.path.join(os.path.dirname(SCENARIO), CFG["cwd"]) if CFG.get("cwd") else POLYFILL)
     os.execvpe(CMD[0], CMD, ENV)
 fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", ROWS, COLS, COLS * CELL_W, ROWS * CELL_H))
 

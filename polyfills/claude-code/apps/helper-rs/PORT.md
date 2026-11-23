@@ -380,12 +380,13 @@ built and checked only by the release workflow.
 The plugin carries every platform's binary: `package/package.sh` packs
 `mod/helper/bin/<os>-<arch>/` for all five into one zip with the hooks
 module, and the marketplace installs that zip as an `archive` source pinned
-by its SHA-256 (README: Packaging and releasing). Nothing is fetched at run
+by its SHA-256 (`docs/DESIGN.md`: Packaging and releasing). Nothing is fetched at run
 time. A binary that lost its executable bit on the way is copied into the
 plugin's data folder (0700) under a temporary name, marked executable and
 renamed; the plugin's own copy is left as installed.
 
-`.github/workflows/release.yml` builds natively on macOS (arm64, x64),
+`.github/workflows/mcp-apps-cli-release.yml`, at the repository's root,
+builds natively on macOS (arm64, x64),
 Linux (x64, arm64; static) and Windows (x64). On each it:
 - runs `cargo test` for the shipped target;
 - runs `bench/smoke-check.mjs`: the ready line, the token, discovery, Chrome,
@@ -394,10 +395,11 @@ Linux (x64, arm64; static) and Windows (x64). On each it:
 - runs the host (not on Windows), store, change and network (not on
   Windows) checks.
 
-A tag `v<version>` then packs the plugin with all five, records build
-provenance for the zip and each binary, publishes the release and opens a
-pull request pointing `.claude-plugin/marketplace.json` at it. None of this
-has run yet: the workflow needs a repository to push to. The old
+Each run then packs the plugin with all five and keeps the zip as an
+artifact. A tag `mcp-apps-cli-v<version>` also records build provenance for
+the zip and each binary, publishes the release and opens a pull request
+that points the mcp-apps-cli entry of the root
+`.claude-plugin/marketplace.json` at it. The old
 `mcp-apps-cli-helper.yml` (the fetch path) is gone, and with it
 `fetch-helper.mjs`, `binaries.json` and the Node helper's installer
 (`start.mjs`).
