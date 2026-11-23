@@ -2,9 +2,19 @@
   "name": "mcpolyfill",
   "description": "MCP extensions for hosts that haven't shipped them yet",
   "owner": {
-    "name": "MCPolyfill"
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
   },
   "plugins": [
+    {
+      "name": "mcp-events",
+      "description": "MCP Events (SEP-3415): Claude can watch events on your MCP servers (poll, push or webhook) and react when they happen, even while the session is idle",
+      "source": {
+        "source": "git-subdir",
+        "url": "idosal/claude-events-mod",
+        "path": "mod"
+      }
+    },
     {
       "name": "mcp-apps-cli",
       "description": "MCP Apps: render app UIs inline in the Claude Code terminal, with clicks and keys forwarded to the app",
