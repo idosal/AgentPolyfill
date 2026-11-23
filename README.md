@@ -39,7 +39,23 @@ SEP notes that Claude Code support has been prototyped at Anthropic.
    need to change.
 
 The full text is in [`docs/polyfill-contract.md`](docs/polyfill-contract.md).
-Rule 4 is not met by any polyfill here yet.
+For rule 4, `mcp-events` has a setting that turns it off; none of the three
+detects native support yet.
+
+## Build one
+
+The `create-polyfill` skill walks an agent through building a polyfill to this
+contract: the spec's client rules as a checklist, how each wire need is reached
+on the host, stand-down, and what counts as proof.
+
+```
+/plugin install polyfill-author@mcpolyfill
+```
+
+Then ask for the extension you want, for example "polyfill MCP Server Cards in
+Claude Code". The skill is a plain
+[`SKILL.md`](plugins/polyfill-author/skills/create-polyfill/SKILL.md), so other
+agents that read skills can use it too.
 
 ## Why this works in Claude Code, and where it stops
 
