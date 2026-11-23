@@ -1,0 +1,4 @@
+{"cold_ms":17.796458,"cols":100,"frames":200,"lines":true,"mean_ms":7.147829165000001,"median_ms":7.036625,"p95_ms":7.823874999999999,"rows":30,"runtime":"Rust release","scale":2,"sextants":false,"truecolor":false}
+{"cold_ms":17.13325,"cols":100,"frames":200,"lines":true,"mean_ms":8.105095205,"median_ms":8.018,"p95_ms":8.749834,"rows":30,"runtime":"Rust release","scale":2,"sextants":true,"truecolor":false}
+{"cold_ms":8.846042,"cols":100,"frames":200,"lines":true,"mean_ms":8.392980625,"median_ms":8.369167000000001,"p95_ms":8.555416,"rows":30,"runtime":"Rust release","scale":2,"sextants":false,"truecolor":true}
+{"cold_ms":8.543916000000001,"cols":100,"frames":200,"lines":true,"mean_ms":8.41982875,"median_ms":8.389458000000001,"p95_ms":8.590250000000001,"rows":30,"runtime":"Rust release","scale":2,"sextants":true,"truecolor":true}

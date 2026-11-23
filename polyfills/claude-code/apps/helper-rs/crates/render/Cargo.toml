@@ -1,0 +1,15 @@
+[package]
+name = "mcp-apps-render"
+description = "The cells renderer of the mcp-apps-cli helper: a page's pixels and text to terminal cells (a port of mod/helper/render.mjs)"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+base64 = "0.22"
+
+[dev-dependencies]
+serde_json = { version = "1", features = ["float_roundtrip"] }
+png = "0.18"

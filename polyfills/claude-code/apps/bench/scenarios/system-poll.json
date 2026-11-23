@@ -1,0 +1,18 @@
+{
+ "cols": 140,
+ "rows": 60,
+ "model": "sonnet",
+ "extra_args": [
+  "--append-system-prompt",
+  "MCP App views render inline in the terminal for the user, so they can see and use the app. Reply in one short sentence. Use only the MCP tools you have; no shell commands.",
+  "--disallowed-tools=Bash"
+ ],
+ "mcp_config": "../mcp-examples.json",
+ "tools": ["mcp__system__get-system-info"],
+ "debug": true,
+ "terminal": "plain",
+ "cast": "system-poll.cast",
+ "steps": [
+  {"name": "monitor", "prompt": "What's my machine doing right now?", "expect": "MCP App · ", "hold": 8.0}
+ ]
+}

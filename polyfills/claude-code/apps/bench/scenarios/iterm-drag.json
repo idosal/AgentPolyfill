@@ -1,0 +1,37 @@
+{
+ "cols": 140,
+ "rows": 60,
+ "model": "sonnet",
+ "extra_args": [
+  "--append-system-prompt",
+  "MCP App views render inline in the terminal for the user, so they can see and use the app. Reply in one short sentence. Use only the MCP tools you have; no shell commands.",
+  "--disallowed-tools=Bash"
+ ],
+ "mcp_config": "../mcp-examples.json",
+ "tools": [
+  "mcp__studio3d__show_threejs_scene"
+ ],
+ "debug": true,
+ "terminal": "iterm",
+ "cast": "iterm-drag.cast",
+ "steps": [
+  {
+   "name": "scene",
+   "prompt": "Call show_threejs_scene with exactly this input, unchanged: {\"height\": 500, \"code\": \"const scene = new THREE.Scene(); const camera = new THREE.PerspectiveCamera(55, width/height, 0.1, 100); camera.position.set(0, 1.2, 5); const renderer = new THREE.WebGLRenderer({canvas, antialias: true}); renderer.setPixelRatio(window.devicePixelRatio); renderer.setSize(width, height); renderer.setClearColor(0x0b0e16); const knot = new THREE.Mesh(new THREE.TorusKnotGeometry(1, 0.32, 200, 32), new THREE.MeshStandardMaterial({color: 0x3a7bd5, metalness: 0.4, roughness: 0.35})); scene.add(knot); const ring = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.06, 16, 64), new THREE.MeshBasicMaterial({color: 0xff8a2a})); scene.add(ring); scene.add(new THREE.AmbientLight(0xffffff, 0.35)); const light = new THREE.PointLight(0xffffff, 40); light.position.set(3, 4, 4); scene.add(light); const controls = new OrbitControls(camera, canvas); controls.enableDamping = true; const composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera)); composer.addPass(new UnrealBloomPass(new THREE.Vector2(width, height), 1.2, 0.5, 0.2)); let t = 0; function tick() { t += 0.016; knot.rotation.x += 0.004; knot.rotation.y += 0.007; ring.position.set(Math.cos(t) * 2.1, Math.sin(t * 0.7) * 0.6, Math.sin(t) * 2.1); controls.update(); composer.render(); requestAnimationFrame(tick); } tick();\"}",
+   "paste": true,
+   "expect": "MCP App · ",
+   "hold": 6.0,
+   "timeout": 240
+  },
+  {
+   "name": "drag",
+   "drag_view": "MCP App · ",
+   "dx": 40,
+   "dy": 8,
+   "cells": 40,
+   "seconds": 3,
+   "hz": 18,
+   "hold": 3.0
+  }
+ ]
+}

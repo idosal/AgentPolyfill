@@ -1,0 +1,220 @@
+# Actions are pinned by commit: this workflow publishes binaries people run.
+#
+# Builds and checks the Rust helper on each platform the plugin ships for,
+# on that platform; on a tag `v<version>` (the version in
+# mod/.claude-plugin/plugin.json), packs the plugin with every helper
+# (package/package.sh), records each file's build provenance, publishes the
+# zip as a release, and opens a pull request pointing
+# .claude-plugin/marketplace.json at it (an `archive` source pinned by its
+# SHA-256). Users get the release once that pull request is merged.
+#
+# This file is written for the plugin's own repository, whose root is this
+# folder (prototypes/cli-apps in the ext-apps checkout it was made in).
+
+name: helper and release
+
+# Run by hand for now (Actions → "helper and release" → Run workflow): on a
+# branch it builds and checks the helpers; on a tag `v<version>`, with every
+# platform, it also publishes. Pushes and pull requests will trigger it once
+# it has run clean.
+on:
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: "Platforms to build and check: all, or keys separated by commas (darwin-arm64, darwin-x64, linux-x64, linux-arm64, win32-x64)"
+        type: string
+        default: all
+
+permissions:
+  contents: read
+
+jobs:
+  platforms:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+      all: ${{ steps.pick.outputs.all }}
+    steps:
+      - id: pick
+        env:
+          PLATFORMS: ${{ inputs.platforms || 'all' }}
+        run: |
+          every='[
+            {"os": "macos-14", "target": "aarch64-apple-darwin", "key": "darwin-arm64"},
+            {"os": "macos-15-intel", "target": "x86_64-apple-darwin", "key": "darwin-x64"},
+            {"os": "ubuntu-22.04", "target": "x86_64-unknown-linux-musl", "key": "linux-x64"},
+            {"os": "ubuntu-22.04-arm", "target": "aarch64-unknown-linux-musl", "key": "linux-arm64"},
+            {"os": "windows-2022", "target": "x86_64-pc-windows-msvc", "key": "win32-x64"}
+          ]'
+          # Linux builds are static (musl): one binary for every distribution.
+          if [ "$PLATFORMS" = all ]; then picked="$every"
+          else picked=$(jq -c --arg p "$PLATFORMS" '($p | gsub(" "; "") | split(",")) as $keys | [.[] | select(.key as $k | $keys | index($k))]' <<<"$every"); fi
+          [ "$(jq length <<<"$picked")" -gt 0 ] || { echo "no platform is named $PLATFORMS" >&2; exit 1; }
+          echo "matrix=$(jq -c '{include: .}' <<<"$picked")" >> "$GITHUB_OUTPUT"
+          echo "all=$([ "$(jq length <<<"$picked")" = 5 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.key }}
+    needs: platforms
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.platforms.outputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      EXE: ${{ startsWith(matrix.key, 'win32') && '.exe' || '' }}
+      # Chrome's sandbox stays on, as on a person's machine (Ubuntu 22.04
+      # allows the user namespaces it needs). Linux on Arm runs Playwright's
+      # Chromium, checked without it.
+      MCP_APPS_CLI_NO_SANDBOX: ${{ matrix.key == 'linux-arm64' && '1' || '' }}
+      # Whether this repository holds Apple signing certificates (see "Sign and notarize").
+      HAS_MACOS_SIGNING: ${{ secrets.MACOS_CERTIFICATE_P12 != '' }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: Rust
+        run: |
+          rustup toolchain install stable --profile minimal --target ${{ matrix.target }}
+          rustup default stable
+      - name: musl's C compiler (aws-lc, rustls' crypto, is C)
+        if: contains(matrix.target, 'musl')
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools
+          echo "CC_$(echo '${{ matrix.target }}' | tr '-' '_')=musl-gcc" >> "$GITHUB_ENV"
+      # The checks' own MCP servers use the MCP SDK from here; the plugin
+      # runs nothing from it.
+      - name: The checks' packages
+        working-directory: mod/helper
+        run: npm ci --omit=dev --no-audit --no-fund
+      - name: Chromium (Linux on Arm has no Google Chrome)
+        if: matrix.key == 'linux-arm64'
+        working-directory: mod/helper
+        run: |
+          npx playwright-core install --with-deps chromium
+          echo "MCP_APPS_CLI_CHROME=$(node -e 'console.log(require("playwright-core").chromium.executablePath())')" >> "$GITHUB_ENV"
+      - name: Unit tests
+        working-directory: helper-rs
+        run: |
+          node crates/render/tests/make-fixtures.mjs
+          cargo test --release --locked --workspace --target ${{ matrix.target }}
+      - name: Build
+        working-directory: helper-rs
+        run: ./build-into-plugin.sh --target ${{ matrix.target }}
+      - name: Static, as shipped
+        if: contains(matrix.target, 'musl')
+        # file(1) says "statically linked" or, for a static PIE, "static-pie linked".
+        run: |
+          kind=$(file -b "mod/helper/bin/${{ matrix.key }}/mcp-apps-cli-helper")
+          echo "$kind"
+          grep -qE 'statically linked|static-pie linked' <<<"$kind"
+      - name: Smoke check (ready, token, discovery, Chrome, a view, no Chrome left)
+        run: MCP_APPS_CLI_HELPER="$PWD/mod/helper/bin/${{ matrix.key }}/mcp-apps-cli-helper$EXE" node bench/smoke-check.mjs
+      - name: Host check (CSP, local network, WebRTC, hangs, crashes; it uses ps and pgrep)
+        if: runner.os != 'Windows'
+        run: MCP_APPS_CLI_HELPER="$PWD/mod/helper/bin/${{ matrix.key }}/mcp-apps-cli-helper" node bench/host-check.mjs
+      - name: Store check (cookies, localStorage, IndexedDB kept per view)
+        run: MCP_APPS_CLI_HELPER="$PWD/mod/helper/bin/${{ matrix.key }}/mcp-apps-cli-helper$EXE" node bench/store-check.mjs
+      - name: Change check (a canvas redrawn from a timer becomes pictures)
+        run: MCP_APPS_CLI_HELPER="$PWD/mod/helper/bin/${{ matrix.key }}/mcp-apps-cli-helper$EXE" node bench/change-check.mjs
+      - name: Network check (a view's sockets and requests, for resting)
+        if: runner.os != 'Windows'
+        run: MCP_APPS_CLI_HELPER="$PWD/mod/helper/bin/${{ matrix.key }}/mcp-apps-cli-helper$EXE" node bench/network-check.mjs
+      # Signing, where the repository holds the certificates: a Developer ID
+      # signature with the hardened runtime, then notarization (a bare binary
+      # can't be stapled; Gatekeeper finds the ticket online). Without them
+      # the build keeps its ad-hoc signature (build-into-plugin.sh), which
+      # runs: Claude Code's install marks nothing for quarantine.
+      - name: Sign and notarize (macOS)
+        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/v') && env.HAS_MACOS_SIGNING == 'true'
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+          APPLE_NOTARY_KEY_P8: ${{ secrets.APPLE_NOTARY_KEY_P8 }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
+        run: |
+          binary="mod/helper/bin/${{ matrix.key }}/mcp-apps-cli-helper"
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password=$(openssl rand -hex 16)
+          printf '%s' "$MACOS_CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 900 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain" >/dev/null
+          security list-keychains -d user -s "$keychain"
+          codesign --force --options runtime --timestamp --sign "$MACOS_SIGNING_IDENTITY" --keychain "$keychain" "$binary"
+          codesign --verify --strict --verbose=2 "$binary"
+          printf '%s' "$APPLE_NOTARY_KEY_P8" > "$RUNNER_TEMP/notary.p8"
+          ditto -c -k "$binary" "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" --key "$RUNNER_TEMP/notary.p8" --key-id "$APPLE_NOTARY_KEY_ID" --issuer "$APPLE_NOTARY_ISSUER" --wait
+          rm -f "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/notary.p8"
+      # Windows: an Authenticode signature goes here, from the organization's
+      # signing service (Azure Trusted Signing, a hardware-held certificate);
+      # unsigned, Windows still runs it, as Claude Code's install marks no
+      # file as downloaded from the internet.
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: helper-${{ matrix.key }}
+          path: mod/helper/bin/${{ matrix.key }}/mcp-apps-cli-helper${{ env.EXE }}
+          if-no-files-found: error
+
+  release:
+    needs: [platforms, build]
+    if: startsWith(github.ref, 'refs/tags/v') && needs.platforms.outputs.all == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      # Build provenance: a signed record of what built each file.
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: The tag is the plugin's version
+        run: |
+          version=$(sed -n 's/^  "version": *"\([^"]*\)".*/\1/p' mod/.claude-plugin/plugin.json | head -1)
+          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME, but plugin.json says $version" >&2; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          pattern: helper-*
+          path: artifacts
+      - name: Each helper where the plugin looks for it
+        run: |
+          for key in darwin-arm64 darwin-x64 linux-x64 linux-arm64 win32-x64; do
+            mkdir -p "mod/helper/bin/$key"
+            cp "artifacts/helper-$key/"* "mod/helper/bin/$key/"
+          done
+      - name: Pack the plugin
+        run: package/package.sh --require-all --url "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/mcp-apps-cli-$VERSION.zip"
+      - name: Build provenance for the zip and each helper
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            package/dist/mcp-apps-cli-*.zip
+            mod/helper/bin/*/mcp-apps-cli-helper*
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" package/dist/mcp-apps-cli-$VERSION.zip package/dist/mcp-apps-cli-$VERSION.zip.sha256 package/dist/marketplace.json \
+            --title "mcp-apps-cli $VERSION" --notes "The plugin with its helper for macOS (Apple Silicon, Intel), Linux (x64, Arm) and Windows x64. Installed through the marketplace file once its pull request is merged."
+      - name: Pull request pointing the marketplace at this release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch="release/marketplace-$GITHUB_REF_NAME"
+          git switch -c "$branch"
+          mkdir -p .claude-plugin
+          cp package/dist/marketplace.json .claude-plugin/marketplace.json
+          git add .claude-plugin/marketplace.json
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Marketplace: mcp-apps-cli $VERSION"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" --title "Marketplace: mcp-apps-cli $VERSION" \
+            --body "Points .claude-plugin/marketplace.json at the $GITHUB_REF_NAME release's zip, pinned by its SHA-256 ($(cut -d' ' -f1 package/dist/mcp-apps-cli-$VERSION.zip.sha256))."

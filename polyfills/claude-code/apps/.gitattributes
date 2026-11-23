@@ -1,0 +1,9 @@
+# Text files are checked out with LF everywhere, Windows included: shell
+# scripts run under bash there, and the helper builds JavaScript into itself.
+* text=auto eol=lf
+# Test fixtures are exact bytes, whatever they look like.
+helper-rs/crates/*/tests/fixtures/** binary
+*.png binary
+*.rgba binary
+*.indices binary
+*.mp4 binary

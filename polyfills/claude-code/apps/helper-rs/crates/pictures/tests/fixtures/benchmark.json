@@ -1,0 +1,12 @@
+{
+  "width": 2192,
+  "height": 1152,
+  "rows": 48,
+  "top": 0,
+  "pngBytes": 149292,
+  "sha256": "93e585a072304736193856f96d1a8b8fa7aaa354860f6debf6fdecc78ed2f4b8",
+  "rgbaSha256": "234c4436deac271fe1bf69a77a64874d2b212a36d00313d4df197e9947149c69",
+  "browser": "157.0.8103.79",
+  "deviceScaleFactor": 1,
+  "description": "Actual headless Chrome screenshot of the offline dashboard in capture-benchmark.mjs: flat cards, antialiased text, gradient bars and a table."
+}

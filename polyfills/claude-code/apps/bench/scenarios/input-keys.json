@@ -1,0 +1,51 @@
+{
+ "cols": 140,
+ "rows": 60,
+ "model": "sonnet",
+ "extra_args": [
+  "--append-system-prompt",
+  "MCP App views render inline in the terminal for the user, so they can see and use the app. Reply in one short sentence. Use only the MCP tools you have; no shell commands.",
+  "--disallowed-tools=Bash"
+ ],
+ "mcp_config": "../mcp-examples.json",
+ "tools": [
+  "mcp__vanilla__get-time"
+ ],
+ "debug": true,
+ "terminal": "plain",
+ "cast": "input-keys.cast",
+ "steps": [
+  {
+   "name": "open",
+   "prompt": "Show me the current time with the get-time tool.",
+   "expect": "MCP App · ",
+   "hold": 4.0
+  },
+  {
+   "name": "field",
+   "view": "MCP App · ",
+   "locate": "This is log text.",
+   "double": true,
+   "hold": 1.0
+  },
+  {
+   "name": "select-all",
+   "keys": [
+    "\u0001"
+   ],
+   "hold": 0.5
+  },
+  {
+   "name": "more",
+   "keys": [
+    " ",
+    "é",
+    "😀",
+    "\u001b[Z",
+    "\u001b[15~"
+   ],
+   "key_pause": 0.4,
+   "hold": 2.0
+  }
+ ]
+}

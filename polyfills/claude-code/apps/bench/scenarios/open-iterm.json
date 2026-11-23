@@ -1,0 +1,25 @@
+{
+ "cols": 140,
+ "rows": 60,
+ "model": "sonnet",
+ "extra_args": [
+  "--append-system-prompt",
+  "MCP App views render inline in the terminal for the user, so they can see and use the app. Reply in one short sentence. Use only the MCP tools you have; no shell commands.",
+  "--disallowed-tools=Bash"
+ ],
+ "mcp_config": "../mcp-examples.json",
+ "tools": [
+  "mcp__analytics__get-cohort-data"
+ ],
+ "steps": [
+  {
+   "name": "cohort",
+   "prompt": "Show me the cohort retention heatmap.",
+   "expect": "MCP App · ",
+   "hold": 6.0
+  }
+ ],
+ "terminal": "iterm",
+ "cast": "open-iterm.cast",
+ "debug": true
+}
