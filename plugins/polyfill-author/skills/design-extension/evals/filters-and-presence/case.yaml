@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: filters-and-presence
+expected_outcome: |
+  A plan that recognises filtering as something the Events extension's subscription arguments
+  already cover (no extension, polyfill unchanged), and designs presence as a separate, unofficial
+  extension with its own identifier, declaration, fallback behaviour, written spec, two
+  implementations and negotiation tests, plus an honest adoption path.

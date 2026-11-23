@@ -1,0 +1,8 @@
+schema_version: "1.1"
+name: mark-dangerous-tools
+expected_outcome: |
+  A plan that first looks for an existing slot and finds MCP's tool annotations (such as the
+  destructive hint), uses them for what they cover, does not add a new top-level field to
+  tools/list, and only for what annotations cannot express designs a properly identified addition
+  (a namespaced _meta key or its own extension), with the checks and adoption path the process
+  expects.
