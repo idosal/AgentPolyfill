@@ -1,5 +1,5 @@
 {
   "name": "polyfill-author",
-  "version": "0.1.0",
-  "description": "A skill for building a polyfill: client support for an MCP extension in a host that hasn't shipped it."
+  "version": "0.2.0",
+  "description": "Skills for building a polyfill (client support for an MCP extension in a host that hasn't shipped it) and for designing a new extension on top of MCP."
 }

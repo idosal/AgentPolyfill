@@ -53,9 +53,23 @@ on the host, stand-down, and what counts as proof.
 ```
 
 Then ask for the extension you want, for example "polyfill MCP Server Cards in
-Claude Code". The skill is a plain
-[`SKILL.md`](plugins/polyfill-author/skills/create-polyfill/SKILL.md), so other
-agents that read skills can use it too.
+Claude Code". It points the agent at the primary sources (the SEP, the
+extension's spec, the core spec for the revision in use, the conformance
+suite) and has it work from those.
+
+### When the spec doesn't have what you want
+
+A polyfill stays exact, so new behaviour does not go into one. The
+`design-extension` skill, in the same plugin, covers that case: first check
+whether the protocol already has a slot for it, then, if it really is new,
+design it as its own extension under MCP's extension rules (your own
+identifier, a declaration, defined behaviour when the other side lacks it, a
+written spec, two implementations) and take it to the working group.
+
+Both skills are plain `SKILL.md` files
+([create-polyfill](plugins/polyfill-author/skills/create-polyfill/SKILL.md),
+[design-extension](plugins/polyfill-author/skills/design-extension/SKILL.md)),
+so other agents that read skills can use them too.
 
 ## Why this works in Claude Code, and where it stops
 
