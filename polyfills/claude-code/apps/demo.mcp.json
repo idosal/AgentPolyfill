@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "cohort": { "type": "http", "url": "http://localhost:3112/mcp" },
+    "scenario": { "type": "http", "url": "http://localhost:3103/mcp" },
+    "vanilla": { "type": "http", "url": "http://localhost:3101/mcp" }
+  }
+}

@@ -1,0 +1,133 @@
+{
+ "cols": 140,
+ "rows": 60,
+ "model": "sonnet",
+ "extra_args": [
+  "--append-system-prompt",
+  "MCP App views render inline in the terminal for the user, so they can see and use the app. Reply in one short sentence. Use only the MCP tools you have; no shell commands.",
+  "--disallowed-tools=Bash"
+ ],
+ "mcp_config": "../mcp-arcade.example.json",
+ "tools": [
+  "mcp__arcade__get_game_by_id",
+  "mcp__arcade__search_games"
+ ],
+ "debug": true,
+ "terminal": "iterm",
+ "cast": "doom.cast",
+ "steps": [
+  {
+   "name": "load",
+   "prompt": "Load the game msdos_DOOM_1993 with the arcade tool.",
+   "paste": true,
+   "expect": "MCP App · ",
+   "hold": 14.0,
+   "timeout": 240
+  },
+  {
+   "name": "power",
+   "click_view": "MCP App · ",
+   "dx": 68,
+   "dy": 18,
+   "hold": 35.0
+  },
+  {
+   "name": "sound",
+   "keys": [
+    "2"
+   ],
+   "hold": 10.0
+  },
+  {
+   "name": "menus",
+   "keys": [
+    "return",
+    "return",
+    "return",
+    "return"
+   ],
+   "key_pause": 1.2,
+   "hold": 2.0
+  },
+  {
+   "name": "walk",
+   "keys": [
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up",
+    "up"
+   ],
+   "key_pause": 0.033,
+   "hold": 1.5
+  },
+  {
+   "name": "fire1",
+   "click_view": "MCP App · ",
+   "dx": 68,
+   "dy": 18,
+   "hold": 0.6
+  },
+  {
+   "name": "fire2",
+   "click_view": "MCP App · ",
+   "dx": 68,
+   "dy": 18,
+   "hold": 0.6
+  },
+  {
+   "name": "fire3",
+   "click_view": "MCP App · ",
+   "dx": 68,
+   "dy": 18,
+   "hold": 2.0
+  },
+  {
+   "name": "menu",
+   "keys": [
+    "\u001d"
+   ],
+   "hold": 3.0
+  }
+ ]
+}

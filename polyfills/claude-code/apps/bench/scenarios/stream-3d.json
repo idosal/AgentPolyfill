@@ -1,0 +1,39 @@
+{
+ "cols": 140,
+ "rows": 60,
+ "model": "sonnet",
+ "extra_args": [
+  "--append-system-prompt",
+  "MCP App views render inline in the terminal for the user, so they can see and use the app. Reply in one short sentence. Use only the MCP tools you have; no shell commands.",
+  "--disallowed-tools=Bash"
+ ],
+ "mcp_config": "../mcp-examples.json",
+ "tools": [
+  "mcp__studio3d__show_threejs_scene",
+  "mcp__studio3d__learn_threejs"
+ ],
+ "debug": true,
+ "terminal": "iterm",
+ "cast": "stream-3d.cast",
+ "steps": [
+  {
+   "name": "scene",
+   "prompt": "Show a three.js scene: a slowly spinning torus knot with a glowing orange ring orbiting it, and a few small moons.",
+   "paste": true,
+   "expect": "MCP App · ",
+   "hold": 8.0,
+   "timeout": 240
+  },
+  {
+   "name": "keys",
+   "click_view": "MCP App · ",
+   "dx": 40,
+   "dy": 10,
+   "keys": [
+    "\u001d",
+    "x"
+   ],
+   "hold": 2.0
+  }
+ ]
+}

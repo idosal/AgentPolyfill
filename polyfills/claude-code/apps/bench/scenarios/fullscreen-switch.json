@@ -1,0 +1,40 @@
+{
+ "cols": 140,
+ "rows": 60,
+ "model": "sonnet",
+ "extra_args": [],
+ "mcp_config": "../mcp-examples.json",
+ "tools": [],
+ "steps": [
+  {
+   "name": "cohort",
+   "prompt": "Use the analytics MCP tool to show me the cohort retention heatmap. Use no other tools, and reply in one short sentence.",
+   "expect": "MCP App \u00b7 ",
+   "hold": 2.0,
+   "timeout": 180
+  },
+  {
+   "name": "offer",
+   "wait": "Switch to it\\?",
+   "timeout": 90,
+   "keys": [
+    "down",
+    "return"
+   ],
+   "hold": 3.0
+  },
+  {
+   "name": "after",
+   "wait": "MCP App \u00b7 [^\\n]*\u00b7 (view only(?! outside)|click to use|waking up)",
+   "timeout": 120,
+   "hold": 25.0
+  }
+ ],
+ "terminal": "plain",
+ "cast": "fullscreen-switch.cast",
+ "debug": true,
+ "env": {
+  "CLAUDE_CODE_NO_FLICKER": null
+ },
+ "setting_sources": null
+}
