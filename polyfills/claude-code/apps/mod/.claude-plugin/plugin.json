@@ -1,0 +1,54 @@
+{
+  "name": "mcp-apps-cli",
+  "version": "0.1.0",
+  "description": "Render MCP App UIs inline in the Claude Code CLI, with clicks and keys forwarded to the app",
+  "author": {
+    "name": "MCP Apps"
+  },
+  "license": "Apache-2.0",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "appToolCalls": {
+      "type": "string",
+      "title": "App tool calls",
+      "description": "When an MCP App calls one of its server's tools. allow: run it, as Claude Desktop does (your deny rules still apply). rules: follow your permission rules for that tool, asking where they say ask. ask: always ask.",
+      "options": [
+        "allow",
+        "rules",
+        "ask"
+      ],
+      "default": "allow"
+    },
+    "appMessages": {
+      "type": "string",
+      "title": "App messages",
+      "description": "When an MCP App sends Claude a message. ask: ask first, as Claude Desktop does, with a choice to allow that app's messages for the session. fill: put it in your prompt to edit and send. allow: send it at once.",
+      "options": [
+        "ask",
+        "fill",
+        "allow"
+      ],
+      "default": "ask"
+    },
+    "offerFullscreen": {
+      "type": "string",
+      "title": "Offer fullscreen",
+      "description": "Claude Code passes MCP App views clicks and keys only in its fullscreen layout. ask: the first time a view opens on the main screen, offer once to switch (Claude Code restarts and resumes the conversation). never: don't offer.",
+      "options": [
+        "ask",
+        "never"
+      ],
+      "default": "ask"
+    },
+    "offerBrowser": {
+      "type": "string",
+      "title": "Offer a browser",
+      "description": "App views run in Chrome or another Chromium browser. ask: where none is installed, the first time a view can't open, offer once to download Chrome for Testing's headless shell from Google (about 100 MB, kept in the plugin's folder and updated). never: don't offer.",
+      "options": [
+        "ask",
+        "never"
+      ],
+      "default": "ask"
+    }
+  }
+}

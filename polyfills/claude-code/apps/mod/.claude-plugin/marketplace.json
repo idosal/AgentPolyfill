@@ -1,0 +1,13 @@
+{
+  "name": "mcp-apps-cli",
+  "owner": {
+    "name": "MCP Apps"
+  },
+  "plugins": [
+    {
+      "name": "mcp-apps-cli",
+      "source": "./"
+    }
+  ],
+  "description": "Render MCP App UIs inline in the Claude Code terminal (local checkout)"
+}

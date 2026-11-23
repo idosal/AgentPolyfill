@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "arcade": {
+      "type": "http",
+      "url": "http://localhost:3301/mcp"
+    }
+  }
+}

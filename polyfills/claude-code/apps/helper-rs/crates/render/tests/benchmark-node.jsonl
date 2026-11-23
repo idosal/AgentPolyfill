@@ -1,0 +1,4 @@
+{"runtime":"Node v22.23.1","truecolor":false,"sextants":false,"lines":true,"cols":100,"rows":30,"scale":2,"frames":200,"cold_ms":115.869417,"mean_ms":15.781951455000002,"median_ms":15.615875000000074,"p95_ms":16.880042000000003}
+{"runtime":"Node v22.23.1","truecolor":false,"sextants":true,"lines":true,"cols":100,"rows":30,"scale":2,"frames":200,"cold_ms":127.08404199999995,"mean_ms":19.119713545,"median_ms":18.9053329999997,"p95_ms":20.4620419999992}
+{"runtime":"Node v22.23.1","truecolor":true,"sextants":false,"lines":true,"cols":100,"rows":30,"scale":2,"frames":200,"cold_ms":28.985875000000306,"mean_ms":18.629165415,"median_ms":18.612041000000318,"p95_ms":19.35808299999917}
+{"runtime":"Node v22.23.1","truecolor":true,"sextants":true,"lines":true,"cols":100,"rows":30,"scale":2,"frames":200,"cold_ms":29.133750000000873,"mean_ms":18.607179795,"median_ms":18.573374999999942,"p95_ms":19.290416999998342}

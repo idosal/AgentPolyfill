@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>mcp-apps-cli</title>
+  <rect x="2" y="6" width="60" height="52" rx="9" fill="#1f2328"/>
+  <rect x="2" y="6" width="60" height="52" rx="9" fill="none" stroke="#3d444d" stroke-width="2"/>
+  <path d="M12 20 l7 6 -7 6" fill="none" stroke="#d97757" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="25" y="16" width="29" height="32" rx="4" fill="#2d333b" stroke="#6cb6ff" stroke-width="2"/>
+  <rect x="30" y="34" width="5" height="9" rx="1" fill="#6cb6ff"/>
+  <rect x="37.5" y="28" width="5" height="15" rx="1" fill="#56d364"/>
+  <rect x="45" y="23" width="5" height="20" rx="1" fill="#e3b341"/>
+</svg>

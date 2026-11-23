@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "analytics": { "type": "http", "url": "http://localhost:3212/mcp" },
+    "studio3d": { "type": "http", "url": "http://localhost:3202/mcp" },
+    "system": { "type": "http", "url": "http://localhost:3203/mcp" },
+    "vanilla": { "type": "http", "url": "http://localhost:3205/mcp" }
+  }
+}
