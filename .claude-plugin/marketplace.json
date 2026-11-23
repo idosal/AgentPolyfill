@@ -1,12 +1,23 @@
 {
   "name": "mcpolyfill",
   "description": "MCP extensions for hosts that haven't shipped them yet",
-  "owner": { "name": "MCPolyfill" },
+  "owner": {
+    "name": "MCPolyfill"
+  },
   "plugins": [
     {
       "name": "mcp-apps-cli",
       "description": "MCP Apps: render app UIs inline in the Claude Code terminal, with clicks and keys forwarded to the app",
-      "source": { "source": "archive", "url": "https://github.com/idosal/mcp-apps-cli/releases/download/v0.1.0/mcp-apps-cli-0.1.0.zip", "sha256": "beba256c1f8eac95bdcb26bf72095c90894b1f9bd14a3f9d649acad52d095db3" }
+      "source": {
+        "source": "archive",
+        "url": "https://github.com/idosal/mcp-apps-cli/releases/download/v0.1.0/mcp-apps-cli-0.1.0.zip",
+        "sha256": "beba256c1f8eac95bdcb26bf72095c90894b1f9bd14a3f9d649acad52d095db3"
+      }
+    },
+    {
+      "name": "polyfill-author",
+      "description": "A skill for building a polyfill: client support for an MCP extension in a host that hasn't shipped it",
+      "source": "./plugins/polyfill-author"
     }
   ]
 }
