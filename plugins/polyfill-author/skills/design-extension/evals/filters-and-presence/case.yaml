@@ -5,3 +5,5 @@ expected_outcome: |
   already cover (no extension, polyfill unchanged), and designs presence as a separate, unofficial
   extension with its own identifier, declaration, fallback behaviour, written spec, two
   implementations and negotiation tests, plus an honest adoption path.
+context:
+  scaffold_script: place-files.sh

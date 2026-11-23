@@ -1,6 +1,6 @@
 ---
 name: create-polyfill
-description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod or gateway server; or to change or review an existing polyfill.
+description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod or gateway server; or to change or review an existing polyfill. Not for JavaScript or browser polyfills.
 ---
 
 # Create a polyfill
@@ -57,8 +57,18 @@ Part 3, the route table:
 | Whether Claude Code would use this server | Claude Code's own verdict, asked from the mod | Nothing: this is the host's answer |
 | Receiving a webhook | A relay the user deploys (a laptop has no public address) | Work with nothing deployed |
 
-A plan or a README that only promises these tables has not done parts 2 and
-3. The rows are the work: writing them is how gaps in the design show up
+Part 7, limits and host changes:
+
+| Limit on this host | The host change that would remove it |
+|---|---|
+| Servers behind an interactive sign-in are not reached | Sending any MCP method over the host's own connection |
+| Push delivery needs the polyfill's own connection | Delivering a request's notifications to the plugin |
+| Events arrive only while a session is open | Running extension code in sessions with nobody at the keyboard |
+
+Every limit gets a row, not only the one about sign-in.
+
+A plan or a README that only promises these tables has not done parts 2, 3
+and 7. The rows are the work: writing them is how gaps in the design show up
 before any code exists. When you cannot read the spec yet, write the rows you
 can and mark the rest as to be filled from the spec text.
 

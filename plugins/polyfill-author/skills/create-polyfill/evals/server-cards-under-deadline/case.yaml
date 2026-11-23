@@ -5,3 +5,5 @@ expected_outcome: |
   spec's client rules down as a tested checklist, records how each wire need is reached on Claude
   Code, names a real stand-down mechanism, proves it against someone else's server and in the real
   host, and states the OAuth limit instead of working around it.
+context:
+  scaffold_script: place-files.sh
