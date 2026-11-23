@@ -1,5 +1,10 @@
 {
   "name": "polyfill-author",
   "version": "0.2.0",
-  "description": "Skills for building a polyfill (client support for an MCP extension in a host that hasn't shipped it) and for designing a new extension on top of MCP."
+  "description": "Skills for building a polyfill (client support for an MCP extension in a host that hasn't shipped it) and for designing a new extension on top of MCP.",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "license": "Apache-2.0"
 }
