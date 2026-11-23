@@ -4,4 +4,4 @@ focus: trace
 weight: 1
 ---
 
-The plan includes a run against a Skills server implementation the author did not write.
+The plan includes a run against a Skills server implementation the author did not write; the user's own server does not count.
