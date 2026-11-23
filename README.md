@@ -21,6 +21,15 @@ changes, and never know the difference.
 | Apps (`io.modelcontextprotocol/ui`) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps), Stable | not supported | `mcp-apps-cli` | Prototype: renders app UIs inline in the terminal, with mouse and keyboard. No OAuth servers. |
 | Skills (`io.modelcontextprotocol/skills`) | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | not supported | `mcp-skills` | In progress. |
 
+A demo server for Apps: the arcade server (classic shareware games from
+archive.org, played in the app's view) is hosted at
+`https://mcp-apps-arcade.idosalomon.workers.dev/mcp`. With `mcp-apps-cli`
+installed:
+
+```
+claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp
+```
+
 "Claude Code" is what the official
 [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix)
 showed on 23 November 2026: Tasks, and none of the three above. Hosts are
