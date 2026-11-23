@@ -16,7 +16,7 @@
     },
     {
       "name": "polyfill-author",
-      "description": "A skill for building a polyfill: client support for an MCP extension in a host that hasn't shipped it",
+      "description": "Skills for building a polyfill (client support for an MCP extension in a host that hasn't shipped it) and for designing a new extension on top of MCP.",
       "source": "./plugins/polyfill-author"
     }
   ]

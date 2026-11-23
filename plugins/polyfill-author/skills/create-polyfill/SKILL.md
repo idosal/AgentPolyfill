@@ -34,6 +34,30 @@ A deadline changes how many rows of part 2 are met, never which parts exist.
 Ship with rows marked "not met" and say so; do not drop the checklist, the
 stand-down or the proof.
 
+## Sources
+
+Work from the primary text, fetched now, and record the revision or commit you
+read. Do not work from memory, a blog post or another client's behaviour: the
+specs change, and summaries drop the rules that matter.
+
+| For | Read |
+|---|---|
+| The extension's rules | Its SEP in `modelcontextprotocol/modelcontextprotocol` under `seps/`, and its spec in its `ext-*` repository under `specification/<stage>/` (the stage is experimental, beta or stable). In full. |
+| The base protocol it builds on | The core specification at modelcontextprotocol.io for the protocol revision the host negotiates. How capabilities are declared and where they travel differs between revisions, so check the one in use. |
+| How extensions are identified, declared and negotiated | SEP-2133 (Extensions). |
+| The extension's stage and what may still change | SEP-3392 (Extension Lifecycle) and the extensions page on modelcontextprotocol.io. An experimental or beta extension can change incompatibly: pin what you implemented. |
+| Which hosts already support it | The extension support matrix on modelcontextprotocol.io, then the host's own documentation and changelog. |
+| Conformance | `modelcontextprotocol/conformance` (`npx @modelcontextprotocol/conformance list` shows the scenarios; `client --command …` runs a client against them). |
+| Existing implementations to test against | The implementations list in the extension's repository, and the official SDKs. |
+
+A polyfill conforms to the core spec as well as to the extension: it is an MCP
+client, so the base rules for initialisation, capability negotiation, errors,
+cancellation and transports apply to its own connection. Where the spec and an
+implementation disagree, follow the spec and note the disagreement.
+
+If what is wanted is not in any published spec, stop and use the
+`design-extension` skill. It does not go into a polyfill.
+
 ## Scope: three lists
 
 Sort everything anyone asks for into one of three lists, and put the lists in
