@@ -1,6 +1,6 @@
 ---
 name: create-polyfill
-description: Use when asked to add support for an MCP extension or SEP (Events, Skills, Apps, Tasks, Server Cards, or a new one) to a host that has not shipped it, such as Claude Code, Cursor, Codex or ChatGPT; when someone asks to polyfill, backport or shim a protocol feature as a plugin, mod or gateway server; or when changing or reviewing an existing polyfill.
+description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod or gateway server; or to change or review an existing polyfill.
 ---
 
 # Create a polyfill
@@ -33,6 +33,34 @@ Write parts 1 to 3 before any code. They are short, and they decide the design.
 A deadline changes how many rows of part 2 are met, never which parts exist.
 Ship with rows marked "not met" and say so; do not drop the checklist, the
 stand-down or the proof.
+
+### What parts 2 and 3 look like
+
+Rows from a polyfill of the Events extension in Claude Code, to show the
+shape. Yours come from the spec you are implementing.
+
+Part 2, the client-rule checklist:
+
+| Rule | In the spec | Test | State |
+|---|---|---|---|
+| Send no `events/*` method to a server that has not declared the extension | Capability declaration | `refuses a server without the declaration` | met |
+| When a poll result says more events are waiting, poll again at once | Polling | `polls again immediately while more are waiting` | met |
+| Check each webhook delivery's signature before acting on it | Webhook delivery | `rejects a delivery with a bad signature` | met |
+| Show the user why a subscription ended | Termination | none yet | not met |
+
+Part 3, the route table:
+
+| Need | Route on this host | What that route cannot do |
+|---|---|---|
+| The server's declaration | The polyfill's own connection (a mod cannot read capabilities from Claude Code's connection) | Reach servers behind an interactive sign-in |
+| `events/poll`, `events/subscribe` | The polyfill's own connection (Claude Code's carries tool calls only) | The same |
+| Whether Claude Code would use this server | Claude Code's own verdict, asked from the mod | Nothing: this is the host's answer |
+| Receiving a webhook | A relay the user deploys (a laptop has no public address) | Work with nothing deployed |
+
+A plan or a README that only promises these tables has not done parts 2 and
+3. The rows are the work: writing them is how gaps in the design show up
+before any code exists. When you cannot read the spec yet, write the rows you
+can and mark the rest as to be filled from the spec text.
 
 ## Sources
 
@@ -165,31 +193,17 @@ not a stand-down.
 
 Report what was verified and what was not, separately.
 
-## Claude Code
+## The host
 
-Check everything here against the mod API types for the installed version
-(the `plugin-authoring` skill names the file); the API is early access and
-changes.
+How a polyfill is built depends on what the host lets third-party code do.
 
-A polyfill is a mod: a hooks module that runs inside Claude Code, and usually
-one helper process, because a hooks module has no network or process of its
-own.
-
-| Need | In a mod |
-|---|---|
-| Tools the model calls | `$.tool.register`, answered by a hook on the tool |
-| Wake an idle session with something that arrived | `$.prompt.submit` |
-| Add a catalog to the session's instructions | a `prompt.compose` hook |
-| Call a server's tool with Claude Code's sign-in | `$.mcp.call(server, tool, args)` |
-| Ask whether Claude Code would use a server (approved, enabled, allowed by policy) | `$.mcp.connect(server)`; use its verdict instead of reading config and policy files |
-| Read a resource with Claude Code's sign-in | `$.tool.call` on `ReadMcpResourceTool` / `ListMcpResourcesTool` (no `_meta`) |
-| Any other MCP method, the server's capabilities, notifications | not over Claude Code's connection: the helper's own connection |
-
-Layout that two polyfills have converged on: `hooks/hooks.json`,
-`hooks/register.ts`, `hooks/tools.ts`, `src/helper.ts` and the protocol client
-beside it, bundled into `dist/` so an installed copy needs no install step,
-`.claude-plugin/plugin.json`. Check it with `claude plugin validate .` and
-`claude plugin test .`.
+- **Claude Code:** read [references/claude-code.md](references/claude-code.md)
+  before writing part 3. It lists what a mod can and cannot reach, and the
+  layout existing polyfills use.
+- **Another host with an in-process extension layer:** read its extension API
+  for the installed version and build the route table from that. Do not assume
+  it matches Claude Code's.
+- **A host with no in-process extension layer:** the gateway form, below.
 
 ## Hosts with no in-process extension layer
 

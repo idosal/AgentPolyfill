@@ -1,6 +1,6 @@
 ---
 name: design-extension
-description: Use when someone wants protocol behaviour that no published MCP extension defines; wants to add to, change or build on an existing MCP extension or SEP; wants to design a new extension, capability or convention on top of MCP; or asks to put such a feature into a polyfill or a server "so it just works".
+description: Designs new protocol behaviour on top of MCP the way the protocol's own extension rules expect, starting by checking whether an existing slot or proposal already covers it. Use when someone wants behaviour that no published MCP extension defines; wants to add to, change or build on an existing MCP extension or SEP; wants to design a new extension, capability or convention on top of MCP; or asks to put such a feature into a polyfill or a server so that it just works.
 ---
 
 # Design an extension on top of MCP
@@ -38,9 +38,28 @@ Then choose one outcome and say which:
 | It is an addition to someone else's extension | Raise it with that extension's maintainers or working group. To ship before they decide, layer your own extension beside theirs (below); never change their messages or reuse their identifier. |
 | Nothing covers it | Design a new extension (below). |
 
+A convention over existing primitives is a complete answer, not a second-best
+one. It ships without waiting for anyone, and nothing has to be negotiated.
+What it still needs is the written convention, and a check that clients and
+servers which know nothing about it behave exactly as before.
+
+What the written record of step 1 looks like:
+
+```
+Presence (who is active in a document)
+- Slot in what is published: resources (current state) with resource
+  subscriptions (changes). Covers it: yes, as a convention.
+- Existing extension or proposal: none found on the extensions page, in the
+  ext-* and experimental-ext-* repositories, or in open SEPs (searched
+  "presence").
+- Vendor extension: none found.
+Outcome: a slot exists. A convention document; no extension.
+```
+
 ## Step 2: what a new extension consists of
 
-Each part is required.
+This step applies only when step 1 ended at "nothing covers it", or when you
+are layering beside someone else's extension. Each part is required.
 
 | # | Part | What it is |
 |---|---|---|
@@ -71,8 +90,8 @@ implementer has to build to adopt it.
 
 State the honest position first: until it goes through the MCP process it is
 an unofficial extension, and other hosts and servers have no reason to
-implement it. What moves it forward, as the process stood in November 2026
-(check the current text of SEP-2133 and SEP-3392):
+implement it. The steps below summarise SEP-2133 (Extensions) and SEP-3392
+(Extension Lifecycle); read their current text before relying on any of them.
 
 - Bring it to the relevant working group or interest group before writing a
   SEP. An extension has to stay associated with one.
