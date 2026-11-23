@@ -18,12 +18,12 @@ changes, and never know the difference.
 | Extension | Spec | Claude Code | Polyfill | State |
 |---|---|---|---|---|
 | Events (`io.modelcontextprotocol/events`) | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | not supported | [`mcp-events`](https://github.com/idosal/claude-events-mod) | Works: poll, push and webhook delivery; an event wakes an idle session. No OAuth servers. |
-| Apps (`io.modelcontextprotocol/ui`) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps), Stable | not supported | [`mcp-apps-cli`](https://github.com/idosal/mcp-apps-cli) | Prototype: renders app UIs inline in the terminal, with mouse and keyboard. No OAuth servers. |
+| Apps (`io.modelcontextprotocol/ui`) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps), Stable | not supported | [`mcp-apps-cli`](polyfills/claude-code/apps) | Prototype: renders app UIs inline in the terminal, with mouse and keyboard. No OAuth servers. |
 | Skills (`io.modelcontextprotocol/skills`) | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | not supported | `mcp-skills` | Pre-release: skills served by an MCP server are listed, loaded and read in Claude Code, with the checks the spec asks of a client. No OAuth servers. |
 
 MCP Apps in the Claude Code terminal with `mcp-apps-cli`: real pixels on the
 left, character cells on the right
-([full video, 57 s](https://github.com/idosal/mcp-apps-cli/blob/main/docs/demo-side-by-side.mp4)).
+([full video, 57 s](https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4)).
 
 ![Two Claude Code terminals side by side. In each, an arcade game, a cohort heatmap and a 3D scene appear under the tool call that returned them, and respond to the mouse.](docs/media/mcp-apps-cli.gif)
 
@@ -131,16 +131,39 @@ In Claude Code:
 ```
 /plugin marketplace add idosal/MCPolyfill
 /plugin install mcp-events@mcpolyfill
+/plugin install mcp-apps-cli@mcpolyfill
 ```
 
-Each polyfill's own README lists its requirements and limits.
+Or in a terminal:
+
+```bash
+claude plugin marketplace add idosal/MCPolyfill
+```
+
+```bash
+claude plugin install mcp-apps-cli@mcpolyfill
+```
+
+Install only the polyfills you want. Each polyfill's own README lists its
+requirements and limits.
+
+## Repository layout
+
+Each polyfill is a folder, `polyfills/<host>/<extension>/`: the Apps polyfill
+for Claude Code is [`polyfills/claude-code/apps`](polyfills/claude-code/apps).
+One marketplace file ([`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json))
+lists them all, and each releases on its own, under tags that start with its
+plugin's name (`mcp-apps-cli-v0.1.0`). A polyfill whose row in the table links
+another repository has not moved here yet.
 
 ## Contributing
 
-Problems and questions: open an issue in the repository of the polyfill
-concerned, or here for the contract, the skills and the host changes. A new
-polyfill is welcome if it meets the [contract](docs/polyfill-contract.md); the
-`create-polyfill` skill is the quickest way to build one that does.
+Problems and questions: open an issue here, or, for a polyfill whose row in
+the table links another repository, in that one. A new polyfill is welcome if
+it meets the [contract](docs/polyfill-contract.md); the `create-polyfill`
+skill is the quickest way to build one that does.
+[`CONTRIBUTING.md`](CONTRIBUTING.md) says how to add one to this
+repository.
 
 ## Licence and status
 

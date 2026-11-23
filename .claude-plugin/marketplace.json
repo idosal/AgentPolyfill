@@ -20,7 +20,7 @@
       "description": "MCP Apps: render app UIs inline in the Claude Code terminal, with clicks and keys forwarded to the app",
       "source": {
         "source": "archive",
-        "url": "https://github.com/idosal/mcp-apps-cli/releases/download/v0.1.0/mcp-apps-cli-0.1.0.zip",
+        "url": "https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-0.1.0.zip",
         "sha256": "beba256c1f8eac95bdcb26bf72095c90894b1f9bd14a3f9d649acad52d095db3"
       }
     },

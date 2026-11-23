@@ -1,0 +1,60 @@
+# The Apps polyfill (polyfills/claude-code/apps, plugin mcp-apps-cli): its
+# hooks module's tests (claude plugin test) and the Node helper's tests, on
+# any change in its folder. They take a minute on one Linux machine. The Rust
+# helper is built and checked on every platform by mcp-apps-cli-release.yml,
+# which runs only when the helper or what goes into it changes.
+
+name: "mcp-apps-cli: tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/claude-code/apps/**"
+      - ".github/workflows/mcp-apps-cli-test.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see the job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/claude-code/apps/**"
+      - ".github/workflows/mcp-apps-cli-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-apps-cli-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The Claude Code release these tests are known to pass with.
+  CLAUDE_CODE_VERSION: 2.1.329
+  DISABLE_TELEMETRY: "1"
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+
+jobs:
+  test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: polyfills/claude-code/apps
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: Claude Code
+        run: npm install -g --no-audit --no-fund "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+      - name: claude plugin validate
+        run: claude plugin validate mod
+      - name: The hooks module's tests (claude plugin test)
+        run: claude plugin test mod
+      # Node's own test runner; these tests import nothing from npm.
+      - name: The Node helper's tests
+        working-directory: polyfills/claude-code/apps/mod/helper
+        run: node --test "test/*.test.mjs"
+      - name: Shell scripts parse
+        run: |
+          sh -n package/package.sh
+          sh -n helper-rs/build-into-plugin.sh
