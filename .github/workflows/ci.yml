@@ -1,0 +1,66 @@
+# Repository checks, cheap enough for every change: the marketplace file and
+# every plugin manifest are valid JSON, Claude Code's own validator accepts
+# the marketplace and each plugin in this repository, and each entry of the
+# marketplace that points into this repository points at a plugin that is
+# there. Each polyfill's own tests run in its own workflow
+# (<plugin>-test.yml), filtered to its folder.
+
+name: repository
+
+on:
+  push:
+    branches: ["**"]
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see the job's `if`), so each change runs once.
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The Claude Code release these checks are known to pass with.
+  CLAUDE_CODE_VERSION: 2.1.329
+  DISABLE_TELEMETRY: "1"
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+
+jobs:
+  marketplace:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: Manifests are valid JSON
+        run: |
+          status=0
+          for file in $(git ls-files '.claude-plugin/*.json' '**/.claude-plugin/*.json'); do
+            jq -e . "$file" >/dev/null || { echo "::error file=$file::not valid JSON"; status=1; }
+          done
+          exit $status
+      - name: Local marketplace entries point at a plugin in this repository
+        run: |
+          status=0
+          for path in $(jq -r '.plugins[] | select(.source | type == "string") | .source' .claude-plugin/marketplace.json); do
+            [ -f "$path/.claude-plugin/plugin.json" ] || { echo "::error file=.claude-plugin/marketplace.json::$path has no .claude-plugin/plugin.json"; status=1; }
+          done
+          exit $status
+      - name: Claude Code
+        run: npm install -g --no-audit --no-fund "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+      - name: claude plugin validate (the marketplace)
+        run: claude plugin validate .
+      - name: claude plugin validate (each plugin in this repository)
+        run: |
+          status=0
+          for manifest in $(git ls-files '**/.claude-plugin/plugin.json'); do
+            folder=$(dirname "$(dirname "$manifest")")
+            echo "::group::$folder"
+            claude plugin validate "$folder" || { echo "::error file=$manifest::claude plugin validate failed for $folder"; status=1; }
+            echo "::endgroup::"
+          done
+          exit $status
