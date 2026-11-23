@@ -46,8 +46,9 @@ answers as iTerm2 3.5, kitty 0.50 or Ghostty 1.4 (the scenario's
 `terminal`), types each step's prompt, waits for its `expect` text and holds
 for `hold` seconds. It writes the cast (all output, timestamped), a text
 snapshot of the screen after each step and, with `"debug": true`, Claude
-Code's debug log. The session starts in this repository's folder, or the
-folder a scenario's `cwd` names; Claude Code asks whether to trust a folder
+Code's debug log. The session starts in this polyfill's folder
+(`polyfills/claude-code/apps`, the parent of `bench/`), or the folder a
+scenario's `cwd` names (relative to the scenario file); Claude Code asks whether to trust a folder
 the first time it runs there, so run `claude` in it once yourself before the
 first scenario. It sends the model's prompts for real, so it uses your
 Claude Code account, and your Claude Code settings: a step that changes one

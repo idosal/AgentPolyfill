@@ -8,6 +8,8 @@
 # static musl builds (`--target <arch>-unknown-linux-musl`, which needs
 # musl-gcc: Debian's and Ubuntu's musl-tools), so one binary runs on any
 # distribution, whatever its C library. CARGO_TARGET_DIR is honored.
+# Paths here are inside this polyfill's folder (polyfills/claude-code/apps);
+# the script runs from any folder.
 set -eu
 cd "$(dirname "$0")"
 PATH="$HOME/.cargo/bin:$PATH"

@@ -4,16 +4,23 @@
 # platform in mod/helper/bin/ (helper-rs/build-into-plugin.sh puts each
 # there; the release workflow builds all five). Nothing else goes in: no
 # tests, no Node helper, no node_modules. Prints the zip's SHA-256 and writes
-# the marketplace file that installs it (an `archive` source, pinned by that
-# SHA-256, which Claude Code checks before it unpacks anything).
+# the plugin's entry for the repository's marketplace file
+# (.claude-plugin/marketplace.json at the repository's root): an `archive`
+# source, pinned by that SHA-256, which Claude Code checks before it unpacks
+# anything.
 #
 #   package/package.sh [--require-all] [--url <the zip's release URL>] [--out <folder>]
+#
+# Paths here are inside this polyfill's folder (polyfills/claude-code/apps);
+# the script runs from any folder.
 #
 # --require-all fails unless all five platforms are there (the release
 # does). Each binary is checked to be what its folder says (its format and
 # processor; Linux ones static), so a binary in the wrong folder never ships.
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
+# The repository's root, which holds the license.
+repo=$(cd "$root/../../.." && pwd)
 mod="$root/mod"
 out="$root/package/dist"
 url=""
@@ -34,7 +41,8 @@ case "$version" in
   *) echo "no version in mod/.claude-plugin/plugin.json" >&2; exit 1 ;;
 esac
 name="mcp-apps-cli-$version"
-[ -n "$url" ] || url="https://github.com/idosal/mcp-apps-cli/releases/download/v$version/$name.zip"
+# Releases are tagged mcp-apps-cli-v<version> (.github/workflows/mcp-apps-cli-release.yml).
+[ -n "$url" ] || url="https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v$version/$name.zip"
 case "$url" in https://*) ;; *) echo "the zip's URL must be https (Claude Code takes no other)" >&2; exit 2 ;; esac
 
 stage=$(mktemp -d)
@@ -45,7 +53,7 @@ cp "$mod/.claude-plugin/plugin.json" "$mod/.claude-plugin/icon.svg" "$plugin/.cl
 cp "$mod"/hooks/hooks.json "$mod"/hooks/*.ts "$mod"/hooks/*.tsx "$plugin/hooks/"
 cp "$mod/types/index.d.ts" "$plugin/types/"
 cp "$mod/README.md" "$plugin/"
-cp "$root/LICENSE" "$root/THIRD_PARTY_LICENSES.txt" "$plugin/"
+cp "$repo/LICENSE" "$root/THIRD_PARTY_LICENSES.txt" "$plugin/"
 
 # What each platform's binary must be, as file(1) says it.
 expect() {
@@ -96,20 +104,13 @@ else
 fi
 printf '%s  %s\n' "$sha" "$name.zip" > "$out/$name.zip.sha256"
 
-# The marketplace file: published at the repository's root as
-# .claude-plugin/marketplace.json, it installs this zip.
-cat > "$out/marketplace.json" <<EOF
+# The plugin's entry in the repository's marketplace file: the release
+# workflow sets the `source` of the mcp-apps-cli entry in
+# .claude-plugin/marketplace.json to this one and leaves the rest as it is.
+cat > "$out/marketplace-entry.json" <<EOF
 {
   "name": "mcp-apps-cli",
-  "description": "Render MCP App UIs inline in the Claude Code terminal",
-  "owner": { "name": "Ido Salomon", "url": "https://github.com/idosal" },
-  "plugins": [
-    {
-      "name": "mcp-apps-cli",
-      "description": "Render MCP App UIs inline in the Claude Code CLI, with clicks and keys forwarded to the app",
-      "source": { "source": "archive", "url": "$url", "sha256": "$sha" }
-    }
-  ]
+  "source": { "source": "archive", "url": "$url", "sha256": "$sha" }
 }
 EOF
 
