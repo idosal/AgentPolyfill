@@ -1,0 +1,7 @@
+schema_version: "1.1"
+name: server-cards-under-deadline
+expected_outcome: |
+  A plan that implements only the client behaviour the Server Cards spec defines, writes the
+  spec's client rules down as a tested checklist, records how each wire need is reached on Claude
+  Code, names a real stand-down mechanism, proves it against someone else's server and in the real
+  host, and states the OAuth limit instead of working around it.

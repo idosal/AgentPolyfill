@@ -1,0 +1,8 @@
+schema_version: "1.1"
+name: add-field-to-official-extension
+expected_outcome: |
+  A plan that treats this as an addition to someone else's extension: it raises it with the Tasks
+  extension's maintainers or working group, and to ship meanwhile layers its own identified
+  extension beside Tasks (a namespaced _meta key or its own method) without changing the Tasks
+  messages or reusing its identifier, with declared support, defined fallback and negotiation
+  tests.
