@@ -9,12 +9,14 @@ import PolyfillCards from './components/PolyfillCards.vue'
 import Audiences from './components/Audiences.vue'
 import Recording from './components/Recording.vue'
 import CopyCommand from './components/CopyCommand.vue'
+import PageMarkdown from './components/PageMarkdown.vue'
 
 export default {
   extends: DefaultTheme,
   Layout() {
     return h(DefaultTheme.Layout, null, {
       'home-hero-actions-after': () => h(InstallLine),
+      'doc-footer-before': () => h(PageMarkdown),
     })
   },
   enhanceApp({ app }) {
