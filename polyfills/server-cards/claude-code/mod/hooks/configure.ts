@@ -11,7 +11,7 @@
 // `$`, a secret reference is named for this card alone, and a secret may not
 // stand where it could change which host is reached.
 
-import { UNSAFE_TEXT, type Input, type Remote, type ServerCard } from './card'
+import { hasUserinfo, PLAIN_URL, UNSAFE_TEXT, type Input, type Remote, type ServerCard } from './card'
 import { isAllowedUrl, isPrivateHost } from './discover'
 import { base32, sha256 } from './sha256'
 
@@ -27,6 +27,17 @@ export const HOST_PROTOCOL_VERSIONS = [
   '2025-03-26',
   '2024-11-05',
 ]
+
+/**
+ * The host a server is added to: its name in what is shown, and the protocol
+ * revisions it can negotiate. Claude Code by default. Another host's build of
+ * these modules (the Codex form, polyfills/codex/server-cards) sets both once,
+ * at start.
+ */
+export const host: { name: string; protocolVersions: readonly string[] } = {
+  name: 'Claude Code',
+  protocolVersions: HOST_PROTOCOL_VERSIONS,
+}
 
 export type Scope = 'local' | 'project' | 'user'
 
@@ -63,7 +74,7 @@ const shellQuote = (a: string) => (/^[A-Za-z0-9_./:@%+=,-]+$/.test(a) ? a : `'${
 
 export const isCompatible = (remote: Remote) =>
   !remote.supportedProtocolVersions?.length ||
-  remote.supportedProtocolVersions.some(v => HOST_PROTOCOL_VERSIONS.includes(v))
+  remote.supportedProtocolVersions.some(v => host.protocolVersions.includes(v))
 
 // RFC 9110 field-name (token); a value may hold no control character or
 // invisible formatting mark (card.ts UNSAFE_TEXT), CR and LF among them.
@@ -121,7 +132,7 @@ export const planAdd = (
   if (!remote) return { error: `The card has no remote #${remoteIndex}.` }
   if (!isCompatible(remote))
     return {
-      error: `Remote #${remoteIndex} supports only protocol ${remote.supportedProtocolVersions!.join(', ')}, none of which Claude Code speaks.`,
+      error: `Remote #${remoteIndex} supports only protocol ${remote.supportedProtocolVersions!.join(', ')}, none of which ${host.name} speaks.`,
     }
   const server = name ? slug(name) : defaultName(card)
   if (!server) return { error: 'The server name has no letters or digits.' }
@@ -176,7 +187,7 @@ export const planAdd = (
     if (v === undefined) return whole
     if (!input.isSecret) {
       if (at === 0) {
-        if (!/^https?:\/\/[\x21-\x7e]+$/.test(v)) problems.push(`{${key}} must be a URL`)
+        if (!PLAIN_URL.test(v)) problems.push(`{${key}} must be a URL, in printable ASCII without \`, <, > or square brackets (but an IPv6 host's)`)
       } else if (!URL_VALUE.test(v) || /^\.+$/.test(v))
         problems.push(`{${key}} may hold only letters, digits and . _ ~ - (and not be "." or "..")`)
     }
@@ -217,9 +228,13 @@ export const planAdd = (
   if (missing.length) return { missing }
 
   if (url.length > MAX_URL) return { error: `The URL is longer than ${MAX_URL} characters.` }
-  // What is shown is what is added: printable ASCII only.
+  // What is shown is what is added: printable ASCII, and no markup that a
+  // host could render as a link text in place of the URL (card.ts hasMarkup).
   if (!/^[\x21-\x7e]+$/.test(url)) return { error: 'The URL holds a space, a control character or a non-ASCII character.' }
+  if (!PLAIN_URL.test(url)) return { error: 'The URL holds `, <, >, a backslash or a square bracket outside an IPv6 host, which could show as something else.' }
   const probe = url.replace(/\$\{[A-Z0-9_]+\}/g, 'x')
+  // A user before the host shows one host and connects to another (security review C3).
+  if (hasUserinfo(probe)) return { error: `${url}: the URL names a user before its host (an "@"), so it would show one host and connect to another.` }
   let parsed: URL
   try {
     parsed = new URL(probe)
@@ -241,6 +256,15 @@ export const planAdd = (
   const argv = ['claude', 'mcp', 'add', '--transport', transport, '--scope', scope, server, url]
   for (const h of headers) argv.push('--header', `${h.name}: ${h.value}`)
   return { plan: { name: server, url, transport, headers, envVars, argv, command: argv.map(shellQuote).join(' ') } }
+}
+
+/** The host a URL connects to (as Node's URL parser reads it), for display on its own; empty if it can't be read. */
+export const hostOf = (url: string) => {
+  try {
+    return new URL(url.replace(/\$\{[A-Z0-9_]+\}/g, 'x')).host
+  } catch {
+    return ''
+  }
 }
 
 /** The URL a remote connects to with its defaults, for display; the template if inputs are missing. */

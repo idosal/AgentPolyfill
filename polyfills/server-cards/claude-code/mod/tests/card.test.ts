@@ -111,3 +111,33 @@ test('X-2 every string, key or value, is held to it: C0, DEL, C1, bidi and forma
   expect(validateCard({ ...base, description: 'Données en temps réel — 日本語' })).toEqual([])
   expect(validateCard({ ...base, remotes: [{ type: 'streamable-http', url: 'https://exämple.com/mcp' }] }).length > 0).toBe(true)
 })
+
+// Security review of the Codex forms (C1): Markdown or HTML in a card URL could
+// make a host that renders either show a link text in place of the URL.
+const MARKDOWN_URL = 'https://evil.example/x/[https://good.example/mcp](https://evil.example/)'
+
+test('X-4 a URL with `, <, > or square brackets outside an IPv6 host is refused; an IPv6 host is not', async () => {
+  const base = fixtures.official.valid.minimal
+  const remote = (url: string) => ({ ...base, remotes: [{ type: 'streamable-http', url }] })
+  for (const url of [MARKDOWN_URL, 'https://a.example/`code`', 'https://a.example/<b>', '{base}/x/[a](b)']) {
+    const errors = validateCard(remote(url))
+    expect([url, errors.some(e => e.includes('square brackets'))]).toEqual([url, true])
+  }
+  for (const url of ['https://[::1]:8080/mcp', 'https://[2001:db8::1]/mcp', 'https://{tenant}.example.com/mcp?x=1&y=%20'])
+    expect([url, validateCard(remote(url))]).toEqual([url, []])
+  expect(validateCard({ ...base, websiteUrl: MARKDOWN_URL }).some(e => e.startsWith('websiteUrl'))).toBe(true)
+  expect(validateCard({ ...base, repository: { url: MARKDOWN_URL, source: 'github' } }).some(e => e.startsWith('repository.url'))).toBe(true)
+})
+
+// Security review C3: a URL that names a user before its host, or holds a
+// backslash, shows one host and connects to another.
+test('X-5 a URL with a user before its host, or a backslash, is refused; an "@" in the path is not', async () => {
+  const base = fixtures.official.valid.minimal
+  const remote = (url: string) => ({ ...base, remotes: [{ type: 'streamable-http', url }] })
+  for (const url of ['https://good.example@evil.example/mcp', 'https://evil.example\\@good.example/mcp', 'https://user:pw@evil.example/', 'https://{who}@evil.example/mcp'])
+    expect([url, validateCard(remote(url)).length > 0]).toEqual([url, true])
+  expect(validateCard(remote('https://good.example@evil.example/mcp')).some(e => e.includes('names a user before its host'))).toBe(true)
+  expect(validateCard(remote('https://evil.example\\@good.example/mcp')).some(e => e.includes('a backslash'))).toBe(true)
+  expect(validateCard(remote('https://mcp.example.com/u/@team/mcp'))).toEqual([])
+  expect(validateCard({ ...base, websiteUrl: 'https://good.example@evil.example/' }).some(e => e.startsWith('websiteUrl'))).toBe(true)
+})

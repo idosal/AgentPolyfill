@@ -48,10 +48,34 @@ export type ServerCard = {
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 
+/**
+ * Whether text holds `, <, > or a square bracket outside the brackets of an
+ * IPv6 host (`https://[::1]:8080/`). In a URL they are Markdown or HTML: a
+ * host that renders either would show the reader a link text in place of the
+ * URL (`https://evil.example/x/[https://good.example/mcp](https://evil.example/)`).
+ * RFC 3986 allows square brackets only around an IP literal anyway.
+ */
+export const hasMarkup = (s: string) => /[`<>[\]]/.test(s.replace(/^([a-z][a-z0-9+.-]*:\/\/)\[[0-9a-f:.]+\]/i, '$1'))
+
+/**
+ * Whether a URL names a user before its host: an `@` in its authority, or a
+ * user name or password as a URL parser reads it. `https://good.example@evil.example/`
+ * reads as one host and connects to the other (security review C3).
+ */
+export const hasUserinfo = (s: string) => {
+  if (/^[a-z][a-z0-9+.-]*:\/\/[^/?#\\]*@/i.test(s)) return true
+  try {
+    const u = new URL(s)
+    return !!(u.username || u.password)
+  } catch {
+    return false
+  }
+}
+
 // JSON Schema `format: uri`: an absolute URI as written. WHATWG URL parsing
 // repairs strings (spaces, backslashes), so check the characters first.
 const isUri = (v: unknown): boolean => {
-  if (typeof v !== 'string' || !/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>"{}|\\^`]*$/.test(v) || /%(?![0-9a-fA-F]{2})/.test(v))
+  if (typeof v !== 'string' || !/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>"{}|\\^`]*$/.test(v) || /%(?![0-9a-fA-F]{2})/.test(v) || hasMarkup(v) || hasUserinfo(v))
     return false
   try {
     new URL(v)
@@ -77,9 +101,16 @@ export const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202
 export const plainText = (s: unknown) => String(s ?? '').replace(new RegExp(UNSAFE_TEXT.source, 'g'), '')
 
 const NAME = /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/
-// The schema's pattern, narrowed to printable ASCII: a remote URL is what the
-// person sees and what is added, so it holds no space, control or non-ASCII.
-const REMOTE_URL = /^(https?:\/\/[\x21-\x7e]+|\{[a-zA-Z_][a-zA-Z0-9_]*\}[\x21-\x7e]*)$/
+// The schema's pattern, narrowed to printable ASCII without markup: a remote
+// URL is what the person sees and what is added, so it holds no space,
+// control, non-ASCII, `, <, >, or square bracket outside an IPv6 host; and no
+// backslash, which a URL parser reads as "/" (so `https://evil.example\@good.example/`
+// connects to evil.example; security review C3).
+const URL_CHAR = '[\\x21-\\x3b\\x3d\\x3f-\\x5a\\x5e\\x5f\\x61-\\x7e]'
+const IPV6_HOST = '\\[[0-9A-Fa-f:.]+\\]'
+/** An http(s) URL that shows as itself: printable ASCII, and no markup (see hasMarkup). */
+export const PLAIN_URL = new RegExp(`^https?://(?:${IPV6_HOST}${URL_CHAR}*|${URL_CHAR}+)$`)
+const REMOTE_URL = new RegExp(`^(?:https?://(?:${IPV6_HOST}${URL_CHAR}*|${URL_CHAR}+)|\\{[a-zA-Z_][a-zA-Z0-9_]*\\}${URL_CHAR}*)$`)
 
 /** The path of the first string, key or value, that holds an UNSAFE_TEXT character. */
 const unsafeAt = (v: unknown, path: string): string | undefined => {
@@ -167,7 +198,9 @@ const checkRemote = (errors: string[], where: string, v: unknown) => {
   if (v.type !== 'streamable-http' && v.type !== 'sse')
     errors.push(`${where}.type must be "streamable-http" or "sse"`)
   if (typeof v.url !== 'string' || !REMOTE_URL.test(v.url))
-    errors.push(`${where}.url must be printable ASCII starting with http://, https:// or a {variable}`)
+    errors.push(`${where}.url must be printable ASCII without \`, <, >, a backslash or square brackets (but an IPv6 host's), starting with http://, https:// or a {variable}`)
+  else if (hasUserinfo(String(v.url)))
+    errors.push(`${where}.url names a user before its host (an "@" in it), so it would show one host and connect to another`)
   if (v.headers !== undefined) {
     if (!Array.isArray(v.headers)) errors.push(`${where}.headers must be an array`)
     else

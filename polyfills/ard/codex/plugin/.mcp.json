@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "ard-discovery": {
+      "command": "node",
+      "args": ["./dist/server.mjs"],
+      "cwd": ".",
+      "env_vars": ["CODEX_HOME", "CODEX_CLI_PATH", "ARD_DISCOVERY_REGISTRY", "ARD_DISCOVERY_DISABLED"],
+      "startup_timeout_sec": 20,
+      "tool_timeout_sec": 600
+    }
+  }
+}
