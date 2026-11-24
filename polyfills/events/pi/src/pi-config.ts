@@ -164,9 +164,13 @@ const expandHome = (v: string) => (v === '~' ? homedir() : v.startsWith('~/') ? 
 export function parseEntry(name: string, v: Json, o: { env: NodeJS.ProcessEnv; cwd: string; runCommand: (command: string) => string | undefined }): UpstreamConfig | { skip: string } | undefined {
     if (v.enabled === false) return { skip: 'it is turned off in Pi (enabled: false)' };
     if (v.exposure === 'hidden') return { skip: 'its exposure in Pi is "hidden"' };
-    if (v.type === 'sse') return undefined;
     const missing = (what: string) => ({ skip: `${what} could not be resolved (a variable it names is not set, or its command failed)` });
-    if (typeof v.command === 'string') {
+    // The transport, chosen as Pi chooses it (pi-mcp's config parser), before any value is resolved: a
+    // `url` is streamable HTTP unless `type` says otherwise, then a `command` is stdio unless `type`
+    // says otherwise. Anything else Pi rejects, and so does this, without running anything.
+    const http = typeof v.url === 'string' && (v.type === undefined || v.type === 'http' || v.type === 'streamable-http');
+    const stdio = !http && typeof v.command === 'string' && (v.type === undefined || v.type === 'stdio');
+    if (stdio) {
         const args = Array.isArray(v.args) ? v.args.filter((a): a is string => typeof a === 'string').map(expandHome) : [];
         const env: Record<string, string> = {};
         for (const [k, raw] of Object.entries(strings(v.env) ?? {})) {
@@ -175,9 +179,9 @@ export function parseEntry(name: string, v: Json, o: { env: NodeJS.ProcessEnv; c
             env[k] = r;
         }
         const cwd = typeof v.cwd === 'string' && v.cwd ? (isAbsolute(expandHome(v.cwd)) ? expandHome(v.cwd) : resolve(o.cwd, v.cwd)) : o.cwd;
-        return { command: expandHome(v.command), args, env: Object.keys(env).length ? env : undefined, cwd };
+        return { command: expandHome(v.command as string), args, env: Object.keys(env).length ? env : undefined, cwd };
     }
-    if (typeof v.url === 'string') {
+    if (http) {
         if (isRecord(v.oauth)) return { skip: 'it signs in through Pi (an oauth setting), and this extension has no access to Pi\'s sign-in' };
         if (isRecord(v.auth)) return { skip: 'its token comes from a Pi provider sign-in (auth.provider), which this extension has no access to' };
         const headers: Record<string, string> = {};
@@ -186,7 +190,7 @@ export function parseEntry(name: string, v: Json, o: { env: NodeJS.ProcessEnv; c
             if (r === undefined) return missing(`its header ${k}`);
             headers[k] = r;
         }
-        return { url: v.url, headers: Object.keys(headers).length ? headers : undefined };
+        return { url: v.url as string, headers: Object.keys(headers).length ? headers : undefined };
     }
     return undefined;
 }

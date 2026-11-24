@@ -171,6 +171,11 @@ is our own; real Pi is the independent host. The other forms' public-server
 evidence is linked in their READMEs and is not claimed as a Pi run. No
 pre-standard Server Card behavior is added here.
 
+[`docs/live-run.md`](docs/live-run.md) records a run in Pi 1.6.0 with a real
+model, against neon.com's published catalog: Pi listed its servers, the
+extension asked before adding Neon Docs, and after "Add it" the server was in
+`mcp.json` and connected for the session.
+
 ## Development
 
 ```bash

@@ -42,7 +42,12 @@ export const SHOWN_REGISTRY = 200
 export const NO_REGISTRY =
   'No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as `registry`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment Pi starts in. Nothing was sent.'
 /** Characters that display as something else or as nothing (as in the Claude Code form). */
-const UNSEEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/
+// Default-ignorable code points too (tag characters, variation selectors): they show nothing, so a
+// query holding them would send words the person never saw.
+const UNSEEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]|\p{Default_Ignorable_Code_Point}/u
+/** A registry's own words, as one quoted line: it can't start a line of this extension's text. */
+const quoted = (text: string, max: number) => JSON.stringify(text.replace(/\s+/g, ' ').replace(UNSEEN_ALL, '').slice(0, max))
+const UNSEEN_ALL = new RegExp(UNSEEN.source, 'gu')
 /**
  * Markdown and HTML a host could render in the form: a query such as
  * `check [my CI](https://evil.example/)` would show "check my CI" while the
@@ -178,10 +183,10 @@ export function tools(session: Session, defaultRegistry: string): Tool[] {
       const lines = [
         `Registry search for "${query.slice(0, 200)}" (ARD v0.91 §5.3). The query text was sent to: ${[...new Set(s.registries.map(r => new URL(r.endpoint).host))].join(', ')}.`,
         'Registries asked:',
-        ...s.registries.map(r => `  - ${r.endpoint}: ${r.state === 'ok' ? `${r.results} results` : `failed (${(r.note ?? '').slice(0, 200)})`}`),
+        ...s.registries.map(r => `  - ${r.endpoint}: ${r.state === 'ok' ? `${r.results} results` : `failed (${quoted(r.note ?? '', 200)})`}`),
       ]
       if (s.skipped) lines.push(`(${s.skipped} results of other types were ignored.)`)
-      if (s.problems.length) lines.push('Problems:', ...s.problems.map(p => `  - ${p.slice(0, 300)}`))
+      if (s.problems.length) lines.push('Problems:', ...s.problems.map(p => `  - ${quoted(p, 300)}`))
       if (!s.entries.length) {
         lines.push('No MCP Server Cards matched.')
         return { text: shownText(lines.join('\n')) }

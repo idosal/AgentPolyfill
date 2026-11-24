@@ -54,8 +54,11 @@ Pi asks you to confirm the watch, then goes idle. When the server reports an
 earthquake, a message from the extension that starts with `[mcp-events]`
 arrives by itself, and Pi reads the event and answers. The same server also
 offers `hn.comment`, `hn.story`, `npm.release`, `github.release` and
-`demo.button`. We listed its event types and started this watch from Pi
-1.6.0; a run with a real model, end to end, hasn't been recorded yet.
+`demo.button`.
+
+[`docs/live-run.md`](docs/live-run.md) records a run with a real model in Pi
+1.6.0, end to end: the question you're asked, the session going idle, an event
+waking it, Pi reading the event and answering, and stopping the watch.
 
 To stop: "Stop watching the earthquakes."
 
@@ -124,19 +127,17 @@ are left alone.
 
 A server you sign in to through Pi (`/mcp`, `pi mcp login`: OAuth, or a
 provider's token with `auth.provider`) is out of reach on Pi 1.6.0. Pi keeps
-that sign-in to its own connection and doesn't lend the connection to other
+that sign-in to its own connection and doesn't give the connection to other
 extensions, and this extension never reads Pi's stored credentials
 (`mcp-auth.json`). `list_event_types` lists such a server under
 `unavailable`, saying why. It's tested: Pi signs in to a test server, and the
 extension reports it can't reach it.
 
-A change to Pi that lends the connection to extensions
-(`pi.getMcpServerSession()`) is prototyped against Pi 1.6.0, and not yet
-proposed to Pi; the Skills form uses it when it's there. For
-Events it isn't enough by itself: SEP-3415 is defined for protocol revision
-2026-07-28 and later, and Pi 1.6.0's MCP client speaks up to 2025-11-25, so
-Pi's client would also need to speak 2026-07-28. Until then this form keeps
-to its own connection (which speaks 2026-07-28), on a patched Pi too.
+Two changes in Pi would close this: letting extensions send their own
+requests over Pi's connection, with its sign-in, and Pi's client speaking
+protocol revision 2026-07-28, which SEP-3415 is defined for (Pi 1.6.0's
+speaks up to 2025-11-25). [What hosts would need to change](../../../docs/host-changes.md)
+has both.
 
 ### Webhook delivery: the relay
 
@@ -187,9 +188,8 @@ The changes hosts would need are in
 [What hosts would need to change](../../../docs/host-changes.md).
 
 - **No sign-in through Pi** ([Servers that need sign-in](#servers-that-need-sign-in)).
-  The change in Pi: lend its connection to extensions (the proposed patch),
-  and speak protocol revision 2026-07-28. Using a lent connection would also
-  take a change to the Events client every form shares.
+  The changes in Pi: let extensions send their own requests over its
+  connection, and speak protocol revision 2026-07-28.
 - **A second connection.** The extension opens its own connection to each
   server that offers events, so a local (stdio) server runs twice, once for
   Pi and once for the extension. To save starting servers again at every
@@ -258,8 +258,18 @@ because the client is the same. What this form's own tests check, in a real Pi
 - a declined watch sends nothing to the server (`test/wake-test.ts`);
 - against an HTTP server behind a token, `events/list` goes out with the
   credential; behind OAuth, the extension reports that it can't reach it
-  (`test/connection-test.ts`, also run on a Pi built with the proposed
-  change, with `MCP_PI_PATCHED_CLI`).
+  (`test/connection-test.ts`);
+- a session closed and resumed resumes its watch, and an event that arrived
+  meanwhile is handed over; past the hourly cap the session is told once,
+  with no turn started, and is woken again once the user writes; print mode
+  starts no watch (`test/lifecycle-test.ts`);
+- Pi's configuration is read as Pi reads it: an untrusted project's
+  `.pi/mcp.json` is never read and none of its commands run, servers that sign
+  in through Pi are left alone, the transport is chosen as Pi chooses it
+  before anything is resolved, and the watch question shows filters and note
+  whole, with hidden characters written out (`test/config-test.ts`);
+- a second process that takes over the watches inherits the saved wake count
+  and pause (`test/session-test.ts`).
 
 ## Development
 
@@ -273,9 +283,6 @@ npm run typecheck
 npm run build             # extension/dist/index.js; a test fails when it is stale
 node ../../../tools/bundle-notices.mjs . --plugin extension --entry src/index.ts
 ```
-
-To run the connection test against a Pi built with that change, set
-`MCP_PI_PATCHED_CLI` to the build's `packages/coding-agent/dist/cli.js`.
 
 CI: [`pi-events-test.yml`](../../../.github/workflows/pi-events-test.yml).
 

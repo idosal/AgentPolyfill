@@ -338,12 +338,12 @@ var parseLinkHeader = (value) => {
     if (close < 0) break;
     const href = value.slice(open + 1, close);
     let j = close + 1;
-    let quoted = false;
+    let quoted2 = false;
     let params = "";
     for (; j < value.length; j++) {
       const c = value[j];
-      if (c === '"' && value[j - 1] !== "\\") quoted = !quoted;
-      if (c === "," && !quoted) break;
+      if (c === '"' && value[j - 1] !== "\\") quoted2 = !quoted2;
+      if (c === "," && !quoted2) break;
       params += c;
     }
     let rel = "";
@@ -1765,7 +1765,9 @@ var ARD_SOURCES = { catalogs: [{ url: "/.well-known/ard.json", requireVersion: f
 var SHOWN_QUERY = 300;
 var SHOWN_REGISTRY = 200;
 var NO_REGISTRY = "No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as `registry`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment Pi starts in. Nothing was sent.";
-var UNSEEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/;
+var UNSEEN = new RegExp("[\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u2069\\ufeff]|\\p{Default_Ignorable_Code_Point}", "u");
+var quoted = (text, max) => JSON.stringify(text.replace(/\s+/g, " ").replace(UNSEEN_ALL, "").slice(0, max));
+var UNSEEN_ALL = new RegExp(UNSEEN.source, "gu");
 var MARKUP = /[`<>[\]]/;
 var str2 = (v) => typeof v === "string" ? v : void 0;
 var refuse2 = (text) => ({ text: shownText(text), isError: true });
@@ -1857,10 +1859,10 @@ function tools(session, defaultRegistry) {
       const lines = [
         `Registry search for "${query.slice(0, 200)}" (ARD v0.91 \xA75.3). The query text was sent to: ${[...new Set(s.registries.map((r2) => new URL(r2.endpoint).host))].join(", ")}.`,
         "Registries asked:",
-        ...s.registries.map((r2) => `  - ${r2.endpoint}: ${r2.state === "ok" ? `${r2.results} results` : `failed (${(r2.note ?? "").slice(0, 200)})`}`)
+        ...s.registries.map((r2) => `  - ${r2.endpoint}: ${r2.state === "ok" ? `${r2.results} results` : `failed (${quoted(r2.note ?? "", 200)})`}`)
       ];
       if (s.skipped) lines.push(`(${s.skipped} results of other types were ignored.)`);
-      if (s.problems.length) lines.push("Problems:", ...s.problems.map((p) => `  - ${p.slice(0, 300)}`));
+      if (s.problems.length) lines.push("Problems:", ...s.problems.map((p) => `  - ${quoted(p, 300)}`));
       if (!s.entries.length) {
         lines.push("No MCP Server Cards matched.");
         return { text: shownText(lines.join("\n")) };

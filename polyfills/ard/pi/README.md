@@ -194,6 +194,11 @@ registry and MCP fixture are our own. Other forms' public-server evidence is
 linked in their READMEs and is not a Pi run. No additional legacy dialect
 is introduced.
 
+[`docs/live-run.md`](docs/live-run.md) records a run in Pi 1.6.0 with a real
+model, reading buildkite.com's `ard.json`, and a registry search against the
+repository's demo registry that the extension asked about, naming the registry
+and the exact query, before anything was sent.
+
 ## Development
 
 ```bash
