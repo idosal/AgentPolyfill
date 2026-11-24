@@ -4,7 +4,7 @@ $ claude -p "Do these steps in order and do not skip any, even if one is refused
              5: use the Agent tool to have a subagent run the shell command: echo three. 6: read note.txt..." \
     --plugin-dir mod --mcp-config <demo server over stdio> --strict-mcp-config --setting-sources "" \
     --allowedTools "mcp__mcp-skills__load_skill,Bash,Write,Edit,Read,Agent" --output-format stream-json
-    # Claude Code 2.1.329, default permission mode, mod 0.2.1, 2026-11-24
+    # Claude Code 2.1.329, default permission mode, mod 0.3.0, 2026-11-24 (model claude-opus-5-5)
 
 A headless run: nobody can be asked. The skill loads (the load tool is allowed by rule), unapproved. While it is
 loaded the write, the edit, the command and the subagent are refused by the mod, though each tool is allowed by
@@ -20,12 +20,12 @@ TOOL_USE    Edit {"replace_all": false, "file_path": "<work>/note.txt", "old_str
 TOOL_RESULT (error)  Permission to use Edit denied by plugins mcp-skills, cc-plugin-privacy: A skill served by an MCP server is loaded that nobody was asked about ("release-notes" from the MCP server "acme"). Its text comes from that server, so while it is loaded anything but reading and searching needs your approval. To use the skill with nobody pr
 TOOL_USE    Bash {"command": "echo two", "description": "Print the word two"}
 TOOL_RESULT (error)  Permission to use Bash denied by plugins mcp-skills, cc-plugin-privacy: A skill served by an MCP server is loaded that nobody was asked about ("release-notes" from the MCP server "acme"). Its text comes from that server, so while it is loaded anything but reading and searching needs your approval. To use the skill with nobody pr
-TOOL_USE    Agent {"description": "Run echo three", "prompt": "Run the shell command `echo three` with the Bash tool and report exactly what it returned (output or erro
+TOOL_USE    Agent {"description": "Run echo three", "prompt": "Run the shell command `echo three` with the Bash tool and report exactly what it returned. Do nothing els
 TOOL_RESULT (error)  Permission to use Agent denied by plugin mcp-skills: A skill served by an MCP server is loaded that nobody was asked about ("release-notes" from the MCP server "acme"). Its text comes from that server, so while it is loaded anything but reading and searching needs your approval. To use the skill with nobody present, approve it o
 TOOL_USE    Read {"file_path": "<work>/note.txt"}
 TOOL_RESULT  1	a note | 2	
 
-The same skill, approved once in an interactive session in the same folder (the dialog's Yes), then headless again
+The same skill (mod 0.2.1; the approved path is unchanged since), approved once in an interactive session in the same folder (the dialog's Yes), then headless again
 with steps 1, 2 and 4. It loads approved, and the write and the command go ahead under the rules that allow them:
 
 TOOL_USE    mcp__mcp-skills__load_skill {"server": "acme", "uri": "skill://release-notes/SKILL.md"}

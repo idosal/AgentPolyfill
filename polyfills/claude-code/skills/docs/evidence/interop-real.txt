@@ -1,4 +1,4 @@
-$ npm run interop:real    # 2026-11-23T23:35Z, public servers, no credentials
+$ npm run interop:real    # 2026-11-24T00:58Z, public servers, no credentials
 huggingface: protocol revision 2026-07-28; 25 skills listed, 0 entries refused; lists directories
   ok  hf-cli: SKILL.md and 0 file(s) verified
   ok  hf-cloud-aws-context-discovery: SKILL.md and 0 file(s) verified
@@ -33,5 +33,4 @@ togomcp: protocol revision 2026-07-28; 5 skills listed, 0 entries refused
   ok  research-article-analysis: SKILL.md and 1 file(s) verified
   ok  togomcp-start: SKILL.md and 0 file(s) verified
 togomcp: 5 skills, 8 supporting files, 166362 bytes read and verified
-
 real servers: all skills loaded and every file verified

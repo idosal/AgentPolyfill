@@ -6,10 +6,13 @@
 // Rule ids are those of docs/conformance.md.
 
 import { expect, mock, test } from 'claude-code/testing'
-import type { On } from 'claude-code'
+import type { EngineInterface, On } from 'claude-code'
+import { BUN, SetupError, fetched, install, type Pin } from './runtime'
 
 // A timer exists where a hooks module runs; the typings for one just do not name it.
 declare const setTimeout: (run: (value?: unknown) => void, ms: number) => unknown
+declare const btoa: (text: string) => string
+declare const crypto: { subtle: { digest: (algorithm: string, data: Uint8Array) => Promise<ArrayBuffer> } }
 
 const SKILL = { server: 'acme', uri: 'skill://release-notes/SKILL.md', name: 'release-notes', root: 'skill://release-notes' }
 const FACTS = { ...SKILL, files: 4, bytes: 1299, isDynamic: false, hash: 'sha256:aaaa', fingerprint: 'fp-acme' }
@@ -37,12 +40,128 @@ type World = {
   store: Record<string, unknown>
   clock: ReturnType<typeof mock.clock>
   exit: () => void
+  /** The questions put in Claude Code's dialog. */
+  asked: string[]
+  /** What the mod wrote to the debug log. */
+  logs: string[]
+  /** Every program the mod ran, as its argument list. */
+  ran: string[][]
+  /** The files and folders of the machine, as far as the mod's own runtime is concerned. */
+  disk: Record<string, { kind: 'file' | 'dir'; bytes?: Uint8Array; isLink?: boolean; mtimeMs?: number }>
 }
+/** What the machine is like for a fetch of the mod's own runtime. */
+type Machine = {
+  /** What `uname -sm` answers. Default: a Mac with Apple silicon. */
+  uname?: string
+  ldd?: string
+  /** Programs that are not installed. */
+  missing?: string[]
+  /** What the download holds. */
+  zip?: Uint8Array
+  curlFails?: string
+  /** What the archive's named file turns out to be. */
+  member?: 'file' | 'link' | 'none'
+  /** What a fetched copy answers to --version, where not its own. */
+  says?: string
+  /** The exit code of a fetched copy's --version. Default 0. */
+  saysExit?: number
+  /** Paths `rm` cannot delete (and what is under them). */
+  stuck?: string[]
+  chmodFails?: true
+  disk?: World['disk']
+}
+const DATA = '/plugin-data'
 
 /** The engine beneath the mod, and a helper that answers as the real one does. */
-function world(on: On, o: { tools?: string[]; env?: Record<string, string>; /** What each command answers to --version; a missing one is not installed. Default: node on the PATH. */ runtimes?: Record<string, string>; shellFinds?: string; names?: string[]; commands?: string[]; /** The conversation so far; an Error stands for one that cannot be read. */ rows?: unknown[] | Error; verdict?: Record<string, unknown>; connect?: Record<string, unknown>; servers?: string[]; catalog?: string | null; expects?: number; store?: Record<string, unknown>; facts?: Facts; found?: unknown[] } = {}): World {
+/**
+ * The machine beneath the mod: the programs it can run and the files it sees. Used under the hooks
+ * (world), and by itself, as the engine, where a test calls the fetch directly.
+ */
+function machineOf(m: Machine, runtimesGiven?: Record<string, string>, shellFinds?: string) {
+  const ran: string[][] = []
+  const disk: World['disk'] = { ...(m.disk ?? {}) }
+  const runtimes = runtimesGiven ?? { node: 'v22.18.0' }
+  const under = (path: string) => Object.keys(disk).filter((key) => key === path || key.startsWith(`${path}/`))
+  const done = (stdout = '') => ({ exitCode: 0, stdout, stderr: '' })
+  const failed = (exitCode: number, stderr: string) => ({ exitCode, stdout: '', stderr })
+  const run = (argv: readonly string[]) => {
+    ran.push([...argv])
+    const [program = '', flag] = argv
+    if (m.missing?.includes(program)) return failed(127, `${program}: command not found`)
+    if (program === 'uname') return done(`${m.uname ?? 'Darwin arm64'}\n`)
+    if (program === 'ldd') return done(m.ldd ?? '')
+    if (program === 'chmod') return m.chmodFails && argv[1] === '755' ? failed(1, 'Operation not permitted') : done()
+    if (program === 'mkdir') {
+      const path = String(argv.at(-1))
+      // Without -p, a folder that is there already is a failure: that is what makes it a lock.
+      if (argv[1] !== '-p' && disk[path]) return failed(1, `mkdir: ${path}: File exists`)
+      disk[path] = { kind: 'dir', mtimeMs: 10_000_000 }
+      return done()
+    }
+    if (program === 'rm') {
+      const path = String(argv[2])
+      if (m.stuck?.some((stuck) => path === stuck || path.startsWith(`${stuck}/`) || path.startsWith(stuck))) return failed(1, 'Permission denied')
+      for (const key of under(path)) delete disk[key]
+      return done()
+    }
+    if (program === 'mv') {
+      const [from, to] = [String(argv[1]), String(argv[2])]
+      for (const key of under(from)) {
+        disk[`${to}${key.slice(from.length)}`] = disk[key]!
+        delete disk[key]
+      }
+      return done()
+    }
+    if (program === 'curl') {
+      if (m.curlFails) return failed(22, m.curlFails)
+      disk[String(argv[argv.indexOf('--output') + 1])] = { kind: 'file', bytes: m.zip ?? new Uint8Array([80, 75, 3, 4]) }
+      return done()
+    }
+    if (program === 'unzip') {
+      if (m.member === 'none') return failed(11, 'filename not matched')
+      const dest = String(argv[argv.indexOf('-d') + 1])
+      disk[dest] = { kind: 'dir' }
+      disk[`${dest}/bun`] = { kind: 'file', bytes: new Uint8Array(64), ...(m.member === 'link' ? { isLink: true } : {}) }
+      return done()
+    }
+    // A copy of Bun the mod fetched answers with the version its folder is named for.
+    const fetchedCopy = /\/bun-(\d+\.\d+\.\d+)\/bun$/.exec(program)
+    if (fetchedCopy && disk[program]) return { exitCode: m.saysExit ?? 0, stdout: `${m.says ?? fetchedCopy[1]}\n`, stderr: '' }
+    // The person's login shell, asked where node and bun are.
+    if (flag === '-lic') return done(shellFinds ?? '')
+    const answer = runtimes[program]
+    return answer === undefined ? failed(127, 'not found') : done(`${answer}\n`)
+  }
+  const exists = (path: string) => disk[path] !== undefined
+  const stat = (path: string) => {
+    const entry = disk[path]
+    if (!entry) throw new Error(`ENOENT: ${path}`)
+    return { kind: entry.kind, size: entry.bytes?.length ?? 0, mtimeMs: entry.mtimeMs ?? 0, isLink: entry.isLink === true }
+  }
+  const list = (path: string) => {
+    const names = [...new Set(Object.keys(disk).filter((key) => key.startsWith(`${path}/`)).map((key) => key.slice(path.length + 1).split('/')[0]!))]
+    return names.map((name) => ({ name, kind: disk[`${path}/${name}`]?.kind ?? 'dir', size: 0, mtimeMs: 0, isLink: false }))
+  }
+  const read = (path: string, offset = 0, length?: number) => {
+    const bytes = disk[path]?.bytes
+    if (!bytes) throw new Error(`ENOENT: ${path}`)
+    const part = bytes.slice(offset, offset + (length ?? bytes.length))
+    let text = ''
+    for (let at = 0; at < part.length; at += 8192) text += String.fromCharCode(...part.subarray(at, at + 8192))
+    return { base64: btoa(text) }
+  }
+  // As a hooks module calls them.
+  const engine = {
+    process: { run: async (argv: string[]) => run(argv) },
+    fs: { exists: async (path: string) => exists(path), stat: async (path: string) => stat(path), list: async (path: string) => list(path), read: async (path: string, o: { offset?: number; length?: number }) => read(path, o.offset, o.length) },
+    clock: { now: async () => 10_000_000 },
+  } as unknown as EngineInterface
+  return { ran, disk, run, exists, stat, list, read, engine }
+}
+
+function world(on: On, o: { /** What the person answers to a question in Claude Code's dialog; absent, they dismiss it. */ answer?: string; machine?: Machine; tools?: string[]; env?: Record<string, string>; /** What each command answers to --version; a missing one is not installed. Default: node on the PATH. */ runtimes?: Record<string, string>; shellFinds?: string; names?: string[]; commands?: string[]; /** The conversation so far; an Error stands for one that cannot be read. */ rows?: unknown[] | Error; verdict?: Record<string, unknown>; connect?: Record<string, unknown>; servers?: string[]; catalog?: string | null; expects?: number; store?: Record<string, unknown>; facts?: Facts; found?: unknown[] } = {}): World {
   // A wait ends only when a test moves the clock: nothing here times out by itself.
-  const w: World = { posts: [], spawns: 0, registered: [], spawned: [], toasts: [], submitted: [], facts: o.facts ?? FACTS, store: { ...(o.store ?? {}) }, clock: mock.clock(on), exit: () => {} }
+  const w: World = { posts: [], spawns: 0, registered: [], spawned: [], toasts: [], submitted: [], facts: o.facts ?? FACTS, store: { ...(o.store ?? {}) }, clock: mock.clock(on), exit: () => {}, ran: [], disk: {}, asked: [], logs: [] }
   const ready = JSON.stringify({ t: 'ready', url: 'http://127.0.0.1:9', token: 'secret', expects: o.expects ?? 1 })
   const lines = [ready, ...(o.servers ? [JSON.stringify({ t: 'servers', names: o.servers })] : []), ...(o.catalog === null ? [] : [JSON.stringify({ t: 'catalog', text: o.catalog ?? CATALOG, skills: 1, servers: 1 })])]
   on('session.start', (_, e) => ({ cwd: e.cwd }))
@@ -51,15 +170,15 @@ function world(on: On, o: { tools?: string[]; env?: Record<string, string>; /** 
     if (o.rows instanceof Error) throw o.rows
     return { value: (o.rows ?? []) as never }
   })
-  on('process.run', (_, e) => {
-    const runtimes = o.runtimes ?? { node: 'v22.18.0' }
-    const [command, flag] = e.argv
-    // The person's login shell, asked where node and bun are.
-    if (flag === '-lic') return { value: { exitCode: 0, stdout: o.shellFinds ?? '', stderr: '' } as never }
-    const answer = runtimes[String(command)]
-    return { value: (answer === undefined ? { exitCode: 127, stdout: '', stderr: 'not found' } : { exitCode: 0, stdout: `${answer}\n`, stderr: '' }) as never }
-  })
-  on('process.hookEnv', () => ({ value: {} }))
+  const box = machineOf(o.machine ?? {}, o.runtimes, o.shellFinds)
+  w.ran = box.ran
+  w.disk = box.disk
+  on('process.run', (_, e) => ({ value: box.run(e.argv) as never }))
+  on('process.hookEnv', () => ({ value: { CLAUDE_PLUGIN_DATA: DATA } }))
+  on('fs.exists', (_, e) => ({ value: box.exists(e.path) }))
+  on('fs.stat', (_, e) => ({ value: box.stat(e.path) as never }))
+  on('fs.list', (_, e) => ({ value: box.list(e.path) as never }))
+  on('fs.read', (_, e) => ({ value: box.read(e.path, e.offset, e.length) as never }))
   on('process.spawn', async function* (_, e) {
     w.spawns++
     w.spawned.push([...e.argv])
@@ -73,7 +192,7 @@ function world(on: On, o: { tools?: string[]; env?: Record<string, string>; /** 
     const body = JSON.parse(String(e.init?.body ?? '{}')) as Record<string, unknown>
     w.posts.push({ route, body })
     const answers: Record<string, () => unknown> = {
-      '/tool': () => (body.name === 'load_skill' ? { text: LOADED, acting: { ...SKILL, hash: w.facts.hash, fingerprint: w.facts.fingerprint } } : { text: 'ok' }),
+      '/tool': () => (body.name === 'load_skill' ? { text: LOADED, acting: { ...SKILL, server: String((body.input as { server?: unknown } | undefined)?.server ?? SKILL.server), hash: w.facts.hash, fingerprint: w.facts.fingerprint } } : { text: 'ok' }),
       '/entry': () => w.facts,
       '/status': () => ({ text: 'MCP server "acme": 1 skill.', names: o.names ?? ['release-notes'], servers: ['acme', 'my.docs'] }),
       '/find': () => ({ found: o.found ?? [SKILL] }),
@@ -98,16 +217,26 @@ function world(on: On, o: { tools?: string[]; env?: Record<string, string>; /** 
     return { value: undefined }
   })
   on('env.get', (_, e) => ({ value: (o.env ?? {})[e.name] }))
-  on('ui.log', () => ({ value: undefined }))
+  on('ui.log', (_, e) => {
+    w.logs.push(String((e as { text?: unknown }).text ?? ''))
+    return { value: undefined }
+  })
   on('ui.toast', (_, e) => {
     w.toasts.push(String((e as { text?: unknown }).text ?? ''))
     return { value: undefined }
   })
   on('ui.invalidate', () => ({ value: undefined }))
+  // $.ui.ask is Claude Code's AskUserQuestion dialog: the person's answer, by the question's text.
+  on('tool.call', { tool: 'AskUserQuestion' }, (_, e) => {
+    const { questions = [] } = e as unknown as { questions?: { question: string; options: { label: string }[] }[] }
+    w.asked.push(...questions.map((q) => `${q.question} [${q.options.map((option) => option.label).join(' | ')}]`))
+    if (o.answer === undefined) return { deny: 'The user dismissed the question.' } as never
+    return { result: { questions, answers: Object.fromEntries(questions.map((q) => [q.question, o.answer])) } } as never
+  })
   on('ui.open', () => ({ value: { isPlaced: true } as never }))
   on('mcp.connect', (_, e) => ({ value: (o.connect?.[e.server] ?? { isConnected: true, server: e.server }) as never }))
   // What Claude Code itself decides: by default an ask with nothing behind it, as for any MCP tool.
-  on('tool.check', () => (o.verdict ?? { decision: 'ask' }) as never)
+  on('tool.check', (_, e) => (e.tool === 'AskUserQuestion' ? { decision: 'allow' } : (o.verdict ?? { decision: 'ask' })) as never)
   on('prompt.attachment', (_, e) => ({ text: e.text }))
   on('skill.prompt', (_, e) => ({ text: e.text }))
   return w
@@ -116,9 +245,9 @@ function world(on: On, o: { tools?: string[]; env?: Record<string, string>; /** 
 type Engine = Parameters<Extract<Parameters<typeof test>[1], (...args: never[]) => unknown>>[0]
 let calls = 0
 /** A load as the model's call goes: the permission check with a person to ask, then (their yes given) the run. */
-async function load($: Engine, o: { approver?: 'person' | null; uri?: string } = {}) {
+async function load($: Engine, o: { approver?: 'person' | null; uri?: string; server?: string } = {}) {
   const id = `t${++calls}`
-  const input = { server: SKILL.server, uri: o.uri ?? SKILL.uri }
+  const input = { server: o.server ?? SKILL.server, uri: o.uri ?? SKILL.uri }
   const verdict = await $.tool.check({ tool: LOAD, input, tool_use_id: id, ...(o.approver === null ? {} : { approver: 'person' }) } as never)
   const ran = await $.tool.run({ tool: LOAD, tool_use_id: id, ...input } as never)
   return { verdict, ran: ran as { result?: string; deny?: string } }
@@ -334,6 +463,26 @@ test('W1: after a resume, a skill that was loaded unapproved still has its comma
   expect((await $.tool.check({ tool: 'Edit', input: { file_path: 'package.json' } })).decision).toBe('deny')
 })
 
+test('W1: after a resume, loading an approved skill before anything else does not hide one loaded unapproved earlier', async ($, on) => {
+  const other = { server: 'acme', uri: 'skill://incident-review/SKILL.md' }
+  const w = world(on, { verdict: { decision: 'allow', rule: 'allowed' }, rows: [{ role: 'assistant', text: '', toolUses: [{ tool_use_id: 'old', tool: LOAD, input: other, text: `${UNAPPROVED}\nLoaded the skill "incident-review" from the MCP server "acme" (${other.uri}).` }] }] })
+  w.store.approvals = { [`${SKILL.server}\n${SKILL.uri}`]: { hash: FACTS.hash, fingerprint: FACTS.fingerprint, name: SKILL.name, at: 1 } }
+  await $.session.start(START)
+  expect((await load($)).ran.result).toBe(`${APPROVED}\n${LOADED}`)
+  const verdict = await $.tool.check(present({ tool: 'Write', input: { file_path: '.git/hooks/pre-commit' } }))
+  expect(verdict.decision).toBe('ask')
+  expect(verdict.reason).toContain('"incident-review"')
+})
+
+test('X6: two servers whose names differ only in punctuation are two servers: a read from the other one is asked about', async ($, on) => {
+  world(on, { verdict: { decision: 'allow', rule: 'x' }, facts: { ...FACTS, server: 'acme.prod' } })
+  await $.session.start(START)
+  await load($, { server: 'acme.prod' })
+  const verdict = await $.tool.check(present({ tool: 'ReadMcpResourceTool', input: { server: 'acme_prod', uri: 'db://secrets' } }))
+  expect(verdict.decision).toBe('ask')
+  expect(verdict.reason).toContain('another MCP server, "acme_prod"')
+})
+
 test('W1: clearing the conversation ends it: the skill\'s text is gone, and the helper is told to drop its entry', async ($, on) => {
   const w = world(on, { verdict: { decision: 'allow', rule: 'Bash' } })
   await $.session.start(START)
@@ -503,19 +652,279 @@ test('a Bun in its usual folder is found with no shell to ask', async ($, on) =>
   expect(w.spawned[0]).toEqual(['/Users/someone/.bun/bin/bun', expect.stringContaining('dist/helper.js') as never])
 })
 
-test('with no Node 20 and no Bun anywhere, the person is told once what to install, and every way in says the same', async ($, on) => {
+test('with no Node 20 and no Bun anywhere, the person is told in a line, and every way in says what to do', async ($, on) => {
   const w = world(on, { runtimes: { node: 'v18.19.0' } })
   await $.session.start(START)
   expect(w.spawns).toBe(0)
   await settle(() => w.toasts.length > 0)
-  expect(w.toasts).toEqual([expect.stringContaining('needs Node 20 or newer, or Bun, to run its helper, and found only Node v18.19.0') as never])
+  expect(w.toasts).toEqual(['MCP Skills needs Node 20 or newer, or Bun, and found only Node v18.19.0. Type /mcp-skills for what to do.'])
   const { text } = await $.command.run({ command: 'mcp-skills', args: '' } as never)
-  expect(text).toContain('Install Node from https://nodejs.org or Bun from https://bun.sh, then start a new session.')
+  expect(text).toContain('needs Node 20 or newer, or Bun, to run its helper, and found only Node v18.19.0 on this machine.')
+  expect(text).toContain(`Type /mcp-skills setup to have this mod download Bun ${BUN.version} for its own use`)
+  expect(text).toContain('Or install Node from https://nodejs.org or Bun from https://bun.sh, then start a new session.')
   const answer = (await $.tool.run({ tool: LOAD, tool_use_id: 'x', server: SKILL.server, uri: SKILL.uri } as never)) as { deny?: string }
   expect(answer.deny).toContain('needs Node 20 or newer, or Bun')
   expect(w.toasts.length).toBe(1)
+  // Nothing was fetched: that waits for the person's own command.
+  expect(w.ran.some(([program]) => program === 'curl')).toBe(false)
   // Nothing else is disturbed: Claude Code's own skill listing is as it was.
   expect((await $.prompt.attachment(listing)).text).toBe(listing.text)
+})
+
+test('the notice about a missing runtime opens a few sessions, not every session from then on', async ($, on) => {
+  const w = world(on, { runtimes: {}, store: { toldNoRuntime: 3 } })
+  await $.session.start(START)
+  await $.command.run({ command: 'mcp-skills', args: '' } as never)
+  expect(w.toasts).toEqual([])
+})
+
+test('where the mod fetches no runtime (Windows, another system), it does not offer to', async ($, on) => {
+  world(on, { runtimes: {}, machine: { uname: 'MINGW64_NT-10.0 x86_64' } })
+  await $.session.start(START)
+  const { text } = await $.command.run({ command: 'mcp-skills', args: '' } as never)
+  expect(text).toContain('found neither on this machine. Install Node from https://nodejs.org or Bun from https://bun.sh')
+  expect(text).not.toContain('/mcp-skills setup')
+})
+
+const typed = (args: string) => ({ command: 'mcp-skills', args, origin: { kind: 'composer' } }) as never
+
+test('/mcp-skills setup fetches a runtime only when the person types it: not for the model, a script or an unattended run', async ($, on) => {
+  const w = world(on, { runtimes: {} })
+  await $.session.start(START)
+  for (const origin of [undefined, { kind: 'sdk' }, { kind: 'plugin', name: 'other' }, { kind: 'peer' }, { kind: 'scheduled-trigger' }, { kind: 'channel', server: 'x' }]) {
+    const { text } = await $.command.run({ command: 'mcp-skills', args: 'setup', ...(origin ? { origin } : {}) } as never)
+    expect(text).toContain('it is done only when you type it yourself')
+  }
+  expect(w.ran.some(([program]) => program === 'curl' || program === 'mkdir')).toBe(false)
+})
+
+test('/mcp-skills setup: a download that does not match the pinned checksum is deleted, and nothing of it is run', async ($, on) => {
+  const w = world(on, { runtimes: {}, answer: 'Download', machine: { zip: new Uint8Array([1, 2, 3, 4, 5]) } })
+  await $.session.start(START)
+  const { text } = await $.command.run(typed('setup'))
+  expect(text).toContain(`MCP Skills can download Bun ${BUN.version} for its own use, from github.com/oven-sh/bun`)
+  expect(text).toContain('nothing is downloaded unless you answer Download')
+  await w.clock.settle()
+  await w.clock.advance(100)
+  await settle(() => w.toasts.some((toast) => toast.includes('does not match')))
+  expect(w.asked).toEqual([expect.stringContaining(`Download Bun ${BUN.version} for MCP Skills? It is the official release from github.com/oven-sh/bun`) as never])
+  expect(w.toasts.at(-1)).toContain(`does not match the checksum pinned in this mod for Bun ${BUN.version} (bun-darwin-aarch64.zip), so nothing of it was run. If this repeats, please report it. The download was deleted.`)
+  const curl = w.ran.find(([program]) => program === 'curl')!
+  expect(curl.at(-1)).toBe(`https://github.com/oven-sh/bun/releases/download/bun-v${BUN.version}/bun-darwin-aarch64.zip`)
+  expect(curl.join(' ')).toContain('--proto =https --proto-redir =https')
+  expect(w.ran.some(([program]) => program === 'unzip' || program === 'mv' || String(program).startsWith(DATA))).toBe(false)
+  expect(Object.keys(w.disk)).toEqual([`${DATA}/runtime`])
+  expect(w.spawns).toBe(0)
+})
+
+for (const [answer, what] of [[undefined, 'dismisses it'], ['Not now', 'answers Not now'], ['download it please', 'types something else']] as const) {
+  test(`/mcp-skills setup downloads nothing when the person ${what} in Claude Code's dialog`, async ($, on) => {
+    const w = world(on, { runtimes: {}, ...(answer === undefined ? {} : { answer }) })
+    await $.session.start(START)
+    await $.command.run(typed('setup'))
+    await w.clock.settle()
+    await w.clock.advance(100)
+    await settle(() => w.toasts.length > 1)
+    // The safe answer is the first one offered: a dialog left to itself does not come out as a yes.
+    expect(w.asked).toEqual([expect.stringMatching(/^Download Bun .* \[Not now \| Download\]$/) as never])
+    expect(w.toasts.at(-1)).toBe('MCP Skills: nothing was downloaded. /mcp-skills setup asks again.')
+    expect(w.ran.some(([program]) => program === 'curl' || program === 'mkdir')).toBe(false)
+  })
+}
+
+test('the pinned release names an https file and a SHA-256 for each platform it is offered on', () => {
+  expect(BUN.base).toBe(`https://github.com/oven-sh/bun/releases/download/bun-v${BUN.version}/`)
+  expect(Object.keys(BUN.assets).sort()).toEqual(['darwin-arm64', 'darwin-x64', 'linux-arm64', 'linux-arm64-musl', 'linux-x64', 'linux-x64-musl'])
+  for (const asset of Object.values(BUN.assets)) {
+    expect(asset.name).toMatch(/^bun-(darwin|linux)-(aarch64|x64)(-musl)?(-baseline)?$/)
+    expect(asset.sha256).toMatch(/^[0-9a-f]{64}$/)
+  }
+  expect(new Set(Object.values(BUN.assets).map((asset) => asset.sha256)).size).toBe(6)
+})
+
+// The steps of the fetch, with a release pinned to bytes the test holds (the real one is pinned to the real archive).
+const ZIP = new Uint8Array(5 * 1024 * 1024 + 123).map((_, i) => (i * 31 + 7) % 251)
+const pinFor = async (bytes: Uint8Array, platform = 'darwin-arm64', name = 'bun-darwin-aarch64'): Promise<Pin> => ({
+  version: '9.8.7',
+  base: 'https://example.test/releases/',
+  assets: { [platform]: { name, sha256: [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map((b) => b.toString(16).padStart(2, '0')).join('') } },
+})
+
+test('a fetch that matches is unpacked (one named file), checked to run, and moved into place; the download is deleted', async () => {
+  const w = machineOf({ zip: ZIP }, {})
+  const got = await install(w.engine, DATA, await pinFor(ZIP))
+  expect(got).toEqual({ path: `${DATA}/runtime/bun-9.8.7/bun`, version: '9.8.7', bytes: 64, isNew: true })
+  const unzip = w.ran.find(([program]) => program === 'unzip')!
+  expect(unzip.slice(1, 4)).toEqual(['-q', '-o', '-j'])
+  expect(unzip.slice(5, 7)).toEqual(['bun-darwin-aarch64/bun', '-d'])
+  expect(Object.keys(w.disk).sort()).toEqual([`${DATA}/runtime`, `${DATA}/runtime/bun-9.8.7`, `${DATA}/runtime/bun-9.8.7/bun`])
+  expect(await fetched(w.engine, DATA)).toEqual([{ path: `${DATA}/runtime/bun-9.8.7/bun`, version: '9.8.7' }])
+  // Asked for again, nothing is downloaded.
+  const again = await install(w.engine, DATA, await pinFor(ZIP))
+  expect(again.isNew).toBe(false)
+  expect(w.ran.filter(([program]) => program === 'curl').length).toBe(1)
+})
+
+test('a fetch picks the archive for the machine: Linux on x64 gets the build for any x64 processor, and musl its own', async () => {
+  const w = machineOf({ zip: ZIP, uname: 'Linux x86_64', ldd: 'musl libc (x86_64)\nVersion 1.2.5' }, {})
+  await install(w.engine, DATA, await pinFor(ZIP, 'linux-x64-musl', 'bun-linux-x64-musl-baseline'))
+  expect(w.ran.find(([program]) => program === 'curl')!.at(-1)).toBe('https://example.test/releases/bun-linux-x64-musl-baseline.zip')
+  expect(BUN.assets['linux-x64']!.name).toBe('bun-linux-x64-baseline')
+  expect(BUN.assets['darwin-x64']!.name).toBe('bun-darwin-x64-baseline')
+})
+
+test('a fetch that goes wrong leaves nothing behind that could run, and says why', async () => {
+  const cases: [Machine, RegExp][] = [
+    [{ zip: ZIP, missing: ['curl'] }, /`curl` is needed for the download and was not found/],
+    [{ zip: ZIP, curlFails: 'curl: (6) Could not resolve host: example.test' }, /The download did not finish \(curl: \(6\) Could not resolve host: example\.test\)\. Nothing was installed; run \/mcp-skills setup to try again/],
+    [{ zip: ZIP, missing: ['unzip'] }, /`unzip` is needed to unpack the download and was not found/],
+    [{ zip: ZIP, member: 'none' }, /could not be unpacked/],
+    [{ zip: ZIP, member: 'link' }, /The archive did not hold the program expected/],
+    [{ zip: ZIP, says: '0.0.1' }, /did not start on this machine \(it answered 0\.0\.1\)/],
+    [{ zip: new Uint8Array(0) }, /not the archive that was asked for/],
+    [{ zip: ZIP, uname: 'FreeBSD amd64' }, /fetches a runtime only on macOS and Linux/],
+  ]
+  const pin = await pinFor(ZIP)
+  for (const [machine, why] of cases) {
+    const w = machineOf(machine, {})
+    const error = await install(w.engine, DATA, pin).then(() => undefined, (e: unknown) => e)
+    expect(error).toBeInstanceOf(SetupError)
+    expect((error as Error).message).toMatch(why)
+    expect(Object.keys(w.disk).filter((key) => key !== `${DATA}/runtime`)).toEqual([])
+    expect(w.ran.some(([program]) => program === 'mv')).toBe(false)
+  }
+})
+
+test('a step that does not exit cleanly stops the fetch: a program that cannot be made runnable, a version check that fails', async () => {
+  const pin = await pinFor(ZIP)
+  const cases: [Machine, RegExp][] = [[{ zip: ZIP, chmodFails: true }, /could not be made runnable/], [{ zip: ZIP, saysExit: 1 }, /did not start on this machine \(it answered 9\.8\.7\)/]]
+  for (const [machine, why] of cases) {
+    const w = machineOf(machine, {})
+    const error = (await install(w.engine, DATA, pin).then(() => undefined, (e: unknown) => e)) as Error
+    expect(error.message).toMatch(why)
+    // A program that could not be made runnable is never started.
+    if (machine.chmodFails) expect(w.ran.some(([program, flag]) => /\/bun$/.test(String(program)) && flag === '--version')).toBe(false)
+    expect(Object.keys(w.disk)).toEqual([`${DATA}/runtime`])
+  }
+})
+
+test('a fetch whose download cannot be deleted says where it is, and leaves nothing in it runnable', async () => {
+  const w = machineOf({ zip: new Uint8Array([9, 9, 9]), stuck: [`${DATA}/runtime/incoming-`] }, {})
+  const error = (await install(w.engine, DATA, await pinFor(ZIP)).then(() => undefined, (e: unknown) => e)) as Error
+  expect(error.message).toMatch(/so nothing of it was run\..*Its folder could not be deleted, and nothing in it is left runnable: \/plugin-data\/runtime\/incoming-/)
+  expect(w.ran.some(([program, flag, mode]) => program === 'chmod' && flag === '-R' && mode === 'a-x')).toBe(true)
+})
+
+test('a damaged copy of the same version is replaced, not reported as installed', async () => {
+  const w = machineOf({ zip: ZIP, disk: { [`${DATA}/runtime/bun-9.8.7`]: { kind: 'dir' } } }, {})
+  const got = await install(w.engine, DATA, await pinFor(ZIP))
+  expect(got.isNew).toBe(true)
+  expect(w.disk[`${DATA}/runtime/bun-9.8.7/bun`]).toBeDefined()
+  expect(Object.keys(w.disk).filter((key) => key.includes('bun-9.8.7/bun-9.8.7'))).toEqual([])
+})
+
+test('two sessions setting up at once: the second waits its turn instead of putting a copy inside the first\'s', async () => {
+  const w = machineOf({ zip: ZIP, disk: { [`${DATA}/runtime`]: { kind: 'dir' }, [`${DATA}/runtime/.lock`]: { kind: 'dir', mtimeMs: 10_000_000 - 60_000 } } }, {})
+  const error = (await install(w.engine, DATA, await pinFor(ZIP)).then(() => undefined, (e: unknown) => e)) as Error
+  expect(error.message).toContain('Another Claude Code session is setting up this runtime right now')
+  expect(w.ran.some(([program]) => program === 'curl')).toBe(false)
+  expect(w.disk[`${DATA}/runtime/.lock`]).toBeDefined()
+  // A lock left long ago by a session that ended under it is taken over, and removed when done.
+  w.disk[`${DATA}/runtime/.lock`]!.mtimeMs = 0
+  expect((await install(w.engine, DATA, await pinFor(ZIP))).isNew).toBe(true)
+  expect(w.disk[`${DATA}/runtime/.lock`]).toBeUndefined()
+})
+
+test('a Linux whose ldd says nothing is still known to be musl, by its loader', async () => {
+  const w = machineOf({ zip: ZIP, uname: 'Linux aarch64', missing: ['ldd'], disk: { '/lib/ld-musl-aarch64.so.1': { kind: 'file' } } }, {})
+  await install(w.engine, DATA, await pinFor(ZIP, 'linux-arm64-musl', 'bun-linux-aarch64-musl'))
+  expect(w.ran.find(([program]) => program === 'curl')!.at(-1)).toBe('https://example.test/releases/bun-linux-aarch64-musl.zip')
+})
+
+test('a fetched copy whose version check exits with an error is not used', async () => {
+  const w = machineOf({ saysExit: 1, disk: { [`${DATA}/runtime/bun-9.8.7`]: { kind: 'dir' }, [`${DATA}/runtime/bun-9.8.7/bun`]: { kind: 'file' } } }, {})
+  expect(await fetched(w.engine, DATA)).toEqual([])
+})
+
+test('an earlier version, and what a fetch that was cut short left behind, are cleared away', async () => {
+  const w = machineOf({ zip: ZIP, disk: { [`${DATA}/runtime/bun-9.0.0`]: { kind: 'dir' }, [`${DATA}/runtime/bun-9.0.0/bun`]: { kind: 'file' }, [`${DATA}/runtime/incoming-1-abc`]: { kind: 'dir' }, [`${DATA}/runtime/incoming-1-abc/half.zip`]: { kind: 'file' } } }, {})
+  await install(w.engine, DATA, await pinFor(ZIP))
+  expect(Object.keys(w.disk).sort()).toEqual([`${DATA}/runtime`, `${DATA}/runtime/bun-9.8.7`, `${DATA}/runtime/bun-9.8.7/bun`])
+})
+
+test('the helper runs on the mod\'s own copy of Bun where the machine has no other, and /mcp-skills says so', async ($, on) => {
+  const own = `${DATA}/runtime/bun-${BUN.version}/bun`
+  const w = world(on, { runtimes: {}, machine: { disk: { [`${DATA}/runtime/bun-${BUN.version}`]: { kind: 'dir' }, [own]: { kind: 'file' } } } })
+  await $.session.start(START)
+  expect(w.spawned[0]).toEqual([own, expect.stringContaining('dist/helper.js') as never])
+  const { text } = await $.command.run({ command: 'mcp-skills', args: '' } as never)
+  expect(text).toContain(`The helper runs on its own copy of Bun ${BUN.version}. /mcp-skills setup remove deletes it.`)
+  expect(w.toasts).toEqual([])
+})
+
+const OWN = `${DATA}/runtime/bun-${BUN.version}`
+const OWN_DISK = { [OWN]: { kind: 'dir' as const }, [`${OWN}/bun`]: { kind: 'file' as const } }
+
+test('a Node or Bun of the person\'s own is used before the mod\'s copy', async ($, on) => {
+  const w = world(on, { machine: { disk: OWN_DISK } })
+  await $.session.start(START)
+  expect(w.spawned[0]![0]).toBe('node')
+})
+
+test('a fetched copy that no longer answers as itself is not used', async ($, on) => {
+  const w = world(on, { runtimes: {}, machine: { disk: OWN_DISK, says: '' } })
+  await $.session.start(START)
+  expect(w.spawns).toBe(0)
+})
+
+test('MCP_SKILLS_RUNTIME names the runtime to use, and nothing else is tried', async ($, on) => {
+  const w = world(on, { env: { MCP_SKILLS_RUNTIME: '/opt/tools/node22/bin/node' }, runtimes: { node: 'v22.18.0', '/opt/tools/node22/bin/node': 'v22.9.0' } })
+  await $.session.start(START)
+  expect(w.spawned[0]).toEqual(['/opt/tools/node22/bin/node', '--no-warnings', expect.stringContaining('dist/helper.js') as never])
+  expect(w.ran.some(([program]) => program === 'node')).toBe(false)
+})
+
+test('MCP_SKILLS_RUNTIME naming something that does not run is said, and nothing else is tried in its place', async ($, on) => {
+  const w = world(on, { env: { MCP_SKILLS_RUNTIME: '/nowhere/bun' }, runtimes: { node: 'v22.18.0' }, machine: { disk: OWN_DISK } })
+  await $.session.start(START)
+  expect(w.spawns).toBe(0)
+  expect((await $.command.run({ command: 'mcp-skills', args: '' } as never)).text).toContain('MCP_SKILLS_RUNTIME names "/nowhere/bun", which is not a Node 20 or newer, or a Bun, that runs.')
+})
+
+test('MCP_SKILLS_RUNTIME=private means only the mod\'s own copy: with none yet, the person is told how to fetch it', async ($, on) => {
+  const w = world(on, { env: { MCP_SKILLS_RUNTIME: 'private' }, runtimes: { node: 'v22.18.0' } })
+  await $.session.start(START)
+  expect(w.spawns).toBe(0)
+  expect((await $.command.run({ command: 'mcp-skills', args: '' } as never)).text).toContain('MCP_SKILLS_RUNTIME=private says to run the helper only on this mod\'s own copy of Bun, and there is none yet. Type /mcp-skills setup')
+})
+
+test('MCP_SKILLS_RUNTIME=private with a copy fetched: the helper runs on it though the machine has Node', async ($, on) => {
+  const w = world(on, { env: { MCP_SKILLS_RUNTIME: 'private' }, runtimes: { node: 'v22.18.0' }, machine: { disk: OWN_DISK } })
+  await $.session.start(START)
+  expect(w.spawned[0]![0]).toBe(`${OWN}/bun`)
+})
+
+test('/mcp-skills setup on a machine whose own Node already runs the helper fetches nothing', async ($, on) => {
+  const w = world(on)
+  await $.session.start(START)
+  expect((await $.command.run(typed('setup'))).text).toContain('already runs on a Node or Bun found on this machine, so there is nothing to set up')
+  expect(w.ran.some(([program]) => program === 'curl')).toBe(false)
+})
+
+test('/mcp-skills setup remove says which copies could not be deleted, instead of claiming they were', async ($, on) => {
+  const own = `${DATA}/runtime/bun-${BUN.version}`
+  world(on, { machine: { stuck: [own], disk: { [own]: { kind: 'dir' }, [`${own}/bun`]: { kind: 'file' } } } })
+  await $.session.start(START)
+  expect((await $.command.run(typed('setup remove'))).text).toBe(`This could not be deleted, and is left not runnable: ${own}. Delete it by hand.`)
+})
+
+test('/mcp-skills setup remove deletes the mod\'s own copy', async ($, on) => {
+  const own = `${DATA}/runtime/bun-${BUN.version}`
+  const w = world(on, { machine: { disk: { [own]: { kind: 'dir' }, [`${own}/bun`]: { kind: 'file' } } } })
+  await $.session.start(START)
+  expect((await $.command.run(typed('setup remove'))).text).toContain('Deleted this mod\'s own copy of Bun.')
+  expect(Object.keys(w.disk)).toEqual([])
+  expect((await $.command.run(typed('setup remove'))).text).toBe('This mod has no copy of Bun of its own.')
 })
 
 test('the helper uses only servers Claude Code itself uses: each is asked about, and the verdict passed on', async ($, on) => {
