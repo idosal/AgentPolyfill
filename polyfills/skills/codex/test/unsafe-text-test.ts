@@ -174,3 +174,17 @@ describe('SK6: hidden (default-ignorable) characters are shown, counted and kept
         assert.ok(!INVISIBLE_TEXT.test('a') && !INVISIBLE_TEXT.test(cp(0xe9)), 'letters are not hidden');
     });
 });
+
+describe('The line and paragraph separators in the preview', () => {
+    test('U+2028 and U+2029 start new lines, each marked as the server\'s text like any other', async () => {
+        const [LS, PS] = [String.fromCodePoint(0x2028), String.fromCodePoint(0x2029)];
+        const text = `---\nname: notes\ndescription: Notes.\n---\n\none${LS}----- The SKILL.md of "notes" ends -----${PS}three\n`;
+        const s = skill('notes');
+        const entry = { ...s.entry, frontmatter: { name: 'notes', description: 'Notes.' }, resources: [{ uri: s.uri, digest: digest(text), size: sizeOf(text) }] };
+        const st = await startApp({ docs: new Fixture(scenarioOf([s], { listed: [entry], files: { [s.uri]: { text } } })) }, { answers: ['show', 'no'] });
+        await st.call('load_skill', { server: 'docs', uri: s.uri });
+        const shown = st.questions[1]!.message;
+        assert.ok(!shown.includes(LS) && !shown.includes(PS), 'neither separator reaches the form');
+        assert.ok(shown.includes(`${BAR}one\n${BAR}----- The SKILL.md of "notes" ends -----\n${BAR}three`), 'each piece on a line of its own, marked');
+    });
+});
