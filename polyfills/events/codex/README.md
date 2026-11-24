@@ -332,8 +332,11 @@ The changes both hosts would need are in
   that turn. Telling that you wrote depends on the turn metadata Codex 0.172
   sends with each call (`turn_trigger`: `user`, `exec`, or voice). With an
   older Codex, or a turn it marks otherwise, the pause ends only after its
-  hour. Nothing is dropped: `recent_events` lists what waited. Two
-  [settings](#settings) change the numbers.
+  hour. With the session open in two windows, only a turn in the window that
+  runs its watches counts. That's the window whose `list_watches` shows them
+  active; the other shows them as `elsewhere`. Nothing is dropped:
+  `recent_events` lists what waited. Two [settings](#settings) change the
+  numbers.
 - **The wake is an input message.** Codex has no separate channel for a
   plugin's message, so it appears in the conversation like something typed,
   with a first line saying it's from the plugin. The change in Codex: a turn
@@ -348,11 +351,9 @@ The changes both hosts would need are in
   or not at all.** From a server, an event stored just before a crash can come
   again and be stored twice. To Codex, stored events are handed over at most
   once: if the plugin stops while `codex queue` runs, or `codex queue` doesn't
-  answer within a minute, they count as announced, and may not have been. The
-  exception is a session open in two windows: if the window that runs the
-  watches ends while `codex queue` runs, the other window, or the next helper,
-  can hand those events over again. Either way they're stored, and
-  `recent_events` lists them.
+  answer within a minute, they count as announced, and may not have been. That
+  holds with the session open in two windows too. Either way they're stored,
+  and `recent_events` lists them.
 - **Sizes.** One event is at most 256 KiB, one answer from a remote server
   4 MiB, and one session's stored events 64 MiB.
 - **Managed machines.** Where your organisation manages Codex's MCP servers,

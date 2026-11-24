@@ -14,6 +14,13 @@
 
 import { isAllowedUrl, mayFollow, isPrivateHost } from './urls'
 
+/**
+ * Text a registry wrote, for the notes and problems an adapter prints: one line, quoted, with nothing
+ * that shows nothing or changes how text reads, so it can't pass for a line of the adapter's own.
+ */
+const UNSEEN = /[\s\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]|\p{Default_Ignorable_Code_Point}/gu
+export const registryText = (s: string, max: number) => JSON.stringify(s.replace(UNSEEN, ' ').replace(/ +/g, ' ').trim().slice(0, max))
+
 export const CARD_TYPE = 'application/mcp-server-card+json'
 const MAX_REGISTRIES = 3
 const MAX_REFERRALS = 3
@@ -100,7 +107,7 @@ export const search = async (post: Post, text: string, endpoints: readonly strin
           const err = JSON.parse(res.text) as { errorCode?: string; message?: string }
           code = [err.errorCode, err.message].filter(x => typeof x === 'string').join(': ')
         } catch {}
-        call.note = `HTTP ${res.status}${code ? ` (${code.slice(0, 200)})` : ''}`
+        call.note = `HTTP ${res.status}${code ? ` (the registry says ${registryText(code, 200)})` : ''}`
         return
       }
       let body: unknown
@@ -152,10 +159,11 @@ export const search = async (post: Post, text: string, endpoints: readonly strin
           } catch {}
           // §5.3: a referral's url is the search endpoint itself; nothing is appended.
           if (u && mayFollow(u, fromLocal)) referrals.push(u.href)
-          else out.problems.push(`${endpoint}: referral ${String(ref.url).slice(0, 200)} is not HTTPS on a public host; not followed`)
+          else out.problems.push(`${endpoint}: referral ${registryText(String(ref.url), 200)} is not HTTPS on a public host; not followed`)
         }
     } catch (err) {
-      call.note = err instanceof Error ? err.message : String(err)
+      // Fetch errors are this extension's words, or a runtime's, which may quote what the far side sent: one line.
+      call.note = (err instanceof Error ? err.message : String(err)).replace(UNSEEN, ' ').replace(/ +/g, ' ').trim().slice(0, 300)
     }
   }
 
