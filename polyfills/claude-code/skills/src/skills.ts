@@ -120,8 +120,8 @@ export function resolveRef(skillUri: string, ref: string): string {
     if (/[\u0000-\u001f\u007f]/.test(path)) throw new LocalError('a file reference cannot hold control characters');
     path = path.replace(/#.*$/, ''); // a fragment names a place in the file, not another file
     if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(path)) {
-        // A full URI: it has to be this skill's own SKILL.md or lie inside its directory.
-        if (path === skillUri) return skillUri;
+        // A full URI: it has to be this skill's own SKILL.md, its directory, or lie inside that.
+        if (path === skillUri || path === root) return path;
         if (!path.startsWith(`${root}/`)) throw new LocalError('that URI is outside the skill; a skill reads only its own files, from the server that serves it');
         path = path.slice(root.length + 1);
     }
