@@ -13,7 +13,7 @@ import os
 import re
 import sys
 
-CUT = 600
+CUT = int(os.environ.get("SUMMARY_CUT", "600"))
 
 
 def scrub(s: str) -> str:

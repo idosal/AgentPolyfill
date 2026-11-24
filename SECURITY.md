@@ -17,6 +17,7 @@ not protect against:
 | Skills | [SECURITY.md](polyfills/skills/claude-code/SECURITY.md) | [SECURITY.md](polyfills/skills/codex/SECURITY.md) |
 | Server Cards | [SECURITY.md](polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](polyfills/server-cards/codex/SECURITY.md) |
 | ARD | [SECURITY.md](polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](polyfills/ard/codex/SECURITY.md) |
+| Resource links | none needed: [SECURITY.md](polyfills/resource-links/claude-code/SECURITY.md) | [SECURITY.md](polyfills/resource-links/codex/SECURITY.md) |
 
 These are third-party plugins that run in Claude Code or Codex with your
 permissions. They have been reviewed by an AI reviewer that did not build

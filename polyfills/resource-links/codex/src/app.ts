@@ -45,10 +45,10 @@ export class App {
             const answer = await ask(d.question);
             if (!('yes' in answer) || !answer.yes) {
                 const why = 'yes' in answer ? 'The user did not allow it (or Codex declined the question, as it does in codex exec)' : `The user could not be asked (${answer.unavailable})`;
-                this.log(`cross-server read of ${uri} from ${server}: ${'yes' in answer ? 'no' : answer.unavailable}`);
+                this.log(`cross-server read of ${uri} from ${server}: ${'yes' in answer ? 'not allowed (the user said no, or Codex declined the question)' : `not asked (${answer.unavailable})`}`);
                 return fail(`${why}, so ${oneLine(uri, 300)} is not read from ${oneLine(server, 80)}: the link came from ${oneLine(d.link.server, 80)}, a different server.`);
             }
-            this.log(`cross-server read of ${uri} from ${server}: the user said yes`);
+            this.log(`cross-server read of ${uri} from ${server}: the user allowed it`);
         }
         const r = await this.o.reader.read(d.from, uri, session.thread);
         if ('error' in r) {

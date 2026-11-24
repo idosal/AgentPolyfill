@@ -1,0 +1,81 @@
+# The resource-links polyfill for Codex (polyfills/resource-links/codex, plugin
+# mcp-resource-links), on any change in its folder, in the core it uses
+# (polyfills/resource-links/core), or in the shared notices tool:
+# - the rules, the hook, the plugin's server and its reader, with a typecheck of the
+#   adapter and the core, on Linux, macOS and Windows;
+# - the bundle is what src/ builds, and its notices are up to date;
+# - the plugin's manifests are valid JSON.
+# The plugin isn't in a marketplace yet; when it is, add the marketplace check the
+# other Codex plugins' workflows have.
+
+name: "mcp-resource-links (Codex): tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/resource-links/codex/**"
+      - "polyfills/resource-links/core/**"
+      - "tools/bundle-notices.mjs"
+      - ".github/workflows/codex-resource-links-test.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see each job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/resource-links/codex/**"
+      - "polyfills/resource-links/core/**"
+      - "tools/bundle-notices.mjs"
+      - ".github/workflows/codex-resource-links-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codex-resource-links-test-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: polyfills/resource-links/codex
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm ci
+        working-directory: polyfills/resource-links/core
+      - run: npm run typecheck
+      - run: npm run typecheck
+        working-directory: polyfills/resource-links/core
+      - name: Third-party notices for the bundle are up to date
+        run: node ../../../tools/bundle-notices.mjs . --check
+      - run: npm test
+
+  manifests:
+    name: manifests
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Manifests are valid JSON
+        run: |
+          for file in polyfills/resource-links/codex/mod/.codex-plugin/plugin.json polyfills/resource-links/codex/mod/.mcp.json polyfills/resource-links/codex/mod/hooks/hooks.json; do
+            jq -e . "$file" >/dev/null || { echo "::error file=$file::not valid JSON"; exit 1; }
+          done
+      - name: plugin.json and package.json agree on the version
+        run: |
+          [ "$(jq -r .version polyfills/resource-links/codex/mod/.codex-plugin/plugin.json)" = "$(jq -r .version polyfills/resource-links/codex/package.json)" ] || { echo "::error::plugin.json and package.json disagree on the version"; exit 1; }

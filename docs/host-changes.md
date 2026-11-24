@@ -110,6 +110,10 @@ do.
 Changes 1 and 2 are enough for Events (by poll and webhook) and for Skills to
 work with every server you've signed in to, in either host.
 
+Resource links (a core-spec feature, not an extension) need none of the four.
+Codex's `mcpServer/resource/read` already reads over Codex's connection, and
+Claude Code reads links itself. What's missing is smaller, and listed below.
+
 Server Cards doesn't need any of the four to work. A card is a public document
 you read before connecting, and the server it describes is added to the host's
 own configuration, so the host connects it with its own sign-in. Changes 1 and
@@ -125,6 +129,16 @@ the live server.
   flattened to text. Its MIME type is lost, and so is
   `annotations.audience`, so content a server marked for the user only still
   reaches the model.
+- **Show a resource link whole.** A `resource_link` in a tool result reaches
+  the model as `[Resource link: name] uri (description)`. The MIME type, size,
+  title and annotations are dropped, so the model can't tell a link is an
+  image, or that its server meant it for the user only (`audience: ["user"]`),
+  and reads it anyway.
+- **Ask before following a link to another server.** `ReadMcpResourceTool`
+  reads any server's resource with nothing asked, so one server's link can
+  have the model read another server's resource. Claude Code knows which
+  server's tool returned the link, so it could ask when the read goes
+  elsewhere.
 - **Let a registered tool return more than text.** A tool a mod registers can
   only answer in text today, so structured answers have to be written out as
   JSON.
@@ -133,6 +147,25 @@ the live server.
 
 ### In Codex
 
+- **Give the model images from `read_mcp_resource` as images.** Today an image
+  resource comes back as base64 inside a JSON string, and the model sees the
+  picture only if it turns that into a `data:` URL in code mode. Two of three
+  models tried didn't, and one described an image it never saw. Returning an
+  MCP `image` block, as for a tool's own images, would retire the resource
+  links polyfill for Codex.
+- **Drop "Must be one of the URIs returned by list_mcp_resources"** from
+  `read_mcp_resource`'s description. A resource a tool links to need not be
+  listed (Tools > Resource Links), and the sentence made a model give up on a
+  link.
+- **Ask before following a link to another server, and honour `audience`.**
+  As in Claude Code: `read_mcp_resource` reads any server's resource with
+  nothing asked, including a resource a server marked for the user only.
+- **Let a plugin read through a `codex exec` session's connection.**
+  `mcpServer/resource/read` with a thread id works only on the app server
+  that has the thread, and an exec session's isn't reachable. So under exec,
+  the resource links polyfill reads through a fresh connection, and a
+  resource that lives only in the session's connection to a local server
+  can't be read.
 - **Give plugins a scope on the daemon.** Any local process that can reach the
   app-server socket can drive every session. A plugin should only reach its
   own threads and its own servers.
