@@ -3,7 +3,7 @@
 // WebSocket to its server (the one local address a view may reach), keeps it
 // 3 s, then closes it.
 //   MCP_APPS_CLI_HELPER=<binary> node network-check.mjs
-import { spawn } from "node:child_process";
+import { spawn } from "./answer-checks.mjs";
 import crypto from "node:crypto";
 import http from "node:http";
 import path from "node:path";

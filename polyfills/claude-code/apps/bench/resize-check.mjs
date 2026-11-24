@@ -4,7 +4,7 @@
 // its bottom (the legend) not left grey. Exits 1 on a bad picture.
 //
 //   node resize-check.mjs [N]      (MAXROWS=36 shrinks the app to fit)
-import { spawn } from "node:child_process";
+import { spawn } from "./answer-checks.mjs";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";

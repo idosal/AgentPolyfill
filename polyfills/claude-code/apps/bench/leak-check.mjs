@@ -3,7 +3,8 @@
 // removes its own. Prints what's left at each step.
 //
 //   node leak-check.mjs
-import { execSync, spawn } from "node:child_process";
+import { execSync } from "node:child_process";
+import { spawn } from "./answer-checks.mjs";
 import http from "node:http";
 import fs from "node:fs";
 import os from "node:os";

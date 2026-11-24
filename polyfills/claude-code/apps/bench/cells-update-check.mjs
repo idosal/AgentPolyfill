@@ -5,7 +5,7 @@
 //
 //   OPEN_COLS=100 COLORTERM=truecolor node cells-update-check.mjs [N]
 //   (or MCP_APPS_CLI_LINES=1 without full colour)
-import { spawn } from "node:child_process";
+import { spawn } from "./answer-checks.mjs";
 import http from "node:http";
 import path from "node:path";
 import fs from "node:fs";

@@ -1,35 +1,162 @@
 //! The helper's own MCP connections (rmcp): it reads each server's tools and
 //! UI resources, and calls app-only tools, which Claude Code doesn't
 //! register. It says it renders MCP Apps, so servers that check offer them.
+//!
+//! Each request it writes to a server goes on a yes from Claude Code asked
+//! for that request (from 0.1.3): the mod's answer to the app's own request
+//! just before, or a check asked now (`verdict.rs`). A yes older than the
+//! server's last revocation is refused, and a revocation cancels what is in
+//! flight to the server and closes the connection (model/AppsViews.tla,
+//! FixAtSend and FixRevoke).
 
 use std::collections::{BTreeMap, HashMap};
+use std::future::Future;
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::Arc;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result, anyhow, bail};
 use rmcp::ServiceExt;
 use rmcp::model::{ClientCapabilities, ClientConfig, Implementation};
 use rmcp::service::{RoleClient, RunningService};
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use rmcp::transport::{ConfigureCommandExt, StreamableHttpClientTransport, TokioChildProcess};
 use serde_json::{Map, Value, json};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, watch};
 
 use crate::Args;
 use crate::config;
+use crate::out::emit;
 
 type Client = Arc<RunningService<RoleClient, ClientConfig>>;
+
+/// Asks whether Claude Code uses a server now: the epoch of its yes, or None.
+pub type Asker = Arc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Option<u64>> + Send>> + Send + Sync>;
+
+/// Per server: the newest revocation the mod sent (its epoch, 0 for none),
+/// and how many requests to it are in flight.
+struct Gate {
+    revoked: watch::Sender<u64>,
+    busy: usize,
+}
 
 pub struct Clients {
     args: Args,
     cwd: PathBuf,
     open: Mutex<HashMap<String, (Client, &'static str)>>,
     discovered: Mutex<HashMap<String, Value>>,
+    gates: std::sync::Mutex<HashMap<String, Gate>>,
+    ask: Asker,
+}
+
+/// One request in flight to a server: counted while it lasts, and the mod
+/// told when the helper starts and stops waiting on the server ("busy").
+struct InFlight<'a> {
+    clients: &'a Clients,
+    server: String,
+}
+
+impl Drop for InFlight<'_> {
+    fn drop(&mut self) {
+        let idle = {
+            let mut gates = self.clients.gates.lock().unwrap();
+            let gate = gates.get_mut(&self.server).expect("a gate for a request in flight");
+            gate.busy -= 1;
+            gate.busy == 0
+        };
+        if idle {
+            emit(&json!({"type": "busy", "server": self.server, "busy": false}));
+        }
+    }
 }
 
 impl Clients {
     pub fn new(args: Args, cwd: PathBuf) -> Self {
-        Self { args, cwd, open: Mutex::new(HashMap::new()), discovered: Mutex::new(HashMap::new()) }
+        Self::with_asker(args, cwd, Arc::new(|server: String| Box::pin(async move { crate::verdict::ask(&server).await })))
+    }
+
+    pub fn with_asker(args: Args, cwd: PathBuf, ask: Asker) -> Self {
+        Self {
+            args,
+            cwd,
+            open: Mutex::new(HashMap::new()),
+            discovered: Mutex::new(HashMap::new()),
+            gates: std::sync::Mutex::new(HashMap::new()),
+            ask,
+        }
+    }
+
+    /// The newest revocation the mod sent for `server` (0: none).
+    pub fn revocation(&self, server: &str) -> u64 {
+        self.gates.lock().unwrap().get(server).map_or(0, |gate| *gate.revoked.borrow())
+    }
+
+    /// Claude Code's yes for one request to `server`: `given` (the mod's
+    /// answer to the app's own request, just before) or asked now. Refused if
+    /// older than the server's last revocation.
+    async fn admit(&self, server: &str, given: Option<u64>) -> Result<u64> {
+        let epoch = match given {
+            Some(epoch) => epoch,
+            None => (self.ask)(server.to_string()).await.ok_or_else(|| anyhow!("Claude Code is not using MCP server \"{server}\" now"))?,
+        };
+        if epoch < self.revocation(server) {
+            bail!("Claude Code stopped using MCP server \"{server}\"");
+        }
+        Ok(epoch)
+    }
+
+    /// Runs `work`, one request to `server` on the yes of `epoch`, unless or
+    /// until a revocation newer than that yes comes: then it is dropped (with
+    /// the connection it was on, see `revoke`) and fails.
+    async fn guarded<T>(&self, server: &str, epoch: u64, work: impl Future<Output = Result<T>>) -> Result<T> {
+        let (mut revoked, first) = {
+            let mut gates = self.gates.lock().unwrap();
+            let gate = gates.entry(server.to_string()).or_insert_with(|| Gate { revoked: watch::Sender::new(0), busy: 0 });
+            gate.busy += 1;
+            (gate.revoked.subscribe(), gate.busy == 1)
+        };
+        let _in_flight = InFlight { clients: self, server: server.to_string() };
+        if first {
+            emit(&json!({"type": "busy", "server": server, "busy": true}));
+        }
+        if *revoked.borrow_and_update() > epoch {
+            bail!("Claude Code stopped using MCP server \"{server}\"");
+        }
+        tokio::select! {
+            result = work => result,
+            _ = revoked.wait_for(|newest| *newest > epoch) => Err(anyhow!("Claude Code stopped using MCP server \"{server}\"")),
+        }
+    }
+
+    /// The mod's word that Claude Code stopped using `server` (/revoke, with
+    /// the mod's count of noes for it): what is in flight to it fails at once,
+    /// its connection closes (a stdio server the helper started is stopped;
+    /// over streamable HTTP, rmcp ends the session with its DELETE), its tools
+    /// are forgotten, and a yes older than `epoch` is refused from now on. An
+    /// older revocation than one already had changes nothing.
+    pub async fn revoke(&self, server: &str, epoch: u64) -> bool {
+        let newer = {
+            let mut gates = self.gates.lock().unwrap();
+            let gate = gates.entry(server.to_string()).or_insert_with(|| Gate { revoked: watch::Sender::new(0), busy: 0 });
+            gate.revoked.send_if_modified(|newest| {
+                let newer = epoch > *newest;
+                if newer {
+                    *newest = epoch;
+                }
+                newer
+            })
+        };
+        if !newer {
+            return false;
+        }
+        // Its requests in flight are woken first, so one connecting (which
+        // holds this lock) lets go of it.
+        let closed = self.open.lock().await.remove(server);
+        self.discovered.lock().await.remove(server);
+        if let Some((client, _)) = closed {
+            client.cancellation_token().cancel();
+        }
+        true
     }
 
     /// The entry Claude Code would use for `server`, or why none is used
@@ -38,21 +165,42 @@ impl Clients {
         config::resolve(&self.args, &self.cwd, server).map_err(|why| anyhow!("not using MCP server \"{server}\": {why}"))
     }
 
-    /// The connection to `server`, made the first time it's asked for, and
-    /// the scope its config came from.
-    async fn client_and_scope(&self, server: &str) -> Result<(Client, &'static str)> {
-        let mut open = self.open.lock().await;
-        if let Some(found) = open.get(server) {
+    /// The connection to `server`, and the scope its config came from. One
+    /// made now (its handshake is a request too) goes on a yes of its own,
+    /// `given` if there is one: used up then.
+    async fn client_and_scope(&self, server: &str, given: &mut Option<u64>) -> Result<(Client, &'static str)> {
+        if let Some(found) = self.open.lock().await.get(server) {
             return Ok(found.clone());
         }
+        // The config gate first: a name it refuses is never asked about.
         let entry = self.entry(server)?;
-        let client = Arc::new(connect(&entry.config, &self.cwd).await.with_context(|| format!("connecting to {server}"))?);
-        open.insert(server.to_string(), (client.clone(), entry.scope));
-        Ok((client, entry.scope))
+        let epoch = self.admit(server, given.take()).await?;
+        self.guarded(server, epoch, async {
+            let mut open = self.open.lock().await;
+            if let Some(found) = open.get(server) {
+                return Ok(found.clone());
+            }
+            if self.revocation(server) > epoch {
+                bail!("Claude Code stopped using MCP server \"{server}\"");
+            }
+            let client = Arc::new(connect(&entry.config, &self.cwd).await.with_context(|| format!("connecting to {server}"))?);
+            open.insert(server.to_string(), (client.clone(), entry.scope));
+            Ok((client, entry.scope))
+        })
+        .await
     }
 
-    pub async fn client(&self, server: &str) -> Result<Client> {
-        Ok(self.client_and_scope(server).await?.0)
+    /// One request to `server` (`op` on its connection), on a yes of its own:
+    /// `given` if the connection was there already, else asked now.
+    async fn request<T, F, Fut>(&self, server: &str, given: Option<u64>, op: F) -> Result<(T, &'static str)>
+    where
+        F: FnOnce(Client) -> Fut,
+        Fut: Future<Output = Result<T>>,
+    {
+        let mut given = given;
+        let (client, scope) = self.client_and_scope(server, &mut given).await?;
+        let epoch = self.admit(server, given).await?;
+        Ok((self.guarded(server, epoch, op(client)).await?, scope))
     }
 
     /// The server's tools, as the mod and the views need them: those with a
@@ -64,8 +212,7 @@ impl Clients {
                 return Ok(found.clone());
             }
         }
-        let (client, scope) = self.client_and_scope(server).await?;
-        let tools = client.list_all_tools().await.map_err(|e| anyhow!("{e}"))?;
+        let (tools, scope) = self.request(server, None, |client| async move { client.list_all_tools().await.map_err(|e| anyhow!("{e}")) }).await?;
         let mut with_ui = Map::new();
         let mut visibility = Map::new();
         let mut definitions = Map::new();
@@ -132,20 +279,31 @@ impl Clients {
         }
     }
 
-    pub async fn call_tool(&self, server: &str, params: Value) -> Result<Value> {
-        Ok(serde_json::to_value(self.client(server).await?.call_tool(serde_json::from_value(params)?).await?)?)
+    // `given`: the epoch of the mod's yes to the app's own request just
+    // before (ui/allow-tool, ui/allow-read); none: asked now.
+
+    pub async fn call_tool(&self, server: &str, params: Value, given: Option<u64>) -> Result<Value> {
+        let params = serde_json::from_value(params)?;
+        let (result, _) = self.request(server, given, |client| async move { Ok(client.call_tool(params).await?) }).await?;
+        Ok(serde_json::to_value(result)?)
     }
 
-    pub async fn read_resource(&self, server: &str, params: Value) -> Result<Value> {
-        Ok(serde_json::to_value(self.client(server).await?.read_resource(serde_json::from_value(params)?).await?)?)
+    pub async fn read_resource(&self, server: &str, params: Value, given: Option<u64>) -> Result<Value> {
+        let params = serde_json::from_value(params)?;
+        let (result, _) = self.request(server, given, |client| async move { Ok(client.read_resource(params).await?) }).await?;
+        Ok(serde_json::to_value(result)?)
     }
 
-    pub async fn list_resources(&self, server: &str, params: Value) -> Result<Value> {
-        Ok(serde_json::to_value(self.client(server).await?.list_resources(serde_json::from_value(params)?).await?)?)
+    pub async fn list_resources(&self, server: &str, params: Value, given: Option<u64>) -> Result<Value> {
+        let params = serde_json::from_value(params)?;
+        let (result, _) = self.request(server, given, |client| async move { Ok(client.list_resources(params).await?) }).await?;
+        Ok(serde_json::to_value(result)?)
     }
 
-    pub async fn list_resource_templates(&self, server: &str, params: Value) -> Result<Value> {
-        Ok(serde_json::to_value(self.client(server).await?.list_resource_templates(serde_json::from_value(params)?).await?)?)
+    pub async fn list_resource_templates(&self, server: &str, params: Value, given: Option<u64>) -> Result<Value> {
+        let params = serde_json::from_value(params)?;
+        let (result, _) = self.request(server, given, |client| async move { Ok(client.list_resource_templates(params).await?) }).await?;
+        Ok(serde_json::to_value(result)?)
     }
 }
 
@@ -169,7 +327,7 @@ fn client_info() -> ClientConfig {
     let mut ui = serde_json::Map::new();
     ui.insert("mimeTypes".into(), json!(["text/html;profile=mcp-app"]));
     capabilities.extensions = Some(BTreeMap::from([("io.modelcontextprotocol/ui".to_string(), ui)]));
-    ClientConfig::new(capabilities, Implementation::new("mcp-apps-cli", "0.1.2"))
+    ClientConfig::new(capabilities, Implementation::new("mcp-apps-cli", "0.1.3"))
 }
 
 async fn connect(config: &Value, cwd: &PathBuf) -> Result<RunningService<RoleClient, ClientConfig>> {

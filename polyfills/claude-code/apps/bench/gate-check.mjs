@@ -15,7 +15,7 @@
 // macOS and Linux (the planted commands are /bin/sh). Prints PASS or FAIL per
 // check; exits 1 on a failure. Writes only in the system's temporary folder.
 
-import { spawn } from "node:child_process";
+import { spawn } from "./answer-checks.mjs";
 import fs from "node:fs";
 import http from "node:http";
 import net from "node:net";

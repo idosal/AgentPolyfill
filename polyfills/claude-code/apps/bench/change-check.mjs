@@ -10,7 +10,7 @@
 // redraw made while the view showed became a picture within 600 ms (a poll's
 // wait and a capture), FAIL (exit 1) otherwise.
 
-import { spawn } from "node:child_process";
+import { spawn } from "./answer-checks.mjs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";

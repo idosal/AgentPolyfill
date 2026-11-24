@@ -14,7 +14,8 @@
 // the helper's own memory, idle and with Chrome running. Prints PASS or FAIL
 // per check; exits 1 on a failure.
 
-import { execSync, spawn } from "node:child_process";
+import { execSync } from "node:child_process";
+import { spawn } from "./answer-checks.mjs";
 import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";

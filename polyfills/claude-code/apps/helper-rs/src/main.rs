@@ -21,6 +21,7 @@ mod seams;
 mod store;
 mod lines;
 mod snap;
+mod verdict;
 mod views;
 #[cfg(windows)]
 mod win;
