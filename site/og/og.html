@@ -1,0 +1,107 @@
+<!doctype html>
+<!--
+  The link-preview image (og:image), 1200 x 630. Render it with
+  `node og/render.mjs`, which writes public/og.jpg. The frame on the right is a
+  real one: the launch video's poster (DOOM under an MCP App tool call).
+  X lays its own label over the bottom-left corner, so nothing sits there.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+  @font-face {
+    font-family: 'Schibsted Grotesk';
+    src: url('../node_modules/@fontsource-variable/schibsted-grotesk/files/schibsted-grotesk-latin-wght-normal.woff2') format('woff2');
+    font-weight: 400 900;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1200px; height: 630px; }
+  body {
+    position: relative;
+    overflow: hidden;
+    background: #101412;
+    color: #e7ece9;
+    font-family: 'Schibsted Grotesk', system-ui, sans-serif;
+  }
+  .text {
+    position: absolute;
+    left: 72px;
+    top: 64px;
+    width: 600px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .brand svg { width: 64px; height: 64px; flex: none; }
+  .name {
+    font-size: 60px;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: #5ccfa8;
+  }
+  h1 {
+    margin-top: 40px;
+    font-size: 44px;
+    line-height: 1.15;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+  .what {
+    margin-top: 22px;
+    font-size: 25px;
+    line-height: 1.4;
+    color: #a9b4af;
+  }
+  .install {
+    margin-top: 34px;
+    display: inline-block;
+    padding: 12px 16px;
+    border: 1px solid #2a332f;
+    border-radius: 10px;
+    background: #161c19;
+    font: 500 14.5px/1.2 ui-monospace, 'SF Mono', Menlo, monospace;
+    white-space: nowrap;
+    color: #d5ddd9;
+  }
+  .shot {
+    position: absolute;
+    right: -40px;
+    top: 112px;
+    width: 520px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid #2a332f;
+    box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.8);
+  }
+  .shot img { display: block; width: 100%; }
+  .url {
+    position: absolute;
+    right: 72px;
+    bottom: 48px;
+    font-size: 24px;
+    font-weight: 600;
+    color: #e7ece9;
+  }
+</style>
+</head>
+<body>
+  <div class="text">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <defs><mask id="shim"><rect width="24" height="24" fill="#fff"/><path d="M15.2 19.8 19.8 15.2" stroke="#000" stroke-width="1.7" stroke-linecap="round"/></mask></defs>
+        <g fill="none" stroke="#e7ece9" stroke-width="1.6"><rect x="2.3" y="2.3" width="8.4" height="8.4" rx="2"/><rect x="13.3" y="2.3" width="8.4" height="8.4" rx="2"/><rect x="2.3" y="13.3" width="8.4" height="8.4" rx="2"/></g>
+        <rect x="12.5" y="12.5" width="10" height="10" rx="2.6" fill="#5ccfa8" mask="url(#shim)"/>
+      </svg>
+      <div class="name">AgentPolyfill</div>
+    </div>
+    <h1>Open agent extensions, in the host you already have.</h1>
+    <p class="what">MCP Events, Apps, Skills and Server Cards, as plugins for Claude Code and Codex.</p>
+    <div class="install">/plugin install agent-polyfill --marketplace idosal/AgentPolyfill</div>
+  </div>
+  <div class="shot"><img src="../public/media/p/launch-poster-960.webp" alt="" /></div>
+  <div class="url">agentpolyfill.com</div>
+</body>
+</html>

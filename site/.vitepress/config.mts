@@ -1,7 +1,16 @@
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vitepress'
 
 const repo = 'https://github.com/idosal/AgentPolyfill'
 const site = 'https://agentpolyfill.com'
+// The link-preview card (og/og.html, rendered to public/og.jpg). Its hash is in
+// the URL, so services that cached an older card fetch the new one.
+const ogVersion = createHash('sha256')
+  .update(readFileSync(new URL('../public/og.jpg', import.meta.url)))
+  .digest('hex')
+  .slice(0, 12)
+const ogImage = `${site}/og.jpg?v=${ogVersion}`
 const description =
   'Open agent extensions, in the host you already have. Plugins for Claude Code and Codex that add MCP Events, Apps, Skills and Server Cards.'
 
@@ -19,8 +28,18 @@ export default defineConfig({
     ['meta', { property: 'og:site_name', content: 'AgentPolyfill' }],
     ['meta', { property: 'og:title', content: 'AgentPolyfill' }],
     ['meta', { property: 'og:description', content: description }],
-    ['meta', { property: 'og:image', content: `${site}/media/launch-poster.jpg` }],
+    ['meta', { property: 'og:url', content: site }],
+    ['meta', { property: 'og:image', content: ogImage }],
+    ['meta', { property: 'og:image:width', content: '1200' }],
+    ['meta', { property: 'og:image:height', content: '630' }],
+    ['meta', { property: 'og:image:alt', content: 'AgentPolyfill: open agent extensions, in the host you already have. MCP Events, Apps, Skills and Server Cards, as plugins for Claude Code and Codex.' }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:title', content: 'AgentPolyfill' }],
+    ['meta', { name: 'twitter:description', content: description }],
+    ['meta', { name: 'twitter:image', content: ogImage }],
+    // Without JavaScript, the launch video's poster image would cover its
+    // controls; hide it, and the browser's own controls show.
+    ['noscript', {}, '<style>.ap-launch .poster{display:none}</style>'],
   ],
 
   sitemap: { hostname: site },
@@ -30,10 +49,14 @@ export default defineConfig({
   vite: { server: { fs: { allow: ['..'] } } },
 
   // Each page's Markdown copy, written by scripts/agents.mjs after the build.
-  transformHead({ pageData }) {
-    if (pageData.isNotFound || pageData.relativePath === '404.md') return []
+  transformHead({ pageData, assets }) {
+    // The text face, fetched with the CSS rather than after it.
+    const font = assets.find((a) => /schibsted-grotesk-latin-wght-normal\.[\w-]+\.woff2$/.test(a))
+    const preload = font ? [['link', { rel: 'preload', href: font, as: 'font', type: 'font/woff2', crossorigin: '' }]] : []
+    if (pageData.isNotFound || pageData.relativePath === '404.md') return preload
     const page = pageData.relativePath.replace(/\.md$/, '')
     return [
+      ...preload,
       ['link', { rel: 'alternate', type: 'text/markdown', href: `/${page}.md`, title: 'This page as Markdown' }],
       ['link', { rel: 'alternate', type: 'text/plain', href: '/llms.txt', title: 'llms.txt' }],
     ]
