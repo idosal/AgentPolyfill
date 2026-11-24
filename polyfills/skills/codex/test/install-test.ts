@@ -18,6 +18,13 @@ type Json = Record<string, unknown>;
 const running: ChildProcess[] = [];
 after(() => running.forEach((c) => c.kill()));
 
+/**
+ * The small environment Codex starts a plugin's MCP server with (as in helper-test.ts), with the
+ * test's own home folder: HOME, and on Windows USERPROFILE.
+ */
+const CODEX_ENV = ['PATH', 'USER', 'SHELL', 'LANG', 'TMPDIR', 'SYSTEMROOT', 'SystemRoot', 'SYSTEMDRIVE', 'TEMP', 'TMP', 'APPDATA', 'LOCALAPPDATA', 'COMSPEC', 'PATHEXT'];
+const codexEnv = (home: string): Record<string, string> => ({ ...Object.fromEntries(CODEX_ENV.flatMap((k) => (process.env[k] === undefined ? [] : [[k, process.env[k]!]]))), HOME: home, USERPROFILE: home });
+
 /** Every SKILL.md under a folder, as paths relative to it. */
 const skillFiles = (dir: string): string[] => (existsSync(dir) ? readdirSync(dir, { recursive: true }).map(String).filter((p) => p.endsWith('SKILL.md')) : []);
 /** The served stubs in the skill roots Codex reads for this home: the user's and the plugin's. */
@@ -57,7 +64,7 @@ describe('installed by Codex', () => {
         };
         install();
         // Started as Codex starts it: from the installed folder, with a small environment, no overrides.
-        const env = { PATH: process.env.PATH ?? '', HOME: home, USERPROFILE: home, ...(process.env.SYSTEMROOT ? { SYSTEMROOT: process.env.SYSTEMROOT } : {}) };
+        const env = codexEnv(home);
         const helper = spawn(process.execPath, ['./dist/helper.js'], { cwd: installed, env, stdio: ['pipe', 'pipe', 'ignore'] });
         running.push(helper);
         helper.stdin!.write(`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: { elicitation: { form: {} } }, clientInfo: { name: 'codex-mcp-client', version: '0.172.0' } } })}\n`);
@@ -79,7 +86,7 @@ describe('installed by Codex', () => {
         const { home, codexHome } = homes();
         const installed = join(codexHome, 'plugins', 'cache', 'agent-polyfill', 'mcp-skills', VERSION);
         cpSync(join(ROOT, 'mod'), installed, { recursive: true });
-        const env = { PATH: process.env.PATH ?? '', HOME: home, USERPROFILE: home, ...(process.env.SYSTEMROOT ? { SYSTEMROOT: process.env.SYSTEMROOT } : {}) };
+        const env = codexEnv(home);
         const helper = spawn(process.execPath, ['./dist/helper.js'], { cwd: installed, env, stdio: ['pipe', 'pipe', 'ignore'] });
         running.push(helper);
         let buf = '';

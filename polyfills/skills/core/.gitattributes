@@ -1,0 +1,3 @@
+# One line ending everywhere, as in the two adapters: both bundle these files, and each bundle is
+# compared byte for byte with a fresh build, which a checkout with Windows line endings could change.
+* text=auto eol=lf
