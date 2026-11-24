@@ -26,13 +26,15 @@ hero:
 
 <div class="ap-home"><div class="wrap">
 
+<p class="poc"><strong>An early proof of concept.</strong> It works today, and it has real gaps. Events, Skills and Apps can't reach servers behind OAuth yet, Apps doesn't run in Codex, and a few spec rules can't be met from a plugin. Each gap comes from what the hosts' plugin APIs expose, not from the specs, and small, generic changes to those APIs would close them: <a href="/guide/how-it-works#how-it-works-in-each-host-and-where-it-stops">what hosts would need to change</a>.</p>
+
 <section aria-label="The launch video">
   <LaunchVideo />
 </section>
 
 <section>
   <h2>The polyfills</h2>
-  <p class="lede">Each one implements an MCP extension's client side, to spec, and steps aside once the host ships its own. Servers don't change. All of them are early, and Events, Skills and Apps can't reach servers behind OAuth yet (<a href="/guide/how-it-works#how-it-works-in-each-host-and-where-it-stops">why</a>).</p>
+  <p class="lede">Each one implements an MCP extension's client side, to spec, and steps aside once the host ships its own. Servers don't change.</p>
   <PolyfillCards />
   <h3 class="beyond">Beyond MCP</h3>
   <PolyfillCards group="beyond" />
