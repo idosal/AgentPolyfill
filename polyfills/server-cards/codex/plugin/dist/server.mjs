@@ -1482,7 +1482,8 @@ var choiceSchema = (protocol, choices) => {
   return { type: "object", properties: { decision }, required: ["decision"] };
 };
 async function askPerson(ctx, message, yes, no) {
-  if (!ctx.canElicit) return { why: "this Codex client offers no form to ask the person (MCP elicitation)" };
+  const codex = host.name === "Codex";
+  if (!ctx.canElicit) return { why: `this ${host.name} client offers no form to ask the person (MCP elicitation)` };
   let answer;
   try {
     answer = await ctx.elicit(message, choiceSchema(ctx.protocol, [no, yes]));
@@ -1490,8 +1491,8 @@ async function askPerson(ctx, message, yes, no) {
     return { why: `the person could not be asked (${err instanceof Error ? err.message : String(err)})` };
   }
   if (answer.action === "decline")
-    return { why: "the form was declined, by the person or by Codex itself where nobody can be asked (codex exec, --ask-for-approval never)" };
-  if (answer.action !== "accept") return { why: "the form was closed without an answer, by the person or by Codex where nobody can be asked (codex exec)" };
+    return { why: `the form was declined, by the person or by ${host.name} itself where nobody can be asked${codex ? " (codex exec, --ask-for-approval never)" : ""}` };
+  if (answer.action !== "accept") return { why: `the form was closed without an answer, by the person or by ${host.name} where nobody can be asked${codex ? " (codex exec)" : ""}` };
   const decision = answer.content?.decision;
   if (decision === yes.value) return { ok: true };
   if (decision === no.value) return { why: `the person chose "${no.title}"` };

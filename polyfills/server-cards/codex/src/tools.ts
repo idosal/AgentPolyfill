@@ -5,7 +5,7 @@
 
 import { plainText, type ServerCard } from '../../claude-code/mod/hooks/card'
 import { discover, parseTarget, type Deps, type Discovery, type DiscoverOptions } from '../../claude-code/mod/hooks/discover'
-import { hostOf } from '../../claude-code/mod/hooks/configure'
+import { host, hostOf } from '../../claude-code/mod/hooks/configure'
 import { formatDiscovery } from '../../claude-code/mod/hooks/format'
 import type { Offered } from '../../claude-code/mod/hooks/offer'
 import { configPath, isNameTaken, planForCodex, writeEntry, type CodexPlan, type Run } from './codex'
@@ -45,7 +45,9 @@ export const choiceSchema = (protocol: string, choices: readonly Choice[]) => {
  * any other value is no. Refused when the client offers no form.
  */
 export async function askPerson(ctx: CallContext, message: string, yes: Choice, no: Choice): Promise<{ ok: true } | { why: string }> {
-  if (!ctx.canElicit) return { why: 'this Codex client offers no form to ask the person (MCP elicitation)' }
+  // Codex's words name its modes where nobody can be asked; another host's form (polyfills/server-cards/copilot) says its own name.
+  const codex = host.name === 'Codex'
+  if (!ctx.canElicit) return { why: `this ${host.name} client offers no form to ask the person (MCP elicitation)` }
   let answer
   try {
     answer = await ctx.elicit(message, choiceSchema(ctx.protocol, [no, yes]))
@@ -53,8 +55,8 @@ export async function askPerson(ctx: CallContext, message: string, yes: Choice, 
     return { why: `the person could not be asked (${err instanceof Error ? err.message : String(err)})` }
   }
   if (answer.action === 'decline')
-    return { why: 'the form was declined, by the person or by Codex itself where nobody can be asked (codex exec, --ask-for-approval never)' }
-  if (answer.action !== 'accept') return { why: 'the form was closed without an answer, by the person or by Codex where nobody can be asked (codex exec)' }
+    return { why: `the form was declined, by the person or by ${host.name} itself where nobody can be asked${codex ? ' (codex exec, --ask-for-approval never)' : ''}` }
+  if (answer.action !== 'accept') return { why: `the form was closed without an answer, by the person or by ${host.name} where nobody can be asked${codex ? ' (codex exec)' : ''}` }
   const decision = answer.content?.decision
   if (decision === yes.value) return { ok: true }
   if (decision === no.value) return { why: `the person chose "${no.title}"` }

@@ -6,8 +6,13 @@
 //
 //   node tools/bundle-notices.mjs polyfills/events/claude-code [--check]
 //   node tools/bundle-notices.mjs polyfills/events/codex --plugin plugin [--check]
+//   node tools/bundle-notices.mjs polyfills/events/copilot --plugin plugin --entry src/extension.ts \
+//       --bundle plugin/extensions/mcp-events/extension.mjs [--check]
 //
 // --plugin names the installed folder when it is not mod/ (a Codex plugin's).
+// --bundle names the bundled file in the header, when it is not <plugin>/dist/helper.js.
+// --entry names the bundle's entry when it is not src/helper.ts (a Copilot extension's). The
+// SDK Copilot provides to its extensions (@microsoft/copilot-sdk) is never bundled.
 // --check fails if the file on disk differs from what it would write.
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -20,12 +25,19 @@ const { build } = await import(pathToFileURL(createRequire(join(folder, 'package
 const check = process.argv.includes('--check');
 const pluginAt = process.argv.indexOf('--plugin');
 const plugin = pluginAt > 0 && process.argv[pluginAt + 1] ? process.argv[pluginAt + 1] : 'mod';
+const entryAt = process.argv.indexOf('--entry');
+const entry = entryAt > 0 && process.argv[entryAt + 1] ? process.argv[entryAt + 1] : 'src/helper.ts';
+// What the bundle is called in the file's header: the helper, unless --bundle names another file.
+const bundleAt = process.argv.indexOf('--bundle');
+const bundled = bundleAt > 0 && process.argv[bundleAt + 1] ? process.argv[bundleAt + 1] : `${plugin}/dist/helper.js`;
+const what = bundleAt > 0 ? 'The extension' : 'The helper';
 const LICENSE_FILE = /^(licen[cs]e|copying|notice|unlicense|copyright)/i;
 
 // The same entry and resolution as the polyfill's build.mjs, without writing a bundle.
 const { metafile } = await build({
     absWorkingDir: folder,
-    entryPoints: ['src/helper.ts'],
+    entryPoints: [entry],
+    external: ['@microsoft/copilot-sdk', '@microsoft/copilot-sdk/*'],
     platform: 'node',
     format: 'esm',
     target: 'node20',
@@ -53,9 +65,9 @@ const entries = [...packages.entries()]
 
 const seen = new Set();
 const out = [
-    `Third-party software bundled into ${plugin}/dist/helper.js`,
+    `Third-party software bundled into ${bundled}`,
     '',
-    'The helper bundles the npm packages below. Each is listed with the licence',
+    `${what} bundles the npm packages below. Each is listed with the licence`,
     'its package.json names and the licence and notice files it ships.',
     ''
 ];

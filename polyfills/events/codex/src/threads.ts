@@ -40,6 +40,10 @@ export type ThreadOptions = {
     connectTimeoutMs?: number;
     /** How long the pause past the hour's wakes lasts when the person never writes. Default an hour. */
     liftAfterMs?: number;
+    /** What the session is called in the store's claim (another host that runs this class names its own). Default "codex thread". */
+    label?: string;
+    /** What hands the message over, in the log. Default "codex queue". */
+    wakeName?: string;
 };
 
 const PAUSE_LIFTS_AFTER_MS = 3600 * 1000;
@@ -56,6 +60,7 @@ export class ThreadSession {
     readonly #wake: Wake;
     readonly #log: (s: string) => void;
     readonly #batchMs: number;
+    readonly #wakeName: string;
     readonly #values: boolean;
     #delivery?: Delivery;
     #timer?: NodeJS.Timeout;
@@ -77,8 +82,9 @@ export class ThreadSession {
         this.#wake = o.wake;
         this.#log = (s) => o.log(`[${id.slice(0, 8)}] ${s}`);
         this.#batchMs = Number(env.MCP_EVENTS_BATCH_MS ?? 1000);
+        this.#wakeName = o.wakeName ?? 'codex queue';
         this.#values = env.MCP_EVENTS_WAKE_VALUES === '1';
-        this.project = new ProjectState(o.base, `codex thread ${id}`, { dir: join(o.base, 'threads', id) });
+        this.project = new ProjectState(o.base, `${o.label ?? 'codex thread'} ${id}`, { dir: join(o.base, 'threads', id) });
         this.spool = new Spool(o.base, id);
         // How often events may wake this session. Kept with its events, so a helper that restarts carries on counting.
         // Past the hour's wakes the pause lifts when the person's own turn calls a tool, or by itself
@@ -113,7 +119,7 @@ export class ThreadSession {
             if (handed) {
                 this.#delivery.ack(handed.upto);
                 this.budget.woke(handed.watches);
-                this.#log('a batch handed to codex queue by a helper that ended before it heard back counts as handed over');
+                this.#log(`a batch handed to ${this.#wakeName} by a helper that ended before it heard back counts as handed over`);
             }
             if (this.manager.watches.length) this.#log(`runs ${this.manager.watches.length} watch(es)`);
             if (this.#delivery.pending) this.announce();
@@ -153,7 +159,7 @@ export class ThreadSession {
         if (r.ok) {
             this.lastWakeError = undefined;
             this.#retryMs = 0;
-            if (!r.resumed) this.#log('codex queue took the message but could not resume the session; it runs when the session is next opened');
+            if (!r.resumed) this.#log(`${this.#wakeName} took the message but could not resume the session; it runs when the session is next opened`);
         } else if (r.maybe) {
             // It may have queued the message: counted as handed over, never handed over again.
             this.lastWakeError = undefined;
