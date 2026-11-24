@@ -250,11 +250,18 @@ export function discoverServers(env: NodeJS.ProcessEnv = process.env, log: (s: s
             if (dirname(at) === at) return false;
         }
     });
+    // Trust answered for this folder itself, not taken from a folder around it.
+    const isOwnTrust = [project, real(project)].some((at) => projects[at]?.hasTrustDialogAccepted === true);
     // What Claude Code reads to decide about `.mcp.json` servers, highest first. The folder's own
     // settings count only once it is trusted.
-    const layers = [...(trusted ? [readJson(join(project, '.claude', 'settings.local.json')), readJson(join(project, '.claude', 'settings.json'))] : []), readJson(join(configDir, 'settings.json'))].filter((x) => x !== undefined);
+    const projectLayers = trusted ? [readJson(join(project, '.claude', 'settings.local.json')), readJson(join(project, '.claude', 'settings.json'))].filter((x) => x !== undefined) : [];
+    const userLayers = [readJson(join(configDir, 'settings.json'))].filter((x) => x !== undefined);
+    const layers = [...projectLayers, ...userLayers];
     // An allow or deny list for MCP servers counts from any settings file, and this plugin cannot apply one.
     if (layers.some((x) => POLICY_KEYS.some((k) => k in x))) return off('a settings file says which MCP servers are allowed or denied, and this plugin cannot apply such a list, so it connects to none');
+    // Where the folder's trust is only inherited, the repository's own approvals of its servers do not
+    // count (Claude Code's documentation, on folders inside a trusted one). Its own refusals still do.
+    const approvalLayers = isOwnTrust ? layers : userLayers;
 
     const switched = new Set(names(entry.disabledMcpServers));
     const switchedOff: Gate = (name) => (switched.has(name) ? 'it is switched off for this project in Claude Code' : undefined);
@@ -278,13 +285,17 @@ export function discoverServers(env: NodeJS.ProcessEnv = process.env, log: (s: s
     } else {
         const sources = new Set((env.MCP_SKILLS_SOURCES ?? 'project,local,user').split(',').map((x) => x.trim()));
         // A yes-or-no setting is taken from the highest file that sets it; lists add up across files.
-        const approveAll = layers.find((x) => typeof x.enableAllProjectMcpServers === 'boolean')?.enableAllProjectMcpServers === true;
-        const approved = new Set([...names(entry.enabledMcpjsonServers), ...layers.flatMap((x) => names(x.enabledMcpjsonServers))]);
+        const approveAll = approvalLayers.find((x) => typeof x.enableAllProjectMcpServers === 'boolean')?.enableAllProjectMcpServers === true;
+        const approved = new Set([...names(entry.enabledMcpjsonServers), ...approvalLayers.flatMap((x) => names(x.enabledMcpjsonServers))]);
+        const selfApproved = new Set(projectLayers.flatMap((x) => [...names(x.enabledMcpjsonServers), ...(x.enableAllProjectMcpServers === true ? ['*'] : [])]));
         const rejected = new Set([...names(entry.disabledMcpjsonServers), ...layers.flatMap((x) => names(x.disabledMcpjsonServers))]);
         const projectGate: Gate = (name) => {
             if (!trusted) return 'this folder is not marked trusted in Claude Code, so nothing from its .mcp.json is used';
             if (rejected.has(name)) return 'it was rejected (disabled) for this project in Claude Code';
-            if (!approveAll && !approved.has(name)) return 'it is in this project\'s .mcp.json but not approved in Claude Code yet';
+            if (!approveAll && !approved.has(name)) {
+                if (!isOwnTrust && (selfApproved.has(name) || selfApproved.has('*'))) return 'only this repository\'s own settings approve it, and they do not count in a folder whose trust comes from a folder around it; approve it in your own settings (enabledMcpjsonServers in ~/.claude/settings.json), or open this folder in Claude Code and answer its trust question';
+                return 'it is in this project\'s .mcp.json but not approved in Claude Code yet';
+            }
             return switchedOff(name);
         };
         // Lowest precedence first, as Claude Code does: user, then project, then local.
