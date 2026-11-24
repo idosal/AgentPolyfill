@@ -10,12 +10,9 @@ ARD to Claude Code and Codex: Events, Skills and Server Cards run in both,
 Apps runs in Claude Code, and Agentic Resource Discovery, an open draft beyond
 MCP, runs in both.
 
-> **An early proof of concept.** It works today, and it has real gaps. Events,
-> Skills and Apps can't reach servers behind OAuth yet, Apps doesn't run in
-> Codex, and a few spec rules can't be met from a plugin. Each gap comes from
-> what the hosts' plugin APIs expose, and small, generic changes to those APIs
-> would close them:
-> [what hosts would need to change](./how-it-works#how-it-works-in-each-host-and-where-it-stops).
+> **An early proof of concept.** Some gaps, like servers behind OAuth, need
+> small changes to the hosts' plugin APIs.
+> [What's missing](./how-it-works#how-it-works-in-each-host-and-where-it-stops).
 
 ## Why polyfills
 
