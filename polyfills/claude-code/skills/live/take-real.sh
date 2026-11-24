@@ -75,7 +75,8 @@ PYEOF
 # The driver reports a failure when Claude Code has already quit at the last key press: what
 # counts is that every step up to the last picture of the screen was reached.
 "$PY" "$ROOT/tools/pty-drive.py" "$OUT/scenario.json" "$OUT" || true
-# What is kept of a run is made fit to share: no plan name, usage line or local path.
+# What is kept of a run is made fit to share: no plan or account, usage line, other servers' names,
+# command menu, e-mail address or local path (tools/scrub-run.py says what exactly).
 python3 "$ROOT/tools/scrub-run.py" "$OUT" "$ROOT"
 status=0; [ -f "$OUT/07-second-answer.txt" ] || status=1
 echo "done: $OUT (exit $status)"

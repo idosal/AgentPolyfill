@@ -37,7 +37,7 @@
        research-article-analysis  Systematically validate a research article's claims against TogoMCP RDF databases …
        togomcp-start  Start here before using any TogoMCP tool: questions about genes, proteins, compounds, reaction…
      Not looked at, because they are not in your MCP configuration files (a plugin's servers, claude.ai connectors):
-     [names of the recording account\'s claude.ai connectors removed]
+     [names of the recording account's claude.ai connectors removed]
      Read one before it is loaded: /mcp-skills show <name>. Have Claude use one: /mcp-skills use <name> [what to do].
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -61,7 +61,7 @@
        research-article-analysis  Systematically validate a research article's claims against TogoMCP RDF databases …
        togomcp-start  Start here before using any TogoMCP tool: questions about genes, proteins, compounds, reaction…
      Not looked at, because they are not in your MCP configuration files (a plugin's servers, claude.ai connectors):
-     [names of the recording account\'s claude.ai connectors removed]
+     [names of the recording account's claude.ai connectors removed]
      Read one before it is loaded: /mcp-skills show <name>. Have Claude use one: /mcp-skills use <name> [what to do].
 
 ❯ /mcp-skills show huggingface-local-models
@@ -109,7 +109,7 @@
        research-article-analysis  Systematically validate a research article's claims against TogoMCP RDF databases …
        togomcp-start  Start here before using any TogoMCP tool: questions about genes, proteins, compounds, reaction…
      Not looked at, because they are not in your MCP configuration files (a plugin's servers, claude.ai connectors):
-     [names of the recording account\'s claude.ai connectors removed]
+     [names of the recording account's claude.ai connectors removed]
      Read one before it is loaded: /mcp-skills show <name>. Have Claude use one: /mcp-skills use <name> [what to do].
 
 ❯ /mcp-skills show huggingface-local-models
