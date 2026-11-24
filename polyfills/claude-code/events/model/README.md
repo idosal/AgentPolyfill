@@ -1,29 +1,45 @@
 # Formal models
 
-Two models, in [Quint](https://quint-lang.org) (a language of the TLA+ family), of the
-parts of this mod where a bug would matter most: how one watch's events get from an MCP
-server to a Claude Code session, and how often events may wake that session.
+Two models of the parts of this mod where a bug would matter most: how one watch's events get
+from an MCP server to a Claude Code session, and how often events may wake that session. Each
+is written in [Quint](https://quint-lang.org) (`delivery.qnt`, `wake.qnt`) and, by hand from
+the Quint file, in TLA+ (`Delivery.tla`, `Wake.tla`) for the TLC model checker.
 
-**What has been checked, exactly.** Each model's scenarios were run with `quint test`, and its
-invariants were checked with `quint run`, Quint's random simulator: it samples executions and
-checks the invariants in every state it reaches. **That is simulation, not proof.** No model
-checker has been run over these models: TLC needs a `tla2tools.jar` download that was refused
-on the machine they were written on, and Apalache needs Java. The CI job `model` in
-[`mcp-events-test.yml`](../../../../.github/workflows/mcp-events-test.yml) runs the same
-scenarios and simulations, and also `quint verify` (Apalache, a bounded model check); that step
-has never run, and until it has, nothing here is model-checked.
+**What has been checked, exactly.**
 
-Run them (Quint 0.34.0, `npx @informalsystems/quint@0.34.0`):
+- **TLC 1.7.4** (`node model/check.mjs`) visits every state of the TLA+ models that is
+  reachable within each configuration's bounds, breadth first, and checks the invariants in
+  each (three configurations that must find a violation are also kept to part of the model).
+  Within those bounds that is exhaustive; past them it says nothing, and the bounds are small:
+  poll and push with 3 events and 3 sessions, webhook with 1 event, or with 2 and the clock
+  stopped ([the bounds](#tlc-configuration-by-configuration)).
+- **Quint's own tools**: the scenarios (`quint test`), and `quint run`, Quint's random
+  simulator, which samples runs. Simulation is not exhaustive at any bound.
+- **That the TLA+ models are the Quint models**, in part. `node model/conform.mjs` replays
+  traces Quint generates (random runs from every init, and every scenario) in the TLA+ models
+  with TLC: all 936 traces (603 of `wake.qnt`, 333 of `delivery.qnt`; 38,249 steps) are
+  behaviours of the TLA+ models. That checks one direction (what Quint can do, TLA+ can do), on
+  samples. For the other, each counterexample TLC found is also a scenario in the Quint file,
+  and Quint reproduces it; the rest is by reading. The TLA+ is written by hand because Quint's
+  own translation (`quint compile --target tlaplus`) needs Apalache, which was not installed.
+- **All of it checks the models, not the code.** That a model says what the code does is by
+  reading; the tables below say what stands for what.
+
+Run them, from `polyfills/claude-code/events`:
 
 ```bash
-quint test delivery.qnt --backend typescript                  # the counterexamples, as scenarios
-quint run delivery.qnt --init webhook --invariant Safety --max-samples 20000 --max-steps 60 --backend typescript
-quint test wake.qnt --backend typescript
-quint run wake.qnt --invariant Kept --max-samples 30000 --max-steps 40 --backend typescript
+TLA2TOOLS=/path/to/tla2tools.jar node model/check.mjs     # TLC 1.7.4 (run here on Java 21)
+TLA2TOOLS=/path/to/tla2tools.jar node model/conform.mjs   # also needs Quint (QUINT=...)
+quint test model/delivery.qnt --backend typescript         # the counterexamples, as scenarios
+quint run model/delivery.qnt --init webhook --invariant Safety --max-samples 20000 --max-steps 60 --backend typescript
+quint test model/wake.qnt --backend typescript
+quint run model/wake.qnt --invariant Kept --max-samples 30000 --max-steps 40 --backend typescript
 ```
 
-`init` in each is the client from 0.5.0; `initBefore` (and `pollBefore`, `webhookBefore`, ...)
-is the client as it was in 0.4.1, so the faults that version had can be shown again.
+(Quint 0.34.0, `npx @informalsystems/quint@0.34.0`.) In Quint, `init` in each model is the
+client from 0.5.0; `initBefore` (and `pollBefore`, `webhookBefore`, ...) is the client as it
+was in 0.4.1, so the faults that version had can be shown again. In TLA+ the constant `FIX`
+says which (and `MODES`, `EVILS` which of Quint's inits).
 
 ## `delivery.qnt`: from the server to the session
 
@@ -38,7 +54,7 @@ them over in any order. The helper and Claude Code may stop between any two step
 
 | In the model | In the code |
 | --- | --- |
-| `Take`, then `Append`, `SaveWatch`, `Commit` | `RelayClient` hands a delivery to `handleDelivery` (`src/webhooks.ts`): verify, `ReplayGuard.begin`, `#deliver` (`src/watcher.ts`: spool append with fsync, then `#saveNow`), `ReplayGuard.commit` and `accepted()` |
+| `Take`, then `Append` (`AppendEv` in TLA+), `SaveWatch`, `Commit` | `RelayClient` hands a delivery to `handleDelivery` (`src/webhooks.ts`): verify, `ReplayGuard.begin`, `#deliver` (`src/watcher.ts`: spool append with fsync, then `#saveNow`), `ReplayGuard.commit` and `accepted()` |
 | `StoreFails` | `#deliver` throws (spool full, save failed): `handleDelivery` answers 503 and the relay keeps the delivery |
 | `FlushAcks`, `Reconnect` | `RelayClient` sends acks together; a closed socket loses queued acks, and the relay sends everything unacknowledged on the next connection |
 | `Subscribe` | `events/subscribe` and its refreshes, with the watch's cursor; the answer's cursor is the server's watermark |
@@ -51,7 +67,8 @@ them over in any order. The helper and Claude Code may stop between any two step
 Not modelled: two Claude Code windows on one project at once; events the server sends with
 `cursor: null` (event types without replay); the 500-id limit on a watch's seen ids and the
 1,000-id limit on its replay memory (both are unbounded in the model); the 8-day ceiling; the
-B3 admission limits (sizes, depth); `events/list` and its changes.
+B3 admission limits (sizes, depth); `events/list` and its changes; and the save of the watch
+at the end of `#recover` (see [what TLC found](#what-tlc-found-in-050s-models)).
 
 ### Invariants
 
@@ -75,25 +92,6 @@ B3 admission limits (sizes, depth); `events/list` and its changes.
 A replayed delivery reaching the session would break `AtMostOnce`; the scenario
 `replayRefusedTest` replays one through a lying relay after the replay window of 0.4.1 has passed.
 
-### What checking found
-
-Against 0.4.1 (`initBefore` and the per-mode `...Before` inits), each a scenario in the file:
-
-| Scenario | Invariant broken | What happens | Fixed in 0.5.0 by |
-| --- | --- | --- | --- |
-| `handOverTwiceBeforeTest` | `AtMostOnce` | The helper dies after the hooks module submitted a batch and before the ack; the next helper hands the same batch over again. | The hooks module acknowledges what it last submitted, with the spool it came from, before the next take (`mod/hooks/register.ts`, `/ack` in `src/helper.ts`). |
-| `storedTwiceBeforeTest` | `AtMostOnce` | The helper dies between writing an event to the spool and saving the watch; the server sends it again and it is written again. | A starting helper counts the events in its own and listed spools as seen (`#recover`). |
-| `strandedBeforeTest` | `NoneStranded` | Claude Code closes with an event stored and not yet shown (its wake held back by the gap or the hourly limit); the next session never sees it. | Sessions are listed per project; the next one appends what they stored and never showed (`#recover`). |
-| `refusedAsOldBeforeTest` | `NoAckBeforeStore`, `CursorSafe` | A delivery that could not be stored stays at the relay; one signed more than ten minutes later is taken; on the next connection the first is refused as a replay and acknowledged, so its event is lost (`docs/conformance.md`, B1 of 0.4.1). | The replay memory refuses by id alone, up to 1,000 ids over 8 days, then by a floor (`ReplayGuard`, `src/webhooks.ts`). |
-
-Random simulation of 0.4.1 found the first three within seconds; it did not find the fourth in
-10,000 runs of up to 50 steps, which is why every case is also a scenario.
-
-Against 0.5.0 (`quint run`, 20,000 runs of up to 60 steps each, 24 November 2026): `Safety`
-(all five invariants) held for poll, push and webhook through an honest relay; `AtMostOnce` and
-`NothingForged` held with the lying relay; `StrictAtMostOnce` was broken, by the case named
-above. All the 0.5.0 scenarios pass.
-
 ## `wake.qnt`: how often events wake a session
 
 One watch; the helper's wake budget (`src/wake.ts`, kept in `wakes.json`); the hand-over it
@@ -104,11 +102,152 @@ stands for twenty minutes, the hour for three units, the gap for one, and two wa
 - **`Gap`**: two wakes are at least the gap apart.
 - **`OneNotice`**: the session is told at most once that waking stopped, until the person speaks.
 
-Against 0.4.1, simulation broke `WithinHour` and `Gap` at once (`twiceBeforeTest`): a helper that
-died between the submit and the ack left the next helper with no record of that wake, so it
-handed the batch over again and counted one wake for two. 0.5.0 counts the batch it is told of
-(the same change as `handOverTwice` above). Against 0.5.0, 30,000 runs of up to 40 steps broke
-none of the three.
-
 The wake budget is also checked, without the hand-over, by a property test over generated
 sequences of events, waits, restarts and messages (`test/properties-test.ts`).
+
+## TLC, configuration by configuration
+
+Each `.cfg` file is one run; its first lines say what it is. The bounds of `delivery`: `N`
+events, the clock from 0 to `MAX_TIME` (one unit stands for five minutes; `FRESH` is 1 and
+`SLACK` 2, as in `delivery.qnt`), `MAX_SESSIONS` Claude Code sessions one after another, and
+`MAX_SEQ` deliveries ever stored at the relay (genuine, retried, forged or replayed together).
+Within them, every step of the model can happen in any order: the helper stopping between any
+two steps, Claude Code closing and the next session opening, the server's history expiring, and
+for webhook the server retrying, giving up and losing the subscription, the relay dropping
+deliveries, forgers and replayers. For poll and push the clock and the relay are held at 0
+(`MAX_TIME`, `MAX_SEQ`): in those modes only `Tick`, `Forge` and `RelayDrop` touch them, and no
+other step and no invariant reads them. `wake` runs at `wake.qnt`'s own bounds: the clock
+from 0 to 9, `HOUR` 3, `GAP` 1, `PER_HOUR` 2.
+
+Two devices keep the runs finite and within reach, both in `MCDelivery.tla` and `MCWake.tla`:
+
+- a **view** (TLC's `VIEW`): TLC tells states apart by everything except what no step reads.
+  The history (`hist`) is written and never read but by the invariants, which need only how
+  often each event was shown (0, 1 or more), which genuine events were acknowledged, and
+  `hist.cut`; a delivery in `srv.sent` is read only by `Replay`, which gives its copy a new
+  relay sequence number, so the number is left out; in `wake`, any count of notices past 2 is
+  taken as 2. Two states with the same view have the same invariants, and their steps lead to
+  states with the same view.
+- three **state constraints**, each in one configuration that must find a violation, which
+  keep TLC to the part of the model a defect is in: past a shorter one it would find first, or
+  within the state folder's limit. A run under a constraint shows that the defect is reachable,
+  and says nothing about what holds.
+
+The bounds are where the runs stay under 300 MB of TLC's state files (the limit `check.mjs`
+sets by default). The webhook model grows fast: with 2 events and the clock from 0 to 1 (1
+session, 2 deliveries), TLC passed 22 million distinct states and was stopped at that limit.
+
+Results on an Apple M1 Max (32 GB, macOS 15.4.1), TLC 1.7.4 on Temurin 21, one worker (so
+the search is breadth first exactly and a trace is a shortest one), 24 November 2026. "States"
+is distinct states, as the view tells them apart; "Depth" is the longest of the shortest paths
+from an initial state, counting that state as 1. Where TLC finds a violation it stops there:
+"States" is how many it had found by then, and "Depth" the number of states in its trace.
+
+**0.5.0, what holds:**
+
+| Configuration | Bounds | Invariants | Result | States | Depth |
+| --- | --- | --- | --- | --- | --- |
+| `WakeKept` | `wake.qnt`'s | `WithinHour`, `Gap` | hold | 655,663 | 61 |
+| `Poll` | poll, 3 events, 3 sessions | `NothingForged`, `NoAckBeforeStore`, `NoneStranded`, `CursorSafe` | hold | 7,327,452 | 57 |
+| `Push` | push, 3 events, 3 sessions | the same four | hold | 1,057,104 | 48 |
+| `Webhook` | webhook, honest relay, 1 event, clock 0 to 2, 2 sessions, 2 deliveries | the same four | hold | 5,068,240 | 37 |
+| `WebhookTwo` | webhook, honest relay, 2 events, clock at 0 (a retry is then the same delivery), 1 session, 2 deliveries | the same four | hold | 9,978,241 | 38 |
+| `WebhookLying` | webhook, lying relay, 1 event, clock 0 to 2, 1 session, 2 deliveries | `AtMostOnce`, `NothingForged`, `NoneStranded` | hold | 768,948 | 26 |
+| `PollOneSession` | poll, 3 events, 1 session | `AtMostOnce` | holds | 20,963 | 29 |
+| `PushOneSession` | push, 3 events, 1 session | `AtMostOnce` | holds | 3,116 | 25 |
+| `WebhookOneSession` | webhook, honest relay, 1 event, clock 0 to 2, 1 session, 2 deliveries | `AtMostOnce` | holds | 608,520 | 27 |
+
+So, within these bounds, `AtMostOnce` holds while Claude Code stays open (with any number of
+helper restarts), and not across a close and the next session: see below.
+
+**0.5.0, what TLC found** (each must stay reachable until the model changes, or this page is wrong):
+
+| Configuration | Bounds | Invariant | Result | States | Depth |
+| --- | --- | --- | --- | --- | --- |
+| `WakeNotice` | `wake.qnt`'s | `OneNotice` | **violated** | 17,432 | 18 |
+| `PollSeenForgotten` | poll, 1 event, 2 sessions | `AtMostOnce` | **violated** | 1,610 | 16 |
+| `PushSeenForgotten` | push, 1 event, 2 sessions | `AtMostOnce` | **violated** | 574 | 16 |
+| `WebhookSeenForgotten` | webhook, 1 event, clock at 0, 2 sessions, 2 deliveries | `AtMostOnce` | **violated** | 187,698 | 17 |
+| `PollCarriedTwice` | poll, 1 event, 3 sessions, constrained to fetch nothing from the server after the first session | `AtMostOnce` | **violated** | 1,677 | 16 |
+| `Strict` | poll, 1 event, 2 sessions | `StrictAtMostOnce` | violated, as documented: the exception in `AtMostOnce` | 573 | 11 |
+
+**0.4.1, the defects the scenarios show, found again:**
+
+| Configuration | Bounds | Invariant | Result | States | Depth |
+| --- | --- | --- | --- | --- | --- |
+| `WakeBefore`, `WakeBeforeHour` | `wake.qnt`'s | `Gap`; `WithinHour` | violated (`twiceBeforeTest`) | 167; 1,578 | 8; 12 |
+| `PollBefore` | as `Poll` | `AtMostOnce` | violated (`handOverTwiceBeforeTest`) | 1,568 | 10 |
+| `PushBeforeStored` | as `Push`, constrained away from the helper being down with a batch submitted and not acknowledged | `AtMostOnce` | violated (`storedTwiceBeforeTest`) | 753 | 10 |
+| `PollBeforeStranded` | as `Poll` | `NoneStranded` | violated (`strandedBeforeTest`) | 123 | 6 |
+| `WebhookBeforeB1`, `WebhookBeforeB1Cursor` | webhook, 2 events, clock 0 to 3, 1 session, 2 deliveries, constrained to runs with no forger, crash, close, lapse, loss or hand-over | `NoAckBeforeStore`; `CursorSafe` | violated (`refusedAsOldBeforeTest`, B1) | 403,642; 416,514 | 17; 17 |
+
+Without its constraint, the push run finds `handOverTwice` first (it is as short), and the B1
+run passed the state folder's limit before finding anything. Each trace TLC gives here is the
+scenario's fault, by the same steps or fewer.
+
+### What TLC found in 0.5.0's models
+
+Random simulation had reached none of them (the runs below; and of 300 random runs of
+`wake.qnt` from `init`, of up to 40 steps, not one reached the notice at all). Each is now a
+scenario in the Quint file, `noticeTwiceTest`, `seenForgottenTest` (with
+`seenForgottenWebhookTest`) and `carriedTwiceTest`, and Quint reproduces it. The product code is
+unchanged; what follows on the code is by reading.
+
+1. **The notice that waking stopped can be given twice** (`OneNotice`, `wake.qnt`). The
+   shortest trace (18 states): two batches are handed over and acknowledged, at 0 and at 1,
+   which is the hour's two wakes; at 2 an event arrives, `/take` hands over the notice, and the
+   hooks module submits it; the helper dies before the `/ack`; the next helper is not told of
+   the notice (only a batch is remembered across a restart: `remembered`, `AckRemembered`), so
+   its `/take` hands the notice over again. Each time the helper dies there, the session gets
+   one more notice, and so one more turn past the hourly limit. In the code: the hooks module
+   keeps what it submitted, notice included (`state.submitted`), and acknowledges it to the
+   next helper; that helper's `/ack` has no `taken`, and counts a wake only for `upto` past
+   its position, which a notice does not move, so the budget is not paused, and its next
+   `/take` returns the notice again. By reading, the code has the same gap.
+2. **An event can be shown again after a session ends** (`AtMostOnce`, `delivery.qnt`; poll,
+   push and webhook alike). The shortest trace (16 states, poll): the event is written to the
+   first session's spool, then handed over, shown and acknowledged, before the watch is saved
+   after it; Claude Code closes; in the next session the helper counts the event as seen (it
+   reads the first session's spool), in memory only; `Settle` takes the first session off the
+   list; the helper restarts, and neither the saved watch, nor its own spool, nor the list has
+   the event, so the next poll stores and shows it again. It is not the documented exception:
+   its batch was acknowledged. In webhook, the relay hands the delivery over again, since it
+   was never acknowledged. In the code, `#recover` adds the ids it finds to the watch's seen
+   ids and saves the watch, which the model does not do; but it saves after
+   `project.unlist(...)`, so the same gap is there, narrower: the helper stopping between
+   `unlist` and `#saveNow()`, or that save failing and the helper stopping before the next one.
+3. **An event carried to a new session can be carried again** (`AtMostOnce`, `delivery.qnt`;
+   it needs three sessions). The shortest trace (16 states): the first session stores the event
+   and closes before handing it over; the second carries it and shows it, and closes before it
+   settles the first; the third settles the second first (`Settle` takes it off the list, and
+   with it the record that the event was handed over), then carries the event from the first,
+   still listed, and shows it again. In the code `#recover` does both in one call: it reads
+   every listed session, and computes what to carry, before it takes any of them off the list,
+   and then takes them all off together. So by reading this one is in the model only, which
+   lets `Carry` and `Settle` happen apart and in either order.
+
+With both gaps closed in a scratch copy of the model (not committed: the second session's
+helper saves the seen ids it recovers, and `Carry` settles every listed session in the same
+step), `AtMostOnce` held at the bounds of `Poll`, `Push` and `Webhook`; so within those bounds
+these are the only ways it breaks.
+
+### What Quint's simulation found, and its scenarios
+
+Against 0.4.1 (`initBefore` and the per-mode `...Before` inits), each a scenario in the file:
+
+| Scenario | Invariant broken | What happens | Fixed in 0.5.0 by |
+| --- | --- | --- | --- |
+| `handOverTwiceBeforeTest` | `AtMostOnce` | The helper dies after the hooks module submitted a batch and before the ack; the next helper hands the same batch over again. | The hooks module acknowledges what it last submitted, with the spool it came from, before the next take (`mod/hooks/register.ts`, `/ack` in `src/helper.ts`). |
+| `storedTwiceBeforeTest` | `AtMostOnce` | The helper dies between writing an event to the spool and saving the watch; the server sends it again and it is written again. | A starting helper counts the events in its own and listed spools as seen (`#recover`). |
+| `strandedBeforeTest` | `NoneStranded` | Claude Code closes with an event stored and not yet shown (its wake held back by the gap or the hourly limit); the next session never sees it. | Sessions are listed per project; the next one appends what they stored and never showed (`#recover`). |
+| `refusedAsOldBeforeTest` | `NoAckBeforeStore`, `CursorSafe` | A delivery that could not be stored stays at the relay; one signed more than ten minutes later is taken; on the next connection the first is refused as a replay and acknowledged, so its event is lost (`docs/conformance.md`, B1 of 0.4.1). | The replay memory refuses by id alone, up to 1,000 ids over 8 days, then by a floor (`ReplayGuard`, `src/webhooks.ts`). |
+| `twiceBeforeTest` (`wake.qnt`) | `WithinHour`, `Gap` | A helper that died between the submit and the ack left the next helper with no record of that wake, so it handed the batch over again and counted one wake for two. | The batch the hooks module is told of is counted (the same change as `handOverTwice`). |
+
+Random simulation of 0.4.1 found the first three of `delivery.qnt` within seconds; it did not
+find the fourth in 10,000 runs of up to 50 steps, which is why every case is also a scenario.
+
+Against 0.5.0 (`quint run`, 24 November 2026): in 20,000 runs of up to 60 steps each, `Safety`
+(all five invariants) held for poll, push and webhook through an honest relay, and `AtMostOnce`
+and `NothingForged` held with the lying relay; `StrictAtMostOnce` was broken, by the documented
+case. In 30,000 runs of `wake.qnt` of up to 40 steps, none of the three wake invariants broke.
+TLC found three cases these runs missed (above).
