@@ -220,6 +220,10 @@ prevented.
   - Someone with enough networks (ten /48s, or many IPv4 addresses) can spend
     the hourly ceiling and keep new users out until the hour is over.
     Mailboxes that already exist keep working.
+  - The same person can also fill the 20,000 and keep it full: about ten
+    hours to fill, and one reconnect a week per mailbox to hold it. New users
+    are then refused until the operator blocks those mailboxes; existing
+    users aren't affected.
   - MCP servers hosted on Cloudflare Workers reach it from one address, so
     their deliveries are counted per mailbox. Junk a Worker sends elsewhere
     can't use up what your mailbox may receive.
