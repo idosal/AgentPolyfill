@@ -256,7 +256,7 @@ describe('the parts agree', () => {
         assert.deepEqual(market.plugins.find(({ name }) => name === PLUGIN)?.source, './polyfills/skills/claude-code/mod');
     });
     test('the Skills logic uses nothing of Node, so it can run wherever a request can be sent', () => {
-        const source = readFileSync(new URL('../src/skills.ts', import.meta.url), 'utf8');
+        const source = readFileSync(new URL('../../core/src/skills.ts', import.meta.url), 'utf8');
         assert.doesNotMatch(source, /from 'node:|\bBuffer\b|\bprocess\.|require\(/);
     });
 });
