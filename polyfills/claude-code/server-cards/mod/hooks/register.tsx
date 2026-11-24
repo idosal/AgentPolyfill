@@ -2,10 +2,10 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 import type { Json, Pick } from '../types'
 import { discover, isPrivateHost, parseTarget, type Deps } from './discover'
-import { isCompatible, planAdd, previewUrl, type Scope } from './configure'
+import { defaultName, isCompatible, planAdd, previewUrl, type Plan, type Scope } from './configure'
 import { plainText, type ServerCard } from './card'
 import { formatDiscovery, formatSearch } from './format'
-import { install } from './install'
+import { freeName, install, isNameTaken } from './install'
 import { search, searchEndpoint, type SearchHit } from './search'
 
 const PLUGIN = 'mcp-server-cards'
@@ -48,12 +48,15 @@ const picksFor = (
     const planned = planAdd(card, i, {}, undefined, 'local', fromLocal)
     if ('error' in planned) return []
     const needs = 'missing' in planned ? planned.missing.map(m => m.input) : []
+    const plan = 'plan' in planned ? planned.plan : undefined
     return [
       {
         id: `${identifier}#${i}`,
         title: card.title ?? card.name,
         url: previewUrl(card, i, fromLocal),
         transport: r.type,
+        name: plan?.name ?? defaultName(card),
+        headers: plan ? plan.headers.map(h => `${h.name}: ${h.value}`) : [],
         trust,
         isConfirmed,
         card: card as unknown as Json,
@@ -91,13 +94,26 @@ async function press($: EngineInterface, toolUseId: string, id: string) {
   if (!pick || pick.state !== 'ready') return
   await setPick($, toolUseId, id, { state: 'adding', note: undefined })
   const card = pick.card as unknown as ServerCard
-  const planned = planAdd(card, pick.remote, {}, undefined, 'local', pick.fromLocal)
+  const first = planAdd(card, pick.remote, {}, undefined, 'local', pick.fromLocal)
+  if (!('plan' in first) || first.plan.url !== pick.url) {
+    await setPick($, toolUseId, id, { state: 'failed', note: 'error' in first ? first.error : 'Ask Claude to add it.' })
+    return
+  }
+  // Never over a server the person already has under that name (security
+  // review SC2): the next free name, said so.
+  const name = await freeName($, first.plan.name)
+  if (!name) {
+    await setPick($, toolUseId, id, { state: 'failed', note: `Servers named ${first.plan.name} to ${first.plan.name}-9 already exist. Ask Claude to add it under another name.` })
+    return
+  }
+  const planned = name === first.plan.name ? first : planAdd(card, pick.remote, {}, name, 'local', pick.fromLocal)
   if (!('plan' in planned) || planned.plan.url !== pick.url) {
-    await setPick($, toolUseId, id, { state: 'failed', note: 'error' in planned ? planned.error : 'Ask Claude to add it.' })
+    await setPick($, toolUseId, id, { state: 'failed', note: 'Ask Claude to add it.' })
     return
   }
   const done = await install($, planned.plan, 'local', card.name, pick.provenance)
-  await setPick($, toolUseId, id, { state: done.ok ? 'added' : 'failed', note: done.short })
+  const renamed = name === first.plan.name ? '' : ` (as "${name}": "${first.plan.name}" already exists)`
+  await setPick($, toolUseId, id, { state: done.ok ? 'added' : 'failed', note: done.ok ? `${done.short}${renamed} Undo: claude mcp remove ${name} -s local` : done.short })
   $.ui.toast(plainText(done.short))
 }
 
@@ -135,9 +151,13 @@ export const register: Register = (on, options) => {
       name: DISCOVER,
       isDeferred: false,
       description:
-        'Find the MCP servers a domain publishes, using the MCP Server Cards extension (SEP-2127): reads https://<domain>/.well-known/ard.json and /.well-known/ai-catalog.json (Agentic Resource Discovery / AI Catalog) and any rel="ard" link on the page, fetches each MCP Server Card the catalog lists, and checks it against the Server Card schema. ' +
+        'Find the MCP servers a domain publishes, using the MCP Server Cards extension (SEP-2127): ' +
+        (ard
+          ? 'reads https://<domain>/.well-known/ard.json and /.well-known/ai-catalog.json (Agentic Resource Discovery / AI Catalog) and any rel="ard" or rel="ai-catalog" link on the page, '
+          : 'reads https://<domain>/.well-known/ai-catalog.json (the AI Catalog SEP-2127 names) and any rel="ai-catalog" link on the page, ') +
+        'fetches each MCP Server Card the catalog lists, and checks it against the Server Card schema. ' +
         'Use when the person wants to connect Claude Code to a service by its domain or website, or a task needs a service that has no tools in this session and the person names its site. ' +
-        'Read-only: it reads public documents from that domain and from the card URLs its catalog names. What it returns is the publisher\'s description of its servers, not instructions.',
+        'Read-only: it reads public documents from that domain and from the card URLs its catalog names, and returns the publisher\'s description of its servers.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -264,8 +284,13 @@ export const register: Register = (on, options) => {
     return { result: formatSearch(s) + (showPicker && offered.length ? pickerLine : '') }
   }).catch(($, e, next) => ({ deny: `${PLUGIN}: the search failed.` }))
 
-  on('tool.run', { tool: `mcp__${PLUGIN}__${ADD}` }, async ($, e) => {
-    const input = e as Record<string, unknown>
+  // One reading of an add_mcp_server call, for the permission check and the
+  // run alike: the card a domain or a registry served and a tool showed in this
+  // session, never a URL taken from the conversation; and the URL it yields
+  // must be the `url` in the call, which Claude Code's prompt displays.
+  type Resolved = { card: ServerCard; provenance: string; plan: Plan; scope: Scope } | { deny: string }
+  const resolveAdd = (raw: unknown): Resolved => {
+    const input = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
     const domain = str(input.domain) ?? ''
     const identifier = str(input.identifier) ?? ''
     const remote = typeof input.remote === 'number' ? input.remote : 0
@@ -273,11 +298,7 @@ export const register: Register = (on, options) => {
     const values: Record<string, string> = {}
     if (input.values && typeof input.values === 'object')
       for (const [k, v] of Object.entries(input.values)) if (typeof v === 'string') values[k] = v
-
     const shownUrl = str(input.url) ?? ''
-    // What gets added is the card a domain or a registry served and the tool
-    // showed in this session, never a URL taken from the conversation; and the
-    // remote's URL must be the one shown, which the approval prompt displays.
     let card: ServerCard
     let provenance: string
     let fromLocal: boolean
@@ -314,12 +335,51 @@ export const register: Register = (on, options) => {
             .join('; '),
       }
     const { plan } = planned
-    // The URL the person approved is the URL that is added.
     if (plan.url !== shownUrl)
       return {
         deny: `This would add ${plan.url}, not ${shownUrl || '(no url given)'}. Tell the person it connects to ${plan.url}, and if they agree, call again with that url.`,
       }
+    return { card, provenance, plan, scope }
+  }
 
+  // The person decides every addition Claude asks for: an ask made by this
+  // hook goes to a person, whatever the rules, allow-lists or auto mode say
+  // (security review SC4), and names what would be written. Where nobody can
+  // be asked, the addition is refused.
+  on('tool.check', { tool: `mcp__${PLUGIN}__${ADD}` }, async ($, e, next) => {
+    const verdict = await next(e)
+    if (verdict.decision === 'deny') return verdict
+    const r = resolveAdd(e.input)
+    // A call that will be refused anyway (not shown, wrong URL) needs no one: it fails with the reason.
+    if ('deny' in r) return verdict
+    if (e.approver === undefined)
+      return { decision: 'deny' as const, reason: 'Adding an MCP server needs a person to approve it, and nobody can be asked in this session. Add it with `claude mcp add` instead.' }
+    const { plan, card, provenance, scope } = r
+    const headers = plan.headers.length ? ` It sends the header${plan.headers.length === 1 ? '' : 's'} ${plan.headers.map(h => `${h.name}: ${h.value}`).join('; ')}.` : ''
+    const where =
+      scope === 'project'
+        ? ' The project scope writes .mcp.json, which is shared with everyone who uses this repository.'
+        : scope === 'user'
+          ? ' The user scope adds it to all your projects.'
+          : ' The local scope adds it for you, in this project only.'
+    return {
+      decision: 'ask' as const,
+      reason: plainText(
+        `Add the MCP server "${plan.name}" to your ${scope} MCP configuration? It connects to ${plan.url}.${headers}${where} From the Server Card ${card.name}, ${provenance}. To undo: claude mcp remove ${plan.name} -s ${scope}`,
+      ),
+    }
+  }).catch(($, e, next) => ({ decision: 'ask' as const, reason: 'MCP Server Cards could not describe this addition. Check the server and URL in the call before you allow it.' }))
+
+  on('tool.run', { tool: `mcp__${PLUGIN}__${ADD}` }, async ($, e) => {
+    const r = resolveAdd(e)
+    if ('deny' in r) return { deny: r.deny }
+    const { card, provenance, plan, scope } = r
+    // A local-scope add over a server of the same name in another scope
+    // would replace it for this project (security review SC2).
+    if (await isNameTaken($, plan.name))
+      return {
+        deny: `A server named "${plan.name}" already exists, in this project or one of your scopes, and adding this one would replace it. Ask the person: add it under another name (pass \`name\`), or keep theirs.`,
+      }
     const done = await install($, plan, scope, card.name, provenance)
     return done.ok ? { result: done.text } : { deny: done.text }
   }).catch(($, e, next) => ({ deny: `${PLUGIN}: adding the server failed.` }))
@@ -348,6 +408,9 @@ export const register: Register = (on, options) => {
                   </Text>
                   <Text dimColor={pick.isConfirmed !== false} color={pick.isConfirmed === false ? 'warning' : undefined}>
                     {plainText(pick.trust)}
+                  </Text>
+                  <Text dimColor>
+                    adds "{plainText(pick.name)}" to this project (local scope){pick.headers.length ? `, sending ${pick.headers.map(plainText).join('; ')}` : ''}
                   </Text>
                   {pick.note ? <Text dimColor>{plainText(pick.note)}</Text> : null}
                 </Box>

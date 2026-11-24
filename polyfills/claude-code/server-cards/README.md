@@ -68,14 +68,16 @@ Ask Claude "What MCP servers does buildkite.com publish?", then press **Add** un
 1. **Ask.** For example "connect Claude Code to Buildkite", "what MCP servers does neon.com publish?", or, with `ard` on, "find an MCP server that can check why my CI build failed".
 2. **Claude Code asks before the first lookup.** The first call to `discover_mcp_servers` or `search_mcp_servers` gets Claude Code's usual permission prompt, as any new tool does. If you say no, nothing is fetched.
 3. **Claude shows what it found:** each server's card, whether the card is valid, and, for a search result, whether the publisher's own domain confirms the server. A refused card says why; nothing refused can be added.
-4. **Pick one.** Under the result, a box lists the servers you can add. Each shows its name, the URL it connects to, and who stands behind it, with an **Add** button.
+4. **Pick one.** Under the result, a box lists the servers you can add. Each shows its name, the URL it connects to, who stands behind it, and the server name and headers it would write, with an **Add** button.
    - Pressing **Add** adds that server, with the card as shown and its defaults, to the local scope (this project, only you). The press is your choice, so no further prompt follows.
+   - It never replaces a server you have. If the name is taken in any scope, it adds the server as `name-2` (up to `name-9`) and says so.
    - A server whose card needs an input (a tenant name, say) shows no button. Ask Claude, who will ask you for it.
-5. **Or ask Claude to add it.** Claude calls `add_mcp_server`, and Claude Code's permission prompt shows the URL to be added. The polyfill adds the server only if that URL is the one the card shown in this session gives. Ask for the `project` scope (`.mcp.json`, shared with the repository) or the `user` scope (all your projects) if you want one of those. If you say no, nothing is written.
+5. **Or ask Claude to add it.** Claude calls `add_mcp_server`, and Claude Code always asks you: the polyfill makes that question itself, so no allow rule or auto mode answers it for you. It names the server, the URL, the headers, the scope and how to undo it. The polyfill adds the server only if that URL is the one the card shown in this session gives, and only if no server of that name exists. With nobody to ask (`claude -p`), it is refused. Ask for the `project` scope (`.mcp.json`, shared with the repository) or the `user` scope (all your projects) if you want one of those. If you say no, nothing is written.
 6. **The server is connected.** If it needs a sign-in, run `/mcp`, pick the server and authenticate. The sign-in is Claude Code's own; the polyfill never sees it. If Claude Code doesn't pick up the new server at once, `/mcp` or a restart connects it.
-7. **If the card asks for a secret** (an API key, say), the polyfill never asks you for it and never shows it to Claude.
-   - The configuration holds a reference such as `${MCP_EXAMPLE__TOKEN_16WJ1KP}`, and Claude tells you its name. Set that environment variable and restart Claude Code.
-   - The tag at the end ties the name to this one card, so no other card can be given a reference to it.
+7. **To undo an addition:** `claude mcp remove <name> -s local` (or `-s project`, `-s user`). The result gives the exact line. The `project` scope writes `.mcp.json`, which is shared with everyone who uses the repository.
+8. **If the card asks for a secret** (an API key, say), the polyfill never asks you for it and never shows it to Claude.
+   - The configuration holds a reference such as `${MCP_EXAMPLE__TOKEN_4GQXEC3IVEMVBYCQ}`, and Claude tells you its name. Set that environment variable and restart Claude Code.
+   - The tag at the end is 80 bits of SHA-256 over the card's name and URL. So no other card can be given a reference to it: only the same card, which sends it to the same server.
 
 ### A domain that redirects
 
@@ -129,6 +131,8 @@ There is one row for each rule the specs put on a client, and the test that cove
 | D-10 | The same `identifier` names the same artifact | AI Catalog | D-6 | met |
 | V-1 | A card conforms to the schema: the v1 `$schema` URL, a reverse-DNS `name`, `version`, a `description` of 100 characters or fewer, remotes, inputs | schema.ts and schema.json | V-1 to V-5 | met: an invalid card is refused, never repaired |
 | V-2 | `version` is one version, not a range | schema.ts, `ServerCard.version` | V-3 | met (see Findings) |
+| P-1 | Never replace a server the person has | the polyfill's own, from the security review (SC2) | B-8, U-4 | met. A name taken in any scope is refused for Claude's add; the picker uses the next free name and says so |
+| P-2 | A person approves every addition Claude asks for | the polyfill's own, from the security review (SC4) | B-9 | met. A hook-made ask names the server, URL, headers, scope and undo. No rule or auto mode answers it, and it is refused with nobody to ask |
 | V-3 | No text that displays as something else | the polyfill's own, from the security review: SEP-2127 says cards are untrusted ("Clients MUST NOT treat Server Card contents as authoritative") | X-1, X-2, X-3, A-21 | A card is refused if any string in it, key or value, holds a C0 or C1 control, DEL, or an invisible format or bidirectional mark. A remote URL must be printable ASCII. The same holds for every value Claude gives. Everything shown passes a plain-text filter. A card carries no command or environment (remotes only), so none can reach `claude mcp add` that way |
 | C-1 | Respect `Cache-Control` | discovery.md, Caching and Denial of Service (SHOULD) | C-1, C-3 | met |
 | C-2 | Send the `ETag` back as `If-None-Match`; accept `304` | discovery.md (SHOULD) | C-1, C-2, C-4 | met |
@@ -180,11 +184,12 @@ Claude Code has no Server Card support to detect yet. When it ships, turn on the
 
 ## Proof
 
-- **Per rule:** 94 tests, run with `claude plugin test mod`.
+- **Per rule:** 99 tests, run with `claude plugin test mod`.
   - They cover the official example cards (`examples/ServerCard`, valid and invalid) and fixtures of my own for edge cases.
-  - Ten of them (B-1 to B-7, U-1 to U-3) run through the plugin as Claude Code loads it, with the engine's network, `claude mcp add` and connect stood in for.
+  - Thirteen of them (B-1 to B-9, U-1 to U-4) run through the plugin as Claude Code loads it, with the engine's network, `claude mcp add` and connect stood in for.
   - The picker is drawn on the terminal, desktop, VS Code and mobile surfaces, and a press of **Add** is followed to the exact `claude mcp add` it runs.
-- **Independent review:** two read-only review rounds by a second agent (Codex), on 2026-11-24. The first found 18 issues; the second checked the fixes and found 9 incomplete and 7 more issues. All of them are fixed, and each has a test: those marked "Review findings" and "Second review pass".
+- **Independent security review** for the launch (24 November 2026), by an AI session, not a human audit. Its findings SC1 to SC7 are fixed and tested (V-3, P-1, P-2, A-21 to A-23, X-1 to X-3).
+- **Earlier reviews:** two read-only review rounds by a second agent (Codex), on 2026-11-24. The first found 18 issues; the second checked the fixes and found 9 incomplete and 7 more issues. All of them are fixed, and each has a test: those marked "Review findings" and "Second review pass".
 - **Documents someone else wrote:** the catalogs and cards live on 2026-11-24 from Buildkite, GitHub, Hugging Face, Neon, Netlify, Notion, Context7, Exa, Supabase and Zapier.
   - Ten of the eleven cards are valid; Zapier's is refused.
   - ajv, run with the official `schema.json`, gives the same verdict on all eleven.

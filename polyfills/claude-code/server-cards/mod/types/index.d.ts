@@ -12,6 +12,10 @@ export type Pick = {
   /** the URL the server connects to, as the result showed it */
   url: string
   transport: string
+  /** the server name it would be added under (a free one is chosen at the press if this is taken) */
+  name: string
+  /** the headers it would send, as "Name: value"; secrets as ${MCP_…} references */
+  headers: string[]
   /** who stands behind it, as one line */
   trust: string
   /** true: confirmed by its publisher; false: not; null: found on the publisher's own domain */
