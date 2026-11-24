@@ -73,10 +73,10 @@ const VERDICT_MS = 5000
  * the helper could find in a config file, so it gets no app either. The
  * helper checks the config files on its own as well (see helper-rs/src/config.rs).
  */
-export function usedByClaudeCode($: EngineInterface, server: string): Promise<boolean> {
+export function usedByClaudeCode($: EngineInterface, server: string, fresh = false): Promise<boolean> {
   const now = Date.now()
   const kept = verdicts.get(server)
-  if (kept && kept.epoch === state.epoch && now - kept.at < VERDICT_MS) return kept.answer
+  if (!fresh && kept && kept.epoch === state.epoch && now - kept.at < VERDICT_MS) return kept.answer
   const answer = $.mcp.connect(server).then(
     (found) => {
       const used = found.isConnected && found.server === server
@@ -128,7 +128,35 @@ export function send($: EngineInterface, view: View, route: string, body: unknow
     .catch((error) => $.ui.log(`mcp-apps-cli: ${route} failed: ${String(error)}`, { to: 'debug' }))
 }
 
-export async function helper($: EngineInterface, route: string, body: unknown) {
+/**
+ * A view's /open and /close go to the helper one at a time, each once the one
+ * before it is answered. They are separate requests, and the helper matches
+ * them by view id: taken out of order, a close meant for an earlier open of
+ * the id could undo a reopen, or come before the page it was for and leave
+ * that page running unseen (found by the model, model/AppsViews.tla).
+ */
+const VIEW_TURN_ROUTES = new Set(['/open', '/close'])
+const viewTurns = new Map<string, Promise<unknown>>()
+/** How long a view's request waits for the one before it at most (an open that never answers). */
+const VIEW_TURN_MS = 60_000
+
+export function helper($: EngineInterface, route: string, body: unknown): Promise<Record<string, unknown> & { ok?: boolean; error?: unknown }> {
+  const viewId = VIEW_TURN_ROUTES.has(route) ? (body as { viewId?: unknown } | undefined)?.viewId : undefined
+  if (typeof viewId !== 'string') return request($, route, body)
+  const before = viewTurns.get(viewId)
+  const waited = before
+    ? Promise.race([before, $.clock.sleep(VIEW_TURN_MS).then(undefined, () => new Promise<void>(() => {}))])
+    : Promise.resolve()
+  const turn = waited.then(() => request($, route, body))
+  const done = turn.then(() => undefined, () => undefined)
+  viewTurns.set(viewId, done)
+  void done.then(() => {
+    if (viewTurns.get(viewId) === done) viewTurns.delete(viewId)
+  })
+  return turn
+}
+
+async function request($: EngineInterface, route: string, body: unknown) {
   // Nothing about a server Claude Code doesn't use goes to the helper, nor
   // starts it.
   const server = SERVER_ROUTES.has(route) ? (body as { server?: unknown } | undefined)?.server : undefined
@@ -350,6 +378,23 @@ async function onHelperMessage($: EngineInterface, message: HelperMessage) {
         }
         // A view closed (or evicted) asks nothing more.
         if (view && !isLive(view)) throw new Error('this view is closed')
+        // An app's own traffic to its server (a call of its tools, a read of
+        // its resources) goes only while Claude Code still uses that server
+        // under that name, asked afresh each time: one switched off or
+        // disconnected after the view opened gets nothing more from its app
+        // (found by the model, model/AppsViews.tla).
+        if (view && (message.method === 'ui/allow-tool' || message.method === 'ui/allow-read')) {
+          if (!(await usedByClaudeCode($, view.server, true))) {
+            reply = { id: message.id, result: { allow: false, reason: `Claude Code is not using the ${view.server} server now` } }
+            await helper($, '/reply', reply).catch(() => {})
+            return
+          }
+        }
+        if (view && message.method === 'ui/allow-read') {
+          reply = { id: message.id, result: isLive(view) ? { allow: true } : { allow: false, reason: `the ${view.server} app closed` } }
+          await helper($, '/reply', reply).catch(() => {})
+          return
+        }
         if (view && message.method === 'ui/allow-tool') {
           const name = String(message.params.name ?? '')
           const args = (message.params.arguments ?? {}) as Record<string, unknown>

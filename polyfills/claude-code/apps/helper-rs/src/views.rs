@@ -572,9 +572,9 @@ impl View {
                 let structured = contains(&discovered["structured"],name);
                 return Ok(policy::normalize_result(&self.request(kind,payload,REQUEST_TIMEOUT_MS).await?,structured));
             }
-            "resources/read" => return helper.mcp.read_resource(&self.server,payload).await,
-            "resources/list" => return helper.mcp.list_resources(&self.server,payload).await,
-            "resources/templates/list" => return helper.mcp.list_resource_templates(&self.server,payload).await,
+            "resources/read" => { self.server_in_use(kind).await?; return helper.mcp.read_resource(&self.server,payload).await }
+            "resources/list" => { self.server_in_use(kind).await?; return helper.mcp.list_resources(&self.server,payload).await }
+            "resources/templates/list" => { self.server_in_use(kind).await?; return helper.mcp.list_resource_templates(&self.server,payload).await }
             "copy" => {
                 let text = payload["text"].as_str().map(str::to_string).unwrap_or_default();
                 {
@@ -591,6 +591,16 @@ impl View {
             _ => bail!("unsupported host call {kind}"),
         }
         Ok(json!({}))
+    }
+
+    /// The mod's yes, asked afresh, that Claude Code still uses this view's
+    /// server under its name, before the app's own read goes to it (a call of
+    /// its tools is asked about with its consent, ui/allow-tool).
+    async fn server_in_use(self: &Arc<Self>, method: &str) -> Result<()> {
+        let answer = self.request("ui/allow-read",json!({"method":method}),REQUEST_TIMEOUT_MS).await.unwrap_or(Value::Null);
+        if answer["allow"] != true { bail!("{}",answer["reason"].as_str().unwrap_or("Claude Code is not using this server now")); }
+        if !self.alive.load(Ordering::SeqCst) { bail!("the view closed"); }
+        Ok(())
     }
 
     async fn download_files(self: &Arc<Self>, contents: &Value) -> Result<Value> {
@@ -613,7 +623,7 @@ impl View {
         for item in contents {
             let resource = match string(item,"type") {
                 "resource" => item["resource"].clone(),
-                "resource_link" => helper.mcp.read_resource(&self.server,json!({"uri":item["uri"]})).await?["contents"][0].clone(),
+                "resource_link" => { self.server_in_use("resources/read").await?; helper.mcp.read_resource(&self.server,json!({"uri":item["uri"]})).await?["contents"][0].clone() }
                 _ => continue,
             };
             if resource.is_null() { continue; }

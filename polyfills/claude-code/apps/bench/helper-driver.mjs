@@ -29,7 +29,7 @@ const ready = new Promise((resolve) => helper.stdout.on("data", (d) => {
     const line = buf.slice(0, k); buf = buf.slice(k + 1);
     let m; try { m = JSON.parse(line); } catch { continue; }
     if (m.type === "ready") { socket = m.socket ? { socket: m.socket, token: m.token } : { url: m.url, token: m.token }; resolve(); }
-    if (m.type === "request" && m.method === "ui/allow-tool") post("/reply", { id: m.id, result: { allow: true } });
+    if (m.type === "request" && (m.method === "ui/allow-tool" || m.method === "ui/allow-read")) post("/reply", { id: m.id, result: { allow: true } });
     if (m.type === "request" && m.method === "tools/call") {
       client.callTool({ name: m.params.name, arguments: m.params.arguments ?? {} })
         .then((r) => post("/reply", { id: m.id, result: r }), (e) => post("/reply", { id: m.id, error: String(e) }));

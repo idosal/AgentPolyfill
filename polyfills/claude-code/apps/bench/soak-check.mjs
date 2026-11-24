@@ -58,7 +58,7 @@ const ready = await new Promise((resolve) =>
       try { m = JSON.parse(line); } catch { continue; }
       if (m.type === "ready") resolve(m);
       if (m.type === "frame" && m.viewId in drawn) drawn[m.viewId]++;
-      if (m.type === "request" && m.method === "ui/allow-tool") void post("/reply", { id: m.id, result: { allow: true } });
+      if (m.type === "request" && (m.method === "ui/allow-tool" || m.method === "ui/allow-read")) void post("/reply", { id: m.id, result: { allow: true } });
       if (m.type === "request" && m.method === "tools/call") {
         const server = viewServer[m.viewId];
         void clientFor(server)
