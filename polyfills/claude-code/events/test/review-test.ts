@@ -183,8 +183,43 @@ describe('a relay that sends what it holds once per connection', () => {
         await client.add(HOOK, hook);
         assert.equal(relay.connections(), 2, 'a new connection, on which the relay sends what it still holds');
         assert.deepEqual(got, ['in-the-gap']);
-        await sleep(50);
+        await sleep(400); // acks go out together, a moment after the first
         assert.deepEqual(relay.sent.filter((m) => m.t === 'ack').map((m) => [m.connection, m.seqs]), [[2, [7]]]);
         await client.close();
+    });
+});
+
+describe('acknowledgements', () => {
+    test('go to the relay together, not one message per delivery', async () => {
+        const secret = newSecret();
+        const got: string[] = [];
+        const body = (n: number) => JSON.stringify({ eventId: `e${n}`, name: 'x', timestamp: 't', data: {} });
+        const relay = fakeRelay((m, send) => {
+            if (m.t !== 'add') return;
+            send({ t: 'ok', n: m.n, queued: 0 });
+            for (let n = 1; n <= 40; n++) send({ t: 'delivery', seq: n, hook: HOOK, headers: headersFor(secret, body(n), `msg_${n}`), body: body(n), receivedAt: now() });
+        });
+        const client = new RelayClient({ settings, key: 'k'.repeat(43), socket: relay.socket });
+        await client.add(HOOK, { secret, onEvent: (o) => void got.push(o.eventId) });
+        await waitFor(() => got.length === 40, 5000, 'all forty');
+        await sleep(400);
+        const acks = relay.sent.filter((m) => m.t === 'ack');
+        assert.deepEqual(acks.flatMap((m) => m.seqs ?? []).sort((a, b) => a - b), Array.from({ length: 40 }, (_, i) => i + 1), 'each acknowledged');
+        assert.ok(acks.length <= 3, `in a few messages, not forty: ${acks.length}`);
+        await client.close();
+    });
+
+    test('still to be sent when the client closes are sent before it does', async () => {
+        const secret = newSecret();
+        const raw = JSON.stringify({ eventId: 'last', name: 'x', timestamp: 't', data: {} });
+        const relay = fakeRelay((m, send) => {
+            if (m.t !== 'add') return;
+            send({ t: 'ok', n: m.n, queued: 1 });
+            send({ t: 'delivery', seq: 9, hook: HOOK, headers: headersFor(secret, raw, 'msg_last'), body: raw, receivedAt: now() });
+        });
+        const client = new RelayClient({ settings, key: 'k'.repeat(43), socket: relay.socket });
+        await client.add(HOOK, { secret, onEvent: () => {} });
+        await client.close();
+        assert.deepEqual(relay.sent.filter((m) => m.t === 'ack').flatMap((m) => m.seqs ?? []), [9]);
     });
 });

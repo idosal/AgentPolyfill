@@ -152,6 +152,9 @@ const REPLACED_WAIT_MS = 30000;
  */
 const MAX_FRAME = 768 * 1024;
 const MAX_WAITING = 2000;
+/** Acks are sent together: at most this many in one message (the relay takes up to 1,000), at most this long after the first. */
+const ACK_BATCH = 500;
+const ACK_EVERY_MS = 200;
 /** More than a relay holds for one mailbox by default (16 MiB), so what a relay kept while Claude Code was closed fits. */
 const MAX_WAITING_BYTES = 24 * 1024 * 1024;
 const HEADER = /^[\x20-\x7e]{1,2048}$/;
@@ -173,6 +176,8 @@ export class RelayClient {
     #flush = new Map<string, { left: number; done: () => void }>();
     #waiting = 0;
     #waitingBytes = 0;
+    #acks: number[] = [];
+    #ackTimer?: NodeJS.Timeout;
     /** Hooks asked for on the current connection. */
     #attached = new Set<string>();
     /**
@@ -270,7 +275,10 @@ export class RelayClient {
             });
             if (status === 403) return `${where} needs its access key, and the one given is missing or wrong. Set MCP_EVENTS_RELAY_ACCESS_KEY, or "accessKey" in ~/.mcp-events/relay.json (\`npm run setup\` in relay/ writes it).`;
             if (status === 401) return `${where} refused this project's mailbox key.`;
-            if (status === 503) return `${where} is not accepting connections (status 503). A relay with no access key set refuses everyone: see relay/README.md.`;
+            if (status === 503)
+                return this.#o.settings.isPublic
+                    ? `${where} is not accepting connections right now (it refuses them while it cannot check its limits). Try again later, or set up a relay of your own (/mcp-events:relay-setup).`
+                    : `${where} is not accepting connections (status 503): a relay with no access key set refuses everyone (see relay/README.md), and one that requires rate limits refuses while it cannot check them.`;
             if (status === 426) return `${where} accepts these credentials, but the WebSocket could not be opened.`;
             if (status === 429) return `${where} is not opening new mailboxes or connections right now (it limits how many it opens). Try again later${this.#o.settings.isPublic ? ', or set up a relay of your own (/mcp-events:relay-setup)' : ''}.`;
             if (status === 101) return `${where} accepted the connection on a second try; try again.`;
@@ -279,6 +287,28 @@ export class RelayClient {
             const sys = (e as { code?: unknown })?.code;
             return `cannot reach ${where}${typeof sys === 'string' && /^[A-Z][A-Z0-9_]{2,30}$/.test(sys) ? ` (${sys})` : ''}`;
         }
+    }
+
+    /**
+     * Acknowledges a delivery. Acks go out together, a moment after the first, so that a busy
+     * project sends the relay one message for many deliveries: the relay closes a connection that
+     * sends more messages in a minute than a client has reason to.
+     */
+    #ack(seq: number): void {
+        this.#acks.push(seq);
+        if (this.#acks.length >= ACK_BATCH) return this.#flushAcks();
+        if (this.#ackTimer) return;
+        this.#ackTimer = setTimeout(() => this.#flushAcks(), ACK_EVERY_MS);
+        this.#ackTimer.unref();
+    }
+
+    #flushAcks(): void {
+        clearTimeout(this.#ackTimer);
+        this.#ackTimer = undefined;
+        if (!this.#acks.length) return;
+        // Acks that cannot be sent now are not kept: unacknowledged deliveries come again on the next
+        // connection, and the watch's replay guard takes each only once.
+        this.#send({ t: 'ack', seqs: this.#acks.splice(0) });
     }
 
     #send(m: ClientMessage): void {
@@ -329,7 +359,7 @@ export class RelayClient {
             if (!sound) {
                 // It can never be taken, so it is not left to take up the mailbox's room (anyone who knows a
                 // webhook address can post one): it is dropped at the relay, as a delivery that fails its signature is.
-                if (Number.isSafeInteger(d.seq)) this.#send({ t: 'ack', seqs: [d.seq] });
+                if (Number.isSafeInteger(d.seq)) this.#ack(d.seq);
                 return void this.#log('relay: dropped a malformed delivery');
             }
             // More waiting than could be real: leave the rest at the relay, which sends them again on the next connection.
@@ -356,7 +386,7 @@ export class RelayClient {
                         if (r.status === 503) this.#log(`relay: ${r.reason}`);
                         else {
                             if (r.status !== 200) this.#log(`relay: dropped a delivery that does not verify (${r.reason})`);
-                            this.#send({ t: 'ack', seqs: [d.seq] });
+                            this.#ack(d.seq);
                         }
                     }
                 } finally {
@@ -390,6 +420,9 @@ export class RelayClient {
 
     #onClose(ws: WebSocket, code: number, reopening = false): void {
         if (ws !== this.#ws) return;
+        clearTimeout(this.#ackTimer);
+        this.#ackTimer = undefined;
+        this.#acks = [];
         clearInterval(this.#ping);
         clearTimeout(this.#pong);
         this.#pong = undefined;
@@ -489,6 +522,7 @@ export class RelayClient {
     #reopen(): void {
         const ws = this.#ws;
         if (!ws) return;
+        this.#flushAcks();
         this.#onClose(ws, 1000, true);
         try {
             ws.close();
@@ -503,6 +537,7 @@ export class RelayClient {
         clearInterval(this.#ping);
         clearTimeout(this.#pong);
         await Promise.race([this.#work, new Promise((r) => setTimeout(r, 2000))]);
+        this.#flushAcks();
         this.#ws?.close();
     }
 }

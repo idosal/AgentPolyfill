@@ -144,8 +144,8 @@ describe('a relay that misbehaves', () => {
         const client = new RelayClient({ settings, key: 'k'.repeat(43), socket: relay.socket });
         await client.add(HOOK, { secret, onEvent: (o) => void got.push(o.eventId) });
         assert.deepEqual(got, ['real']);
-        await sleep(50);
-        assert.deepEqual(relay.sent.filter((m) => (m as { t: string }).t === 'ack'), [{ t: 'ack', seqs: [1] }, { t: 'ack', seqs: [2] }], 'the one that can never be judged is dropped at the relay (so it cannot fill the mailbox); the real one is taken');
+        await sleep(300);
+        assert.deepEqual(relay.sent.filter((m) => (m as { t: string }).t === 'ack').flatMap((m) => (m as { seqs: number[] }).seqs), [1, 2], 'the one that can never be judged is dropped at the relay (so it cannot fill the mailbox); the real one is taken');
         await client.close();
     });
 });
