@@ -68,7 +68,10 @@ permission dialog. The mod raises it; it does not draw one or decide for you.
   asked about at every load. `/mcp-skills forget` drops what is kept. At most
   2,000 approvals are kept; past that the oldest are dropped, and those skills
   are asked about again. A yes that cannot be kept (Claude Code's store for a
-  mod is full) still loads the skill it was given for.
+  mod is full) still loads the skill it was given for. A call is taken to name
+  a skill only by its server and URI exactly as given: before 0.3.2 the helper
+  trimmed spaces around them, so a padded call skipped this question and loaded
+  the skill unapproved (with the refusals below in force).
 - *You can read it first.* `/mcp-skills show <skill>` shows the skill's
   `SKILL.md`, verified, in a panel. The panel is not part of the conversation:
   Claude does not read it, and nothing is loaded or approved by opening it.
@@ -124,9 +127,43 @@ Claude Code treats its own read of an MCP resource.
 A loaded skill's own files can be read only through `read_skill_file`, which
 verifies them; Claude Code's generic resource tool is refused for them.
 
+**Skills you disabled.** `/mcp-skills disable <skill>` keeps, in the same
+store as your approvals, the skill's identity as the extension defines it:
+the server's name in your configuration and the URI of its `SKILL.md`. Not
+its content, and not the server's address: the skill stays disabled whatever
+the server changes in it, and wherever the server moves. From then on, in
+every session that uses the same Claude Code configuration folder:
+
+- it is left out of what Claude is offered (the skill listing, `list_skills`);
+  a listing the helper made before it was told the latest list is not used;
+- `load_skill` for it is refused at the permission check, whatever a rule or
+  mode allows, and refused again when the call runs, as are reads of its
+  files and directories. The store is read for each of these, so a skill
+  disabled in another session is refused here at once, and one disabled while
+  a load waited for your answer, or while the helper fetched it, is not handed
+  to Claude. The helper asks its server nothing about it;
+- where the store cannot be read, nothing served is listed or loaded.
+
+Turning a skill on again (`/mcp-skills enable <skill>`) is honoured only from
+your own input, typed or from your own Remote Control: not from Claude, a
+script, another session or `claude -p`, since it widens what Claude is
+offered. Turning one off is honoured from anywhere. Enabling approves
+nothing: the skill is asked about as it would have been. At most 2,000 skills
+are kept disabled; past that, a disable is refused, and none is dropped to
+make room. A disable that cannot be kept (the store is full) holds in the
+session it was made in until Claude Code is restarted, and says so.
+
+Disabling takes nothing back from a conversation. A skill loaded before is
+still in it, and the questions Claude Code asks because it is (before a read
+from another server; for an unapproved one, before anything but reading and
+searching) go on until the conversation is cleared. `/mcp-skills` names the
+skills you disabled, by name and server, so it can tell you which; nothing a
+server wrote about them is shown there.
+
 **What is kept.** In the helper's memory, for the session: the listings, the
 entries of loaded skills, and verified file content. On disk: your approvals
-(above); which of your servers serve skills, by name and fingerprint, so the
+(above); the skills you disabled, by server name and URI; which of your
+servers serve skills, by name and fingerprint, so the
 others are not connected to at every start; a log (your config's secrets
 scrubbed, private to your user); and, if you ran `/mcp-skills setup`, the
 mod's own copy of Bun. No skill content, and no tokens.
@@ -148,8 +185,12 @@ cannot run it, and neither can a script, another session or `claude -p`. Two ses
 to wait).
 No server, skill or project file can change what is downloaded or from where.
 The SHA-256 is checked when the copy is fetched, not each time it runs, and
-only the copy of the pinned version is ever run, so a copy of another version
-put in that folder is ignored. The copy is used only to run this mod's helper;
+only the copy of the pinned version is ever run: the mod looks only at that
+version's folder, and runs nothing there unless the folder and the program
+in it are a real folder and a real file, not symbolic links. A copy of
+another version put in that folder is never run, not even to ask its
+version, and the next setup deletes it by name. (Before 0.3.2 the mod ran
+every such copy once, with `--version`, to learn which were there.) The copy is used only to run this mod's helper;
 your PATH and shell profile are not touched; `/mcp-skills setup remove` deletes it. A newer Bun arrives
 only with a newer version of the mod, and only when you run the command
 again.

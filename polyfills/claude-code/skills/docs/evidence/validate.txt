@@ -10,8 +10,8 @@ Validating hooks: <repo>/mod/hooks/hooks.json
   ❯ ./register.ts gating hook with .catch: tool.run{tool=mcp__mcp-skills__list_skill_directory}
   ❯ ./register.ts gating hook with .catch: tool.run{tool=mcp__mcp-skills__list_skills}
   ❯ ./register.ts gating hook with .catch: tool.check
-  ❯ ./register.ts calls: $.clock.after, $.clock.now (via ensureHelper, install, serve), $.clock.sleep, $.command.list, $.command.register, $.env.get, $.fs.exists (via erase, installLocked, platformOf), $.fs.list (via fetched, installLocked, remove), $.fs.read (via sha256Of), $.fs.stat (via install, installLocked), $.http.fetch (via post), $.mcp.connect (via onMessage), $.process.hookEnv (via dataFolder, ensureHelper), $.process.run (via run, runtime), $.process.spawn (via ensureHelper), $.prompt.submit, $.session.messages (via actingSkills), $.store.get (via approvals, ensureHelper), $.store.set, $.tool.list, $.tool.register, $.ui.ask (via setup), $.ui.invalidate, $.ui.log (via debug), $.ui.open, $.ui.resolve
-  ❯ ./register.ts calls: $.ui.toast
+  ❯ ./register.ts calls: $.clock.after, $.clock.now (via disable, ensureHelper, install, serve), $.clock.sleep, $.command.list, $.command.register, $.env.get, $.fs.exists (via erase, installLocked, platformOf), $.fs.list (via installLocked, remove), $.fs.read (via sha256Of), $.fs.stat (via install, installLocked, pinned), $.http.fetch (via post), $.mcp.connect (via onMessage), $.process.hookEnv (via dataFolder, ensureHelper), $.process.run (via run, runtime), $.process.spawn (via ensureHelper), $.prompt.submit, $.session.messages (via actingSkills), $.store.get (via approvals, ensureHelper, storedOff), $.store.set, $.tool.list, $.tool.register, $.ui.ask (via setup), $.ui.invalidate, $.ui.log (via debug)
+  ❯ ./register.ts calls: $.ui.open, $.ui.resolve, $.ui.toast
   ❯ ./register.ts env writes: nothing
   ❯ ./register.ts env reads: HOME, MCP_SKILLS_OFF, MCP_SKILLS_RUNTIME, SHELL
 
@@ -27,8 +27,8 @@ Validating hooks: <repo>/mod/hooks/hooks.json
   ❯ ./register.ts gating hook with .catch: tool.run{tool=mcp__mcp-skills__list_skill_directory}
   ❯ ./register.ts gating hook with .catch: tool.run{tool=mcp__mcp-skills__list_skills}
   ❯ ./register.ts gating hook with .catch: tool.check
-  ❯ ./register.ts calls: $.clock.after, $.clock.now (via ensureHelper, install, serve), $.clock.sleep, $.command.list, $.command.register, $.env.get, $.fs.exists (via erase, installLocked, platformOf), $.fs.list (via fetched, installLocked, remove), $.fs.read (via sha256Of), $.fs.stat (via install, installLocked), $.http.fetch (via post), $.mcp.connect (via onMessage), $.process.hookEnv (via dataFolder, ensureHelper), $.process.run (via run, runtime), $.process.spawn (via ensureHelper), $.prompt.submit, $.session.messages (via actingSkills), $.store.get (via approvals, ensureHelper), $.store.set, $.tool.list, $.tool.register, $.ui.ask (via setup), $.ui.invalidate, $.ui.log (via debug), $.ui.open, $.ui.resolve
-  ❯ ./register.ts calls: $.ui.toast
+  ❯ ./register.ts calls: $.clock.after, $.clock.now (via disable, ensureHelper, install, serve), $.clock.sleep, $.command.list, $.command.register, $.env.get, $.fs.exists (via erase, installLocked, platformOf), $.fs.list (via installLocked, remove), $.fs.read (via sha256Of), $.fs.stat (via install, installLocked, pinned), $.http.fetch (via post), $.mcp.connect (via onMessage), $.process.hookEnv (via dataFolder, ensureHelper), $.process.run (via run, runtime), $.process.spawn (via ensureHelper), $.prompt.submit, $.session.messages (via actingSkills), $.store.get (via approvals, ensureHelper, storedOff), $.store.set, $.tool.list, $.tool.register, $.ui.ask (via setup), $.ui.invalidate, $.ui.log (via debug)
+  ❯ ./register.ts calls: $.ui.open, $.ui.resolve, $.ui.toast
   ❯ ./register.ts env writes: nothing
   ❯ ./register.ts env reads: HOME, MCP_SKILLS_OFF, MCP_SKILLS_RUNTIME, SHELL
 

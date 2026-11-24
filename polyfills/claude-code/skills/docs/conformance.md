@@ -13,13 +13,13 @@ calls recommendations, not part of the normative specification (marked
 *guideline*). Rules that bind only a server, an SDK or an intermediary are left
 out. The extension's Beta page in `modelcontextprotocol/ext-skills` states the
 same client rules; where it adds one, that is said at the end. This page
-describes version 0.3.1 of the mod.
+describes version 0.3.2 of the mod.
 
 **Status** is one of: **met**; **exception** (met, with a limit stated in the
 row, caused by the host or chosen and documented); **not met**; **n/a** (the
 rule governs something this mod does not do, and the row says why).
 
-**Summary:** 59 rules. 53 met, 3 met with a documented exception (V8, W1, X8),
+**Summary:** 60 rules. 54 met, 3 met with a documented exception (V8, W1, X8),
 0 not met, 3 n/a (F1, U3, X15). Every MUST is met or, for W1 and X8, met with
 the limit stated in its row.
 
@@ -35,6 +35,9 @@ the limit stated in its row.
   (`npm test`).
 - `gates`: [`mod/hooks/gates.test.ts`](../mod/hooks/gates.test.ts), the mod's
   hooks running in Claude Code's own test kit (`npm run test:mod`).
+- `disable`: [`test/enable-disable-test.ts`](../test/enable-disable-test.ts),
+  the helper's half of per-skill enable and disable, against a hand-written
+  server (`npm test`).
 - `conformance`: the official MCP conformance suite's four client scenarios
   for SEP-2640 ([output](evidence/conformance.txt)). The suite has no others.
 - `real`: every skill and file of two real public servers, Hugging Face and
@@ -131,6 +134,12 @@ end.
 | X14 | A persisted per-skill approval MUST be bound to the entry's `resources` set (every `uri` and `digest`) and treated as revoked when a later entry advertises a different set; a `"dynamic"` skill cannot be covered by one. | met | The stored approval holds a hash over every file's URI and digest, and a fingerprint of the server's address or command. At every load the server's current entry is hashed again; a different set, or a server at another address, is asked about anew ("has changed since you approved it"), and the skill is loaded only as the set that was approved. A `"dynamic"` skill is asked about at every load and nothing is stored for it. At most 2,000 approvals are kept (the oldest go); a yes that cannot be kept still loads the skill it was given for. `rules` X14 (three tests), `gates` X14 (eight tests), `model` ApprovedContent, KeptIsConsented, NoKeptYesForDynamic; `property` (the hash changes with any URI or digest, and not with order) |
 | X15 | Disk cache: integrity (host-only location or re-hash on access), a location outside every skill-discovery path, MCP origin kept after restart; SHOULD remove a server's cached content when the server is removed. | n/a | No skill content is written to disk. What is kept in memory goes with the session. `rules` X15 |
 
+## Host integration
+
+| Id | Rule | Status | How, and where checked |
+|---|---|---|---|
+| H1 | (*guideline*) The host surfaces the `name` and `description` of each *enabled* registry entry in the model's context, with its identity; the host's UI presents the same merged list for user inspection and per-skill enable/disable, with provenance shown ("Hosts: End-to-End Integration", Context). | met | `/mcp-skills` lists every served skill with its server; `/mcp-skills show` opens one for inspection; `/mcp-skills disable <skill>` and `enable <skill>` turn one off and on, keyed by its identity (server and `SKILL.md` URI, U1), kept in the mod's store (at most 2,000) and shared by every session. A disabled skill is left out of the listing and `list_skills`, refused at `load_skill`'s permission check and again when any of the mod's tools runs for it (the store is read for each), and its server is asked nothing about it. Enabling is honoured only from the person's own input, and approves nothing. Disabling takes nothing back from a conversation that loaded the skill (W1). `gates` H1 (twelve tests), `disable` (seven), `model` DisabledNeverReaches |
+
 ## Rules of the Beta page that SEP-2640 does not state
 
 The extension's Beta page (`specification/beta/skills.mdx` in
@@ -155,7 +164,7 @@ base revision 2026-07-28 and adds one client rule:
 | Origin shown to the model and the person; inspection before loading | yes | |
 | Per-skill approval bound to content | yes | |
 | A cache of verified files | in memory, for the session | A disk cache brings X15's duties; not built (V8) |
-| Per-skill enable and disable in the host's list (*guideline*) | no | Feasible as a mod; not built |
+| Per-skill enable and disable in the host's list (*guideline*) | yes, `/mcp-skills disable` and `enable` (H1) | |
 | Skills of servers behind an OAuth sign-in, claude.ai connectors and plugins' servers | no | Claude Code gives a mod no way to send `skills/*` over its own connection, nor the server's capabilities ([host-changes.md](host-changes.md), changes 1 and 2) |
 | A served skill as a `/name` command | no | Left out so that no served skill can stand in for a local one by name (N4); `/mcp-skills use <name>` instead |
 
