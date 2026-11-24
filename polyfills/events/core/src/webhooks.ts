@@ -151,15 +151,19 @@ export function isChallenge(raw: string): boolean {
 
 /**
  * Judges one delivery and acts on it. `nowS` is when the delivery arrived: now for
- * a direct POST, the relay's receipt time for one the relay held.
+ * a direct POST, the relay's receipt time for one the relay held. `maxAgeS`, for one a relay
+ * held: the longest that relay keeps a delivery. That relay's word on when it arrived is not
+ * taken for anything signed longer ago than that, by this machine's clock.
  */
-export async function handleDelivery(hook: Hook, headers: Record<string, string | string[] | undefined>, raw: string, o: { nowS?: number } = {}): Promise<Outcome> {
+export async function handleDelivery(hook: Hook, headers: Record<string, string | string[] | undefined>, raw: string, o: { nowS?: number; maxAgeS?: number } = {}): Promise<Outcome> {
     // The same bound however it arrived: the receiver stops reading at this size, and what a relay
     // hands over is measured here (its word on what it let through is not taken).
     if (Buffer.byteLength(raw, 'utf8') > MAX_BODY) return { status: 413, reason: 'larger than 256 KiB' };
     const v = verify(hook.secret, headers, raw, o.nowS);
     // Stale: not wanted again, so the server is told not to retry it (410). Anything else that does not verify is refused.
     if (!v.ok) return { status: v.stale ? 410 : 401, reason: v.reason };
+    // A relay could hold a genuine delivery back and hand it over later, saying it has just arrived.
+    if (o.maxAgeS !== undefined && v.timestamp < Math.floor(Date.now() / 1000) - o.maxAgeS) return { status: 410, reason: 'signed longer ago than the relay keeps a delivery' };
     let body: Record<string, unknown>;
     try {
         body = JSON.parse(raw) as Record<string, unknown>;

@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { allowed, senderKey, WORKERS_SENDER } from '../src/limits.ts';
+import { allowed, networkKey, senderKey, WORKERS_SENDER } from '../src/limits.ts';
 
 const answers = (success: boolean) => ({ limit: async () => ({ success }) });
 const broken = { limit: async () => { throw new Error('the limiter is down'); } };
@@ -30,4 +30,14 @@ test('a sender is an IPv4 address, or an IPv6 /64: every address in one /64 is o
     assert.notEqual(senderKey('2001:db8:1:3::1'), one, 'the next /64 is another sender');
     assert.equal(senderKey('2a06:98c0:3600::103'), WORKERS_SENDER);
     assert.equal(senderKey(''), 'unknown');
+});
+
+test("a sender's network, for the ceiling on new mailboxes: an IPv6 address's /48, an IPv4 address itself", () => {
+    assert.equal(networkKey('2001:db8:a:1::1'), '2001:db8:a::/48');
+    assert.equal(networkKey('2001:db8:a:ffff:1:2:3:4'), '2001:db8:a::/48');
+    assert.equal(networkKey('2001:0db8:000a:0001:0000:0000:0000:0001'), '2001:db8:a::/48');
+    assert.notEqual(networkKey('2001:db8:b:1::1'), networkKey('2001:db8:a:1::1'));
+    assert.equal(networkKey('198.51.100.7'), '198.51.100.7');
+    assert.equal(networkKey('::ffff:198.51.100.7'), '198.51.100.7');
+    assert.equal(networkKey('unknown'), 'unknown');
 });
