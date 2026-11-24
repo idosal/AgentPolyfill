@@ -1,6 +1,6 @@
 {
   "name": "mcp-skills",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "MCP Skills (SEP-2640) for Claude Code: skills served by your MCP servers are listed for Claude, loaded on demand, verified against the server's manifest, and approved by you once per skill.",
   "author": {
     "name": "Ido Salomon",

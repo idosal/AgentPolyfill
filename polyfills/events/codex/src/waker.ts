@@ -18,7 +18,14 @@ import { accessSync, constants, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, isAbsolute, join } from 'node:path';
 
-export type QueueResult = { ok: true; resumed: boolean } | { ok: false; why: string; permanent?: true };
+/**
+ * `unreachable`: `codex queue` can never reach this session (a ChatGPT desktop-app chat, which is not a
+ * local Codex session): no later try will either, so the session is not tried again.
+ */
+export type QueueResult = { ok: true; resumed: boolean } | { ok: false; why: string; permanent?: true; unreachable?: true };
+
+/** Why a session that is not a local Codex session cannot be woken. */
+export const NOT_LOCAL = "this chat can't be woken: it isn't a local Codex session (a ChatGPT desktop-app chat, say), which is all codex queue reaches";
 export type Wake = (thread: string, text: string) => Promise<QueueResult>;
 /** What to run for `codex`: a program, and any arguments that come before Codex's own. */
 export type CodexCommand = { command: string; args: string[] };
@@ -128,6 +135,8 @@ export function queueMessage(bin: CodexCommand | string, thread: string, text: s
         child.on('close', (code) => {
             if (code === 0 && /Queued message/i.test(out)) return finish({ ok: true, resumed: !/could not resume/i.test(err) });
             if (/unrecognized subcommand|unexpected argument/i.test(err)) return finish({ ok: false, why: 'this Codex has no `codex queue --resume` (Codex 0.170 or newer has it)', permanent: true });
+            // Codex keeps no local rollout for a ChatGPT desktop-app chat: queueing to it always fails.
+            if (/no rollout found/i.test(err)) return finish({ ok: false, why: NOT_LOCAL, permanent: true, unreachable: true });
             if (/no (active )?session found|thread\b[^\n]*\bnot found/i.test(err)) return finish({ ok: false, why: 'Codex does not know this session any more', permanent: true });
             // Codex's own words are not repeated: only that it refused, and how.
             finish({ ok: false, why: `codex queue failed (exit ${code ?? 'signal'})` });

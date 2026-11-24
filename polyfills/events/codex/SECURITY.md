@@ -114,6 +114,13 @@ model, are what tell it apart from what you typed.
 - **It listens on nothing** unless a webhook watch uses
   `MCP_EVENTS_PUBLIC_URL`, which opens a local receiver on 127.0.0.1 for your
   own forwarder. It downloads nothing.
+- **A chat it cannot reach is not tried again.** In the ChatGPT desktop app,
+  a watch records events but can't wake the chat: its threads aren't local
+  Codex sessions that `codex queue` can reach. Ask for recent events. Waking
+  works in the Codex TUI (and `codex exec` resumes). When `codex queue`
+  answers that it has no local session for the chat ("no rollout found"), the
+  plugin stops trying to wake that chat, so nothing is queued for it over and
+  over; its events are still stored, and `list_watches` says why.
 
 ## What is stored
 

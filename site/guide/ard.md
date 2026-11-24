@@ -29,10 +29,10 @@ theirs.
 
 ::: warning Search sends your query to a third party
 `ard_search` posts the words of your request to an ARD registry, a service
-someone else runs, which ranks other people's servers. By default that registry
-is a Hugging Face Space, `https://huggingface-hf-discover.hf.space` (the
-`registry` setting changes or empties it), and the query also goes to up to
-three registries it refers to. Claude Code asks you before every search, showing
+someone else runs, which ranks other people's servers. The plugin ships with no
+registry: you name one in the request, or set one with the `registry` setting,
+and the query also goes to up to three registries it refers to. With neither, a
+search is refused and nothing is sent. Claude Code asks you before every search, showing
 the query and where it goes; with nobody to ask (`claude -p`), nothing is sent.
 For that reason the plugin is not part of the `agent-polyfill` bundle: you
 install it by name.
@@ -102,8 +102,9 @@ Claude finds Buildkite, and says buildkite.com's own catalog confirms it.
 3. **By domain (`ard_discover`):** `mcp-server-cards` reads the domain's
    `ai-catalog.json` and `ard.json`, and follows `rel="ai-catalog"` and
    `rel="ard"` links. It fetches each Server Card listed and checks it.
-4. **By task (`ard_search`):** the plugin posts your query to the registry and
-   follows the referrals it gives, one hop. Then each publisher's own catalogs
+4. **By task (`ard_search`):** if no registry is set and you named none, Claude
+   asks you which one to search. The plugin posts your query to that registry
+   and follows the referrals it gives, one hop. Then each publisher's own catalogs
    are read. A server is **confirmed** only if its publisher lists it there with
    a valid card, and then the publisher's card is the one shown and added;
    otherwise it is marked **NOT confirmed by its publisher**. The registry's
@@ -118,7 +119,7 @@ In `/config`, under the plugin:
 | Setting | Default | What it does |
 |---|---|---|
 | `disabled` | off | Turns the plugin fully off: no tools, nothing fetched or sent. `mcp-server-cards` keeps working on its own. |
-| `registry` | `https://huggingface-hf-discover.hf.space` | The ARD registry that `ard_search` asks when the request names none: a Hugging Face Space, which huggingface.co's own catalog lists as its registry. Your query text is sent there, once you say yes. Empty: search only a registry named in the request. |
+| `registry` | empty | The ARD registry for `ard_search` to ask when the request names none. Empty by default: no registry is chosen for you, so each search names its own. Your query text is sent to the registry, once you say yes. |
 
 ## Limits
 

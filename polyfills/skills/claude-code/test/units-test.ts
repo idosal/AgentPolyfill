@@ -106,7 +106,7 @@ describe('an entry', () => {
         assert.notEqual(manifestKey(a), manifestKey(skill('s', { 'a.md': 'A', 'b.md': 'B', 'c.md': 'C' }).entry as SkillEntry), 'an added file');
     });
     test('a skill or file URI holding a control, direction-changing or invisible character is refused, and not repeated', () => {
-        for (const c of ['\u001b', '\u0007', '\u009b', '‮', '​', '﻿']) {
+        for (const c of ['\u001b', '\u0007', '\u009b', '\u202E', '\u200B', '\uFEFF']) {
             const uri = `skill://acme${c}/notes/SKILL.md`;
             const bad = checkEntry({ uri, frontmatter: { name: 'notes', description: 'Notes.' }, resources: [{ uri, digest: digest('x'), size: 1 }] });
             assert.ok('invalid' in bad && bad.uri === undefined, JSON.stringify(c));

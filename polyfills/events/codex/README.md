@@ -185,7 +185,8 @@ documentation: [`../claude-code/mod/relay/README.md`](../claude-code/mod/relay/R
 | `codex --remote <app server>` | Yes | Yes, with `MCP_EVENTS_CODEX_REMOTE` set to the same address (tested: [`docs/live-run.md`](docs/live-run.md)) |
 | `codex exec` | Yes | No: the session, and the helper with it, end with the run |
 | The TUI without the daemon (`--no-daemon`, `-c`, `--profile`) | Yes | Not tested. `codex queue` then has no daemon to resume the session on, so the message is expected to wait in its queue |
-| The Codex desktop app, the IDE extension | Not tested | Not tested |
+| The ChatGPT desktop app (Work chats) | Yes: a watch is set and stores its events | No: its chats are not local Codex sessions, which is all `codex queue` reaches. Ask for `recent_events` |
+| The IDE extension | Not tested | Not tested |
 
 Tested live in the Codex TUI 0.172.0 on macOS. The tests also run on Linux in
 CI; Windows has not been tried. On Windows the plugin runs only `codex.exe`,
@@ -210,6 +211,11 @@ or Node with an npm install's `codex.js`, never npm's `codex.cmd`
   and no session is open. (`codex queue --resume` would resume a closed
   session in the daemon, but by then no helper is running to receive the
   event.)
+- **The ChatGPT desktop app.** In the ChatGPT desktop app, a watch records
+  events but can't wake the chat: its threads aren't local Codex sessions
+  that `codex queue` can reach. Ask for recent events. Waking works in the
+  Codex TUI (and `codex exec` resumes). The first wake that fails this way
+  is the last one tried for that chat, and `list_watches` says why.
 - **Events wake a session only so often.** A watch can start a wake at most
   once a minute; a session is woken at most 30 times in an hour, then told
   once that events are waiting, and not woken again for an hour, or until,

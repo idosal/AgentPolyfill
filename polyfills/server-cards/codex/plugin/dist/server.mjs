@@ -867,7 +867,7 @@ var planAdd = (card, remoteIndex, values, name, scope, fromLocal = false) => {
     if (v === void 0) return whole;
     if (!input.isSecret) {
       if (at === 0) {
-        if (!PLAIN_URL.test(v)) problems.push(`{${key}} must be a URL, in printable ASCII without \`, <, > or square brackets (but an IPv6 host's)`);
+        if (!PLAIN_URL.test(v)) problems.push(`{${key}} must be a URL, in printable ASCII without \`, <, >, a backslash or square brackets (but an IPv6 host's)`);
       } else if (!URL_VALUE.test(v) || /^\.+$/.test(v))
         problems.push(`{${key}} may hold only letters, digits and . _ ~ - (and not be "." or "..")`);
     }
