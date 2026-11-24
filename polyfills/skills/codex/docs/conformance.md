@@ -116,7 +116,7 @@ the Codex adapter adds.
 | X13a | Show the origin server. | met | Everywhere |
 | X13b | Let users inspect a skill before it is loaded. | met | "Show me its SKILL.md first" in the question; shown to you, not to the model. `rules` X13 |
 | X13c | MAY gate loading per skill. | met | Always |
-| X14 | A kept approval is bound to every `uri` and `digest`, revoked when they change; a `"dynamic"` skill cannot be covered. | met | Also bound to where the server is. What is loaded is the set you were asked about. `rules` X14 (two tests), `helper` |
+| X14 | A kept approval is bound to every `uri` and `digest`, revoked when they change; a `"dynamic"` skill cannot be covered. | met | Also bound to where the server is. What is loaded is the set you were asked about; for a `"dynamic"` skill you read before loading, it is the text you were shown, or nothing (from 0.1.6). `rules` X14 (three tests), `helper` |
 | X15 | A disk cache: integrity, outside every skill-discovery path, origin kept. | met | No skill content is cached on disk. The stubs, which are in a discovery path, hold the listing's name and description and the plugin's own words, and are rewritten from the server's listing at each start. `rules` X15, `stubs` |
 
 ## Host integration
