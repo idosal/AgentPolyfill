@@ -1,6 +1,7 @@
 // The plugin as Codex installs and runs it: a copy of mod/ in Codex's plugin cache, which Codex
-// replaces with a fresh copy whenever the marketplace is updated, started with each session even
-// on an app-server daemon that already holds the plugin's tool list.
+// replaces with a fresh copy whenever the marketplace is updated. The stubs go where that copy
+// doesn't reach, ~/.agents/skills/mcp-skills-served, when the plugin's server starts: on a running
+// app-server daemon, that is at the plugin's first tool call.
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync, type ChildProcess } from 'node:child_process';
@@ -71,31 +72,46 @@ describe('installed by Codex', () => {
         assert.deepEqual(readdirSync(join(home, '.agents', 'skills')).sort(), ['mcp-skills-served', 'my-own']);
     });
 
-    test('Codex is told not to keep the plugin\'s tool list, so it starts the plugin\'s server with every session', async () => {
-        // Codex 0.172 puts off starting a stdio server whose tool list it has kept from an earlier
-        // session (on a daemon) until one of its tools is called, unless the server is required
-        // (can_defer_stdio_startup in codex-rs/config/src/mcp_types.rs) or it declares that its tool
-        // list is not to be kept (codex/tool-catalog-cache, codex-rs/codex-mcp/src/rmcp_client.rs).
-        // The stubs are written when the server starts. Required would block every Codex session
-        // while the server can't start (no Node), so it is not.
-        const server = (JSON.parse(readFileSync(join(ROOT, 'mod', '.mcp.json'), 'utf8')) as { mcpServers: Record<string, Json> }).mcpServers['mcp-skills']!;
-        assert.notEqual(server.required, true, 'a required server that cannot start stops every Codex session');
-        const { home } = homes();
-        const installed = join(temp(), 'mcp-skills');
+    test('at the plugin\'s first tool call, list_skills, the stubs are in ~/.agents/skills/mcp-skills-served', async () => {
+        // On an app-server daemon that kept the plugin's tool list from an earlier session, Codex
+        // starts the plugin's server only at its first tool call (can_defer_stdio_startup in
+        // codex-rs/config/src/mcp_types.rs). Asking Codex to list the served skills is that call.
+        const { home, codexHome } = homes();
+        const installed = join(codexHome, 'plugins', 'cache', 'agent-polyfill', 'mcp-skills', VERSION);
         cpSync(join(ROOT, 'mod'), installed, { recursive: true });
-        const helper = spawn(process.execPath, ['./dist/helper.js'], { cwd: installed, env: { PATH: process.env.PATH ?? '', HOME: home, MCP_SKILLS_STATE: join(home, 'state'), MCP_SKILLS_STUBS: join(home, 'stubs'), ...(process.env.SYSTEMROOT ? { SYSTEMROOT: process.env.SYSTEMROOT } : {}) }, stdio: ['pipe', 'pipe', 'ignore'] });
+        const env = { PATH: process.env.PATH ?? '', HOME: home, USERPROFILE: home, ...(process.env.SYSTEMROOT ? { SYSTEMROOT: process.env.SYSTEMROOT } : {}) };
+        const helper = spawn(process.execPath, ['./dist/helper.js'], { cwd: installed, env, stdio: ['pipe', 'pipe', 'ignore'] });
         running.push(helper);
-        let out = '';
-        helper.stdout!.on('data', (d: Buffer) => (out += d.toString()));
-        helper.stdin!.write(`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: { elicitation: { form: {} } }, clientInfo: { name: 'codex-mcp-client', version: '0.172.0' } } })}\n`);
-        await until(() => out.includes('\n'));
+        let buf = '';
+        const answers = new Map<number, (m: Json) => void>();
+        helper.stdout!.on('data', (d: Buffer) => {
+            buf += d.toString();
+            let at: number;
+            while ((at = buf.indexOf('\n')) >= 0) {
+                const m = JSON.parse(buf.slice(0, at)) as Json;
+                buf = buf.slice(at + 1);
+                if (typeof m.id === 'number' && m.method === undefined) answers.get(m.id)?.(m);
+            }
+        });
+        const request = (id: number, method: string, params: Json) => new Promise<Json>((done) => {
+            answers.set(id, done);
+            helper.stdin!.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`);
+        });
+        // As Codex makes it when the model calls the tool: the connection, then the call at once.
+        await request(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: { elicitation: { form: {} } }, clientInfo: { name: 'codex-mcp-client', version: '0.172.0' } });
+        helper.stdin!.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`);
+        const answer = (await request(2, 'tools/call', { name: 'list_skills', arguments: {} })) as { result: { content: { text: string }[] } };
+        // Checked when the answer comes, not after: Codex's next turn lists what is on disk then.
+        const stubs = skillFiles(join(home, '.agents', 'skills', 'mcp-skills-served'));
         helper.kill();
-        const reply = JSON.parse(out.slice(0, out.indexOf('\n'))) as { result: { capabilities: { experimental?: Record<string, Json> } } };
-        assert.deepEqual(reply.result.capabilities.experimental?.['codex/tool-catalog-cache'], { cacheable: false });
+        assert.match(answer.result.content[0]!.text, /release-notes/);
+        assert.equal(stubs.length, 1, 'the served skill has its stub in ~/.agents/skills/mcp-skills-served');
+        assert.match(readFileSync(join(home, '.agents', 'skills', 'mcp-skills-served', stubs[0]!), 'utf8'), /^name: "mcp-skills:docs:release-notes"$/m);
+        assert.deepEqual(skillFiles(installed).filter((f) => f.includes('served')), [], 'nothing is written into the plugin\'s folder');
     });
 
     const codex = spawnSync('codex', ['--version'], { encoding: 'utf8' }).status === 0 ? 'codex' : undefined;
-    test('in Codex itself: one app-server, several sessions, a reinstall between them', { skip: codex ? false : 'codex is not installed here', timeout: 180_000 }, async () => {
+    test('in Codex itself: the installed plugin\'s stubs stay through a reinstall, and a new session lists them', { skip: codex ? false : 'codex is not installed here', timeout: 180_000 }, async () => {
         const { home, codexHome } = homes();
         const project = join(temp(), 'project');
         mkdirSync(project, { recursive: true });
@@ -103,8 +119,8 @@ describe('installed by Codex', () => {
         const run = (...args: string[]) => execFileSync(codex!, args, { env, cwd: project, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' });
         run('plugin', 'marketplace', 'add', REPO);
         run('plugin', 'add', 'mcp-skills@agent-polyfill');
-        const starts = () => (existsSync(join(codexHome, 'mcp-skills', 'mcp-skills.log')) ? readFileSync(join(codexHome, 'mcp-skills', 'mcp-skills.log'), 'utf8').split('\n').filter((l) => l.includes('server(s) to look at')).length : 0);
-        // An app-server holds its sessions' MCP servers, as the daemon does; no turn, so no model is called.
+        // An app-server holds its sessions' MCP servers, as the daemon does; no turn, so no model is
+        // called. Its first session starts the plugin's server, whose tool list it hasn't kept yet.
         const server = spawn(codex!, ['app-server'], { env, cwd: project, stdio: ['pipe', 'pipe', 'ignore'] });
         running.push(server);
         let buf = '';
@@ -126,20 +142,19 @@ describe('installed by Codex', () => {
         });
         await request('initialize', { clientInfo: { name: 'mcp-skills-test', version: '0' }, capabilities: { experimentalApi: true } });
         server.stdin!.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'initialized' })}\n`);
-        const session = async (n: number) => {
+        const session = async () => {
             const r = await request('thread/start', { cwd: project, sandbox: 'read-only', approvalPolicy: 'never' });
             assert.equal(r.error, undefined, JSON.stringify(r.error));
-            await until(() => starts() >= n);
         };
-        await session(1);
+        await session();
         await until(() => servedStubs(home, codexHome).length === 1);
-        await session(2);
-        await session(3);
-        assert.equal(starts(), 3, 'the plugin\'s server started with each session');
         // A marketplace update: Codex replaces the plugin's folder with a fresh copy.
         run('plugin', 'remove', 'mcp-skills@agent-polyfill');
         run('plugin', 'add', 'mcp-skills@agent-polyfill');
         assert.equal(servedStubs(home, codexHome).length, 1, 'the stub is still there after the plugin folder was replaced');
+        await session();
+        const listed = await request('skills/list', { cwds: [project], forceReload: true });
+        assert.match(JSON.stringify(listed.result), /mcp-skills:docs:release-notes/, 'Codex lists the served skill in the new session');
         server.kill();
     });
 });

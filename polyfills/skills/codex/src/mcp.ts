@@ -20,16 +20,6 @@ const REVISIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const MAX_LINE = 4 * 1024 * 1024;
 /** How long a question waits for the person. Codex is told to wait as long for the tool (.mcp.json). */
 const ASK_TIMEOUT_MS = 9 * 60 * 1000;
-/**
- * `codex/tool-catalog-cache` with `cacheable: false` tells Codex not to keep this server's tool
- * list between sessions. A Codex app-server daemon that holds a server's tool list starts that
- * server only when one of its tools is called (can_defer_stdio_startup in codex-rs/config), and the
- * stubs are written when this server starts, so without it a session on the daemon would not see a
- * server's new skills. Marking the server required in .mcp.json would start it too, but Codex then
- * refuses every session while it can't start (no Node). Codex 0.172 reads the capability in
- * codex-rs/codex-mcp/src/rmcp_client.rs, where it is marked as experimental.
- */
-export const CAPABILITIES = { tools: { listChanged: false }, experimental: { 'codex/tool-catalog-cache': { cacheable: false } } };
 
 const INSTRUCTIONS = `Skills served by the user's MCP servers (the MCP Skills extension), which Codex does not load by itself. Codex lists them among its skills as ${PLUGIN}:<server>:<name>; the SKILL.md it shows for one only says how to load it. Load a skill with load_skill, giving its server and uri: the user is asked first, and the skill's text comes back marked with the server it came from. Read the files a loaded skill refers to with read_skill_file, never from disk. list_skills lists every served skill, including any not in Codex's list.`;
 
@@ -139,7 +129,7 @@ export function serve(o: ServeOptions): { done: Promise<void> } {
                 const asked = typeof params.protocolVersion === 'string' ? params.protocolVersion : '';
                 revision = REVISIONS.includes(asked) ? asked : REVISIONS[0]!;
                 o.onInitialize?.(clientCaps, (params.clientInfo ?? {}) as Json);
-                return reply(id, { protocolVersion: revision, capabilities: CAPABILITIES, serverInfo: { name: PLUGIN, title: 'MCP Skills (polyfill)', version: VERSION }, instructions: INSTRUCTIONS });
+                return reply(id, { protocolVersion: revision, capabilities: { tools: { listChanged: false } }, serverInfo: { name: PLUGIN, title: 'MCP Skills (polyfill)', version: VERSION }, instructions: INSTRUCTIONS });
             }
             case 'ping':
                 return reply(id, {});

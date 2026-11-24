@@ -140,7 +140,8 @@ GitHub releases, and earthquakes. Its source is in
 
 Add Hugging Face's public MCP server (no sign-in) and ask a question one of
 its skills covers. In Claude Code, `/mcp-skills` lists what it serves. In
-Codex, the served skills appear in the `$` list from your next session.
+Codex, the served skills appear in the `$` list after you ask once to list the
+served skills, from the next turn.
 
 ```
 claude mcp add --transport http huggingface https://huggingface.co/mcp

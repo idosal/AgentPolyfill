@@ -3,10 +3,11 @@
 // frames over a Unix socket, as Codex's own app-server client does), starts one new session, and
 // sends a turn per prompt, answering the plugin's question "Load it", as a person would. Before
 // each turn it asks Codex which skills it lists for the project (skills/list) and prints which of
-// them are served, then each tool call and the answer.
+// them are served, and how often the plugin's server has started (from the plugin's log), then
+// each tool call and the answer. With no prompt, it only starts the session.
 //   node daemon-client.mjs <project dir> <prompt> [<prompt> ...]
 import { randomBytes } from 'node:crypto';
-import { realpathSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { connect } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -143,6 +144,8 @@ const request = (method, params) => new Promise((done) => {
     send({ id: n, method, params });
 });
 const next = (method) => new Promise((done) => waiting.push({ method, done }));
+const log = join(codexHome, 'mcp-skills', 'mcp-skills.log');
+const starts = () => (existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter((l) => l.includes('server(s) to look at')).length : 0);
 
 setTimeout(() => {
     console.error('no answer from the daemon in 10 minutes');
@@ -161,7 +164,7 @@ console.log(`session ${threadId}`);
 for (const [i, text] of prompts.entries()) {
     const listed = await request('skills/list', { cwds: [cwd], forceReload: false });
     const served = [...new Set(JSON.stringify(listed.result ?? {}).match(/mcp-skills:[a-z0-9_-]+:[a-z0-9:_-]+/g) ?? [])];
-    console.log(`turn ${i + 1}: Codex lists ${served.length} served skill(s)${served.length ? `, e.g. ${served.slice(0, 2).join(', ')}` : ''}`);
+    console.log(`turn ${i + 1}: Codex lists ${served.length} served skill(s)${served.length ? `, e.g. ${served.slice(0, 2).join(', ')}` : ''}; the plugin's server has started ${starts()} time(s) on this daemon so far`);
     console.log(`  [prompt] ${text}`);
     const done = next('turn/completed');
     await request('turn/start', { threadId, input: [{ type: 'text', text }] });
