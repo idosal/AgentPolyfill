@@ -472,22 +472,12 @@ await post(socket, "/open", { viewId: "keys", server: "echo", toolName: "keys", 
 await until(() => h.said.has("keys"), 8000);
 const typed = () => JSON.parse(h.said.get("keys") ?? "{}");
 const press = (event) => post(socket, "/input", { viewId: "keys", event });
-// The helper counts a press within 500 ms of the last one, from when it
-// handles each (helper-rs/src/input.rs, MULTI_CLICK_MS). Each press here is
-// sent once the one before is handled, so on a slow machine the second can
-// come later than that: then the clicks weren't quick, and the check can't
-// be made there.
-const downs = [];
 for (let n = 0; n < 2; n++) {
-  downs.push(Date.now());
   await press({ kind: "pointer", type: "down", x: 5, y: 2, button: "left" });
   await press({ kind: "pointer", type: "up", x: 5, y: 2, button: "left" });
 }
-const between = downs[1] - downs[0];
 await until(() => typed().dblclicks >= 1, 3000);
-if (between >= 450 && typed().dblclicks === 0)
-  console.log(`SKIP two quick clicks in one place are a double click: this machine took ${between} ms from one press to the next (the window is 500 ms)`);
-else check("two quick clicks in one place are a double click", typed().dblclicks === 1, `${typed().dblclicks} double clicks, ${between} ms apart`);
+check("two quick clicks in one place are a double click", typed().dblclicks === 1, `${typed().dblclicks} double clicks`);
 // One character each (an emoji is two UTF-16 units), text of several, and
 // a control sequence no key is known for.
 for (const key of ["😀", "é", "👍🏽", "\u001b[99~", "x"]) await press({ kind: "key", key });
@@ -555,13 +545,16 @@ check("a view out of sight answers a request", asked?.ok === true, JSON.stringif
 await post(socket, "/shown", { viewId: "ticker", shown: true });
 await sleep(400);
 const back = seen("ticker");
-await sleep(1000);
+// Two seconds, not one: a frame from another site takes a moment longer to
+// run again on macOS. Running, each count gains about 40 in that time;
+// paused, none.
+await sleep(2000);
 const later = seen("ticker");
 // Last count before hiding to the first after showing, about 2.4 s: running,
 // about 48. Paused, a few still: the report's age, the time to pause, the
 // /theme request's wake (up to about 190 ms), the 400 ms after showing.
 check("out of sight, its page, a frame from another site in it, and its worker stop", back.own - running.own < 25 && back.frame - running.frame < 25 && back.worker - running.worker < 25, `in about 2.4 s: own +${back.own - running.own}, frame +${back.frame - running.frame}, worker +${back.worker - running.worker} (shown when hidden: ${JSON.stringify(hidden)})`);
-check("back in sight, both run again", later.own - back.own > 10 && later.frame - back.frame > 10, `in 1 s: own +${later.own - back.own}, frame +${later.frame - back.frame}`);
+check("back in sight, both run again", later.own - back.own > 10 && later.frame - back.frame > 10, `in 2 s: own +${later.own - back.own}, frame +${later.frame - back.frame}`);
 await post(socket, "/close", { viewId: "ticker" });
 h.helper.kill("SIGTERM");
 await new Promise((r) => h.helper.once("exit", r));

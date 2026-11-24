@@ -178,11 +178,13 @@ impl View {
                 }
                 match kind {
                     "down" => {
+                        // When the press reached the helper (views.rs, "/input"), not when its turn came.
+                        let at = event["receivedAt"].as_u64().unwrap_or_else(now);
                         let count = {
                             let mut s = self.state.lock().unwrap(); s.pointer_held=true;
-                            let count = s.last_press.as_ref().filter(|last|last.button==button && now().saturating_sub(last.at)<MULTI_CLICK_MS && (x-last.x).hypot(y-last.y)<=MULTI_CLICK_PX)
+                            let count = s.last_press.as_ref().filter(|last|last.button==button && at.saturating_sub(last.at)<MULTI_CLICK_MS && (x-last.x).hypot(y-last.y)<=MULTI_CLICK_PX)
                                 .map_or(1,|last|(last.count+1).min(3));
-                            s.last_press=Some(Press {at:now(),x,y,button:button.into(),count}); count
+                            s.last_press=Some(Press {at,x,y,button:button.into(),count}); count
                         };
                         self.mouse_move(x,vy).await?;
                         let held = { let mut s = self.state.lock().unwrap(); s.buttons|=buttons(button); s.buttons };
