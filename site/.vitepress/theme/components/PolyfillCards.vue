@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import Recording from './Recording.vue'
-import CopyCommand from './CopyCommand.vue'
 import home from '../../../home.json'
 
 // The cards' lines are in home.json, shared with the Markdown copy of the home
-// page for agents. group="beyond" shows the polyfills for drafts outside MCP.
+// page for agents, which also keeps each one's demo command and first question.
+// group="beyond" shows the polyfills for drafts outside MCP.
 const props = defineProps<{ group?: 'mcp' | 'beyond' }>()
 const polyfills = props.group === 'beyond' ? home.beyond : home.polyfills
 </script>
@@ -20,14 +20,7 @@ const polyfills = props.group === 'beyond' ? home.beyond : home.polyfills
         </header>
         <p class="spec"><template v-if="p.id"><code>{{ p.id }}</code> · </template><span class="whole">{{ p.spec }}</span></p>
         <p class="line">{{ p.line }}</p>
-        <template v-if="p.add">
-          <p class="step">{{ p.addStep }}</p>
-          <CopyCommand :command="p.add" :label="p.addStep.replace(/:$/, '')" />
-          <p class="step">Then ask Claude:</p>
-        </template>
-        <p v-else class="step">Nothing to set up. Ask Claude:</p>
-        <p class="ask">“{{ p.ask }}”</p>
-        <p v-if="p.then" class="then">{{ p.then }}</p>
+        <p v-if="p.note" class="note">{{ p.note }}</p>
         <a class="more" :href="p.link">The {{ p.name }} guide <svg class="arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h9.5M9 4.5 12.5 8 9 11.5" /></svg></a>
       </div>
     </article>
@@ -125,33 +118,12 @@ h3 a:hover {
   color: var(--vp-c-text-2);
   text-wrap: pretty;
 }
-.step {
-  margin-top: 18px;
-  margin-bottom: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--vp-c-text-1);
-}
-.step code {
-  font-weight: 500;
-}
-.card :deep(.ap-cmd) {
-  align-items: flex-start;
-}
-.card :deep(.ap-cmd code) {
-  white-space: normal;
-  overflow-wrap: break-word;
-}
-.ask {
-  font-size: 15px;
-  line-height: 1.55;
-  color: var(--vp-c-text-1);
-}
-.then {
-  margin-top: 6px;
+.note {
+  margin-top: 10px;
   font-size: 14px;
   line-height: 1.55;
-  color: var(--vp-c-text-2);
+  color: var(--vp-c-text-3);
+  text-wrap: pretty;
 }
 .more {
   margin-top: auto;
