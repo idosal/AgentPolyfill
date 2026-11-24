@@ -56,6 +56,17 @@ export function senderKey(ip: string): string {
 }
 
 /**
+ * The network a sender belongs to, for the ceiling on new mailboxes: an IPv6 sender's /48, an
+ * IPv4 sender itself. One /48 holds 65,536 /64s, and tunnel brokers hand out a /48 for free, so a
+ * ceiling counted only per /64 is no ceiling for whoever holds one.
+ */
+export function networkKey(ip: string): string {
+    const s = senderKey(ip);
+    const m = /^([0-9a-f]+):([0-9a-f]+):([0-9a-f]+):[0-9a-f]+::\/64$/.exec(s);
+    return m ? `${m[1]}:${m[2]}:${m[3]}::/48` : s;
+}
+
+/**
  * Where a request a Cloudflare Worker makes to another Cloudflare site comes from: Cloudflare sets
  * `CF-Connecting-IP` to one address for every Worker (2a06:98c0:3600::103). So every MCP server
  * hosted on Workers is one sender here, and is counted in a bucket of its own, larger than one

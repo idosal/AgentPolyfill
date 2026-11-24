@@ -1,6 +1,6 @@
 {
   "name": "mcp-events",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "MCP Events (SEP-3415) for Claude Code: Claude can watch events on your MCP servers (poll, push or webhook) and react when they happen, even while the session is idle.",
   "author": {
     "name": "Ido Salomon",
