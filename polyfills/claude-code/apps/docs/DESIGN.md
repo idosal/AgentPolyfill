@@ -7,7 +7,7 @@ Renders MCP Apps (the interactive UIs MCP servers ship) inline in the
 terminal `claude` CLI, under the tool call that produced them. Clicks, drags
 and keys go to the app. Existing servers work unmodified, configured as usual.
 
-[The demo video](https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4) (57 s, MP4, attached to the 0.1.0 release): the
+[The demo video](https://github.com/idosal/AgentPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4) (57 s, MP4, attached to the 0.1.0 release): the
 same prompts side by side, real pixels on the left (the terminal identified
 itself to Claude Code as iTerm2) and character cells on the right (a
 terminal without images). First DOOM through the arcade MCP Apps server
@@ -374,7 +374,7 @@ says so instead of the app, and the next view looks again. Nothing else:
 no Node, no packages.
 
 The plugin is released as one zip carrying a helper for each platform it
-supports, installed from the MCPolyfill marketplace
+supports, installed from the AgentPolyfill marketplace
 ([`.claude-plugin/marketplace.json`](../../../../.claude-plugin/marketplace.json)
 at the repository's root) as an `archive` source pinned by the zip's
 SHA-256: see [Packaging and releasing](#packaging-and-releasing) and the

@@ -56,14 +56,14 @@ export function frontPage(origin: string, source: string, nonce: string): string
 <p class="lede">A public MCP server that offers <strong>events</strong>: things your agent can watch, so that it wakes up and acts when they happen. It implements the server side of the MCP Events extension (<a href="https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md">SEP-3415</a>).</p>
 
 <h2>Add it</h2>
-<p>In Claude Code, with the <code>mcp-events</code> polyfill from <a href="${esc(source)}">MCPolyfill</a> installed (Claude Code does not have Events built in yet):</p>
+<p>In Claude Code, with the <code>mcp-events</code> polyfill from <a href="${esc(source)}">AgentPolyfill</a> installed (Claude Code does not have Events built in yet):</p>
 ${copyable('add', add)}
 <p>Any client that speaks MCP Events (protocol revision 2026-07-28) can use <code>${esc(origin)}/mcp</code> the same way. No sign-in.</p>
 
 <h2>Then ask Claude</h2>
 <ol class="asks">
 <li>“Give me a demo button and tell me what I typed when I press it.”</li>
-<li>“Tell me when someone comments on the Show HN for MCPolyfill.”</li>
+<li>“Tell me when someone comments on the Show HN for AgentPolyfill.”</li>
 <li>“Watch npm for a new version of wrangler and tell me what changed.”</li>
 </ol>
 <p>Or open <a href="/b/new">a button page</a> yourself: it gives you a private channel to watch.</p>
@@ -82,7 +82,7 @@ ${copyable('add', add)}
 <p>Per address, per minute: ${ROUTE_LIMITS.mcp} requests to <code>/mcp</code>, ${ROUTE_LIMITS.press} presses and new buttons, ${ROUTE_LIMITS.page} page loads. A button: one press a second, 50 presses, one hour. Each upstream site is read at most 60 to 120 times a minute by the whole service, and at most 10 of those for any one address.</p>
 
 <h2>Who runs it</h2>
-<p>Ido Salomon runs it on Cloudflare Workers, as part of <a href="${esc(source)}">MCPolyfill</a>, to show MCP Events working. The source, its limits and how to run your own copy are in the repository.</p>
+<p>Ido Salomon runs it on Cloudflare Workers, as part of <a href="${esc(source)}">AgentPolyfill</a>, to show MCP Events working. The source, its limits and how to run your own copy are in the repository.</p>
 <footer>Upstream data: <a href="https://hn.algolia.com/api">HN Search by Algolia</a> and the <a href="https://github.com/HackerNews/API">Hacker News API</a>, the <a href="https://docs.npmjs.com/">npm registry</a>, GitHub release feeds, and the <a href="https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php">USGS earthquake feeds</a>. Not affiliated with any of them.</footer>`,
         nonce
     );

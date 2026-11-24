@@ -1,7 +1,7 @@
 {
   "name": "mcp-events",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
   "description": "A Claude Code mod that adds MCP Events (SEP-3415) support: Claude can watch events on your MCP servers and react when they happen.",
   "engines": {
@@ -35,7 +35,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/idosal/MCPolyfill.git",
+    "url": "git+https://github.com/idosal/AgentPolyfill.git",
     "directory": "polyfills/claude-code/events"
   }
 }

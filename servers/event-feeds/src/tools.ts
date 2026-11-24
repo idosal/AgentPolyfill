@@ -28,7 +28,7 @@ export const TOOLS = [
         inputSchema: {
             type: 'object',
             properties: {
-                query: { type: 'string', minLength: 2, maxLength: 80, description: 'Words from the title, e.g. "Show HN: MCPolyfill".' },
+                query: { type: 'string', minLength: 2, maxLength: 80, description: 'Words from the title, e.g. "Show HN: AgentPolyfill".' },
                 author: { type: 'string', pattern: HN_USER.source, description: 'HN username of the poster.' }
             },
             required: ['query'],

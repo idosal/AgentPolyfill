@@ -1,6 +1,6 @@
 # SEP-3415 client conformance, clause by clause
 
-How this client (mcp-events 0.5.0) stands against the **Final** text of
+How this client (mcp-events 0.6.0) stands against the **Final** text of
 SEP-3415 (`seps/3415-events-extension.md` in
 `modelcontextprotocol/modelcontextprotocol`, as fetched on 24 November 2026)
 and against the transport rules it defers to (Streamable HTTP in the
@@ -38,7 +38,7 @@ separate thing; see the end.
 | DM-1 | Listing | "A client that cannot use any of the listed modes cannot subscribe" | `src/events-client.ts`; `src/watcher.ts` | spec-test "webhook is for an authenticated connection…"; e2e "nothing public is opened unless asked…" | MET |
 | TERM-1 | Event type removal | "fetches `events/list` again and resubscribes against the current descriptor" | `src/watcher.ts` | spec-test "NotFound or Unsupported: the list is read again…" | MET (N1) |
 | STATE-1 | Client-Owned State | "The client maintains its own subscription registry" | `src/store.ts`; `src/watcher.ts` | e2e "a watch resumes from its saved cursor…" | MET |
-| DEDUP-1 | Event Occurrences, Guarantees | "client-side deduplication within a subscription" | `src/watcher.ts`; `src/store.ts` | e2e same test ("no duplicate of the earlier event"); recovery-test "an event written to the spool before the watch was saved is not written again…"; properties "a genuine delivery handed over any number of times…" | MET (last 500 ids; a starting helper also counts the ids already in its own and listed sessions' spools) |
+| DEDUP-1 | Event Occurrences, Guarantees | "client-side deduplication within a subscription" | `src/watcher.ts`; `src/store.ts` | e2e same test ("no duplicate of the earlier event"); recovery-test "an event written to the spool before the watch was saved is not written again…" and "seen ids read in an earlier session's spool are saved before it is taken off the list…"; properties "a genuine delivery handed over any number of times…" | MET (last 500 ids; a starting helper also counts the ids already in its own and listed sessions' spools) |
 
 ### Poll
 
@@ -191,7 +191,7 @@ conforming server's events.
 | B11 | A lasting (relay) subscription is kept, not unsubscribed, when the session ends. | `src/watcher.ts` | Permitted: unsubscribe is optional. |
 | B12 | Private request `_meta` key `dev.mcp-events-plugin/streamKey`. | `src/events-client.ts` | Stripped before sending (checked on the wire over stdio; no test asserts it). |
 | B13 | Unknown control-envelope `type` is acknowledged 200 and ignored; `list_changed` is acted on wherever it arrives, opted in or not. | `src/webhooks.ts`; `src/events-client.ts` | Harmless. |
-| B14 | One session per project runs the watches; spool, hand-over to Claude Code, tools. Each session that runs them is listed for the project; the next one takes over what listed sessions stored and never handed over. The hooks module acknowledges a submitted batch again before the next take. | `src/store.ts`, `src/delivery.ts`, `src/tools.ts`, `src/watcher.ts`, `mod/hooks/register.ts` | Application layer, which the SEP leaves open. |
+| B14 | One session per project runs the watches; spool, hand-over to Claude Code, tools. Each session that runs them is listed for the project; the next one takes over what listed sessions stored and never handed over. The hooks module acknowledges a submitted batch, or the notice that waking stopped, again before the next take, and the helper counts it: a wake, or the notice given (from 0.5.1, the budget keeps on disk that the notice was handed over). A starting helper saves the seen ids it read in listed sessions' spools before it takes them off the list (0.5.1). | `src/store.ts`, `src/delivery.ts`, `src/tools.ts`, `src/watcher.ts`, `mod/hooks/register.ts` | Application layer, which the SEP leaves open. |
 | B15 | **On by default:** servers of the form from before the standard (top-level `events` key; error codes -32011..-32015 read as the SEP's), unless `MCP_EVENTS_PRE_STANDARD=off` or a list that leaves the server out. Opt-in: `MCP_EVENTS_DEV` (http on loopback, webhook without credentials). | `src/events-client.ts`; `src/helper.ts`; `src/watcher.ts`; `src/relay.ts`; `src/tunnel.ts` | The first is against CAP-2 and CAP-4 for such a server; see the top of this page. |
 
 Within the SEP, fixed here: `maxEvents: 100`, a suggested `heartbeatMs` of
@@ -223,7 +223,9 @@ dead stream at twice the heartbeat, where the Final text says three times).
 folder), from a checkout of the suite named in `MCP_CONFORMANCE_SUITE_DIR`.
 That checkout is code this repository does not hold: read it before you run it.
 
-**Result, 24 November 2026: 17 of 17 pass**, unmodified, at the pull request's
+**Result, 24 November 2026, on 0.5.0: 17 of 17 pass** (not run again on 0.5.1 or 0.6.0, whose
+changes, to the wake budget's notice, the order of a starting helper's writes and the runtime the
+helper runs on, are outside what these scenarios reach), unmodified, at the pull request's
 head `c8625de3118c2d5dc0561696cddeb0baaf124f2c`, on Node 22.23.1, macOS 15 on
 Apple Silicon. 0.4.1 passed 15: in `events-client-push` the stand-in's
 `notifications/events/active` carries no `heartbeatMs`, so the client waited

@@ -23,7 +23,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$1"; OUT="$(cd "$1" && pwd)"
 BASE="${BASE:-https://event-feeds.idosalomon.workers.dev}"
-# The polyfill's source (for tools/pty-drive.py): next to this server in the MCPolyfill repository, or a checkout.
+# The polyfill's source (for tools/pty-drive.py): next to this server in the AgentPolyfill repository, or a checkout.
 if [ -z "${POLYFILL_SRC:-}" ] && [ -d "$HERE/../../../polyfills/claude-code/events/tools" ]; then POLYFILL_SRC="$(cd "$HERE/../../../polyfills/claude-code/events" && pwd)"; fi
 SRC="${POLYFILL_SRC:-$HOME/mcp-events-plugin}"
 PLUGIN_DIR="${PLUGIN_DIR:-$(ls -d "$HOME"/.claude/plugins/cache/mcp-events/mcp-events/*/ | sort -V | tail -1)}"

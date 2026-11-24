@@ -1,11 +1,11 @@
 // A model of the mod's skill gate, and a checker that explores every state of it to a bound.
 //
-// This is the same state machine as SkillGate.tla, written so that it runs here with nothing to
-// install: `node verification/model.ts` explores every reachable state breadth-first, checks each
-// invariant in every state and on every step, and prints a shortest trace to the first violation.
-// It is a hand-written explorer, not TLC; the TLA+ file is for TLC (run in CI,
-// .github/workflows/mcp-skills-test.yml). The two are kept in step by hand: each action and
-// invariant here has the same name there. docs/verification.md says what each part stands for
+// This is the same state machine as skillGate.qnt and SkillGate.tla, written so that it runs here
+// with nothing to install: `node verification/model.ts` explores every reachable state
+// breadth-first, checks each invariant in every state and on every step, and prints a shortest
+// trace to the first violation. It is a hand-written explorer, not TLC; TLC checks SkillGate.tla
+// (verification/check.mjs, which also checks that TLC reaches as many states of the gate as this
+// does). They are kept in step by hand: each action and invariant here has the same name there. docs/verification.md says what each part stands for
 // in the code, and what this does and does not show.
 //
 // Modelled:
