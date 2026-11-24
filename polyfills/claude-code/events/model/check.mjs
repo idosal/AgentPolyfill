@@ -1,7 +1,7 @@
-// Model-checks the TLA+ models in this folder (Wake.tla, Delivery.tla: wake.qnt and
-// delivery.qnt in TLA+) with TLC, each configuration against what it should give: every
-// invariant it names holds, or the one named is violated (a defect of 0.4.1 that must still be
-// found, or a documented limit).
+// Model-checks the TLA+ models in this folder (Wake.tla, Delivery.tla, Relay.tla: wake.qnt,
+// delivery.qnt and relay.qnt in TLA+) with TLC, each configuration against what it should give:
+// every invariant it names holds, or the one named is violated (a defect of an earlier version that
+// must still be found, a documented limit, or a variant with a protection taken out).
 //
 //   node model/check.mjs [--trace] [name ...]
 //
@@ -35,8 +35,15 @@ const RUNS = [
   ["PushSeenForgotten.cfg", "MCDelivery.tla", "holds"],
   ["WebhookSeenForgotten.cfg", "MCDelivery.tla", "holds"],
   ["PollCarriedTwice.cfg", "MCDelivery.tla", "holds"],
-  // A documented limit: AtMostOnce's one exception is reachable.
+  // relay.qnt, 0.7.0: one mailbox per MCP server
+  ["RelayOwn.cfg", "Relay.tla", "holds"],
+  ["RelayMigrating.cfg", "Relay.tla", "holds"],
+  // Documented limits: AtMostOnce's one exception is reachable; a watch not yet moved to its
+  // server's own mailbox is still in the shared one.
   ["Strict.cfg", "MCDelivery.tla", "StrictAtMostOnce"],
+  ["RelayMigratingShared.cfg", "Relay.tla", "NoCrossRefusal"],
+  // A variant without the drain: the check must see what the drain is for.
+  ["RelayNoDrain.cfg", "Relay.tla", "NothingLost"],
   // 0.4.1, the defects the Quint scenarios show: TLC must find each.
   ["WakeBefore.cfg", "MCWake.tla", "Gap"],
   ["WakeBeforeHour.cfg", "MCWake.tla", "WithinHour"],
@@ -46,6 +53,8 @@ const RUNS = [
   ["PollBeforeStranded.cfg", "MCDelivery.tla", "NoneStranded"],
   ["WebhookBeforeB1.cfg", "MCDelivery.tla", "NoAckBeforeStore"],
   ["WebhookBeforeB1Cursor.cfg", "MCDelivery.tla", "CursorSafe"],
+  // 0.6.0, P3: one mailbox for a project's watches.
+  ["RelayShared.cfg", "Relay.tla", "NoCrossRefusal"],
 ];
 
 const java = process.env.JAVA ?? "java";
