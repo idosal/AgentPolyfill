@@ -60,7 +60,10 @@ function checked(url: unknown, accessKey: unknown, source: string, log: (s: stri
     if (u.protocol !== 'https:' && !(dev && u.protocol === 'http:' && LOOPBACK.has(u.hostname))) return ignore('the url must be https');
     if (u.username || u.password || u.search || u.hash || (u.pathname !== '/' && u.pathname !== '')) return ignore('the url must be just the relay\'s address, e.g. https://mcp-events-relay.example.workers.dev');
     if (accessKey !== undefined && accessKey !== '' && (typeof accessKey !== 'string' || !ACCESS_KEY_RE.test(accessKey))) return ignore('the access key must be 16 to 128 characters of A-Z, a-z, 0-9, "_" and "-"');
-    return { url: u.origin, ...(accessKey ? { accessKey: accessKey as string } : {}), source };
+    // The public relay is the public relay however it was named: by MCP_EVENTS_RELAY=public, or by
+    // its address in MCP_EVENTS_RELAY_URL or the settings file. Its bound on held deliveries, and the
+    // notice of who runs it, go with its address.
+    return { url: u.origin, ...(accessKey ? { accessKey: accessKey as string } : {}), source, ...(u.origin === PUBLIC_RELAY.url ? { isPublic: true as const } : {}) };
 }
 
 /**

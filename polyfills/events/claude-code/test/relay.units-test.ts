@@ -176,6 +176,9 @@ describe('relay settings', () => {
         assert.deepEqual(own && { url: own.url, isPublic: own.isPublic }, { url: 'https://mine.example.com', isPublic: undefined }, "the user's own relay comes first");
         // The stand-in address is a testing switch, and does nothing without it.
         assert.equal(readRelaySettings({ HOME: home, MCP_EVENTS_RELAY: 'public', MCP_EVENTS_PUBLIC_RELAY_URL: 'https://elsewhere.example.com' } as NodeJS.ProcessEnv, quiet)?.url, PUBLIC_RELAY.url);
+        // Named by its address instead: still the public relay, with its bound and its notice.
+        assert.equal(readRelaySettings({ HOME: home, MCP_EVENTS_RELAY_URL: PUBLIC_RELAY.url } as NodeJS.ProcessEnv, quiet)?.isPublic, true, 'MCP_EVENTS_RELAY_URL set to the public relay');
+        assert.equal(readRelaySettings({ HOME: home, MCP_EVENTS_RELAY_URL: PUBLIC_RELAY.url + '/' } as NodeJS.ProcessEnv, quiet)?.isPublic, true, 'with a trailing slash');
     });
 
     test('from the environment', () => {
