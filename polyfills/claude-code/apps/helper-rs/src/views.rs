@@ -1207,7 +1207,7 @@ async fn open_now(helper: &Arc<Helper>, options: &Value) -> Result<Value> {
     let clipboard = !meta["permissions"]["clipboardWrite"].is_null() && meta["permissions"]["clipboardWrite"] != false;
     let host = helper.views.host_page(string(&theme,"background"),scheme);
     log(format!("view {id}: CSP {}",policy::build_csp(&csp)));
-    let local_network = url.as_deref().is_none_or(policy::local_server);
+    let local_network = helper.mcp.local_network(server);
     let saved = file.as_ref().and_then(|f|store::read(f));
     let started = now();
     // The tab kept ready (see keep_spare), when this view fits it: one whose
