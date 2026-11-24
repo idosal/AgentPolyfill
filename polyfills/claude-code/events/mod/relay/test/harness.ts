@@ -92,11 +92,11 @@ export function socketStatus(origin: string, mailbox: string, protocols: string[
 }
 
 /** The HTTP status of a real request to open the socket: 101 if the relay would have it, or what it said instead. */
-export function upgradeStatus(origin: string, mailbox: string, protocols: string[], extra: Record<string, string> = {}): Promise<{ status: number; body: string; retryAfter?: string }> {
+export function upgradeStatus(origin: string, mailbox: string, protocols: string[]): Promise<{ status: number; body: string; retryAfter?: string }> {
     return new Promise((resolve, reject) => {
         const req = httpRequest(`${origin}/mailboxes/${mailbox}/socket`, {
             method: 'GET',
-            headers: { connection: 'Upgrade', upgrade: 'websocket', 'sec-websocket-version': '13', 'sec-websocket-key': randomBytes(16).toString('base64'), 'sec-websocket-protocol': protocols.join(', '), ...extra }
+            headers: { connection: 'Upgrade', upgrade: 'websocket', 'sec-websocket-version': '13', 'sec-websocket-key': randomBytes(16).toString('base64'), 'sec-websocket-protocol': protocols.join(', ') }
         });
         req.on('upgrade', (_res, socket) => {
             socket.destroy();
