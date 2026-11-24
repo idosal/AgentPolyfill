@@ -20,21 +20,15 @@ export const shownText = (s: string) => s.split('\n').map(plainText).join('\n')
 const refuse = (text: string): ToolResult => ({ text: shownText(text), isError: true })
 
 /**
- * An answer faster than this is not a person's. Codex accepts every form by
- * itself under --dangerously-bypass-approvals-and-sandbox (seen live: about
- * 20 ms), and declines or cancels it where nobody can be asked (codex exec,
- * --ask-for-approval never). A person needs longer to read the form.
+ * Puts a question to the person through the client's form (MCP elicitation)
+ * and says whether they accepted. The form is the consent: refused when the
+ * client offers no form, and on a decline or a close. Codex itself answers the
+ * form in some modes: it declines it where nobody can be asked (codex exec,
+ * --ask-for-approval never), and accepts it under
+ * --dangerously-bypass-approvals-and-sandbox, as it approves every tool there.
  */
-export const MIN_HUMAN_MS = 700
-
-/**
- * Puts a question to the person and says whether they accepted: refused when
- * the client has no form, when the answer is not "accept", and when it came too
- * fast to be theirs.
- */
-export async function askPerson(ctx: CallContext, message: string, now: () => number = Date.now): Promise<{ ok: true } | { why: string }> {
+export async function askPerson(ctx: CallContext, message: string): Promise<{ ok: true } | { why: string }> {
   if (!ctx.canElicit) return { why: 'this Codex client offers no form to ask the person (MCP elicitation)' }
-  const started = now()
   let answer
   try {
     answer = await ctx.elicit(message, CONFIRM_SCHEMA)
@@ -44,10 +38,6 @@ export async function askPerson(ctx: CallContext, message: string, now: () => nu
   if (answer.action === 'decline')
     return { why: 'the form was declined, by the person or by Codex itself where nobody can be asked (codex exec, --ask-for-approval never)' }
   if (answer.action !== 'accept') return { why: 'the form was closed without an answer, by the person or by Codex where nobody can be asked (codex exec)' }
-  if (now() - started < MIN_HUMAN_MS)
-    return {
-      why: `the form was accepted ${now() - started} ms after it was sent, too fast for a person to have read it. Codex accepts forms by itself under --dangerously-bypass-approvals-and-sandbox; in that mode nothing is written, and the person can run Codex without it`,
-    }
   return { ok: true }
 }
 
@@ -190,8 +180,8 @@ export function addTool(session: Session, discoverName: string, foundBy: string)
       if (await isNameTaken(session.deps.run, plan.name))
         return refuse(`A server named "${plan.name}" already exists in Codex's configuration (or codex could not say). Ask the person: add it under another name (pass \`name\`), or keep theirs.`)
       // The person decides every addition (security review SC4): asked here,
-      // through the client's form, and refused where there is no form, where
-      // the form is not accepted, and where Codex answered it by itself.
+      // through the client's form, and refused where there is no form or the
+      // form is not accepted.
       const file = configPath(session.deps.env)
       const asked = await askPerson(ctx, askText(plan, card, provenance, file))
       if ('why' in asked) return refuse(`Nothing was written: ${asked.why}. Don't ask again unless the person brings it up.`)

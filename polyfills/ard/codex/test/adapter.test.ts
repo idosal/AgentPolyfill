@@ -4,7 +4,6 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { MIN_HUMAN_MS } from '../plugin/dist/server.mjs'
 import { fakeCodex, localWeb, startServer } from '../../../server-cards/codex/test/harness'
 
 const SERVER = fileURLToPath(new URL('../../plugin/dist/server.mjs', import.meta.url))
@@ -44,7 +43,7 @@ const server = (opts: Parameters<typeof startServer>[1] = {}) => {
   return { ...s, fake }
 }
 const searches = () => web.requests.filter(r => r.method === 'POST')
-const human = { action: 'accept' as const, afterMs: MIN_HUMAN_MS + 200 }
+const human = { action: 'accept' as const, afterMs: 50 }
 const QUERY = 'check why my CI build failed'
 
 test('A-1 the server: its three tools', async () => {
@@ -104,14 +103,7 @@ test('A-6 a query the person could not see in full is refused before anyone is a
   assert.equal(s.asked.length, 0)
 })
 
-test('A-7 an accept faster than a person sends nothing', async () => {
-  const before = searches().length
-  const s = server({ answer: { action: 'accept', afterMs: 0 } })
-  assert.match((await s.call('ard_search', { query: QUERY })).text, /too fast for a person/)
-  assert.equal(searches().length, before)
-})
-
-test('A-8 an empty registry setting searches only a registry the request names', async () => {
+test('A-7 an empty registry setting searches only a registry the request names', async () => {
   const s = server({ env: { ARD_DISCOVERY_REGISTRY: '' } })
   assert.match((await s.call('ard_search', { query: QUERY })).text, /No registry is configured/)
 })

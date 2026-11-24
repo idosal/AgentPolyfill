@@ -58,7 +58,7 @@ To try search without sending anything to a third party, start the [demo registr
    - Each result's card is fetched and checked, and each publisher's own catalogs (`ai-catalog.json` and `ard.json` on the domain in the result's `urn:air:<publisher>:…` identifier) are read. A server is **confirmed** only if its publisher lists it there with a valid card, and then the publisher's card is the one shown and added. Otherwise it is marked **NOT confirmed by its publisher**. The registry's order is its relevance ranking, not a judgement of trust.
 4. **Add.** Ask Codex to add one. It calls this plugin's `add_mcp_server`, which works as in [`mcp-server-cards`](../../server-cards/codex/README.md#using-it-step-by-step): a form naming the server, its URL, its headers, the file written and the undo, and `codex mcp add` on your accept. For a search result, the form also says whether its publisher confirms it.
 
-Which Codex modes put a form to you, and which answer it themselves, is in [mcp-server-cards' table](../../server-cards/codex/README.md#which-codex-modes-ask-you). The same rules apply to a search: nothing is sent without a form, on a decline, or on an accept in under 700 ms (Codex accepts forms by itself under `--dangerously-bypass-approvals-and-sandbox`).
+Which Codex modes put a form to you, and which answer it themselves, is in [mcp-server-cards' table](../../server-cards/codex/README.md#which-codex-modes-ask-you). The same rules apply to a search: nothing is sent without a form, or on a decline or close. Under `--dangerously-bypass-approvals-and-sandbox`, Codex accepts the form itself, so the plugin searches (and adds) without asking you, as every tool runs without asking in that mode. Under `-a never` and in `codex exec`, Codex declines the form, so nothing is sent or added.
 
 ### Settings
 
@@ -84,7 +84,7 @@ Read from the environment Codex starts in; the plugin's `.mcp.json` passes them 
 |---|---|---|
 | Cards it finds | handed to `mcp-server-cards` (a declared dependency), which checks, shows and adds them | checked, shown and added by this plugin, with the same code: one Codex plugin's server can't call another's tools |
 | Its own `add_mcp_server` | no | yes, for what this plugin showed |
-| Consent to a search | a question the mod makes in Claude Code's permission prompt | a form through MCP elicitation, naming the exact endpoints and the query; refused without a form, on a decline, or on an accept too fast to be a person's |
+| Consent to a search | a question the mod makes in Claude Code's permission prompt | a form through MCP elicitation, naming the exact endpoints and the query; refused without a form, or on a decline or close |
 | A registry named by domain | asked about before the domain is read | the domain's catalogs are read first (a `GET`, no query), so the form names the exact endpoints |
 | A redirect of the search | followed by Claude Code's fetch | never to another origin, and never turned into a `GET`: the query goes only where the form said |
 | Redirects of documents | followed unseen, so one to a private address is not caught | followed by the plugin under the address rule, so one to a private address is refused |
@@ -101,7 +101,7 @@ The ARD rules (W-1 to W-6, R-1 to R-8, P-1, B-1) and the Server Cards rules are 
 |---|---|---|---|---|
 | Q-1 | Say where the query went | this plugin's own | A-1, A-5 | met: the tool's description names the registry, and every result names each one asked |
 | Q-2 | The registry is a setting | this plugin's own | A-8 | met: `ARD_DISCOVERY_REGISTRY`, which can be empty |
-| Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own (security review M2) | A-3, A-4, A-7 | met: a form naming the exact endpoints and the query; refused with no form, on decline or close, and on an accept faster than 700 ms |
+| Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own (security review M2) | A-3, A-4 | met where Codex puts the form to the person: a form naming the exact endpoints and the query; refused with no form, or on decline or close. Under `--dangerously-bypass-approvals-and-sandbox` Codex accepts the form itself |
 | Q-4 | What is sent is what was shown | this plugin's own (security review R1) | A-6 | met: at most 300 characters, one line, no invisible characters or direction marks |
 | Q-5 | The query goes only where the form said | this plugin's own | mcp-server-cards F-5 | met: a redirect to another origin, or one that would turn the `POST` into a `GET`, is not followed |
 | D-1 | Domain discovery reads `ard.json`, which needs no `specVersion` | §5.1 | A-2 | met |
@@ -113,7 +113,7 @@ ARD is a draft; no host supports it natively yet. Remove or disable the plugin (
 
 ## Proof
 
-- **Per rule:** 96 tests, run with `npm test`: ARD's 8 registry rule tests and the Server Cards core's 80 rule tests, all from the Claude Code forms and run against this bundle, and 8 of this form's (A-), over stdio, with a stand-in `codex` command and a local registry on 127.0.0.1.
+- **Per rule:** 95 tests, run with `npm test`: ARD's 8 registry rule tests and the Server Cards core's 80 rule tests, all from the Claude Code forms and run against this bundle, and 7 of this form's (A-), over stdio, with a stand-in `codex` command and a local registry on 127.0.0.1.
 - **The real host:** below.
 - **Upstream conformance:** the MCP conformance suite has no Server Card or ARD scenarios.
 
@@ -133,7 +133,7 @@ ARD is a draft; no host supports it natively yet. Remove or disable the plugin (
 - **The query leaves your machine** once you accept that search. That is what a search is. Only the words Codex puts in `query` are sent, with no cookie or credential, but the registry sees them.
 - **Search results today.** The one public registry, Hugging Face Discover, returns MCP Registry `server.json` entries, not Server Cards, so nothing it returns can be added yet (see the Claude Code form's [findings](../claude-code/README.md#findings-to-report-upstream)).
 - **A public name that resolves to a private address** is not caught: Node's `fetch` resolves names itself. Redirects are checked.
-- **Under `--dangerously-bypass-approvals-and-sandbox`, nothing is searched or added**: Codex answers the form itself, so the plugin refuses.
+- **Under `--dangerously-bypass-approvals-and-sandbox`, a search is sent (and a server added) without asking you**: Codex accepts the form itself, as it approves every tool in that mode. Codex putting the approval mode in a tool call's metadata would let the plugin tell that answer from yours.
 - The limits of adding a server are [mcp-server-cards'](../../server-cards/codex/README.md#limits-and-the-host-changes-that-would-remove-them).
 
 ## Privacy and security
