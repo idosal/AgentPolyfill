@@ -12,7 +12,8 @@
 // with `codex queue` (waker.ts). The hand-over is recorded before `codex queue` runs,
 // and a wake Codex said it did not take is tried again. One this process never heard
 // back about (it ended, or `codex queue` timed out) counts as handed over and as a
-// wake: a stored event is handed over at most once, and the hourly cap holds across restarts.
+// wake: a stored event is handed over at most once, and the hourly cap holds across restarts
+// (for a session open in one window; with two, see the README's Limits).
 // Such an event may go unannounced; it is still stored, for recent_events.
 
 import { join } from 'node:path';
