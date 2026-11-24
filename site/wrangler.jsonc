@@ -1,15 +1,23 @@
 // The AgentPolyfill website, served as static assets by Cloudflare Workers.
-// No Worker code: every request is answered from the VitePress build.
+// Pages and assets are answered from the VitePress build without running any
+// code. The small Worker in worker/index.js runs only for /media/*, to answer
+// the byte ranges Safari asks for when it plays a video.
 //
 //   npm run build                                  build into .vitepress/dist
 //   npx wrangler@4.167.0 dev                       serve the build locally, as Workers will
 //   npx wrangler@4.167.0 deploy                    publish (npm run deploy builds first)
+//
+// www.agentpolyfill.com redirects to agentpolyfill.com through a Worker of its
+// own, in www-redirect/.
 {
   "$schema": "https://unpkg.com/wrangler@4.167.0/config-schema.json",
   "name": "agentpolyfill-site",
+  "main": "./worker/index.js",
   "compatibility_date": "2026-11-01",
   "assets": {
     "directory": "./.vitepress/dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/media/*"],
     // VitePress writes 404.html; unknown paths get it with a 404 status.
     "not_found_handling": "404-page",
     // VitePress (cleanUrls) writes guide/events.html and links /guide/events.
@@ -18,11 +26,10 @@
   "workers_dev": true,
   "preview_urls": false,
 
-  // The custom domains, once the agentpolyfill.com zone is active in this
+  // The custom domain, once the agentpolyfill.com zone is active in this
   // Cloudflare account: uncomment the three lines below and deploy. Cloudflare
-  // creates the DNS records and certificates for both names.
+  // creates the DNS record and certificate.
   // "routes": [
-  //   { "pattern": "agentpolyfill.com", "custom_domain": true },
-  //   { "pattern": "www.agentpolyfill.com", "custom_domain": true }
+  //   { "pattern": "agentpolyfill.com", "custom_domain": true }
   // ]
 }
