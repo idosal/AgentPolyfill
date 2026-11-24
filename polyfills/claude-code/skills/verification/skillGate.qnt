@@ -2,8 +2,9 @@
 // The mcp-skills mod's skill gate: approval, loading, verification, the acting window, and the
 // gate on other tool calls. The same state machine as verification/model.ts, action for action and
 // invariant for invariant (docs/verification.md maps each to the code). This file is for Quint's
-// simulator (`quint run`, no proof) and, through `quint verify --backend=tlc`, for TLC (exhaustive
-// to the bound below), which the repository's CI runs.
+// simulator (`quint run`, which samples). TLC checks SkillGate.tla, this file written in TLA+ by
+// hand (verification/check.mjs, exhaustive to each configuration's bound); verification/conform.mjs
+// replays traces of this file in that one.
 //
 // One server serves a skill and may change its entry, its SKILL.md and a supporting file at any
 // moment, each separately; a second server is only a place resources can be read from.
@@ -255,7 +256,8 @@ module skillGate {
     )))))))
 }
 
-// The instances that are checked. CI: quint verify --backend=tlc --main=<instance> --invariant=Safety.
+// The instances simulated (`quint run --main=<instance> --invariant=Safety`). Manifest.cfg,
+// Dynamic.cfg, Rule030.cfg and Lossy.cfg are the same four for TLC.
 module manifest { import skillGate(DYNAMIC = false, STICKY = true, LOSSY = false, NVERSIONS = 3).* }
 module dynamic { import skillGate(DYNAMIC = true, STICKY = true, LOSSY = false, NVERSIONS = 3).* }
 // Expected to fail, with a counterexample: 0.3.0's rule, and the documented read-back limit.

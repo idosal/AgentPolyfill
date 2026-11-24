@@ -136,8 +136,11 @@ Nothing it could misuse to make an event up.
   it, and genuine deliveries to any of them are answered `503` until the
   plugin next connects or the junk reaches the end of its retention time.
   Whether an event sent meanwhile is retried is up to the server. A webhook
-  address is known to the MCP server you gave it to, so one server can do
-  this to the others that share the mailbox; treat an address as a secret.
+  address is known to the MCP server you gave it to. From version 0.7.0 the
+  plugin gives each MCP server a mailbox of its own (one key per server and
+  project), so a server can crowd out only its own deliveries; until then a
+  project's servers shared one mailbox, and one could do this to the others.
+  Treat an address as a secret.
 
 ## Addresses
 

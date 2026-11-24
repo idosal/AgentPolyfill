@@ -42,7 +42,7 @@ case "$version" in
 esac
 name="mcp-apps-cli-$version"
 # Releases are tagged mcp-apps-cli-v<version> (.github/workflows/mcp-apps-cli-release.yml).
-[ -n "$url" ] || url="https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v$version/$name.zip"
+[ -n "$url" ] || url="https://github.com/idosal/AgentPolyfill/releases/download/mcp-apps-cli-v$version/$name.zip"
 case "$url" in https://*) ;; *) echo "the zip's URL must be https (Claude Code takes no other)" >&2; exit 2 ;; esac
 
 stage=$(mktemp -d)
