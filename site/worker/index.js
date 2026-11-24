@@ -1,10 +1,10 @@
-// The site is static assets. This Worker runs only for /media/* (see
+// The site is static assets. This Worker runs only for /media/*.mp4 (see
 // run_worker_first in wrangler.jsonc), for one reason: Workers static assets
 // answer a Range request with the whole file (200), and Safari plays a video
 // only from a server that answers byte ranges (206). Everything else is served
 // by Cloudflare's asset handling without invoking this code.
 
-const MEDIA_CACHE = 'public, max-age=86400'
+const MEDIA_CACHE = 'public, max-age=3600'
 
 export default {
   async fetch(request, env) {
