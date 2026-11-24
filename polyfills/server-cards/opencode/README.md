@@ -116,7 +116,13 @@ When OpenCode supports Server Cards itself, turn the plugin off, or remove it
   after OpenCode asked, and connected
   ([`live-run.md`](../../../tools/opencode/live-run.md)). CI runs the tests on
   Linux and macOS.
-- **Not tried yet:** Windows, and the TUI and the desktop app as clients.
+- **OpenCode's TUI shows little in the prompt.** In OpenCode 2.4.1's TUI, a
+  permission prompt for a plugin's own action says only "Call tool
+  mcp_server_cards_add". The details are on the model's call line just above it, and
+  "Always allow" lists the pattern it would save. Checked in the TUI
+  ([`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui)). The call line
+  names the URL; the request's host, headers and undo aren't shown.
+- **Not tried yet:** Windows, and the desktop app as a client.
 
 ## Security
 

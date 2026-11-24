@@ -160,6 +160,13 @@ the live server.
   `mcp_skills_load`), below every rule of yours, would make the Skills,
   Server Cards and ARD polyfills ask by default, as they do in the other
   hosts, and leave the decision with your rules.
+- **Show a plugin's permission request as it was made.** The TUI shows a
+  request for an action it doesn't know as "Call tool <action>", without its
+  resources or metadata, so the person reads the model's call line above it
+  instead (2.4.1, `packages/tui/src/util/permission.ts`). Showing the
+  resources, and a `title` or `description` the plugin puts in the metadata,
+  would let a person see the server, the skill's digest or the URL being
+  approved.
 - **Let a plugin show the person something the model doesn't see,** before
   they decide: a preview attached to a permission request, or the session
   forms OpenCode's client API has (`session.form.create`) offered to plugins.

@@ -154,7 +154,13 @@ plugin off with `MCP_SKILLS_OFF=1`, or remove it.
   digest ([`live-run.md`](../../../tools/opencode/live-run.md)). In that run,
   with OpenCode's default rules, the model also ran a command a loaded skill
   described, without a prompt. CI runs the tests on Linux and macOS.
-- **Not tried yet:** Windows, and the TUI and the desktop app as clients.
+- **OpenCode's TUI shows little in the prompt.** In OpenCode 2.4.1's TUI, a
+  permission prompt for a plugin's own action says only "Call tool
+  mcp_skills_load". The details are on the model's call line just above it, and
+  "Always allow" lists the pattern it would save. Checked in the TUI
+  ([`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui)). The digest and the "not a local skill" note in the
+  request aren't shown, though the saved pattern carries the digest.
+- **Not tried yet:** Windows, and the desktop app as a client.
 
 [What hosts would need to change](../../../docs/host-changes.md) covers these
 gaps for each host.

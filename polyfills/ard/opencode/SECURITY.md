@@ -35,6 +35,12 @@ adds is the registry search.
 
 ## What it does not protect against
 
+- **What OpenCode's TUI shows in the prompt.** OpenCode 2.4.1's TUI shows a
+  request for this plugin's action as "Call tool ard_search", without the
+  resource or metadata it carries. You read the query and the registry on the
+  model's call line above it. When that registry is a domain, the endpoints
+  its catalog lists, and any registry a referral names, are in the request
+  only.
 - **OpenCode's default policy** (above).
 - **A registry you chose,** which sees your query and ranks other people's
   servers.

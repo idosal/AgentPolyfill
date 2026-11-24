@@ -85,6 +85,10 @@ you:
 
 ## What it does not protect against
 
+- **What OpenCode's TUI shows in the prompt.** OpenCode 2.4.1's TUI shows a
+  request for this plugin's action as "Call tool mcp_events_watch", without
+  the resource or metadata it carries. You read the server and event type on
+  the model's call line above it, which is what the request is about.
 - **A server you configured that sends misleading events.** They are its
   data, and OpenCode may act on them within your permission rules.
 - **OpenCode's default policy.** It allows every action. The plugin asks
