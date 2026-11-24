@@ -1,0 +1,68 @@
+# The ARD plugin for Codex (polyfills/ard/codex, plugin ard-discovery): its
+# typecheck, a check that the committed bundle is what the sources build, and
+# its tests (ARD's registry rules and the Server Cards rules, both from the
+# Claude Code forms and run against this bundle, and the Codex adapter's). On
+# any change in its folder or in the code it bundles. The tests reach no
+# network beyond 127.0.0.1 and run no real `codex`.
+
+name: "ard-discovery (Codex): tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/ard/codex/**"
+      - "polyfills/ard/claude-code/mod/hooks/**"
+      - "polyfills/ard/claude-code/mod/tests/**"
+      - "polyfills/server-cards/codex/**"
+      - "polyfills/server-cards/claude-code/mod/hooks/**"
+      - "polyfills/server-cards/claude-code/mod/tests/**"
+      - ".agents/plugins/marketplace.json"
+      - ".github/workflows/codex-ard-test.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see the job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/ard/codex/**"
+      - "polyfills/ard/claude-code/mod/hooks/**"
+      - "polyfills/ard/claude-code/mod/tests/**"
+      - "polyfills/server-cards/codex/**"
+      - "polyfills/server-cards/claude-code/mod/hooks/**"
+      - "polyfills/server-cards/claude-code/mod/tests/**"
+      - ".agents/plugins/marketplace.json"
+      - ".github/workflows/codex-ard-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codex-ard-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    defaults:
+      run:
+        working-directory: polyfills/ard/codex
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run typecheck
+      - name: plugin/dist/server.mjs is what the sources build
+        run: npm run check
+      - name: The plugin's manifests are valid JSON
+        run: |
+          for f in plugin/.codex-plugin/plugin.json plugin/.mcp.json; do
+            node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))" "$f" || { echo "::error file=$f::not valid JSON"; exit 1; }
+          done
+      - run: npm test
