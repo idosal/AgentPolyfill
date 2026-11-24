@@ -227,8 +227,8 @@ describe('Identity and names', () => {
         const written = stubs(st.stubRoot);
         assert.equal(written.length, 2);
         assert.notEqual(stubPath(st.stubRoot, 'alpha', a.uri), stubPath(st.stubRoot, 'beta', b.uri));
-        assert.ok(written.some((w) => w.dir.startsWith('alpha-') && w.fm.name === 'alpha:git-workflow' && /From A/.test(String(w.fm.description))));
-        assert.ok(written.some((w) => w.dir.startsWith('beta-') && w.fm.name === 'beta:git-workflow' && /From B/.test(String(w.fm.description))));
+        assert.ok(written.some((w) => w.dir.startsWith('alpha-') && w.fm.name === 'mcp-skills:alpha:git-workflow' && /From A/.test(String(w.fm.description))));
+        assert.ok(written.some((w) => w.dir.startsWith('beta-') && w.fm.name === 'mcp-skills:beta:git-workflow' && /From B/.test(String(w.fm.description))));
         await ok(st, 'load_skill', { server: 'alpha', uri: a.uri });
         assert.deepEqual(reads(fb), []);
         await ok(st, 'load_skill', { server: 'beta', uri: b.uri });
@@ -250,7 +250,7 @@ describe('Identity and names', () => {
         const names = stubs(st.stubRoot).map((w) => String(w.fm.name)).sort();
         assert.equal(names.length, 2);
         assert.notEqual(names[0], names[1]);
-        assert.ok(names.every((n) => /^docs:refunds-[0-9a-f]{6}$/.test(n)), names.join());
+        assert.ok(names.every((n) => /^mcp-skills:docs:refunds-[0-9a-f]{6}$/.test(n)), names.join());
         assert.match(await ok(st, 'list_skills', {}), /another skill of this server has the same name/);
     });
 
@@ -258,7 +258,7 @@ describe('Identity and names', () => {
         const s = skill('pdf');
         const st = await startApp({ docs: new Fixture(scenarioOf([s], { serverName: 'Trusted Local Skills' })) }, { answers: ['load'] });
         const [w] = stubs(st.stubRoot);
-        assert.equal(w!.fm.name, 'docs:pdf', 'not "pdf", which a local skill could be called');
+        assert.equal(w!.fm.name, 'mcp-skills:docs:pdf', 'not "pdf", which a local skill could be called');
         const loaded = await ok(st, 'load_skill', { server: 'docs', uri: s.uri });
         for (const text of [w!.text, loaded, await ok(st, 'list_skills', {}), st.questions[0]!.message]) assert.doesNotMatch(text, /Trusted Local Skills/);
     });

@@ -25,7 +25,7 @@ export type ToolAnswer = { text: string; isError?: boolean };
 export type AppOptions = {
     table: ServerTable;
     store: Store;
-    /** Where the stubs go (`<plugin>/skills/served`), or nothing to write none. */
+    /** Where the stubs go (`~/.agents/skills/mcp-skills-served`), or nothing to write none. */
     stubRoot?: string;
     /** Codex's `[[skills.config]]` rules, read afresh at each call. */
     skillRules: () => SkillRule[];
@@ -56,6 +56,8 @@ export class App {
     readonly #listedAt = new Map<string, { at: number; ttlMs: number }>();
     readonly #known: Record<string, Known>;
     #omitted = 0;
+    /** Servers whose first look is still under way. */
+    readonly #pending = new Set<string>();
     #stubTimer?: NodeJS.Timeout;
     #standingDown = false;
     #settled!: () => void;
@@ -104,9 +106,11 @@ export class App {
 
     /** Looks at every configured server once, and writes the stubs. Resolves when all have been looked at. */
     async start(): Promise<void> {
+        for (const name of Object.keys(this.#o.table.servers)) this.#pending.add(name);
         await Promise.all(
             Object.keys(this.#o.table.servers).map(async (name) => {
                 await this.#look(name);
+                this.#pending.delete(name);
                 this.#scheduleStubs();
             })
         );
@@ -229,7 +233,9 @@ export class App {
         if (!rules.length) return false;
         const path = this.#o.stubRoot ? stubPath(this.#o.stubRoot, server, uri) : undefined;
         const tail = (rootOf(uri) ?? uri).split('/').at(-1);
-        const names = new Set([name ?? `${server}:${tail}`].flatMap((n) => [n, `${PLUGIN}:${n}`]));
+        // The name Codex lists it by (mcp-skills:<server>:<name>), and the same without the plugin's prefix.
+        const full = name ?? `${PLUGIN}:${server}:${tail}`;
+        const names = new Set([full, full.slice(PLUGIN.length + 1)]);
         let disabled = false;
         for (const r of rules) if ((r.path !== undefined && r.path === path) || (r.name !== undefined && names.has(r.name))) disabled = !r.enabled;
         return disabled;
@@ -255,7 +261,8 @@ export class App {
         this.#stubTimer = undefined;
         const offered = this.offered;
         const listed = new Map<string, Listed[]>([...this.conns.keys()].map((name) => [name, offered.filter((l) => l.label === name)]));
-        const keep = new Set(this.unavailable.filter((u) => this.#o.table.servers[u.name] !== undefined).map((u) => u.name).concat(this.skipped));
+        // A server still being looked at keeps the stubs it had, as one not reachable now does.
+        const keep = new Set(this.unavailable.filter((u) => this.#o.table.servers[u.name] !== undefined).map((u) => u.name).concat(this.skipped, [...this.#pending]));
         try {
             const r = syncStubs(this.#o.stubRoot, { listed, keep });
             this.#omitted = r.omitted;
