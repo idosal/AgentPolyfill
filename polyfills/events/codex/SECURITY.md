@@ -17,8 +17,9 @@ that in two parts:
   when Codex reads it with `get_event` or `recent_events`.
 - The message that wakes the session isn't a tool result. It's put into the
   session with `codex queue`, which is the only way from outside to start a
-  turn in Codex, and Codex shows it as an input message. So it carries nothing
-  the server wrote: only which watch has new events, how many, and their ids.
+  turn in Codex, and Codex shows it as an input message. So it carries no
+  event content: it says which watch has new events, how many and their ids,
+  names the server and the event type, and repeats the watch's note.
   Its first line says it was sent by the mcp-events plugin, not typed by the
   user.
 
@@ -74,8 +75,8 @@ instructions to the model, are what tell it apart from what you typed.
   its environment. What Codex prints isn't repeated, only whether it worked.
   - **On macOS and Linux** that is the `codex` program found on PATH (or in
     `MCP_EVENTS_CODEX_BIN`), started directly.
-  - **On Windows** (not tried) the plugin runs only `codex.exe`. For Codex
-    installed with npm, it runs Node itself with the package's
+  - **On Windows** (not tried) the plugin runs only `codex.exe` or, for Codex
+    installed with npm, Node itself with the package's
     `node_modules\@openai\codex\bin\codex.js`, found beside npm's `codex.cmd`.
     It never runs a `.cmd` or `.bat`, npm's `codex.cmd` included, because
     those go through cmd.exe, which would parse the message a second time.

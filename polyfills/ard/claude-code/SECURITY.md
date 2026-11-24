@@ -45,8 +45,8 @@ endpoint, with a filter for Server Cards and `federation: "referrals"`.
 - **Each search asks you first.** Before anything is sent, Claude Code shows
   you the query and where it goes:
   `Send this search to <registry>, and to up to three registries it refers to? "<query>"`.
-  For a registry named by domain, it names the registries that domain lists,
-  up to three. The mod makes that question itself, so no allow rule or auto
+  For a registry named by domain, it says
+  `the registries that <domain> lists (up to three)`. The mod makes that question itself, so no allow rule or auto
   mode answers it. If you say no, nothing is sent.
 - **What is sent is what you were shown.** A query is refused if it is longer
   than the 300 characters the question shows, or holds control characters,
