@@ -1,0 +1,26 @@
+{
+  "name": "agentpolyfill-site",
+  "private": true,
+  "type": "module",
+  "description": "The AgentPolyfill website: VitePress, served by Cloudflare Workers static assets",
+  "scripts": {
+    "media": "node scripts/media.mjs",
+    "media:launch": "node scripts/media.mjs launch",
+    "dev": "node scripts/media.mjs --optional && vitepress dev .",
+    "build": "node scripts/media.mjs && vitepress build .",
+    "preview": "vitepress preview .",
+    "check:links": "node scripts/check-links.mjs",
+    "deploy": "npm run build && npx --yes wrangler@4.167.0 deploy"
+  },
+  "devDependencies": {
+    "@fontsource-variable/schibsted-grotesk": "5.3.0",
+    "vitepress": "1.6.4",
+    "vue": "3.5.44"
+  },
+  "overrides": {
+    "vue": "$vue"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

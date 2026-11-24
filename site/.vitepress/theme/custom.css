@@ -1,0 +1,349 @@
+/*
+ * AgentPolyfill tokens on top of VitePress's default theme.
+ * One family (Schibsted Grotesk) for everything but code, which uses the
+ * platform's monospace, the face the recordings themselves are in.
+ * Restrained colour: green-tinted neutrals and one jade accent, used for
+ * links, the current page and primary actions only.
+ */
+
+:root {
+  --vp-font-family-base: 'Schibsted Grotesk Variable', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, sans-serif;
+  --vp-font-family-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', monospace;
+
+  --ap-jade: #0b6b53;
+  --ap-jade-hover: #0e7c61;
+  --ap-jade-soft: rgba(11, 107, 83, 0.1);
+  --ap-on-jade: #ffffff;
+  --ap-screen: #0c0f0e;
+
+  --vp-c-brand-1: var(--ap-jade);
+  --vp-c-brand-2: var(--ap-jade-hover);
+  --vp-c-brand-3: var(--ap-jade);
+  --vp-c-brand-soft: var(--ap-jade-soft);
+
+  --vp-c-bg: #ffffff;
+  --vp-c-bg-alt: #f4f6f5;
+  --vp-c-bg-soft: #eef1ef;
+  --vp-c-bg-elv: #ffffff;
+
+  --vp-c-text-1: #141a17;
+  --vp-c-text-2: #46504b;
+  --vp-c-text-3: #67716c;
+
+  --vp-c-divider: #e1e6e3;
+  --vp-c-gutter: #e1e6e3;
+  --vp-c-border: #cbd3cf;
+
+  --vp-c-default-soft: rgba(70, 80, 75, 0.1);
+
+  --vp-button-brand-bg: var(--ap-jade);
+  --vp-button-brand-hover-bg: var(--ap-jade-hover);
+  --vp-button-brand-active-bg: var(--ap-jade);
+  --vp-button-brand-text: var(--ap-on-jade);
+  --vp-button-brand-hover-text: var(--ap-on-jade);
+  --vp-button-brand-active-text: var(--ap-on-jade);
+
+  --vp-home-hero-name-color: var(--ap-jade);
+  --vp-home-hero-name-background: none;
+
+  --vp-code-font-size: 0.875em;
+  --vp-layout-max-width: 1440px;
+}
+
+.dark {
+  --ap-jade: #5ccfa8;
+  --ap-jade-hover: #7ddcbb;
+  --ap-jade-soft: rgba(92, 207, 168, 0.12);
+  --ap-on-jade: #06241a;
+  --ap-screen: #0a0c0b;
+
+  --vp-c-bg: #101412;
+  --vp-c-bg-alt: #0b0e0d;
+  --vp-c-bg-soft: #181d1a;
+  --vp-c-bg-elv: #171c19;
+
+  --vp-c-text-1: #e7ece9;
+  --vp-c-text-2: #a9b3ae;
+  --vp-c-text-3: #7d8782;
+
+  --vp-c-divider: #242b27;
+  --vp-c-gutter: #0b0e0d;
+  --vp-c-border: #36403b;
+
+  --vp-c-default-soft: rgba(169, 179, 174, 0.12);
+}
+
+/* Browser surfaces */
+::selection {
+  background: var(--ap-jade-soft);
+  color: var(--vp-c-text-1);
+}
+.dark ::selection {
+  background: rgba(92, 207, 168, 0.28);
+}
+:focus-visible {
+  outline: 2px solid var(--ap-jade);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+html {
+  accent-color: var(--ap-jade);
+}
+
+/* Type */
+body {
+  font-feature-settings: 'ss01' 0;
+  -webkit-font-smoothing: antialiased;
+}
+.VPHero .name,
+.VPHero .text {
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.VPHero .tagline {
+  text-wrap: pretty;
+  max-width: 36em;
+}
+@media (min-width: 640px) {
+  .VPHome .VPHero .text {
+    max-width: 760px;
+  }
+}
+@media (min-width: 960px) {
+  .VPHome .VPHero .name,
+  .VPHome .VPHero .text {
+    font-size: 52px;
+    line-height: 60px;
+  }
+  .VPHome .VPHero .text {
+    max-width: 900px;
+  }
+}
+.vp-doc h1 {
+  letter-spacing: -0.02em;
+}
+.vp-doc h2 {
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.vp-doc p,
+.vp-doc li {
+  text-wrap: pretty;
+}
+.vp-doc a {
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.vp-doc a:hover {
+  text-decoration-thickness: 2px;
+}
+.vp-doc table {
+  font-variant-numeric: tabular-nums;
+}
+.vp-doc blockquote {
+  border-left-width: 1px;
+}
+
+/* Nav mark */
+.VPNavBarTitle .logo {
+  height: 22px;
+  width: 22px;
+}
+
+/* Shared: a command line with a copy button */
+.ap-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background: var(--vp-c-bg-soft);
+  padding: 4px 4px 4px 12px;
+  font-family: var(--vp-font-family-mono);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ap-cmd code {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  color: var(--vp-c-text-1);
+  background: none;
+  padding: 6px 0;
+  scrollbar-width: thin;
+}
+.ap-cmd button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: var(--vp-font-family-base);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vp-c-text-2);
+  transition: color 0.15s, background-color 0.15s;
+}
+.ap-cmd button:hover {
+  color: var(--vp-c-text-1);
+  background: var(--vp-c-default-soft);
+}
+.ap-cmd button[data-copied='true'] {
+  color: var(--ap-jade);
+}
+.ap-cmd svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Shared: a recording */
+.ap-rec {
+  position: relative;
+  margin: 0;
+}
+.ap-rec .frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid var(--vp-c-divider);
+  background: var(--ap-screen);
+  box-shadow: 0 1px 2px rgba(10, 20, 15, 0.06), 0 8px 24px -12px rgba(10, 20, 15, 0.18);
+}
+.dark .ap-rec .frame {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -16px rgba(0, 0, 0, 0.7);
+}
+.ap-rec video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--ap-screen);
+}
+.ap-rec .toggle {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: #e7ece9;
+  background: rgba(10, 12, 11, 0.72);
+  border: 1px solid rgba(231, 236, 233, 0.16);
+  transition: background-color 0.15s;
+}
+.ap-rec .toggle:hover {
+  background: rgba(10, 12, 11, 0.9);
+}
+.ap-rec .toggle svg {
+  width: 14px;
+  height: 14px;
+}
+.ap-rec figcaption {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--vp-c-text-2);
+  text-wrap: pretty;
+}
+.vp-doc .ap-rec {
+  margin: 20px 0 28px;
+}
+
+/* Home: content sections below the hero */
+.ap-home {
+  padding: 0 24px 64px;
+}
+@media (min-width: 640px) {
+  .ap-home {
+    padding: 0 48px 72px;
+  }
+}
+@media (min-width: 960px) {
+  .ap-home {
+    padding: 0 64px 80px;
+  }
+}
+.ap-home .wrap {
+  max-width: 1152px;
+  margin: 0 auto;
+}
+.ap-home section + section {
+  margin-top: 96px;
+}
+.ap-home h2 {
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: var(--vp-c-text-1);
+  text-wrap: balance;
+}
+.ap-home .lede {
+  margin-top: 16px;
+  max-width: 44em;
+  font-size: 17px;
+  line-height: 1.65;
+  color: var(--vp-c-text-2);
+  text-wrap: pretty;
+}
+.ap-home .lede + .lede {
+  margin-top: 12px;
+}
+.ap-home .lede.beyond {
+  margin-top: 56px;
+  padding-top: 24px;
+  border-top: 1px solid var(--vp-c-divider);
+  font-size: 15px;
+}
+.ap-home .lede a,
+.ap-home .more a {
+  color: var(--vp-c-brand-1);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.ap-home code {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.88em;
+  border-radius: 4px;
+  padding: 2px 5px;
+  background: var(--vp-c-default-soft);
+  color: var(--vp-c-text-1);
+}
+
+/* Hero: the install line under the actions */
+.ap-install {
+  margin-top: 28px;
+  max-width: 680px;
+}
+@media (max-width: 639px) {
+  .ap-install .ap-cmd code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+.ap-install .note {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--vp-c-text-3);
+}
+@media (max-width: 959px) {
+  .VPHero.has-image .ap-install,
+  .VPHero .ap-install {
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+@media (min-width: 640px) {
+  .VPHome .VPHero {
+    padding-bottom: 56px;
+  }
+}
