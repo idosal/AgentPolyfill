@@ -87,7 +87,8 @@ run `codex mcp login buildkite` in a terminal.
    Written to /Users/you/.codex/config.toml (all your projects).
    To undo: codex mcp remove neon-docs
 
-   Your answer: ( ) Don't add it  ( ) Add it
+   1. Don't add it
+   2. Add it
    ```
 
    The form starts with the host because some clients join its lines into one
