@@ -176,7 +176,7 @@ export default {
                 holds: 'Event payloads pass through this server and are kept until collected, or dropped after retentionHours. It holds no signing secret: it cannot create or alter an event, and the client checks every signature itself.',
                 retentionHours: (Number.isFinite(ttl) && ttl > 0 ? ttl : 7 * DAY_S) / 3600,
                 rateLimited: Boolean(env.DELIVERIES_PER_MAILBOX && env.DELIVERIES_PER_SENDER && env.SOCKETS_PER_SENDER),
-                source: 'https://github.com/idosal/claude-events-mod/tree/main/mod/relay'
+                source: 'https://github.com/idosal/MCPolyfill/tree/main/polyfills/claude-code/events/mod/relay'
             });
         }
         // SEP-3415 endpoint verification, option 4: this origin says which paths receive webhooks,

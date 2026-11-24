@@ -109,8 +109,9 @@ prompt, as a tool result from the same server could.
   it, but while Claude Code is closed nothing clears the mailbox, so enough
   junk fills it and genuine deliveries are answered `503` until the mod next
   connects. Treat a webhook address as a secret.
-- **A challenge is echoed by the mod with this repository's relay.** A
-  server cannot tell that relay from one that echoes challenges itself.
+- **A challenge is echoed by the mod with the relay in
+  [`mod/relay/`](mod/relay/).** A server cannot tell that relay from one that
+  echoes challenges itself.
 - **Delivery is at least once, with one exception.** A crash between writing
   an event and saving the watch can show it twice after a restart. Two sessions
   on one project can overlap briefly if one is suspended at the wrong moment.
@@ -140,7 +141,8 @@ prompt, as a tool result from the same server could.
 
 ## How it is tested
 
-- **Automated tests.** `npm test` (the mod) and `cd mod/relay && npm test`
+- **Automated tests.** From `polyfills/claude-code/events`: `npm test` (the
+  mod) and `cd mod/relay && npm test`
   (the relay, in the local Workers runtime over real HTTP and WebSockets)
   cover: forged, altered and replayed deliveries; a relay that sends hostile or
   malformed frames; hostile names, descriptions and schemas; unapproved,
@@ -164,7 +166,7 @@ above say what was considered, not that nothing is left.
 
 Please do not open a public issue for a security problem. Use **Report a
 vulnerability** on this repository's
-[Security tab](https://github.com/idosal/claude-events-mod/security/advisories/new)
+[Security tab](https://github.com/idosal/MCPolyfill/security/advisories/new)
 (GitHub's private reporting), with what you did, what happened, and the
 versions of Claude Code and of the mod. If that is not available to you, open
 an issue that says only that you have a security report, and you will be

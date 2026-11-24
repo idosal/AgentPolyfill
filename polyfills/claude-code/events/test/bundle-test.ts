@@ -32,9 +32,9 @@ test('a copied mod without node_modules runs the helper its hooks module starts'
     const dir = temp('mcp-events-install-');
     const installed = join(dir, 'cached plugin'); // a space in the path, as an install folder may have
     mkdirSync(installed);
-    // What is installed is the mod/ folder, as the marketplace file says, and nothing else.
-    const marketplace = JSON.parse(readFileSync(join(ROOT, '.claude-plugin', 'marketplace.json'), 'utf8')) as { plugins: { name: string; source: string }[] };
-    assert.deepEqual(marketplace.plugins.map((p) => [p.name, p.source]), [['mcp-events', './mod']]);
+    // What is installed is the mod/ folder, as the repository's marketplace file says, and nothing else.
+    const marketplace = JSON.parse(readFileSync(join(ROOT, '..', '..', '..', '.claude-plugin', 'marketplace.json'), 'utf8')) as { plugins: { name: string; source: unknown }[] };
+    assert.deepEqual(marketplace.plugins.find((p) => p.name === 'mcp-events')?.source, './polyfills/claude-code/events/mod');
     // Left out: what a development checkout gathers and git ignores (Claude Code writes the last two when it loads the mod from this folder).
     const skip = new Set(['node_modules', '.test-state', '.wrangler', 'types', 'tsconfig.json']);
     cpSync(MOD, installed, { recursive: true, filter: (p) => !skip.has(basename(p)) });
