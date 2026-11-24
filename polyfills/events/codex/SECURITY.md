@@ -61,7 +61,9 @@ instructions to the model, are what tell it apart from what you typed.
     events aren't handed over again. That holds for a session open in one
     window. With the same session open in two, if the window that runs the
     watches ends while `codex queue` runs, its events can be handed over a
-    second time, and that wake can go uncounted.
+    second time, and that wake can go uncounted. When the second window takes
+    the watches over, it reads the count and the pause as the first one left
+    them (from 0.1.5), so closing a window doesn't reset the hour.
   - **How it knows you wrote.** From the turn metadata Codex 0.172 sends with
     each call (`x-codex-turn-metadata.turn_trigger`). It never reads what you
     wrote.

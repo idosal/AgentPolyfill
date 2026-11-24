@@ -50,7 +50,7 @@ export class ThreadSession {
     readonly id: string;
     readonly project: ProjectState;
     readonly spool: Spool;
-    readonly budget: WakeBudget;
+    budget: WakeBudget;
     readonly manager: WatchManager;
     readonly #tools: ReturnType<typeof createTools>;
     readonly #wake: Wake;
@@ -58,6 +58,8 @@ export class ThreadSession {
     readonly #batchMs: number;
     readonly #values: boolean;
     #delivery?: Delivery;
+    /** Reads the wake count as it is on disk. */
+    readonly #readBudget: () => WakeBudget;
     #timer?: NodeJS.Timeout;
     #at = 0;
     #waking = false;
@@ -83,9 +85,13 @@ export class ThreadSession {
         // How often events may wake this session. Kept with its events, so a helper that restarts carries on counting.
         // Past the hour's wakes the pause lifts when the person's own turn calls a tool, or by itself
         // after an hour: Codex shows the plugin the person only through a call's turn metadata.
-        this.budget = new WakeBudget(wakeLimits(env), join(this.spool.dir, 'wakes.json'), { liftAfterMs: o.liftAfterMs ?? PAUSE_LIFTS_AFTER_MS });
-        // A notice handed to `codex queue` by a helper that stopped before it heard back counts as given.
-        if (this.budget.noticeHanded) this.budget.pause();
+        this.#readBudget = () => {
+            const budget = new WakeBudget(wakeLimits(env), join(this.spool.dir, 'wakes.json'), { liftAfterMs: o.liftAfterMs ?? PAUSE_LIFTS_AFTER_MS });
+            // A notice handed to `codex queue` by a helper that stopped before it heard back counts as given.
+            if (budget.noticeHanded) budget.pause();
+            return budget;
+        };
+        this.budget = this.#readBudget();
         this.manager = new WatchManager({ connections: o.connections, project: this.project, spool: this.spool, session: id, log: this.#log, env, connectTimeoutMs: o.connectTimeoutMs, redact: secrets });
         this.#tools = createTools(() => [...o.connections.values()], o.unavailable, this.manager);
         this.spool.onAppend = (rec) => {
@@ -104,6 +110,10 @@ export class ThreadSession {
         const was = this.manager.owner;
         const owner = this.manager.start();
         if (owner && !was) {
+            // The wake count as the process that ran the watches left it: one that takes over (the same
+            // session open in a second window, whose first one closed) carries on from that one's wakes
+            // and pause, not from what it read when it opened.
+            this.budget = this.#readBudget();
             // Where the hand-over stands, as the process that ran them before left it.
             this.#delivery = new Delivery(this.spool, { values: this.#values });
             // A batch that process handed to `codex queue` and ended before it heard back about: it may

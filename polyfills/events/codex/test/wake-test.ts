@@ -339,3 +339,25 @@ describe('when codex queue fails', () => {
         }
     });
 });
+
+describe('taking over a session open in two windows', () => {
+    test('the process that takes over the watches carries on from the saved wake count and pause', async () => {
+        const base = temp('mcp-events-codex-takeover-');
+        const thread = newThread();
+        const make = () => new ThreadSession(thread, { base, connections: new Map(), unavailable: () => [], wake: async () => ({ ok: true, resumed: true }), log: () => {}, env: { MCP_EVENTS_WAKE_GAP_S: '0', MCP_EVENTS_WAKES_PER_HOUR: '1' } });
+        // The second window opens first, and reads an empty count.
+        const standby = make();
+        const first = make();
+        try {
+            assert.equal(first.start(), true);
+            first.budget.woke(['w-aaaaaa']);
+            first.budget.pause();
+            await first.stop();
+            assert.equal(standby.start(), true);
+            assert.equal(standby.budget.paused, true, 'paused, as the first process left it');
+            assert.equal(standby.budget.gate(['w-aaaaaa']).kind, 'paused');
+        } finally {
+            await standby.stop();
+        }
+    });
+});
