@@ -1,5 +1,5 @@
 ---
-description: Install the AgentPolyfill plugins in Claude Code, what each one needs, and the first run of each.
+description: Install the AgentPolyfill plugins in Claude Code and Codex, what each one needs, and the first run of each.
 ---
 
 # Getting started
@@ -139,6 +139,41 @@ Then press **Add** on **Neon Docs** (no sign-in). For one behind a sign-in, ask
 about buildkite.com; after **Add**, Claude Code asks you to sign in through
 `/mcp`. `claude mcp remove neon-docs -s local` removes it again.
 [More on Server Cards](./server-cards)
+
+## Codex
+
+Events and Skills also run in OpenAI Codex, as Codex plugins from the same
+repository. In a terminal:
+
+```bash
+codex plugin marketplace add idosal/AgentPolyfill
+codex plugin add mcp-events@agent-polyfill
+codex plugin add mcp-skills@agent-polyfill
+```
+
+Events needs Codex 0.170 or newer; Skills was run on 0.172. Both need Node 20
+or newer on the `PATH` Codex runs with. `codex plugin remove mcp-events@agent-polyfill`
+removes one. There is no bundle for Codex, and Apps, Server Cards and ARD are
+Claude Code only for now.
+
+To try Events, add the hosted demo server and ask, in `codex`, "Give me a demo
+button and tell me what I type when I press it":
+
+```bash
+codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
+```
+
+To try Skills, add Hugging Face's public MCP server to `~/.codex/config.toml`
+and ask a question one of its skills covers:
+
+```toml
+[mcp_servers.huggingface]
+url = "https://huggingface.co/mcp"
+```
+
+Each Codex plugin's README has the rest:
+[`polyfills/events/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex) and
+[`polyfills/skills/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex).
 
 ## Servers behind a sign-in
 

@@ -18,7 +18,7 @@ const polyfills = props.group === 'beyond' ? home.beyond : home.polyfills
           <h3><a :href="p.link">{{ p.name }}</a></h3>
           <span v-if="p.state" class="state" :data-state="p.state.toLowerCase()" :title="p.stateNote">{{ p.state }}</span>
         </header>
-        <p class="spec"><span class="whole">{{ p.spec }}</span></p>
+        <p class="spec"><span class="whole">{{ p.spec }}</span> · <span class="whole">{{ p.hosts.join(', ') }}</span></p>
         <p class="line">{{ p.line }}</p>
         <p v-if="p.note" class="note">{{ p.note }}</p>
         <a class="more" :href="p.link" :aria-label="`The ${p.name} guide`">Guide <svg class="arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h9.5M9 4.5 12.5 8 9 11.5" /></svg></a>

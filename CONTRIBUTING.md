@@ -1,8 +1,11 @@
 # Contributing
 
-Bug reports, fixes and new polyfills are welcome. For a bug or a question,
-open an issue and name the polyfill it concerns. For anything larger than a
-fix, open an issue first, so the design can be agreed before the work.
+Bug reports, fixes, new polyfills and existing polyfills brought to another
+host are welcome. For a bug or a question, open an issue and name the polyfill
+(and the host) it concerns. For anything larger than a fix, open an issue
+first, so the design can be agreed before the work. A polyfill you keep in your
+own repository can be [listed in the community directory](#listing-a-polyfill-in-the-community-directory)
+instead.
 
 ## Adding a polyfill
 
@@ -68,9 +71,10 @@ is a complete example of one adapter. Inside an adapter's folder:
   `.claude-plugin/plugin.json` for Claude Code and `.codex-plugin/plugin.json`
   for Codex side by side, with the same plugin name.
 - **The plugin's name** is unique in this repository, and the same name is
-  used in the marketplace entry, in release tags and in the workflow files.
-  Existing names: `mcp-apps-cli`, `mcp-events`, `mcp-skills`,
-  `polyfill-author`.
+  used in the marketplace entries, in release tags and in the workflow files.
+  An extension keeps one name in every host. Existing names: `mcp-events`,
+  `mcp-apps-cli`, `mcp-skills`, `mcp-server-cards`, `ard-discovery`,
+  `agent-polyfill`, `polyfill-author`.
 - **No large files in git.** Nothing over about 1 MB unless the plugin or its
   tests cannot work without it. Attach videos and other large media to a
   release instead, and link them from the README.
@@ -97,11 +101,13 @@ The polyfill's `README.md`, at the top of its folder, states:
 - **Limits:** what it cannot do on this host, and for each limit the change
   in the host that would remove it. Add any such change to
   [`docs/host-changes.md`](docs/host-changes.md) too.
-- **Requirements, install and use:** the one-line install first
-  (`/plugin install <plugin> --marketplace idosal/AgentPolyfill`, and in a
-  terminal `claude plugin install <plugin> --marketplace idosal/AgentPolyfill`),
+- **Requirements, install and use:** the one-line install first. In Claude
+  Code: `/plugin install <plugin> --marketplace idosal/AgentPolyfill`, and in a
+  terminal `claude plugin install <plugin> --marketplace idosal/AgentPolyfill`,
   then the two-step form (`/plugin marketplace add idosal/AgentPolyfill`, then
-  `/plugin install <plugin>@agent-polyfill`); what else it needs; and every
+  `/plugin install <plugin>@agent-polyfill`). In Codex:
+  `codex plugin marketplace add idosal/AgentPolyfill && codex plugin add <plugin>@agent-polyfill`.
+  Then what else it needs; and every
   step and question a new user meets between that line and the extension
   working, with what happens when they say no. Anything beyond "install,
   add a server, ask" needs a reason.
@@ -112,7 +118,8 @@ not met yet, the README says so.
 
 ### 4. Add it to the marketplace
 
-Add an entry to [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json):
+Each host has its own marketplace file in this repository. For Claude Code,
+add an entry to [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json):
 
 ```json
 {
@@ -129,11 +136,24 @@ SHA-256, which a release workflow produces (step 5). A `git-subdir` or
 `url` source takes a full `https://` git URL: the `owner/repo` shorthand
 there is cloned over SSH, which fails on a machine without GitHub SSH keys.
 
-Then add the plugin's name to the `dependencies` of the `agent-polyfill` plugin
+For Codex, add an entry to
+[`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json):
+
+```json
+{
+  "name": "<plugin>",
+  "source": { "source": "local", "path": "./polyfills/<extension>/codex/<plugin subfolder>" },
+  "policy": { "installation": "AVAILABLE" },
+  "category": "Developer Tools"
+}
+```
+
+In Claude Code, add the plugin's name to the `dependencies` of the `agent-polyfill` plugin
 ([`plugins/agent-polyfill/.claude-plugin/plugin.json`](plugins/agent-polyfill/.claude-plugin/plugin.json)),
 which installs every polyfill in one step, and to the list in its
 [README](plugins/agent-polyfill/README.md). CI fails until the two lists match.
-Add a row to the polyfills table in the [README](README.md) as well.
+Add the polyfill to the table in the [README](README.md) as well, in its
+host's column.
 
 ### 5. Add its CI
 
@@ -172,6 +192,44 @@ claude plugin validate polyfills/<extension>/<host>/<plugin subfolder>
 Run the polyfill's tests, and do one recorded run in the real host against a
 server you did not write. Say in the pull request what you ran and what you
 saw.
+
+## Bringing a polyfill to another host
+
+An extension keeps one folder and one plugin name; each host gets an adapter
+beside the others. Events and Skills are the examples: one `core/`, a
+`claude-code/` mod and a `codex/` plugin
+([`polyfills/events`](polyfills/events), [`polyfills/skills`](polyfills/skills)).
+
+1. **Find the host's way in.** What can third-party code do there: run code
+   inside the host or beside it (Claude Code mods; a Codex plugin's MCP server
+   and skills), call tools, ask the user, start a turn in an idle session? Each
+   wire need of the extension is reached one of those ways, or it is a limit,
+   written down with the host change that would remove it
+   ([`docs/host-changes.md`](docs/host-changes.md)). The `create-polyfill`
+   skill walks through this for a named host.
+2. **Share the core.** If the host-neutral logic still lives inside the first
+   host's adapter, move it into `polyfills/<extension>/core/` first, with its
+   rule tests, in its own pull request, so the existing host's behaviour is
+   checked unchanged before a second host depends on it.
+3. **Write the adapter** in `polyfills/<extension>/<host>/`, under the rules in
+   [step 2](#2-put-it-in-its-folder): a self-contained plugin folder with that
+   host's manifest, `core/` bundled into it, the host's own tests beside it.
+4. **Meet the contract in that host.** Its own README (step 3) with that host's
+   install line, requirements, limits and stand-down, its own `SECURITY.md`,
+   and a recorded run in the real host against a server you did not write.
+5. **List it** in that host's marketplace file (step 4) and add its CI (step 5).
+   Add it to the polyfills table in the [README](README.md), in that host's
+   column.
+
+## Listing a polyfill in the community directory
+
+A polyfill you build and maintain in your own repository can be listed in
+[`community/`](community/) without moving its code here. Open a pull request
+that adds one entry to [`community/polyfills.json`](community/polyfills.json);
+[`community/README.md`](community/README.md) has the fields and the rules.
+Listed polyfills are not reviewed, built or shipped by this project, and are
+not in its marketplaces. One that meets the contract can be proposed for
+`polyfills/` later, by an issue.
 
 ## Security
 
