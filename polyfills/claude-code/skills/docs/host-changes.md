@@ -9,15 +9,16 @@ what Claude Code offers a mod. This page says, for the Skills extension, which
 of the four it needs and what each would take out of this polyfill. Line
 counts are of the files at version 0.2.2.
 
-Short version: **Skills needs the first, and a small part of the third. It has
-no use for the second or the fourth.**
+Short version: **Skills needs the first and the second. It has no use for the
+third or the fourth.** The numbering is the one in the repository's
+[`docs/host-changes.md`](../../../../docs/host-changes.md).
 
 | # | Host change | Used by Skills? | What it would remove |
 |---|---|---|---|
 | 1 | `$.mcp.request(server, method, params)` over Claude Code's own connection | **Yes. This is the one that matters.** | The second connection, server discovery, the OAuth limit, and probably the helper process |
-| 2 | Server notifications delivered to the mod | No | Nothing |
-| 3 | Reading what the server advertised; declaring a client extension | Reading: yes, unless change 1 can send `server/discover`. Declaring: no | The capability tap in `src/wire.ts` (already counted under 1) |
-| 4 | Raw tool results in hooks | No | Nothing |
+| 2 | Reading what the server advertised | Yes, unless change 1 can send `server/discover` | The capability tap in `src/wire.ts` (already counted under 1) |
+| 3 | Server notifications delivered to the mod | No | Nothing |
+| 4 | Raw tool results in hooks; declaring a client extension | No | Nothing |
 
 ## 1. `$.mcp.request(server, method, params)`
 
@@ -77,21 +78,9 @@ What the call has to do for this to work, exactly:
 3. Surface a JSON-RPC error with its code. `-32602` from `skills/get` means "no
    such skill", and the mod answers differently for it.
 
-## 2. Server notifications delivered to the mod
+## 2. Reading what the server advertised
 
-Not used. The Skills extension defines no server-to-client message at all: no
-`list_changed` of its own, no stream. Freshness is a `ttlMs` hint on each
-result, and a changed file is caught when it is read and fails verification.
-
-A server may send the base protocol's `notifications/resources/list_changed`
-when its skill set changes (the official TypeScript SDK's server does). The
-specification asks nothing of a client about it. A mod that received it could
-re-list a little sooner than the `ttlMs` says; that is a nicety, not a
-requirement, and the mod does not need it.
-
-## 3. Reading what the server advertised; declaring a client extension
-
-**Reading: used.** Two client rules depend on what the server declared:
+Used. Two client rules depend on what the server declared:
 `skills/list` and `skills/get` are sent "only after observing the server's
 declaration", and `resources/directory/read` only where the declaration carries
 `directoryRead: true`. The mod also checks that the connection is on revision
@@ -109,16 +98,28 @@ extension is specified for. A direct read (`$.mcp.capabilities(server)` or the
 like, with the negotiated revision) would be cleaner and would save a round
 trip per server.
 
-**Declaring a client extension: not used.** The specification has the server
+## 3. Server notifications delivered to the mod
+
+Not used. The Skills extension defines no server-to-client message at all: no
+`list_changed` of its own, no stream. Freshness is a `ttlMs` hint on each
+result, and a changed file is caught when it is read and fails verification.
+
+A server may send the base protocol's `notifications/resources/list_changed`
+when its skill set changes (the official TypeScript SDK's server does). The
+specification asks nothing of a client about it. A mod that received it could
+re-list a little sooner than the `ttlMs` says; that is a nicety, not a
+requirement, and the mod does not need it.
+
+## 4. Raw tool results in hooks; declaring a client extension
+
+Not used. A skill is never delivered as a tool result of the server's: it is a
+set of resources, listed by `skills/list` and read with `resources/read`.
+
+**Declaring a client extension:** not used either. The specification has the server
 declare; it asks nothing of a client's capabilities, and its request examples
 carry `"io.modelcontextprotocol/clientCapabilities": {}`. One server in
 `ext-skills/docs/implementations.md` (Tachyon) is noted as requiring clients to
 advertise the extension, which is outside the specification.
-
-## 4. Raw tool results in hooks
-
-Not used. A skill is never delivered as a tool result of the server's: it is a
-set of resources, listed by `skills/list` and read with `resources/read`.
 
 ## What the four do not cover
 
