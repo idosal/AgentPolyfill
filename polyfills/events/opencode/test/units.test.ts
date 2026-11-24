@@ -44,3 +44,18 @@ test('the bundle loads on its own and exports a V2 plugin', async () => {
     assert.equal(mod.default.id, 'mcp-events');
     assert.equal(typeof mod.default.setup, 'function');
 });
+
+test('a name a server chose is shown in a permission request with anything but printable ASCII escaped', async () => {
+    const { visible } = await import('../src/plugin.ts');
+    assert.equal(visible('ticket.created'), 'ticket.created');
+    assert.equal(visible('tick​et'), 'tick\\u{200b}et');
+    assert.equal(visible('a‮b'), 'a\\u{202e}b');
+});
+
+test('"Allow always" on a watch saves a rule only for plain names, never a wildcard a server chose', async () => {
+    const { watchPermission } = await import('../src/plugin.ts');
+    assert.deepEqual(watchPermission('tickets', 'ticket.created'), { resource: 'tickets:ticket.created', save: ['tickets:ticket.created'] });
+    assert.deepEqual(watchPermission('tickets', '*'), { resource: 'tickets:*', save: [] });
+    assert.deepEqual(watchPermission('tickets', 'ticket?'), { resource: 'tickets:ticket?', save: [] });
+    assert.deepEqual(watchPermission('tickets', 'tick​et').save, []);
+});

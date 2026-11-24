@@ -88,7 +88,13 @@ describe('mcp-events in OpenCode', () => {
     });
 
     test('approved, it watches; an event then wakes the idle session with a synthetic message', async () => {
+        const req = (async () => {
+            const r = await waitFor(async () => (await world.permissions(session))[0], 30000, 'the watch request');
+            return r as unknown as { resources: string[]; save?: string[] };
+        })();
         const out = await turn(world, session, 'CALL mcp_events_watch_event {"server":"fixture","event":"ticket.created","note":"tell me"}', 'once');
+        // A plain name: "Allow always" would save exactly what was asked about.
+        assert.deepEqual((await req).save, ['fixture:ticket.created']);
         assert.match(out, /Watching fixture \/ ticket\.created as w-[0-9a-f]{6}, by poll/);
         await world.idle(session);
         const before = (await world.session(session)).time.idle ?? 0;

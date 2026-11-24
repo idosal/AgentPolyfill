@@ -76,11 +76,11 @@ export function loadedText(l: Loaded): string {
         ''
     ];
     if (entry.resources === 'dynamic') {
-        out.push(`To read a file the skill refers to by a relative path, call ${TOOL.read} with server ${q(label)}, skill ${q(entry.uri)} and that path.${l.directoryRead ? ' To see what a directory holds, call ${TOOL.list}.' : ''}`);
+        out.push(`To read a file the skill refers to by a relative path, call ${TOOL.read} with server ${q(label)}, skill ${q(entry.uri)} and that path.${l.directoryRead ? ` To see what a directory holds, call ${TOOL.dir}.` : ''}`);
     } else if (files.length) {
         out.push(`Its other files (${files.length}). To read one the skill refers to, call ${TOOL.read} with server ${q(label)}, skill ${q(entry.uri)} and the path (they are not on disk):`);
         for (const f of files.slice(0, 60)) out.push(`- ${relativeTo(entry.uri, f.uri)} (${f.size} bytes)`);
-        if (files.length > 60) out.push(`- (${files.length - 60} more: call ${TOOL.list})`);
+        if (files.length > 60) out.push(`- (${files.length - 60} more: call ${TOOL.dir})`);
     } else out.push('It has no other files.');
     out.push('', fenced('mcp-skill', { server: label, uri: entry.uri, name }, l.body));
     return out.join('\n');

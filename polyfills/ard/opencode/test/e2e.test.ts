@@ -21,6 +21,8 @@ const ASK: Rule[] = [
 async function localWeb() {
   let origin = ''
   const searches: unknown[] = []
+  /** A registry this one refers searches on to, when set. */
+  const refer: { to?: string } = {}
   const server: Server = createServer(async (req, res) => {
     let body = ''
     for await (const c of req) body += c
@@ -33,7 +35,7 @@ async function localWeb() {
     if (req.url === '/ci.json') return json(200, { $schema: SCHEMA, name: 'com.example/ci', version: '1.0.0', description: 'CI insights.', title: 'CI', remotes: [{ type: 'streamable-http', url: `${origin}/mcp` }] })
     if (req.url === '/registry/search' && req.method === 'POST') {
       searches.push(JSON.parse(body))
-      return json(200, { results: [{ identifier: 'urn:air:localhost:ci', type: TYPE, url: `${origin}/ci.json` }] })
+      return json(200, { results: [{ identifier: 'urn:air:localhost:ci', type: TYPE, url: `${origin}/ci.json` }], ...(refer.to ? { referrals: [{ url: refer.to }] } : {}) })
     }
     if (req.url === '/mcp' && req.method === 'POST') {
       const m = JSON.parse(body || '{}') as { id?: number; method?: string; params?: { protocolVersion?: string } }
@@ -50,7 +52,7 @@ async function localWeb() {
   })
   await new Promise<void>(r => server.listen(0, '127.0.0.1', r))
   origin = `http://127.0.0.1:${(server.address() as { port: number }).port}`
-  return { origin, searches, close: () => new Promise<void>(r => server.close(() => r())) }
+  return { origin, searches, refer, close: () => new Promise<void>(r => server.close(() => r())) }
 }
 
 const lastToolResult = (w: World) => {
@@ -105,10 +107,34 @@ describe('ard-discovery in OpenCode', () => {
     assert.equal(web.searches.length, 0)
   })
 
+  test('a registry the answer refers the search to is put to OpenCode\'s rules too; rejected, it gets nothing', async () => {
+    const other = await localWeb()
+    try {
+      web.refer.to = `${other.origin}/registry/search`
+      const before = web.searches.length
+      const since = Date.now()
+      await world.prompt(session, `CALL ard_search {"query":"check why my CI build failed","registry":"${web.origin}/registry"}`)
+      const first = await waitFor(async () => (await world.permissions(session))[0], 30000, 'the first request')
+      assert.deepEqual(first.resources, [new URL(web.origin).host])
+      await world.reply(session, first.id, 'once')
+      const second = await waitFor(async () => (await world.permissions(session)).find(p => p.id !== first.id), 30000, 'the request for the referred registry')
+      assert.equal(second.action, 'ard_search')
+      assert.deepEqual(second.resources, [new URL(other.origin).host])
+      await world.reply(session, second.id, 'reject')
+      await world.idle(session, since).catch(() => undefined)
+      assert.equal(web.searches.length, before + 1)
+      assert.equal(other.searches.length, 0)
+    } finally {
+      web.refer.to = undefined
+      await other.close()
+    }
+  })
+
   test('approved, the query goes to that registry; a result found there is added after its own approval', async () => {
+    const before = web.searches.length
     const out = await turn(world, session, `CALL ard_search {"query":"check why my CI build failed","registry":"${web.origin}/registry"}`, 'once')
     assert.match(out, /The query text was sent to: 127\.0\.0\.1/)
-    assert.equal(web.searches.length, 1)
+    assert.equal(web.searches.length, before + 1)
     const added = await turn(world, session, `CALL ard_add_mcp_server ${JSON.stringify({ domain: web.origin, identifier: 'urn:air:localhost:ci', url: `${web.origin}/mcp` })}`, 'once', p => assert.equal(p.action, 'mcp_server_cards_add'))
     assert.match(added, /Added "[^"]+"/)
   })

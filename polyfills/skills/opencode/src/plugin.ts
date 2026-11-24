@@ -26,6 +26,20 @@ import { ACTIONS, NAMESPACE, NAMESPACE_DESCRIPTION, stubContent, stubDescription
 
 /** OpenCode's own tool that reads an MCP resource (2.4.1). */
 export const READ_RESOURCE_TOOL = 'opencode_read_mcp_resource';
+/** Where the servers a session loaded skills from are kept, in the plugin's storage. */
+export const LOADED_KEY = (session: string) => `loaded-from/${session}`;
+/** How many parents up a subagent's session is checked. */
+const MAX_DEPTH = 8;
+
+/**
+ * Whether a call is OpenCode's resource read, however it was named: its effective name
+ * (`opencode_read_mcp_resource`), the dotted name a model or a Code Mode program uses
+ * (`opencode.read_mcp_resource`), or the tool OpenCode resolved it to.
+ */
+export function isResourceRead(event: { tool: string; info?: { name?: string; options?: { namespace?: string } } }): boolean {
+    if (event.tool.replace(/\./g, '_') === READ_RESOURCE_TOOL) return true;
+    return event.info?.name === 'read_mcp_resource' && (event.info.options?.namespace ?? 'opencode') === 'opencode';
+}
 const SESSION_ID = /^ses_[A-Za-z0-9_-]{1,120}$/;
 
 export function stateDir(env: NodeJS.ProcessEnv = process.env): string {
@@ -76,6 +90,34 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
             });
         }
     });
+    const kept = async (session: string): Promise<string[]> => {
+        try {
+            const v = await ctx.storage.get(LOADED_KEY(session));
+            return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+        } catch {
+            return [];
+        }
+    };
+    app.onLoaded = async (session, server) => {
+        const before = await kept(session);
+        if (!before.includes(server)) await ctx.storage.set(LOADED_KEY(session), [...before, server]);
+    };
+    /** The servers this session, or a session it is a subagent of, loaded skills from. */
+    const loadedFrom = async (session: string): Promise<string[]> => {
+        const out = new Set<string>();
+        let id: string | undefined = session;
+        for (let depth = 0; id && depth < MAX_DEPTH; depth++) {
+            for (const s of [...app.loadedFrom(id), ...(await kept(id))]) out.add(s);
+            try {
+                const r = (await ctx.session.get({ sessionID: id })) as { parentID?: string; data?: { parentID?: string } };
+                id = r?.data?.parentID ?? r?.parentID;
+            } catch {
+                id = undefined;
+            }
+        }
+        return [...out];
+    };
+
     app.onListed = () => {
         log(`OpenCode lists ${app.offered.length} served skill(s)`);
         void ctx.skill.reload().catch((e) => log(`OpenCode's skill list could not be rebuilt (${String(e)})`));
@@ -103,10 +145,10 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
     // X8: a session that loaded a served skill reads another server's resource only once OpenCode's
     // rules allow it, asked for that one read and naming both servers.
     await ctx.tool.hook('execute.before', async (event) => {
-        if (event.tool !== READ_RESOURCE_TOOL) return;
+        if (!isResourceRead(event)) return;
         const input = (event.input ?? {}) as { server?: unknown; uri?: unknown };
         if (typeof input.server !== 'string') return;
-        const from = app.loadedFrom(event.sessionID).filter((s) => s !== input.server);
+        const from = (await loadedFrom(event.sessionID)).filter((s) => s !== input.server);
         if (!from.length) return;
         const uri = typeof input.uri === 'string' ? input.uri : '';
         log(`a session that loaded skills of ${from.join(', ')} reads a resource of ${input.server}: put to OpenCode's rules`);

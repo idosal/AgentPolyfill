@@ -89,10 +89,13 @@ alone, with the reason.
   refers to, only from the skill's own server, only if its manifest lists it,
   checked the same way. `mcp_skills_list_skill_directory` lists a folder.
 - **Another server's resources (X8).** Once a session has loaded a served
-  skill, a call of OpenCode's own `opencode_read_mcp_resource` for another
-  server is put to OpenCode's rules first (a `tool` hook), as
-  `mcp_skills_cross_server` on `<skill servers>-><server>:<uri>`, for that one
-  read. A reject stops the read.
+  skill, a call of OpenCode's own resource read for another server is put to
+  OpenCode's rules first (a `tool` hook), as `mcp_skills_cross_server` on
+  `<skill servers>-><server>:<uri>`, for that one read. A reject stops the
+  read. It holds however the read is named (`opencode_read_mcp_resource`, or
+  `opencode.read_mcp_resource` as Code Mode names it), in a subagent of that
+  session, and after OpenCode restarts: which servers a session loaded skills
+  from is kept in the plugin's OpenCode storage.
 
 The plugin does what the extension defines for a client and nothing else: no
 extra protocol, no vendor extension.
@@ -146,9 +149,12 @@ plugin off with `MCP_SKILLS_OFF=1`, or remove it.
   credentials.
 - **A second connection.** A local server that serves skills runs twice.
 - **Binary files** of a skill are checked, but not shown to the model.
-- **Not tried yet:** Windows and Linux (the tests are set up to run on Linux
-  and macOS), the OpenCode desktop app, Hugging Face's server live, and a live
-  model.
+- **Tried live** with a real model and Hugging Face's server: its 25 skills
+  in OpenCode's list, two loaded after OpenCode asked, each bound to its
+  digest ([`live-run.md`](../../../tools/opencode/live-run.md)). In that run,
+  with OpenCode's default rules, the model also ran a command a loaded skill
+  described, without a prompt. CI runs the tests on Linux and macOS.
+- **Not tried yet:** Windows, and the TUI and the desktop app as clients.
 
 [What hosts would need to change](../../../docs/host-changes.md) covers these
 gaps for each host.
@@ -174,7 +180,7 @@ client rule to it. What is different in OpenCode:
 |---|---|
 | V7 (no file fetched ahead of need) | Met: the skill list is built from `skills/list` alone. Tested. |
 | X5 (no code execution from a served skill without per-skill approval) | Exception: (a) no frontmatter field has any effect. (b) A skill loads only once OpenCode's rules allow `mcp_skills_load`; under OpenCode's default (allow everything) that needs no prompt. After it loads, what the model does goes through OpenCode's rules as for any skill. |
-| X8 (a cross-server read approved per call, naming both servers) | Met through OpenCode's rules: a hook puts `opencode_read_mcp_resource` for another server to `mcp_skills_cross_server`, per call. Limit: under OpenCode's default it's allowed without a prompt. Tested with an `ask` rule. |
+| X8 (a cross-server read approved per call, naming both servers) | Met through OpenCode's rules: a hook puts OpenCode's resource read for another server to `mcp_skills_cross_server`, per call, by either of its names, in subagents, and across restarts. Limit: under OpenCode's default it's allowed without a prompt. Tested with an `ask` rule, each of those cases included. |
 | X11 (user policy decides whether a skill loads) | Met: OpenCode's permission rules. |
 | X14 (an approval bound to every file's digest, revoked on change; a generated skill can't be covered) | Met: the resource carries the manifest digest. Tested: "Allow always", then a load in another session isn't asked, then the server changes a file and the load is asked again. |
 

@@ -53,8 +53,12 @@ One server at a time, to OpenCode's MCP servers, with `ctx.mcp.transform`:
 - **Remotes:** a card from a public source may not name a private address. An
   SSE remote is refused.
 - **What is kept:** the added servers' URL and fixed headers, in the plugin's
-  OpenCode storage, added again whenever OpenCode loads the plugin. Your
-  configuration files aren't written.
+  OpenCode storage, one entry per project, added again whenever OpenCode
+  loads the plugin in that project. So an addition one project's rules
+  allowed doesn't reach another project. Each change reads the entry afresh
+  and changes only that server, so a stale copy in another OpenCode window
+  can't bring back a server you removed. Your configuration files aren't
+  written.
 - **Removal** is `mcp_server_cards_remove`, and only for a server this plugin
   added.
 

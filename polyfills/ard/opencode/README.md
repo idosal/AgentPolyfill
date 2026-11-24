@@ -62,7 +62,8 @@ You need **OpenCode 2.4** (the V2 plugin API; tested with 2.4.1).
   the registries a domain's catalog lists, at most three), and follows its
   referrals one hop. Before anything is sent, it asks OpenCode's rules about
   `ard_search` on the registry hosts; the request carries the exact query and
-  endpoints. Nothing is saved by "Allow always": each search is asked about on
+  endpoints. A registry a referral names is asked about the same way before
+  the query goes to it; one that isn't allowed gets nothing. Nothing is saved by "Allow always": each search is asked about on
   its own. A query is one line of plain words, at most 300 characters, so the
   request shows all of what is sent.
 - **`ard_add_mcp_server`** and **`ard_remove_mcp_server`** add or remove a
@@ -82,8 +83,11 @@ You need **OpenCode 2.4** (the V2 plugin API; tested with 2.4.1).
   search is sent without a prompt. Add the rules in [Install](#install).
 - The limits of [`mcp-server-cards`](../../server-cards/opencode/README.md#limits)
   for adding a server.
-- **Not tried yet:** Windows and Linux, the OpenCode desktop app, a live
-  registry, and a live model.
+- **Tried live** with a real model: buildkite.com's `ard.json` read
+  ([`live-run.md`](../../../tools/opencode/live-run.md)). CI runs the tests on
+  Linux and macOS.
+- **Not tried yet:** Windows, the TUI and the desktop app as clients, and a
+  live registry search.
 
 ## Security
 

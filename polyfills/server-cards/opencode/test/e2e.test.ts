@@ -4,6 +4,7 @@
 // same web, and a scripted model.
 
 import assert from 'node:assert/strict'
+import { copyFileSync, mkdirSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
@@ -114,6 +115,18 @@ describe('mcp-server-cards in OpenCode', () => {
     const name = /Added "([^"]+)"/.exec(out)![1]!
     const s = await waitFor(async () => (await servers(world)).find(x => x.name === name && JSON.stringify(x.status).includes('connected')), 20000, 'OpenCode to connect')
     assert.ok(s)
+  })
+
+  test('added to this project only: another folder with the same plugin does not get it', async () => {
+    const elsewhere = join(world.dir, 'elsewhere')
+    mkdirSync(elsewhere, { recursive: true })
+    copyFileSync(join(world.project, 'opencode.json'), join(elsewhere, 'opencode.json'))
+    const there = async () => (await world.api<{ data: { name: string }[] }>('GET', `/api/mcp?location[directory]=${encodeURIComponent(elsewhere)}`)).data
+    // Loading that folder runs the plugin there too.
+    await waitFor(async () => (await world.api<{ data: { id: string }[] }>('GET', `/api/plugin?location[directory]=${encodeURIComponent(elsewhere)}`)).data.length > 0, 20000, 'the plugin in the other folder').catch(() => undefined)
+    await new Promise(r => setTimeout(r, 1500))
+    assert.equal((await there()).length, 0)
+    assert.ok((await servers(world)).length > 0)
   })
 
   test('kept across an OpenCode restart', async () => {

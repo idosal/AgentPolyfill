@@ -22,7 +22,7 @@ import { configureHost } from '../../core/src/host.ts';
 import { readRelaySettings } from '../../core/src/relay.ts';
 import { pruneSessions } from '../../core/src/store.ts';
 import type { Unavailable } from '../../core/src/tools.ts';
-import { describeError, secrets } from '../../core/src/untrusted.ts';
+import { describeError, NAME, secrets } from '../../core/src/untrusted.ts';
 import { isHttp, type ServerTable } from '../../core/src/upstream.ts';
 import { OpenCodeServers } from './config.ts';
 import type { Context, Plugin, ToolCallContext } from './opencode.ts';
@@ -33,6 +33,20 @@ import { ACTIONS, NAMESPACE, NAMESPACE_DESCRIPTION, NATIVE_PUSH, OPENCODE, TOOLS
 /** The tool OpenCode's own MCP Events support adds (2.4.1): its presence means OpenCode watches push events itself. */
 export const NATIVE_EVENTS_TOOL = 'opencode_list_mcp_events';
 const SESSION_ID = /^ses_[A-Za-z0-9_-]{1,120}$/;
+
+/** A name as a permission request shows it: printable ASCII as it is, anything else as `\\u{…}`. */
+export const visible = (name: string): string => name.replace(/[^\x20-\x7e]/gu, (c) => `\\u{${c.codePointAt(0)!.toString(16)}}`);
+
+/**
+ * What a watch is asked about: the resource `<server>:<event type>`, shown as `visible` writes it, and
+ * the rule "Allow always" saves. Only plain names save one: a name a server chose that holds `*` or
+ * `?` (a wildcard in OpenCode's rules) or any other character would save a rule wider than what was
+ * asked about, or one that reads as something else.
+ */
+export function watchPermission(server: string, event: string): { resource: string; save: string[] } {
+    const resource = `${visible(server)}:${visible(event)}`;
+    return { resource, save: NAME.test(server) && NAME.test(event) ? [resource] : [] };
+}
 
 export function stateDir(env: NodeJS.ProcessEnv = process.env): string {
     if (env.MCP_EVENTS_STATE) return env.MCP_EVENTS_STATE;
@@ -185,9 +199,11 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
         return s;
     };
 
-    /** Asks OpenCode's permission rules; resolves when allowed, and otherwise throws OpenCode's own error. */
-    const ask = (call: ToolCallContext, action: string, resource: string, metadata: Record<string, unknown>) =>
-        ctx.permission.assert({ sessionID: call.sessionID, agent: call.agent, source: { type: 'tool', messageID: call.messageID, id: call.id }, action, resources: [resource], save: [resource], metadata });
+    /** Asks OpenCode's permission rules about a watch (watchPermission); resolves when allowed, and otherwise throws OpenCode's own error. */
+    const ask = (call: ToolCallContext, action: string, server: string, event: string, metadata: Record<string, unknown>) => {
+        const { resource, save } = watchPermission(server, event);
+        return ctx.permission.assert({ sessionID: call.sessionID, agent: call.agent, source: { type: 'tool', messageID: call.messageID, id: call.id }, action, resources: [resource], save, metadata: { ...metadata, server: visible(server), event: visible(event) } });
+    };
 
     const execute = async (name: string, input: unknown, call: ToolCallContext): Promise<string> => {
         if (!SESSION_ID.test(call.sessionID)) return 'mcp-events needs to know which OpenCode session this call is from, and this call did not say.';
@@ -198,11 +214,11 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
         if (name === 'watch_event' && typeof p.server === 'string' && typeof p.event === 'string') {
             const type = connections.get(p.server)?.eventTypes.find((t) => t.name === p.event);
             if (type && native && type.delivery.includes('push')) return NATIVE_PUSH;
-            if (type) await ask(call, ACTIONS.watch, `${p.server}:${p.event}`, { server: p.server, event: p.event, arguments: p.arguments ?? {}, note: p.note ?? '' });
+            if (type) await ask(call, ACTIONS.watch, p.server, p.event, { arguments: p.arguments ?? {}, note: p.note ?? '' });
         }
         if (name === 'unwatch_event' && typeof p.watch === 'string') {
             const w = s.manager.watches.find((x) => x.id === p.watch);
-            if (w) await ask(call, ACTIONS.unwatch, `${w.server}:${w.event}`, { watch: w.id, server: w.server, event: w.event });
+            if (w) await ask(call, ACTIONS.unwatch, w.server, w.event, { watch: w.id });
         }
         const answer = await s.call(name, p);
         if (name === 'list_event_types' && native)

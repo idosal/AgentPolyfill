@@ -68,7 +68,7 @@ export type SkillEditor = {
 };
 
 /** A tool call about to run (`ctx.tool.hook("execute.before")`); `tool` is its effective name. */
-export type ToolExecuteBefore = { tool: string; readonly sessionID: string; readonly agent: string; readonly messageID: string; readonly id: string; input: unknown };
+export type ToolExecuteBefore = { tool: string; readonly info?: { name?: string; options?: { namespace?: string } }; readonly sessionID: string; readonly agent: string; readonly messageID: string; readonly id: string; input: unknown };
 
 export type SessionPromptHook = { readonly sessionID: string; readonly messageID: string; prompt: { text: string } };
 
@@ -91,9 +91,11 @@ export type Context = {
         reload(): Promise<void>;
     };
     permission: { assert(input: PermissionAssert): Promise<void> };
+    /** Durable JSON values, the plugin's own (one store for every project). */
+    storage: { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<void> };
     event: { subscribe(options?: { types?: string[]; signal?: AbortSignal }): AsyncIterable<{ type: string }> };
     session: {
-        get(input: { sessionID: string }): Promise<unknown>;
+        get(input: { sessionID: string }): Promise<{ parentID?: string } | { data?: { parentID?: string } }>;
         synthetic(input: SyntheticInput): Promise<{ id: string }>;
         hook(name: 'prompt', callback: (event: SessionPromptHook) => void | Promise<void>): Promise<Registration>;
     };

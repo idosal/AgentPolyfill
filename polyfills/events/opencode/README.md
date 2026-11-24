@@ -172,9 +172,13 @@ remove it.
   synthetic, but sends it to the model in the user's role. Its first line says
   it was sent by the plugin, not typed by you.
 - **A second connection.** A local server that offers events runs twice.
-- **Not tried yet:** Windows and Linux (the tests are set up to run on Linux
-  and macOS), the OpenCode desktop app, and a live model. The tests drive a
-  real OpenCode with a scripted model.
+- **Tried live** with a real model (one of OpenCode's free ones) against the
+  fixture server: an event woke the idle session, and the model did what the
+  note said ([`live-run.md`](../../../tools/opencode/live-run.md)). CI runs
+  the tests on Linux and macOS.
+- **Not tried yet:** Windows, the TUI and the desktop app as clients (the runs
+  drive OpenCode's server over its API), and a public server that delivers
+  events by poll or webhook.
 
 [What hosts would need to change](../../../docs/host-changes.md) covers these
 gaps for each host.

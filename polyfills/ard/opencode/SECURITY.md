@@ -26,7 +26,10 @@ adds is the registry search.
   registry is named exactly as it is searched, at most 200 characters, and an
   endpoint holding markup or a user before its host is refused.
 - **At most three registries,** and their referrals one hop deep, under the
-  same address rules as every fetch.
+  same address rules as every fetch. Each referred registry is put to
+  OpenCode's rules (`ard_search` on its host) before the query goes there, so
+  your `allow` and `deny` rules hold for it too; one that isn't allowed gets
+  nothing, and OpenCode's refusal is passed on.
 - **Results are claims.** A registry's order is relevance, not trust. A result
   is confirmed only when its publisher's own catalog lists it.
 
