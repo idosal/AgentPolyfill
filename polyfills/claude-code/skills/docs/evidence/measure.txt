@@ -1,0 +1,33 @@
+$ node --no-warnings tools/measure.ts [--dead --loads=50]
+# 2026-11-24. Apple M1 Max (10 cores, 32 GB), macOS 15.4.1, Node v22.23.1.
+# The bundled helper (mod/dist/helper.js) as an installed copy runs it, with a servers file of its
+# own: 3 local stdio servers (the test fixture), 20 skills each, every skill with one 1 KB file.
+# --dead adds a fourth server that starts and never answers. Times are from the helper's start.
+# RSS and CPU are the helper's own (ps), not the servers'.
+
+== 0.3.0
+three servers:
+  ready 140 ms; listing of all 60 skills 374 ms
+  idle (3 s after the listing): 67 MB RSS, 0.19 s CPU in all
+  first load_skill 41 ms
+  300 load_skill + 300 read_skill_file: 2,469 ms (4.1 ms a call); 80 MB RSS, 0.71 s CPU in all
+three servers and one that hangs:
+  ready 169 ms; first listing 10,176 ms, after the hung server's connection timed out (10 s),
+  past the 4 s a session waits for its first listing: the 60 skills missed it
+
+== 0.3.1
+three servers:
+  ready 139 ms; listing of all 60 skills 375 ms
+  idle: 68 MB RSS, 0.19 s CPU in all
+  first load_skill 40 ms
+  300 load_skill + 300 read_skill_file: 1,365 ms (2.3 ms a call); 79 MB RSS, 0.53 s CPU in all
+three servers and one that hangs:
+  ready 148 ms; listing of the 60 skills 432 ms (marked not complete); complete at 10,153 ms
+
+# Load timings vary between runs: the two runs of 0.3.0 gave 4.1 and 2.8 ms a call (the second
+# with 100 calls, beside the hung server). Nothing in 0.3.1 changes that path, so the lower
+# figure for 0.3.1 is not an improvement. The change that matters is the listing with a hung server.
+
+== size
+mod/ as committed: 800,751 bytes (735,176 without its test file)
+mod/dist/helper.js: 628,211 bytes (182,265 gzipped)

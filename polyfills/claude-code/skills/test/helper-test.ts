@@ -123,6 +123,26 @@ describe('the bundled helper', () => {
         await second.post('/stop');
     });
 
+    test('a server that hangs does not hold back the others: their skills are sent as each is done, and the listing is marked complete once every server has been looked at', async () => {
+        const f = new Fixture(scenarioOf([skill('quick-skill')]));
+        const cfgDir = mkdtempSync(join(tmpdir(), 'mcp-skills-cfg-'));
+        const config = join(cfgDir, 'servers.json');
+        // A local server that starts and never answers.
+        writeFileSync(config, JSON.stringify({ mcpServers: { quick: f.config, hung: { command: process.execPath, args: ['-e', 'setInterval(() => {}, 1e9)'] } } }));
+        const started = Date.now();
+        const h = await startHelper({ MCP_SKILLS_CONFIG: config, CLAUDE_PROJECT_DIR: mkdtempSync(join(tmpdir(), 'mcp-skills-proj-')), MCP_SKILLS_CONNECT_TIMEOUT_MS: '4000' });
+        const first = await h.next('catalog');
+        assert.ok(Date.now() - started < 3000, `the first listing took ${Date.now() - started} ms`);
+        assert.equal(first.complete, false);
+        assert.match(String(first.text), /quick-skill/);
+        for (const end = Date.now() + 10_000; !h.messages.some((m) => m.t === 'catalog' && m.complete === true) && Date.now() < end; ) await new Promise((r) => setTimeout(r, 100));
+        const complete = h.messages.find((m) => m.t === 'catalog' && m.complete === true);
+        assert.ok(complete, 'the listing is said to be complete once the hung server has timed out');
+        assert.match(String(complete.text), /quick-skill/);
+        assert.match(String((await h.post('/status')).json.text), /Not used: "hung"/);
+        await h.post('/stop');
+    });
+
     test('with Claude Code\'s own config: connects only to servers Claude Code says it uses', async () => {
         const [used, refused] = [new Fixture(scenarioOf([skill('used-skill')])), new Fixture(scenarioOf([skill('refused-skill')]))];
         const home = mkdtempSync(join(tmpdir(), 'mcp-skills-home-'));

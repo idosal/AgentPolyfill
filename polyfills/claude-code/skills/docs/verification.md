@@ -1,0 +1,147 @@
+# Verification beyond example tests
+
+The example tests (`npm test`, `npm run test:mod`, the conformance suite, the
+runs against real servers) check cases someone thought of. Two more methods
+check what nobody listed: a model of the part where a bug would matter most,
+explored state by state, and properties of the parsers and decisions that a
+server's input reaches, checked on generated inputs. This page says what each
+one checks and what it does not.
+
+Nothing here is a proof that the mod's code is correct. The model is checked,
+not the code. The property tests run the real code, on many inputs, not all.
+
+## The model of the skill gate
+
+**What it covers.** The state machine that decides what a server's skill may
+do in a conversation: listing; the permission check of `load_skill` (an
+approval kept from before, bound to the manifest hash and the server's
+location; else the person is asked; else, with nobody to ask, Claude Code's
+own rules decide); the load, which takes exactly the approved set or nothing;
+the digest check of every file read; the record of which skills the
+conversation is acting on, and whether each was approved; the gate on every
+other tool call; the cross-server resource read; a resume, which reads that
+record back from the conversation; and the rules that decide which servers are
+used at all.
+
+**Where it is.** [`verification/skillGate.qnt`](../verification/skillGate.qnt)
+(Quint) and [`verification/model.ts`](../verification/model.ts) (the same
+machine in TypeScript, with a checker that explores every reachable state).
+The two are written to match, action for action and invariant for invariant,
+and are kept in step by hand.
+
+**What stands for what in the code:**
+
+| In the model | In the code |
+|---|---|
+| `srvEntry`, `srvBody`, `srvFile`: the server changes each at any moment, separately | a server that is stale, inconsistent or hostile |
+| `List`, `registry` | `SkillsHost.list` and the registry it fills |
+| `Check` | `tool.check` for `load_skill` in `register.ts`, `App.entry` and `SkillsHost.entry` |
+| `Run` (and its `expect`, the retry from `skills/get`) | `serve` in `register.ts`, `SkillsHost.load` |
+| `Unchecked` | a `load_skill` call that reached the tool with no permission check (another mod's `$.tool.call`) |
+| `ReadFile`, `held` | `read_skill_file`, `SkillsHost.readFile` and the held entry |
+| `Tool` (`act`, `read-own`, `read-other`) | `tool.check` for every other tool: anything outside the allowed list, and Claude Code's resource reads |
+| `acting`; `convoAny`, `convoU` | `state.acting` / `loadedHere` and `note`; the conversation itself |
+| `Resume` | Claude Code starting again on the conversation, perhaps without a person, perhaps with the server elsewhere; `actingSkills` reads it back |
+| `HelperRestart`, `Clear`, `Forget`, `ElsewhereYes` | the helper restarting; `/clear`; `/mcp-skills forget`; a yes given in another session on the machine |
+| `used` and its facts | `discoverServers` in `config.ts`, then Claude Code's verdict through `$.mcp.connect` |
+
+**The invariants, in plain words:**
+
+- **ApprovedContent.** A skill's text reaches the model as approved only if the
+  person said yes to exactly that set of files (every URI and digest), at that
+  server's location, in this check or earlier. A dynamic skill's text only
+  with a yes given in this load's own check.
+- **Verified.** A file whose bytes do not match the entry it is read under is
+  never used.
+- **KeptIsConsented**, **NoKeptYesForDynamic.** An approval is kept only for
+  exactly what the person said yes to, and never for a dynamic skill. With
+  ApprovedContent this is what "a changed `resources` set always revokes" means
+  here: no approval for one set is ever used for another.
+- **Gate.** While text of a skill nobody approved is in the conversation, no
+  tool outside the allowed list runs without the person's yes for that call;
+  with nobody present, none runs.
+- **CrossServerRead.** While a skill is in the conversation, a resource read
+  from another server runs only with the person's yes for that call.
+- **NobodyAnswers**, **HeldImpliesActing**, **ActingMatchesConversation.**
+  Consistency: no yes without a person; the helper holds an entry only for a
+  skill the conversation acts on; the hooks module's record matches the
+  conversation.
+- **ServerRule.** A repository's own settings never approve its servers when
+  its trust is inherited from a folder around it; a server from an untrusted
+  folder, or one that was rejected, is never used; nothing Claude Code does not
+  use is used.
+
+**The bound.** One server serving one skill, each part of which can be in 3
+versions (4 in a second run); two locations for that server; a second server to
+read resources from; a skill with a manifest, and a dynamic one; any number of
+steps (the explorer runs until no new state appears). Every combination of the
+7 facts behind `ServerRule` (192). The two servers are interchangeable in the
+code (approvals and the gate are keyed by server), which is why one skill
+server is enough for these invariants; the same URI on two servers is checked
+by the example tests (U1, U2).
+
+**What was checked, and with what:**
+
+| Check | Result |
+|---|---|
+| `node verification/model.ts`: every reachable state, breadth first, every invariant in every state and on every step | manifest: 145,152 states, 2,825,172 transitions, depth 16; dynamic: 6,480 states. Every invariant holds |
+| the same with `--versions=4` | manifest: 884,480 states, 19,924,736 transitions, depth 16 (the same depth: a third version already reaches every behaviour); dynamic: 24,064. Every invariant holds |
+| 0.3.0's rule (`--old`) | **Gate fails.** Shortest trace: another mod loads the skill unchecked (unapproved); the person then approves the same skill; its load replaced the unapproved record, so a command ran beside the unapproved text. With the versions changing in between, the unapproved text can differ from what was approved. Fixed in 0.3.1: a skill loaded unapproved stays unapproved until the conversation is cleared |
+| a read-back that misses a load (`--lossy`, the documented limit of W1) | **Gate fails**, as expected: after a resume that misses the load, a command runs beside unapproved text. This is the limit SECURITY.md states, not a new finding |
+| each of 8 protections taken out of the model, one at a time (`test/model-test.ts`) | every one is caught: no `expect` at the run, no location in the approval, no verification, no hash check on the retry, no gate, no cross-server gate, a yes kept for a dynamic skill, a repository approving itself under inherited trust |
+| `quint typecheck verification/skillGate.qnt` | passes |
+| `quint run` (Quint's simulator, TypeScript backend), 20,000 random traces of up to 25 steps, per instance | `manifest`, `dynamic`: no violation. `rule030`: Gate violated. `lossy`: Safety violated |
+| TLC on the Quint model (`quint verify --backend=tlc`) | **not run.** The download of `tla2tools.jar` was refused on this machine. The CI job `model` in `.github/workflows/mcp-skills-test.yml` runs it, and CI cannot run today |
+
+**What this shows.** In the model, within that bound, the invariants hold in
+every reachable state and on every step, and they are not vacuous (each
+mutant breaks one). The explorer's result is exhaustive for the model at that
+bound; Quint's simulation is a sample, not a proof.
+
+**What it does not show.**
+
+- That the code does what the model says. The model was written from the
+  code, and its correspondence is by reading, not checked by a tool. The
+  example tests check the code; two of them (in `gates.test.ts`) check the
+  case the model found.
+- Anything outside the model: Claude Code itself (that a hook's `ask` reaches
+  a person, that a `deny` is honoured, what bypass-permissions mode does),
+  other mods' `$.tool.call`, the MCP SDK, the network.
+- What the person decides. The model lets the person say yes or no to
+  anything; it shows that a yes is bound to what was shown, not that the
+  person read it.
+- More than one skill per server, nested skills, or parallel tool calls. Each
+  skill has its own approval, keyed by its own URI, and the gate takes any
+  unapproved skill: these are checked by the example tests, not the model.
+- The Quint model and the TypeScript model are the same machine only as far
+  as reading them shows. TLC has not yet checked the Quint one.
+
+## Properties of what untrusted input reaches
+
+[`test/property-test.ts`](../test/property-test.ts), run by `npm test`. The
+inputs come from a seeded generator of the file's own, so each run checks the
+same inputs, and a failure names the input. 2,000 inputs per property unless
+said.
+
+| Property | Checks the real code |
+|---|---|
+| A relative reference never leaves the skill: refused in the mod's own words, or a URI inside the skill (no `..`, no empty segment) that resolves to itself | `resolveRef` |
+| Any entry, valid or damaged in one of 14 ways, never throws; one that is accepted keeps every rule of "Resources" (its own `SKILL.md` listed, every file inside the skill, the name equal to the last path segment), and is declined exactly past 512 files or 16 MiB | `checkEntry` |
+| Anything at all in place of an entry is refused in the mod's words | `checkEntry` |
+| The manifest hash does not depend on order or on sizes, and changes when any URI or digest changes, a file is added or one is removed (300 manifests) | `manifestHash` |
+| A file passes exactly when its size and SHA-256 match; one changed byte, or one byte more or fewer, fails (500 files) | `verifyFile` |
+| Frontmatter written from the entry's matches it; any one field changed or one added does not (500 frontmatters, with nesting, odd scalars and a byte-order mark) | `verifyFrontmatter` |
+| Any bytes as a `SKILL.md`, and any shape of read result, fail in the mod's own words or succeed, and never throw anything else | `splitSkillMd`, `verifyFrontmatter`, `contentOf` |
+| A server's text cannot close the fence it is shown in, whatever it holds; a description is one line of bounded length (500 texts) | `loadedText`, `fileText`, `oneLine` |
+| The bound on one message of an event stream does not depend on how the bytes are cut into chunks; a message well inside it passes and one well past it fails (300 streams, 5 cuttings each) | `boundedFetch` |
+| **Exhaustive:** for a project's `.mcp.json` server, every one of the 3,456 combinations of folder trust (none, own, from a parent), the person's approvals, the user's and the repository's settings (each unset, on or off, and lists), who rejected it, and whether it is switched off: used exactly as the documented rule says, and with trust from a parent folder never on the repository's own say | `discoverServers` |
+
+**What they found.** The reference property found that a skill's own top
+directory, given back as a full URI (for example as `list_skill_directory`'s
+path), was refused as outside the skill. Fixed in 0.3.1. The others found
+nothing; the exhaustive check confirms the S2 fix of the security review on
+every combination.
+
+**What they do not show.** Generated inputs are many, not all; except for the
+exhaustive one, a property that holds on them may still fail on an input the
+generator does not make. They test single functions, not the conversation.

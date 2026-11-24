@@ -1,4 +1,4 @@
-// What the Skills extension (SEP-2640, specification/beta/skills.mdx) asks of a
+// What the Skills extension (SEP-2640, Final) asks of a
 // client, checked one rule at a time against a server that shares no code with
 // the mod. Each test names the rule by its id in docs/conformance.md.
 //
@@ -310,6 +310,24 @@ describe('Listing Skills, Getting a Skill', () => {
         const app = await startApp({ docs: f });
         await ok(app, 'load_skill', { server: 'docs', uri: s.uri });
         assert.equal(f.requests('skills/get').length, 0);
+    });
+
+    test('S4: the listing is read again only once the server\'s ttlMs has run out, and its age never stands in for verification', async () => {
+        const s = skill('git-workflow');
+        const f = new Fixture(scenarioOf([s], { ttlMs: 60_000 }));
+        let now = 1_000_000;
+        const app = await startApp({ docs: f }, { now: () => now });
+        const lists = () => f.requests('skills/list').length;
+        const first = lists();
+        now += 30_000;
+        await ok(app, 'list_skills', {});
+        assert.equal(lists(), first, 'within ttlMs the listing is not read again');
+        now += 31_000;
+        await ok(app, 'list_skills', {});
+        assert.equal(lists(), first + 1, 'past ttlMs it is');
+        // A fresh listing is no licence to skip verification: a changed SKILL.md is still refused.
+        f.change((sc) => (sc.files![s.uri] = { text: `${String(sc.files![s.uri]!.text)}changed\n` }));
+        await fails(app, 'load_skill', { server: 'docs', uri: s.uri }, /bytes|digest/);
     });
 
     test('G1: skills/get is asked only about the URI of a SKILL.md', async () => {

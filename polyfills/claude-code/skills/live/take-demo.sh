@@ -50,7 +50,8 @@ json.dump({"cmd": cmd, "cwd": project, "env": env, "cols": 88, "rows": 28, "step
 PYEOF
 
 "$PY" "$ROOT/tools/pty-drive.py" "$OUT/scenario.json" "$OUT" || true
-# What is kept of a run is made fit to share: no plan name, usage line or local path.
+# What is kept of a run is made fit to share: no plan or account, usage line, other servers' names,
+# command menu, e-mail address or local path (tools/scrub-run.py says what exactly).
 python3 "$ROOT/tools/scrub-run.py" "$OUT" "$ROOT"
 status=0; [ -f "$OUT/03-answer.txt" ] || status=1
 echo "done: $OUT (exit $status)"
