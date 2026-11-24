@@ -250,8 +250,9 @@ describe('the parts agree', () => {
         assert.equal(pkg.version, VERSION);
         assert.equal(plugin.version, VERSION);
         assert.equal(plugin.name, PLUGIN);
-        const market = JSON.parse(readFileSync(new URL('../.claude-plugin/marketplace.json', import.meta.url), 'utf8')) as { plugins: { name: string; source: string }[] };
-        assert.deepEqual(market.plugins.map(({ name, source }) => ({ name, source })), [{ name: PLUGIN, source: './mod' }]);
+        // The repository's marketplace installs mod/ and nothing else.
+        const market = JSON.parse(readFileSync(new URL('../../../../.claude-plugin/marketplace.json', import.meta.url), 'utf8')) as { plugins: { name: string; source: unknown }[] };
+        assert.deepEqual(market.plugins.find(({ name }) => name === PLUGIN)?.source, './polyfills/claude-code/skills/mod');
     });
     test('the Skills logic uses nothing of Node, so it can run wherever a request can be sent', () => {
         const source = readFileSync(new URL('../src/skills.ts', import.meta.url), 'utf8');
