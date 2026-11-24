@@ -39,6 +39,12 @@ const state: {
   /** When the helper was started again after it stopped by itself, to bound that. */
   restarts: number[]
   problemShown: boolean
+  /**
+   * The last batch submitted and not known to be acknowledged, and whose spool it came from. A
+   * helper that restarted between the submit and the ack never heard the ack, and would hand the
+   * same lines over again: it is told before the next take. Kept here, where it outlives the helper.
+   */
+  submitted?: { spool: string; upto: number }
 } = { isStandingBy: false, isEnded: false, isDelivering: false, isMoreWaiting: false, isWatchLoaded: false, restarts: [], problemShown: false }
 
 const debug = ($: EngineInterface, text: string) => $.ui.log(`${PLUGIN}: ${text}`, { to: 'debug' })
@@ -202,7 +208,8 @@ async function onMessage($: EngineInterface, message: HelperMessage): Promise<vo
 /**
  * Hands waiting events to Claude Code, one batch at a time: take, submit, acknowledge. A batch is
  * marked as shown only once Claude Code has started its turn, so one that never got that far is
- * handed over again. Events that arrive meanwhile are in the next batch.
+ * handed over again. One that was submitted and whose ack was lost is acknowledged again before
+ * the next take, so it is not. Events that arrive meanwhile are in the next batch.
  */
 async function deliver($: EngineInterface, where: Endpoint): Promise<void> {
   if (state.isDelivering) {
@@ -213,11 +220,18 @@ async function deliver($: EngineInterface, where: Endpoint): Promise<void> {
   try {
     do {
       state.isMoreWaiting = false
+      if (state.submitted) {
+        await post($, where, '/ack', state.submitted)
+        state.submitted = undefined
+      }
       const batch = await post($, where, '/take', {})
       const lines = Array.isArray(batch.lines) ? batch.lines.filter((l): l is string => typeof l === 'string') : []
       if (typeof batch.upto !== 'number') break
+      const spool = typeof batch.spool === 'string' ? batch.spool : undefined
       if (lines.length) await $.prompt.submit({ text: lines.join('\n') })
-      await post($, where, '/ack', { upto: batch.upto })
+      if (spool) state.submitted = { spool, upto: batch.upto }
+      await post($, where, '/ack', { upto: batch.upto, ...(spool ? { spool } : {}) })
+      state.submitted = undefined
       state.isMoreWaiting = true // look once more: the spool may hold more than one batch
     } while (state.isMoreWaiting && !state.isEnded)
   } catch (error) {

@@ -2,6 +2,7 @@
 // starts a wake at most once in its gap, and a session is woken only so many times an hour.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { formatBatch } from '../src/format.ts';
@@ -155,6 +156,34 @@ describe('waking, end to end (the helper, a server that pushes)', () => {
             assert.match(after, /events e3, e4, e5, e6;/);
         } finally {
             monitor.stop();
+            await plugin.stop();
+        }
+    });
+
+    test('a batch the helper before this one handed over, and never heard acknowledged, is acknowledged to this one, counts as a wake, and is not handed over again', async () => {
+        const w = world();
+        let plugin = await startPlugin(w, 'sess-a', { ...WAKE_DEFAULTS, MCP_EVENTS_WAKE_GAP_S: '0', MCP_EVENTS_WAKES_PER_HOUR: '1' });
+        try {
+            await watch(plugin, w);
+            w.emit('ticket.created', { ticketId: 'T-1' });
+            await waitFor(() => plugin.helper.messages.some((m) => m.t === 'pending'), 8000, 'events to wait');
+            const { json: batch } = await plugin.helper.post('/take');
+            assert.equal(batch.spool, 'sess-a', 'the batch says which spool it is from');
+            // Claude Code submits it; the helper dies before the ack reaches it.
+            plugin.helper.child.kill('SIGKILL');
+            await plugin.helper.exited;
+            plugin = await startPlugin(w, 'sess-a', { ...WAKE_DEFAULTS, MCP_EVENTS_WAKE_GAP_S: '0', MCP_EVENTS_WAKES_PER_HOUR: '1' });
+            // An ack for another session's spool (a helper started again after /clear) changes nothing here.
+            await plugin.helper.post('/ack', { upto: batch.upto, spool: 'sess-other' });
+            const { json: still } = await plugin.helper.post('/take');
+            assert.deepEqual(still.lines, batch.lines, 'still waiting: that ack was for another spool');
+            // The hooks module acknowledges what it submitted before it takes again.
+            await plugin.helper.post('/ack', { upto: batch.upto, spool: 'sess-a' });
+            const { json: after } = await plugin.helper.post('/take');
+            assert.equal(after.upto, undefined, 'not handed over again');
+            const wakes = JSON.parse(readFileSync(join(w.state, 'sessions', 'sess-a', 'wakes.json'), 'utf8')) as { wakes: number[] };
+            assert.equal(wakes.wakes.length, 1, 'and it counts against the hour, though this helper did not hand it over');
+        } finally {
             await plugin.stop();
         }
     });
