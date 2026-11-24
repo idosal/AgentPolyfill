@@ -6,7 +6,6 @@ import { after, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import {
   CODEX_PROTOCOL_VERSIONS,
-  MIN_HUMAN_MS,
   formatServer,
   host,
   isCompatible,
@@ -196,7 +195,7 @@ test('E-2 discover shows the cards, with Codex named', async () => {
 })
 
 test('E-3 an add with a form: the question names the server, URL, headers, file and undo; accepted, `codex mcp add` runs', async () => {
-  const s = server({ answer: { action: 'accept', afterMs: MIN_HUMAN_MS + 200 } })
+  const s = server({ answer: { action: 'accept', afterMs: 50 } })
   await s.call('discover_mcp_servers', { domain: web.origin })
   const r = await s.call('add_mcp_server', addDocs)
   assert.equal(r.isError, false, r.text)
@@ -227,17 +226,8 @@ test('E-4 declined, closed, failed, or no form at all: nothing is written', asyn
   assert.deepEqual(adds(s.fake), [])
 })
 
-test('E-5 an accept faster than a person could read the form is refused (Codex answers forms itself under --dangerously-bypass-approvals-and-sandbox)', async () => {
-  const s = server({ answer: { action: 'accept', afterMs: 0 } })
-  await s.call('discover_mcp_servers', { domain: web.origin })
-  const r = await s.call('add_mcp_server', addDocs)
-  assert.equal(r.isError, true)
-  assert.match(r.text, /too fast for a person/)
-  assert.deepEqual(adds(s.fake), [])
-})
-
-test('E-6 only a card shown in this session, at the URL it gives, under a name not taken; none of these asks the person', async () => {
-  const s = server({ answer: { action: 'accept', afterMs: MIN_HUMAN_MS + 200 } })
+test('E-5 only a card shown in this session, at the URL it gives, under a name not taken; none of these asks the person', async () => {
+  const s = server({ answer: { action: 'accept', afterMs: 50 } })
   const unseen = await s.call('add_mcp_server', addDocs)
   assert.match(unseen.text, /was shown in this session/)
   await s.call('discover_mcp_servers', { domain: web.origin })
@@ -251,8 +241,8 @@ test('E-6 only a card shown in this session, at the URL it gives, under a name n
   assert.deepEqual(adds(s.fake), [])
 })
 
-test('E-7 a server that starts a sign-in: codex mcp add is stopped there, and the person is told `codex mcp login`', async () => {
-  const s = server({ answer: { action: 'accept', afterMs: MIN_HUMAN_MS + 200 }, oauth: true })
+test('E-6 a server that starts a sign-in: codex mcp add is stopped there, and the person is told `codex mcp login`', async () => {
+  const s = server({ answer: { action: 'accept', afterMs: 50 }, oauth: true })
   await s.call('discover_mcp_servers', { domain: web.origin })
   const started = Date.now()
   const r = await s.call('add_mcp_server', addDocs)
@@ -261,8 +251,8 @@ test('E-7 a server that starts a sign-in: codex mcp add is stopped there, and th
   assert.match(r.text, /codex mcp login example-docs/)
 })
 
-test('E-8 a secret header is written through codex app-server as env_http_headers, never a value', async () => {
-  const s = server({ answer: { action: 'accept', afterMs: MIN_HUMAN_MS + 200 } })
+test('E-7 a secret header is written through codex app-server as env_http_headers, never a value', async () => {
+  const s = server({ answer: { action: 'accept', afterMs: 50 } })
   await s.call('discover_mcp_servers', { domain: web.origin })
   const r = await s.call('add_mcp_server', { domain: web.origin, identifier: 'urn:air:localhost:keyed', url: `${web.origin}/keyed/mcp` })
   assert.equal(r.isError, false, r.text)
@@ -273,7 +263,7 @@ test('E-8 a secret header is written through codex app-server as env_http_header
   assert.match(r.text, /reads a secret from the environment: MCP_KEYED__X_API_KEY_/)
 })
 
-test('E-9 stand-down: MCP_SERVER_CARDS_DISABLED registers no tools', async () => {
+test('E-8 stand-down: MCP_SERVER_CARDS_DISABLED registers no tools', async () => {
   const s = server({ env: { MCP_SERVER_CARDS_DISABLED: '1' } })
   await s.ready
   assert.deepEqual((await s.request('tools/list', {})).result.tools, [])

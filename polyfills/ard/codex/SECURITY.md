@@ -15,7 +15,7 @@ It runs the same registry client as the Claude Code form ([its SECURITY.md](../c
 
 **Search sends your query to a third party.** `ard_search` makes one `POST` of the query text to the registry's `/search` endpoint, with a filter for Server Cards and `federation: "referrals"`, then the same `POST` to at most three registries that registry refers to, one hop, and no further. With the default setting, that registry is a Hugging Face Space at `https://huggingface-hf-discover.hf.space`.
 - **Each search asks you first,** through Codex's form (MCP elicitation): `Send this search to <endpoints>, and to up to three registries it refers to?`, then the query. A registry named by domain is resolved first, by reading that domain's catalogs (a `GET`, no query), so the form names the exact endpoints.
-- **Nothing is sent** if Codex's client offers no form, if you decline or close it, or if the form is accepted in under 700 ms: Codex accepts every form by itself under `--dangerously-bypass-approvals-and-sandbox`, and declines it under `--ask-for-approval never` and in `codex exec`. See [the table](../../server-cards/codex/README.md#which-codex-modes-ask-you).
+- **Nothing is sent** if Codex's client offers no form, or if you decline or close it. Under `--ask-for-approval never` and in `codex exec`, Codex declines the form itself, so nothing is sent. Under `--dangerously-bypass-approvals-and-sandbox`, Codex accepts the form itself, so the search is sent without asking you, as every tool runs without asking in that mode. See [the table](../../server-cards/codex/README.md#which-codex-modes-ask-you).
 - **What is sent is what you saw:** a query over 300 characters, or with control characters, invisible characters or direction marks, is refused before you are asked.
 - **Only where you were told.** A registry that redirects the search to another origin, or with a 301, 302 or 303 that would turn it into a `GET`, is not followed. A referral is a registry the first one names, and the form says up to three of those may be asked; every result names each registry that was.
 - Only the words in `query` are sent, with `Content-Type`, `Accept` and a `User-Agent` naming the plugin: no cookie, no credential, no file. The query is not stored.
@@ -39,6 +39,7 @@ It writes only Codex's MCP configuration, through `codex mcp add` (or `codex app
 - **The registry seeing your query, once you accept.** That is what a search is. Read the query in the form. Set `ARD_DISCOVERY_REGISTRY` to a registry you trust with it, or to empty and name one each time.
 - **A public name that resolves to a private address.** Node's `fetch` resolves names itself; only addresses named directly, and redirects, are checked.
 - **A registry that ranks a bad server first.** The order is the registry's. A server whose publisher doesn't confirm it is marked so, and adding it is your call.
+- **Running Codex with `--dangerously-bypass-approvals-and-sandbox`.** Codex accepts the form itself, so a search Codex's model writes is sent, and a server it asks for is added, without asking you. That is your choice of mode, and the plugin does not override it: it can't tell Codex's answer from yours. Codex putting the approval mode in a tool call's metadata would let it.
 
 ## Reporting
 

@@ -123,8 +123,7 @@ export function tools(session: Session, defaultRegistry: string): Tool[] {
       endpoints = [...new Set(endpoints)].slice(0, 3)
 
       // Every search is put to the person first, with the words and where they
-      // go (security review M2); refused with no form, a decline, or an
-      // answer Codex gave by itself.
+      // go (security review M2); refused with no form, or a decline or close.
       const ok = await askPerson(
         ctx,
         shownText(

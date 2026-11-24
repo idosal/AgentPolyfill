@@ -1576,10 +1576,8 @@ var ADD = "add_mcp_server";
 var str = (v) => typeof v === "string" ? v : void 0;
 var shownText = (s) => s.split("\n").map(plainText).join("\n");
 var refuse = (text) => ({ text: shownText(text), isError: true });
-var MIN_HUMAN_MS = 700;
-async function askPerson(ctx, message, now = Date.now) {
+async function askPerson(ctx, message) {
   if (!ctx.canElicit) return { why: "this Codex client offers no form to ask the person (MCP elicitation)" };
-  const started = now();
   let answer;
   try {
     answer = await ctx.elicit(message, CONFIRM_SCHEMA);
@@ -1589,10 +1587,6 @@ async function askPerson(ctx, message, now = Date.now) {
   if (answer.action === "decline")
     return { why: "the form was declined, by the person or by Codex itself where nobody can be asked (codex exec, --ask-for-approval never)" };
   if (answer.action !== "accept") return { why: "the form was closed without an answer, by the person or by Codex where nobody can be asked (codex exec)" };
-  if (now() - started < MIN_HUMAN_MS)
-    return {
-      why: `the form was accepted ${now() - started} ms after it was sent, too fast for a person to have read it. Codex accepts forms by itself under --dangerously-bypass-approvals-and-sandbox; in that mode nothing is written, and the person can run Codex without it`
-    };
   return { ok: true };
 }
 var CONFIRM_SCHEMA = { type: "object", properties: {}, required: [] };
@@ -2023,7 +2017,6 @@ export {
   MAX_INLINE_CARD,
   MAX_OFFERED,
   MAX_REDIRECTS,
-  MIN_HUMAN_MS,
   NAME2 as NAME,
   PREFIX,
   PROTOCOL_VERSIONS,

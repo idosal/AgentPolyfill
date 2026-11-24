@@ -60,7 +60,7 @@ For one that needs a sign-in, ask about buildkite.com and add Buildkite; then ru
 
    - **Accept**, and the server is written with `codex mcp add`.
    - **Decline** or close it, and nothing is written. Codex is told not to ask again unless you bring it up.
-   - Where nobody can be asked, nothing is written either. [Which Codex modes ask you](#which-codex-modes-ask-you) is below.
+   - Where nobody can be asked (`-a never`, `codex exec`), Codex declines the form, so nothing is written. Under `--dangerously-bypass-approvals-and-sandbox`, Codex accepts the form itself, so the server is added without asking you. [Which Codex modes ask you](#which-codex-modes-ask-you) is below.
    - The plugin adds only a card a tool showed in this session, at the URL that card gives, and only if no server of that name exists (`codex mcp get`). Otherwise it refuses before asking.
 5. **The server is added** to `$CODEX_HOME/config.toml` (`~/.codex/config.toml`), which serves all your projects. Codex connects MCP servers when a session starts, so its tools arrive in your next session.
 6. **If it needs a sign-in:** `codex mcp add` starts a browser sign-in by itself when a server offers OAuth, and waits for it. A tool call can't wait like that, so the plugin stops the command there, once the entry is written, and the result tells you to run `codex mcp login <name>`. The sign-in is Codex's own; the plugin never sees it.
@@ -81,9 +81,9 @@ Checked live on 24 November 2026 (Codex 0.170.0 for `codex exec`, 0.172.0 for ap
 | `--ask-for-approval never` | declined by Codex, without asking | nothing is written |
 | Granular approvals with `mcp_elicitations = false` | declined by Codex, without asking | nothing is written |
 | `codex exec`, with or without `--approve-for-me` | declined or closed by Codex (nobody to ask) | nothing is written |
-| `--dangerously-bypass-approvals-and-sandbox` | **accepted by Codex, without asking**, in about 20 ms | refused: an accept that comes in under 700 ms is not taken as yours, so nothing is written |
+| `--dangerously-bypass-approvals-and-sandbox` | **accepted by Codex, without asking**, in about 20 ms | the server is added without asking you, as every tool runs without asking in that mode |
 
-So in every mode but one, the form is your answer. Under `--dangerously-bypass-approvals-and-sandbox`, Codex answers every form itself, and the plugin refuses such an accept by its speed. If you answer a form faster than that, it is refused too; ask again.
+The form is the consent, and the plugin takes Codex's answer to it as it comes. In every mode but one, that answer is yours. Under `--dangerously-bypass-approvals-and-sandbox`, Codex accepts the form itself, so the plugin adds the server without asking you, as every tool runs without asking in that mode. Under `-a never` and in `codex exec`, Codex declines the form, so nothing is added. A Codex field in a tool call's metadata naming the approval mode would let the plugin tell these apart; see [Limits](#limits-and-the-host-changes-that-would-remove-them).
 
 ### Settings
 
@@ -107,7 +107,7 @@ Codex plugins have no settings page, so the plugin reads these from the environm
 | | Claude Code form | Codex form |
 |---|---|---|
 | What runs | a mod (hooks) inside Claude Code | a stdio MCP server in a Codex plugin, started with Node |
-| Consent to an add | a question the mod makes in Claude Code's permission prompt | a form through MCP elicitation, refused without a form, on a decline, or on an accept too fast to be a person's |
+| Consent to an add | a question the mod makes in Claude Code's permission prompt | a form through MCP elicitation, refused without a form, or on a decline or close |
 | A picker with **Add** buttons | under each result | none: the TUI draws no third-party UI. You ask Codex to add a server |
 | Where it is written | `claude mcp add`, in the scope you choose (local, project, user) | `codex mcp add` into Codex's one configuration file (all projects); there is no `scope` |
 | A name you already have | refused for Claude's add; the picker takes `name-2` | refused; pass another `name` |
@@ -127,7 +127,7 @@ The discovery, validation, input and transport rules are those of the Claude Cod
 | # | Rule | Source | Test | State |
 |---|---|---|---|---|
 | P-1 | Never replace a server the person has | the polyfills' own (security review SC2) | E-6 | met: a name `codex mcp get` knows, or can't rule out, is refused before the person is asked, and again before writing |
-| P-2 | A person approves every addition | the polyfills' own (security review SC4) | E-3, E-4, E-5 | met: an MCP elicitation form naming the server, URL, headers, file and undo; refused with no form, on decline or close, and on an accept faster than 700 ms. See [Which Codex modes ask you](#which-codex-modes-ask-you) |
+| P-2 | A person approves every addition | the polyfills' own (security review SC4) | E-3, E-4 | met where Codex puts the form to the person: an MCP elicitation form naming the server, URL, headers, file and undo; refused with no form, or on decline or close. Under `--dangerously-bypass-approvals-and-sandbox` Codex accepts the form itself; see [Which Codex modes ask you](#which-codex-modes-ask-you) |
 | P-3 | Add only what was shown, as shown | the polyfills' own | E-6 | met: a card a tool showed in this session, at the URL it yields |
 | I-2 | Handle `isSecret` values securely | schema.ts, `Input` | C-2, C-3, E-8 | met: an environment variable's name, never a value; a secret in a URL, or mixed into a header, is refused |
 | I-3 | Choose a remote by its `supportedProtocolVersions` | schema.ts, `Remote` | C-6 | met, with Codex's revisions |
@@ -142,7 +142,7 @@ Codex has no Server Card support to detect yet. When it ships, remove or disable
 
 ## Proof
 
-- **Per rule:** 101 tests, run with `npm test`. 80 are the Claude Code form's rule tests (card, configure, discover, format, offer), run against the built bundle. 21 are this form's: the fetch guard (F-), the Codex plan (C-), and the server as Codex runs it (E-), over stdio, with a stand-in `codex` command and a web on 127.0.0.1.
+- **Per rule:** 100 tests, run with `npm test`. 80 are the Claude Code form's rule tests (card, configure, discover, format, offer), run against the built bundle. 20 are this form's: the fetch guard (F-), the Codex plan (C-), and the server as Codex runs it (E-), over stdio, with a stand-in `codex` command and a web on 127.0.0.1.
 - **The real host**, 24 November 2026, with the user's own Codex login and the plugin's server, and every add going to a throwaway `CODEX_HOME`:
   - `codex exec` (0.170.0): `discover_mcp_servers` returned Neon and Neon Docs for neon.com, and Buildkite for buildkite.com, all valid.
   - Through app-server (0.172.0), as the TUI runs: the add of Neon Docs (`https://neon.com/docs/mcp`) put the form to the client, which accepted after two seconds; `codex mcp get neon-docs` then showed it, and `codex mcp remove neon-docs` removed it.
@@ -158,7 +158,7 @@ Codex has no Server Card support to detect yet. When it ships, remove or disable
 - **The card is not compared with the live server** (rule S-3). The plugin can't send `server/discover` over Codex's connection. A Codex app-server method that passes an MCP request to a configured server would let it.
 - **No picker in the TUI.** Codex's TUI draws no third-party UI. The desktop app shows MCP Apps, which a later version could use.
 - **A public name that resolves to a private address** is not caught: Node's `fetch` resolves names itself. Redirects are now checked.
-- **Under `--dangerously-bypass-approvals-and-sandbox`, nothing can be added**: Codex answers the form itself, so the plugin refuses. A Codex flag in a tool call's metadata saying that nobody was asked would let it refuse plainly instead of by timing.
+- **Under `--dangerously-bypass-approvals-and-sandbox`, a server is added without asking you**: Codex accepts the form itself, as it approves every tool in that mode. The plugin can't tell that answer from yours. Codex putting the approval mode in a tool call's metadata would let it.
 - **Headers other than a bearer token** need `codex app-server`, which Codex marks experimental (it is on by default, and the TUI runs on it). A `--header` and `--env-header` for `codex mcp add` would remove that.
 - **A secret in a URL, or mixed into a header,** can't be added: Codex reads environment variables only as a bearer token or a whole header value.
 - **A project's own `.codex/config.toml`** is not checked for a name clash: the plugin's server runs in the plugin's folder, not the project's.
