@@ -53,7 +53,8 @@ It needs Claude Code 2.1.329 or later and nothing else: no helper process, no ru
 2. **Ask.** For example "connect Claude Code to Buildkite", "what MCP servers does neon.tech publish?", or "find an MCP server that can check why my CI build failed".
 3. **Claude Code asks before the first lookup.** The first call to `discover_mcp_servers` or `search_mcp_servers` gets Claude Code's usual permission prompt, as any new tool does. If you say no, nothing is fetched.
 4. **Claude shows what it found:** each server's card, whether the card is valid, and, for search results, whether the publisher's own domain confirms the server. A refused card says why; nothing refused can be added.
-5. **Claude asks you, then calls `add_mcp_server`, and Claude Code asks again.** This prompt is for a change to your configuration. It shows the URL the server will connect to. The polyfill adds the server only if that is the URL the card shown in this session yields. If you say no, nothing is written.
+   - **The picker:** under the result, a box lists the servers you can add. Each shows its name, the URL it connects to and who stands behind it, with an **Add** button. Pressing **Add** adds that server, with the card as shown and its defaults, to the local scope. The press is your choice, so no further prompt follows. A server whose card needs an input (a tenant name, say) shows no button: ask Claude, who will ask you for it.
+5. **Or Claude asks you, then calls `add_mcp_server`, and Claude Code asks again.** This prompt is for a change to your configuration. It shows the URL the server will connect to. The polyfill adds the server only if that is the URL the card shown in this session yields. If you say no, nothing is written.
 6. **The server is added and connected.** By default it goes in the local scope (this project, only you). You can ask for `project` (`.mcp.json`, shared with the repository) or `user` (all your projects).
 7. **If the server needs a sign-in,** run `/mcp`, pick the server and authenticate. The sign-in is Claude Code's own; the polyfill never sees it.
 8. **If the card asks for a secret** (an API key, say), the polyfill never asks you for it and never shows it to Claude. The configuration holds a reference such as `${MCP_EXAMPLE__TOKEN_16WJ1KP}`, and Claude tells you its name. Set that environment variable and restart Claude Code. The tag at the end ties the name to this one card, so no other card can ever be given a reference to it.
@@ -66,6 +67,7 @@ They are in `/config`, under the plugin.
 |---|---|---|
 | `disabled` | off | Turns the polyfill fully off: no tools, nothing fetched. |
 | `registry` | `https://huggingface-hf-discover.hf.space` | The ARD registry that `search_mcp_servers` asks when Claude names none. The query text is sent there. Empty: only a registry named in the request is used. |
+| `picker` | on | Shows the picker under discovery and search results. Off: you add servers by asking Claude only. |
 | `notice_on_fetch` | on | After Claude fetches a page with WebFetch, the polyfill reads that site's catalog once per session. If the site publishes a server, you see one line in the transcript: "buildkite.com publishes an MCP server (Server Card): Buildkite". Claude is not told. Only sites Claude has already contacted are checked. |
 
 ### The tools
@@ -145,9 +147,10 @@ Claude Code has no Server Card support to detect yet. When it ships, turn on the
 
 ## Proof
 
-- **Per rule:** 80 tests, run with `claude plugin test mod`.
+- **Per rule:** 83 tests, run with `claude plugin test mod`.
   - They cover the official example cards (`examples/ServerCard`, valid and invalid) and fixtures of my own for edge cases.
-  - Three of them (B-1 to B-3) run through the plugin as Claude Code loads it, with the engine's network, `claude mcp add` and connect stood in for.
+  - Six of them (B-1 to B-3, U-1 to U-3) run through the plugin as Claude Code loads it, with the engine's network, `claude mcp add` and connect stood in for.
+  - The picker is drawn on the terminal, desktop, VS Code and mobile surfaces, and a press of **Add** is followed to the exact `claude mcp add` it runs.
 - **Independent review:** two read-only review rounds by a second agent (Codex), on 2026-11-24. The first found 18 issues; the second checked the fixes and found 9 incomplete and 7 more issues. All of them are fixed, and each has a test: those marked "Review findings" and "Second review pass".
 - **Documents someone else wrote:** the catalogs and cards live on 2026-11-24 from Buildkite, GitHub, Hugging Face, Neon, Netlify, Notion, Context7, Exa, Supabase and Zapier.
   - Ten of the eleven cards are valid; Zapier's is refused.
@@ -155,10 +158,10 @@ Claude Code has no Server Card support to detect yet. When it ships, turn on the
   - Snapshots are in [`mod/tests/fixtures.ts`](mod/tests/fixtures.ts).
 - **A registry someone else runs:** Hugging Face Discover, including its referral.
 - **The real host (Claude Code 2.1.329 CLI, 2.1.330 engine):**
-  - `discover_mcp_servers` returned the cards for huggingface.co and neon.tech.
+  - `discover_mcp_servers` returned the cards for buildkite.com, huggingface.co and neon.tech.
   - `search_mcp_servers` against the demo registry returned Buildkite, confirmed by `buildkite.com/.well-known/ard.json`.
   - A subagent's WebFetch of a Buildkite docs page set off discovery of buildkite.com.
-- **Not yet run in the real host:** `add_mcp_server` end to end. Claude Code's auto-mode permission check stopped the call, as it should for a configuration change. It needs a run in which a person approves it.
+- **Not yet run in the real host:** adding a server end to end, by `add_mcp_server` or by the picker's **Add**. Claude Code's auto-mode permission check stopped the tool call, as it should for a configuration change. A person pressing **Add**, or approving the call, is the run still to record.
 - **Upstream conformance:** the MCP conformance suite has no Server Card or ARD scenarios (`modelcontextprotocol/conformance` at `96a6f9478b`).
 
 ## Limits, and the host changes that would remove them
@@ -179,7 +182,7 @@ Claude Code has no Server Card support to detect yet. When it ships, turn on the
 
 **What it stores:** in its plugin store (`~/.claude/plugins/store/`), the catalogs and cards it fetched with their `ETag` and expiry, and for a page only the catalog links found on it. That is at most 300 entries; older ones are dropped. Query text is not stored. Search results are kept in memory for the session only.
 
-**What it changes:** only your MCP configuration, through `claude mcp add`, after you approve it, in the scope you choose.
+**What it changes:** only your MCP configuration, through `claude mcp add`, in the scope you choose. That happens after you approve Claude's call, or when you press **Add** in the picker (always the local scope).
 - A secret is stored as a `${VAR}` reference, never as its value.
 - Claude Code expands `${VAR}` in a server's URL and headers. So no text from a card, or from Claude, may contain `$`; otherwise a card could aim that expansion at another secret in your environment. Only the polyfill's own references carry one, each named for one card.
 - A value put into a URL holds only letters, digits and `. _ ~ -`, so it can't change the host, path or query. The path that is written is the path that is reached, with no `..`.
@@ -238,4 +241,5 @@ The code is in [`mod/hooks`](mod/hooks):
 | `http.ts` | The cache. |
 | `configure.ts` | Turns a remote into `claude mcp add`. |
 | `format.ts` | What Claude reads. |
-| `register.ts` | Wires it into Claude Code. |
+| `install.ts` | Runs `claude mcp add` and connects. |
+| `register.tsx` | Wires it into Claude Code, and draws the picker. |
