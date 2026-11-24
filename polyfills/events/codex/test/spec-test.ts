@@ -9,7 +9,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
-import { newThread, sleep, startHelper, untilActive, waitFor, world } from './harness.ts';
+import { eventIdsIn, newThread, sleep, startHelper, untilActive, waitFor, world } from './harness.ts';
 
 const freePort = () =>
     new Promise<number>((done) => {
@@ -155,9 +155,11 @@ describe('push and poll', () => {
             await waitFor(() => w.queued().length === 2, 20000, 'the second wake');
             assert.match(w.queued()[1]!.message, /\[event e2;/);
             const recent = await h.call('recent_events', {}, thread);
-            assert.match(recent.text, /e1/);
-            assert.match(recent.text, /e2/);
-            assert.doesNotMatch(recent.text, /e3/, 'nothing twice');
+            // Each event stored once: the two, in order, and nothing else.
+            assert.deepEqual(eventIdsIn(recent.text), ['e1', 'e2'], `nothing twice: ${recent.text}`);
+            assert.match((await h.call('get_event', { id: 'e1' }, thread)).text, /"title": "one"/);
+            assert.match((await h.call('get_event', { id: 'e2' }, thread)).text, /"title": "two, while closed"/);
+            assert.equal(w.queued().length, 2, 'woken once for each');
         } finally {
             await h.stop();
         }
