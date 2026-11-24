@@ -18,6 +18,17 @@
         "installation": "AVAILABLE"
       },
       "category": "Developer Tools"
+    },
+    {
+      "name": "mcp-skills",
+      "source": {
+        "source": "local",
+        "path": "./polyfills/skills/codex/mod"
+      },
+      "policy": {
+        "installation": "AVAILABLE"
+      },
+      "category": "Developer Tools"
     }
   ]
 }

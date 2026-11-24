@@ -1,0 +1,28 @@
+# Rerun after the rebase onto main, where the marketplace also lists mcp-events (same output otherwise).
+$ codex plugin marketplace add <repository>
+Added marketplace `agent-polyfill` from <repository>.
+Installed marketplace root: <repository>
+$ codex plugin list   (the agent-polyfill marketplace)
+Marketplace `agent-polyfill`
+<repository>/.agents/plugins/marketplace.json
+
+PLUGIN                     STATUS         VERSION  SOURCE
+mcp-events@agent-polyfill  not installed           <repository>/polyfills/events/codex/plugin
+mcp-skills@agent-polyfill  not installed           <repository>/polyfills/skills/codex/mod
+$ codex plugin add mcp-skills@agent-polyfill
+Added plugin `mcp-skills` from marketplace `agent-polyfill`.
+Installed plugin root: <codex-home>/plugins/cache/agent-polyfill/mcp-skills/0.1.0
+$ (the installed copy, started as Codex starts it: node ./dist/helper.js in its own folder, a small fixed environment)
+<- {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":false}},"serverInfo":{"name":"mcp-skills","title":"MC
+<- {"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"list_skills","title":"List MCP-served skills","description":"Lists the skills the user's MCP servers serv
+stubs in the installed plugin folder: 25
+---
+name: "huggingface:huggingface-datasets"
+description: "[MCP server \"huggingface\", not a local skill] Use this skill for Hugging Face Dataset Viewer API workflows that fetch subset/split metadata, pag
+---
+$ ls <installed plugin>
+.codex-plugin
+.mcp.json
+THIRD_PARTY_LICENSES.txt
+dist
+skills

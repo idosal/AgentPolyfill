@@ -1,0 +1,22 @@
+{
+  "name": "mcp-skills-core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The host-neutral client side of the MCP Skills extension (SEP-2640), shared by the Claude Code and Codex adapters: entries, verification, the held entry, and the connection of the polyfill's own.",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "yaml": "2.9.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.9.3"
+  }
+}

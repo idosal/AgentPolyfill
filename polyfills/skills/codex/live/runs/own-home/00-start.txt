@@ -1,0 +1,11 @@
+
+  >_ OpenAI Codex (v0.172.0)
+     <project>
+
+  Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost.
+
+
+› Ask Codex to do anything
+
+  GPT-6-Astra low fast · <project>
+  ← for agents · ? for shortcuts                                                                                 ⚠ 12 warnings · f2 to view

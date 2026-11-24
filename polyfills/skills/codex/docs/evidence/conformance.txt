@@ -1,0 +1,68 @@
+$ CONFORMANCE_DIR=<checkout of modelcontextprotocol/conformance> test/conformance/run.sh
+# 2026-11-24T14:55Z, the Codex adapter's App (src/app.ts), its connection, stubs and question (answered yes)
+conformance suite at 96a6f9478b7f2e125cf0360a213383cf57533893 (2026-11-10)
+== sep-2640-client-no-prefetch
+Starting scenario: sep-2640-client-no-prefetch
+Executing client: node --no-warnings <codex>/test/conformance/client.ts http://localhost:63885
+Results saved to <codex>/.test-state/conformance/sep-2640-client-no-prefetch-2026-11-24T14-54-56-348Z
+Checks:
+2026-11-24T14:54:56.686Z [sep-2640-host-no-prefetch] SUCCESS Hosts MUST NOT retrieve a skill's files ahead of need, not on connection, not on listing, and not at approval.
+
+Test Results:
+Passed: 1/1, 0 failed, 0 warnings
+
+✅ OVERALL: PASSED
+== sep-2640-client-verify-digest
+Starting scenario: sep-2640-client-verify-digest
+Executing client: node --no-warnings <codex>/test/conformance/client.ts http://localhost:63896
+
+Client exited with code 1
+
+Stdout:
+listed 1 skill(s) on protocol revision 2026-07-28; stubs written
+not loaded: "skill://pdf-processing/SKILL.md" does not match the SHA-256 digest in the skill's entry.
+
+Results saved to <codex>/.test-state/conformance/sep-2640-client-verify-digest-2026-11-24T14-54-57-542Z
+Checks:
+2026-11-24T14:54:57.849Z [sep-2640-host-verify-digest] SUCCESS When a host retrieves a file listed in a skill's resources, it MUST verify the content against that entry's digest, and MUST NOT use unverified content.
+
+Test Results:
+Passed: 1/1, 0 failed, 0 warnings
+
+✅ OVERALL: PASSED
+== sep-2640-client-verify-size
+Starting scenario: sep-2640-client-verify-size
+Executing client: node --no-warnings <codex>/test/conformance/client.ts http://localhost:63912
+
+Client exited with code 1
+
+Stdout:
+listed 1 skill(s) on protocol revision 2026-07-28; stubs written
+not loaded: "skill://pdf-processing/SKILL.md" is 139 bytes, and the skill's entry says 97.
+
+Results saved to <codex>/.test-state/conformance/sep-2640-client-verify-size-2026-11-24T14-54-58-694Z
+Checks:
+2026-11-24T14:54:59.002Z [sep-2640-host-size-mismatch-failure] SUCCESS A read whose byte length differs from the entry's size is a verification failure equivalent to a digest mismatch, whether or not the host goes on to compute the digest.
+
+Test Results:
+Passed: 1/1, 0 failed, 0 warnings
+
+✅ OVERALL: PASSED
+== sep-2640-client-verify-frontmatter
+Starting scenario: sep-2640-client-verify-frontmatter
+Executing client: node --no-warnings <codex>/test/conformance/client.ts http://localhost:63920
+
+Client exited with code 1
+
+Stdout:
+listed 1 skill(s) on protocol revision 2026-07-28; stubs written
+not loaded: The frontmatter of its SKILL.md differs from the skill's entry (description).
+
+Results saved to <codex>/.test-state/conformance/sep-2640-client-verify-frontmatter-2026-11-24T14-54-59-850Z
+Checks:
+2026-11-24T14:55:00.166Z [sep-2640-host-frontmatter-comparison] SUCCESS After fetching a SKILL.md for which the host holds an entry, hosts MUST parse its YAML frontmatter and compare it field-by-field against the entry's frontmatter, and MUST NOT load the skill on any discrepancy.
+
+Test Results:
+Passed: 1/1, 0 failed, 0 warnings
+
+✅ OVERALL: PASSED
