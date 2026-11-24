@@ -335,7 +335,7 @@ the view drops to cells on the first frame.
   mod sends `/revoke` with the new count, and the helper fails at once what
   it has in flight to that server, closes the connection (a stdio server it
   started is stopped; over streamable HTTP rmcp ends the session with its
-  `DELETE`), forgets the server's tools, closes a view of it still opening,
+  `DELETE`), closes a view of it still opening,
   and from then on refuses a yes with an older epoch, so a yes that crossed
   the no on its way sends nothing. While a request to a server is in
   flight the helper says so (`busy`), and the mod asks Claude Code again

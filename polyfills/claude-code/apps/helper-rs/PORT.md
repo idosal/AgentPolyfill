@@ -62,7 +62,7 @@ Over a Unix socket (mode 0600) or, on Windows and with
 | `/shown` | `viewId`, `shown` | in or out of sight (paused) |
 | `/theme` | `viewId`, `theme` | host-context-changed |
 | `/reply` | `id`, `gen`, `result` or `error` | answers a `request` (refused for another generation than the page that asked), or a `check` |
-| `/revoke` | `server`, `epoch` | Claude Code stopped using the server: what is in flight to it fails, its connection closes, a yes older than `epoch` is refused: `{ ok, revoked }` (0.1.3) |
+| `/revoke` | `server`, `epoch` | Claude Code stopped using the server: what is in flight to it fails, its connection closes, a view of it still opening fails, a yes older than `epoch` is refused: `{ ok, revoked }` (0.1.3) |
 | `/refresh`, `/inline-png` | `viewId` | send the picture again; PNG bytes instead of a file |
 | `/mode` | `viewId`, `mode` | cells instead of pictures |
 | `/close` | `viewId`, `discard` | teardown, store saved (or dropped) |

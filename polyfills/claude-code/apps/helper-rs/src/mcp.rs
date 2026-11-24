@@ -131,9 +131,10 @@ impl Clients {
     /// The mod's word that Claude Code stopped using `server` (/revoke, with
     /// the mod's count of noes for it): what is in flight to it fails at once,
     /// its connection closes (a stdio server the helper started is stopped;
-    /// over streamable HTTP, rmcp ends the session with its DELETE), its tools
-    /// are forgotten, and a yes older than `epoch` is refused from now on. An
-    /// older revocation than one already had changes nothing.
+    /// over streamable HTTP, rmcp ends the session with its DELETE), and a yes
+    /// older than `epoch` is refused from now on. Its tools, read before, are
+    /// kept: they are what open views of it are drawn by, and keeping them
+    /// sends nothing. An older revocation than one already had changes nothing.
     pub async fn revoke(&self, server: &str, epoch: u64) -> bool {
         let newer = {
             let mut gates = self.gates.lock().unwrap();
@@ -152,7 +153,6 @@ impl Clients {
         // Its requests in flight are woken first, so one connecting (which
         // holds this lock) lets go of it.
         let closed = self.open.lock().await.remove(server);
-        self.discovered.lock().await.remove(server);
         if let Some((client, _)) = closed {
             client.cancellation_token().cancel();
         }

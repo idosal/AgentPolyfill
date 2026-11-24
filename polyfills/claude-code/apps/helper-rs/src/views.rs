@@ -1210,9 +1210,9 @@ pub async fn open(helper: &Arc<Helper>, options: &Value) -> Result<Value> {
     let result = open_now(helper,options).await;
     helper.chrome.views.fetch_sub(1,Ordering::SeqCst);
     helper.chrome.note_views().await;
-    helper.views.under_way.lock().await.remove(id);
     // Closed while it opened: closed now, and not reported as open.
     let closed = helper.views.closed_early.lock().await.remove(id);
+    helper.views.under_way.lock().await.remove(id);
     let cut = helper.mcp.revocation(server) > revoked_before;
     if closed || cut {
         if let Some(view) = helper.views.get(id).await { let _ = view.close(false).await; }
