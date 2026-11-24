@@ -1,0 +1,25 @@
+{
+  "name": "mcp-skills-codex",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A Codex plugin that adds the client side of the MCP Skills extension (SEP-2640): skills served by your MCP servers are listed among Codex's skills, and loaded on demand after you approve them.",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "node --test --no-warnings --import ./test/temp-root.ts \"test/*-test.ts\"",
+    "typecheck": "tsc --noEmit -p .",
+    "build": "node build.mjs",
+    "interop:real": "node --no-warnings test/interop/real.ts"
+  },
+  "dependencies": {
+    "smol-toml": "1.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "0.28.2",
+    "typescript": "^5.9.3",
+    "yaml": "2.9.1"
+  }
+}
