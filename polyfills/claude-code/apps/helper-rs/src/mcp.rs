@@ -23,7 +23,7 @@ type Client = Arc<RunningService<RoleClient, ClientConfig>>;
 pub struct Clients {
     args: Args,
     cwd: PathBuf,
-    open: Mutex<HashMap<String, Client>>,
+    open: Mutex<HashMap<String, (Client, &'static str)>>,
     discovered: Mutex<HashMap<String, Value>>,
 }
 
@@ -32,19 +32,27 @@ impl Clients {
         Self { args, cwd, open: Mutex::new(HashMap::new()), discovered: Mutex::new(HashMap::new()) }
     }
 
-    /// The connection to `server`, made the first time it's asked for.
-    pub async fn client(&self, server: &str) -> Result<Client> {
+    /// The entry Claude Code would use for `server`, or why none is used
+    /// (see config.rs): nothing is started, sent or expanded before this.
+    fn entry(&self, server: &str) -> Result<config::Entry> {
+        config::resolve(&self.args, &self.cwd, server).map_err(|why| anyhow!("not using MCP server \"{server}\": {why}"))
+    }
+
+    /// The connection to `server`, made the first time it's asked for, and
+    /// the scope its config came from.
+    async fn client_and_scope(&self, server: &str) -> Result<(Client, &'static str)> {
         let mut open = self.open.lock().await;
-        if let Some(client) = open.get(server) {
-            return Ok(client.clone());
+        if let Some(found) = open.get(server) {
+            return Ok(found.clone());
         }
-        let raw = config::load(&self.args, &self.cwd)
-            .remove(server)
-            .ok_or_else(|| anyhow!("no config found for MCP server \"{server}\""))?;
-        let config = config::expand_env(&raw);
-        let client = Arc::new(connect(&config, &self.cwd).await.with_context(|| format!("connecting to {server}"))?);
-        open.insert(server.to_string(), client.clone());
-        Ok(client)
+        let entry = self.entry(server)?;
+        let client = Arc::new(connect(&entry.config, &self.cwd).await.with_context(|| format!("connecting to {server}"))?);
+        open.insert(server.to_string(), (client.clone(), entry.scope));
+        Ok((client, entry.scope))
+    }
+
+    pub async fn client(&self, server: &str) -> Result<Client> {
+        Ok(self.client_and_scope(server).await?.0)
     }
 
     /// The server's tools, as the mod and the views need them: those with a
@@ -56,7 +64,7 @@ impl Clients {
                 return Ok(found.clone());
             }
         }
-        let client = self.client(server).await?;
+        let (client, scope) = self.client_and_scope(server).await?;
         let tools = client.list_all_tools().await.map_err(|e| anyhow!("{e}"))?;
         let mut with_ui = Map::new();
         let mut visibility = Map::new();
@@ -94,13 +102,15 @@ impl Clients {
             "appOnly": app_only,
             "visibility": visibility,
             "definitions": definitions,
+            // Where its config came from: command line, local, project or user.
+            "scope": scope,
         });
         self.discovered.lock().await.insert(server.to_string(), found.clone());
         Ok(found)
     }
 
     pub async fn close_all(&self) {
-        let open: Vec<Client> = self.open.lock().await.drain().map(|(_, c)| c).collect();
+        let open: Vec<Client> = self.open.lock().await.drain().map(|(_, (c, _))| c).collect();
         for client in open {
             if let Ok(client) = Arc::try_unwrap(client) {
                 let _ = client.cancel().await;
@@ -108,9 +118,18 @@ impl Clients {
         }
     }
 
+    /// The url of a server the helper may use; none for a local (stdio) one or one it may not.
     pub fn server_url(&self, server: &str) -> Option<String> {
-        config::load(&self.args, &self.cwd).get(server).map(config::expand_env)
-            .and_then(|v| v["url"].as_str().map(str::to_string))
+        self.entry(server).ok().and_then(|e| e.config["url"].as_str().map(str::to_string))
+    }
+
+    /// Whether a server's views may reach this machine's network: one that
+    /// runs here (stdio) or at a local address; never one the helper may not use.
+    pub fn local_network(&self, server: &str) -> bool {
+        match self.entry(server) {
+            Ok(entry) => entry.config["url"].as_str().map_or(config::kind(&entry.config) == "stdio", crate::policy::local_server),
+            Err(_) => false,
+        }
     }
 
     pub async fn call_tool(&self, server: &str, params: Value) -> Result<Value> {
@@ -155,8 +174,7 @@ fn client_info() -> ClientConfig {
 
 async fn connect(config: &Value, cwd: &PathBuf) -> Result<RunningService<RoleClient, ClientConfig>> {
     let url = config.get("url").and_then(Value::as_str);
-    let kind = config.get("type").and_then(Value::as_str).unwrap_or(if url.is_some() { "http" } else { "stdio" });
-    match kind {
+    match config::kind(config) {
         "http" => {
             let url = url.ok_or_else(|| anyhow!("an http server needs a url"))?;
             let mut transport_config = StreamableHttpClientTransportConfig::with_uri(url);

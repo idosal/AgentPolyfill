@@ -66,6 +66,8 @@ function standIns(
     searchMatches?: string[]
     /** Whether the app's tool says it only reads (annotations.readOnlyHint). */
     readOnly?: boolean
+    /** Claude Code's answer to `$.mcp.connect(server)`; connected under that name by default. */
+    connect?: (server: string) => unknown
   } = {},
 ) {
   const sent: Sent[] = []
@@ -177,6 +179,12 @@ function standIns(
     if (opts.answers?.[route] !== undefined) answer = opts.answers[route]
     return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify(answer) } }
   })
+  // Claude Code's verdict on a server (the mod asks before the helper hears its name).
+  const connects: string[] = []
+  on('mcp.connect', (_$, e) => {
+    connects.push(e.server)
+    return { value: (opts.connect?.(e.server) ?? { isConnected: true, server: e.server }) as never }
+  })
   on('mcp.call', async (_$, e) => {
     mcpCalls.push({ server: e.server, tool: e.tool })
     if (opts.holdAppCall) await opts.holdAppCall
@@ -189,7 +197,7 @@ function standIns(
     stateWrites.push((e as { value: unknown }).value)
     return { value: { isSet: true, version: stateWrites.length + 1 } } as never
   })
-  return { sent, mcpCalls, asked, runs, submitted, contexts, filled, copied, finish, stateWrites, spawns: () => spawns }
+  return { sent, mcpCalls, asked, runs, submitted, contexts, filled, copied, finish, stateWrites, connects, spawns: () => spawns }
 }
 
 
@@ -995,6 +1003,45 @@ test('the helper starts with the first MCP call, not with the session', async ($
   finish()
 })
 
+// The security review's A1: the helper hears nothing of a server Claude Code
+// doesn't use in this session under that very name, so it can't start,
+// connect to or send anything to it: not as Claude writes the call, not when
+// ToolSearch loads its tool, not when the call runs.
+for (const [what, answer] of [
+  ['not approved (a repository server)', { isConnected: false, reason: 'unapproved', message: 'Not approved' }],
+  ['switched off', { isConnected: false, reason: 'disabled', message: 'Disabled' }],
+  ['refused by policy', { isConnected: false, reason: 'policy', message: 'Policy' }],
+  ['unknown to the session', { isConnected: false, reason: 'unlisted', message: 'Unlisted' }],
+  ['waiting for a sign-in', { isConnected: false, reason: 'auth', message: 'Needs sign-in' }],
+  ['running under another name (a claude.ai connector)', { isConnected: true, server: 'claude.ai Vanilla' }],
+] as const) {
+  test(`a server Claude Code reports as ${what}: the helper hears nothing of it, and nothing opens`, async ($, on) => {
+    const { sent, connects, spawns, finish } = standIns(on, { connect: () => answer, searchMatches: ['mcp__vanilla__get-time'] })
+    await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+    await $.tool.call({ tool: 'ToolSearch', query: 'select:mcp__vanilla__get-time', max_results: 1 } as never)
+    const ran = await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+    // Claude's own call is untouched, and the model isn't told of an app.
+    expect(ran.result).toEqual(RESULT)
+    expect(ran.context?.some((note) => note.includes('MCP App')) ?? false).toBe(false)
+    for (let i = 0; i < 500; i++) await Promise.resolve()
+    expect(connects).toContain('vanilla')
+    expect(sent).toEqual([])
+    expect(spawns()).toBe(0)
+    finish()
+  })
+}
+
+test('a server Claude Code reports as connected under its own name gets its discovery and view', async ($, on) => {
+  const { sent, connects, finish } = standIns(on)
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+  await settle(() => sent.some((s) => s.route === '/open'))
+  expect(connects.every((name) => name === 'vanilla')).toBe(true)
+  // Asked before the helper heard the name.
+  expect(sent.find((s) => s.body.server === 'vanilla')).toBeDefined()
+  finish()
+})
+
 test('a view whose Chrome stopped says so, and can be opened again', async ($, on) => {
   const { sent, finish } = standIns(on, {
     script: async function* () {
@@ -1267,6 +1314,8 @@ function helperStandIns(
     return { value: undefined }
   })
   on('tool.call', () => ({ result: RESULT }))
+  // The server is one Claude Code uses (see the A1 tests).
+  on('mcp.connect', (_$, e) => ({ value: { isConnected: true, server: e.server } as never }))
   on('process.hookEnv', () => ({ value: (opts.env ?? {}) as never }))
   on('process.run', (_$, e) => {
     const argv = [...(e as unknown as { argv: string[] }).argv]

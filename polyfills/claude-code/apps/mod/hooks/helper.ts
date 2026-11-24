@@ -35,6 +35,7 @@ export function registerHelperHooks(on: On) {
     // What the person allowed for the session ends with it (and with /clear),
     // and so does an answer still to come (see askPerson).
     state.epoch++
+    verdicts.clear()
     allowedForSession.clear()
     messagesAllowed.clear()
     linksAllowed.clear()
@@ -57,6 +58,45 @@ export function registerHelperHooks(on: On) {
 
 /** A view's app calls in flight to read-only tools, by view, tool and arguments (see case 'request'). */
 const appCalls = new Map<string, Promise<Awaited<ReturnType<EngineInterface['mcp']['call']>>>>()
+
+/** Claude Code's verdicts on servers, each kept a moment (several hooks ask in a row). */
+const verdicts = new Map<string, { epoch: number; at: number; answer: Promise<boolean> }>()
+const VERDICT_MS = 5000
+
+/**
+ * Whether Claude Code itself uses `server` in this session, under exactly
+ * that name: `$.mcp.connect` says it is connected and lists it so. Asked
+ * before the helper hears the name at all: it is never asked to start,
+ * connect to or read from a server that Claude Code has not approved, has
+ * switched off, refuses by policy or doesn't know. A server Claude Code runs
+ * under another name (a claude.ai connector, a plugin's server) is not one
+ * the helper could find in a config file, so it gets no app either. The
+ * helper checks the config files on its own as well (see helper-rs/src/config.rs).
+ */
+export function usedByClaudeCode($: EngineInterface, server: string): Promise<boolean> {
+  const now = Date.now()
+  const kept = verdicts.get(server)
+  if (kept && kept.epoch === state.epoch && now - kept.at < VERDICT_MS) return kept.answer
+  const answer = $.mcp.connect(server).then(
+    (found) => {
+      const used = found.isConnected && found.server === server
+      if (!used) {
+        const why = found.isConnected ? `Claude Code runs it as ${JSON.stringify(plainText(found.server))}` : plainText(found.reason)
+        $.ui.log(`mcp-apps-cli: no app views for ${plainText(server)}: ${why}`, { to: 'debug' })
+      }
+      return used
+    },
+    (error: unknown) => {
+      $.ui.log(`mcp-apps-cli: no app views for ${plainText(server)}: ${plainText(String(error))}`, { to: 'debug' })
+      return false
+    },
+  )
+  verdicts.set(server, { epoch: state.epoch, at: now, answer })
+  return answer
+}
+
+/** The routes that name a server, and so wait for Claude Code's verdict on it. */
+const SERVER_ROUTES = new Set(['/discover', '/prewarm', '/open'])
 
 export function discover($: EngineInterface, server: string) {
   let found = discovered.get(server)
@@ -88,6 +128,12 @@ export function send($: EngineInterface, view: View, route: string, body: unknow
 }
 
 export async function helper($: EngineInterface, route: string, body: unknown) {
+  // Nothing about a server Claude Code doesn't use goes to the helper, nor
+  // starts it.
+  const server = SERVER_ROUTES.has(route) ? (body as { server?: unknown } | undefined)?.server : undefined
+  if (server !== undefined && !(typeof server === 'string' && (await usedByClaudeCode($, server)))) {
+    throw new Error(`Claude Code is not using an MCP server named ${JSON.stringify(plainText(server))} in this session`)
+  }
   const where = await startHelper($)
   const headers: Record<string, string> = { 'content-type': 'application/json', 'x-mcp-apps-cli-token': where.token }
   const init =

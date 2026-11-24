@@ -30,7 +30,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { chromium } from "playwright-core";
 
 import { decodePng } from "./png.mjs";
-import { commandWords, mcpConfigArgs } from "./platform.mjs";
+import { kindOf, parentCommandWords, placesHere, resolveServer } from "./servers.mjs";
 import { altFromTree, plainText } from "./alt.mjs";
 import { SNAP_ON, applySnap, planSnap } from "./snap.mjs";
 import { crc32, encodeStrips } from "./strips.mjs";
@@ -107,10 +107,7 @@ const SANDBOX = "allow-scripts allow-forms allow-same-origin allow-pointer-lock"
 function viewOrigins(server, domain) {
   const local = { view: VIEW_ORIGIN, host: HOST_ORIGIN };
   if (typeof domain !== "string" || !domain) return local;
-  let url;
-  try {
-    url = expandEnv(loadServerConfigs()[server] ?? {}).url;
-  } catch {}
+  const url = serverUrl(server);
   const expected = url ? `${createHash("sha256").update(url).digest("hex").slice(0, 32)}.claudemcpcontent.com` : undefined;
   if (domain.toLowerCase() !== expected) {
     log(`${server}: domain ${domain.slice(0, 100)} not given (${expected ? `this server's is ${expected}` : "a server without a URL has none"})`);
@@ -615,81 +612,39 @@ iframe{display:block;border:0;background:transparent}
 
 // ---------------------------------------------------------------- servers
 
-/** Server configs as Claude Code sees them, first match wins. */
-function loadServerConfigs() {
-  const servers = {};
-  const add = (config) => {
-    for (const [name, server] of Object.entries(config?.mcpServers ?? {})) {
-      if (!(name in servers)) servers[name] = server;
-    }
-  };
-  for (const source of [...(args.mcpConfig ?? []), ...parentMcpConfigs()]) {
-    try {
-      const text = source.trim().startsWith("{")
-        ? source
-        : fs.readFileSync(path.resolve(cwd, source), "utf8");
-      add(JSON.parse(text));
-    } catch (error) {
-      log("could not read MCP config", source, error.message);
-    }
-  }
-  const global = readJson(path.join(os.homedir(), ".claude.json"));
-  add(global?.projects?.[cwd]); // local scope
-  add(readJson(path.join(cwd, ".mcp.json"))); // project scope
-  add(global); // user scope
-  return servers;
+/**
+ * The entry Claude Code would use for `server` ({ config, scope }), or an
+ * Error saying why the helper won't use one (see servers.mjs): nothing is
+ * started, sent or expanded before this.
+ */
+function serverEntry(server) {
+  return resolveServer(server, {
+    places: placesHere(cwd),
+    own: args.mcpConfig ?? [],
+    parent: parentCommandWords(),
+    log: (text) => log(text),
+  });
 }
 
-/** `--mcp-config` values on the command line of the claude that started us. */
-function parentMcpConfigs() {
-  let commandLine = "";
+/** A server's url, if the helper may use it and it has one. */
+function serverUrl(server) {
   try {
-    commandLine = (
-      process.platform === "win32"
-        ? execFileSync(
-            "powershell.exe",
-            ["-NoProfile", "-NonInteractive", "-Command", `(Get-CimInstance Win32_Process -Filter "ProcessId=${process.ppid}").CommandLine`],
-            { encoding: "utf8", timeout: 10_000, windowsHide: true },
-          )
-        : execFileSync("ps", ["-o", "args=", "-p", String(process.ppid)], { encoding: "utf8" })
-    ).trim();
-  } catch {
-    return [];
-  }
-  return mcpConfigArgs(commandWords(commandLine));
-}
-
-function readJson(file) {
-  try {
-    return JSON.parse(fs.readFileSync(file, "utf8"));
+    return serverEntry(server).config.url;
   } catch {
     return undefined;
   }
 }
 
-function expandEnv(value) {
-  if (typeof value === "string") {
-    return value.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g, (_, name, fallback) =>
-      process.env[name] ?? fallback ?? "",
-    );
-  }
-  if (Array.isArray(value)) return value.map(expandEnv);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, expandEnv(v)]));
-  }
-  return value;
-}
-
 const sideClients = new Map(); // server name -> Promise<Client>
+const serverScopes = new Map(); // server name -> the scope its config came from
 
 /** A read-only connection of our own, for tools/list and resources/read. */
 function sideClient(name) {
   if (!sideClients.has(name)) {
     const promise = (async () => {
-      const raw = loadServerConfigs()[name];
-      if (!raw) throw new Error(`no config found for MCP server "${name}"`);
-      const config = expandEnv(raw);
-      const type = config.type ?? (config.url ? "http" : "stdio");
+      const { config, scope } = serverEntry(name);
+      serverScopes.set(name, scope);
+      const type = kindOf(config);
       const requestInit = { headers: config.headers ?? {} };
       const transport =
         type === "http"
@@ -744,7 +699,8 @@ async function discover(server, refresh = false) {
     }
     cursor = page.nextCursor;
   } while (cursor);
-  const result = { tools, structured, appOnly, visibility, definitions };
+  // `scope`: where its config came from (command line, local, project or user).
+  const result = { tools, structured, appOnly, visibility, definitions, scope: serverScopes.get(server) };
   discovered.set(server, result);
   return result;
 }
@@ -791,9 +747,10 @@ function privateHost(host) {
  */
 function localServer(server) {
   try {
-    const url = expandEnv(loadServerConfigs()[server] ?? {}).url;
-    return !url || privateHost(new URL(url).hostname.toLowerCase());
+    const { config } = serverEntry(server);
+    return config.url === undefined ? kindOf(config) === "stdio" : privateHost(new URL(config.url).hostname.toLowerCase());
   } catch {
+    // One the helper may not use: no access.
     return false;
   }
 }
@@ -808,7 +765,7 @@ function localServer(server) {
 function allowedCsp(csp, server) {
   let own;
   try {
-    const url = expandEnv(loadServerConfigs()[server] ?? {}).url;
+    const url = serverUrl(server);
     if (url) {
       const u = new URL(url);
       own = `${u.hostname.toLowerCase()}:${u.port || (u.protocol === "https:" ? "443" : "80")}`;
