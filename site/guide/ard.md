@@ -52,6 +52,21 @@ It lists `mcp-server-cards` as a dependency, and Claude Code installs that from
 the same marketplace. You need Claude Code 2.1.329 or newer, with mods, and
 nothing else: no helper process, no Node, no account.
 
+### In Codex
+
+ARD discovery also runs in OpenAI Codex, as a plugin, installed by name for the
+same reason: its search sends your words to a third party, and asks you first
+every time. It needs Codex 0.170 or newer and Node 20 or newer. In a terminal:
+
+```bash
+codex plugin marketplace add idosal/AgentPolyfill && codex plugin add ard-discovery@agent-polyfill
+```
+
+To add a server it finds, Codex shows you a form, and only on your accept is
+the server added. Its README is
+[`polyfills/ard/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex); the rest
+of this page is about the Claude Code form.
+
 ## Try it
 
 Ask Claude:

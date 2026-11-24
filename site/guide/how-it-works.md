@@ -136,12 +136,20 @@ Events works there as a plugin:
 lists the skills a plugin's folder holds with its own, so Skills works there as
 a plugin too: [`polyfills/skills/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex).
 Both share their logic with the Claude Code forms, in
-`polyfills/<extension>/core/`.
+`polyfills/<extension>/core/`. Server Cards and ARD run in Codex as plugins too
+([`polyfills/server-cards/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex),
+[`polyfills/ard/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex)), on the same card,
+discovery and registry code as the Claude Code forms.
 
 | Extension | Spec | Polyfill | State |
 |---|---|---|---|
 | Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events` for Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex) | Early: poll, push and webhook; an event wakes an idle Codex session through `codex queue`. No OAuth servers; a resumed session's watches start at its first mcp-events tool call. |
 | Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | [`mcp-skills` for Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex) | Early: served skills in Codex's skill list (from the session after a server first serves them), loaded after a per-skill yes in Codex's own form, verified against the server's digests. No OAuth servers; a cross-server resource read (X8) is not gated. |
+| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (extension Beta) | [`mcp-server-cards` for Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex) | Early: the same discovery and checks; a server is added to Codex's config only after you choose "Add it" in Codex's own form. |
+
+Beyond MCP, `ard-discovery` runs in Codex too, installed by name and not with
+the others, because its search sends your words to a third party
+([`polyfills/ard/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex)).
 
 How to install them is in [Getting started](./getting-started#codex).
 

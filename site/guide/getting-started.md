@@ -142,19 +142,22 @@ about buildkite.com; after **Add**, Claude Code asks you to sign in through
 
 ## Codex
 
-Events and Skills also run in OpenAI Codex, as Codex plugins from the same
-repository. In a terminal:
+Events, Skills and Server Cards also run in OpenAI Codex, as Codex plugins
+from the same repository. In a terminal:
 
 ```bash
 codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add mcp-events@agent-polyfill
 codex plugin add mcp-skills@agent-polyfill
+codex plugin add mcp-server-cards@agent-polyfill
 ```
 
-Events needs Codex 0.170 or newer; Skills was run on 0.172. Both need Node 20
-or newer on the `PATH` Codex runs with. `codex plugin remove mcp-events@agent-polyfill`
-removes one. There is no bundle for Codex, and Apps, Server Cards and ARD are
-Claude Code only for now.
+Events and Server Cards need Codex 0.170 or newer; Skills was run on 0.172.
+All need Node 20 or newer on the `PATH` Codex runs with.
+`codex plugin remove mcp-events@agent-polyfill` removes one. There is no bundle
+for Codex, and Apps is Claude Code only for now. ARD discovery is installed by
+name, as in Claude Code, because its search sends your words to a third party:
+`codex plugin add ard-discovery@agent-polyfill`.
 
 To try Events, add the hosted demo server and ask, in `codex`, "Give me a demo
 button and tell me what I type when I press it":
@@ -171,9 +174,14 @@ and ask a question one of its skills covers:
 url = "https://huggingface.co/mcp"
 ```
 
+To try Server Cards, ask "What MCP servers does neon.com publish?". A server is
+added to Codex's config only after you choose "Add it" in Codex's own form.
+
 Each Codex plugin's README has the rest:
-[`polyfills/events/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex) and
-[`polyfills/skills/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex).
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex),
+[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex) and
+[ARD discovery](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex).
 
 ## Servers behind a sign-in
 

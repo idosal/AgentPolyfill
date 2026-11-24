@@ -33,11 +33,12 @@ documents and adds a server to Claude Code's own config, only when you press
 
 ## Each polyfill
 
-The sections below are the Claude Code forms. The Codex forms of Events and
-Skills have their own `SECURITY.md`:
-[`polyfills/events/codex`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) and
-[`polyfills/skills/codex`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md);
-neither reads Codex's stored sign-ins or tokens.
+The sections below are the Claude Code forms. The Codex forms have their own
+`SECURITY.md`:
+[Events](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md),
+[Skills](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md),
+[Server Cards](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) and
+[ARD discovery](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md).
 
 ### Events
 
@@ -94,8 +95,9 @@ lists each finding of the review of 24 November 2026 and where it stands.
 - It writes only your MCP configuration, one server at a time, when you press
   **Add** or approve Claude's request (a question no allow rule or auto mode
   answers), and never over a server you have.
-- A card with control characters or invisible marks is refused, and a remote URL
-  must be printable ASCII, so what is shown beside **Add** is what is added.
+- A card with control characters or invisible marks is refused. A remote URL
+  must be printable ASCII, without characters that let Markdown or HTML show
+  other text in its place, and may not name a user before its host.
 - A secret the card asks for never passes through Claude; the config holds an
   environment-variable reference for you to set.
 - A public name that resolves to a private address, or a redirect to one, is
