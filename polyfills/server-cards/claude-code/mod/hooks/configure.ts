@@ -28,6 +28,17 @@ export const HOST_PROTOCOL_VERSIONS = [
   '2024-11-05',
 ]
 
+/**
+ * The host a server is added to: its name in what is shown, and the protocol
+ * revisions it can negotiate. Claude Code by default. Another host's build of
+ * these modules (the Codex form, polyfills/codex/server-cards) sets both once,
+ * at start.
+ */
+export const host: { name: string; protocolVersions: readonly string[] } = {
+  name: 'Claude Code',
+  protocolVersions: HOST_PROTOCOL_VERSIONS,
+}
+
 export type Scope = 'local' | 'project' | 'user'
 
 export type Plan = {
@@ -63,7 +74,7 @@ const shellQuote = (a: string) => (/^[A-Za-z0-9_./:@%+=,-]+$/.test(a) ? a : `'${
 
 export const isCompatible = (remote: Remote) =>
   !remote.supportedProtocolVersions?.length ||
-  remote.supportedProtocolVersions.some(v => HOST_PROTOCOL_VERSIONS.includes(v))
+  remote.supportedProtocolVersions.some(v => host.protocolVersions.includes(v))
 
 // RFC 9110 field-name (token); a value may hold no control character or
 // invisible formatting mark (card.ts UNSAFE_TEXT), CR and LF among them.
@@ -121,7 +132,7 @@ export const planAdd = (
   if (!remote) return { error: `The card has no remote #${remoteIndex}.` }
   if (!isCompatible(remote))
     return {
-      error: `Remote #${remoteIndex} supports only protocol ${remote.supportedProtocolVersions!.join(', ')}, none of which Claude Code speaks.`,
+      error: `Remote #${remoteIndex} supports only protocol ${remote.supportedProtocolVersions!.join(', ')}, none of which ${host.name} speaks.`,
     }
   const server = name ? slug(name) : defaultName(card)
   if (!server) return { error: 'The server name has no letters or digits.' }

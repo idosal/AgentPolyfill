@@ -3,7 +3,7 @@
 // cleaned of control characters and capped, with the URL it came from.
 
 import { plainText, type ServerCard } from './card'
-import { defaultName, isCompatible, previewUrl } from './configure'
+import { defaultName, host, isCompatible, previewUrl } from './configure'
 import type { Discovery, FoundServer } from './discover'
 import type { Offered } from './offer'
 
@@ -53,7 +53,7 @@ export const formatServer = (s: FoundServer, n: number) => {
       ? ` protocol ${r.supportedProtocolVersions.map(v => clean(v, 20)).join(', ')}`
       : ''
     out.push(
-      `   remote #${i}: ${r.type} ${clean(r.url, 2048)}${versions}${isCompatible(r) ? '' : ' (NOT usable: Claude Code speaks none of these versions)'}`,
+      `   remote #${i}: ${r.type} ${clean(r.url, 2048)}${versions}${isCompatible(r) ? '' : ` (NOT usable: ${host.name} speaks none of these versions)`}`,
     )
     const connects = previewUrl(c, i, s.isLocal)
     if (connects !== r.url) out.push(`      connects to: ${clean(connects, 2048)} (with its defaults)`)
@@ -76,7 +76,7 @@ export const formatDiscovery = (d: Discovery) => {
   const valid = d.servers.filter(s => s.card)
   lines.push('')
   lines.push(
-    `MCP servers listed: ${d.servers.length} (${valid.length} with a valid Server Card). Server Cards are advisory (SEP-2127): Claude Code checks the real server when it connects.`,
+    `MCP servers listed: ${d.servers.length} (${valid.length} with a valid Server Card). Server Cards are advisory (SEP-2127): ${host.name} checks the real server when it connects.`,
   )
   d.servers.forEach((s, i) => lines.push(formatServer(s, i + 1)))
   if (d.registries.length)
@@ -135,7 +135,7 @@ export const formatOffered = (r: { offered: Offered[]; skipped: number; problems
     lines.push(`   description: ${clean(c.description, 100)}`)
     lines.push(`   suggested server name: ${defaultName(c)}`)
     c.remotes?.forEach((rm, j) => {
-      lines.push(`   remote #${j}: ${rm.type} ${clean(rm.url, 2048)}${isCompatible(rm) ? '' : ' (NOT usable: Claude Code speaks none of its protocol versions)'}`)
+      lines.push(`   remote #${j}: ${rm.type} ${clean(rm.url, 2048)}${isCompatible(rm) ? '' : ` (NOT usable: ${host.name} speaks none of its protocol versions)`}`)
       const connects = previewUrl(c, j, o.isLocal)
       if (connects !== rm.url) lines.push(`      connects to: ${clean(connects, 2048)} (with its defaults)`)
     })
