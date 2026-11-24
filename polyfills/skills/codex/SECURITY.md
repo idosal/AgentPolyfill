@@ -80,8 +80,8 @@ The plugin creates `mcp-skills-served` and touches nothing outside it: not your
 own skills in `~/.agents/skills`, not anything else there. Inside it, it
 writes and removes only folders of the stubs' shape, and it removes a symbolic
 link it finds there instead of following it. When a server stops serving a
-skill, or you remove the server from your config, its stubs go at the next
-start. Two things follow from the folder's place:
+skill, or you remove the server from your config, its stubs go the next time
+the plugin's server starts. Three things follow from the folder's place:
 
 - **Other programs** that read `~/.agents/skills` see the stubs too. Each stub
   is the plugin's own text plus the server's one-line description, and says it
@@ -90,14 +90,17 @@ start. Two things follow from the folder's place:
 - **Removing the plugin leaves the folder.** Delete
   `~/.agents/skills/mcp-skills-served` yourself; Codex would otherwise go on
   listing the stubs, and a load would fail for want of the tool.
+- **All your Codex homes share the folder.** A session under another
+  `CODEX_HOME` replaces the stubs with those of its own config. A stub left
+  from another home fails safely: if this home has no server of that name,
+  `load_skill` refuses it and nothing is fetched; if it has one, only what
+  this home's server serves can load, verified and asked about as any other.
 
-The plugin's MCP server tells Codex, when it starts, not to keep its tool list
-between sessions (the experimental `codex/tool-catalog-cache` capability, with
-`cacheable: false`). Without that, a running app-server daemon puts off
-starting it until one of its tools is called, and no stubs are written. It
-changes nothing about what the server may do, and Codex asks it for its tools
-again in each session. The server isn't marked required, so a session still
-starts when the server can't (for instance without Node).
+The plugin's server writes the stubs when it starts. Codex starts it when a
+session opens, or, on an app-server daemon that kept its tool list from an
+earlier session, at the first call of one of its tools. The server isn't
+marked required, so a session still starts when the server can't (for
+instance without Node).
 
 ### What reaches the model
 

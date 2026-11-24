@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 // mcp-skills for Codex: the plugin's MCP server (mod/dist/helper.js, bundled from here).
 //
-// Codex starts it with each session (.mcp.json marks it required, so Codex does not
-// put its start off until a tool call). It answers Codex at once, and meanwhile looks
-// at the servers in the user's Codex config, lists the skills of those that declare
-// the MCP Skills extension, and writes a short SKILL.md for each into a folder of its
-// own in ~/.agents/skills, so that Codex lists them with its other skills (stubs.ts).
-// Loading one goes through the load_skill tool, which asks the person first.
+// Codex starts it with a session, or, on an app-server daemon that kept its tool list
+// from an earlier session, at the first call of one of its tools (list_skills, for one).
+// It answers Codex at once, and meanwhile looks at the servers in the user's Codex
+// config, lists the skills of those that declare the MCP Skills extension, and writes a
+// short SKILL.md for each into a folder of its own in ~/.agents/skills, so that Codex
+// lists them with its other skills from the next turn on, in this session and later
+// ones (stubs.ts). Loading one goes through the load_skill tool, which asks the person
+// first.
 //
 // On disk: the stubs (~/.agents/skills/mcp-skills-served), and the plugin's store
 // (store.ts) in $CODEX_HOME/mcp-skills. No skill content, no tokens.

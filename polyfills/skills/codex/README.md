@@ -52,11 +52,16 @@ url = "https://huggingface.co/mcp"
 `codex mcp add huggingface --url https://huggingface.co/mcp` writes the same
 entry, then offers a Hugging Face sign-in, which the plugin doesn't use.
 
-Start `codex` in any folder. The plugin's server starts with the session,
-looks at the server, and writes an entry for each of its skills where Codex
-reads skills; Codex lists them from your second turn at the latest. In Codex's
-`$` skill picker, the server's skills show as `mcp-skills:huggingface:<name>`,
-each marked with its server. Ask with one of them:
+Start `codex` in any folder. The first time, the server's skills may not be
+in Codex's `$` skill picker yet. Then ask Codex once:
+
+> List the skills my MCP servers serve.
+
+Codex answers with the plugin's `list_skills` tool. That starts the plugin's
+MCP server if it isn't running yet, and it writes an entry for each served
+skill where Codex reads skills. From your next turn, the skills are in the `$`
+picker as `mcp-skills:huggingface:<name>`, each marked with its server, and in
+later sessions they're there from the start. Ask with one of them:
 
 > $mcp-skills:huggingface:huggingface-local-models Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?
 
@@ -69,11 +74,14 @@ Without the `$` name, Codex picks a served skill when the task fits its
 description, as it does for any skill. With many skills installed, Codex may
 list them by name only, and then naming the skill is the sure way.
 
-The entries stay on disk, so from your second session on they're there from
-the first turn. They are written again at the start of every session, so a
-skill a server adds shows up in that session, from its next turn. Codex can
-also reach every served skill at any time: ask it to list the skills your MCP
-servers serve. It uses its `mcp-skills` skill and the `list_skills` tool.
+Why ask? Codex starts a plugin's MCP server when a session opens, except
+when its app-server daemon is already running and has run the plugin
+recently: then Codex starts it only at the first call of one of its tools.
+The plugin writes the entries when its server starts, so asking to list the
+served skills is the sure way to have them written. The entries stay on disk,
+and they're written again each time the plugin's server starts, so a skill a
+server adds shows up from the turn after that. `list_skills` reaches every served skill at
+any time, including one not in the `$` picker yet.
 
 ## How it works
 
@@ -106,7 +114,7 @@ servers serve. It uses its `mcp-skills` skill and the `list_skills` tool.
 |---|---|---|
 | Install | `Added marketplace agent-polyfill`, then `Added plugin mcp-skills`. | Nothing is installed. |
 | Node | Nothing. | Codex reports that the `mcp-skills` MCP server failed to start. Nothing else changes. Install Node 20+. |
-| A server that serves skills | Its skills are in Codex's skill list from your second turn at the latest, and from the first turn of every later session. | Ask Codex which skills your MCP servers serve. `list_skills` names each server it left alone, and why: turned off, needs a sign-in, a variable Codex doesn't pass to plugins, no Skills extension. |
+| A server that serves skills | Its skills are in Codex's skill list from the turn after the plugin's server starts. If they aren't, ask once to list the served skills. In later sessions they're there from the first turn. | Ask Codex which skills your MCP servers serve. `list_skills` names each server it left alone, and why: turned off, needs a sign-in, a variable Codex doesn't pass to plugins, no Skills extension. |
 | Codex wants a skill | Codex shows the plugin's question. | "Do not load it", or closing the form: the skill isn't loaded, and nothing of it reaches the model. You're asked again next time. |
 | The skill's files | Nothing: they're read as needed, from the server, and verified. | |
 | The server changes the skill | You're asked again, and told it changed. | The old version stays in a conversation that has it. The new one isn't loaded. |
@@ -144,7 +152,7 @@ your MCP server ◄── skills/list · skills/get · resources/read ── mcp
 Codex ── lists those SKILL.md files with its other skills ──────── Codex
 ```
 
-- **Finding servers.** At the start of each session, the plugin's MCP server
+- **Finding servers.** When it starts, the plugin's MCP server
   reads `[mcp_servers.*]` in your Codex config and connects to each server
   once. It keeps the ones that declare the extension, and asks each for its
   list of skills. No file is fetched. A server found not to serve skills isn't
@@ -190,25 +198,23 @@ The plugin's design rests on how Codex lists skills. This was checked on Codex
 - An app-server that runs several sessions, as the app-server daemon does,
   keeps a local MCP server's tool list from one session to the next (for up to
   30 minutes), and then starts that server only when one of its tools is called
-  (`can_defer_stdio_startup` in Codex's `config/src/mcp_types.rs`). It starts
-  the server with the session in two cases. The server is marked required:
-  then no session starts while the server can't (no Node, for instance). Or
-  the server says, when it starts, that its tool list isn't to be kept
-  (`codex/tool-catalog-cache` with `cacheable: false`, which Codex's
-  `codex-mcp/src/rmcp_client.rs` marks experimental).
+  (`can_defer_stdio_startup` in Codex's `config/src/mcp_types.rs`). A plugin
+  has no supported way to change that. Marking the server required would start
+  it with the session, but then no session starts while it can't (no Node, for
+  instance).
 - In `codex exec`, the first turn's list is built while MCP servers start, so a
   skill an MCP server writes at its start may or may not make that turn.
 - `skill_catalog_deltas` (under development, off) isn't needed, and is best
   left off. With it on, the update in one run left out skills written between
   the turns.
 
-So the plugin's server declares that capability, which makes Codex start it
-with every session, and the stubs go into a folder of their own in
-`~/.agents/skills`, which a marketplace update doesn't touch and Codex lists
-from the next turn. Up to 0.1.4 they were in the plugin's own folder, which
-needed a restart of the daemon and lost them on every marketplace update. If
-a later Codex drops the capability, the stubs from the server's last start are
-still listed, and a server's new skills wait for its next start.
+So the stubs go into a folder of their own in `~/.agents/skills`, which a
+marketplace update doesn't touch and Codex lists from the next turn, and they
+stay there from one session to the next. The plugin's server writes them when
+it starts: when a session opens, or, on a running daemon, at its first tool
+call. Up to 0.1.4 they were in the plugin's own folder, which lost them on
+every marketplace update. What Codex would need to change is in
+[host changes](../../../docs/host-changes.md).
 
 ### Where it writes
 
@@ -216,12 +222,14 @@ still listed, and a server's new skills wait for its next start.
   (`<server>-<6 hex>`), one folder per skill in it (`<16 hex of its URI>`),
   each with a `SKILL.md` the plugin wrote. The plugin creates this folder,
   writes and removes only folders of that shape in it, and touches nothing
-  else in `~/.agents/skills`. It is rewritten at the start of each session:
-  a skill a server no longer serves, or a server you removed from your
-  config, loses its stubs then. Other programs that read `~/.agents/skills`
-  see the stubs too; each says it is served by an MCP server and can be loaded
-  only through Codex's `mcp-skills` tool. Removing the plugin leaves the
-  folder: delete it yourself.
+  else in `~/.agents/skills`. It is rewritten each time the plugin's server
+  starts: a skill a server no longer serves, or a server you removed from your
+  config, loses its stubs then. All your Codex homes share this folder: a
+  session under another `CODEX_HOME` replaces the stubs with those of its own
+  config. Other programs that read `~/.agents/skills` see the stubs too; each
+  says it is served by an MCP server and can be loaded only through Codex's
+  `mcp-skills` tool. Removing the plugin leaves the folder: delete it
+  yourself.
 - **`~/.codex/mcp-skills/`** (`$CODEX_HOME/mcp-skills`): your approvals, which
   servers serve skills, and a log. See [Settings](#settings).
 
@@ -241,7 +249,7 @@ how the server is configured (without its token), and what
 |---|---|---|
 | What runs | A mod inside Claude Code, and a helper process (`mod/dist/helper.js`) on Node 20+ or Bun | A plugin whose MCP server (`mod/dist/helper.js`) Codex starts with Node 20+ |
 | Servers it reads | The project's `.mcp.json`, and the user and local scopes. It connects only to servers Claude Code itself uses. | `[mcp_servers.*]` in `~/.codex/config.toml`. Servers that come with a plugin, or from a project's `.codex/config.toml`, aren't looked at. |
-| Where served skills appear | In Claude's skill listing, under their own heading: right after the install, and from the next session for a server you add later | In Codex's `$` skill list, as `mcp-skills:<server>:<name>`, from the second turn of the session in which the plugin first sees them, and from the first turn of every later session. The plugin writes a short `SKILL.md` stub for each one into `~/.agents/skills/mcp-skills-served`. At most 100 are listed. |
+| Where served skills appear | In Claude's skill listing, under their own heading: right after the install, and from the next session for a server you add later | In Codex's `$` skill list, as `mcp-skills:<server>:<name>`, from the turn after the plugin's server starts (after you ask once to list the served skills, if Codex's daemon was already running), and from the first turn of every later session. The plugin writes a short `SKILL.md` stub for each one into `~/.agents/skills/mcp-skills-served`. At most 100 are listed. |
 | The question before a load | Claude Code's own permission dialog | Codex's form (MCP elicitation): "Do not load it", "Show me its SKILL.md first" or "Load it" |
 | Reading a skill before you decide | `/mcp-skills show <skill>`, in a panel Claude doesn't read | "Show me its SKILL.md first", shown to you only |
 | Where your approvals are kept | The mod's own store, in your Claude Code configuration folder | `~/.codex/mcp-skills/approvals.json` |
@@ -281,15 +289,19 @@ Codex does, turn the plugin off with `codex plugin remove`, or by writing
 
 - **Servers behind a sign-in, and servers whose token is in an environment
   variable.** See [Which servers work](#which-servers-work).
-- **A skill a server adds appears in Codex's list from the next turn.** See
-  [Try it](#try-it). Until then, `list_skills` reaches it.
+- **The first time, you may have to ask.** When Codex's app-server daemon is
+  already running and has run the plugin recently, Codex starts the plugin's
+  MCP server only at its first tool call, so no stubs are written when the
+  session opens. Ask once to list the served skills: they're in Codex's list
+  from the next turn, and in later sessions from the start. A skill a server
+  adds appears the same way. See [Try it](#try-it).
 - **The stubs live in `~/.agents/skills`,** which other programs may read too,
   and they stay after the plugin is removed. See
   [Where it writes](#where-it-writes).
-- **An experimental Codex capability.** The plugin's server starts with every
-  session because it tells Codex not to keep its tool list
-  (`codex/tool-catalog-cache`, which Codex's source marks experimental). See
-  [How Codex picks up skill folders](#how-codex-picks-up-skill-folders).
+- **One folder for all your Codex homes.** A session under another
+  `CODEX_HOME` replaces the stubs in `~/.agents/skills/mcp-skills-served` with
+  those of its own config. A stub left from another home fails safely: if this
+  home has no server of that name, `load_skill` refuses it.
 - **Another server's resources (rule X8).** The extension requires a host to
   ask you, naming both servers, before a skill of one server leads to a
   resource read from another. Codex's own `read_mcp_resource` tool isn't
@@ -401,11 +413,11 @@ and one never approved is refused
 
 | What | How to run it | Result |
 |---|---|---|
-| The client rules, one test per rule, against a hand-written server; the stubs; the config reader; the bundled plugin server spoken to as Codex speaks to it, its questions answered as Codex answers them; control and hidden characters from a server; the plugin as Codex installs it: its folder copied afresh as a marketplace update does, and, where `codex` is installed, one app-server with three sessions | `npm test` | 72 pass |
+| The client rules, one test per rule, against a hand-written server; the stubs; the config reader; the bundled plugin server spoken to as Codex speaks to it, its questions answered as Codex answers them; control and hidden characters from a server; the plugin as Codex installs it: its folder copied afresh as a marketplace update does, its stubs written by its first tool call, and, where `codex` is installed, a reinstall in Codex itself | `npm test` | 72 pass |
 | The official MCP conformance suite's client scenarios for SEP-2640 (it has four) | [`test/conformance/run.sh`](test/conformance/run.sh) | 4 of 4 pass ([output](docs/evidence/conformance.txt)) |
 | Hugging Face's public server: 25 skills listed and written as stubs, every skill loaded, all 135 files verified | `npm run interop:real` | all verified ([output](docs/evidence/interop-real.txt)) |
 | Installing from the marketplace into a fresh `CODEX_HOME` (Codex lists only the Codex plugins there: mcp-events and mcp-skills), and the installed copy running from its own folder | `codex plugin marketplace add`, `codex plugin add` | installs, runs, writes 25 stubs ([output](docs/evidence/install.txt), recorded on 0.1.0, when the stubs were in the plugin's folder) |
-| A running app-server daemon: the first session after the install, a marketplace update, a second session | [`live/take-daemon.sh`](live/take-daemon.sh) | the plugin's server starts in both sessions; 25 skills listed from the first session's second turn and from the second session's first; the stubs survive the update; a served skill used in each session ([output](docs/evidence/daemon.txt)) |
+| A running app-server daemon that ran the plugin before: a session that asks to list the served skills, then a plain question; a marketplace update; a second session | [`live/take-daemon.sh`](live/take-daemon.sh) | the plugin's server starts at `list_skills`, not when the session opens; 25 skills listed from the next turn, and a plain question picks one; the stubs survive the update; the second session lists them from its first turn and uses one ([output](docs/evidence/daemon.txt)) |
 | A real Codex session, interactive | [`live/take-proof.sh`](live/take-proof.sh) | the skill listed, asked about, shown, loaded and used ([screens](live/runs/proof/)) |
 | A real `codex exec` run | see [`live/`](live/) | an approved skill loads unasked; an unapproved one is refused ([output](docs/evidence/exec.txt)) |
 
