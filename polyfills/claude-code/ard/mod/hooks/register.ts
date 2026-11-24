@@ -15,6 +15,8 @@ const ARD_SOURCES = { catalogs: [{ url: '/.well-known/ard.json', requireVersion:
 
 const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
 /** Text for the person's prompt: control characters out, one line, capped. */
+/** The longest query the ask shows, and so the longest that is sent. */
+const SHOWN_QUERY = 300
 const shown = (v: string, max: number) => v.replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max)
 
 type Presented = { text: string; servers: number; registries: { identifier: string; url?: string; displayName?: string }[] }
@@ -145,9 +147,13 @@ export const register: Register = (on, options) => {
       return { decision: 'deny' as const, reason: 'A search sends your words to a registry someone else runs, and nobody can be asked in this session.' }
     const input = (e.input ?? {}) as Record<string, unknown>
     const named = shown(str(input.registry) ?? defaultRegistry, 200)
-    const where = !named ? '(no registry)' : /^https?:\/\//i.test(named) ? named : `the registry that ${named} lists`
-    const query = shown(str(input.query) ?? '', 300)
-    return { decision: 'ask' as const, reason: `Send this search to ${where}, and to up to three registries it refers to? "${query}"` }
+    const query = shown(str(input.query) ?? '', SHOWN_QUERY)
+    const reason = !named
+      ? `Send this search to (no registry)? "${query}"`
+      : /^https?:\/\//i.test(named)
+        ? `Send this search to ${named}, and to up to three registries it refers to? "${query}"`
+        : `Send this search to the registries that ${named} lists (up to three), and to up to three registries they refer to? "${query}"`
+    return { decision: 'ask' as const, reason }
   }).catch(($, e, next) => ({
     decision: 'ask' as const,
     reason: 'ard-discovery could not describe this search. It sends the query in the call to an ARD registry someone else runs; check both before you allow it.',
@@ -157,6 +163,12 @@ export const register: Register = (on, options) => {
     const input = e as Record<string, unknown>
     const query = (str(input.query) ?? '').trim()
     if (!query) return { deny: 'Give `query`: what the person needs, in plain words.' }
+    // What is sent is what the ask showed (security review R1): no longer than
+    // the ask shows, and no control characters, which the ask would blank.
+    if (query.length > SHOWN_QUERY)
+      return { deny: `Keep the search under ${SHOWN_QUERY} characters, so the person sees all of it before it is sent.` }
+    if (/[\u0000-\u001f\u007f-\u009f]/.test(query))
+      return { deny: 'Write the search on one line, without control characters, so the person sees exactly what is sent.' }
     const asked = (str(input.registry) ?? defaultRegistry).trim()
     if (!asked) return { deny: 'No registry is configured; pass `registry` (a domain whose catalog lists one, or a registry base URL).' }
 
