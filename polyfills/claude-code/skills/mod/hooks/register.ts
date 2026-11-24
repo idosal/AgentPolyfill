@@ -382,12 +382,16 @@ async function actingSkills($: EngineInterface): Promise<Acting[]> {
   return found
 }
 
-/** Records a loaded skill. Loading it again replaces what was known of it: the later load is the one in force. */
+/**
+ * Records a loaded skill. A skill loaded unapproved stays unapproved until the conversation is
+ * cleared, however often it is loaded again with a yes: the unapproved text is still in the
+ * conversation, and may differ from what was approved later.
+ */
 function note(list: Acting[], a: { server: string; uri: string; isApproved: boolean }): void {
   if (!a.uri.endsWith('/SKILL.md')) return
   const root = a.uri.slice(0, -'/SKILL.md'.length)
   const at = list.findIndex((x) => x.server === a.server && x.uri === a.uri)
-  const entry = { server: a.server, uri: a.uri, name: root.slice(root.lastIndexOf('/') + 1), root, isApproved: a.isApproved }
+  const entry = { server: a.server, uri: a.uri, name: root.slice(root.lastIndexOf('/') + 1), root, isApproved: a.isApproved && (at < 0 || list[at]!.isApproved) }
   if (at >= 0) list[at] = entry
   else list.push(entry)
 }
