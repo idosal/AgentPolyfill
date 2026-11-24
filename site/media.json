@@ -3,15 +3,15 @@
   "launch": {
     "file": "launch.mp4",
     "poster": "launch-poster.jpg",
-    "posterAt": 14,
-    "caption": "Apps, Events, Skills and Server Cards in real Claude Code sessions. No sound.",
-    "description": "Real Claude Code sessions, no sound. A game from the hosted arcade server runs under a tool call and takes mouse and keys; a press on a demo page wakes an idle session; a skill from Hugging Face's MCP server is approved once and used; and the MCP servers neon.com publishes are found from its domain, with Add pressed on one of them.",
-    "master": "master-v2-16x9.mp4",
+    "posterAt": 3.6,
+    "caption": "Apps, Events, Skills, Server Cards and ARD in real Claude Code sessions. No sound.",
+    "description": "Real Claude Code sessions, no sound. DOOM from the hosted arcade server runs under a tool call and is played with clicks and keys; a press on a demo page wakes an idle session; a skill from Hugging Face's MCP server is approved once and used; the MCP servers neon.com publishes are found from its domain and Add is pressed on one; and buildkite.com's ARD listing shows its server.",
+    "master": "master-16x9.mp4",
     "width": 1920,
     "height": 1080,
-    "seconds": 68.33,
-    "bytes": 9079326,
-    "sha256": "fa57855e88795ad3837d24fb73d169ee629170ed9271c4892c2b4b938ef802b7"
+    "seconds": 37.9,
+    "bytes": 8552125,
+    "sha256": "c59d9707c093ff8f297a50b9b77c7648f3fd1a62b0386cce2abd75996ec10658"
   },
   "cuts": [
     {
@@ -30,13 +30,13 @@
       "name": "apps",
       "file": "apps.mp4",
       "poster": "apps.jpg",
-      "posterAt": 19,
-      "master": "apps-launchprep.mp4",
+      "posterAt": 17,
+      "master": "apps.mp4",
       "width": 1280,
       "height": 720,
-      "seconds": 32.7,
-      "bytes": 3292670,
-      "sha256": "49bada9b02e1507a63aa8f832778a9c43721b641846363e786d3aae1ef1ef469"
+      "seconds": 24.17,
+      "bytes": 1347747,
+      "sha256": "e889b1d23a6f53d2630115344330190ed4fc87e252ea25144a31123328b48b44"
     },
     {
       "name": "skills",
