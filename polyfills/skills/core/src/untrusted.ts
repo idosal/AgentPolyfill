@@ -84,7 +84,10 @@ export function countHidden(text: string): number {
  * the person sees that text is there which a model would read and they would not.
  */
 export function shownText(text: string): string {
-    return text.replace(CONTROLS_BUT_LINES, '').replace(HIDDEN_RUN, (run) => {
+    // The line and paragraph separators (U+2028, U+2029) end a line, as \n does, so each piece is a
+    // line of its own wherever lines are marked. (oneLine turns them into spaces.)
+    const separators = new RegExp(`[${String.fromCodePoint(0x2028, 0x2029)}]`, 'g');
+    return text.replace(separators, '\n').replace(CONTROLS_BUT_LINES, '').replace(HIDDEN_RUN, (run) => {
         const n = [...run].length;
         return `${String.fromCodePoint(0x27e6)}${n} hidden character${n === 1 ? '' : 's'}${String.fromCodePoint(0x27e7)}`;
     });
