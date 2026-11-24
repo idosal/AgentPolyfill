@@ -1,0 +1,30 @@
+{
+  "name": "ard-discovery",
+  "version": "0.1.0",
+  "description": "Agentic Resource Discovery (ARD v0.91 draft) for Codex: find MCP servers through a domain's /.well-known/ard.json, or by searching an ARD registry, which receives your query once you approve each search; each Server Card is checked, and a server is added only once you approve it",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "homepage": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex",
+  "repository": "https://github.com/idosal/AgentPolyfill",
+  "license": "Apache-2.0",
+  "keywords": ["mcp", "ard", "agentic-resource-discovery", "server-cards", "registry", "polyfill"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "ARD Discovery",
+    "shortDescription": "Find MCP servers by domain or by task, through ARD",
+    "longDescription": "Reads a domain's /.well-known/ard.json and AI Catalog, or asks an ARD registry (a service someone else runs, which sees your query, so Codex asks you first) for an MCP server that can do a task. Each Server Card is checked against the SEP-2127 schema, and a search result counts as confirmed only when its publisher's own domain lists it. Adding a server needs your approval in a form. Implements the ARD v0.91 draft, which is not an MCP specification. A community polyfill, not affiliated with OpenAI, the Model Context Protocol project or the authors of ARD.",
+    "developerName": "AgentPolyfill",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex",
+    "privacyPolicyURL": "https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md",
+    "defaultPrompt": [
+      "What does buildkite.com list in its ard.json?",
+      "Find an MCP server that can check why my CI build failed"
+    ],
+    "brandColor": "#2F9E44"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "mcp-server-cards",
+  "version": "0.1.0",
+  "description": "MCP Server Cards (SEP-2127) for Codex: find the MCP servers a domain publishes, check their Server Cards, and add one to Codex once you approve it in a form",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "homepage": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex",
+  "repository": "https://github.com/idosal/AgentPolyfill",
+  "license": "Apache-2.0",
+  "keywords": ["mcp", "server-cards", "sep-2127", "ai-catalog", "discovery", "polyfill"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "MCP Server Cards",
+    "shortDescription": "Connect Codex to a company's MCP server by its domain",
+    "longDescription": "Finds the MCP servers a domain publishes through its AI Catalog (/.well-known/ai-catalog.json), checks each Server Card against the SEP-2127 schema, and adds the one you pick to Codex's MCP configuration after you approve it in a form. Secrets are written as environment variable names, never as values, and sign-in stays Codex's own (codex mcp login). A community polyfill, not affiliated with OpenAI or the Model Context Protocol project.",
+    "developerName": "AgentPolyfill",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex",
+    "privacyPolicyURL": "https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md",
+    "defaultPrompt": [
+      "What MCP servers does neon.com publish?",
+      "Connect Codex to Buildkite's MCP server"
+    ],
+    "brandColor": "#3B5BDB"
+  }
+}
