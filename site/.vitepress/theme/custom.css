@@ -97,28 +97,62 @@ body {
   font-feature-settings: 'ss01' 0;
   -webkit-font-smoothing: antialiased;
 }
-.VPHero .name,
-.VPHero .text {
-  letter-spacing: -0.025em;
+/* Hero: the name leads; the headline under it is a clear step down. */
+.VPHero .name {
+  letter-spacing: -0.03em;
+}
+.VPHome .VPHero .text {
+  padding-top: 6px;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--vp-c-text-1);
   text-wrap: balance;
+  max-width: 520px;
 }
 .VPHero .tagline {
   text-wrap: pretty;
-  max-width: 36em;
+  max-width: 30em;
 }
 @media (min-width: 640px) {
   .VPHome .VPHero .text {
-    max-width: 760px;
+    font-size: 30px;
+    line-height: 38px;
   }
 }
 @media (min-width: 960px) {
-  .VPHome .VPHero .name,
-  .VPHome .VPHero .text {
-    font-size: 52px;
-    line-height: 60px;
+  .VPHome .VPHero .name {
+    font-size: 60px;
+    line-height: 68px;
   }
   .VPHome .VPHero .text {
-    max-width: 900px;
+    font-size: 32px;
+    line-height: 40px;
+    max-width: 560px;
+  }
+  .VPHome .VPHero .image-src {
+    width: 248px;
+    max-width: 248px;
+    max-height: 248px;
+  }
+}
+/* The logo fills the hero's right side on wide screens. Below that it would
+   only push the words down, so it goes, and the hero stays left-aligned. */
+@media (max-width: 959px) {
+  .VPHome .VPHero .image {
+    display: none;
+  }
+  .VPHome .VPHero.has-image .container {
+    text-align: left;
+  }
+  .VPHome .VPHero.has-image .name,
+  .VPHome .VPHero.has-image .text,
+  .VPHome .VPHero.has-image .tagline {
+    margin: 0;
+  }
+  .VPHome .VPHero.has-image .actions {
+    justify-content: flex-start;
   }
 }
 .vp-doc h1 {
@@ -278,6 +312,9 @@ body {
 .ap-home section + section {
   margin-top: 96px;
 }
+.ap-home h2 + .ap-launch {
+  margin-top: 24px;
+}
 .ap-home h2 {
   font-size: 28px;
   line-height: 1.2;
@@ -349,6 +386,16 @@ body {
   margin-top: 28px;
   max-width: 680px;
 }
+/* Beside the logo the hero's column is narrow: keep the install line on one
+   line there, a size down, and let it scroll if a font runs wide. */
+@media (min-width: 960px) {
+  .ap-install .ap-cmd {
+    font-size: 12px;
+  }
+  .ap-install .ap-cmd code {
+    white-space: nowrap;
+  }
+}
 @media (max-width: 639px) {
   .ap-install .ap-cmd code {
     white-space: normal;
@@ -359,13 +406,6 @@ body {
   margin-top: 8px;
   font-size: 13px;
   color: var(--vp-c-text-3);
-}
-@media (max-width: 959px) {
-  .VPHero.has-image .ap-install,
-  .VPHero .ap-install {
-    margin-left: auto;
-    margin-right: auto;
-  }
 }
 @media (min-width: 640px) {
   .VPHome .VPHero {

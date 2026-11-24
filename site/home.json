@@ -95,7 +95,8 @@
       "add": "/plugin install ard-discovery --marketplace idosal/AgentPolyfill",
       "ask": "What MCP servers does buildkite.com list through ARD?",
       "then": "A domain lookup sends no query to a registry. A registry search sends your words to a third party, so it asks you first, every time.",
-      "link": "/guide/ard"
+      "link": "/guide/ard",
+      "note": "Not in the bundle: its registry search sends your words to a third party, so it asks you first, every time."
     }
   ]
 }

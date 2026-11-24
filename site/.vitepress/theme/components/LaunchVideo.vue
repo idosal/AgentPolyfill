@@ -49,7 +49,6 @@ function play() {
         <span class="len" aria-hidden="true">{{ seconds }} s</span>
       </button>
     </div>
-    <figcaption>{{ launch.caption }}</figcaption>
   </figure>
 </template>
 
@@ -113,13 +112,5 @@ video {
   .play .long {
     display: none;
   }
-}
-figcaption {
-  margin-top: 12px;
-  max-width: 48em;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--vp-c-text-2);
-  text-wrap: pretty;
 }
 </style>

@@ -206,7 +206,7 @@ function homeMarkdown() {
     return match[1]
   }
   const paragraphs = (chunk) => [...chunk.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map((m) => html(m[1]))
-  const [lede, beyond] = paragraphs(section('The polyfills'))
+  const [lede] = paragraphs(section('The polyfills'))
   const [who] = paragraphs(section('Who it is for'))
   const card = (p) => {
     const cut = media.cuts.find((c) => c.name === p.cut)
@@ -221,6 +221,7 @@ function homeMarkdown() {
     if (p.add) lines.push(p.addStep, '', p.add.startsWith('/') ? '```' : '```bash', p.add, '```', '', `Then ask Claude: "${p.ask}"`)
     else lines.push(`Nothing to set up. Ask Claude: "${p.ask}"`)
     if (p.then) lines.push('', p.then)
+    if (p.note) lines.push('', p.note)
     lines.push('', videoLine({ file: cut.file, seconds: cut.seconds, description: p.alt }), '', `The ${p.name} guide: ${resolveLink(p.link, 'index')}`)
     return lines.join('\n')
   }
@@ -232,7 +233,7 @@ function homeMarkdown() {
 
 > ${text} ${tagline}
 
-Install every polyfill. Run it in Claude Code 2.1.329 or newer, then start a new session:
+Install every polyfill, in Claude Code 2.1.329 or newer, then start a new session:
 
 \`\`\`
 ${INSTALL}
@@ -249,8 +250,6 @@ ${lede}
 ${cards.join('\n\n')}
 
 ## Beyond MCP
-
-${beyond}
 
 ${beyondCards.join('\n\n')}
 
