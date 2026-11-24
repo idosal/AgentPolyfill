@@ -53,10 +53,13 @@ from; its host part is never resolved.
   JSON-RPC code.
 - A skill's frontmatter: never, and it grants nothing. `allowed-tools`, hooks
   and anything else in it are ignored.
-- A skill whose URI, or the URI of one of its files, holds a control character
-  (C0, DEL, C1), a direction-changing mark or an invisible character: never.
-  Such an entry is refused, and its URI is not repeated even in the note that
-  says so (from 0.3.3, in the core shared with the Codex form).
+- A skill whose URI, or the URI of one of its files, holds anything but
+  printable ASCII (a control character, a direction mark, an invisible
+  character such as a soft hyphen or a tag character, a space): never. A URI
+  is ASCII by RFC 3986. Such an entry is refused, and its URI is not repeated
+  even in the note that says so (control and invisible characters from 0.3.3,
+  everything but printable ASCII from 0.3.4, in the core shared with the
+  Codex form).
 
 **What you are asked, and when.** Every question is put by Claude Code's own
 permission dialog. The mod raises it; it does not draw one or decide for you.

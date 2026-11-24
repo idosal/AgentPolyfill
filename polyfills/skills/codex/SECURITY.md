@@ -62,16 +62,25 @@ next start.
   (for `SKILL.md`) frontmatter matched the server's entry; under a line naming
   the server; inside a marker made per answer that the content cannot close.
 - A server's error text: never. Errors are in the plugin's own words.
-- A skill whose URI, or the URI of one of its files, holds a control character
-  (C0, DEL, C1), a direction-changing mark or an invisible character: never.
-  A terminal could act on one (erase a line of the question, move the cursor,
-  set the clipboard), or it could make a URI read other than it is, so such an
-  entry is refused, and its URI is not repeated even in the note that says so.
-  (From 0.1.1; the same rule holds in the Claude Code form from 0.3.3.)
+- A skill whose URI, or the URI of one of its files, holds anything but
+  printable ASCII: never. That rules out control characters (C0, DEL, C1),
+  which a terminal could act on (erase a line of the question, move the
+  cursor, set the clipboard); direction marks and invisible characters (the
+  soft hyphen, fillers, tag characters that can carry hidden text), which make
+  a URI read other than it is; and spaces. A URI is ASCII by RFC 3986: every
+  other character is percent-encoded. Such an entry is refused, and its URI is
+  not repeated even in the note that says so. (Control, direction and
+  zero-width characters from 0.1.1, everything but printable ASCII from 0.1.2;
+  the same rule holds in the Claude Code form from 0.3.3 and 0.3.4.)
+- A skill's description, in Codex's list and in `list_skills`: on one line,
+  with control characters, direction marks, zero-width characters, the soft
+  hyphen, the fillers and the tag characters removed.
 
 The SKILL.md you can read before deciding ("Show me its SKILL.md first") is
-shown with the same characters removed, line breaks and tabs kept, between
-two marker lines that say where the server's text begins and ends.
+shown with control, direction and zero-width characters removed, line breaks
+and tabs kept, between two marker lines that carry an id made for that one
+preview, with each line of the server's text marked `│ `. A SKILL.md cannot
+write a marker line of its own: whatever it writes stays marked as its text.
 
 **What you are asked, and when.** Before a skill is loaded, Codex shows you the
 plugin's question: the skill's name, its server (by its name in your config),

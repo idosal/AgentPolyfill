@@ -25,7 +25,7 @@ import { createHash } from 'node:crypto';
 import { lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { rootOf, type Listed } from '../../core/src/skills.ts';
-import { oneLine } from '../../core/src/untrusted.ts';
+import { INVISIBLE_TEXT, oneLine } from '../../core/src/untrusted.ts';
 import { PLUGIN } from './version.ts';
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -39,11 +39,16 @@ export const labelDir = (label: string): string => `${label.toLowerCase()}-${sha
 export const stubDir = (root: string, label: string, uri: string): string => join(root, labelDir(label), sha256(uri).slice(0, 16));
 export const stubPath = (root: string, label: string, uri: string): string => join(stubDir(root, label, uri), 'SKILL.md');
 
-/** Removes what text must not carry into a listing: control, zero-width and direction-changing characters. */
+/** Zero-width, format and direction marks, the soft hyphen, the fillers and the tag characters (the core's set). */
+const INVISIBLE_ALL = new RegExp(INVISIBLE_TEXT.source, 'gu');
+
+/**
+ * Removes what text must not carry into a listing: control characters (oneLine) and characters
+ * that show nothing but change how the text reads, or hide text (INVISIBLE_TEXT).
+ */
 export function plain(text: unknown, max: number): string {
-    // eslint-disable-next-line no-misleading-character-class
-    const cleaned = String(text ?? '').replace(/[​-‏‪-‮⁠-⁤⁦-⁩﻿؜᠎]/g, '');
-    return oneLine(cleaned.toWellFormed(), max);
+    const cleaned = String(text ?? '').toWellFormed().replace(INVISIBLE_ALL, '');
+    return oneLine(cleaned, max);
 }
 
 /**
