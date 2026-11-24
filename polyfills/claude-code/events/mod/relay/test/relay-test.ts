@@ -617,6 +617,23 @@ describe('a ceiling on new mailboxes', { concurrency: false }, () => {
         }
     });
 
+    test('addresses in one IPv6 /64 are one sender, so rotating through them does not dodge the ceiling', async () => {
+        const relay = await startRelay({ OPEN_RELAY: '1', NEW_MAILBOXES_PER_SENDER_PER_HOUR: '2' });
+        try {
+            const from = async (ip: string) => {
+                const key = newKey();
+                return (await upgradeStatus(relay.origin, await mailboxIdOf(key), protocols(key), { 'cf-connecting-ip': ip })).status;
+            };
+            assert.deepEqual([await from('2001:db8:7:7::1'), await from('2001:db8:7:7::2'), await from('2001:db8:7:7:ffff::3')], [101, 101, 429], 'the third, from another address in the same /64, is refused');
+            assert.equal(await from('2001:db8:7:8::1'), 101, 'another /64 is another sender');
+            assert.equal(await from('198.51.100.4'), 101);
+            assert.equal(await from('::ffff:198.51.100.4'), 101, 'the IPv4-mapped form of an address counts as that address');
+            assert.equal(await from('198.51.100.4'), 429);
+        } finally {
+            await relay.stop();
+        }
+    });
+
     test('a mailbox with no address and nobody connected gives its storage back; one with an address is kept', async () => {
         const relay = await startRelay({ OPEN_RELAY: '1', NEW_MAILBOXES_PER_HOUR: '2', CLEANUP_EVERY_MS: '300' });
         try {
