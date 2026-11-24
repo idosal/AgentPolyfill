@@ -74,9 +74,12 @@ What else can come up, once each:
   change a terminal's settings.
 - **An app asks to send Claude a message, open a link or save a file.** You
   are asked, with a choice to allow that app's messages or links for the
-  rest of the session. Say no and nothing is sent, opened or saved. An app
-  calling its own server's tools is allowed by default, as in Claude
-  Desktop; your deny rules still apply.
+  rest of the session. Say no and nothing is sent, opened or saved.
+- **An app calls one of its server's tools.** Your permission rules decide,
+  as for Claude's own calls: what they allow runs, what they deny is
+  refused, and you're asked where they would ask, with a choice to allow
+  that tool for the rest of the session. Say no and the app's call is
+  refused.
 
 ## Requirements
 
