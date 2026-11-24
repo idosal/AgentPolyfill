@@ -9,7 +9,7 @@ A Claude Code mod that adds the consumer side of [Agentic Resource Discovery](ht
 
 It only finds. Each Server Card it finds goes to [`mcp-server-cards`](../server-cards), which checks it against the schema and shows it under the answer with an **Add** button. For a search result, `mcp-server-cards` also asks the publisher's own domain whether the server is theirs. Pressing **Add** puts the server into Claude Code's own MCP configuration, and Claude Code connects it with its own sign-in. `mcp-server-cards` is a declared dependency, installed with this plugin.
 
-**Search sends your query to a third party.** `ard_search` posts the words of your request to an ARD registry, a service someone else runs, which ranks other people's servers. The default is a Hugging Face Space at `https://huggingface-hf-discover.hf.space`, which huggingface.co's own catalog lists as its "Hugging Face Discover Registry". It is a default you can change, or empty, with the `registry` setting. Claude Code asks you before every search, showing the query and where it goes. A session with nobody to ask (`claude -p`) can't search. Every result says which registries were asked. Discovery by domain sends nothing but plain `GET`s to that domain.
+**Search sends your query to a third party.** `ard_search` posts the words of your request to an ARD registry, a service someone else runs, which ranks other people's servers. The plugin ships with no registry, so you choose which one sees your words: name it in the request (a registry base URL, or a domain whose catalog lists one), or set it with the `registry` setting. With neither, a search is refused and nothing is sent. Claude Code asks you before every search, showing the query and where it goes. A session with nobody to ask (`claude -p`) can't search. Every result says which registries were asked. Discovery by domain sends nothing but plain `GET`s to that domain.
 
 It implements:
 
@@ -54,7 +54,7 @@ Ask Claude "What MCP servers does buildkite.com list through ARD?", then press *
 1. **Ask.** For example "find an MCP server that can check why my CI build failed", or "what does buildkite.com list in its ard.json?".
 2. **Claude Code asks first.** Before the first `ard_discover`, as for any new tool. And before **every** `ard_search`: the plugin puts each search to you itself, with the query and the registry it goes to, so no allow rule or auto mode answers it. The query sent is the one shown: at most 300 characters, on one line, with no invisible characters or direction marks. If you say no, nothing is fetched or sent. With nobody to ask (`claude -p`, a background loop), every search is refused: such a session can't search.
 3. **By domain (`ard_discover`):** `mcp-server-cards` reads the domain's `/.well-known/ai-catalog.json` and `/.well-known/ard.json`, and follows `rel="ai-catalog"` and `rel="ard"` links on the page. It fetches each Server Card listed and checks it. The result and the **Add** picker appear under the `ard_discover` call.
-4. **By task (`ard_search`):** the plugin posts your query to the registry and follows the referrals it gives, one hop. It hands the Server Card results to `mcp-server-cards`, which fetches and checks each card. Then it reads each publisher's own catalogs (`ai-catalog.json` and `ard.json` on the domain in the result's `urn:air:<publisher>:…` identifier).
+4. **By task (`ard_search`):** if no registry is set and you named none, Claude asks you which one to search. The plugin posts your query to that registry and follows the referrals it gives, one hop. It hands the Server Card results to `mcp-server-cards`, which fetches and checks each card. Then it reads each publisher's own catalogs (`ai-catalog.json` and `ard.json` on the domain in the result's `urn:air:<publisher>:…` identifier).
    - A server is **confirmed** only if its publisher lists it there with a valid card, and then the publisher's card is the one shown and added.
    - Otherwise it is marked **NOT confirmed by its publisher**. Adding it is your call.
    - The registry's order is its relevance ranking, not a judgement of trust, and Claude is told to say so.
@@ -67,14 +67,14 @@ They are in `/config`, under the plugin.
 | Setting | Default | What it does |
 |---|---|---|
 | `disabled` | off | Turns the plugin fully off: no tools, nothing fetched or sent. |
-| `registry` | `https://huggingface-hf-discover.hf.space` | The base URL of the ARD registry that `ard_search` asks when the request names none: a Hugging Face Space, which huggingface.co's own catalog lists as its registry. Your query text is sent there, once you say yes. Empty: search only a registry named in the request. |
+| `registry` | empty | The base URL of an ARD registry for `ard_search` to ask when the request names none. Empty by default: no registry is chosen for you, so each search names its own. Your query text is sent to the registry, once you say yes. |
 
 ### The tools
 
 | Tool | What it does |
 |---|---|
 | `ard_discover(domain)` | Reads the domain's ARD and AI Catalog sources through `mcp-server-cards`, and shows each card it finds. Read-only. |
-| `ard_search(query, registry?)` | Posts `query` to an ARD registry, then shows the Server Cards it returns through `mcp-server-cards`. `registry` is a registry base URL, or a domain whose catalog lists a registry (an entry of type `application/ai-registry+json`, as `huggingface.co` publishes). |
+| `ard_search(query, registry?)` | Posts `query` to an ARD registry, then shows the Server Cards it returns through `mcp-server-cards`. `registry` is a registry base URL, or a domain whose catalog lists a registry (an entry of type `application/ai-registry+json`). Required unless the `registry` setting is set. |
 
 ## Client rules
 
@@ -104,12 +104,12 @@ There is one row for each rule ARD v0.91 puts on a consumer of MCP Server Cards,
 | R-7 | The publisher is the `<publisher>` domain of `urn:air:<publisher>:…` | Appendix C | mcp-server-cards O-5 | met |
 | R-8 | A claim to a publisher's name needs that publisher's attestation | §4.5.1 | mcp-server-cards O-2 to O-4, O-8, B-12; A-2 | partly: trust manifests are not verified. Instead the publisher's own catalogs (`ai-catalog.json` and `ard.json`) are read, and a result is **confirmed** only if they list the server; the publisher's card is then the one used |
 | Q-1 | Say where the query went | this plugin's own | A-2 | met: the tool's description says it, and every result names each registry asked |
-| Q-2 | The registry is a setting | this plugin's own | A-5 | met: a default the person can change, or empty; a registry named in the request is used instead |
+| Q-2 | The person chooses the registry | this plugin's own | A-5, A-10 | met: none is set by default; a registry named in the request is used, or the one in the `registry` setting; with neither, the search is refused before any ask and nothing is sent |
 | Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own, from the security review (M2) | A-7, A-8 | met: a hook-made ask that no allow rule or auto mode answers; refused with nobody to ask, so nothing is sent |
 | P-1 | A public registry can't refer the client to a local or private address | this plugin's own | P-1 | met |
 | B-1 | Bounds | this plugin's own | R-7 | three registries, three referrals, 50 results read per answer, 10 handed on, 512 KiB per answer |
 
-The default registry, the Hugging Face Space at `huggingface-hf-discover.hf.space`, is the only public ARD registry found. On 24 November 2026 it answered searches and referred to its Spaces registry, which was followed. But every MCP result it returned pointed at an MCP Registry `server.json` rather than a Server Card, so `mcp-server-cards` refuses every one (see [Findings](#findings-to-report-upstream)). Until a public registry serves valid cards, the [demo registry](#demo-registry) stands in.
+On 24 November 2026, one public ARD registry was found. It answered searches and referred to a second registry, which was followed. But every MCP result it returned pointed at an MCP Registry `server.json` rather than a Server Card, so `mcp-server-cards` refuses every one (see [Findings](#findings-to-report-upstream)). Until a public registry serves valid cards, the [demo registry](#demo-registry) stands in.
 
 ## Demo registry
 
@@ -136,14 +136,14 @@ Claude finds Buildkite, and says buildkite.com's own catalog confirms it. Press 
 
 ## Proof
 
-- **Per rule:** 16 tests in this plugin, run with `claude plugin test mod`, and the `mcp-server-cards` tests named above.
-  - A-1 to A-8 run through the plugin as Claude Code loads it, with `mcp-server-cards` and the network stood in for.
+- **Per rule:** 18 tests in this plugin, run with `claude plugin test mod`, and the `mcp-server-cards` tests named above.
+  - A-1 to A-10 run through the plugin as Claude Code loads it, with `mcp-server-cards` and the network stood in for.
   - R-1 to R-7 and P-1 test the registry client.
 - **A registry someone else runs:** Hugging Face Discover, including its referral (24 November 2026).
 - **The real host (Claude Code 2.1.329), with both plugins loaded:**
   - `ard_discover` for buildkite.com read `ai-catalog.json` and `ard.json`, and returned Buildkite's card with the picker.
   - `ard_search` against the demo registry returned Buildkite and Netlify, both confirmed. Netlify was confirmed by `netlify.com/.well-known/ard.json`, the case where only ARD's sources list a server.
-  - `ard_search` with the default registry asked Hugging Face Discover and the Spaces registry it referred to, and every result was refused as not a Server Card.
+  - `ard_search` against Hugging Face Discover asked it and the Spaces registry it referred to, and every result was refused as not a Server Card.
 - **Not yet run in the real host:** adding a server found this way. That is `mcp-server-cards`' add, with the same state as described in [its README](../server-cards/README.md#proof).
 - **Upstream conformance:** the MCP conformance suite has no Server Card or ARD scenarios (`modelcontextprotocol/conformance` at `96a6f9478b`).
 

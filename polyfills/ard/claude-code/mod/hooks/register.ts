@@ -12,6 +12,9 @@ const BY = 'ard-discovery (ARD v0.91 draft)'
 // ARD v0.91 §5.1: a consumer resolving a domain MUST fetch /.well-known/ard.json
 // (a manifest, which need not carry specVersion) and MUST honour rel="ard".
 const ARD_SOURCES = { catalogs: [{ url: '/.well-known/ard.json', requireVersion: false }], rels: ['ard'] }
+// The plugin ships with no registry: which one sees the person's words is theirs to choose.
+const NO_REGISTRY =
+  'No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as `registry`; they can also set one under the plugin in /config.'
 
 const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
 /** Text for the person's prompt: control characters out, one line, capped. */
@@ -112,7 +115,9 @@ export const register: Register = (on, options) => {
       description:
         'Search an ARD registry for MCP servers that can do a task, described in plain words ("check why my CI build failed"). ' +
         'The query text is sent to a third party: the registry ' +
-        (defaultRegistry ? `(${defaultRegistry} unless \`registry\` names another)` : '(none is configured: pass `registry`)') +
+        (defaultRegistry
+          ? `(${defaultRegistry} unless \`registry\` names another)`
+          : '(none is configured: pass `registry` with the one the person names. Do not choose a registry for them; if they have not named one, ask which)') +
         ', which ranks other people\'s servers. Its referrals are followed one hop. The results are shown through mcp-server-cards, which checks each card and whether the publisher\'s own domain lists the server. ' +
         'Use when the person asks to find a server for a task, or a task needs a capability no tool in this session has and the person has not named a service. Claude Code asks the person before every search, showing the query and where it goes; with nobody to ask, the search is refused. ' +
         'Say which registry answered, that its order is relevance, not trust, and which results their publisher confirms.',
@@ -122,7 +127,9 @@ export const register: Register = (on, options) => {
           query: { type: 'string', description: 'What the person needs, in plain words. It is sent to the registry.' },
           registry: {
             type: 'string',
-            description: 'Optional: a domain whose catalog lists a registry ("huggingface.co"), or a registry base URL. Default: the configured registry.',
+            description:
+              'A registry base URL, or a domain whose catalog lists a registry (an application/ai-registry+json entry): the one the person names. ' +
+              (defaultRegistry ? 'Leave it out to use the configured registry.' : 'No registry is configured, so a search without it is refused.'),
           },
         },
         required: ['query'],
@@ -147,16 +154,17 @@ export const register: Register = (on, options) => {
   on('tool.check', { tool: `mcp__${PLUGIN}__${SEARCH}` }, async ($, e, next) => {
     const verdict = await next(e)
     if (verdict.decision === 'deny') return verdict
-    if (e.approver === undefined)
-      return { decision: 'deny' as const, reason: 'A search sends your words to a registry someone else runs, and nobody can be asked in this session.' }
     const input = (e.input ?? {}) as Record<string, unknown>
     const named = shown(str(input.registry) ?? defaultRegistry, 200)
+    // No registry is chosen for the person: with none set and none named,
+    // there is nothing to ask about, and nothing is sent.
+    if (!named) return { decision: 'deny' as const, reason: NO_REGISTRY }
+    if (e.approver === undefined)
+      return { decision: 'deny' as const, reason: 'A search sends your words to a registry someone else runs, and nobody can be asked in this session.' }
     const query = shown(str(input.query) ?? '', SHOWN_QUERY)
-    const reason = !named
-      ? `Send this search to (no registry)? "${query}"`
-      : /^https?:\/\//i.test(named)
-        ? `Send this search to ${named}, and to up to three registries it refers to? "${query}"`
-        : `Send this search to the registries that ${named} lists (up to three), and to up to three registries they refer to? "${query}"`
+    const reason = /^https?:\/\//i.test(named)
+      ? `Send this search to ${named}, and to up to three registries it refers to? "${query}"`
+      : `Send this search to the registries that ${named} lists (up to three), and to up to three registries they refer to? "${query}"`
     return { decision: 'ask' as const, reason }
   }).catch(($, e, next) => ({
     decision: 'ask' as const,
@@ -174,7 +182,7 @@ export const register: Register = (on, options) => {
     if (UNSEEN.test(query))
       return { deny: 'Write the search on one line, without control characters or direction marks, so the person sees exactly what is sent.' }
     const asked = (str(input.registry) ?? defaultRegistry).trim()
-    if (!asked) return { deny: 'No registry is configured; pass `registry` (a domain whose catalog lists one, or a registry base URL).' }
+    if (!asked) return { deny: NO_REGISTRY }
 
     // A domain whose catalogs list registries (application/ai-registry+json) is
     // used through those entries, read by mcp-server-cards under its address
