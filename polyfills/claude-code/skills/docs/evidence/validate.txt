@@ -1,0 +1,56 @@
+$ claude plugin validate . && claude plugin validate mod
+Validating marketplace manifest: <repo>/.claude-plugin/marketplace.json
+
+Validating hooks: <repo>/mod/hooks/hooks.json
+
+  ❯ ./register.ts hooks: session.start, prompt.attachment{type=skill_listing}, tool.run{tool=mcp__mcp-skills__load_skill}, tool.run{tool=mcp__mcp-skills__read_skill_file}, tool.run{tool=mcp__mcp-skills__list_skill_directory}, tool.run{tool=mcp__mcp-skills__list_skills}, tool.check, skill.prompt, command.run{command=mcp-skills}, ui.render{component=Pane, requestId=mcp-skills-preview} (default matcher key: plugin), session.end
+  ❯ ./register.ts answers its own command: command.run{command=mcp-skills}
+  ❯ ./register.ts gating hook with .catch: tool.run{tool=mcp__mcp-skills__load_skill}
+  ❯ ./register.ts gating hook with .catch: tool.run{tool=mcp__mcp-skills__read_skill_file}
+  ❯ ./register.ts gating hook with .catch: tool.run{tool=mcp__mcp-skills__list_skill_directory}
+  ❯ ./register.ts gating hook with .catch: tool.run{tool=mcp__mcp-skills__list_skills}
+  ❯ ./register.ts gating hook with .catch: tool.check
+  ❯ ./register.ts calls: $.clock.after, $.clock.now (via ensureHelper, serve), $.clock.sleep, $.command.list, $.command.register, $.env.get, $.http.fetch (via post), $.mcp.connect (via onMessage), $.process.hookEnv (via ensureHelper), $.process.run (via runtime), $.process.spawn (via ensureHelper), $.prompt.submit, $.session.messages (via actingSkills), $.store.get (via approvals), $.store.set, $.tool.list, $.tool.register, $.ui.invalidate, $.ui.log (via debug), $.ui.open, $.ui.resolve, $.ui.toast
+  ❯ ./register.ts env writes: nothing
+  ❯ ./register.ts env reads: HOME, MCP_SKILLS_EXECUTION_TOOLS, MCP_SKILLS_OFF, SHELL
+
+✔ Validation passed
+Validating plugin manifest: <repo>/mod/.claude-plugin/plugin.json
+
+Validating hooks: <repo>/mod/hooks/hooks.json
+
+  ❯ ./register.ts hooks: session.start, prompt.attachment{type=skill_listing}, tool.run{tool=mcp__mcp-skills__load_skill}, tool.run{tool=mcp__mcp-skills__read_skill_file}, tool.run{tool=mcp__mcp-skills__list_skill_directory}, tool.run{tool=mcp__mcp-skills__list_skills}, tool.check, skill.prompt, command.run{command=mcp-skills}, ui.render{component=Pane, requestId=mcp-skills-preview} (default matcher key: plugin), session.end
+  ❯ ./register.ts answers its own command: command.run{command=mcp-skills}
+  ❯ ./register.ts gating hook with .catch: tool.run{tool=mcp__mcp-skills__load_skill}
+  ❯ ./register.ts gating hook with .catch: tool.run{tool=mcp__mcp-skills__read_skill_file}
+  ❯ ./register.ts gating hook with .catch: tool.run{tool=mcp__mcp-skills__list_skill_directory}
+  ❯ ./register.ts gating hook with .catch: tool.run{tool=mcp__mcp-skills__list_skills}
+  ❯ ./register.ts gating hook with .catch: tool.check
+  ❯ ./register.ts calls: $.clock.after, $.clock.now (via ensureHelper, serve), $.clock.sleep, $.command.list, $.command.register, $.env.get, $.http.fetch (via post), $.mcp.connect (via onMessage), $.process.hookEnv (via ensureHelper), $.process.run (via runtime), $.process.spawn (via ensureHelper), $.prompt.submit, $.session.messages (via actingSkills), $.store.get (via approvals), $.store.set, $.tool.list, $.tool.register, $.ui.invalidate, $.ui.log (via debug), $.ui.open, $.ui.resolve, $.ui.toast
+  ❯ ./register.ts env writes: nothing
+  ❯ ./register.ts env reads: HOME, MCP_SKILLS_EXECUTION_TOOLS, MCP_SKILLS_OFF, SHELL
+
+Provides:
+
+  ❯ modules: hooks/register.ts
+
+Hosts not read for: modules (1)
+Hosts not declared: list what these parts reach under "network.hosts" in plugin.json
+
+Plugin directory checks for <repo>/mod. The plugin directory is the catalog that plugins are submitted to; this is a subset of what it runs.
+
+⚠ Found 1 plugin directory warning:
+
+  ❯ .claude-plugin/plugin.json icon: No icon (ICON_MISSING). No icon found in the plugin. The validator looked for `icon` in plugin.json and for a file at .claude-plugin/icon.png or .svg, assets/icon.png or .svg, or a similar path.
+    Fix: Add a square PNG to the plugin folder at .claude-plugin/icon.png, or set `icon` in plugin.json to the path of a square PNG or JPEG in the plugin: 512 to 2048 px on each side, under 2 MB. SVG and WebP are not accepted. That file may become the listing icon only once: the first time the plugin is saved or submitted in the developer portal. Adding or changing it later does not change the icon.
+
+About these checks:
+
+  ❯ The repository root was taken to be <repo>, the nearest parent folder with a .git folder or file. README.md was taken from it, because this plugin folder has none of its own. For a plugin submitted from a git repository, the repository root is the top folder of that repository, with only what is committed there, so check that the folder named above is that top folder.
+  ❯ hooks/hooks.json names a hooks module (a code file listed under `modules`). The plugin directory has rules of its own for such code, and these checks apply none of them, so passing here does not mean the directory accepts the plugin. The developer portal's own validation applies those rules.
+
+These plugin directory checks do not change the result below.
+
+The directory also runs a safety scan and a policy review that this command does not.
+
+✔ Validation passed

@@ -1,0 +1,28 @@
+
+  - Q6_K: pick this for code or technical work, or if you just want the best quality. It
+    is nearly lossless and still leaves about 7 GB for macOS and your other apps.
+  - Q5_K_M: pick this if you want a long context window or keep a lot of other things
+    open.
+  - Q4_K_M: only worth it if you care most about speed or memory is under pressure.
+  - Q8_0: skip it. The quality gain over Q6_K is negligible, it runs slower, and it eats
+    into the memory the Mac shares between the system and the GPU.
+
+  To run one with llama.cpp on a Mac:
+
+  brew install llama.cpp
+  llama-server -hf <repo>:Q6_K
+
+  Sizes vary a little between models, so check the specific repo's ?local-app=llama.cpp
+  page on Hugging Face for its exact quant labels and sizes. If you tell me which model
+  you have in mind, I can look up the exact files.
+
+✻ Brewed for 12s · done 1:59 AM
+
+────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────
+  Press Ctrl-C again to exit
+
+Resume this session with:
+claude --resume 5206625e-d58b-4ed6-960b-9abd6d723c9b
+

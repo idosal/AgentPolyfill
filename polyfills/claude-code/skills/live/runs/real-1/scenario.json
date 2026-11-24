@@ -1,0 +1,222 @@
+{
+ "cmd": [
+  "claude",
+  "--plugin-dir",
+  "<repo>/mod",
+  "--setting-sources",
+  "project",
+  "--permission-mode",
+  "default",
+  "--allowedTools",
+  "Bash"
+ ],
+ "cwd": "<repo>/live/runs/real-1/project",
+ "env": {
+  "MCP_SKILLS_SOURCES": "project",
+  "MCP_SKILLS_STATE": "<repo>/live/runs/real-1/state"
+ },
+ "cols": 120,
+ "rows": 50,
+ "steps": [
+  {
+   "wait": "trust this folder|❯",
+   "timeout": 40
+  },
+  {
+   "when": "trust this folder",
+   "steps": [
+    {
+     "sleep": 1.5
+    },
+    {
+     "key": "down",
+     "after": 0.8
+    },
+    {
+     "key": "enter",
+     "after": 3
+    }
+   ]
+  },
+  {
+   "wait": "❯",
+   "timeout": 60
+  },
+  {
+   "sleep": 8
+  },
+  {
+   "keys": "/mcp-skills forget",
+   "delay": 0.03
+  },
+  {
+   "sleep": 0.6
+  },
+  {
+   "key": "enter",
+   "after": 2
+  },
+  {
+   "wait": "approval",
+   "timeout": 30
+  },
+  {
+   "sleep": 1
+  },
+  {
+   "keys": "/mcp-skills",
+   "delay": 0.03
+  },
+  {
+   "sleep": 0.6
+  },
+  {
+   "key": "enter",
+   "after": 2
+  },
+  {
+   "wait": "Have Claude use one",
+   "timeout": 60
+  },
+  {
+   "sleep": 2
+  },
+  {
+   "snap": "01-status"
+  },
+  {
+   "keys": "/mcp-skills show huggingface-local-models",
+   "delay": 0.03
+  },
+  {
+   "sleep": 0.6
+  },
+  {
+   "key": "enter",
+   "after": 2
+  },
+  {
+   "wait": "Claude has not read this",
+   "timeout": 60
+  },
+  {
+   "sleep": 3
+  },
+  {
+   "snap": "02-preview"
+  },
+  {
+   "key": "esc",
+   "after": 2
+  },
+  {
+   "keys": "I have a Mac with 16 GB of memory. Which GGUF quantization should I pick to run a 7B model with llama.cpp, and what command starts it? Use a skill if one fits.",
+   "delay": 0.03
+  },
+  {
+   "sleep": 0.6
+  },
+  {
+   "key": "enter",
+   "after": 2
+  },
+  {
+   "wait": "Do you want to proceed",
+   "timeout": 180
+  },
+  {
+   "sleep": 3
+  },
+  {
+   "snap": "03-approval"
+  },
+  {
+   "key": "enter",
+   "after": 2
+  },
+  {
+   "wait": "Q4_K_M(.|\\n)*· done ",
+   "timeout": 300
+  },
+  {
+   "sleep": 6
+  },
+  {
+   "expect_absent": "Do you want to proceed"
+  },
+  {
+   "snap": "04-answer"
+  },
+  {
+   "keys": "Now run this in the shell: echo approved-skill-runs",
+   "delay": 0.03
+  },
+  {
+   "sleep": 0.6
+  },
+  {
+   "key": "enter",
+   "after": 2
+  },
+  {
+   "wait": "approved-skill-runs(.|\\n)*approved-skill-runs(.|\\n)*approved-skill-runs",
+   "timeout": 120
+  },
+  {
+   "sleep": 5
+  },
+  {
+   "expect_absent": "Do you want to proceed"
+  },
+  {
+   "snap": "05-command"
+  },
+  {
+   "keys": "One more: which TogoMCP skill should I start from before using any of its tools? Load it and tell me its first instruction in one sentence.",
+   "delay": 0.03
+  },
+  {
+   "sleep": 0.6
+  },
+  {
+   "key": "enter",
+   "after": 2
+  },
+  {
+   "wait": "Do you want to proceed",
+   "timeout": 180
+  },
+  {
+   "sleep": 3
+  },
+  {
+   "snap": "06-second-approval"
+  },
+  {
+   "key": "enter",
+   "after": 2
+  },
+  {
+   "wait": "One more: which TogoMCP skill(.|\\n)*· done ",
+   "timeout": 300
+  },
+  {
+   "sleep": 6
+  },
+  {
+   "snap": "07-second-answer"
+  },
+  {
+   "key": "ctrl-c",
+   "after": 0.5
+  },
+  {
+   "key": "ctrl-c",
+   "after": 0.5
+  },
+  {
+   "key": "ctrl-c",
+   "after": 2
+  }
+ ]
+}

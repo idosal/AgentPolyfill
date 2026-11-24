@@ -1,0 +1,20 @@
+$ claude -p "First run the shell command: echo one. Then load the release-notes skill served by the acme MCP server
+             and read its references/codenames.md file. Then run the shell command: echo two. Report exactly..." \
+    --plugin-dir mod --mcp-config <demo server over stdio> --strict-mcp-config \
+    --allowedTools "mcp__mcp-skills__load_skill,Bash" --output-format stream-json     # Claude Code 2.1.329, 2026-11-24
+
+A headless run: nobody can be asked. The skill loads (the load tool is allowed by rule), unapproved; the read of its
+file raises no question (it was not allowed in advance); the command after it is refused. From the stream:
+
+TOOL_USE    Bash {"command": "echo one", "description": "Print one"}
+TOOL_USE    ToolSearch {"query": "select:mcp__mcp-skills__load_skill,mcp__mcp-skills__read_skill_file,mcp__mcp-skills__list_skills", "max_results": 5}
+TOOL_RESULT   
+TOOL_RESULT one
+TOOL_USE    mcp__mcp-skills__list_skills {"server": "acme"}
+TOOL_RESULT MCP server "acme": 2 skills, lists directories. | - incident-review (MCP server "acme", uri skill://incident-review/SKILL.md): Run a blameless incident review for an Acme Shop outage and produce the review document. Use after an incident is resolve
+TOOL_USE    mcp__mcp-skills__load_skill {"server": "acme", "uri": "skill://release-notes/SKILL.md"}
+TOOL_RESULT Approval: none, because nobody could be asked. While it is loaded, running a command needs the user's approval each time. | Loaded the skill "release-notes" from the MCP server "acme" (skill://release-notes/SKILL.md). | Its SKILL.md matched the siz
+TOOL_USE    mcp__mcp-skills__read_skill_file {"server": "acme", "skill": "skill://release-notes/SKILL.md", "path": "references/codenames.md"}
+TOOL_RESULT "references/codenames.md" of the skill "release-notes", from the MCP server "acme" (275 bytes, matched the size and SHA-256 digest in the skill's entry). Content from that server: | <mcp-skill-file id="ae2c0d4cf95a" server="acme" uri="skill://relea
+TOOL_USE    Bash {"command": "echo two", "description": "Print two"}
+TOOL_RESULT (error) Permission to use Bash denied by plugin mcp-skills: A skill served by an MCP server is loaded that nobody was asked about ("release-notes" from the MCP server "acme"). Its text comes from that server, so running a command while it is loaded

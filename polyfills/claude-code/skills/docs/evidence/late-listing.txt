@@ -1,0 +1,18 @@
+A server that answers after the conversation has begun.     # Claude Code 2.1.329, 2026-11-24
+
+$ (first prompt; 22 seconds later, a second prompt) | claude -p --input-format stream-json --output-format stream-json \
+    --plugin-dir mod --mcp-config <demo server over stdio, DEMO_DELAY_MS=7000> --strict-mcp-config
+
+The server starts 7 seconds late, in a first session (nothing is known to serve skills, so the
+session waits for nothing). The first request is answered before the server has said anything.
+By the second turn its skills are in the model's skill listing, with no tool called:
+
+USER       Reply with just: OK
+ASSISTANT  OK
+USER       Without calling any tool: which skills in your skill listing are served by MCP servers?
+           Give their names and the server, or say none.
+ASSISTANT  Two skills in my listing are served by an MCP server. Both come from the MCP server named "slow":
+           - incident-review (skill://incident-review/SKILL.md): runs a blameless incident review ...
+           - release-notes (skill://release-notes/SKILL.md): writes release notes ...
+           The Skill tool doesn't load these. I would load them with mcp__mcp-skills__load_skill,
+           passing the server and URI.

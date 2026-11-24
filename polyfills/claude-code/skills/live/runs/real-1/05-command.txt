@@ -1,0 +1,50 @@
+     , matched the size and SHA-256 digest in the skill's entry). Content from that server:
+     <mcp-skill-file id="7558196c9585" server="huggingface" uri="skill://huggingface-local-models/references/hardwa
+     … +40 lines (ctrl+o to expand)
+
+⏺ I used the huggingface-local-models skill from the Hugging Face server. Pick Q4_K_M: for a 7B model it is about a 4.1
+  GB file needing roughly 7 GB of RAM, which leaves plenty of your 16 GB for macOS and other apps.
+
+  To start it (Homebrew's build uses Metal on Apple Silicon):
+
+  brew install llama.cpp
+  llama-cli -hf <repo>:Q4_K_M
+
+  Replace <repo> with the GGUF repo of the model you want; you didn't name one, so I haven't checked a specific repo.
+  Use llama-server instead of llama-cli if you want an OpenAI-compatible server on http://localhost:8080 rather than a
+  terminal chat.
+
+  You have room to go higher if quality matters more than speed. The figures below are the skill's generic 7B table, not
+  measured on your machine:
+
+  ┌────────┬───────────┬────────────┬────────────────────────────────────────────────────────────┐
+  │ Quant  │ File size │ RAM needed │                      When to pick it                       │
+  ├────────┼───────────┼────────────┼────────────────────────────────────────────────────────────┤
+  │ Q4_K_M │ 4.1 GB    │ 7 GB       │ Default: best balance of quality and speed                 │
+  ├────────┼───────────┼────────────┼────────────────────────────────────────────────────────────┤
+  │ Q5_K_M │ 4.8 GB    │ 8 GB       │ Code or technical work                                     │
+  ├────────┼───────────┼────────────┼────────────────────────────────────────────────────────────┤
+  │ Q6_K   │ 5.5 GB    │ 9 GB       │ Higher quality, still comfortable on 16 GB                 │
+  ├────────┼───────────┼────────────┼────────────────────────────────────────────────────────────┤
+  │ Q8_0   │ 7.0 GB    │ 11 GB      │ Nearly lossless, but slower and tight alongside other apps │
+  └────────┴───────────┴────────────┴────────────────────────────────────────────────────────────┘
+
+  Some repos use their own labels (for example UD-Q4_K_M), so use the tag exactly as the repo lists it. The model's page
+  at https://huggingface.co/<repo>?local-app=llama.cpp shows the available quants and the exact command.
+
+✻ Worked for 13s · done 1:55 AM
+
+❯ Now run this in the shell: echo approved-skill-runs
+
+⏺ Bash(echo approved-skill-runs)
+  ⎿  approved-skill-runs
+
+⏺ It ran and printed approved-skill-runs.
+
+✻ Worked for 2s · done 1:55 AM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ manual mode on · ? for shortcuts
+
