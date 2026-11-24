@@ -120,9 +120,11 @@ async function runtime($: EngineInterface): Promise<string[]> {
   }
   const own = async (): Promise<string[] | undefined> => {
     const data = await dataFolder($).catch(() => undefined)
-    const [copy] = data ? await fetched($, data) : []
+    // Only the release this version of the mod pins and checked when it was fetched: a copy of any
+    // other version in that folder, whoever put it there, is never run.
+    const copy = data ? (await fetched($, data)).find((c) => c.version === BUN.version) : undefined
     if (!copy) return undefined
-    state.ownRuntime = `its own copy of Bun ${copy.version}${copy.version === BUN.version ? '' : ` (/mcp-skills setup fetches ${BUN.version})`}`
+    state.ownRuntime = `its own copy of Bun ${copy.version}`
     return [copy.path]
   }
   const offer = async () =>

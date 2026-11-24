@@ -136,12 +136,14 @@ match is one named file unpacked, checked to answer with the expected
 version, and moved into the plugin's data folder; otherwise the download is
 deleted and nothing of it is run; a file that cannot be deleted is left not
 runnable, and you are told where it is. The command is honoured only from your
-own input at the prompt: Claude cannot run it, and neither can a script, another
-session or `claude -p`. Two sessions cannot fetch at once (the second is told
+own input: typed at the prompt, or sent from your own Remote Control. Claude
+cannot run it, and neither can a script, another session or `claude -p`. Two sessions cannot fetch at once (the second is told
 to wait).
 No server, skill or project file can change what is downloaded or from where.
-The copy is used only to run this mod's helper; your PATH and shell profile
-are not touched; `/mcp-skills setup remove` deletes it. A newer Bun arrives
+The SHA-256 is checked when the copy is fetched, not each time it runs, and
+only the copy of the pinned version is ever run, so a copy of another version
+put in that folder is ignored. The copy is used only to run this mod's helper;
+your PATH and shell profile are not touched; `/mcp-skills setup remove` deletes it. A newer Bun arrives
 only with a newer version of the mod, and only when you run the command
 again.
 
