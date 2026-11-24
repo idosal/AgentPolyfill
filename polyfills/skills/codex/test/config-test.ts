@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { describe, test } from 'node:test';
 import { codexHomeOf, managedPolicy, parseServers, readCodexConfig, readSkillRules } from '../src/config.ts';
 import { Store } from '../src/store.ts';
@@ -94,7 +94,8 @@ url = "https://example.com/mcp"
 
     test('[[skills.config]] rules are read, by path and by name, in order', () => {
         const dir = home('[[skills.config]]\npath = "/p/SKILL.md"\nenabled = false\n\n[[skills.config]]\nname = "mcp-skills:hf:x"\nenabled = true\n\n[[skills.config]]\nenabled = false\n');
-        assert.deepEqual(readSkillRules(join(dir, 'config.toml')), [{ path: '/p/SKILL.md', enabled: false }, { name: 'mcp-skills:hf:x', enabled: true }]);
+        // A rule's path is resolved against the config's folder, as the platform does: on Windows '/p/SKILL.md' takes that folder's drive.
+        assert.deepEqual(readSkillRules(join(dir, 'config.toml')), [{ path: resolve(dir, '/p/SKILL.md'), enabled: false }, { name: 'mcp-skills:hf:x', enabled: true }]);
     });
 
     test('CODEX_HOME is found from an installed plugin\'s path, where Codex does not pass the variable', () => {
