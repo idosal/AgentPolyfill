@@ -12,6 +12,7 @@ on:
     branches: ["**"]
     paths:
       - "polyfills/claude-code/skills/**"
+      - "tools/bundle-notices.mjs"
       - ".claude-plugin/marketplace.json"
       - ".github/workflows/mcp-skills-test.yml"
   # Pull requests from forks; a branch of this repository is checked by its
@@ -19,6 +20,7 @@ on:
   pull_request:
     paths:
       - "polyfills/claude-code/skills/**"
+      - "tools/bundle-notices.mjs"
       - ".claude-plugin/marketplace.json"
       - ".github/workflows/mcp-skills-test.yml"
 
@@ -55,6 +57,8 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm run typecheck
+      - name: Third-party notices for the bundle are up to date
+        run: node ../../../tools/bundle-notices.mjs . --check
       - run: npm test
       # The official TypeScript SDK's Skills server and client, over stdio and HTTP.
       - run: npm run interop
