@@ -2,8 +2,13 @@
 // The launch video, loaded only when played. Until then its poster is shown
 // whole, with a play button of the site's own, so the browser's control bar
 // does not cover the poster's caption; once it plays, the browser's controls
-// take over for seeking and full screen. Without JavaScript the browser's
-// controls are there from the start.
+// take over for seeking and full screen.
+//
+// The poster is an <img> over the video rather than the video's own poster:
+// it can take srcset (a phone fetches a 960-pixel WebP, not the 1920-pixel
+// frame) and fetchpriority (it is the largest thing on the first screen).
+// Phones also get the 720p file. Without JavaScript the image is hidden (a
+// <noscript> style in config.mts) and the browser's controls are there.
 import { onMounted, ref } from 'vue'
 import { withBase } from 'vitepress'
 import media from '../../../media.json'
@@ -13,6 +18,9 @@ const seconds = Math.round(launch.seconds)
 // A new render keeps the file name, so its hash goes in the URL: browsers that
 // kept the old one fetch the new one.
 const version = launch.sha256.slice(0, 12)
+const src = (file: string) => withBase(`/media/${file}?v=${version}`)
+const posterName = launch.poster.replace(/\.jpg$/, '')
+const srcset = launch.webp.map((w) => `${withBase(`/media/p/${posterName}-${w}.webp`)}?v=${version} ${w}w`).join(', ')
 const video = ref<HTMLVideoElement>()
 const hydrated = ref(false)
 const started = ref(false)
@@ -35,12 +43,24 @@ function play() {
         preload="none"
         :width="launch.width"
         :height="launch.height"
-        :poster="withBase(`/media/${launch.poster}?v=${version}`)"
         :aria-label="`The AgentPolyfill launch video. ${launch.description}`"
         @play="started = true"
       >
-        <source :src="withBase(`/media/${launch.file}?v=${version}`)" type="video/mp4" />
+        <source v-if="launch.small" :src="src(launch.small.file)" type="video/mp4" media="(max-width: 799px)" />
+        <source :src="src(launch.file)" type="video/mp4" />
       </video>
+      <img
+        v-show="!started"
+        class="poster"
+        :srcset="srcset"
+        sizes="(min-width: 1280px) 1152px, calc(100vw - 48px)"
+        :src="`${withBase(`/media/p/${posterName}-${launch.webp[0]}.webp`)}?v=${version}`"
+        :width="launch.width"
+        :height="launch.height"
+        alt=""
+        fetchpriority="high"
+        decoding="async"
+      />
       <button v-if="hydrated && !started" type="button" class="play" :aria-label="`Play the launch video, ${seconds} seconds`" @click="play">
         <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
           <path d="M4.5 2.9v10.2a.6.6 0 0 0 .92.5l8.03-5.1a.6.6 0 0 0 0-1L5.42 2.4a.6.6 0 0 0-.92.5z" />
@@ -68,6 +88,14 @@ function play() {
    put a shadow on every dark-mode image, the logos included. */
 :global(.dark .ap-launch .frame) {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 24px -16px rgba(0, 0, 0, 0.7);
+}
+.poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
 }
 video {
   display: block;
