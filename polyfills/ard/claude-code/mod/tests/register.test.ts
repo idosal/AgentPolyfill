@@ -251,7 +251,7 @@ test('A-12 a query or registry holding hidden characters (tag characters, variat
   })
   on('tool.check', { tool: SEARCH }, () => ({ decision: 'allow' }))
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-  for (const query of ['check my CI\u{E0073}\u{E0065}\u{E0063}', 'check my CI\ufe0f', 'check my C\u00adI']) {
+  for (const query of ['check my CI\u{E0073}\u{E0065}\u{E0063}', 'check my CI\ufe0f', 'check my C\u00adI', 'check my\u2800CI']) {
     const ran = await $.tool.run({ tool: SEARCH, tool_use_id: 'a12', query, registry: 'https://registry.example/api' } as never)
     expect(String((ran as { deny?: string }).deny)).toContain('without control characters')
   }

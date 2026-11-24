@@ -247,3 +247,12 @@ test('A-25 a filled-in URL that names a user before its host is refused, and the
   expect(hostOf('https://good.example@evil.example/mcp')).toBe('evil.example')
   expect(hostOf('https://mcp.example.com/${MCP_X__TOKEN_ABC}/mcp')).toBe('mcp.example.com')
 })
+
+test('A-26 a header value that would be written with characters that show as nothing is refused, from the card or given: what the person is asked about is what is written', async () => {
+  const card = (h: unknown) => ({ ...buildkite, remotes: [{ type: 'streamable-http', url: 'https://x.example.com/mcp', headers: [h] }] }) as unknown as ServerCard
+  for (const hidden of ['acme\u{e0041}\u{e0042}', 'acme\ufe0f', 'ac\u00adme']) {
+    expect('error' in planAdd(card({ name: 'X-Workspace', value: hidden }), 0, {}, 'x', 'local')).toBe(true)
+    expect('error' in planAdd(card({ name: 'X-Workspace', isRequired: true }), 0, { 'X-Workspace': hidden }, 'x', 'local')).toBe(true)
+  }
+  expect('plan' in planAdd(card({ name: 'X-Workspace', isRequired: true }), 0, { 'X-Workspace': 'acme' }, 'x', 'local')).toBe(true)
+})
