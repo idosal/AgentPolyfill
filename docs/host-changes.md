@@ -91,6 +91,8 @@ Smaller things that would help on Codex:
 - **The approval mode in each tool call's metadata.** Put the approval policy and reviewer, and whether approvals are bypassed, in `x-codex-turn-metadata`. Then an MCP server can tell a form Codex answered itself (under `--dangerously-bypass-approvals-and-sandbox` it accepts every elicitation) from one a person answered.
 - **Headers in `codex mcp add`.** Add `--header` and `--env-header`, and a way to add a server without starting its sign-in, so a plugin can add any remote a Server Card describes without writing the config itself.
 - **MCP Apps in the terminal.** `enable_mcp_apps` passes the extension on only where the host declares it, and the terminal doesn't. No plugin can supply this.
+- **Start a resumed session's plugin MCP servers when it opens**, as for a new session. Today they start at the first tool call, so the Events polyfill's watches for a resumed session wait for one.
+- **Mark a turn started from outside.** `codex queue` input arrives as an input message; a turn an extension starts should reach the model and the UI marked as the extension's, not the person's.
 
 ## Questions these changes raise
 
