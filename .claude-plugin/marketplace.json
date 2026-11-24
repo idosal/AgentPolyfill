@@ -14,7 +14,7 @@
     {
       "name": "mcp-events",
       "description": "MCP Events (SEP-3415): Claude can watch events on your MCP servers (poll, push or webhook) and react when they happen, even while the session is idle",
-      "source": "./polyfills/claude-code/events/mod"
+      "source": "./polyfills/events/claude-code/mod"
     },
     {
       "name": "mcp-apps-cli",
@@ -28,17 +28,17 @@
     {
       "name": "mcp-skills",
       "description": "MCP Skills (SEP-2640): skills served by your MCP servers are listed for Claude, loaded when a task needs one, and checked against the server's manifest",
-      "source": "./polyfills/claude-code/skills/mod"
+      "source": "./polyfills/skills/claude-code/mod"
     },
     {
       "name": "mcp-server-cards",
       "description": "MCP Server Cards (SEP-2127): Claude finds the MCP servers a domain publishes, checks their Server Cards, and adds one to Claude Code's own config with a click",
-      "source": "./polyfills/claude-code/server-cards/mod"
+      "source": "./polyfills/server-cards/claude-code/mod"
     },
     {
       "name": "ard-discovery",
       "description": "Agentic Resource Discovery (ARD v0.91, a draft outside MCP): find MCP servers through a domain's ard.json or by searching an ARD registry (each search asks you first); installs mcp-server-cards with it",
-      "source": "./polyfills/claude-code/ard/mod"
+      "source": "./polyfills/ard/claude-code/mod"
     },
     {
       "name": "polyfill-author",

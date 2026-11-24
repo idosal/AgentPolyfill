@@ -46,7 +46,7 @@ documents and adds a server to Claude Code's own config, only when you press
   make an event up. The operator of a relay can read webhook payloads: with your
   own relay that is you, and the opt-in public relay is run by the mod's author.
 
-[Events `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/events/SECURITY.md)
+[Events `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md)
 
 ### Apps
 
@@ -61,7 +61,7 @@ documents and adds a server to Claude Code's own config, only when you press
 - Context an app sets reaches the model with your next prompt, without being
   shown to you.
 
-[Apps `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/apps/SECURITY.md)
+[Apps `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md)
 lists each finding of the review of 24 November 2026 and where it stands.
 
 ### Skills
@@ -78,7 +78,7 @@ lists each finding of the review of 24 November 2026 and where it stands.
 - A skill you disabled is not offered, loaded or read, whatever a rule or mode
   allows, until you enable it again; Claude cannot enable it.
 
-[Skills `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/skills/SECURITY.md)
+[Skills `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/SECURITY.md)
 
 ### Server Cards
 
@@ -95,7 +95,7 @@ lists each finding of the review of 24 November 2026 and where it stands.
 - A public name that resolves to a private address, or a redirect to one, is
   not caught.
 
-[Server Cards `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/server-cards/SECURITY.md)
+[Server Cards `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md)
 
 ### ARD discovery
 
@@ -106,7 +106,7 @@ lists each finding of the review of 24 November 2026 and where it stands.
 - Discovery by domain sends no query, only plain `GET`s to that domain.
 - Everything it finds goes through `mcp-server-cards`' checks. It writes nothing.
 
-[ARD `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/ard/SECURITY.md)
+[ARD `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md)
 
 ## What was checked, and how
 

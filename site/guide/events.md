@@ -52,13 +52,13 @@ To stop: "Stop watching the demo button."
 
 ### Or run a demo server yourself
 
-The polyfill's [`demo/`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/claude-code/events/demo)
+The polyfill's [`demo/`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/claude-code/demo)
 folder holds a small Events server: a "deploys" service with a page of
 buttons. It needs Node 22.18 or newer.
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill
-cd AgentPolyfill/polyfills/claude-code/events/demo
+cd AgentPolyfill/polyfills/events/claude-code/demo
 npm install
 DEPLOYS_TOKEN=demo-token npm start
 ```
@@ -291,7 +291,7 @@ How it is checked:
   `SECURITY.md`.
 
 The full account, including what it does not protect against:
-[`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/events/SECURITY.md).
+[`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md).
 
 ## The mod's own runtime
 
@@ -324,11 +324,11 @@ to see what Claude Code's own MCP client supports.
 
 ## More
 
-On GitHub, in [`polyfills/claude-code/events`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/claude-code/events):
+On GitHub, in [`polyfills/events/claude-code`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/claude-code):
 
-- [`README.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/events/README.md): the full guide, the mod's own runtime, development.
-- [`docs/conformance.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/events/docs/conformance.md): every client-side rule of SEP-3415, with the code and the test for each.
-- [`model/`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/events/model/README.md): the formal model, what it found, and what it shows within its bounds.
-- [`docs/sign-in.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/events/docs/sign-in.md): servers that need credentials, and why interactive OAuth is out of reach.
-- [`docs/performance.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/events/docs/performance.md): what it costs to run.
-- [`docs/live-run.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/events/docs/live-run.md): a transcript of a live session.
+- [`README.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/README.md): the full guide, the mod's own runtime, development.
+- [`docs/conformance.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/docs/conformance.md): every client-side rule of SEP-3415, with the code and the test for each.
+- [`model/`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/model/README.md): the formal model, what it found, and what it shows within its bounds.
+- [`docs/sign-in.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/docs/sign-in.md): servers that need credentials, and why interactive OAuth is out of reach.
+- [`docs/performance.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/docs/performance.md): what it costs to run.
+- [`docs/live-run.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/docs/live-run.md): a transcript of a live session.

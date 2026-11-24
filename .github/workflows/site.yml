@@ -9,12 +9,12 @@ on:
     paths:
       - "site/**"
       - ".github/workflows/site.yml"
-      - "polyfills/claude-code/*/docs/media/**"
+      - "polyfills/*/claude-code/docs/media/**"
   pull_request:
     paths:
       - "site/**"
       - ".github/workflows/site.yml"
-      - "polyfills/claude-code/*/docs/media/**"
+      - "polyfills/*/claude-code/docs/media/**"
 
 permissions:
   contents: read

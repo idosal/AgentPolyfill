@@ -1,4 +1,4 @@
-# The Skills polyfill (polyfills/claude-code/skills, plugin mcp-skills), on
+# The Skills polyfill (polyfills/skills/claude-code, plugin mcp-skills), on
 # any change in its folder or in the marketplace file its tests read:
 # - the client rules, discovery and the bundled helper (and that it is what
 #   src/ builds), with a typecheck and the run against the official
@@ -13,7 +13,7 @@ on:
   push:
     branches: ["**"]
     paths:
-      - "polyfills/claude-code/skills/**"
+      - "polyfills/skills/claude-code/**"
       - "tools/bundle-notices.mjs"
       - ".claude-plugin/marketplace.json"
       - ".github/workflows/mcp-skills-test.yml"
@@ -21,7 +21,7 @@ on:
   # pushes (see each job's `if`), so each change runs once.
   pull_request:
     paths:
-      - "polyfills/claude-code/skills/**"
+      - "polyfills/skills/claude-code/**"
       - "tools/bundle-notices.mjs"
       - ".claude-plugin/marketplace.json"
       - ".github/workflows/mcp-skills-test.yml"
@@ -41,7 +41,7 @@ env:
 
 defaults:
   run:
-    working-directory: polyfills/claude-code/skills
+    working-directory: polyfills/skills/claude-code
 
 jobs:
   test:
