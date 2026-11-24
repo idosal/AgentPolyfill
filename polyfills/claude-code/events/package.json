@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit -p .",
     "build": "node build.mjs",
     "interop": "cd test/interop && npm install --silent && cd ../.. && node --no-warnings test/interop/run.ts",
+    "conformance": "node --no-warnings test/conformance-driver.ts --suite",
     "test:mod": "claude plugin test mod",
     "perf": "node build.mjs && PERF_RUNTIME='node --no-warnings' node --no-warnings test/perf.ts",
     "typecheck:interop": "tsc --noEmit -p test/interop",
