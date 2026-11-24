@@ -410,9 +410,10 @@ way to see what Claude Code's own MCP client supports.
 - [`docs/conformance.md`](docs/conformance.md): every client-side rule of
   SEP-3415, with the code and the test for each, and the upstream conformance
   suite's result (17 of 17 of its Events client scenarios).
-- [`model/`](model/README.md): a formal model, in Quint, of how events get
-  from a server to the session and of how often they wake it; what it found
-  in 0.4.1, and what it shows of this version (by simulation, not proof).
+- [`model/`](model/README.md): a formal model, in Quint and in TLA+, of how
+  events get from a server to the session and of how often they wake it; what
+  it found in 0.4.1, and what TLC shows of this version within small, stated
+  bounds, including the cases it found.
 - [`docs/sign-in.md`](docs/sign-in.md): servers that need credentials, and why
   interactive OAuth is out of reach.
 - [`docs/performance.md`](docs/performance.md): what it costs to run.
@@ -448,7 +449,7 @@ claude --plugin-dir mod   # run it from this checkout
 - `npm run conformance` runs the upstream conformance suite's Events client
   scenarios against the client, from a checkout of the suite
   ([`docs/conformance.md`](docs/conformance.md)); `model/README.md` says how
-  to run the model's checks.
+  to run the model's checks (TLC: `node model/check.mjs`).
 - To release, change the version in `mod/.claude-plugin/plugin.json`,
   `package.json` and `src/version.ts`, rebuild, and merge to `main`: the
   marketplace installs this folder from `main`. Claude Code updates an

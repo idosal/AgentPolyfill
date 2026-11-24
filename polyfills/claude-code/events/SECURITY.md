@@ -211,8 +211,14 @@ is bounded (see "Events wake a session only so often" below), not prevented.
   redactor and the wake budget, on generated inputs; and the rule for which
   servers may be sent `events/*`, over all of its cases.
 - **A formal model** of delivery and of waking ([`model/`](model/README.md)),
-  checked by random simulation. That is not a proof, and no model checker has
-  run over it yet.
+  in Quint and in TLA+: simulated, and model-checked with TLC to small,
+  stated bounds (webhook with one event, or two with the clock stopped). TLC
+  checks the model, not the code, and says nothing past its bounds. On 0.5.0's
+  model it found three cases the simulation had missed. By reading, the code
+  has two of them: the notice that waking stopped given again after a helper
+  restart, and an event shown again after Claude Code was closed and reopened,
+  if the helper stops at the wrong moment (in the code a narrower window than
+  in the model). The third is in the model only.
 - **One review from outside the sessions that built it, and no audit by a
   person.** The Events client, webhook verification and the relay were
   reviewed adversarially during development. On 24 November 2026 an AI
