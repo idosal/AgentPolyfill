@@ -1,0 +1,10 @@
+node_modules/
+/state/
+*.log
+.DS_Store
+.wrangler/
+.dev.vars
+/mod/relay/.test-state/
+# Claude Code writes these beside a mod it loads from a folder.
+/mod/.claude-plugin/types/
+/mod/tsconfig.json

@@ -1,0 +1,16 @@
+{
+  "name": "mcp-events-demo-deploys",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A small 'deploys' MCP server for demos, built on Mastra's MCP server (its own implementation of MCP Events, SEP-3415): one event type, two tools, and a page to start deploys from.",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "start": "node --no-warnings server.ts"
+  },
+  "dependencies": {
+    "@mastra/core": "^1.83.0",
+    "@mastra/mcp": "2.10.0",
+    "zod": "^4.2.0"
+  }
+}
