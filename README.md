@@ -52,10 +52,11 @@ SEP notes that Claude Code support has been prototyped at Anthropic.
 
 ### Events: Claude is woken when something happens
 
-![Claude Code is asked to watch for failed deploys and goes idle. A deploy fails on the server; the session wakes by itself, reads the log and names the cause.](polyfills/claude-code/events/docs/media/demo.gif)
+![One sentence to Claude Code gives a private button page and a watch, and the session goes idle. Someone types "ship it" on the page and presses the button; the idle session wakes by itself and says what was typed.](polyfills/claude-code/events/docs/media/button-demo.gif)
 
-Try it against a hosted demo server (no sign-in). Add it, start `claude`, and
-ask "Give me a demo button and tell me when it is pressed":
+Try it against the same hosted demo server (no sign-in). Add it, start
+`claude`, and ask "Give me a demo button and tell me what I type when I press
+it":
 
 ```
 claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev/mcp

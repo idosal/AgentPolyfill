@@ -47,7 +47,7 @@ export const TOOLS = [
             type: 'object',
             properties: {
                 event: { type: 'string', enum: [...TEXT_EVENTS], description: 'The event type the id comes from.' },
-                id: { type: 'string', maxLength: 300, description: 'hn.*: the item id; github.release: the tag or the eventId; usgs.earthquake: the id; demo.button: the press number.' },
+                id: { type: 'string', maxLength: 300, description: 'hn.*: the item id; github.release: the tag or the eventId; usgs.earthquake: the id; demo.button: the press number (or its eventId, "press-<n>").' },
                 repo: { type: 'string', maxLength: 140, description: 'github.release only: "owner/name".' },
                 channel: { type: 'string', pattern: CHANNEL_RE.source, description: 'demo.button only: the channel.' }
             },
@@ -111,11 +111,13 @@ async function readEventText(args: Record<string, unknown>, loader: Loader): Pro
     // demo.button
     const channel = args.channel;
     if (typeof channel !== 'string' || !CHANNEL_RE.test(channel)) return fail('channel must be the demo button\'s channel');
-    if (!/^\d{1,3}$/.test(id)) return fail('id must be the press number');
+    // The press number, or the event's own id for it ("press-3").
+    const n = /^(?:press-)?(\d{1,3})$/.exec(id)?.[1];
+    if (!n) return fail('id must be the press number (or the event id, "press-<n>")');
     const r = await loader.presses(channel);
     if (!r.ok) return fail(r.why === 'not_found' ? 'This button channel is not valid or has expired.' : 'The button is not answering right now; try again.');
-    const press = (r.body as { n: number; ts: number; m?: string }[]).find((x) => x.n === Number(id));
-    if (!press) return fail(`No press ${id} on this channel.`);
+    const press = (r.body as { n: number; ts: number; m?: string }[]).find((x) => x.n === Number(n));
+    if (!press) return fail(`No press ${n} on this channel.`);
     return answer({ press: press.n, message: excerpt(press.m ?? '', 120), pressedAt: iso(press.ts) });
 }
 
@@ -135,9 +137,11 @@ export async function callTool(params: Record<string, unknown>, deps: { origin: 
         const channel = await mintChannel(deps.secret, deps.now);
         const url = `${deps.origin}/b/${channel}`;
         const expiresAt = iso(deps.now + CHANNEL_TTL_MS);
+        const read = { event: 'demo.button', channel, id: '<the event\'s press number>' };
         return ok(
-            `Button page: ${url}\nChannel: ${channel}\nWatch it with the demo.button event, arguments {"channel": "${channel}"}, then ask the user to open the page and press the button. It expires at ${expiresAt}.`,
-            { url, channel, event: 'demo.button', arguments: { channel }, expiresAt }
+            `Button page: ${url}\nChannel: ${channel}\nWatch it with the demo.button event, arguments {"channel": "${channel}"}, then ask the user to open the page and press the button. ` +
+                `An event carries the press number; when it has a message, read it with read_event_text ${JSON.stringify(read)}. It expires at ${expiresAt}.`,
+            { url, channel, event: 'demo.button', arguments: { channel }, readMessageWith: { tool: 'read_event_text', arguments: read }, expiresAt }
         );
     }
     if (name === 'find_hn_story') {

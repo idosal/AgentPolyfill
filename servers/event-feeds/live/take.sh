@@ -15,6 +15,7 @@
 #   DEMO_PROJECT  the folder Claude Code runs in (default ~/feeds-demo)
 #   PTY_PYTHON    a python3 that has pyte
 #   MESSAGE       what is typed next to the button (default "ship it")
+#   MODEL         passed to claude as --model (default: the account's default model)
 # Output: <out>/session/cast.jsonl (every byte the session wrote to its terminal, with timing),
 # <out>/session/transcript.txt, <out>/page/ (photographs of the page with their times, and the
 # click), <out>/take.json.
@@ -56,13 +57,13 @@ curl -fsS -X POST "http://127.0.0.1:$CPORT/open?url=$BASE/b/\$ch"
 SH
 chmod +x "$OUT/open-page.sh"
 
-OUT="$OUT" PROJECT="$PROJECT" CPORT="$CPORT" PLUGIN_DIR="$PLUGIN_DIR" MESSAGE="$MESSAGE" python3 - <<'PYEOF'
+OUT="$OUT" PROJECT="$PROJECT" CPORT="$CPORT" PLUGIN_DIR="$PLUGIN_DIR" MESSAGE="$MESSAGE" MODEL="${MODEL:-}" python3 - <<'PYEOF'
 import json, os, urllib.parse
 out, project, cport, plugin, message = (os.environ[k] for k in ("OUT", "PROJECT", "CPORT", "PLUGIN_DIR", "MESSAGE"))
 env = {"MCP_EVENTS_SOURCES": "local", "MCP_EVENTS_STATE": out + "/state"}
 # The installed polyfill, loaded for this session only; project and local settings only, so the
 # session has the server the one-line add put in (local scope) and nothing else of the account's.
-cmd = ["claude", "--plugin-dir", plugin, "--setting-sources", "project,local", "--allowedTools", "mcp__mcp-events__*,mcp__feeds__*"]
+cmd = ["claude", "--plugin-dir", plugin, "--setting-sources", "project,local", "--allowedTools", "mcp__mcp-events__*,mcp__feeds__*", *(["--model", os.environ["MODEL"]] if os.environ.get("MODEL") else [])]
 quit_ = [{"key": "ctrl-c", "after": 0.5}, {"key": "ctrl-c", "after": 0.5}, {"key": "ctrl-c", "after": 2}]
 trust = [{"wait": "trust this folder|❯", "timeout": 40},
          {"when": "trust this folder", "steps": [{"sleep": 1.5}, {"key": "down", "after": 0.8}, {"key": "enter", "after": 3}]}]
@@ -78,7 +79,7 @@ session = {"cmd": cmd, "cwd": project, "env": env, "cols": 100, "rows": 34, "ste
     {"wait": "Prompt from the mcp-events(.|\\n)*" + message, "timeout": 90}, {"sleep": 8}, {"snap": "04-answered"},
     *quit_]}
 json.dump(session, open(out + "/session.json", "w"), indent=1, ensure_ascii=False)
-json.dump({"server": os.environ.get("BASE", "https://event-feeds.idosalomon.workers.dev"), "plugin": plugin, "project": project, "message": message}, open(out + "/take.json", "w"), indent=1)
+json.dump({"server": os.environ.get("BASE", "https://event-feeds.idosalomon.workers.dev"), "plugin": plugin, "project": project, "message": message, "model": os.environ.get("MODEL") or "default"}, open(out + "/take.json", "w"), indent=1)
 PYEOF
 
 "$PY" "$SRC/tools/pty-drive.py" "$OUT/session.json" "$OUT/session" || true

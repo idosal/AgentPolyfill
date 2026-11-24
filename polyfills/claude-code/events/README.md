@@ -50,7 +50,9 @@ claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev
 
 Start `claude` in the same folder (one you trust) and ask:
 
-> Give me a demo button and tell me when it is pressed.
+> Give me a demo button and tell me what I type when I press it.
+
+[Watch it (28 s)](docs/media/button-demo.mp4).
 
 Claude makes a private button page with the server's `new_demo_button` tool,
 gives you its link, and watches it. Open the link and press the button: a few

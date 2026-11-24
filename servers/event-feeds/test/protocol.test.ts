@@ -148,7 +148,9 @@ describe('modern era (2026-07-28)', () => {
         const list = await send('tools/list');
         assert.deepEqual((list.body.result!.tools as { name: string }[]).map((t) => t.name), ['new_demo_button', 'find_hn_story', 'read_event_text']);
         const made = await send('tools/call', { name: 'new_demo_button', arguments: {} });
-        const sc = made.body.result!.structuredContent as { url: string; channel: string };
+        const sc = made.body.result!.structuredContent as { url: string; channel: string; readMessageWith: { tool: string; arguments: Record<string, string> } };
+        assert.deepEqual(sc.readMessageWith.arguments.event, 'demo.button', 'it says how to read a press message');
+        assert.equal(sc.readMessageWith.arguments.channel, sc.channel);
         assert.match(sc.url, /^https:\/\/feeds\.example\/b\/b[A-Za-z0-9_-]{30}$/);
         assert.equal((await checkChannel(SECRET, sc.channel, Date.now())).ok, true);
         const limited = await send('tools/call', { name: 'new_demo_button', arguments: {} }, { d: deps({ allowMint: async () => false }) });
@@ -192,6 +194,8 @@ describe('read_event_text: the text behind an event, fetched on demand', () => {
         const b = await call({ event: 'demo.button', channel: ch, id: '1' }, {}, { [ch]: [{ n: 1, ts: 1795480408000, m: 'ship it' }] });
         assert.equal((b.body.result!.structuredContent as Record<string, string>).message, 'ship it');
         assert.deepEqual(Object.keys(b.body.result!.structuredContent as object).sort(), ['message', 'press', 'pressedAt']);
+        const byEventId = await call({ event: 'demo.button', channel: ch, id: 'press-1' }, {}, { [ch]: [{ n: 1, ts: 1795480408000, m: 'ship it' }] });
+        assert.equal((byEventId.body.result!.structuredContent as Record<string, string>).message, 'ship it', 'the eventId form works too');
     });
 });
 

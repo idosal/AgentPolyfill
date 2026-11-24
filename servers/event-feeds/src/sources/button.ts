@@ -15,7 +15,7 @@ export const demoButton: Source<Args> = {
     description:
         'A press of a demo button on a private web page. Use it to try events: "give me a button and tell me when I press it". ' +
         'Get a page and its `channel` id from the new_demo_button tool (or from ' +
-        'the server\'s web page), give the user the page link, and watch with that channel. A press may come with a short message typed on the page: read it with the read_event_text tool. ' +
+        'the server\'s web page), give the user the page link, and watch with that channel. A press may come with a short message typed on the page: read it with read_event_text {"event": "demo.button", "channel": <channel>, "id": <press number>}. ' +
         'A channel lasts one hour; checked every 2 seconds.',
     inputSchema: {
         type: 'object',
