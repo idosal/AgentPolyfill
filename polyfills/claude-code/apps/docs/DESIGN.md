@@ -330,14 +330,15 @@ the view drops to cells on the first frame.
   anything else (opening a connection, its tool list, a UI resource, a
   background refresh of one) the helper asks first with a `check` line on its
   stdout, which the mod answers on `/reply` (`helper-rs/src/verdict.rs`,
-  `mcp.rs`). The mod counts, per server, the noes it has heard; each yes
-  carries that count as it was when it was asked (its epoch). On a no the
-  mod sends `/revoke` with the new count, and the helper fails at once what
-  it has in flight to that server, closes the connection (a stdio server it
-  started is stopped; over streamable HTTP rmcp ends the session with its
-  `DELETE`), closes a view of it still opening,
-  and from then on refuses a yes with an older epoch, so a yes that crossed
-  the no on its way sends nothing. While a request to a server is in
+  `mcp.rs`). An app's request that needs a new connection spends its yes on
+  the connection and asks again for itself. The mod counts, per server, the
+  noes it has heard; each yes carries that count as it was when it was asked
+  (its epoch). On a no the mod sends `/revoke` with the new count, and the
+  helper fails at once what it has in flight to that server, closes the
+  connection (a stdio server it started is stopped; over streamable HTTP
+  rmcp ends the session with its `DELETE`), closes a view of it still
+  opening, and from then on refuses a yes with an older epoch, so a yes that
+  crossed the no on its way sends nothing. While a request to a server is in
   flight the helper says so (`busy`), and the mod asks Claude Code again
   every 0.5 s, so a server switched off meanwhile is noticed then, not at
   its next request.

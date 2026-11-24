@@ -346,14 +346,15 @@ the helper in 0-2 ms in the live session below.
 
 ## A live session (0.1.3)
 
-One real Claude Code 2.1.329 session (`bench/session.py`, a plain terminal,
-in a folder Claude Code already trusts, with the plugin's debug build of the
-helper) against the hosted arcade server: "Load the game msdos_DOOM_1993".
-The helper asked a `check` before each request it wrote (the connection,
-the tool list, the UI resource read ahead, its refreshes), each answered on
-`/reply`; the view opened with its generation in 155 ms (the tab kept
-ready), drew its pictures, took a click and keys, and closed with the
-session. Nothing was refused or logged as an error. The app made no calls of
+Real Claude Code 2.1.329 sessions (`bench/session.py`, a plain terminal, in
+a folder Claude Code already trusts, with the plugin's debug build of the
+helper) against the hosted arcade server: "Load the game msdos_DOOM_1993",
+then a click into the view and three keys; run twice, the second time with
+the final build. Each time the helper asked a `check` before each request it
+wrote (the connection, the tool list, the UI resource read ahead, its
+refreshes: six, each answered on `/reply`); the view opened with its
+generation (155 ms and 73 ms, the tab kept ready), drew its pictures, took
+the click and keys, and closed with the session. Nothing was refused or logged as an error. The app made no calls of
 its server's tools of its own in that session, so `ui/allow-tool` and
 `ui/allow-read` were exercised by the tests, not live.
 
