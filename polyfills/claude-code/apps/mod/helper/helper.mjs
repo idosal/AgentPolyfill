@@ -36,6 +36,7 @@ import { markDownloaded, privateFolder as checkedFolder } from "./platform.mjs";
 import { altFromTree, plainText } from "./alt.mjs";
 import { SNAP_ON, applySnap, planSnap } from "./snap.mjs";
 import { crc32, encodeStrips } from "./strips.mjs";
+import { genOf, pageHeld, sameOpen } from "./generations.mjs";
 import { composeFrame } from "./render.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -1082,7 +1083,11 @@ async function newViewPage(mode, cols, maxRows, cellH, theme, store, localNetwor
 }
 
 async function openView(options) {
-  if (views.has(options.viewId)) return { ok: true, existing: true };
+  const held = views.get(options.viewId);
+  // The same open asked again gets its page; a page of another open is
+  // closed, and this open makes its own.
+  if (held && pageHeld(held.gen, genOf(options)) === "same") return { ok: true, existing: true };
+  if (held) await closeView(options.viewId);
   opening++;
   clearTimeout(idleTimer);
   try {
@@ -1149,6 +1154,7 @@ async function openViewNow(options) {
     id: viewId,
     server,
     toolName,
+    gen: genOf(options),
     mode,
     visibility: entry.visibility,
     context,
@@ -1327,7 +1333,7 @@ async function onHostCall(view, kind, payload) {
       return {};
     case "initialized":
       setTimeout(() => void capture(view), 60);
-      emit({ type: "notify", viewId: view.id, method: "ui/app-modes", params: { modes: payload?.modes ?? null } });
+      emit({ type: "notify", viewId: view.id, gen: view.gen, method: "ui/app-modes", params: { modes: payload?.modes ?? null } });
       return {};
     case "ui/request-display-mode": {
       // The mod answers with the mode now in use, and resizes the view to it.
@@ -1373,7 +1379,7 @@ async function onHostCall(view, kind, payload) {
       const text = String(payload?.text ?? "");
       if (!text || text.length > 100_000 || Date.now() - (view.activatedAt ?? 0) > 2000) return {};
       view.activatedAt = 0;
-      emit({ type: "notify", viewId: view.id, method: "ui/copy", params: { text } });
+      emit({ type: "notify", viewId: view.id, gen: view.gen, method: "ui/copy", params: { text } });
       return {};
     }
     case "resources/templates/list":
@@ -1388,7 +1394,7 @@ async function onHostCall(view, kind, payload) {
       return downloadFiles(view, payload?.contents ?? []);
     case "ui/update-model-context":
     case "log":
-      emit({ type: "notify", viewId: view.id, method: kind, params: payload });
+      emit({ type: "notify", viewId: view.id, gen: view.gen, method: kind, params: payload });
       return {};
     default:
       throw new Error(`unsupported host call ${kind}`);
@@ -1456,28 +1462,31 @@ async function downloadBounded(view, contents) {
     }
     saved.push(target);
   }
-  emit({ type: "notify", viewId: view.id, method: "ui/downloaded", params: { files: saved } });
+  emit({ type: "notify", viewId: view.id, gen: view.gen, method: "ui/downloaded", params: { files: saved } });
   return {};
 }
 
 function requestFromMod(view, method, params, timeoutMs = REQUEST_TIMEOUT_MS) {
   const id = nextRequestId++;
-  emit({ type: "request", id, viewId: view.id, method, params });
+  emit({ type: "request", id, viewId: view.id, gen: view.gen, method, params });
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       pending.delete(id);
       reject(new Error(`${method} timed out`));
     }, timeoutMs);
-    pending.set(id, { resolve, reject, timer, viewId: view.id });
+    pending.set(id, { resolve, reject, timer, viewId: view.id, gen: view.gen });
   });
 }
 
-function reply({ id, result, error }) {
+function reply(body) {
+  const { id, result, error } = body;
   const waiting = pending.get(id);
   if (!waiting) return { ok: false, error: "unknown request" };
   pending.delete(id);
   clearTimeout(waiting.timer);
-  if (error) waiting.reject(new Error(String(error)));
+  // An answer meant for another open of the view than the page that asked.
+  if (!sameOpen(waiting.gen, body)) waiting.reject(new Error("the answer was for another open of this view"));
+  else if (error) waiting.reject(new Error(String(error)));
   else waiting.resolve(result);
   return { ok: true };
 }
@@ -1781,7 +1790,7 @@ function sendImage(view, all = false) {
       fs.rmSync(temporary, { force: true });
       throw error;
     }
-    emit({ type: "frame", viewId: view.id, v: view.version, image: { ...placed, file, generation: view.stamps } });
+    emit({ type: "frame", viewId: view.id, gen: view.gen, v: view.version, image: { ...placed, file, generation: view.stamps } });
     return true;
   }
   if (inlineStrips(view)) {
@@ -1791,6 +1800,7 @@ function sendImage(view, all = false) {
   emit({
     type: "frame",
     viewId: view.id,
+    gen: view.gen,
     v: view.version,
     image: { ...placed, png: stampPng(png, view.stamps).toString("base64") },
   });
@@ -2030,7 +2040,7 @@ function queueStrips(view, all) {
             setTimeout(() => void capture(view), 300);
           }
         }
-        emit({ type: "frame", viewId: view.id, v: job.version, image: { ...placed, ...result } });
+        emit({ type: "frame", viewId: view.id, gen: view.gen, v: job.version, image: { ...placed, ...result } });
       } while (view.stripAgain);
     } catch (error) {
       log(`strips ${view.id}:`, error.message);
@@ -2417,7 +2427,7 @@ async function capture(view) {
       totalRows > rows
         ? { top: Math.round(top / view.cellH), rows, total: totalRows }
         : undefined;
-    emit({ type: "frame", viewId: view.id, v: view.version, frame });
+    emit({ type: "frame", viewId: view.id, gen: view.gen, v: view.version, frame });
     if (process.env.MCP_APPS_CLI_DEBUG && view.version % 10 === 0) log(`view ${view.id}: frame ${view.version}`);
   } catch (error) {
     if (views.has(view.id)) log(`capture ${view.id}:`, error.message);
@@ -2830,7 +2840,7 @@ async function describe(view) {
     } catch {}
   }
   if (!views.has(view.id)) return;
-  const message = { type: "describe", viewId: view.id };
+  const message = { type: "describe", viewId: view.id, gen: view.gen };
   if (text && text !== view.alt) message.text = view.alt = text;
   if (title !== (view.title ?? "")) message.title = view.title = title;
   if (message.text !== undefined || message.title !== undefined) emit(message);
@@ -2869,7 +2879,7 @@ function forgetView(view) {
 function dropView(view, reason) {
   if (views.get(view.id) !== view) return;
   forgetView(view);
-  emit({ type: "closed", viewId: view.id, reason });
+  emit({ type: "closed", viewId: view.id, gen: view.gen, reason });
 }
 
 /**
@@ -3039,8 +3049,14 @@ const server = http.createServer((req, res) => {
         // A view paused out of sight is woken for whatever is asked of its
         // page; not for what the helper answers itself (a picture sent
         // again comes about a dozen times a second in iTerm2).
-        const view = PAGELESS_ROUTES.has(req.url) ? undefined : views.get(input.viewId);
-        result = await whileAwake(view, () => route(input));
+        // Anything about a view for another open of it than its page's is
+        // refused: a close of an earlier one closes nothing of this one.
+        const held = req.url === "/open" || req.url === "/reply" ? undefined : views.get(input.viewId);
+        if (held && !sameOpen(held.gen, input)) result = req.url === "/close" ? { ok: true } : { ok: false, error: "another open of this view" };
+        else {
+          const view = PAGELESS_ROUTES.has(req.url) ? undefined : views.get(input.viewId);
+          result = await whileAwake(view, () => route(input));
+        }
       }
     } catch (error) {
       status = 500;
