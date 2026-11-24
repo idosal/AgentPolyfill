@@ -41,7 +41,7 @@ test('a copied mod without node_modules runs the helper its hooks module starts'
     // No package.json at its top: Claude Code installs dependencies for a plugin that has one.
     assert.equal(existsSync(join(installed, 'package.json')), false);
     assert.equal(existsSync(join(installed, 'node_modules')), false);
-    assert.deepEqual(readdirSync(installed).sort(), ['.claude-plugin', 'dist', 'hooks', 'relay', 'skills']);
+    assert.deepEqual(readdirSync(installed).sort(), ['.claude-plugin', 'README.md', 'THIRD_PARTY_LICENSES.txt', 'dist', 'hooks', 'relay', 'skills']);
     const state = join(dir, 'state');
     const guard = join(dir, 'isolated.mjs');
     // The copy may sit under a folder that has node_modules. Stop Node from rescuing a
