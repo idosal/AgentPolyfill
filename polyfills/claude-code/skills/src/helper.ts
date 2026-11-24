@@ -104,9 +104,20 @@ const learn = (name: string, k: Known) => {
 };
 
 let catalogSent = false;
+let isComplete = false;
 const sendCatalog = () => {
     catalogSent = true;
-    emit({ t: 'catalog', ...app.catalog() });
+    emit({ t: 'catalog', ...app.catalog(), complete: isComplete });
+};
+// While servers are still being looked at, what the others serve is sent as each is done (a little
+// at a time), so one slow or hung server does not hold back the rest of the session's first listing.
+let partial: NodeJS.Timeout | undefined;
+const sendPartial = () => {
+    if (isComplete || partial) return;
+    partial = setTimeout(() => {
+        partial = undefined;
+        if (!isComplete && app.catalog().skills > 0) sendCatalog();
+    }, 50);
 };
 const app = new App({
     table,
@@ -115,7 +126,8 @@ const app = new App({
     connectTimeoutMs: Number(env.MCP_SKILLS_CONNECT_TIMEOUT_MS ?? 10_000),
     onChange: () => catalogSent && sendCatalog(),
     known,
-    onKnown: learn
+    onKnown: learn,
+    onLooked: sendPartial
 });
 
 // ---- The local endpoint ----
@@ -236,7 +248,11 @@ await new Promise<void>((done, fail) => {
 emit({ t: 'ready', url: `http://127.0.0.1:${(http.address() as AddressInfo).port}`, token, pid: process.pid, version: VERSION, expects: app.expected.length });
 if (askClaudeCode && verdicts.size) emit({ t: 'servers', names: [...verdicts.keys()] });
 
-void app.start().then(sendCatalog);
+void app.start().then(() => {
+    isComplete = true;
+    clearTimeout(partial);
+    sendCatalog();
+});
 
 // The helper's standard input is closed from the start, so that is no signal: a tick notices
 // when Claude Code itself has gone.

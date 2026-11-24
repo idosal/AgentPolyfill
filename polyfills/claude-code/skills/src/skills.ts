@@ -1,6 +1,6 @@
-// Client (host) side of the MCP Skills extension (SEP-2640,
-// `io.modelcontextprotocol/skills`), as its Beta specification defines it:
-// https://github.com/modelcontextprotocol/ext-skills/blob/main/specification/beta/skills.mdx
+// Client (host) side of the MCP Skills extension (`io.modelcontextprotocol/skills`),
+// as SEP-2640 (Final) defines it:
+// https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md
 //
 // This file is the whole of the extension's logic and nothing else: which
 // servers may be asked, what a valid entry is, what is verified and when, what
@@ -120,8 +120,8 @@ export function resolveRef(skillUri: string, ref: string): string {
     if (/[\u0000-\u001f\u007f]/.test(path)) throw new LocalError('a file reference cannot hold control characters');
     path = path.replace(/#.*$/, ''); // a fragment names a place in the file, not another file
     if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(path)) {
-        // A full URI: it has to be this skill's own SKILL.md or lie inside its directory.
-        if (path === skillUri) return skillUri;
+        // A full URI: it has to be this skill's own SKILL.md, its directory, or lie inside that.
+        if (path === skillUri || path === root) return path;
         if (!path.startsWith(`${root}/`)) throw new LocalError('that URI is outside the skill; a skill reads only its own files, from the server that serves it');
         path = path.slice(root.length + 1);
     }
