@@ -1,6 +1,6 @@
-// Client (host) side of the MCP Skills extension (SEP-2640,
-// `io.modelcontextprotocol/skills`), as its Beta specification defines it:
-// https://github.com/modelcontextprotocol/ext-skills/blob/main/specification/beta/skills.mdx
+// Client (host) side of the MCP Skills extension (`io.modelcontextprotocol/skills`),
+// as SEP-2640 (Final) defines it:
+// https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md
 //
 // This file is the whole of the extension's logic and nothing else: which
 // servers may be asked, what a valid entry is, what is verified and when, what

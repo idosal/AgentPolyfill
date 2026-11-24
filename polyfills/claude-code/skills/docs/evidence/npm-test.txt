@@ -1,4 +1,4 @@
-$ npm test    # 2026-11-24T07:30Z, node v22.23.1
+$ npm test    # 2026-11-24T09:04Z, node v22.23.1
     ok 1 - C1: skills/list and skills/get are sent only to a server that declared the extension
     ok 2 - C1: a server that declares it without the resources capability the extension requires is left alone, and the user is told why
     ok 3 - C1: the declaration counts on an earlier protocol revision too, where it arrives in the initialize answer
@@ -27,8 +27,9 @@ ok 4 - Limits
     ok 1 - S1: an empty listing is no proof the server has no skills: a skill it does not list is loaded by its URI alone
     ok 2 - S2: a listing in pages is read to its end, each cursor passed back as given
     ok 3 - S3: a listed entry is a complete manifest: loading a listed skill needs no skills/get
-    ok 4 - G1: skills/get is asked only about the URI of a SKILL.md
-    ok 5 - G2: an answer to skills/get that is another skill's entry, or not a complete result, is not used
+    ok 4 - S4: the listing is read again only once the server's ttlMs has run out, and its age never stands in for verification
+    ok 5 - G1: skills/get is asked only about the URI of a SKILL.md
+    ok 6 - G2: an answer to skills/get that is another skill's entry, or not a complete result, is not used
 ok 5 - Listing Skills, Getting a Skill
     ok 1 - D1: a resources/read of a SKILL.md by any other route is not a load: nothing is held, and its files are not readable
 ok 6 - Reading Skill Content
@@ -75,57 +76,75 @@ ok 11 - server discovery
     ok 1 - mod/dist/helper.js is what src/ builds
     ok 2 - with a servers file of the user's own: lists, loads and reads, answering only to its token
     ok 3 - a server found not to serve skills is remembered, and not connected to again at the next start; /refresh looks again
-    ok 4 - with Claude Code's own config: connects only to servers Claude Code says it uses
+    ok 4 - a server that hangs does not hold back the others: their skills are sent as each is done, and the listing is marked complete once every server has been looked at
+    ok 5 - with Claude Code's own config: connects only to servers Claude Code says it uses
 ok 12 - the bundled helper
+    ok 1 - every invariant holds in every reachable state and step, for a skill with a manifest and a dynamic one
+    ok 2 - 0.3.0's rule, where the latest load of a skill decided, lets a command run beside unapproved text
+    ok 3 - a read-back that misses a load (the documented limit) opens the gate, as docs/verification.md says
+    ok 4 - each protection, taken out of the model, is caught by an invariant
+ok 13 - the model of the skill gate
+    ok 1 - 2000 generated references: refused in the mod's own words, or a URI inside the skill that resolves to itself
+ok 14 - property: relative references never leave the skill
+    ok 1 - 2000 generated entries, valid and damaged: never a throw; what is accepted keeps every rule of "Skill entries"
+    ok 2 - anything at all in place of an entry is refused in the mod's own words, never a throw
+    ok 3 - the manifest hash binds every uri and digest, and nothing else: order does not matter, any change does
+ok 15 - property: skill entries
+    ok 1 - a file is accepted exactly when its size and SHA-256 match the entry; one changed byte, or one byte more or fewer, is refused
+    ok 2 - frontmatter: a SKILL.md written from the entry's frontmatter matches it field by field; any one field changed, added or removed does not
+    ok 3 - arbitrary bytes as a SKILL.md: a verification failure or a split, never another error
+    ok 4 - a read result of any shape: content, or a refusal in the mod's own words
+ok 16 - property: verification of what a server sends
+    ok 1 - a server's text cannot close the fence it is shown in, and a description is one bounded line
+    ok 2 - the bound on one answer does not depend on how the bytes arrive: the same stream, cut into any chunks, fails or passes alike
+ok 17 - property: what reaches the model
+    ok 1 - every one of 3,456 combinations: used exactly as the documented rule says; with inherited trust, the repository's own settings never approve
+ok 18 - exhaustive: which of a project's .mcp.json servers are used
+    ok 1 - takes out the names of the session's other servers, and how many more there are
+    ok 2 - takes out the names on one line, as a wide screen draws them
+    ok 3 - takes out names whose sentence begins above the top of the screen
+    ok 4 - takes out a connector or plugin server named anywhere else
+    ok 5 - takes out the banner's plan and the folder it ran in, and the usage line
+    ok 6 - takes out the command menu under the prompt, and keeps the prompt
+    ok 7 - keeps a folder inside the repository, and changes nothing on a second pass
+    ok 8 - the committed runs show none of it, and are as the scrubber leaves them
+ok 19 - tools/scrub-run.py
     ok 1 - an empty object declares the extension with no optional features
     ok 2 - anything else is no declaration
-ok 13 - the declaration
+ok 20 - the declaration
     ok 1 - the root is the SKILL.md URI without /SKILL.md
     ok 2 - a reference resolves inside the skill, or not at all
-ok 14 - a skill URI
+ok 21 - a skill URI
     ok 1 - a valid one
     ok 2 - the name: the Agent Skills naming rule, and equal to the last segment of the path
     ok 3 - the description: present, and no longer than Agent Skills allows
     ok 4 - the files: each with a digest and a size, each once, each inside the skill, its own SKILL.md among them
     ok 5 - what an approval would be bound to: every uri and digest, whatever the order
-ok 15 - an entry
+ok 22 - an entry
     ok 1 - the bytes a digest covers: text as UTF-8, a blob as its decoded bytes
     ok 2 - of several contents, the one for the file asked about
     ok 3 - verification says which check failed
     ok 4 - a SKILL.md: frontmatter between --- lines, then the body
-ok 16 - content
+ok 23 - content
     ok 1 - a server's error text is never repeated
     ok 2 - one line means one line
     ok 3 - the listing is bounded however many skills a server lists
     ok 4 - an answer larger than the mod accepts fails the request instead of filling memory
-ok 17 - what is said
+ok 24 - what is said
     ok 1 - is run as Claude Code documents it: in a shell, told which server it is for, printing a JSON object of text values
     ok 2 - one server is told from another by where it is, not by its name
-ok 18 - a server's headersHelper
+ok 25 - a server's headersHelper
     ok 1 - a request refused with 429 or 5xx is sent again after a wait, and then answered
     ok 2 - the wait a server names is the wait, within reason
     ok 3 - a server that keeps refusing fails the request, in the mod's own words
     ok 4 - any other answer is passed on as it is: a 401 is a sign-in, not a reason to wait
-ok 19 - a server that is busy
+ok 26 - a server that is busy
     ok 1 - the hooks module registers the tools the helper serves, under the prefix the helper names them by
     ok 2 - no tool that runs, writes, fetches or delegates is among those let through beside an unapproved skill
     ok 3 - one version, in the three places that state it
     ok 4 - the Skills logic uses nothing of Node, so it can run wherever a request can be sent
-ok 20 - the parts agree
-# tests 93
-# suites 20
-# pass 93
-# fail 0
-# cancelled 0
-# skipped 0
-# todo 0
-
-$ npm run test:bun    # the helper bundle run on Bun 1.3.3 instead of Node
-    ok 1 - mod/dist/helper.js is what src/ builds
-    ok 2 - with a servers file of the user's own: lists, loads and reads, answering only to its token
-    ok 3 - a server found not to serve skills is remembered, and not connected to again at the next start; /refresh looks again
-    ok 4 - with Claude Code's own config: connects only to servers Claude Code says it uses
-ok 1 - the bundled helper
-# tests 4
-# pass 4
+ok 27 - the parts agree
+# tests 118
+# suites 27
+# pass 118
 # fail 0
