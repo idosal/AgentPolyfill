@@ -297,11 +297,15 @@ body {
 .ap-home .lede + .lede {
   margin-top: 12px;
 }
-.ap-home .lede.beyond {
-  margin-top: 56px;
-  padding-top: 24px;
+.ap-home h3.beyond {
+  margin-top: 64px;
+  padding-top: 32px;
   border-top: 1px solid var(--vp-c-divider);
-  font-size: 15px;
+  font-size: 22px;
+  line-height: 1.3;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--vp-c-text-1);
 }
 .ap-home .lede a,
 .ap-home .more a {

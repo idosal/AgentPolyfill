@@ -14,8 +14,8 @@ Final), which Claude Code does not support by itself yet.
 
 <Recording
   cut="skills"
-  alt="In Claude Code, /mcp-skills lists the skills Hugging Face's MCP server serves. Asked to use the trl-training skill on which TRL trainer aligns a 7B model with preference pairs on one GPU, Claude asks to load it, Claude Code asks once for approval, the skill is loaded from the server, and Claude answers from it."
-  caption="A real session against Hugging Face's public MCP server (23 s). The picture zooms in on parts of the terminal, and waits are shortened."
+  alt="In Claude Code, /mcp-skills lists the 25 skills Hugging Face's MCP server serves. Asked to use huggingface-local-models for a 16 GB Mac, Claude asks to load it and Claude Code asks once for approval; the skill and two of its files are read from the server, and Claude answers: a 7 to 9B model at Q4_K_M, with llama.cpp."
+  caption="A real session against Hugging Face's public MCP server (20 s). Waits are sped up, with a badge saying how fast."
 />
 
 ## Install

@@ -1,5 +1,5 @@
 {
-  "//": "The home page's polyfill cards and audiences. Read by PolyfillCards.vue, Audiences.vue and scripts/agents.mjs (the Markdown copies for agents). Every line is taken from the repository's README and each polyfill's README: keep them in step when those change.",
+  "//": "The home page's polyfill cards (polyfills: the MCP extensions; beyond: outside MCP) and audiences. Read by PolyfillCards.vue, Audiences.vue and scripts/agents.mjs (the Markdown copies for agents). Every line is taken from the repository's README and each polyfill's README: keep them in step when those change.",
   "polyfills": [
     {
       "name": "Events",
@@ -10,7 +10,7 @@
       "stateNote": "Poll, push and webhook delivery; an event wakes an idle session. No OAuth servers.",
       "line": "Claude reacts to events on your MCP servers, even while the session is idle.",
       "cut": "events",
-      "alt": "One sentence to Claude Code gives a private button page and a watch, and the session goes idle. Someone types \"ship it\" on the page and presses the button; the idle session wakes by itself and says what was typed.",
+      "alt": "One sentence to Claude Code, Give me a demo button, starts a watch and gives a private button page, and the session goes idle. On the page, ship it is typed and Press is pressed; the idle session wakes by itself, reads the event and says the message was ship it.",
       "addStep": "Try it with the hosted demo server:",
       "add": "claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev/mcp",
       "ask": "Give me a demo button and tell me what I type when I press it",
@@ -40,7 +40,7 @@
       "stateNote": "Skills served by an MCP server are listed, loaded and read in Claude Code, with the checks the spec asks of a client. No OAuth servers.",
       "line": "Skills from your MCP servers join Claude's skill list. You approve each one once.",
       "cut": "skills",
-      "alt": "In Claude Code, /mcp-skills lists the skills Hugging Face's MCP server serves. Asked to use the trl-training skill on a question about aligning a 7B model, Claude asks to load it, Claude Code asks once for approval, and Claude answers from the skill.",
+      "alt": "In Claude Code, /mcp-skills lists the 25 skills Hugging Face's MCP server serves. Asked to use huggingface-local-models for a 16 GB Mac, Claude asks to load it and Claude Code asks once for approval; the skill and two of its files are read from the server, and Claude answers: a 7 to 9B model at Q4_K_M, with llama.cpp.",
       "addStep": "Try it with Hugging Face's MCP server:",
       "add": "claude mcp add --transport http huggingface https://huggingface.co/mcp",
       "ask": "Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?",
@@ -80,6 +80,22 @@
       "text": "A polyfill can be the client half of the two implementations an extension needs to reach Stable.",
       "link": "/guide/spec-authors",
       "linkText": "For spec authors"
+    }
+  ],
+  "beyond": [
+    {
+      "name": "ARD discovery",
+      "plugin": "ard-discovery",
+      "spec": "Agentic Resource Discovery v0.91, a draft outside MCP",
+      "id": "",
+      "line": "Find the MCP servers a domain lists in its ARD file, or search an ARD registry by task, and add one with a press.",
+      "cut": "ard",
+      "alt": "In Claude Code, the question What does buildkite.com list via ARD? reads buildkite.com's own listing, and a picker shows the Buildkite MCP server with an Add button. Claude says buildkite.com lists one MCP server and has not added it.",
+      "addStep": "Not in the bundle. Install it by name:",
+      "add": "/plugin install ard-discovery --marketplace idosal/AgentPolyfill",
+      "ask": "What MCP servers does buildkite.com list through ARD?",
+      "then": "A domain lookup sends no query to a registry. A registry search sends your words to a third party, so it asks you first, every time.",
+      "link": "/guide/ard"
     }
   ]
 }

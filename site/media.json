@@ -18,13 +18,13 @@
       "name": "events",
       "file": "events.mp4",
       "poster": "events.jpg",
-      "posterAt": 2.0,
-      "master": "events-v2.mp4",
+      "posterAt": 10.2,
+      "master": "events.mp4",
       "width": 1280,
       "height": 720,
       "seconds": 21.23,
-      "bytes": 1577645,
-      "sha256": "e645df897b881b3b45e2d9bf20e15a2fdf621d904f978bc8e0e3374ccb9fe4ed"
+      "bytes": 896951,
+      "sha256": "bdb47d672468b4d870f9bdfc78ee79628de0cfe683015fef4affa7743cb237ef"
     },
     {
       "name": "apps",
@@ -42,25 +42,37 @@
       "name": "skills",
       "file": "skills.mp4",
       "poster": "skills.jpg",
-      "posterAt": 12.6,
-      "master": "skills-v2.mp4",
+      "posterAt": 10.5,
+      "master": "skills.mp4",
       "width": 1280,
       "height": 720,
-      "seconds": 22.6,
-      "bytes": 2299477,
-      "sha256": "f580a400fe084253c99a8feb72382aef0141838b8362d38071892eb3f7d2ae67"
+      "seconds": 20.17,
+      "bytes": 1940452,
+      "sha256": "8c93c85c515d51b6ed6d009247a72ffd860936748ac81eb27be27f5e2d6baf57"
     },
     {
       "name": "server-cards",
       "file": "server-cards.mp4",
       "poster": "server-cards.jpg",
-      "posterAt": 16,
-      "master": "server-cards-v2.mp4",
+      "posterAt": 12.5,
+      "master": "server-cards.mp4",
       "width": 1280,
       "height": 720,
-      "seconds": 20.5,
-      "bytes": 1539700,
-      "sha256": "550dceb1a9352e6b78adb0f577310128ec00f798cb39baedd0eb2740cf04226f"
+      "seconds": 16.2,
+      "bytes": 357217,
+      "sha256": "6a1a452ec045abace247a78073a4d4fc14864405c6b1764fcf9456437a85b59e"
+    },
+    {
+      "name": "ard",
+      "file": "ard.mp4",
+      "poster": "ard.jpg",
+      "posterAt": 11,
+      "master": "ard.mp4",
+      "width": 1280,
+      "height": 720,
+      "seconds": 15.3,
+      "bytes": 263923,
+      "sha256": "bbf1cd5400b9c53ef87d5c199b270cbb645098e6812aa8091e3b6e07a505cea1"
     }
   ],
   "copy": [

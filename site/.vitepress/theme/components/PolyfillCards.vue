@@ -4,24 +4,25 @@ import CopyCommand from './CopyCommand.vue'
 import home from '../../../home.json'
 
 // The cards' lines are in home.json, shared with the Markdown copy of the home
-// page for agents.
-const polyfills = home.polyfills
+// page for agents. group="beyond" shows the polyfills for drafts outside MCP.
+const props = defineProps<{ group?: 'mcp' | 'beyond' }>()
+const polyfills = props.group === 'beyond' ? home.beyond : home.polyfills
 </script>
 
 <template>
-  <div class="ap-cards">
+  <div class="ap-cards" :class="{ single: polyfills.length === 1 }">
     <article v-for="p in polyfills" :key="p.name" class="card">
       <Recording :cut="p.cut" :alt="p.alt" />
       <div class="body">
         <header>
           <h3><a :href="p.link">{{ p.name }}</a></h3>
-          <span class="state" :data-state="p.state.toLowerCase()" :title="p.stateNote">{{ p.state }}</span>
+          <span v-if="p.state" class="state" :data-state="p.state.toLowerCase()" :title="p.stateNote">{{ p.state }}</span>
         </header>
         <p class="spec"><template v-if="p.id"><code>{{ p.id }}</code> · </template><span class="whole">{{ p.spec }}</span></p>
         <p class="line">{{ p.line }}</p>
         <template v-if="p.add">
           <p class="step">{{ p.addStep }}</p>
-          <CopyCommand :command="p.add" :label="`Add the ${p.name} demo server`" />
+          <CopyCommand :command="p.add" :label="p.addStep.replace(/:$/, '')" />
           <p class="step">Then ask Claude:</p>
         </template>
         <p v-else class="step">Nothing to set up. Ask Claude:</p>
@@ -44,6 +45,20 @@ const polyfills = home.polyfills
   .ap-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 56px 40px;
+  }
+  /* One card alone: its video and its text side by side, in the same two
+     columns as the grid above. */
+  .ap-cards.single {
+    grid-template-columns: 1fr;
+  }
+  .ap-cards.single .card {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 40px;
+    align-items: start;
+  }
+  .ap-cards.single .body {
+    padding-top: 0;
   }
 }
 .card {

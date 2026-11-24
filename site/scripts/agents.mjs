@@ -208,23 +208,24 @@ function homeMarkdown() {
   const paragraphs = (chunk) => [...chunk.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map((m) => html(m[1]))
   const [lede, beyond] = paragraphs(section('The polyfills'))
   const [who] = paragraphs(section('Who it is for'))
-
-  const cards = home.polyfills.map((p) => {
+  const card = (p) => {
     const cut = media.cuts.find((c) => c.name === p.cut)
     const lines = [
       `### ${p.name} (\`${p.plugin}\`)`,
       '',
-      `${p.id ? `\`${p.id}\`, ` : ''}${p.spec}. State: ${p.state}. ${p.stateNote}`,
+      `${p.id ? `\`${p.id}\`, ` : ''}${p.spec}.${p.state ? ` State: ${p.state}. ${p.stateNote}` : ''}`,
       '',
       p.line,
       '',
     ]
-    if (p.add) lines.push(p.addStep, '', '```bash', p.add, '```', '', `Then ask Claude: "${p.ask}"`)
+    if (p.add) lines.push(p.addStep, '', p.add.startsWith('/') ? '```' : '```bash', p.add, '```', '', `Then ask Claude: "${p.ask}"`)
     else lines.push(`Nothing to set up. Ask Claude: "${p.ask}"`)
     if (p.then) lines.push('', p.then)
     lines.push('', videoLine({ file: cut.file, seconds: cut.seconds, description: p.alt }), '', `The ${p.name} guide: ${resolveLink(p.link, 'index')}`)
     return lines.join('\n')
-  })
+  }
+  const cards = home.polyfills.map(card)
+  const beyondCards = home.beyond.map(card)
   const audiences = home.audiences.map((a) => `- **${a.title}.** ${a.text} [${a.linkText}](${resolveLink(a.link, 'index')})`)
 
   return `# ${data.title ?? 'AgentPolyfill'}
@@ -247,7 +248,11 @@ ${lede}
 
 ${cards.join('\n\n')}
 
+## Beyond MCP
+
 ${beyond}
+
+${beyondCards.join('\n\n')}
 
 ## Who it is for
 
