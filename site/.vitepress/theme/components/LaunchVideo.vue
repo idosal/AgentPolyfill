@@ -41,12 +41,12 @@ function play() {
       >
         <source :src="withBase(`/media/${launch.file}?v=${version}`)" type="video/mp4" />
       </video>
-      <button v-if="hydrated && !started" type="button" class="play" @click="play">
+      <button v-if="hydrated && !started" type="button" class="play" :aria-label="`Play the launch video, ${seconds} seconds`" @click="play">
         <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
           <path d="M4.5 2.9v10.2a.6.6 0 0 0 .92.5l8.03-5.1a.6.6 0 0 0 0-1L5.42 2.4a.6.6 0 0 0-.92.5z" />
         </svg>
-        <span>Play the launch video</span>
-        <span class="len">{{ seconds }} s</span>
+        <span aria-hidden="true">Play<span class="long"> the launch video</span></span>
+        <span class="len" aria-hidden="true">{{ seconds }} s</span>
       </button>
     </div>
     <figcaption>{{ launch.caption }}</figcaption>
@@ -89,6 +89,7 @@ video {
   color: #e7ece9;
   background: rgba(10, 12, 11, 0.78);
   border: 1px solid rgba(231, 236, 233, 0.18);
+  white-space: nowrap;
   box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.6);
   transition: background-color 0.15s, transform 0.15s;
 }
@@ -108,6 +109,9 @@ video {
   .play {
     font-size: 13px;
     padding: 9px 14px 9px 12px;
+  }
+  .play .long {
+    display: none;
   }
 }
 figcaption {

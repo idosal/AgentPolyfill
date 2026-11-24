@@ -259,16 +259,16 @@ body {
 
 /* Home: content sections below the hero */
 .ap-home {
-  padding: 0 24px 64px;
+  padding: 0 24px 16px;
 }
 @media (min-width: 640px) {
   .ap-home {
-    padding: 0 48px 72px;
+    padding: 0 48px 24px;
   }
 }
 @media (min-width: 960px) {
   .ap-home {
-    padding: 0 64px 80px;
+    padding: 0 64px 32px;
   }
 }
 .ap-home .wrap {
@@ -318,6 +318,27 @@ body {
   background: var(--vp-c-default-soft);
   color: var(--vp-c-text-1);
 }
+.ap-home .ap-cmd code {
+  font-size: inherit;
+  background: none;
+  padding: 6px 0;
+  border-radius: 0;
+}
+
+/* Tables on a phone: scroll inside their own box rather than squeeze */
+@media (max-width: 639px) {
+  .vp-doc td,
+  .vp-doc th {
+    min-width: 12rem;
+  }
+  .vp-doc td:first-child,
+  .vp-doc th:first-child {
+    min-width: 6rem;
+  }
+  .vp-doc td code {
+    white-space: nowrap;
+  }
+}
 
 /* Hero: the install line under the actions */
 .ap-install {
@@ -327,7 +348,7 @@ body {
 @media (max-width: 639px) {
   .ap-install .ap-cmd code {
     white-space: normal;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 }
 .ap-install .note {
