@@ -268,3 +268,20 @@ test('E-8 stand-down: MCP_SERVER_CARDS_DISABLED registers no tools', async () =>
   await s.ready
   assert.deepEqual((await s.request('tools/list', {})).result.tools, [])
 })
+
+test('E-9 a card whose remote URL holds Markdown is refused, so it is never put in a form (security review C1)', async () => {
+  const LINK = '/x/[https://good.example/mcp](https://evil.example/)'
+  const md = await localWeb({
+    '/.well-known/ai-catalog.json': { body: { specVersion: '1.0', entries: [{ identifier: 'urn:air:localhost:md', type: 'application/mcp-server-card+json', url: '{origin}/md.json' }] } },
+    '/md.json': { body: card({ remotes: [{ type: 'streamable-http', url: `{origin}${LINK}` }] }) },
+  })
+  after(() => md.close())
+  const s = server({ answer: { action: 'accept', afterMs: 50 } })
+  const d = await s.call('discover_mcp_servers', { domain: md.origin })
+  assert.match(d.text, /REFUSED: [^\n]*square brackets/)
+  const r = await s.call('add_mcp_server', { domain: md.origin, identifier: 'urn:air:localhost:md', url: `${md.origin}${LINK}` })
+  assert.equal(r.isError, true)
+  assert.match(r.text, /was shown in this session/)
+  assert.equal(s.asked.length, 0)
+  assert.deepEqual(adds(s.fake), [])
+})

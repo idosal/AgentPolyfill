@@ -9,8 +9,9 @@ import { fileURLToPath } from "node:url";
 var CARD_TYPE = "application/mcp-server-card+json";
 var CARD_SCHEMA_URL = "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json";
 var isObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+var hasMarkup = (s) => /[`<>[\]]/.test(s.replace(/^([a-z][a-z0-9+.-]*:\/\/)\[[0-9a-f:.]+\]/i, "$1"));
 var isUri = (v) => {
-  if (typeof v !== "string" || !/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>"{}|\\^`]*$/.test(v) || /%(?![0-9a-fA-F]{2})/.test(v))
+  if (typeof v !== "string" || !/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>"{}|\\^`]*$/.test(v) || /%(?![0-9a-fA-F]{2})/.test(v) || hasMarkup(v))
     return false;
   try {
     new URL(v);
@@ -23,7 +24,10 @@ var length = (s) => [...s].length;
 var UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/;
 var plainText = (s) => String(s ?? "").replace(new RegExp(UNSAFE_TEXT.source, "g"), "");
 var NAME = /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/;
-var REMOTE_URL = /^(https?:\/\/[\x21-\x7e]+|\{[a-zA-Z_][a-zA-Z0-9_]*\}[\x21-\x7e]*)$/;
+var URL_CHAR = "[\\x21-\\x3b\\x3d\\x3f-\\x5a\\x5c\\x5e\\x5f\\x61-\\x7e]";
+var IPV6_HOST = "\\[[0-9A-Fa-f:.]+\\]";
+var PLAIN_URL = new RegExp(`^https?://(?:${IPV6_HOST}${URL_CHAR}*|${URL_CHAR}+)$`);
+var REMOTE_URL = new RegExp(`^(?:https?://(?:${IPV6_HOST}${URL_CHAR}*|${URL_CHAR}+)|\\{[a-zA-Z_][a-zA-Z0-9_]*\\}${URL_CHAR}*)$`);
 var unsafeAt = (v, path) => {
   if (typeof v === "string") return UNSAFE_TEXT.test(v) ? path : void 0;
   if (Array.isArray(v)) {
@@ -83,7 +87,7 @@ var checkRemote = (errors, where, v) => {
   if (v.type !== "streamable-http" && v.type !== "sse")
     errors.push(`${where}.type must be "streamable-http" or "sse"`);
   if (typeof v.url !== "string" || !REMOTE_URL.test(v.url))
-    errors.push(`${where}.url must be printable ASCII starting with http://, https:// or a {variable}`);
+    errors.push(`${where}.url must be printable ASCII without \`, <, > or square brackets (but an IPv6 host's), starting with http://, https:// or a {variable}`);
   if (v.headers !== void 0) {
     if (!Array.isArray(v.headers)) errors.push(`${where}.headers must be an array`);
     else
@@ -487,6 +491,7 @@ var discover = async (deps, input, options = {}) => {
           if (!u) found.errors = [`"${entry.url}" is not a URL`];
           else if (!isAllowedUrl(u)) found.errors = [`${u.href}: Server Cards must be served over HTTPS`];
           else if (!mayFollow(u, catalogIsLocal)) found.errors = [`${u.href}: a public catalog may not point at a local or private address`];
+          else if (hasMarkup(u.href)) found.errors = ["the card URL holds `, <, > or a square bracket outside an IPv6 host, which could show as something else"];
           else {
             found.cardUrl = found.cardFrom = u.href;
             found.isLocal = catalogIsLocal && isPrivateHost(u.hostname);
@@ -510,11 +515,12 @@ var discover = async (deps, input, options = {}) => {
         }
       } else if (REGISTRY_TYPES.includes(type)) {
         const u = typeof entry.url === "string" ? resolve(entry.url, catalogUrl.split("#")[0]) : void 0;
-        if (typeof entry.url === "string" && !(u && mayFollow(u, catalogIsLocal)))
-          result.problems.push(`${catalogUrl}: registry ${id} has no HTTPS URL on a public host`);
+        const usable = !!u && mayFollow(u, catalogIsLocal) && !hasMarkup(u.href);
+        if (typeof entry.url === "string" && !usable)
+          result.problems.push(`${catalogUrl}: registry ${id} has no plain HTTPS URL on a public host`);
         result.registries.push({
           identifier: id,
-          url: u && mayFollow(u, catalogIsLocal) ? u.href : void 0,
+          url: usable ? u.href : void 0,
           displayName: typeof entry.displayName === "string" ? entry.displayName : void 0
         });
       } else {
@@ -849,7 +855,7 @@ var planAdd = (card, remoteIndex, values, name, scope, fromLocal = false) => {
     if (v === void 0) return whole;
     if (!input.isSecret) {
       if (at === 0) {
-        if (!/^https?:\/\/[\x21-\x7e]+$/.test(v)) problems.push(`{${key}} must be a URL`);
+        if (!PLAIN_URL.test(v)) problems.push(`{${key}} must be a URL, in printable ASCII without \`, <, > or square brackets (but an IPv6 host's)`);
       } else if (!URL_VALUE.test(v) || /^\.+$/.test(v))
         problems.push(`{${key}} may hold only letters, digits and . _ ~ - (and not be "." or "..")`);
     }
@@ -886,6 +892,7 @@ var planAdd = (card, remoteIndex, values, name, scope, fromLocal = false) => {
   if (missing.length) return { missing };
   if (url.length > MAX_URL) return { error: `The URL is longer than ${MAX_URL} characters.` };
   if (!/^[\x21-\x7e]+$/.test(url)) return { error: "The URL holds a space, a control character or a non-ASCII character." };
+  if (!PLAIN_URL.test(url)) return { error: "The URL holds `, <, > or a square bracket outside an IPv6 host, which could show as something else." };
   const probe = url.replace(/\$\{[A-Z0-9_]+\}/g, "x");
   let parsed;
   try {
@@ -1639,6 +1646,10 @@ var readOffered = async (deps, entries, sources = {}) => {
       skipped++;
       continue;
     }
+    if (hasMarkup(r.listedIn)) {
+      problems.push('an entry whose "listedIn" holds `, <, > or a square bracket was skipped');
+      continue;
+    }
     if (seen.has(r.identifier)) continue;
     seen.add(r.identifier);
     const fromLocal = isPrivateHost(hostOf(r.listedIn) || "x");
@@ -1668,6 +1679,7 @@ var readOffered = async (deps, entries, sources = {}) => {
       if (!u) o.errors = [`"${r.url}" is not a URL`];
       else if (!isAllowedUrl(u)) o.errors = [`${u.href}: Server Cards must be served over HTTPS`];
       else if (!mayFollow(u, fromLocal)) o.errors = [`${u.href}: a public source may not point at a local or private address`];
+      else if (hasMarkup(u.href)) o.errors = ["the card URL holds `, <, > or a square bracket outside an IPv6 host, which could show as something else"];
       else {
         o.cardUrl = u.href;
         o.isLocal = fromLocal && isPrivateHost(u.hostname);
@@ -1765,6 +1777,7 @@ export {
   MAX_OFFERED,
   MAX_REDIRECTS,
   NAME2 as NAME,
+  PLAIN_URL,
   PREFIX,
   PROTOCOL_VERSIONS,
   Session,
@@ -1788,6 +1801,7 @@ export {
   formatDiscovery,
   formatOffered,
   formatServer,
+  hasMarkup,
   hex,
   host,
   isAllowedUrl,

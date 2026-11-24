@@ -22,6 +22,16 @@ const web = await localWeb({
   // ard.json only: an ARD manifest needs no specVersion.
   '/.well-known/ard.json': { body: { entries: [{ identifier: 'urn:air:localhost:ci', type: TYPE, url: '{origin}/ci.json' }] } },
   '/ci.json': { body: card('com.example/ci', 'Example CI', '/ci/mcp') },
+  // A registry whose results carry Markdown: in a card's remote URL, and in a card URL (security review C1).
+  '/md-registry/search': {
+    body: {
+      results: [
+        { identifier: 'urn:air:localhost:md', type: TYPE, url: '{origin}/md.json' },
+        { identifier: 'urn:air:localhost:mdurl', type: TYPE, url: '{origin}/x/[https://good.example/card](https://evil.example/)' },
+      ],
+    },
+  },
+  '/md.json': { body: card('com.example/md', 'Markdown', '/x/[https://good.example/mcp](https://evil.example/)') },
   '/search': {
     body: {
       results: [
@@ -106,4 +116,13 @@ test('A-6 a query the person could not see in full is refused before anyone is a
 test('A-7 an empty registry setting searches only a registry the request names', async () => {
   const s = server({ env: { ARD_DISCOVERY_REGISTRY: '' } })
   assert.match((await s.call('ard_search', { query: QUERY })).text, /No registry is configured/)
+})
+
+test('A-8 a result whose card URL, or whose card\'s remote URL, holds Markdown is refused and never put in a form (security review C1)', async () => {
+  const s = server({ answer: human })
+  const r = await s.call('ard_search', { query: QUERY, registry: `${web.origin}/md-registry` })
+  assert.equal((r.text.match(/REFUSED: [^\n]*square bracket/g) ?? []).length, 2, r.text)
+  const add = await s.call('add_mcp_server', { identifier: 'urn:air:localhost:md', url: `${web.origin}/x/[https://good.example/mcp](https://evil.example/)` })
+  assert.match(add.text, /is not a server shown in this session/)
+  assert.equal(s.asked.length, 1) // the search's own form, and no other
 })
