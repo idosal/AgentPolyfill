@@ -14,9 +14,10 @@
 // and get_event read them. MCP_EVENTS_WAKE_GAP_S and MCP_EVENTS_WAKES_PER_HOUR
 // change the two numbers; 0 turns either off.
 
-import { closeSync, fsyncSync, openSync, readFileSync, renameSync, writeSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { LINE_PREFIX } from './format.ts';
 import { host } from './host.ts';
+import { writeAtomic } from './store.ts';
 
 const HOUR_MS = 3600 * 1000;
 
@@ -83,9 +84,24 @@ export class WakeBudget {
         this.perHour = limits.perHour;
         this.#file = file;
         this.#liftAfterMs = typeof o.liftAfterMs === 'number' && o.liftAfterMs > 0 ? o.liftAfterMs : undefined;
-        if (!file) return;
+        this.reload();
+    }
+
+    /**
+     * Reads the count as last saved, in place of what this one holds: the constructor's read. A
+     * process that takes a session over from one that ended calls it, since what it read when it first
+     * saw the session may since have been changed by the one that ran it (Codex, two windows).
+     */
+    reload(): void {
+        this.#last = new Map();
+        this.#wakes = [];
+        this.#paused = false;
+        this.#pausedAt = undefined;
+        this.#noticeHanded = false;
+        this.#handed = undefined;
+        if (!this.#file) return;
         try {
-            const saved = JSON.parse(readFileSync(file, 'utf8')) as Saved;
+            const saved = JSON.parse(readFileSync(this.#file, 'utf8')) as Saved;
             for (const [k, v] of Object.entries(saved.last ?? {})) if (typeof v === 'number') this.#last.set(k, v);
             this.#wakes = (saved.wakes ?? []).filter((t) => typeof t === 'number');
             this.#paused = saved.paused === true;
@@ -113,22 +129,14 @@ export class WakeBudget {
     }
 
     /**
-     * Saves the count whole: written and flushed beside the file, then put in its place, so a crash
-     * leaves the old file or the new one, never half of one (which would read as nothing kept, and
-     * lose a hand-over's record). Returns whether it was saved.
+     * Saves the count whole (writeAtomic: written in full and flushed beside the file, then put in its
+     * place), so a crash leaves the old file or the new one, never half of one (which would read as
+     * nothing kept, and lose a hand-over's record). Returns whether it was saved.
      */
     #save(): boolean {
         if (!this.#file) return true;
-        const tmp = `${this.#file}.${process.pid}.tmp`;
         try {
-            const fd = openSync(tmp, 'w', 0o600);
-            try {
-                writeSync(fd, JSON.stringify({ last: Object.fromEntries(this.#last), wakes: this.#wakes, paused: this.#paused, pausedAt: this.#pausedAt, noticeHanded: this.#noticeHanded, handed: this.#handed } satisfies Saved));
-                fsyncSync(fd);
-            } finally {
-                closeSync(fd);
-            }
-            renameSync(tmp, this.#file);
+            writeAtomic(this.#file, JSON.stringify({ last: Object.fromEntries(this.#last), wakes: this.#wakes, paused: this.#paused, pausedAt: this.#pausedAt, noticeHanded: this.#noticeHanded, handed: this.#handed } satisfies Saved));
             return true;
         } catch {
             // counted in memory all the same
