@@ -7,7 +7,7 @@
 
 import { expect, mock, test } from 'claude-code/testing'
 import type { EngineInterface, On } from 'claude-code'
-import { BUN, SetupError, fetched, install, type Pin } from './runtime'
+import { BUN, SetupError, install, pinned, type Pin } from './runtime'
 
 // A timer exists where a hooks module runs; the typings for one just do not name it.
 declare const setTimeout: (run: (value?: unknown) => void, ms: number) => unknown
@@ -841,7 +841,7 @@ test('a fetch that matches is unpacked (one named file), checked to run, and mov
   expect(unzip.slice(1, 4)).toEqual(['-q', '-o', '-j'])
   expect(unzip.slice(5, 7)).toEqual(['bun-darwin-aarch64/bun', '-d'])
   expect(Object.keys(w.disk).sort()).toEqual([`${DATA}/runtime`, `${DATA}/runtime/bun-9.8.7`, `${DATA}/runtime/bun-9.8.7/bun`])
-  expect(await fetched(w.engine, DATA)).toEqual([{ path: `${DATA}/runtime/bun-9.8.7/bun`, version: '9.8.7' }])
+  expect(await pinned(w.engine, DATA, await pinFor(ZIP))).toEqual({ path: `${DATA}/runtime/bun-9.8.7/bun`, version: '9.8.7' })
   // Asked for again, nothing is downloaded.
   const again = await install(w.engine, DATA, await pinFor(ZIP))
   expect(again.isNew).toBe(false)
@@ -926,13 +926,14 @@ test('a Linux whose ldd says nothing is still known to be musl, by its loader', 
 
 test('a fetched copy whose version check exits with an error is not used', async () => {
   const w = machineOf({ saysExit: 1, disk: { [`${DATA}/runtime/bun-9.8.7`]: { kind: 'dir' }, [`${DATA}/runtime/bun-9.8.7/bun`]: { kind: 'file' } } }, {})
-  expect(await fetched(w.engine, DATA)).toEqual([])
+  expect(await pinned(w.engine, DATA, await pinFor(ZIP))).toBeUndefined()
 })
 
-test('an earlier version, and what a fetch that was cut short left behind, are cleared away', async () => {
-  const w = machineOf({ zip: ZIP, disk: { [`${DATA}/runtime/bun-9.0.0`]: { kind: 'dir' }, [`${DATA}/runtime/bun-9.0.0/bun`]: { kind: 'file' }, [`${DATA}/runtime/incoming-1-abc`]: { kind: 'dir' }, [`${DATA}/runtime/incoming-1-abc/half.zip`]: { kind: 'file' } } }, {})
+test('an earlier version, a planted one, and what a fetch that was cut short left behind, are cleared away by name, none of them run', async () => {
+  const w = machineOf({ zip: ZIP, disk: { [`${DATA}/runtime/bun-9.0.0`]: { kind: 'dir' }, [`${DATA}/runtime/bun-9.0.0/bun`]: { kind: 'file' }, [`${DATA}/runtime/bun-99.0.0`]: { kind: 'dir' }, [`${DATA}/runtime/bun-99.0.0/bun`]: { kind: 'file' }, [`${DATA}/runtime/incoming-1-abc`]: { kind: 'dir' }, [`${DATA}/runtime/incoming-1-abc/half.zip`]: { kind: 'file' } } }, {})
   await install(w.engine, DATA, await pinFor(ZIP))
   expect(Object.keys(w.disk).sort()).toEqual([`${DATA}/runtime`, `${DATA}/runtime/bun-9.8.7`, `${DATA}/runtime/bun-9.8.7/bun`])
+  expect(w.ran.some(([program]) => /\/bun-9\.0\.0\/|\/bun-99\.0\.0\//.test(program ?? ''))).toBe(false)
 })
 
 test('the helper runs on the mod\'s own copy of Bun where the machine has no other, and /mcp-skills says so', async ($, on) => {
@@ -994,6 +995,34 @@ test('MCP_SKILLS_RUNTIME=private runs only the pinned version: a newer-looking c
   expect(w.spawned[0]![0]).toBe(`${OWN}/bun`)
   expect(w.spawned.some(([program]) => program === `${planted}/bun`)).toBe(false)
 })
+
+test('only the pinned version is ever run: a copy of another version planted beside it is not run, not even for its version', async ($, on) => {
+  const planted = `${DATA}/runtime/bun-99.0.0`
+  const w = world(on, { runtimes: {}, machine: { disk: { ...OWN_DISK, [planted]: { kind: 'dir' }, [`${planted}/bun`]: { kind: 'file' } } } })
+  await $.session.start(START)
+  expect(w.spawned[0]![0]).toBe(`${OWN}/bun`)
+  expect(w.ran.some(([program]) => program === `${planted}/bun`)).toBe(false)
+})
+
+test('with only a copy of another version, nothing of it is run', async ($, on) => {
+  const other = `${DATA}/runtime/bun-1.0.0`
+  const w = world(on, { runtimes: {}, machine: { disk: { [other]: { kind: 'dir' }, [`${other}/bun`]: { kind: 'file' } } } })
+  await $.session.start(START)
+  expect(w.spawns).toBe(0)
+  expect(w.ran.some(([program]) => program === `${other}/bun`)).toBe(false)
+})
+
+for (const [what, disk] of [
+  ['its folder', { [OWN]: { kind: 'dir' as const, isLink: true }, [`${OWN}/bun`]: { kind: 'file' as const } }],
+  ['the program in it', { [OWN]: { kind: 'dir' as const }, [`${OWN}/bun`]: { kind: 'file' as const, isLink: true } }],
+] as const) {
+  test(`a pinned copy behind a symbolic link (${what}) is refused: nothing in it is run`, async ($, on) => {
+    const w = world(on, { runtimes: {}, machine: { disk } })
+    await $.session.start(START)
+    expect(w.spawns).toBe(0)
+    expect(w.ran.some(([program]) => program === `${OWN}/bun`)).toBe(false)
+  })
+}
 
 test('MCP_SKILLS_RUNTIME=private with only a copy of another version: nothing is run', async ($, on) => {
   const other = `${DATA}/runtime/bun-1.0.0`
