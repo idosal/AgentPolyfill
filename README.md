@@ -1,7 +1,8 @@
 # AgentPolyfill
 
-Polyfills for agent protocols. Run protocol extensions in the clients you
-already use, before they support them. Works in Claude Code and Codex.
+Polyfills for agent protocols. Bring more of MCP to the clients you already
+use. Plugins add Apps, Skills, Events, Server Cards and ARD to Claude Code and
+Codex.
 
 MCP grows through extensions now: Apps, Skills, Events, Server Cards. A server
 can adopt one in a day, but every host has to build each one itself, on its
