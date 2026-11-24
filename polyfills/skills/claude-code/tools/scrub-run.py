@@ -150,15 +150,17 @@ def main():
     home = os.path.expanduser("~")
     # Claude Code's banner shows the folder it runs in with the home folder as "~".
     root_short = "~" + root[len(home) :] if root.startswith(home + os.sep) else root
+    # Read with any line ending, write \n on every platform: Python would otherwise write the
+    # platform's own (\r\n on Windows), and the committed runs are kept with \n.
     for name in sorted(os.listdir(run)):
         path = os.path.join(run, name)
         if name.endswith(".txt"):
             text = open(path, encoding="utf-8").read()
-            open(path, "w", encoding="utf-8").write(scrub_screen(text, root, root_short, home))
+            open(path, "w", encoding="utf-8", newline="\n").write(scrub_screen(text, root, root_short, home))
         elif name == "scenario.json":
             text = open(path, encoding="utf-8").read().replace(root, "<repo>").replace(home, "~")
             json.loads(text)
-            open(path, "w", encoding="utf-8").write(text)
+            open(path, "w", encoding="utf-8", newline="\n").write(text)
 
 
 if __name__ == "__main__":
