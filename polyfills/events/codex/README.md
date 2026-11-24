@@ -318,7 +318,10 @@ no way to see what its own MCP client supports.
   mcp-mailbox is a relay, not an Events server, and was not run.
 - [`docs/conformance.md`](docs/conformance.md): the SEP's client rules, which
   the shared client meets (the clause-by-clause table is the Claude Code
-  form's), and which of them this form's tests check end to end.
+  form's), and which of them this form's tests check end to end. The
+  upstream conformance suite's Events client scenarios (its open pull request
+  #541) pass 17 of 17, against the shared client and end to end through the
+  bundled helper (`npm run conformance`, `npm run conformance:helper`).
 
 ## Development
 
