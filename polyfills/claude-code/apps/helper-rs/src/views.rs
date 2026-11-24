@@ -1365,7 +1365,15 @@ async fn route_view(view: &Arc<View>, path: &str, input: &Value) -> Result<Value
                 if input["event"]["kind"] == "key" || (input["event"]["kind"] == "pointer" && matches!(string(&input["event"],"type"),"down"|"up")) { s.activated_at = s.input_at; }
             }
             view.describe_soon(2000);
-            let _ = view.input_tx.send(input["event"].clone());
+            // Input is handled in turn, after what came before it: a pointer
+            // event carries when it arrived, so a double click is counted by
+            // the time between the person's presses, however long the one
+            // before took to handle (input.rs, MULTI_CLICK_MS).
+            let mut event = input["event"].clone();
+            if event["kind"] == "pointer" {
+                if let Some(fields) = event.as_object_mut() { fields.insert("receivedAt".into(), json!(now())); }
+            }
+            let _ = view.input_tx.send(event);
         }
         "/shown" => view.set_shown(input["shown"].as_bool().unwrap_or(false)).await,
         "/activity" => {
