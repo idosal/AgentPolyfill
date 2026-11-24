@@ -1,10 +1,11 @@
-// The one line Claude sees per event (the monitor prints it; Claude Code shows
-// it as "Monitor event: …" and wakes the session).
+// What Claude is told when events arrive, and how one event reads in a list.
 //
 // Event payloads are untrusted (SEP-3415: "the same caution as tool results").
-// So the line carries only a few short fields, flattened to one line with
-// control characters and escapes removed, under the server's name.
-// Claude fetches the rest with get_event.
+// The message that wakes a session is a prompt, not a tool result, so by
+// default it carries nothing a server wrote: only which watch, how many
+// events, and their ids. Claude reads the payload with get_event or
+// recent_events, whose answers are tool results. (MCP_EVENTS_WAKE_VALUES=1
+// puts a few short payload fields back in the wake message.)
 
 import type { SpoolRecord } from './store.ts';
 import { KEY, TOKEN } from './untrusted.ts';
@@ -56,12 +57,47 @@ export function formatRecord(r: SpoolRecord): string {
     return `${LINE_PREFIX} ${oneLine(r.server, 40)} · ${oneLine(r.event, 80)}${text ? `: ${text}` : ''} [event ${r.id}, watch ${r.watch}; ${rest}].${note}`;
 }
 
-/** Several events at once: the first few in full, then a count. */
-export function formatBatch(records: SpoolRecord[], max = 3): string[] {
+/** Several events with their fields: the first few in full, then a count. */
+function withValues(records: SpoolRecord[], max = 3): string[] {
     if (records.length <= max + 1) return records.map(formatRecord);
     const shown = records.slice(0, max).map(formatRecord);
     const rest = records.slice(max);
     const ids = rest.map((r) => r.id);
     shown.push(`${LINE_PREFIX} …and ${rest.length} more events (${ids[0]}–${ids[ids.length - 1]}); call recent_events to see them.`);
     return shown;
+}
+
+/** Notices shown in one wake message; the rest are counted. */
+const MAX_NOTICES = 3;
+
+/** Ids, a few of them: `e1`, `e1, e2, e3`, `e1, e2, e3, e4, e5 and 7 more`. */
+function someIds(ids: string[], max = 5): string {
+    return ids.length <= max ? ids.join(', ') : `${ids.slice(0, max).join(', ')} and ${ids.length - max} more`;
+}
+
+/**
+ * The message that wakes a session, as lines: one per watch that has new events, saying how many
+ * and which, and nothing from their payloads. A notice (this mod's own words) is a line of its own.
+ * With `values`, each event is a line with a few of its fields, as recent_events shows them.
+ */
+export function formatBatch(records: SpoolRecord[], o: { values?: boolean } = {}): string[] {
+    if (o.values) return withValues(records);
+    const lines: string[] = [];
+    const byWatch = new Map<string, SpoolRecord[]>();
+    const notices = records.filter((r) => r.kind === 'notice');
+    for (const r of notices.slice(0, MAX_NOTICES)) lines.push(formatRecord(r));
+    if (notices.length > MAX_NOTICES) lines.push(`${LINE_PREFIX} …and ${notices.length - MAX_NOTICES} more notices; recent_events lists them.`);
+    for (const r of records) if (r.kind !== 'notice') byWatch.set(r.watch ?? '', [...(byWatch.get(r.watch ?? '') ?? []), r]);
+    for (const [watch, events] of byWatch) {
+        const first = events[0]!;
+        const ids = events.map((r) => r.id);
+        const how = events.length === 1 ? `get_event ${ids[0]} returns it` : 'recent_events lists them, get_event returns one';
+        // The note is what Claude wrote when it set the watch; the newest is the one in force.
+        const noted = events.findLast((r) => r.note)?.note;
+        const note = noted ? ` Note saved with this watch: "${oneLine(noted, 160)}".` : '';
+        lines.push(
+            `${LINE_PREFIX} ${oneLine(first.server, 40)} · ${oneLine(first.event, 80)}: ${events.length} new event${events.length === 1 ? '' : 's'} [${events.length === 1 ? 'event' : 'events'} ${someIds(ids)}; watch ${watch}; ${how}].${note}`
+        );
+    }
+    return lines;
 }

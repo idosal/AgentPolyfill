@@ -95,9 +95,9 @@ describe('the line Claude sees', () => {
         const line = formatRecord({ id: 'e4', kind: 'event', receivedAt: '', watch: 'w-2', server: 's', event: 'x.y', data: {} });
         assert.equal(line, '[mcp-events] s · x.y [event e4, watch w-2; get_event e4 returns the record].');
     });
-    test('bursts fold into a count', () => {
+    test('with payload fields asked for (MCP_EVENTS_WAKE_VALUES=1), bursts fold into a count', () => {
         const recs = Array.from({ length: 7 }, (_, i): SpoolRecord => ({ id: `e${i + 1}`, kind: 'event', receivedAt: '', watch: 'w', server: 's', event: 'x', data: {} }));
-        const out = formatBatch(recs);
+        const out = formatBatch(recs, { values: true });
         assert.equal(out.length, 4);
         assert.match(out[3]!, /and 4 more events \(e4–e7\)/);
     });
