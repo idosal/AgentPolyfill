@@ -32,6 +32,8 @@ const PROPS_MS = 150
 
 /** How long after a picture is drawn its fresh copy is swapped in (see refreshSoon). */
 const REFRESH_DELAY_MS = 80
+/** How long after a view's last swapped picture (kitty, Ghostty) it is drawn anew (see redrawWhenStill). */
+const TRAILING_REDRAW_MS = 250
 
 /** The header line and the Client region that draws one view's frames. */
 type ViewElements = Pick<Elements['terminal'], 'Box' | 'Text' | 'Client' | 'Image' | 'Raster' | 'Button'>
@@ -1223,18 +1225,17 @@ export async function showPicture($: EngineInterface, view: View, next: { frame?
   const sameSize =
     previous && previous.cols === picture.cols && previous.rows === picture.rows && view.drawnShape === shapeOf(next.image, view.strips)
   const sameScroll = previous?.scroll?.top === picture.scroll?.top && previous?.scroll?.total === picture.scroll?.total
-  // kitty and Ghostty: after the first swap (which finds out a terminal
-  // drawing the alt text), each picture is drawn anew. An idle session paints
-  // a swap only once something else on screen changes, so a hover showed up
-  // to a second late; a redraw, its header's blank flipped, is painted now.
-  // (iTerm2 keeps to swaps: a picture drawn anew there shows only after its
-  // next swap.)
-  const redraw = !state.swapEveryDraw && view.blitted
-  if (!sameSize || !sameScroll || view.sites.size === 0 || redraw) {
+  // Every terminal swaps each new picture in place: Claude Code paints swaps
+  // at its frame rate, idle or not, where a redraw comes ten a second at
+  // most (an animation held to 10 fps in kitty and Ghostty). A swap leaves
+  // Claude Code's drawn tree as it was, which a later repaint draws from;
+  // see redrawWhenStill.
+  if (!sameSize || !sameScroll || view.sites.size === 0) {
     // Drawn anew; the render hook then has a fresh copy swapped in.
     $.ui.invalidate('ui.render')
     return
   }
+  const first = !view.blitted
   view.blitted = true
   // A picture in strips swaps only the bands that changed.
   const swaps = next.image?.strips
@@ -1280,8 +1281,29 @@ export async function showPicture($: EngineInterface, view: View, next: { frame?
       }
     }
   }
-  // The first swap is painted now too.
-  if (!state.swapEveryDraw) $.ui.invalidate('ui.render')
+  // kitty and Ghostty: the first swap is painted now too, and once pictures
+  // stop, the view is drawn anew with the latest. (iTerm2 needs neither: a
+  // picture drawn anew there shows only after its next swap, so each drawing
+  // gets a fresh copy swapped in, see refreshSoon.)
+  if (state.swapEveryDraw) return
+  if (first) $.ui.invalidate('ui.render')
+  else redrawWhenStill($, view)
+}
+
+/**
+ * A swap changes the picture on screen, not Claude Code's drawn tree, and a
+ * repaint (a scroll, text arriving under the view) draws from the tree. So
+ * TRAILING_REDRAW_MS after a view's last swapped picture, the view is drawn
+ * anew with it: once per pause, not once per picture.
+ */
+function redrawWhenStill($: EngineInterface, view: View) {
+  const mine = (view.swapSeq = (view.swapSeq ?? 0) + 1)
+  void $.clock
+    .sleep(TRAILING_REDRAW_MS)
+    .then(() => {
+      if (view.swapSeq === mine && view.status === 'live') $.ui.invalidate('ui.render')
+    })
+    .catch(() => {})
 }
 
 /** A picture's size and band layout, to tell whether a swap fits what's drawn. */
