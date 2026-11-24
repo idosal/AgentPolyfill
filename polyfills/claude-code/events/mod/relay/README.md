@@ -62,19 +62,33 @@ why the mod says so each time. What keeps it from being more than that:
   address and nobody connected gives its storage back.
 - Rate limits: about 120 deliveries a minute to one webhook address, 300
   delivery requests a minute from one sender, 30 connections a minute from
-  one address. Past any of them the answer is `429` with `Retry-After`.
-  Cloudflare's rate limiter is approximate and counts per location. An
-  address's allowance is spent only by a well-formed delivery to an address
-  that exists, so junk sent elsewhere in a mailbox does not use it up.
+  one sender. A sender is an IPv4 address, or an IPv6 /64 (one home, office
+  or server can send from any address in its /64). Past any of them the
+  answer is `429` with `Retry-After`. Cloudflare's rate limiter is
+  approximate and counts per location. An address's allowance is spent only
+  by a well-formed delivery to an address that exists, so junk sent
+  elsewhere in a mailbox does not use it up.
+- MCP servers hosted on Cloudflare Workers all reach the relay from one
+  address (Cloudflare sets `CF-Connecting-IP` to `2a06:98c0:3600::103` for a
+  Worker's request to another Cloudflare site), so they share one bucket of
+  their own, 3,000 delivery requests a minute, and any Worker can spend it.
+  Each webhook address's own allowance still applies. This comes from
+  Cloudflare's documentation; it was not tested here.
 - A request whose limit cannot be checked is refused with `503`
   (`REQUIRE_LIMITS`): with its limits off, an open relay is free storage.
 - A connection that sends more than 600 messages in a minute, or a frame over
   256 KiB, is closed. Asking again for an address already asked for on the
   same connection sends nothing again.
-- It opens at most 300 new mailboxes in an hour, and 20 from one address.
+- It opens at most 2,000 new mailboxes in an hour, and 60 from one sender.
   Past either, a new mailbox is refused with `429` until the hour is over;
-  mailboxes that exist are not affected. To count per address it keeps, for
-  that hour only, a hash of the address salted with a value made for the hour.
+  mailboxes that exist are not affected. The first ceiling bounds cost (an
+  empty mailbox gives its storage back, and a full one holds at most 4 MiB);
+  someone with many IPv6 /64s or IPv4 addresses can still spend it, and keep
+  new users out for the rest of that hour. A mailbox that gave its storage
+  back counts as new when its owner returns, and many people behind one
+  address (an office, a conference) share that address's 60. To count per
+  sender it keeps, for that hour only, a hash of the sender salted with a
+  value made for the hour.
 - Request logs are off.
 - `GET /` says who runs it, that it is open, and how long it keeps a delivery.
 
@@ -150,7 +164,7 @@ The socket's messages are in [`src/protocol.ts`](src/protocol.ts).
 | Challenges waiting at once | 16 | |
 | One frame from the plugin | 256 KiB | |
 | Messages one connection sends in a minute | 1,200 | `SOCKET_MESSAGES_PER_MINUTE` |
-| New mailboxes opened in an hour, in all and from one address | no ceiling | `NEW_MAILBOXES_PER_HOUR`, `NEW_MAILBOXES_PER_SENDER_PER_HOUR` |
+| New mailboxes opened in an hour, in all and from one sender (IPv4 address or IPv6 /64) | no ceiling | `NEW_MAILBOXES_PER_HOUR`, `NEW_MAILBOXES_PER_SENDER_PER_HOUR` |
 | A request whose rate limit cannot be checked | let through | `REQUIRE_LIMITS=1` refuses it |
 
 A full mailbox answers `503` with `Retry-After`, so the server tries again

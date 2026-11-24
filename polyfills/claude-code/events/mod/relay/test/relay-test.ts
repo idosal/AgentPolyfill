@@ -430,6 +430,8 @@ describe('a relay anyone may use (wrangler.public.jsonc)', { concurrency: false 
         assert.match(about.holds, /pass through this server/);
         assert.match(about.holds, /no signing secret/);
         assert.match(about.source, /^https:\/\/github\.com\//);
+        assert.equal((about as { newMailboxesPerHour?: number }).newMailboxesPerHour, 2000);
+        assert.equal((about as { newMailboxesPerSenderPerHour?: number }).newMailboxesPerSenderPerHour, 60);
     });
 
     test('no access key is asked for, and a mailbox still opens only with its own key', async () => {
@@ -655,5 +657,50 @@ describe('an address is in use while its owner collects, not while things arrive
         } finally {
             await relay.stop();
         }
+    });
+});
+
+describe('a sender is counted by its IPv6 /64, not by each address in it', { concurrency: false }, () => {
+    test('new mailboxes from many addresses in one /64 count as one sender; another /64 and an IPv4 address do not', async () => {
+        const relay = await startRelay({ OPEN_RELAY: '1', NEW_MAILBOXES_PER_SENDER_PER_HOUR: '1' });
+        try {
+            const open = async (ip: string) => {
+                const key = newKey();
+                return (await upgradeStatus(relay.origin, await mailboxIdOf(key), ['mcp-events-relay.v1', `key.${key}`], { 'cf-connecting-ip': ip })).status;
+            };
+            assert.equal(await open('2001:db8:1:2::1'), 101);
+            assert.equal(await open('2001:db8:1:2::2'), 429, 'a second address in the same /64 is the same sender');
+            assert.equal(await open('2001:db8:1:2:ffff:ffff:ffff:ffff'), 429);
+            assert.equal(await open('2001:db8:1:3::1'), 101, 'another /64 is another sender');
+            assert.equal(await open('203.0.113.9'), 101);
+            assert.equal(await open('203.0.113.10'), 101, 'each IPv4 address is a sender of its own');
+        } finally {
+            await relay.stop();
+        }
+    });
+});
+
+describe('MCP servers hosted on Cloudflare Workers, which all arrive from one address', { concurrency: false }, () => {
+    let relay: Relay;
+    before(async () => {
+        relay = await startRelay({}, undefined, 0, 'wrangler.public.jsonc');
+    });
+    after(() => relay.stop());
+
+    test("are counted in a bucket of their own, larger than one machine's", async () => {
+        const sock = await connect(relay.origin, newKey());
+        const hooks = [newHook(), newHook(), newHook()];
+        for (const h of hooks) await sock.add(h);
+        sock.ws.addEventListener('message', (e) => {
+            const m = JSON.parse(String(e.data)) as { t: string; seq?: number };
+            if (m.t === 'delivery') sock.send({ t: 'ack', seqs: [m.seq!] });
+        });
+        // More than one machine may send in a minute (300), spread over three addresses so that no
+        // address's own allowance (120) is reached.
+        const statuses: number[] = [];
+        for (let i = 0; i < 330; i++) statuses.push((await post(relay.origin, sock.mailbox, hooks[i % 3]!, { eventId: `w${i}` }, { headers: { 'cf-connecting-ip': '2a06:98c0:3600::103' } })).status);
+        assert.ok(!statuses.includes(429), `none was refused as too many from one sender: ${[...new Set(statuses)]}`);
+        assert.ok(statuses.every((x) => x === 200 || x === 503), 'kept, or the mailbox was full for a moment');
+        await sock.close();
     });
 });
