@@ -83,19 +83,21 @@ Claude finds `huggingface-local-models` in its skill listing and loads it.
 Claude Code asks you once whether to load that skill. Claude then reads the
 skill's reference files from the server and answers from them.
 
-Three commands are worth knowing:
+Four commands are worth knowing:
 
 | Command | What it does |
 |---|---|
-| `/mcp-skills` | Lists the skills your servers serve, and says which servers were left alone and why. |
+| `/mcp-skills` | Lists the skills your servers serve, the servers left alone and why, and the skills you disabled. |
 | `/mcp-skills show <skill>` | Opens a skill's `SKILL.md` in a panel for you to read. Nothing is loaded, and Claude does not read the panel. |
 | `/mcp-skills use <skill> [what to do]` | Asks Claude to load a skill by name. |
+| `/mcp-skills disable <skill>` | Keeps a skill from Claude: it is not in Claude's skill listing, and cannot be loaded or read, in this session or another, until you type `/mcp-skills enable <skill>`. |
 
 Also: `/mcp-skills refresh` looks at every server again,
 `/mcp-skills forget [<skill>]` drops your approvals, and `/mcp-skills setup`
 is for a machine with no Node and no Bun
-([below](#the-mods-own-runtime)). `<skill>` is a name, `server:name`, or the
-URI of a `SKILL.md`.
+([below](#the-mods-own-runtime)). `<skill>` is a name, `server:name`, the
+URI of a `SKILL.md`, or `server:URI` (which also names a skill its server
+does not list).
 
 To try it with a server on your own machine, [`demo/`](demo/) holds a small one
 that serves two skills (`npm install`, then point a server entry at
@@ -114,6 +116,15 @@ that serves two skills (`npm install`, then point a server entry at
 - **No other questions.** Reading a loaded skill's files and listing skills
   raise none. After you approved a skill, the commands Claude runs go through
   your usual permissions, as they would for a skill on your disk.
+- **Skills you do not want.** `/mcp-skills disable <skill>` turns one skill
+  off, by its server and the address of its `SKILL.md`: from then on it is
+  not in Claude's skill listing, and Claude cannot load it or read its files,
+  in this session and every other that uses the same Claude Code
+  configuration folder. It stays off whatever the server changes in it, and
+  the same address on another server is another skill.
+  `/mcp-skills enable <skill>` turns it back on; only you can, by typing it.
+  Turning a skill off takes nothing back from a conversation that loaded it
+  already: that lasts until the conversation is cleared.
 - **No slow starts.** A server found not to serve skills is not connected to
   again for a day. A session waits for a first listing (at most 4 seconds) only
   for servers that serve skills or that it has not looked at yet, and a server
@@ -250,6 +261,8 @@ from that server, never as instructions from you.
   ignored.
 - While a skill is loaded, Claude Code asks you before a resource read from
   any other MCP server.
+- A skill you disabled is not offered to Claude, loaded or read until you
+  enable it again, whatever a rule or mode allows; Claude cannot enable it.
 - The mod never reads Claude Code's stored credentials, stores no tokens, and
   connects only to servers Claude Code itself uses.
 
@@ -292,7 +305,9 @@ with neither. For a machine that has none, `/mcp-skills setup` fetches one:
   one written in the mod's source, copied from the release's own checksum
   file. A download that does not match is deleted. The check happens when it
   is fetched, not each time it runs; only the copy of the pinned version is
-  ever run.
+  ever run, from its own folder, and not through a symbolic link. A copy of
+  any other version found there is never run, not even to ask its version,
+  and the next setup deletes it.
 - **Where it goes:** the `runtime` folder inside the plugin's data folder
   (`~/.claude/plugins/data/` followed by the plugin's folder, or the same under
   `CLAUDE_CONFIG_DIR`). It is used for this mod's helper and for nothing else.
@@ -310,7 +325,7 @@ helper, as it can already run code through its own hooks.
 
 - [`docs/conformance.md`](docs/conformance.md): every rule the Skills
   extension sets for a client, whether the mod meets it, and the test that
-  checks it (59 rules: 53 met, 3 met with a stated limit, 3 that do not apply).
+  checks it (60 rules: 54 met, 3 met with a stated limit, 3 that do not apply).
 - [`docs/verification.md`](docs/verification.md): a model of the approval
   and gate state machine, explored state by state (by an explorer of its own
   and by TLC), and property tests of what a server's input reaches; what each
@@ -327,9 +342,9 @@ helper, as it can already run code through its own hooks.
 |---|---|---|
 | Two real public servers, Hugging Face (25 skills, 135 files) and TogoMCP (5 skills, 8 files): every skill loaded, every file verified | `npm run interop:real` | all verified |
 | The official MCP conformance suite's client scenarios for SEP-2640 (it has four) | [`test/conformance/run.sh`](test/conformance/run.sh) | 4 of 4 pass |
-| The client rules, one test per rule, against a hand-written server; discovery; the bundled helper; property tests; the model of the gate | `npm test` | 118 pass |
-| Approval, the permission questions, first-run behaviour and the runtime setup, in Claude Code's own test kit | `npm run test:mod` | 80 pass |
-| A model of approval, loading and the gate, every reachable state to its bound ([what it shows](docs/verification.md)) | `node verification/model.ts` | every invariant holds |
+| The client rules, one test per rule, against a hand-written server; discovery; the bundled helper; per-skill disable; property tests; the model of the gate | `npm test` | 128 pass |
+| Approval, the permission questions, disable and enable, first-run behaviour and the runtime setup, in Claude Code's own test kit | `npm run test:mod` | 96 pass |
+| A model of approval, loading, disabling and the gate, every reachable state to its bound ([what it shows](docs/verification.md)) | `node verification/model.ts` | every invariant holds |
 | The same model in TLA+, every reachable state to the same bound, by TLC 1.7.4 | `node verification/check.mjs` | every invariant holds; 0.3.0's rule and the lossy read-back break the gate, as they should ([numbers](docs/verification.md)) |
 | Time to a listing, memory and CPU of the helper | [`tools/measure.ts`](tools/measure.ts) | [numbers](docs/evidence/measure.txt) |
 | The official TypeScript SDK's Skills server and client, over stdio and HTTP | `npm run interop` | 15 checks pass |

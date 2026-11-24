@@ -1,10 +1,10 @@
 // -*- mode: Bluespec; -*-
 // The mcp-skills mod's skill gate: approval, loading, verification, the acting window, the gate
-// on other tool calls, and the person disabling and enabling the skill. The same state machine as verification/model.ts, action for action and
-// invariant for invariant (docs/verification.md maps each to the code). This file is for Quint's
-// simulator (`quint run`, which samples). TLC checks SkillGate.tla, this file written in TLA+ by
-// hand (verification/check.mjs, exhaustive to each configuration's bound); verification/conform.mjs
-// replays traces of this file in that one.
+// on other tool calls, and the person disabling and enabling the skill. The same state machine as
+// verification/model.ts, action for action and invariant for invariant (docs/verification.md maps
+// each to the code). This file is for Quint's simulator (`quint run`, which samples). TLC checks
+// SkillGate.tla, this file written in TLA+ by hand (verification/check.mjs, exhaustive to each
+// configuration's bound); verification/conform.mjs replays traces of this file in that one.
 //
 // One server serves a skill and may change its entry, its SKILL.md and a supporting file at any
 // moment, each separately; a second server is only a place resources can be read from.
@@ -190,8 +190,8 @@ module skillGate {
 
   // Disable / Enable: /mcp-skills disable and enable, here or in another session (the list is the
   // mod's store). Neither touches the conversation: a skill loaded before is still acted on.
-  action disable = all { not(st.off), quiet({ ...st, off: true }) }
-  action enable = all { st.off, quiet({ ...st, off: false }) }
+  action disableSkill = all { not(st.off), quiet({ ...st, off: true }) }
+  action enableSkill = all { st.off, quiet({ ...st, off: false }) }
 
   // HelperRestart: the helper stops and is started again: its registry and held entry are gone.
   action helperRestart = quiet({ ...st, registry: NONE, held: NONE, heldApproved: false })
@@ -223,7 +223,7 @@ module skillGate {
 
   action step = any {
     serverSetEntry, serverSetBody, serverSetFile, listSkills, check, runLoad, unchecked, readFile, tool,
-    helperRestart, resume, clear, forget, elsewhereYes, offer, disable, enable
+    helperRestart, resume, clear, forget, elsewhereYes, offer, disableSkill, enableSkill
   }
 
   // ---- Invariants (same names as in model.ts).
