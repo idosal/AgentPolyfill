@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
-import { codexHome, readCodexServers } from '../src/codex-config.ts';
+import { codexHome, defaultManagedFiles, readCodexServers } from '../src/codex-config.ts';
 import { temp } from './harness.ts';
 
 function home(configToml: string) {
@@ -144,6 +144,12 @@ describe('an organisation that manages Codex', () => {
         assert.deepEqual(Object.keys(readCodexServers(h.env, () => {}, { managedFiles: [policy] }).servers), ['a']);
         writeFileSync(policy, 'not toml [');
         assert.deepEqual(readCodexServers(h.env, () => {}, { managedFiles: [policy] }).servers, {});
+    });
+
+    test('CX3: on Windows, the requirements file Codex reads from %ProgramData% is looked at too', () => {
+        assert.deepEqual(defaultManagedFiles('win32', { PROGRAMDATA: 'D:\\Data' }), ['D:\\Data\\OpenAI\\Codex\\requirements.toml']);
+        assert.deepEqual(defaultManagedFiles('win32', {}), ['C:\\ProgramData\\OpenAI\\Codex\\requirements.toml']);
+        assert.ok(defaultManagedFiles('linux', {}).includes('/etc/codex/requirements.toml'));
     });
 
     test('a managed-preferences profile for Codex turns discovery off', () => {
