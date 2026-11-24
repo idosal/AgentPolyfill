@@ -1,4 +1,4 @@
-// The security review's follow-up findings on this server (MCPolyfill launch/security-review.md, D1 to D6),
+// The security review's follow-up findings on this server (AgentPolyfill launch/security-review.md, D1 to D6),
 // one test each. D2 (label find_hn_story's titles) was later reversed by decision: no label is added.
 
 import assert from 'node:assert/strict';

@@ -10,5 +10,5 @@ Two skills for agents:
   slot or proposal already covers it.
 
 ```
-/plugin install polyfill-author --marketplace idosal/MCPolyfill
+/plugin install polyfill-author --marketplace idosal/AgentPolyfill
 ```

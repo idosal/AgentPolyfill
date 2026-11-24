@@ -19,5 +19,5 @@ Which of the four changes in `docs/host-changes.md` it needs, or a new one.
 
 **Are you building it?**
 
-If so, the `create-polyfill` skill (`/plugin install polyfill-author --marketplace idosal/MCPolyfill`)
+If so, the `create-polyfill` skill (`/plugin install polyfill-author --marketplace idosal/AgentPolyfill`)
 walks you through the contract in `docs/polyfill-contract.md`.

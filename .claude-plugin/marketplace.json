@@ -1,5 +1,5 @@
 {
-  "name": "mcpolyfill",
+  "name": "agent-polyfill",
   "description": "MCP extensions for hosts that haven't shipped them yet",
   "owner": {
     "name": "Ido Salomon",
@@ -7,9 +7,9 @@
   },
   "plugins": [
     {
-      "name": "mcpolyfill",
+      "name": "agent-polyfill",
       "description": "Every polyfill in this marketplace in one install (MCP Apps, MCP Events and MCP Skills); it adds nothing of its own",
-      "source": "./plugins/mcpolyfill"
+      "source": "./plugins/agent-polyfill"
     },
     {
       "name": "mcp-events",
@@ -21,7 +21,7 @@
       "description": "Unofficial MCP Apps client for the Claude Code terminal: app UIs render inline, with clicks and keys forwarded to the app",
       "source": {
         "source": "archive",
-        "url": "https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-0.1.0.zip",
+        "url": "https://github.com/idosal/AgentPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-0.1.0.zip",
         "sha256": "beba256c1f8eac95bdcb26bf72095c90894b1f9bd14a3f9d649acad52d095db3"
       }
     },

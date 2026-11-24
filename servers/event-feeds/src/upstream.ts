@@ -19,7 +19,7 @@ export const UPSTREAM_CAPS: Record<string, number> = {
 };
 export const MAX_BODY = 1_000_000;
 const TIMEOUT_MS = 6000;
-const UA = 'event-feeds/0.1 (public MCP Events demo server; +https://github.com/idosal/MCPolyfill/tree/main/servers/event-feeds)';
+const UA = 'event-feeds/0.1 (public MCP Events demo server; +https://github.com/idosal/AgentPolyfill/tree/main/servers/event-feeds)';
 
 // A small per-isolate cache in front of the edge cache, and one fetch in flight per URL.
 const memo = new Map<string, { exp: number; v: Loaded }>();

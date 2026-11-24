@@ -154,9 +154,10 @@ for now:
   over stdio and Streamable HTTP). A rewrite means reimplementing those and
   proving the conformance clauses and interop runs again with no SDK
   underneath.
-- What it would buy is real: a machine with neither Node nor Bun cannot run
-  the mod today. A helper binary per platform would fix that, at a few
-  megabytes each. If Claude Code lets a mod send MCP requests over its own
+- What it would buy is smaller since 0.6.0: a machine with neither Node nor
+  Bun can have the mod fetch a copy of Bun for itself (`/mcp-events setup`,
+  about 40 MB, on macOS and Linux). A helper binary per platform would need
+  no fetch, at a few megabytes each, and would cover Windows too. If Claude Code lets a mod send MCP requests over its own
   connection (see
   [`claude-code-and-mcp-events.md`](claude-code-and-mcp-events.md)), the
   helper goes away altogether and the question with it.

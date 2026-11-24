@@ -116,6 +116,28 @@ is bounded (see "Events wake a session only so often" below), not prevented.
   connections without it; a relay with none refuses everyone unless opened on
   purpose (`OPEN_RELAY`). A mailbox key is used only with the relay it was
   made for.
+- **The one thing it downloads.** Nothing, unless you run `/mcp-events setup`
+  on a machine that has no Node and no Bun, and answer Download to the
+  question it then puts in Claude Code's own dialog ("Not now" is the first
+  answer, so a dialog that closes by itself is a no). Then it downloads one
+  fixed Bun release from GitHub over HTTPS (`curl`, HTTPS also required of
+  any redirect), hashes the archive inside the mod (no checksum program on
+  your PATH is trusted), and compares the SHA-256 with the value written in
+  [`mod/hooks/runtime.ts`](mod/hooks/runtime.ts) for that platform. Only on a
+  match is one named file unpacked, checked to answer with the expected
+  version, and moved into the plugin's data folder
+  (`~/.claude/plugins/data/mcp-events-mcp-events/runtime`); otherwise the
+  download is deleted and nothing of it is run; a file that cannot be deleted
+  is left not runnable, and you are told where it is. The command is honoured
+  only from your own input: typed at the prompt, or sent from your own Remote
+  Control. Claude cannot run it, and neither can a script, another session or
+  `claude -p`. Two sessions cannot fetch at once. No server or event can
+  change what is downloaded or from where. The SHA-256 is checked when the
+  copy is fetched, not each time it runs; only the copy of the pinned version
+  is ever run, and a copy of any other version put in that folder is never
+  run, not even to ask its version. `/mcp-events setup remove` deletes it. A
+  newer Bun arrives only with a newer version of the mod, and only when you
+  run the command again.
 - **Bounds.** One event or webhook delivery is at most 256 KiB, measured by
   the mod whether it came directly or through a relay; a cursor at most
   16 KiB; one answer from a remote server 4 MiB (one message of it, for an
@@ -181,10 +203,11 @@ is bounded (see "Events wake a session only so often" below), not prevented.
   Claude Code's interactive sign-in is not reachable by the mod. See
   [`docs/sign-in.md`](docs/sign-in.md).
 - **A folder you trust can configure it**, as it can configure Claude Code: its
-  settings may set this mod's environment variables. The mod refuses a
-  servers file (`MCP_EVENTS_CONFIG`) inside the project or its repository as a
-  guard against a careless setting, not as a boundary: a trusted folder can
-  already run commands through hooks.
+  settings may set this mod's environment variables, `MCP_EVENTS_RUNTIME`
+  (the program that runs the helper) among them. The mod refuses a servers
+  file (`MCP_EVENTS_CONFIG`) inside the project or its repository as a guard
+  against a careless setting, not as a boundary: a trusted folder can already
+  run commands through hooks.
 - **A watch's note is whatever the session that set the watch wrote.** It is
   shown with each event as "Note saved with this watch".
 - **A local (stdio) server's output is not size-limited.** It is a program you
@@ -211,8 +234,16 @@ is bounded (see "Events wake a session only so often" below), not prevented.
   redactor and the wake budget, on generated inputs; and the rule for which
   servers may be sent `events/*`, over all of its cases.
 - **A formal model** of delivery and of waking ([`model/`](model/README.md)),
-  checked by random simulation. That is not a proof, and no model checker has
-  run over it yet.
+  in Quint and in TLA+: simulated, and model-checked with TLC to small,
+  stated bounds (webhook with one event, or two with the clock stopped). TLC
+  checks the model, not the code, and says nothing past its bounds. On 0.5.0's
+  model it found three cases the simulation had missed. Two were in the code
+  too: the notice that waking stopped given again after a helper restart, and
+  an event shown again after Claude Code was closed and reopened, if the
+  helper stopped at the wrong moment. 0.5.1 fixes both, each with a test that
+  fails on 0.5.0. The third was in the model only, which now does as the code
+  does. On 0.5.1's model every invariant holds within those bounds; one of
+  them allows the case described under "Delivery is at least once".
 - **One review from outside the sessions that built it, and no audit by a
   person.** The Events client, webhook verification and the relay were
   reviewed adversarially during development. On 24 November 2026 an AI
@@ -227,7 +258,7 @@ above say what was considered, not that nothing is left.
 
 Please do not open a public issue for a security problem. Use **Report a
 vulnerability** on this repository's
-[Security tab](https://github.com/idosal/MCPolyfill/security/advisories/new)
+[Security tab](https://github.com/idosal/AgentPolyfill/security/advisories/new)
 (GitHub's private reporting), with what you did, what happened, and the
 versions of Claude Code and of the mod. If that is not available to you, open
 an issue that says only that you have a security report, and you will be

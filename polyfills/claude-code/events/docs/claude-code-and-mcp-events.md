@@ -13,7 +13,7 @@ sign-in, it needs a second connection to every server, it needs a helper
 process and a JavaScript runtime, and it needs an open session. All of that is
 Claude Code's to lift, and one addition to the mod API would lift most of it.
 
-"The mod" is this polyfill (`polyfills/claude-code/events` in the MCPolyfill
+"The mod" is this polyfill (`polyfills/claude-code/events` in the AgentPolyfill
 repository): a hooks module that runs inside Claude Code and a helper process
 that holds the Events client.
 
