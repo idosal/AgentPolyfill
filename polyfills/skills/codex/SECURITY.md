@@ -122,6 +122,11 @@ instance without Node).
 - **A binary file's media type:** only when the server's whole value is a media
   type (`image/png`); anything else is left out. Before 0.1.6 a value that only
   began as one was printed as given.
+- **A file with control characters a terminal acts on** (ESC, the C1 set, DEL
+  and the like; not tabs or line breaks): never as text. It is treated as a
+  binary file and not shown. Nothing is stripped to make it showable: what was
+  verified is what is shown, or nothing is. Before 0.1.6 ESC and four more passed
+  as text.
 - **A skill whose URI, or the URI of one of its files, holds anything but
   printable ASCII:** never. That rules out:
   - control characters (C0, DEL, C1), which a terminal could act on: erase a

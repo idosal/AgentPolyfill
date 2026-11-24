@@ -157,3 +157,23 @@ describe('a load that follows a showing (the core, as a host that shows a skill 
         assert.deepEqual(host.held().map((h) => h.entry.resources), ['dynamic'], 'what is held is still the earlier load');
     });
 });
+
+describe('what is shown as text', () => {
+    const cases: [string, string][] = [['ESC', '\u001b[2K'], ['a C1 control', '\u009b2K'], ['DEL', '\u007f'], ['a unit separator', '\u001f']];
+
+    test('a file that holds a control character a terminal acts on is not shown: it is treated as the binary file it is', async () => {
+        const files = Object.fromEntries(cases.map(([, c], i) => [`f${i}.txt`, `before${c}after\n`]));
+        const s = skill('logs', { ...files, 'plain.txt': 'tab\there, and a line\nbreak\r\n' });
+        const app = await startApp({ docs: new Fixture(scenarioOf([s])) });
+        assert.ok(!(await app.call('load_skill', { server: 'docs', uri: s.uri })).isError);
+        for (const [i, [what]] of cases.entries()) {
+            const r = await app.call('read_skill_file', { server: 'docs', skill: s.uri, path: `f${i}.txt` });
+            assert.ok(!r.isError, r.text);
+            assert.match(r.text, /It is a binary file.*which this mod does not show\.$/, what);
+            // eslint-disable-next-line no-control-regex
+            assert.doesNotMatch(r.text, /[\u0000-\u0008\u000e-\u001f\u007f-\u009f]/, what);
+        }
+        const plain = await app.call('read_skill_file', { server: 'docs', skill: s.uri, path: 'plain.txt' });
+        assert.match(plain.text, /tab\there, and a line\nbreak/, 'tabs and line breaks are text');
+    });
+});
