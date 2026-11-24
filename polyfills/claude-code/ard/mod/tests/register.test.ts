@@ -156,18 +156,24 @@ test('A-8 with nobody to ask (claude -p, a background loop), nothing is sent', a
 
 // Security review R1: the ask shows at most 300 characters with control
 // characters blanked, so a query the ask could not show whole is not sent.
-test('A-9 a query longer than the ask shows, or with control characters, is refused and nothing is sent', async ($, on) => {
+test('A-9 a query longer than the ask shows, or with control characters or direction marks, is refused and nothing is sent', async ($, on) => {
   const handed = cards(on)
   const posted: string[] = []
   on('http.fetch', (_, e) => {
     posted.push(e.url)
     return { value: { status: 200, ok: true, headers: {}, text: '{"results":[]}' } }
   })
+  on('tool.check', { tool: SEARCH }, () => ({ decision: 'allow' }))
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   const long = await $.tool.run({ tool: SEARCH, tool_use_id: 'a9', query: `check why my CI build failed ${'x'.repeat(300)}`, registry: 'https://registry.example/api' } as never)
   expect(String((long as { deny?: string }).deny)).toContain('under 300 characters')
   const hidden = await $.tool.run({ tool: SEARCH, tool_use_id: 'a9b', query: 'CI build\u001b[8m secret words', registry: 'https://registry.example/api' } as never)
   expect(String((hidden as { deny?: string }).deny)).toContain('without control characters')
+  // A right-to-left override would make the ask read differently from the bytes sent.
+  const flipped = await $.tool.run({ tool: SEARCH, tool_use_id: 'a9d', query: 'CI build \u202Edeliaf', registry: 'https://registry.example/api' } as never)
+  expect(String((flipped as { deny?: string }).deny)).toContain('direction marks')
+  const asked = await $.tool.check({ tool: SEARCH, input: { query: 'a\u202Eb\u2028c\u200Bd', registry: 'https://registry.example/api' }, tool_use_id: 'a9e', approver: 'person' } as never)
+  expect(String((asked as { reason?: string }).reason).endsWith('"a b c d"')).toBe(true)
   expect(posted).toEqual([])
   expect(handed).toEqual([])
   const ok = await $.tool.run({ tool: SEARCH, tool_use_id: 'a9c', query: 'x'.repeat(300), registry: 'https://registry.example/api' } as never)
