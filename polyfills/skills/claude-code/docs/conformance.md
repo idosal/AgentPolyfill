@@ -35,6 +35,8 @@ the limit stated in its row.
   (`npm test`).
 - `gates`: [`mod/hooks/gates.test.ts`](../mod/hooks/gates.test.ts), the mod's
   hooks running in Claude Code's own test kit (`npm run test:mod`).
+- `hardening`: [`test/hardening-test.ts`](../test/hardening-test.ts), a
+  server's media type, and the core's load after a showing (`npm test`).
 - `disable`: [`test/enable-disable-test.ts`](../test/enable-disable-test.ts),
   the helper's half of per-skill enable and disable, against a hand-written
   server (`npm test`).

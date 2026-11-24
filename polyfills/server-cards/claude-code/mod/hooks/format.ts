@@ -7,7 +7,7 @@ import { defaultName, host, isCompatible, previewUrl } from './configure'
 import type { Discovery, FoundServer } from './discover'
 import type { Offered } from './offer'
 
-const clean = (s: unknown, max = 300) => plainText(String(s ?? '').replace(/[\r\n\t]+/g, ' ')).slice(0, max)
+const clean = (s: unknown, max = 300) => plainText(String(s ?? '').replace(/[\r\n\t\u2028\u2029]+/g, ' ')).slice(0, max)
 
 const describeInputs = (card: ServerCard, i: number) => {
   const r = card.remotes![i]!
