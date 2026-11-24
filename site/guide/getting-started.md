@@ -167,8 +167,8 @@ codex mcp add huggingface --url https://huggingface.co/mcp
 :::
 
 In Claude Code, `/mcp-skills` lists what it serves. In Codex, the served
-skills appear in the `$` list from your next session. Then ask a question one
-of its skills covers:
+skills appear in the `$` list after you ask once to list the served skills,
+from the next turn. Then ask a question one of its skills covers:
 
 > Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?
 

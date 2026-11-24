@@ -223,6 +223,13 @@ the live server.
 - **Start a resumed session's plugin servers when it opens,** as for a new
   session. Today they start at the first tool call, so Events' watches for a
   resumed session wait until then.
+- **Start a plugin's MCP servers when a session opens on a running daemon,**
+  as for the daemon's first session, or give a plugin a supported way to ask
+  for that. Today the daemon starts a plugin's local server whose tool list it
+  kept from an earlier session only at that server's first tool call. So the
+  Skills polyfill can't write its skill entries when the session opens, and
+  you have to ask once to list the served skills. Marking the server required
+  starts it, but then no session opens while it can't start.
 - **Mark a turn that something else started.** Input from `codex queue`
   arrives looking like the person typed it. A turn an extension starts should
   reach the model and the UI marked as the extension's.

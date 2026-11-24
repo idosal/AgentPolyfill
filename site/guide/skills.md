@@ -58,9 +58,11 @@ The mod downloads nothing unless you type that command.
 ### In Codex
 
 Codex 0.172 (the version it was tested on), with Node 20 or newer. Served
-skills appear in Codex's own skill list from the session after a server first
-serves them, load after a yes for each one in Codex's own form, and are
-checked against the server's digests. One rule of the spec can't be met in
+skills appear in Codex's own `$` skill list from the turn after the plugin's
+server starts (if Codex's daemon was already running, after you ask once to
+list the served skills), and from the first turn of every later session. They
+load after a yes for each one in Codex's own form, and are checked against
+the server's digests. One rule of the spec can't be met in
 Codex yet: a skill from one server reading another server's resources isn't
 put to you first (rule X8), because Codex doesn't let a plugin ask.
 
@@ -85,8 +87,9 @@ codex mcp add huggingface --url https://huggingface.co/mcp
 
 :::
 
-In Codex, the served skills appear in the `$` list from your next session.
-Start `claude` or `codex` in the same folder and ask something one of its
+In Codex, the served skills appear in the `$` list after you ask once to list
+the served skills, from the next turn. Start `claude` or `codex` in the same
+folder and ask something one of its
 skills covers:
 
 > Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?
