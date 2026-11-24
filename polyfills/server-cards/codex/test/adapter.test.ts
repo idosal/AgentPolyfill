@@ -210,7 +210,8 @@ test('E-3 an add with a form: the question names the server, URL, headers, file 
     required: ['decision'],
   })
   // The host on its own line (security review C3), then the URL.
-  assert.ok(q.message.startsWith(`Add the MCP server "example-docs" to Codex?\nIt connects to the host ${new URL(web.origin).host}\nURL: ${web.origin}/mcp\nHeaders: none\n`), q.message)
+  // The host first (a client may join the lines), and on its own line (security review C3), then the URL.
+  assert.ok(q.message.startsWith(`${new URL(web.origin).host}: add the MCP server "example-docs" to Codex?\nIt connects to the host ${new URL(web.origin).host}\nURL: ${web.origin}/mcp\nHeaders: none\n`), q.message)
   assert.ok(q.message.endsWith(`Written to ${s.fake.dir}/config.toml (all your projects).\nTo undo: codex mcp remove example-docs`), q.message)
   assert.deepEqual(adds(s.fake), [['mcp', 'add', 'example-docs', '--url', `${web.origin}/mcp`]])
   assert.match(r.text, /To remove it: codex mcp remove example-docs/)

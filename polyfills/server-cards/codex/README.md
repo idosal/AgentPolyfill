@@ -50,7 +50,7 @@ For one that needs a sign-in, ask about buildkite.com and add Buildkite; then ru
 4. **Ask Codex to add one.** Codex calls `add_mcp_server`, and the plugin asks you through Codex's form (MCP elicitation):
 
    ```
-   Add the MCP server "neon-docs" to Codex?
+   neon.com: add the MCP server "neon-docs" to Codex?
    It connects to the host neon.com
    URL: https://neon.com/docs/mcp
    Headers: none
@@ -60,6 +60,8 @@ For one that needs a sign-in, ask about buildkite.com and add Buildkite; then ru
 
    Your answer: ( ) Don't add it  ( ) Add it
    ```
+
+   The host comes first, because some clients join the form's lines into one paragraph (the ChatGPT desktop app shows it as an approval card that way); it also has a line of its own for clients that keep line breaks, such as the TUI.
 
    - Choose **Add it**, and the server is written with `codex mcp add`. Only that choice adds.
    - Choose **Don't add it**, decline or close the form, or send it back without a choice, and nothing is written. Codex is told not to ask again unless you bring it up.

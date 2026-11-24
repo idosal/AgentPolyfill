@@ -1720,11 +1720,14 @@ function askText(plan, card, provenance, file) {
     ...Object.entries(plan.httpHeaders).map(([k, v]) => `${k}: ${v}`),
     ...Object.entries(plan.envHttpHeaders).map(([k, v]) => `${k}: <the value of $${v}>`)
   ];
+  const host2 = hostOf(plan.url) || "(unknown host)";
   return shownText(
     [
-      `Add the MCP server "${plan.name}" to Codex?`,
-      // The host on its own line: what the URL connects to (security review C3).
-      `It connects to the host ${hostOf(plan.url) || "(unknown)"}`,
+      // The host first: some clients (the ChatGPT desktop app) join the lines
+      // into one paragraph, so it has to read first either way.
+      `${host2}: add the MCP server "${plan.name}" to Codex?`,
+      // And on its own line, for clients that keep line breaks (security review C3).
+      `It connects to the host ${host2}`,
       `URL: ${plan.url}`,
       headers.length ? `Headers: ${headers.join("; ")}` : "Headers: none",
       `From the Server Card ${card.name}, ${provenance}.`,
@@ -2012,7 +2015,8 @@ function tools(session, defaultRegistry) {
         ctx,
         shownText(
           [
-            `Send this search to ${endpoints.join(", ")}, and to up to three registries ${endpoints.length === 1 ? "it refers" : "they refer"} to?`,
+            // The hosts first, as in mcp-server-cards' form: some clients join the lines.
+            `${[...new Set(endpoints.map((ep) => new URL(ep).host))].join(", ")}: send this search to ${endpoints.join(", ")}, and to up to three registries ${endpoints.length === 1 ? "it refers" : "they refer"} to?`,
             `Query: "${query}"`,
             "A registry is a service someone else runs, and it sees the query."
           ].join("\n")
