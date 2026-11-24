@@ -3,7 +3,7 @@
   "launch": {
     "file": "launch.mp4",
     "poster": "launch-poster.jpg",
-    "posterAt": 3.6,
+    "posterAt": 5.6,
     "caption": "Apps, Events, Skills, Server Cards and ARD in real Claude Code sessions. No sound.",
     "description": "Real Claude Code sessions, no sound. DOOM from the hosted arcade server runs under a tool call and is played with clicks and keys; a press on a demo page wakes an idle session; a skill from Hugging Face's MCP server is approved once and used; the MCP servers neon.com publishes are found from its domain and Add is pressed on one; and buildkite.com's ARD listing shows its server.",
     "master": "master-16x9.mp4",

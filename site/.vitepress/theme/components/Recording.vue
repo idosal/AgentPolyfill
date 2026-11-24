@@ -21,8 +21,11 @@ const props = withDefaults(
     height?: number
     caption?: string
     loop?: boolean
+    // false: plays on hover (with a mouse) or on a press, not by itself as it
+    // scrolls into view; for a page with several recordings side by side.
+    autoplay?: boolean
   }>(),
-  { loop: true },
+  { loop: true, autoplay: true },
 )
 
 // A cut keeps its file name when it is rendered again, so its hash goes in
@@ -83,6 +86,16 @@ onMounted(() => {
   if (!el) return
   el.addEventListener('play', () => (playing.value = true))
   el.addEventListener('pause', () => (playing.value = false))
+  if (!props.autoplay) {
+    // Load nothing until asked; with a mouse, hovering plays it.
+    root.value!.addEventListener('pointerenter', (e) => {
+      if (e.pointerType === 'mouse' && !reduced.value) play()
+    })
+    root.value!.addEventListener('pointerleave', (e) => {
+      if (e.pointerType === 'mouse' && !el.paused) el.pause()
+    })
+    return
+  }
   observer = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
