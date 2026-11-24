@@ -106,7 +106,12 @@ why the mod says so each time. What keeps it from being more than that:
 - It holds at most 20,000 mailboxes at once (`MAX_LIVE_MAILBOXES`), so at most
   about 80 GiB in all. Past it, a new mailbox is refused with `503` until
   others give their storage back. The hourly ceilings bound how fast
-  mailboxes appear; this bounds how many there are.
+  mailboxes appear; this bounds how many there are. It can be filled and kept
+  full: at 200 an hour from each /48, ten /48s (or about 34 IPv4 addresses)
+  fill it in about ten hours, and a mailbox with one address stays live as
+  long as its owner reconnects once a week. New users then get `503` until
+  the operator blocks those mailboxes; existing users are unaffected. There
+  is no cap on live mailboxes per network yet.
 - The front page names an abuse contact. A mailbox the operator lists in
   `BLOCKED_MAILBOXES` is refused: its socket and its deliveries get `410`.
 - Request logs are off.
