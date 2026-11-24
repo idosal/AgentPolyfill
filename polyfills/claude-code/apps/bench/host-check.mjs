@@ -139,16 +139,22 @@ const TALL_APP = `<!doctype html><html><body style="margin:0">${Array.from({ len
 })();
 </script></body></html>`;
 // The nested app: a tall page with a frame from another site (its server's
-// own address) part way down; says when the button inside the frame is clicked.
+// own address) part way down; says when that frame has loaded ("frame ready")
+// and when the button inside it is clicked.
 const NESTED_APP = () => `<!doctype html><html><body style="margin:0"><div style="height:300px">top</div><iframe src="${MCP_ORIGIN}/frame" style="display:block;border:0;width:100%;height:200px"></iframe><div style="height:1100px">bottom</div><script>
 (function () {
+  var frameReady = false, initialized = false;
   function send(m) { parent.postMessage(m, "*"); }
+  function say(text) { send({ jsonrpc: "2.0", id: Date.now(), method: "ui/update-model-context", params: { content: [{ type: "text", text: text }] } }); }
   window.addEventListener("message", function (e) {
     var m = e.data;
-    if (m === "frame clicked") send({ jsonrpc: "2.0", id: Date.now(), method: "ui/update-model-context", params: { content: [{ type: "text", text: "frame clicked" }] } });
+    if (m === "frame clicked") say("frame clicked");
+    if (m === "frame ready") { frameReady = true; if (initialized) say("frame ready"); }
     if (m && m.jsonrpc === "2.0" && m.id === 1 && m.result) {
       send({ jsonrpc: "2.0", method: "ui/notifications/initialized" });
       send({ jsonrpc: "2.0", method: "ui/notifications/size-changed", params: { height: document.documentElement.scrollHeight } });
+      initialized = true;
+      if (frameReady) say("frame ready");
     }
   });
   send({ jsonrpc: "2.0", id: 1, method: "ui/initialize", params: { appInfo: { name: "nested", version: "1" }, appCapabilities: {}, protocolVersion: "2026-01-26" } });
@@ -277,7 +283,7 @@ function mcpServer() {
 const mcp = http.createServer(async (req, res) => {
   if (req.url === "/frame") {
     res.writeHead(200, { "content-type": "text/html" });
-    return res.end(`<!doctype html><body style="margin:0"><button style="width:100%;height:200px" onclick="parent.postMessage('frame clicked','*')">in the frame</button></body>`);
+    return res.end(`<!doctype html><body style="margin:0"><button style="width:100%;height:200px" onclick="parent.postMessage('frame clicked','*')">in the frame</button><script>parent.postMessage('frame ready','*')</script></body>`);
   }
   if (req.url === "/ticker-frame") {
     res.writeHead(200, { "content-type": "text/html" });
@@ -515,7 +521,10 @@ for (const label of ["Button 7", "Button 10"]) {
 // A frame from another site in it (Chrome may give it a process of its own).
 await post(socket, "/close", { viewId: "tall" });
 await post(socket, "/open", { viewId: "nested", server: "echo", toolName: "nested", toolInput: {}, cols: 60, maxRows: 10, theme: "dark", mode: "cells" });
-await sleep(2500);
+// Clicked only once the frame from another site has loaded (it can take
+// seconds on a slow machine), and the view has drawn it.
+await until(() => h.said.get("nested") === "frame ready", 15000);
+await sleep(500);
 for (let n = 0; n < 2; n++) {
   await post(socket, "/input", { viewId: "nested", event: { kind: "key", key: "pagedown" } });
   await sleep(300);
