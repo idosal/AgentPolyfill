@@ -73,16 +73,33 @@ The questions are the mod's own, so Claude Code puts them to a person: an allow
 rule for the tool or auto mode's classifier does not answer them (both seen in
 live runs). What can answer in your place is what can answer any permission
 question for you: a PermissionRequest hook of your own, or an application that
-hosts Claude Code. Bypass-permissions mode was not tried.
+hosts Claude Code. Bypass-permissions mode has not been tested; see "What it
+does not protect against".
 
 **Where nobody can be asked** (`claude -p`, a headless host), there is no
 approval to give. A skill then loads only if your own rules allow the load
-tool, and loads *unapproved*: the model is told so, and every call of a tool
-that runs code (`Bash`, `PowerShell`, `Monitor`, `REPL`, and any you name in
-`MCP_SKILLS_EXECUTION_TOOLS`) is put to a person, which in such a run means refused
-(seen in a live run). To use a skill's commands in headless runs, approve the
-skill once in an interactive session; the approval stands while the skill is
-unchanged.
+tool, and loads *unapproved*: the model is told so. While it is loaded, the
+mod refuses every tool call except these, whatever your rules allow:
+
+- Claude Code's `Read`, `Glob`, `Grep`, `LS`, `NotebookRead`, `TodoWrite`,
+  `ToolSearch` and `ListMcpResourcesTool`;
+- the mod's own four tools (list skills, load a skill, read a loaded skill's
+  file, list its directory);
+- a resource read from the skill's own server.
+
+So a command is refused, and so is a file write or edit (a file written now
+can be code run later: a hook in a settings file, a git hook, a package
+script), a subagent, a web fetch, a tool of any other MCP server, and any tool
+this version of the mod does not know. The list names what is let through, not
+what is stopped. Seen in a live headless run under the default permission mode:
+`Write`, `Edit`, `Bash` and `Agent` refused though allowed by rule, `Read`
+allowed ([`docs/evidence/headless.txt`](docs/evidence/headless.txt)). If the
+session is later resumed with a person present, each such call is put to them
+instead.
+
+To use a skill fully in headless runs, approve it once in an interactive
+session on the same machine. The approval stands while the skill is unchanged,
+and a headless run then loads it approved (also seen live).
 
 **What is not asked about.** Reading a file of a loaded skill, listing one of
 its directories, and listing skills go ahead without a question, unless a rule
@@ -109,18 +126,23 @@ the log.
 
 ## What it does not protect against
 
-- **A skill whose instructions are harmful but need no command.** A skill can
-  tell the model to write a file, call another server's tool, or give you bad
-  advice. Those go through Claude Code's ordinary permissions, exactly as they
-  would for text from a tool result. The extension's gate is on code execution
-  and cross-server resource reads, and so is the mod's.
-- **An approved skill that turns out to be harmful.** Your yes lets its
-  instructions reach Claude. From there your usual permissions are the
-  boundary, exactly as for a skill you installed by hand. Read a skill you do
-  not know before approving it.
-- **Tools that run code and that the mod does not know,** for a skill loaded
-  with nobody asked. Only Claude Code's own four are refused by default. If one
-  of your MCP servers has a tool that runs commands, name it in `MCP_SKILLS_EXECUTION_TOOLS`.
+- **A skill you approved whose instructions are harmful.** It can tell the
+  model to write a file, call another server's tool, or give you bad advice.
+  Those go through Claude Code's ordinary permissions, exactly as they would
+  for text from a tool result. After your yes, the only further question the
+  mod raises is for a resource read from another MCP server. Read a skill you
+  do not know before approving it (`/mcp-skills show <skill>`).
+- **What an unapproved skill makes Claude say or read.** With nobody to ask,
+  its text is still in the conversation: it can shape the answer, and have
+  Claude read files the session can read. It cannot make Claude change, run or
+  send anything through a tool (above).
+- **Bypass-permissions mode** (`--dangerously-skip-permissions`). Not tested.
+  In that mode Claude Code skips its permission checks. Whether it still
+  consults a mod's permission hook, puts a mod's question to you, or honours a
+  mod's refusal is not known. Assume that none of the questions and refusals
+  on this page hold there: a skill may load without your being asked, and its
+  text may then drive any tool. Do not use that mode with a server you do not
+  trust.
 - **Other mods.** A mod can call tools without a permission check
   (`$.tool.call`). That is Claude Code's design for mods, not something this mod
   can change.
@@ -128,7 +150,7 @@ the log.
   skills are found by reading the conversation's newest 4,096 messages. A skill
   that only a subagent loaded, or that was loaded further back, is not found,
   and the question about reads from other servers (and, for an unapproved
-  skill, the refusal of commands) stops for it.
+  skill, the refusal of tool calls) stops for it.
 - **The server itself.** Verification catches a file that changed between
   listing and reading. It cannot tell you the skill was safe to begin with.
 

@@ -16,12 +16,13 @@
 //     about again. The asking and the answer are Claude Code's own permission
 //     flow; what this module keeps is that a yes was given, and for what;
 //   - while a skill is loaded that nobody could be asked about, has Claude Code
-//     ask before every call of a tool that runs code; and for any loaded skill,
+//     ask before every tool call but reading and searching (a command, and also
+//     a write, a subagent, another server's tool); and for any loaded skill,
 //     before a resource read from another MCP server;
 //   - stands down when Claude Code serves MCP skills itself.
 
 import type { EngineInterface, Register } from 'claude-code'
-import { EXECUTION_TOOLS, PLUGIN, RESOURCE_TOOLS, TOOLS } from './tools'
+import { INERT_TOOLS, PLUGIN, RESOURCE_TOOLS, TOOLS } from './tools'
 
 type Endpoint = { url: string; token: string }
 type Catalog = { text: string; skills: number; servers: number }
@@ -40,7 +41,7 @@ const READS = [`mcp__${PLUGIN}__read_skill_file`, `mcp__${PLUGIN}__list_skill_di
 const APPROVALS = 'approvals'
 const PREVIEW = 'mcp-skills-preview'
 const APPROVED = 'Approval: the user approved this skill as the server serves it now.'
-const UNAPPROVED = 'Approval: none, because nobody could be asked. While it is loaded, running a command needs the user\'s approval each time.'
+const UNAPPROVED = 'Approval: none, because nobody could be asked. While it is loaded, every tool call but reading and searching needs the user\'s approval each time.'
 
 const state: {
   /** The running helper, once it has said where it listens. */
@@ -61,8 +62,7 @@ const state: {
   areToolsLoaded: boolean
   restarts: number[]
   problemShown: boolean
-  extraExecutionTools: string[]
-} = { isEnded: false, areToolsLoaded: false, restarts: [], problemShown: false, extraExecutionTools: [], pending: new Map() }
+} = { isEnded: false, areToolsLoaded: false, restarts: [], problemShown: false, pending: new Map() }
 
 const debug = ($: EngineInterface, text: string) => $.ui.log(`${PLUGIN}: ${text}`, { to: 'debug' })
 const plain = (text: unknown) => String(text).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').slice(0, 300)
@@ -290,8 +290,18 @@ async function approvals($: EngineInterface): Promise<Record<string, Approval>> 
 
 const size = (bytes: number) => (bytes < 1024 ? `${bytes} bytes` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`)
 
-const isExecutionTool = (tool: string) => EXECUTION_TOOLS.includes(tool) || state.extraExecutionTools.includes(tool)
-const isGated = (tool: string) => isExecutionTool(tool) || RESOURCE_TOOLS.includes(tool) || tool === LOAD || READS.includes(tool)
+/**
+ * A call this mod will not let through on a rule or a mode: put to the person where one can be
+ * asked, and refused outright where nobody can be. The refusal is this hook's own, so it does not
+ * rest on what a mode does with a question it has nobody to put to.
+ */
+const hold = (e: { approver?: unknown }, reason: string) =>
+  e.approver === undefined
+    ? { decision: 'deny' as const, reason: `${reason} Nobody can be asked in this session, so the call is refused.` }
+    : { decision: 'ask' as const, reason }
+
+/** A call that changes nothing: Claude Code's reading and searching, and this mod's own reads. No skill, approved or not, makes it a question. */
+const isInert = (tool: string) => INERT_TOOLS.includes(tool) || READS.includes(tool)
 const named = (skills: Acting[]) =>
   skills
     .slice(0, 3)
@@ -352,11 +362,6 @@ export const register: Register = (on) => {
     // (Disabling the plugin does the same, and needs nothing from here.)
     if ((await $.env.get('MCP_SKILLS_OFF').catch(() => undefined)) === '1') state.off = 'MCP_SKILLS_OFF=1 is set.'
     if (state.off) return started
-    // Tools of yours that run code, beside Claude Code's own: they count for a skill loaded with nobody asked.
-    state.extraExecutionTools = String((await $.env.get('MCP_SKILLS_EXECUTION_TOOLS').catch(() => undefined)) ?? '')
-      .split(',')
-      .map((name) => name.trim())
-      .filter(Boolean)
     state.firstCatalog = new Promise<void>((resolve) => (state.gotCatalog = resolve))
     void ensureHelper($).catch(() => {})
     await Promise.all([
@@ -390,18 +395,20 @@ export const register: Register = (on) => {
   // approval of that skill. So a skill is put to the person before it is loaded, once: the yes is
   // kept, bound to the skill's content, and a skill the server changed since is asked about again
   // ("Content-bound approval"). A skill nested in another has its own yes ("Nested skill consent").
-  // Where nobody can be asked, the skill loads unapproved, and every call of a tool that runs code
-  // is put to the person instead while it is loaded (so, with nobody to ask, refused).
+  // Where nobody can be asked, the skill loads unapproved, and while it is loaded every tool call
+  // but reading and searching is put to the person instead (with nobody to ask: refused here). Not
+  // only the tools that run a command: a file written now is code run later, and a subagent or
+  // another server's tool can do what a shell does.
   //
   // "Origin-scoped resource reads": while a skill is loaded, a resource read from another server
   // is put to the person, naming both servers, and a read of the skill's own files goes only
   // through the path that verifies it.
   //
-  // An ask made here is this hook's, so Claude Code puts it to a person: no rule, mode or
-  // classifier settles it.
+  // An ask made here is this hook's, so Claude Code puts it to a person: no rule, auto mode or
+  // classifier settles it. Where nobody can be asked the hook refuses the call itself (hold).
   on('tool.check', async ($, e, next) => {
     const verdict = await next(e)
-    if (verdict.decision === 'deny' || !isGated(e.tool)) return verdict
+    if (verdict.decision === 'deny') return verdict
     // The mod's reads go through as Claude Code's own resource read does: with nobody asked, unless
     // something of the person's or their organisation's stands behind the ask.
     const isPlainAsk = verdict.decision === 'ask' && !verdict.rule && !verdict.hook && !verdict.setting && !verdict.plugin && e.ceiling === undefined
@@ -459,14 +466,15 @@ export const register: Register = (on) => {
     }
     // From here on: a call made while a served skill is loaded. Not switched off with the rest of
     // the mod: a skill this mod loaded earlier is still in the conversation.
+    if (isInert(e.tool)) return verdict
     const acting = await actingSkills($)
     if (!acting.length) return verdict
-    if (isExecutionTool(e.tool)) {
+    if (!RESOURCE_TOOLS.includes(e.tool)) {
       const unapproved = acting.filter((a) => !a.isApproved)
       if (!unapproved.length) return verdict
-      return { decision: 'ask' as const, reason: `A skill served by an MCP server is loaded that nobody was asked about (${named(unapproved)}). Its text comes from that server, so running a command while it is loaded needs your approval.` }
+      const reason = `A skill served by an MCP server is loaded that nobody was asked about (${named(unapproved)}). Its text comes from that server, so while it is loaded anything but reading and searching needs your approval.`
+      return e.approver === undefined ? hold(e, `${reason} To use the skill with nobody present, approve it once in an interactive session on this machine: the yes is kept until the server changes the skill.`) : hold(e, reason)
     }
-    if (e.tool === 'ListMcpResourcesTool') return verdict
     const input = (e.input ?? {}) as { server?: unknown; uri?: unknown }
     const own = acting.filter((a) => normal(a.server) === normal(input.server))
     const uri = typeof input.uri === 'string' ? input.uri : ''
@@ -476,8 +484,8 @@ export const register: Register = (on) => {
     }
     const others = acting.filter((a) => normal(a.server) !== normal(input.server))
     if (!others.length) return verdict
-    return { decision: 'ask' as const, reason: `A skill served by an MCP server is loaded (${named(others)}), and this reads a resource from another MCP server, ${quoted(String(input.server ?? ''))}. A skill from one server may not cause a read from another without your approval.` }
-  }).catch(($, e, next) => (isExecutionTool(e.tool) || RESOURCE_TOOLS.includes(e.tool) || e.tool === LOAD ? { decision: 'ask' as const, reason: 'MCP Skills could not check whether a skill from an MCP server is loaded, so this needs your approval.' } : next(e)))
+    return hold(e, `A skill served by an MCP server is loaded (${named(others)}), and this reads a resource from another MCP server, ${quoted(String(input.server ?? ''))}. A skill from one server may not cause a read from another without your approval.`)
+  }).catch(($, e, next) => (isInert(e.tool) ? next(e) : hold(e, 'MCP Skills could not check whether a skill from an MCP server is loaded, so this needs your approval.')))
 
   // Claude Code expanding a skill whose words are an MCP server's means it serves MCP skills
   // itself. Then this mod has nothing to add, and two listings of the same skills would confuse.

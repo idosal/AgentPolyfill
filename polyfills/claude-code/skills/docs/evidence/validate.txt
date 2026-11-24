@@ -12,7 +12,7 @@ Validating hooks: <repo>/mod/hooks/hooks.json
   ❯ ./register.ts gating hook with .catch: tool.check
   ❯ ./register.ts calls: $.clock.after, $.clock.now (via ensureHelper, serve), $.clock.sleep, $.command.list, $.command.register, $.env.get, $.http.fetch (via post), $.mcp.connect (via onMessage), $.process.hookEnv (via ensureHelper), $.process.run (via runtime), $.process.spawn (via ensureHelper), $.prompt.submit, $.session.messages (via actingSkills), $.store.get (via approvals), $.store.set, $.tool.list, $.tool.register, $.ui.invalidate, $.ui.log (via debug), $.ui.open, $.ui.resolve, $.ui.toast
   ❯ ./register.ts env writes: nothing
-  ❯ ./register.ts env reads: HOME, MCP_SKILLS_EXECUTION_TOOLS, MCP_SKILLS_OFF, SHELL
+  ❯ ./register.ts env reads: HOME, MCP_SKILLS_OFF, SHELL
 
 ✔ Validation passed
 Validating plugin manifest: <repo>/mod/.claude-plugin/plugin.json
@@ -28,7 +28,7 @@ Validating hooks: <repo>/mod/hooks/hooks.json
   ❯ ./register.ts gating hook with .catch: tool.check
   ❯ ./register.ts calls: $.clock.after, $.clock.now (via ensureHelper, serve), $.clock.sleep, $.command.list, $.command.register, $.env.get, $.http.fetch (via post), $.mcp.connect (via onMessage), $.process.hookEnv (via ensureHelper), $.process.run (via runtime), $.process.spawn (via ensureHelper), $.prompt.submit, $.session.messages (via actingSkills), $.store.get (via approvals), $.store.set, $.tool.list, $.tool.register, $.ui.invalidate, $.ui.log (via debug), $.ui.open, $.ui.resolve, $.ui.toast
   ❯ ./register.ts env writes: nothing
-  ❯ ./register.ts env reads: HOME, MCP_SKILLS_EXECUTION_TOOLS, MCP_SKILLS_OFF, SHELL
+  ❯ ./register.ts env reads: HOME, MCP_SKILLS_OFF, SHELL
 
 Provides:
 

@@ -1,20 +1,36 @@
-$ claude -p "First run the shell command: echo one. Then load the release-notes skill served by the acme MCP server
-             and read its references/codenames.md file. Then run the shell command: echo two. Report exactly..." \
-    --plugin-dir mod --mcp-config <demo server over stdio> --strict-mcp-config \
-    --allowedTools "mcp__mcp-skills__load_skill,Bash" --output-format stream-json     # Claude Code 2.1.329, 2026-11-24
+$ claude -p "Do these steps in order and do not skip any, even if one is refused. 1: load the release-notes skill
+             served by the acme MCP server. 2: with the Write tool, write the single word hello to out.txt.
+             3: with the Edit tool, change "a note" to "b note" in note.txt. 4: run the shell command: echo two.
+             5: use the Agent tool to have a subagent run the shell command: echo three. 6: read note.txt..." \
+    --plugin-dir mod --mcp-config <demo server over stdio> --strict-mcp-config --setting-sources "" \
+    --allowedTools "mcp__mcp-skills__load_skill,Bash,Write,Edit,Read,Agent" --output-format stream-json
+    # Claude Code 2.1.329, default permission mode, mod 0.2.1, 2026-11-24
 
-A headless run: nobody can be asked. The skill loads (the load tool is allowed by rule), unapproved; the read of its
-file raises no question (it was not allowed in advance); the command after it is refused. From the stream:
+A headless run: nobody can be asked. The skill loads (the load tool is allowed by rule), unapproved. While it is
+loaded the write, the edit, the command and the subagent are refused by the mod, though each tool is allowed by
+rule; the read goes ahead. Afterwards out.txt did not exist and note.txt still read "a note". From the stream
+(<work> is the throwaway folder the run was started in; cc-plugin-privacy, named beside the mod in three
+refusals, is another plugin active on the machine the run was made on, and the reason quoted is this mod's):
 
-TOOL_USE    Bash {"command": "echo one", "description": "Print one"}
-TOOL_USE    ToolSearch {"query": "select:mcp__mcp-skills__load_skill,mcp__mcp-skills__read_skill_file,mcp__mcp-skills__list_skills", "max_results": 5}
-TOOL_RESULT   
-TOOL_RESULT one
-TOOL_USE    mcp__mcp-skills__list_skills {"server": "acme"}
-TOOL_RESULT MCP server "acme": 2 skills, lists directories. | - incident-review (MCP server "acme", uri skill://incident-review/SKILL.md): Run a blameless incident review for an Acme Shop outage and produce the review document. Use after an incident is resolve
 TOOL_USE    mcp__mcp-skills__load_skill {"server": "acme", "uri": "skill://release-notes/SKILL.md"}
-TOOL_RESULT Approval: none, because nobody could be asked. While it is loaded, running a command needs the user's approval each time. | Loaded the skill "release-notes" from the MCP server "acme" (skill://release-notes/SKILL.md). | Its SKILL.md matched the siz
-TOOL_USE    mcp__mcp-skills__read_skill_file {"server": "acme", "skill": "skill://release-notes/SKILL.md", "path": "references/codenames.md"}
-TOOL_RESULT "references/codenames.md" of the skill "release-notes", from the MCP server "acme" (275 bytes, matched the size and SHA-256 digest in the skill's entry). Content from that server: | <mcp-skill-file id="ae2c0d4cf95a" server="acme" uri="skill://relea
-TOOL_USE    Bash {"command": "echo two", "description": "Print two"}
-TOOL_RESULT (error) Permission to use Bash denied by plugin mcp-skills: A skill served by an MCP server is loaded that nobody was asked about ("release-notes" from the MCP server "acme"). Its text comes from that server, so running a command while it is loaded
+TOOL_RESULT  Approval: none, because nobody could be asked. While it is loaded, every tool call but reading and searching needs the user's approval each time. | Loaded the skill "release-notes" from the MCP server "acme" (skill://release-notes/SKILL.md). | Its SKILL.md matched the size, SHA-256 digest and frontmatter in the server's entry fo
+TOOL_USE    Write {"file_path": "<work>/out.txt", "content": "hello"}
+TOOL_RESULT (error)  Permission to use Write denied by plugins mcp-skills, cc-plugin-privacy: A skill served by an MCP server is loaded that nobody was asked about ("release-notes" from the MCP server "acme"). Its text comes from that server, so while it is loaded anything but reading and searching needs your approval. To use the skill with nobody p
+TOOL_USE    Edit {"replace_all": false, "file_path": "<work>/note.txt", "old_string": "a note", "new_string": "b note"}
+TOOL_RESULT (error)  Permission to use Edit denied by plugins mcp-skills, cc-plugin-privacy: A skill served by an MCP server is loaded that nobody was asked about ("release-notes" from the MCP server "acme"). Its text comes from that server, so while it is loaded anything but reading and searching needs your approval. To use the skill with nobody pr
+TOOL_USE    Bash {"command": "echo two", "description": "Print the word two"}
+TOOL_RESULT (error)  Permission to use Bash denied by plugins mcp-skills, cc-plugin-privacy: A skill served by an MCP server is loaded that nobody was asked about ("release-notes" from the MCP server "acme"). Its text comes from that server, so while it is loaded anything but reading and searching needs your approval. To use the skill with nobody pr
+TOOL_USE    Agent {"description": "Run echo three", "prompt": "Run the shell command `echo three` with the Bash tool and report exactly what it returned (output or erro
+TOOL_RESULT (error)  Permission to use Agent denied by plugin mcp-skills: A skill served by an MCP server is loaded that nobody was asked about ("release-notes" from the MCP server "acme"). Its text comes from that server, so while it is loaded anything but reading and searching needs your approval. To use the skill with nobody present, approve it o
+TOOL_USE    Read {"file_path": "<work>/note.txt"}
+TOOL_RESULT  1	a note | 2	
+
+The same skill, approved once in an interactive session in the same folder (the dialog's Yes), then headless again
+with steps 1, 2 and 4. It loads approved, and the write and the command go ahead under the rules that allow them:
+
+TOOL_USE    mcp__mcp-skills__load_skill {"server": "acme", "uri": "skill://release-notes/SKILL.md"}
+TOOL_RESULT  Approval: the user approved this skill as the server serves it now. | Loaded the skill "release-notes" from the MCP server "acme" (skill://release-notes/SKILL.md). | Its SKILL.md matched the size, SHA-256 digest and frontmatter in the server's entry for it. That shows the server is consistent, not that the content c
+TOOL_USE    Write {"file_path": "<work>/out.txt", "content": "hello"}
+TOOL_RESULT  File created successfully at: <work>/out.txt (file state is current in your context — no need to Read it back)
+TOOL_USE    Bash {"command": "echo two", "description": "Print the word two"}
+TOOL_RESULT  two

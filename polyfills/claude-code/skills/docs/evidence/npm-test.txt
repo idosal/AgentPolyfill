@@ -1,4 +1,4 @@
-$ npm test    # 2026-11-24T00:17Z, node v22.23.1
+$ npm test    # 2026-11-24T00:37Z, node v22.23.1
     ok 1 - C1: skills/list and skills/get are sent only to a server that declared the extension
     ok 2 - C1: a server that declares it without the resources capability the extension requires is left alone, and the user is told why
     ok 3 - C1: the declaration counts on an earlier protocol revision too, where it arrives in the initialize answer
@@ -106,7 +106,7 @@ ok 18 - a server's headersHelper
     ok 4 - any other answer is passed on as it is: a 401 is a sign-in, not a reason to wait
 ok 19 - a server that is busy
     ok 1 - the hooks module registers the tools the helper serves, under the prefix the helper names them by
-    ok 2 - Claude Code's shell tools are among the tools that run code
+    ok 2 - no tool that runs, writes, fetches or delegates is among those let through beside an unapproved skill
     ok 3 - one version, in the three places that state it
     ok 4 - the Skills logic uses nothing of Node, so it can run wherever a request can be sent
 ok 20 - the parts agree
