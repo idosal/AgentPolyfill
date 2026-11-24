@@ -5,7 +5,7 @@
 // model/README.md says what each part stands for in the code, what each invariant means, and
 // what checking them showed.
 //
-// `init` is the client as it is from 0.5.0. `initBefore` is the client as it was in 0.4.1, so
+// `init` is the client as it is in 0.5.1. `initBefore` is the client as it was in 0.4.1, so
 // the counterexamples that version had can be shown again (`quint run --init initBefore`).
 module delivery {
   // ---- bounds --------------------------------------------------------------------------------
@@ -470,10 +470,16 @@ module delivery {
     }
   }
 
-  // 0.5.0: one write appends, to this session's spool, what listed earlier sessions hold past
+  // From 0.5.0, what a starting helper does with what earlier sessions left (WatchManager.#recover),
+  // in the order the code does it. Everything is read before anything is written: the seen ids
+  // (in `loaded`) and what to carry, from every listed session at once.
+  //
+  // First, one write appends, to this session's spool, what listed earlier sessions hold past
   // their hand-over position that was handed over in none of them and is not here already.
   def handed(d: Disk): Set[int] = d.listed.fold(Set(), (acc, t) => acc.union(elems(d.spool.get(t).slice(0, d.pos.get(t)))))
   def waiting(d: Disk, s: int): Set[int] = d.listed.exclude(Set(s)).fold(Set(), (acc, t) => acc.union(elems(tailFrom(d.spool.get(t), d.pos.get(t)))))
+  // The events in the spools of the listed earlier sessions: seen, though perhaps not saved as seen.
+  def recovered(d: Disk, s: int): Set[int] = d.listed.exclude(Set(s)).fold(Set(), (acc, t) => acc.union(elems(d.spool.get(t))))
   action Carry = {
     val s = host.session
     val carry = waiting(disk, s).exclude(handed(disk)).exclude(elems(disk.spool.get(s)))
@@ -485,18 +491,29 @@ module delivery {
     }
   }
 
-  // 0.5.0: then an earlier session whose waiting events are all here (or were handed over) is
-  // marked as handed over and taken off the list.
-  action Settle = {
-    nondet t = disk.listed.exclude(Set(host.session)).oneOf()
-    SettleOf(t)
-  }
-  action SettleOf(t: int): bool = {
+  // Then the watch is saved with the seen ids read there (#saveNow). 0.5.0 saved it only after the
+  // next step, which TLC found could forget them; from 0.5.1 it is saved first. A save that fails
+  // is this step not happening.
+  action SaveSeen = {
     val s = host.session
     all {
-      cfg.fix, running, mem.step.kind == "", t != s, disk.listed.contains(t),
-      elems(tailFrom(disk.spool.get(t), disk.pos.get(t))).subseteq(elems(disk.spool.get(s)).union(handed(disk))),
-      disk' = { ...disk, pos: disk.pos.set(t, disk.spool.get(t).length()), listed: disk.listed.exclude(Set(t)) },
+      cfg.fix, running, mem.step.kind == "", not(recovered(disk, s).subseteq(disk.seen)),
+      disk' = { ...disk, seen: mem.seen.union(recovered(disk, s)) },
+      cfg' = cfg, now' = now, srv' = srv, rly' = rly, host' = host, mem' = mem, hist' = hist
+    }
+  }
+
+  // Last, once those ids are saved and what waited there is here (or was handed over), every
+  // listed earlier session is marked as handed over and taken off the list, together.
+  action Settle = {
+    val s = host.session
+    val others = disk.listed.exclude(Set(s))
+    all {
+      cfg.fix, running, mem.step.kind == "", others != Set(),
+      recovered(disk, s).subseteq(disk.seen),
+      others.forall(t => elems(tailFrom(disk.spool.get(t), disk.pos.get(t))).subseteq(elems(disk.spool.get(s)).union(handed(disk)))),
+      disk' = { ...disk, pos: disk.pos.keys().mapBy(t => if (others.contains(t)) disk.spool.get(t).length() else disk.pos.get(t)),
+                listed: disk.listed.exclude(others) },
       cfg' = cfg, now' = now, srv' = srv, rly' = rly, host' = host, mem' = mem, hist' = hist
     }
   }
@@ -507,7 +524,7 @@ module delivery {
     Take, Append, SaveWatch, Commit, StoreFails, FlushAcks, Reconnect, Subscribe,
     Poll, PollDone, Push, SaveSoon,
     HandTake, HandSubmit, HandAck,
-    HelperCrash, HelperStart, Close, Open, Carry, Settle
+    HelperCrash, HelperStart, Close, Open, Carry, SaveSeen, Settle
   }
 
   // ---- invariants ----------------------------------------------------------------------------
@@ -541,7 +558,7 @@ module delivery {
   val Safety: bool = AtMostOnce and NothingForged and NoAckBeforeStore and NoneStranded and CursorSafe
 
   // ---- the counterexamples, as scenarios (`quint test delivery.qnt`) -------------------------
-  // Each found 0.4.1's client breaking an invariant; each is run again against 0.5.0's.
+  // Each found 0.4.1's client breaking an invariant; each is run again against 0.5.1's.
 
   // A helper restart between showing a batch and saving that it was shown: shown again.
   run handOverTwiceBeforeTest = pollBefore.then(Emit).then(Poll).then(Append).then(SaveWatch).then(PollDone)
@@ -568,7 +585,7 @@ module delivery {
     .expect(not(NoneStranded))
   run strandedAfterTest = poll.then(Emit).then(Poll).then(Append).then(SaveWatch).then(PollDone).then(SaveSoon)
     .then(Close).then(Open).then(Carry).then(Settle).then(HandTake).then(HandSubmit)
-    .expect(NoneStranded and hist.shown == [1])
+    .expect(NoneStranded and hist.shown == [1] and disk.listed == Set(2))
 
   // A delivery that could not be stored is left at the relay; a later one, signed more than ten
   // minutes after it, is taken; on the next connection the first is refused as a replay and
@@ -595,26 +612,25 @@ module delivery {
   run forgedDroppedTest = webhook.then(Forge).then(Forge).then(Take).then(Take).then(FlushAcks)
     .expect(NothingForged and rly.mailbox == Set())
 
-  // Found by TLC in 0.5.0 (model/README.md). The event is written to the first session's spool
-  // and shown, and the watch is not saved after it. The next session's helper counts it as seen
-  // (loaded), in memory only; Settle takes the first session off the list; the helper restarts,
-  // and neither the list nor the saved watch has the event: it is stored and shown again.
-  run seenForgottenTest = poll.then(Emit).then(Poll).then(Append).then(HandTake).then(HandSubmit).then(HandAck)
-    .then(Close).then(Open).then(Settle).then(HelperCrash).then(HelperStart)
-    .then(Poll).then(Append).then(HandTake).then(HandSubmit)
-    .expect(not(AtMostOnce) and hist.shown == [1, 1] and hist.cut == Set())
-  // Found by TLC in 0.5.0, with three sessions (model/README.md). The second session carries the
-  // event the first stored and never showed, and shows it; Claude Code closes before the first
-  // session is settled. The third session settles the second first, which takes the record that
-  // the event was handed over off the list, and then carries the event from the first again.
-  run carriedTwiceTest = poll.then(Emit).then(Poll).then(Append).then(Close).then(Open).then(Carry)
-    .then(HandTake).then(HandSubmit).then(HandAck).then(Close).then(Open).then(SettleOf(2)).then(Carry)
-    .then(HandTake).then(HandSubmit)
-    .expect(not(AtMostOnce) and hist.shown == [1, 1] and hist.cut == Set())
+  // Found by TLC on 0.5.0's model (model/README.md): the event is written to the first session's
+  // spool and shown, and the watch is not saved after it; the next session's helper counts it as
+  // seen in memory, took the first session off the list before saving that, restarted, and stored
+  // and showed the event again. From 0.5.1 the ids are saved first.
+  run seenKeptTest = poll.then(Emit).then(Poll).then(Append).then(HandTake).then(HandSubmit).then(HandAck)
+    .then(Close).then(Open).then(SaveSeen).then(Settle).then(HelperCrash).then(HelperStart)
+    .then(Poll).then(Append).then(SaveWatch).then(PollDone)
+    .expect(AtMostOnce and hist.shown == [1] and disk.spool.get(2) == List() and disk.listed == Set(2))
   // The same through the relay, which hands the delivery over again because it was never acknowledged.
-  run seenForgottenWebhookTest = webhook.then(Emit).then(PostOf(1, true)).then(Take).then(Append)
+  run seenKeptWebhookTest = webhook.then(Emit).then(PostOf(1, true)).then(Take).then(Append)
     .then(HandTake).then(HandSubmit).then(HandAck)
-    .then(Close).then(Open).then(Settle).then(HelperCrash).then(HelperStart)
-    .then(Take).then(Append).then(HandTake).then(HandSubmit)
-    .expect(not(AtMostOnce) and hist.shown == [1, 1] and hist.cut == Set())
+    .then(Close).then(Open).then(SaveSeen).then(Settle).then(HelperCrash).then(HelperStart)
+    .then(Take).then(Append).then(SaveWatch).then(Commit).then(FlushAcks)
+    .expect(AtMostOnce and hist.shown == [1] and rly.mailbox == Set())
+  // Found by TLC on 0.5.0's model, with three sessions: the third session took the second off the
+  // list before the first, and with it the record that the event was handed over, then carried
+  // the event from the first again. The code never did that (it takes them off together); the
+  // model now does as the code does.
+  run carriedOnceTest = poll.then(Emit).then(Poll).then(Append).then(Close).then(Open).then(Carry)
+    .then(HandTake).then(HandSubmit).then(HandAck).then(Close).then(Open).then(SaveSeen).then(Settle)
+    .expect(AtMostOnce and hist.shown == [1] and disk.listed == Set(3))
 }

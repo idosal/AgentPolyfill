@@ -9,12 +9,12 @@
 (* Written by hand from wake.qnt, action for action and with the same      *)
 (* state (one record, s), so that Quint's traces can be replayed here as   *)
 (* they are: model/conform.mjs does that.                                  *)
-(* FIX = TRUE is the client from 0.5.0, FALSE is 0.4.1.                    *)
+(* FIX = TRUE is the client in 0.5.1, FALSE is 0.4.1.                      *)
 (***************************************************************************)
 EXTENDS Integers, Sequences, FiniteSets
 
 CONSTANTS
-    FIX,        \* TRUE: 0.5.0; FALSE: 0.4.1
+    FIX,        \* TRUE: 0.5.1; FALSE: 0.4.1
     MAX_TIME,   \* the clock's bound; one unit stands for twenty minutes
     HOUR,       \* an hour, in those units
     GAP,        \* MCP_EVENTS_WAKE_GAP_S: how soon one watch may start another wake
@@ -24,48 +24,57 @@ ASSUME FIX \in BOOLEAN /\ MAX_TIME \in Nat /\ HOUR \in Nat /\ GAP \in Nat /\ PER
 
 \* The state, as in wake.qnt:
 \*   fix; now; waiting (the spool holds events not handed over); budget (on disk:
-\*   wakes, last, paused); helper (it runs); taken ("" nothing, "batch" or "notice",
-\*   taken and not acknowledged); subbed (the hooks module submitted what it took);
-\*   remembered (0.5.0: the hooks module remembers a submitted batch whose ack it has
-\*   not seen through); spoke, shown, notices (history: wakes when the person last
-\*   spoke, when each batch was submitted, notices since the person last spoke).
+\*   wakes, last, paused, and noticeHanded: the notice was handed over and its ack not
+\*   yet heard); helper (it runs); taken ("" nothing, "batch" or "notice", taken and not
+\*   acknowledged); subbed (the hooks module submitted what it took); remembered (what
+\*   the hooks module submitted and has not seen acknowledged: "", "batch" or "notice");
+\*   spoke, shown, notices (history: wakes when the person last spoke, when each batch
+\*   was submitted, notices since the person last spoke).
 VARIABLE s
 
 InHour(l, t, since) == Cardinality({i \in DOMAIN l : t - l[i] < HOUR /\ l[i] >= since})
 
 Init == s = [fix |-> FIX, now |-> 0, waiting |-> FALSE,
-             budget |-> [wakes |-> <<>>, last |-> -100, paused |-> FALSE],
-             helper |-> TRUE, taken |-> "", subbed |-> FALSE, remembered |-> FALSE,
+             budget |-> [wakes |-> <<>>, last |-> -100, paused |-> FALSE, noticeHanded |-> FALSE],
+             helper |-> TRUE, taken |-> "", subbed |-> FALSE, remembered |-> "",
              spoke |-> 0, shown |-> <<>>, notices |-> 0]
 
 Tick == s.now < MAX_TIME /\ s' = [s EXCEPT !.now = s.now + 1]
 Arrive == ~s.waiting /\ s' = [s EXCEPT !.waiting = TRUE]
 
-\* /take: the budget's gate. A paused budget hands nothing over; a spent hour hands over the notice.
-Take == /\ s.helper /\ s.taken = "" /\ s.waiting /\ ~s.budget.paused /\ ~s.remembered
+\* /take: the budget's gate. A paused budget hands nothing over; a spent hour hands over the notice
+\* (0.5.1: and keeps on disk that it did).
+Take == LET notice == InHour(s.budget.wakes, s.now, -1) >= PER_HOUR IN
+        /\ s.helper /\ s.taken = "" /\ s.waiting /\ ~s.budget.paused /\ s.remembered = ""
         /\ s.now - s.budget.last >= GAP
-        /\ s' = [s EXCEPT !.taken = IF InHour(s.budget.wakes, s.now, -1) >= PER_HOUR THEN "notice" ELSE "batch",
-                          !.subbed = FALSE]
+        /\ s' = [s EXCEPT !.taken = IF notice THEN "notice" ELSE "batch", !.subbed = FALSE,
+                          !.budget = IF notice /\ s.fix THEN [s.budget EXCEPT !.noticeHanded = TRUE] ELSE s.budget]
 
 \* $.prompt.submit: a turn starts (the session is woken).
 Submit == /\ s.helper /\ s.taken # "" /\ ~s.subbed
-          /\ s' = [s EXCEPT !.subbed = TRUE, !.remembered = s.fix /\ s.taken = "batch",
+          /\ s' = [s EXCEPT !.subbed = TRUE, !.remembered = IF s.fix THEN s.taken ELSE "",
                             !.shown = IF s.taken = "batch" THEN Append(s.shown, s.now) ELSE s.shown,
                             !.notices = IF s.taken = "notice" THEN s.notices + 1 ELSE s.notices]
 
 \* /ack: a batch counts as a wake, the notice pauses waking.
 Ack == /\ s.helper /\ s.taken # "" /\ s.subbed
-       /\ s' = [s EXCEPT !.taken = "", !.subbed = FALSE, !.remembered = FALSE,
+       /\ s' = [s EXCEPT !.taken = "", !.subbed = FALSE, !.remembered = "",
                          !.waiting = IF s.taken = "batch" THEN FALSE ELSE s.waiting,
                          !.budget = IF s.taken = "batch"
-                                    THEN [s.budget EXCEPT !.wakes = Append(s.budget.wakes, s.now), !.last = s.now]
-                                    ELSE [s.budget EXCEPT !.paused = TRUE]]
+                                    THEN [s.budget EXCEPT !.wakes = Append(s.budget.wakes, s.now), !.last = s.now, !.noticeHanded = FALSE]
+                                    ELSE [s.budget EXCEPT !.paused = TRUE, !.noticeHanded = FALSE]]
 
-\* 0.5.0: a restarted helper is told of the batch the one before it handed over (the hooks module
-\* acknowledges it before the next take), and counts it as a wake.
-AckRemembered == /\ s.fix /\ s.helper /\ s.taken = "" /\ s.remembered
-                 /\ s' = [s EXCEPT !.remembered = FALSE, !.waiting = FALSE,
-                                   !.budget = [s.budget EXCEPT !.wakes = Append(s.budget.wakes, s.now), !.last = s.now]]
+\* From 0.5.0: a restarted helper is told of what the one before it handed over (the hooks module
+\* acknowledges it before the next take). A batch counts as a wake. 0.5.1: the notice, which the
+\* budget on disk says was handed over, counts as given, and waking stays paused.
+AckRemembered == /\ s.fix /\ s.helper /\ s.taken = "" /\ s.remembered # ""
+                 /\ s' = IF s.remembered = "batch"
+                         THEN [s EXCEPT !.remembered = "", !.waiting = FALSE,
+                                        !.budget = [s.budget EXCEPT !.wakes = Append(s.budget.wakes, s.now), !.last = s.now, !.noticeHanded = FALSE]]
+                         ELSE [s EXCEPT !.remembered = "",
+                                        !.budget = IF s.budget.noticeHanded
+                                                   THEN [s.budget EXCEPT !.paused = TRUE, !.noticeHanded = FALSE]
+                                                   ELSE s.budget]
 
 HelperDies == s.helper /\ s' = [s EXCEPT !.helper = FALSE, !.taken = "", !.subbed = FALSE]
 HelperStarts == ~s.helper /\ s' = [s EXCEPT !.helper = TRUE]
