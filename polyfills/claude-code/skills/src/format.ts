@@ -56,13 +56,13 @@ export function listingText(skills: Listed[], o: { maxSkills?: number; maxDescri
 export type ServerNote = { name: string; why: string };
 
 /** The whole registry, for `list_skills` and the `/mcp-skills` command. */
-export function statusText(o: { skills: Listed[]; /** Every listed skill, whichever server is being shown. */ all: Listed[]; refused: Refused[]; loaded: { label: string; uri: string }[]; servers: { name: string; skills: number; directoryRead: boolean; revision?: string }[]; unavailable: ServerNote[]; without: string[]; skipped?: string[]; only?: string; /** For a person at a terminal: one short line per skill, */ isCompact?: boolean; /** cut to fit a terminal this many columns wide. */ columns?: number }): string {
+export function statusText(o: { skills: Listed[]; /** Every listed skill, whichever server is being shown. */ all: Listed[]; refused: Refused[]; loaded: { label: string; uri: string }[]; servers: { name: string; skills: number; /** Listed skills the user disabled: counted, never named or described here. */ disabled?: number; directoryRead: boolean; revision?: string }[]; unavailable: ServerNote[]; without: string[]; skipped?: string[]; only?: string; /** For a person at a terminal: one short line per skill, */ isCompact?: boolean; /** cut to fit a terminal this many columns wide. */ columns?: number }): string {
     const out: string[] = [];
     const isLoaded = (l: Listed) => o.loaded.some((h) => h.label === l.label && h.uri === l.entry.uri);
     if (!o.servers.length) out.push('None of your MCP servers serves skills over the MCP Skills extension (or none is connected for it).');
     for (const s of o.servers) {
         const mine = o.skills.filter((l) => l.label === s.name);
-        out.push(`MCP server ${q(s.name)}: ${mine.length} skill${mine.length === 1 ? '' : 's'}${s.directoryRead ? ', lists directories' : ''}.`);
+        out.push(`MCP server ${q(s.name)}: ${mine.length} skill${mine.length === 1 ? '' : 's'}${s.disabled ? `, and ${s.disabled} the user disabled (not listed, not loadable)` : ''}${s.directoryRead ? ', lists directories' : ''}.`);
         // Two skills of one server may share a name: each is told apart by its uri, and none is dropped.
         const names = new Map<string, number>();
         for (const l of mine) names.set(l.entry.frontmatter.name, (names.get(l.entry.frontmatter.name) ?? 0) + 1);
