@@ -23,7 +23,9 @@ This file says what is particular to this plugin.
   `ARD_DISCOVERY_REGISTRY`.
 - **Codex:** its form, its approval settings, its sign-in.
 - **Not the registry.** It ranks other people's servers. Its score is
-  relevance, never trust, and its descriptions are its own. A result counts as
+  relevance, never trust, and its descriptions are its own. What it says in an
+  error, and the referrals it gives, reach a result as one quoted line (from
+  0.1.2), so its words can't pass for this plugin's own. A result counts as
   confirmed only when the publisher's own catalog lists the server, and then
   the publisher's card is the one shown and added.
 - **Not the publishers, and not Codex's model.** What the model writes in
