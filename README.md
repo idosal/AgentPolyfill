@@ -62,7 +62,8 @@ claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev
 ```
 
 The same server offers new comments in a Hacker News thread, new npm and
-GitHub releases, and earthquakes. [More in the Events README](polyfills/claude-code/events).
+GitHub releases, and earthquakes; its source is in
+[`servers/event-feeds`](servers/event-feeds). [More in the Events README](polyfills/claude-code/events).
 
 ### Apps: an MCP App's interface, in the terminal
 
@@ -250,6 +251,8 @@ and [`skills`](polyfills/claude-code/skills).
 One marketplace file ([`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json))
 lists them all, with two plugins in [`plugins/`](plugins): `mcpolyfill`, which
 installs every polyfill, and `polyfill-author`, the skills for building one.
+The demo servers that are hosted for trying a polyfill live in
+[`servers/`](servers): [`event-feeds`](servers/event-feeds), the Events demo.
 Each polyfill releases on its own, under tags that start with its
 plugin's name (`mcp-apps-cli-v0.1.0`).
 

@@ -1,0 +1,75 @@
+{
+    "exhaustive": {
+        "nbHits": false,
+        "typo": false
+    },
+    "exhaustiveNbHits": false,
+    "exhaustiveTypo": false,
+    "hits": [
+        {
+            "author": "levkk",
+            "created_at_i": 1729606554,
+            "num_comments": 258,
+            "objectID": "41914544",
+            "points": 488,
+            "title": "Show HN: Rust Web Framework",
+            "url": "https://github.com/levkk/rwf"
+        },
+        {
+            "author": "fzyzcjy",
+            "created_at_i": 1723344920,
+            "num_comments": 103,
+            "objectID": "41213711",
+            "points": 301,
+            "title": "Show HN: Rust GUI Library via Flutter",
+            "url": "https://cjycode.com/posts/rust-ui-flutter/"
+        },
+        {
+            "author": "jackpot51",
+            "created_at_i": 1505878555,
+            "num_comments": 76,
+            "objectID": "15290607",
+            "points": 232,
+            "title": "Show HN: Redox Rust OS \u2013 v0.3.3 release",
+            "url": "https://github.com/redox-os/redox/releases/tag/0.3.3"
+        },
+        {
+            "author": "rustshellscript",
+            "created_at_i": 1598159071,
+            "num_comments": 80,
+            "objectID": "24249646",
+            "points": 231,
+            "title": "Show HN: Using Rust to write shell-script like tasks",
+            "url": "https://github.com/rust-shell-script/rust_cmd_lib"
+        },
+        {
+            "author": "thatxliner",
+            "created_at_i": 1778363187,
+            "num_comments": 74,
+            "objectID": "48078575",
+            "points": 218,
+            "title": "Show HN: Rust but Lisp",
+            "url": "https://github.com/ThatXliner/rust-but-lisp"
+        }
+    ],
+    "hitsPerPage": 5,
+    "nbHits": 8623,
+    "nbPages": 200,
+    "page": 0,
+    "params": "query=show+hn+rust&tags=story&hitsPerPage=5&attributesToRetrieve=author%2Ccreated_at_i%2CobjectID%2Ctitle%2Curl%2Cpoints%2Cnum_comments&attributesToHighlight=none&advancedSyntax=true&analyticsTags=backend",
+    "processingTimeMS": 32,
+    "processingTimingsMS": {
+        "_request": {
+            "queue": 24,
+            "roundTrip": 18
+        },
+        "fetch": {
+            "query": 5,
+            "scanning": 25,
+            "total": 31
+        },
+        "total": 32
+    },
+    "query": "show hn rust",
+    "serverTimeMS": 57
+}

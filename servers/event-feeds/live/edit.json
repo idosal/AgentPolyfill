@@ -1,0 +1,150 @@
+{
+ "width": 1920,
+ "height": 1080,
+ "fps": 30,
+ "casts": {
+  "s1": "runs/take-4/session/cast.jsonl"
+ },
+ "page": "runs/take-4/page",
+ "termName": "claude — ~/feeds-demo",
+ "pageAddr": "event-feeds.idosalomon.workers.dev/b/…",
+ "shots": [
+  {
+   "id": "ask",
+   "cast": "s1",
+   "from": {
+    "anchor": {
+     "cast": "s1",
+     "text": "❯.Giv"
+    },
+    "offset": 0.05
+   },
+   "to": {
+    "anchor": {
+     "cast": "s1",
+     "text": "press it\\."
+    },
+    "offset": 0.35
+   },
+   "speed": 1.25,
+   "hold": 0.4,
+   "tau": 0.32,
+   "look": {
+    "text": "❯.Giv",
+    "before": 0,
+    "after": 24
+   },
+   "caption": {
+    "text": "One sentence to Claude Code.",
+    "sub": "After: claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev/mcp"
+   },
+   "hide": "page",
+   "margin": 0.97
+  },
+  {
+   "id": "watching",
+   "cast": "s1",
+   "from": {
+    "anchor": {
+     "cast": "s1",
+     "text": "for [0-9]+s · done"
+    },
+    "offset": 0.5
+   },
+   "to": {
+    "anchor": {
+     "cast": "s1",
+     "text": "for [0-9]+s · done"
+    },
+    "offset": 0.6
+   },
+   "hold": 3.2,
+   "tau": 0.32,
+   "look": {
+    "text": "❯.Giv",
+    "before": 0,
+    "after": 24
+   },
+   "caption": {
+    "text": "It makes a private button page, watches its channel, and goes idle."
+   },
+   "hide": "page",
+   "margin": 0.97
+  },
+  {
+   "id": "press",
+   "cast": "s1",
+   "from": {
+    "anchor": {
+     "click": "press"
+    },
+    "offset": -2.4
+   },
+   "to": {
+    "anchor": {
+     "click": "press"
+    },
+    "offset": 1.6
+   },
+   "tau": 0.32,
+   "look": {
+    "page": {
+     "x": 0,
+     "y": 300,
+     "w": 720,
+     "h": 300
+    }
+   },
+   "caption": {
+    "text": "Claude Code is idle. On the private page, the button is pressed."
+   },
+   "hide": "terminal",
+   "margin": 0.92
+  },
+  {
+   "id": "wake",
+   "cast": "s1",
+   "from": {
+    "anchor": {
+     "cast": "s1",
+     "text": "Prompt from the mcp-events"
+    },
+    "offset": -1.6
+   },
+   "to": {
+    "anchor": {
+     "cast": "s1",
+     "text": "Press #1 \\("
+    },
+    "offset": 1.4
+   },
+   "maxIdle": 0.6,
+   "hold": 3.6,
+   "tau": 0.32,
+   "look": {
+    "text": "❯.Giv",
+    "before": 0,
+    "after": 24
+   },
+   "captions": [
+    {
+     "at": 0,
+     "untilAnchor": {
+      "cast": "s1",
+      "text": "Prompt from the mcp-events"
+     },
+     "text": "Nobody is typing."
+    },
+    {
+     "anchor": {
+      "cast": "s1",
+      "text": "Prompt from the mcp-events"
+     },
+     "text": "The press wakes the session. Claude reads the message and answers."
+    }
+   ],
+   "hide": "page",
+   "margin": 0.97
+  }
+ ]
+}
