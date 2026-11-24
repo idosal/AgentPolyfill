@@ -11,7 +11,9 @@
     "test": "node --test --no-warnings \"test/*-test.ts\"",
     "typecheck": "tsc --noEmit -p .",
     "build": "node build.mjs",
-    "interop": "node --no-warnings test/interop/run.ts"
+    "interop": "node --no-warnings test/interop/run.ts",
+    "conformance": "node --no-warnings test/conformance-driver.ts --suite",
+    "conformance:helper": "node --no-warnings test/conformance-driver.ts --suite --helper"
   },
   "dependencies": {
     "smol-toml": "1.9.1"

@@ -50,10 +50,42 @@ different in Codex.
 | STATE-1 across a restart | A closed session's watches resume from their cursors the next time Codex calls one of this plugin's tools in that session (Codex starts a resumed session's MCP servers then). The README says so under Limits. |
 | CAP-1 | The client declares the extension on its own connection to each server (`clientInfo` `mcp-events-codex`). Codex's own connection is not used: Codex has no way for a plugin to send `events/*` over it. |
 
+## The upstream conformance suite
+
+The official Events client scenarios are in the conformance suite's open
+pull request [modelcontextprotocol/conformance#541](https://github.com/modelcontextprotocol/conformance/pull/541),
+at its head `c8625de3118c2d5dc0561696cddeb0baaf124f2c`; the suite's `main`
+has no Events scenarios yet. [`test/conformance-driver.ts`](../test/conformance-driver.ts)
+is what the suite starts as the client, the Codex counterpart of the Claude
+Code form's driver. It runs the four scenarios
+(`events-client-no-extension`, `-poll`, `-push`, `-webhook`) two ways:
+
+| How | What plays the client | Result |
+|---|---|---|
+| `npm run conformance` | the shared client in the driver's process, named to the server as this plugin names it (`configureHost(CODEX)`), with a session's state laid out as the helper lays it out | **17 of 17 checks** |
+| `npm run conformance:helper` | end to end: the bundled `plugin/dist/helper.js` started as Codex starts it (an MCP server over stdio, a throwaway `CODEX_HOME` whose `config.toml` names the suite's server, a stand-in `codex`), driven with `list_event_types` and `watch_event` calls that carry a session id | **17 of 17 checks** |
+
+- **The one allowance.** In the webhook scenario the suite's stand-in server is
+  plain http on this machine and asks for no credentials. The client
+  subscribes by webhook only on an authenticated connection and only at an
+  https address, so for that scenario alone the driver sets `MCP_EVENTS_DEV=1`
+  (and points `MCP_EVENTS_PUBLIC_URL` at the helper's own receiver), as the
+  Claude Code form's driver does. Every other scenario runs with no such
+  setting.
+- **To run them again.** From a checkout of the suite at that commit, with
+  its dependencies installed (`npm ci`), and this folder ready (`npm ci`
+  here and in `../core`):
+
+  ```bash
+  MCP_CONFORMANCE_SUITE_DIR=<suite checkout> npm run conformance
+  MCP_CONFORMANCE_SUITE_DIR=<suite checkout> npm run conformance:helper
+  ```
+
+  Add `MCP_CONFORMANCE_OUTPUT_DIR=<folder>` to keep the suite's result files.
+  The suite's checkout is code this repository does not hold: read it before
+  you run it. CI does not run it: it would depend on a pull request's branch.
+
 ## Not in this form
 
-- The upstream conformance suite is not run against this form separately:
-  its scenarios exercise the client, which is the shared one, and the Claude
-  Code form runs them (`npm run conformance` there).
 - The webhook relay is the same relay, with the same client code; its tests
   are the Claude Code form's (`test/relay.e2e-test.ts`, and `mod/relay`'s own).
