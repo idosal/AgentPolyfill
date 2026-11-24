@@ -7,8 +7,8 @@
 //   MCP_APPS_CLI_HELPER=../mod/helper/bin/darwin-arm64/mcp-apps-cli-helper node change-check.mjs
 //
 // Prints the pictures seen and their delay after each redraw; PASS when every
-// redraw became a picture within 600 ms (a poll's wait and a capture), FAIL
-// (exit 1) otherwise.
+// redraw made while the view showed became a picture within 600 ms (a poll's
+// wait and a capture), FAIL (exit 1) otherwise.
 
 import { spawn } from "node:child_process";
 import http from "node:http";
@@ -113,6 +113,15 @@ if (!opened.ok) {
   process.exit(1);
 }
 await new Promise((r) => setTimeout(r, SECONDS * 1000));
+// Judged: the redraws made once the view showed its first picture (before
+// that, the view is still opening, which smoke-check.mjs times) and before
+// the end. Pictures keep coming for 700 ms after it, so a redraw just
+// before the end gets its full 600 ms.
+const end = Date.now();
+await new Promise((r) => setTimeout(r, 700));
+const judged = redraws.filter((t) => pictures.length > 0 && t >= pictures[0] && t <= end);
+redraws.length = 0;
+redraws.push(...judged);
 // Each redraw's delay: from its time to the first picture after it.
 const delays = redraws.map((t) => {
   const next = pictures.find((p) => p >= t);
