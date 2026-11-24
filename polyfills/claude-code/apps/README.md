@@ -108,12 +108,16 @@ Settings, in `/config`:
 
 | Setting | Default | Choices |
 |---|---|---|
-| App tool calls: an app calling its own server's tools | allow, as Claude Desktop does; your deny rules still apply | allow, rules, ask |
+| App tool calls: an app calling its own server's tools | rules: what your permission rules allow runs, and you're asked where they would ask | rules, ask (always), allow (without asking, as Claude Desktop does) |
 | App messages: an app sending Claude a message | ask, as Claude Desktop does | ask, fill (put it in your prompt), allow |
 | Offer fullscreen | ask once | ask, never |
 | Offer a browser download | ask once | ask, never |
 
-Opening a link or saving a file from an app always asks.
+Your deny rules apply to an app's tool calls in every mode, and where Claude
+Code can't check its rules for a tool, you're asked whatever the setting.
+When you're asked, you can allow that tool for the rest of the session. An
+app may ask to run only a tool its server lists. Opening a link or saving a
+file from an app always asks.
 
 ## Limits
 
