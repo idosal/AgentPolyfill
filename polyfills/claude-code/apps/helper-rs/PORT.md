@@ -136,7 +136,7 @@ still run whatever `MCP_APPS_CLI_HELPER` names.
 | `leak-check.mjs` (helper killed outright with views open) | passes: no Chrome left |
 | `resize-check.mjs` (`MAXROWS=36`, 12 views), `cells-update-check.mjs` (truecolor, 8 views) | 0/12 bad; 0/8 garbled in each of three runs |
 | the darwin-x64 binary under Rosetta, `contract-check.mjs` | all pass |
-| `cargo test --workspace` | 64 tests, 24 of them fuzz-style (the render parity test needs its fixtures made first; see `crates/render/README.md`) |
+| `cargo test --workspace` | all pass, fuzz-style tests of every parser among them (the render parity test needs its fixtures made first; see `crates/render/README.md`) |
 
 Real `claude` sessions (`bench/session.py`), the Rust helper confirmed in
 each one's debug log (`open-iterm` and `doom` again on the final binary):
