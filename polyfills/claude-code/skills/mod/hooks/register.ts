@@ -27,7 +27,7 @@ import { INERT_TOOLS, PLUGIN, RESOURCE_TOOLS, TOOLS } from './tools'
 
 type Endpoint = { url: string; token: string }
 type Catalog = { text: string; skills: number; servers: number }
-type HelperMessage = { t?: string; url?: string; token?: string; names?: unknown; text?: string; skills?: number; servers?: number; expects?: number }
+type HelperMessage = { t?: string; url?: string; token?: string; names?: unknown; text?: string; skills?: number; servers?: number; expects?: number; complete?: boolean }
 /** A skill this conversation loaded: the session is acting on it until the conversation is cleared. */
 type Acting = { server: string; uri: string; name: string; root: string; isApproved: boolean }
 /** A person's yes to a skill, bound to what the skill was: which server (by where it is), and every file's address and digest. */
@@ -347,7 +347,9 @@ async function onMessage($: EngineInterface, message: HelperMessage): Promise<vo
         state.areToolsLoaded = true
         await Promise.all(TOOLS.map((spec) => $.tool.register({ ...spec, isDeferred: false }))).catch(() => {})
       }
-      state.gotCatalog?.()
+      // A listing sent while a server is still being looked at does not end the wait for the first
+      // one; whatever has arrived when the wait ends is what the first listing holds.
+      if (message.complete !== false) state.gotCatalog?.()
       // A listing that arrived or changed after the session's skill listing was composed: compose it again.
       if (before !== undefined ? before !== state.catalog.text : state.catalog.text !== '') $.ui.invalidate('prompt.attachment')
       return
@@ -405,6 +407,15 @@ async function approvals($: EngineInterface): Promise<Record<string, Approval>> 
   return typeof stored === 'object' && stored !== null && !Array.isArray(stored) ? (stored as Record<string, Approval>) : {}
 }
 
+/** The most approvals kept: well inside the 4 MiB Claude Code allows a mod's store. Past it, the oldest go; the one just given stays. */
+const MAX_APPROVALS = 2000
+function bounded(all: Record<string, Approval>, given: string): Record<string, Approval> {
+  const others = Object.keys(all).filter((key) => key !== given)
+  if (others.length < MAX_APPROVALS) return all
+  const newest = others.sort((a, b) => (Number(all[b]?.at) || 0) - (Number(all[a]?.at) || 0)).slice(0, MAX_APPROVALS - 1)
+  return Object.fromEntries([...newest, given].map((key) => [key, all[key]!]))
+}
+
 const size = (bytes: number) => (bytes < 1024 ? `${bytes} bytes` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`)
 
 /**
@@ -447,9 +458,16 @@ async function serve($: EngineInterface, name: string, e: Record<string, unknown
     // A yes just given is kept, bound to the content it was given for. A skill with no manifest
     // ("dynamic") cannot be bound to anything, so a yes to it is for this load alone.
     if (isApproved && decided?.isNew && typeof acting.hash === 'string' && acting.hash === decided.hash) {
-      const all = await approvals($)
-      all[approvalKey(acting.server, acting.uri)] = { hash: acting.hash, fingerprint: String(acting.fingerprint ?? ''), name: String(acting.name ?? ''), at: await $.clock.now() }
-      await $.store.set(APPROVALS, all)
+      // Kept if it can be: the yes was given for this load, which goes ahead either way. A yes that
+      // cannot be kept (Claude Code's store for a mod holds at most 4 MiB) is asked for again next time.
+      try {
+        const all = await approvals($)
+        const given = approvalKey(acting.server, acting.uri)
+        all[given] = { hash: acting.hash, fingerprint: String(acting.fingerprint ?? ''), name: String(acting.name ?? ''), at: await $.clock.now() }
+        await $.store.set(APPROVALS, bounded(all, given))
+      } catch (error) {
+        debug($, `the approval of ${quoted(String(acting.name ?? ''))} could not be kept (${plain(error instanceof Error ? error.message : error)}); it is asked about again next time`)
+      }
     }
     // From here on the session is acting on this skill. Kept apart from what is read back from the
     // conversation, so a load made before that read cannot stand in for it: a skill loaded unapproved

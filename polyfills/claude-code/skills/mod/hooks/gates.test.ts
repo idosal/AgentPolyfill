@@ -159,11 +159,11 @@ function machineOf(m: Machine, runtimesGiven?: Record<string, string>, shellFind
   return { ran, disk, run, exists, stat, list, read, engine }
 }
 
-function world(on: On, o: { /** What the person answers to a question in Claude Code's dialog; absent, they dismiss it. */ answer?: string; machine?: Machine; tools?: string[]; env?: Record<string, string>; /** What each command answers to --version; a missing one is not installed. Default: node on the PATH. */ runtimes?: Record<string, string>; shellFinds?: string; names?: string[]; commands?: string[]; /** The conversation so far; an Error stands for one that cannot be read. */ rows?: unknown[] | Error; verdict?: Record<string, unknown>; connect?: Record<string, unknown>; servers?: string[]; catalog?: string | null; expects?: number; store?: Record<string, unknown>; facts?: Facts; found?: unknown[] } = {}): World {
+function world(on: On, o: { /** What the person answers to a question in Claude Code's dialog; absent, they dismiss it. */ answer?: string; machine?: Machine; tools?: string[]; env?: Record<string, string>; /** What each command answers to --version; a missing one is not installed. Default: node on the PATH. */ runtimes?: Record<string, string>; shellFinds?: string; names?: string[]; commands?: string[]; /** The helper's first listing is not yet complete: a server is still being looked at. */ partial?: true; /** Claude Code refuses to keep more in the mod's store (it holds at most 4 MiB). */ storeFull?: true; /** The conversation so far; an Error stands for one that cannot be read. */ rows?: unknown[] | Error; verdict?: Record<string, unknown>; connect?: Record<string, unknown>; servers?: string[]; catalog?: string | null; expects?: number; store?: Record<string, unknown>; facts?: Facts; found?: unknown[] } = {}): World {
   // A wait ends only when a test moves the clock: nothing here times out by itself.
   const w: World = { posts: [], spawns: 0, registered: [], spawned: [], toasts: [], submitted: [], facts: o.facts ?? FACTS, store: { ...(o.store ?? {}) }, clock: mock.clock(on), exit: () => {}, ran: [], disk: {}, asked: [], logs: [] }
   const ready = JSON.stringify({ t: 'ready', url: 'http://127.0.0.1:9', token: 'secret', expects: o.expects ?? 1 })
-  const lines = [ready, ...(o.servers ? [JSON.stringify({ t: 'servers', names: o.servers })] : []), ...(o.catalog === null ? [] : [JSON.stringify({ t: 'catalog', text: o.catalog ?? CATALOG, skills: 1, servers: 1 })])]
+  const lines = [ready, ...(o.servers ? [JSON.stringify({ t: 'servers', names: o.servers })] : []), ...(o.catalog === null ? [] : [JSON.stringify({ t: 'catalog', text: o.catalog ?? CATALOG, skills: 1, servers: 1, ...(o.partial ? { complete: false } : {}) })])]
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('session.end', (_, e) => ({ sessionId: e.sessionId }) as never)
   on('session.messages', () => {
@@ -213,6 +213,7 @@ function world(on: On, o: { /** What the person answers to a question in Claude 
   })
   on('store.get', (_, e) => ({ value: w.store[e.key] }))
   on('store.set', (_, e) => {
+    if (o.storeFull) throw new Error('the store would hold more than 4 MiB')
     w.store[e.key] = JSON.parse(JSON.stringify(e.value))
     return { value: undefined }
   })
@@ -285,6 +286,36 @@ test('X14: the yes is kept bound to the skill\'s content and its server, and the
   const again = await load($)
   expect(again.verdict.decision).toBe('allow')
   expect(again.ran.result).toBe(`${APPROVED}\n${LOADED}`)
+})
+
+test('X14: a yes that cannot be kept (the store is full) still loads the skill it was given for; it is asked about again next time', async ($, on) => {
+  const w = world(on, { storeFull: true })
+  await $.session.start(START)
+  const first = await load($)
+  expect(first.ran.result).toBe(`${APPROVED}\n${LOADED}`)
+  expect(w.logs.some((l) => l.includes('could not be kept'))).toBe(true)
+  expect((await load($)).verdict.decision).toBe('ask')
+})
+
+test('X14: the approvals kept are bounded: past 2,000, the oldest are dropped, so the store never fills', async ($, on) => {
+  const old = Object.fromEntries(Array.from({ length: 2000 }, (_, i) => [`acme\nskill://s${i}/SKILL.md`, { hash: 'sha256:x', fingerprint: 'fp-acme', name: `s${i}`, at: 1000 + i }]))
+  const w = world(on, { store: { approvals: old } })
+  await $.session.start(START)
+  await load($)
+  const kept = approvals(w)
+  expect(Object.keys(kept).length).toBe(2000)
+  expect(kept['acme\nskill://s0/SKILL.md']).toBeUndefined()
+  expect(kept['acme\nskill://s1/SKILL.md']).toBeDefined()
+  expect(kept[`${SKILL.server}\n${SKILL.uri}`]!.hash).toBe(FACTS.hash)
+})
+
+test('X14: approvals kept in a shape this version does not know are no approval: the skill is asked about', async ($, on) => {
+  const w = world(on)
+  await $.session.start(START)
+  for (const kept of ['not an object', [1, 2], { [`${SKILL.server}\n${SKILL.uri}`]: 'sha256:aaaa' }, { [`${SKILL.server}\n${SKILL.uri}`]: { hash: 7, fingerprint: 'fp-acme' } }]) {
+    w.store.approvals = kept
+    expect([kept, (await load($)).verdict.decision]).toEqual([kept, 'ask'])
+  }
 })
 
 test('X14: an approval from an earlier session stands for the same content', async ($, on) => {
@@ -647,6 +678,19 @@ test('the tools are in Claude\'s list from the start once a server serves skills
   const w = world(on)
   await $.session.start(START)
   expect(w.registered.sort()).toEqual(['list_skill_directory', 'list_skill_directory', 'list_skills', 'list_skills', 'load_skill', 'load_skill', 'read_skill_file', 'read_skill_file'])
+})
+
+// A server that hangs used to hold back every other server's skills until its connection timed out
+// (10 seconds, past the session's wait): the helper now sends what it has as each server is done.
+test('a listing that is not complete yet does not end the wait for the first one; at the end of the wait, what has arrived is listed', async ($, on) => {
+  const w = world(on, { partial: true })
+  let started = false
+  const start = $.session.start(START).then(() => (started = true))
+  await w.clock.settle()
+  expect(started).toBe(false)
+  await w.clock.advance(4000)
+  await start
+  expect((await $.prompt.attachment(listing)).text).toBe(`${listing.text}\n\n${CATALOG}`)
 })
 
 test('with no server known to serve skills, the session starts without waiting for any', async ($, on) => {

@@ -41,6 +41,8 @@ export type AppOptions = {
     known?: Record<string, Known>;
     /** Called when a server has been looked at, with what was learned. */
     onKnown?: (name: string, known: Known) => void;
+    /** Called each time one server's first look is over, while others may still be under way. */
+    onLooked?: (name: string) => void;
 };
 
 /** One server as an earlier session found it: told from another of the same name by where it is. */
@@ -92,7 +94,12 @@ export class App {
      * connection is a second one, and a local server would be started a second time for nothing.
      */
     async start(): Promise<void> {
-        await Promise.all(Object.keys(this.#o.table.servers).map((name) => this.#look(name, false)));
+        await Promise.all(
+            Object.keys(this.#o.table.servers).map(async (name) => {
+                await this.#look(name, false);
+                this.#o.onLooked?.(name);
+            })
+        );
         this.#settled();
     }
 
