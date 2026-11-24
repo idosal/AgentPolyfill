@@ -1,7 +1,7 @@
 // mcp-skills for Pi: the extension.
 //
 // Pi loads this file into its own process. It registers the four tools; when a
-// session starts it reaches the MCP servers Pi connects (pi-config.ts, lent.ts),
+// session starts it reaches the MCP servers Pi connects (pi-config.ts),
 // lists the skills of those that declared the Skills extension, and hands Pi a
 // folder of SKILL.md stubs on `resources_discover`, so Pi lists the served
 // skills among its own. Loading one asks the person first (a Pi dialog). While a
@@ -13,8 +13,7 @@ import { join } from 'node:path';
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { oneLine, secrets } from '../../core/src/untrusted.ts';
 import { App, type Ask, type Decision } from './app.ts';
-import { lenderOf } from './lent.ts';
-import { agentDir, readPiEntries, readPiServers } from './pi-config.ts';
+import { agentDir, readPiServers } from './pi-config.ts';
 import { Store } from './store.ts';
 import { stubRootOf } from './stubs.ts';
 import { PLUGIN, VERSION } from './version.ts';
@@ -79,18 +78,14 @@ export default function mcpSkills(pi: ExtensionAPI): void {
         }
     };
     let app: App | undefined;
-    let abort: AbortController | undefined;
     let ui: ExtensionContext['ui'] | undefined;
 
     const start = (ctx: ExtensionContext): App => {
-        abort = new AbortController();
         const trusted = ctx.isProjectTrusted();
         const registered = pi.getMcpServers().map((s) => ({ name: s.name, config: s.config as unknown }));
         const table = readPiServers({ env, cwd: ctx.cwd, trusted, registered });
-        const entries = new Map([...readPiEntries({ env, cwd: ctx.cwd, trusted, registered }).entries].map(([k, v]) => [k, v.config]));
-        const lend = lenderOf(pi);
-        log(`${PLUGIN} ${VERSION} for Pi started${lend ? ' (Pi lends its MCP connections)' : ''}`);
-        const a = new App({ table, entries, lend, store, stubRoot: stubRootOf(base), log, signal: abort.signal, connectTimeoutMs: Number(env.MCP_SKILLS_CONNECT_TIMEOUT_MS ?? 10000) });
+        log(`${PLUGIN} ${VERSION} for Pi started`);
+        const a = new App({ table, store, stubRoot: stubRootOf(base), log, connectTimeoutMs: Number(env.MCP_SKILLS_CONNECT_TIMEOUT_MS ?? 10000) });
         a.onStubsChanged = () => ui?.notify('mcp-skills: your MCP servers serve new or changed skills. Run /reload to list them.', 'info');
         void a.start();
         return a;
@@ -103,18 +98,22 @@ export default function mcpSkills(pi: ExtensionAPI): void {
             description: spec.description,
             parameters: spec.parameters as never,
             annotations: spec.annotations,
-            async execute(_id, params, _signal, _onUpdate, ctx) {
+            async execute(_id, params, signal, _onUpdate, ctx) {
                 if (!app) return { content: [{ type: 'text' as const, text: 'mcp-skills has not started in this session yet.' }], details: {}, isError: true };
                 const ask: Ask = async (message, choices) => {
                     if (!ctx.hasUI) return { unavailable: 'Pi has no one to ask in this mode (print or JSON)' };
                     const [title, ...rest] = message.split('\n');
-                    const picked = await ctx.ui.select(`${title}\n${rest.join('\n')}`, choices.map((c) => CHOICES[c]));
+                    if (signal?.aborted) return { decision: 'no' };
+                    // The question shows nothing this session's configuration counts as a secret.
+                    const picked = await ctx.ui.select(secrets.scrub(`${title}\n${rest.join('\n')}`), choices.map((c) => CHOICES[c]), { signal });
+                    if (signal?.aborted) return { decision: 'no' };
                     const decision = (Object.keys(CHOICES) as Decision[]).find((d) => CHOICES[d] === picked);
                     // Closing the question, or anything but one of its choices, is a no.
                     return { decision: decision && choices.includes(decision) ? decision : 'no' };
                 };
-                const answer = await app.call(spec.name, params, { ask });
-                return { content: [{ type: 'text' as const, text: answer.text }], details: {}, ...(answer.isError ? { isError: true } : {}) };
+                const answer = await app.call(spec.name, params, { ask, signal });
+                // Nothing the model reads carries a secret of the configuration, even one a server echoes back.
+                return { content: [{ type: 'text' as const, text: secrets.scrub(answer.text) }], details: {}, ...(answer.isError ? { isError: true } : {}) };
             }
         });
     }
@@ -160,7 +159,6 @@ export default function mcpSkills(pi: ExtensionAPI): void {
     pi.on('session_shutdown', async () => {
         const a = app;
         app = undefined;
-        abort?.abort();
         await a?.stop().catch(() => {});
     });
 }

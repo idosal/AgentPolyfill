@@ -16,6 +16,7 @@
 //
 // No skill content and no tokens.
 
+import { randomBytes } from 'node:crypto';
 import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -51,9 +52,10 @@ export class Store {
 
     #write(name: string, value: unknown): boolean {
         const path = join(this.dir, name);
-        const tmp = `${path}.${process.pid}.tmp`;
+        // A name nobody can guess, created only if nothing is there: a link planted in advance is never written through.
+        const tmp = `${path}.${randomBytes(8).toString('hex')}.tmp`;
         try {
-            writeFileSync(tmp, JSON.stringify(value), { mode: 0o600 });
+            writeFileSync(tmp, JSON.stringify(value), { mode: 0o600, flag: 'wx' });
             renameSync(tmp, path);
             return true;
         } catch {

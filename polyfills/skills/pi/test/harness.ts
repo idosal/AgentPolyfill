@@ -6,7 +6,6 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { App, type Asked, type Decision } from '../src/app.ts';
-import type { SessionLender } from '../src/lent.ts';
 import { Store } from '../src/store.ts';
 import type { Fixture } from '../../claude-code/test/harness.ts';
 
@@ -29,12 +28,11 @@ export type Started = {
 
 const open: App[] = [];
 
-export async function startApp(servers: Record<string, Fixture>, o: { answers?: Answers; store?: Store; stubRoot?: string; now?: () => number; lend?: SessionLender } = {}): Promise<Started> {
+export async function startApp(servers: Record<string, Fixture>, o: { answers?: Answers; store?: Store; stubRoot?: string; now?: () => number } = {}): Promise<Started> {
     const store = o.store ?? new Store(temp());
     const stubRoot = o.stubRoot ?? join(temp(), 'served');
     const table = { servers: Object.fromEntries(Object.entries(servers).map(([name, f]) => [name, f.config])), skipped: {} };
-    const entries = new Map(Object.entries(servers).map(([name, f]) => [name, { ...f.config } as Record<string, unknown>]));
-    const app = new App({ table, entries, store, stubRoot, connectTimeoutMs: 8000, now: o.now, lend: o.lend });
+    const app = new App({ table, store, stubRoot, connectTimeoutMs: 8000, now: o.now });
     open.push(app);
     await app.start();
     const questions: Started['questions'] = [];

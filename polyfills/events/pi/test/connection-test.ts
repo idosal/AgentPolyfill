@@ -5,10 +5,6 @@
 //
 //   - header-authenticated: reached, with the header resolved as Pi resolves it;
 //   - OAuth: out of reach, and the extension says why.
-//
-// The second describe runs the same on a Pi built with the prototyped change
-// that adds pi.getMcpServerSession() (MCP_PI_PATCHED_CLI): a lent connection
-// changes nothing for Events yet.
 
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -21,7 +17,6 @@ import { Pi, PI_BIN, temp, waitFor, type Rule } from './pi-rpc.ts';
 const EXTENSION = fileURLToPath(new URL('../extension/dist/index.js', import.meta.url));
 const HTTP_FIXTURE = fileURLToPath(new URL('./http-fixture.ts', import.meta.url));
 const EVENTS_FIXTURE = fileURLToPath(new URL('../../claude-code/test/fixture-events-server.ts', import.meta.url));
-const PATCHED = process.env.MCP_PI_PATCHED_CLI;
 /** A test credential, made up for this test. */
 const TOKEN = 'test-token-for-the-fixture';
 const RULES: Rule[] = [{ when: '^list event types$', call: { name: 'list_event_types', args: {} } }];
@@ -70,33 +65,31 @@ async function login(piBin: string, env: Record<string, string>, name: string): 
     assert.equal(await new Promise<number | null>((r) => child.on('exit', r)), 0, `pi mcp login failed: ${text.slice(-1000)}`);
 }
 
-async function listIn(piBin: string | undefined, h: ReturnType<typeof home>) {
-    const pi = new Pi({ extensions: [EXTENSION], rules: RULES, agentDir: h.agentDir, env: h.env, piBin });
+async function listIn(h: ReturnType<typeof home>) {
+    const pi = new Pi({ extensions: [EXTENSION], rules: RULES, agentDir: h.agentDir, env: h.env });
     stops.push(() => pi.stop());
     await pi.ready();
     await pi.prompt('list event types');
     return pi.toolResults('list_event_types').at(-1)!.text;
 }
 
-for (const [label, bin] of [['Pi as released', undefined], ['a Pi that lends its connection (MCP_PI_PATCHED_CLI)', PATCHED]] as const) {
-    describe(`on ${label}`, { skip: label.startsWith('a Pi') && !PATCHED ? 'set MCP_PI_PATCHED_CLI to a patched Pi build' : false }, () => {
-        test('a header-authenticated server: Events runs over the extension\'s own connection, on 2026-07-28', { timeout: 90_000 }, async () => {
-            const srv = await server('token');
-            const text = await listIn(bin, home({ tickets: { url: srv.url, headers: { Authorization: 'Bearer ${DOCS_TOKEN}' } } }));
-            assert.match(text, /"server": "tickets"/);
-            assert.match(text, /"name": "ticket\.created"/);
-            const listed = srv.requests().filter((r) => r.method === 'events/list');
-            assert.ok(listed.length > 0 && listed.every((r) => r.auth && r.client === 'mcp-events-pi'), 'events/list went out on the extension\'s connection, with the credential');
-        });
-
-        test('an OAuth server: out of reach, and the extension says why', { timeout: 90_000 }, async () => {
-            const srv = await server('oauth');
-            const h = home({ tickets: { url: srv.url } });
-            await login(bin ?? PI_BIN, h.env, 'tickets');
-            const text = await listIn(bin, h);
-            assert.match(text, /"unavailable"[\s\S]*"name": "tickets"/);
-            assert.match(text, /needs a sign-in, which Pi holds for its own connection/);
-            assert.ok(!srv.requests().some((r) => r.method === 'events/list'), 'no events/list was sent');
-        });
+describe('on Pi 1.6.0', () => {
+    test('a header-authenticated server: Events runs over the extension\'s own connection, on 2026-07-28', { timeout: 90_000 }, async () => {
+        const srv = await server('token');
+        const text = await listIn(home({ tickets: { url: srv.url, headers: { Authorization: 'Bearer ${DOCS_TOKEN}' } } }));
+        assert.match(text, /"server": "tickets"/);
+        assert.match(text, /"name": "ticket\.created"/);
+        const listed = srv.requests().filter((r) => r.method === 'events/list');
+        assert.ok(listed.length > 0 && listed.every((r) => r.auth && r.client === 'mcp-events-pi'), 'events/list went out on the extension\'s connection, with the credential');
     });
-}
+
+    test('an OAuth server: out of reach, and the extension says why', { timeout: 90_000 }, async () => {
+        const srv = await server('oauth');
+        const h = home({ tickets: { url: srv.url } });
+        await login(PI_BIN, h.env, 'tickets');
+        const text = await listIn(h);
+        assert.match(text, /"unavailable"[\s\S]*"name": "tickets"/);
+        assert.match(text, /needs a sign-in, which Pi holds for its own connection/);
+        assert.ok(!srv.requests().some((r) => r.method === 'events/list'), 'no events/list was sent');
+    });
+});

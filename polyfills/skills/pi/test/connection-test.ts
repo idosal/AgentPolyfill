@@ -7,11 +7,6 @@
 //   - OAuth (Pi signs in with `pi mcp login`, in the test's own home): on Pi
 //     1.6.0 the extension cannot reach it, since Pi keeps that sign-in to itself,
 //     and says why.
-//
-// With MCP_PI_PATCHED_CLI set to the cli.js of a Pi built with the prototyped
-// change that adds pi.getMcpServerSession(), the same two run over Pi's own
-// connection, which the server's log shows: the requests come from Pi's client,
-// and none from the extension's.
 
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -25,7 +20,6 @@ import { Pi, PI_BIN, temp, waitFor, type Rule } from './pi-rpc.ts';
 const EXTENSION = fileURLToPath(new URL('../extension/dist/index.js', import.meta.url));
 const HTTP_FIXTURE = fileURLToPath(new URL('../../../events/pi/test/http-fixture.ts', import.meta.url));
 const SKILLS_FIXTURE = fileURLToPath(new URL('../../claude-code/test/fixture-skills-server.ts', import.meta.url));
-const PATCHED = process.env.MCP_PI_PATCHED_CLI;
 /** A test credential, made up for this test. */
 const TOKEN = 'test-token-for-the-fixture';
 
@@ -118,26 +112,4 @@ describe('on Pi as released (the extension\'s own connection)', () => {
         assert.ok(srv.requests().some((r) => r.client === 'pi' && r.auth), 'Pi itself is signed in');
         assert.ok(!srv.requests().some((r) => r.method === 'skills/list' && r.auth), 'no skills/list got through');
     });
-});
-
-describe('on a Pi that lends its connection (MCP_PI_PATCHED_CLI)', { skip: PATCHED ? false : 'set MCP_PI_PATCHED_CLI to a patched Pi build' }, () => {
-    for (const mode of ['token', 'oauth'] as const) {
-        test(`${mode === 'oauth' ? 'an OAuth' : 'a header-authenticated'} server: the skill comes over Pi's own connection, and the extension opens none`, { timeout: 90_000 }, async () => {
-            const srv = await server(mode);
-            const h = home({ docs: mode === 'token' ? { url: srv.url, headers: { Authorization: 'Bearer ${DOCS_TOKEN}' } } : { url: srv.url } });
-            if (mode === 'oauth') await login(PATCHED!, h.env, 'docs');
-            const pi = await loadIn(PATCHED, h);
-            const loaded = pi.toolResults('load_skill').at(-1);
-            assert.ok(loaded && !loaded.isError, `load_skill: ${loaded?.text}`);
-            const reqs = srv.requests();
-            const piSession = reqs.find((r) => r.method === 'initialize' && r.client === 'pi')?.session;
-            const skillsCalls = reqs.filter((r) => r.method === 'skills/list' || r.method === 'skills/get' || r.method === 'resources/read');
-            assert.ok(skillsCalls.length > 0);
-            assert.ok(skillsCalls.every((r) => r.auth), 'every request carried the credential');
-            // The answer to initialize opened Pi's session; the extension's requests went out in it.
-            assert.ok(reqs.some((r) => r.method === 'initialize' && r.client === 'pi'), 'Pi connected');
-            assert.ok(!reqs.some((r) => r.client === 'mcp-skills-pi'), 'the extension opened no connection of its own');
-            assert.ok(piSession === undefined || skillsCalls.every((r) => r.session !== null), 'the requests went out in an HTTP session');
-        });
-    }
 });

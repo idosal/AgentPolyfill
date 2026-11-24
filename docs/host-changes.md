@@ -69,18 +69,20 @@ headers for the method, or takes them from the caller.
   (`send_custom_request`), but only Codex itself can use it. It could be an
   app-server method such as `mcpServer/request { threadId, server, method, params }`,
   behind `experimentalApi`, returning the raw result.
-- **Pi** has the hard part too: its `McpClient.request()` sends any method.
-  It could be `pi.getMcpServerSession(name)` (prototyped against Pi 1.6.0,
-  not yet proposed to Pi), lent by the extension that connects MCP
-  servers, with `request()` (which refuses `tools/call`, so tools stay on
-  Pi's tool pipeline), per-request routing headers and the request's id. The
-  Skills polyfill uses it when it's there, tested against servers behind a
-  token and behind OAuth.
+- **Pi** has the hard part too. Its MCP client (`McpClient.request()` in
+  `pi-mcp`) sends any method, but the built-in MCP extension keeps its clients
+  to itself. It could be `pi.getMcpServerSession(name)` in the extension API,
+  provided by whichever extension connects MCP servers, as
+  `pi.registerMcpServer` is today. It would return a handle whose
+  `request(method, params)` goes over Pi's connection with Pi's sign-in, tells
+  the caller the request's JSON-RPC id (push notifications are routed by it),
+  takes per-request `Mcp-*` routing headers, and refuses `tools/call`, so
+  tools stay on Pi's tool pipeline, where permission extensions see them.
 
-This change alone brings servers behind OAuth to Skills in every host, and to
-Events in Claude Code and Codex, and removes the second connection. For Events
-in Pi, Pi's client would also have to speak protocol revision 2026-07-28,
-which SEP-3415 is defined for; Pi 1.6.0 speaks up to 2025-11-25.
+This change alone brings servers behind OAuth to Events and Skills in Claude
+Code and Codex, and to Skills in Pi, and removes their second connection.
+Events in Pi also needs Pi's client to speak protocol revision 2026-07-28,
+which SEP-3415 is defined for ([In Pi](#in-pi)).
 
 ### 2. Read what the server advertised
 
@@ -91,9 +93,9 @@ to a server that hasn't declared them, so a polyfill has to be able to check.
 - **Claude Code:** missing.
 - **Codex:** almost there. `mcpServerStatus/list` has the capabilities and
   `serverInfo`; adding the negotiated revision would finish it.
-- **Pi:** missing; in the proposed patch, the session handle has the
-  negotiated revision, the capabilities as the server sent them, and
-  `serverInfo`.
+- **Pi:** missing. Its client already keeps the negotiated revision, the
+  capabilities as the server sent them, and `serverInfo`; the session handle
+  of change 1 could expose them.
 
 ### 3. Deliver a server's notifications to the plugin
 
@@ -106,8 +108,8 @@ resource updates.
   notification work only for OpenAI's hosted apps server. Accepting any
   configured server, and forwarding a server's other notifications to a client
   that asked for them, would close it.
-- **Pi:** missing; in the proposed patch, `onNotification(method, listener)`
-  on the session handle, kept across reconnects.
+- **Pi:** missing. Its client has `onNotification(method, listener)`; the
+  session handle could pass it on, and keep it across reconnects.
 
 ### 4. Raw tool results, and declaring a client extension
 
@@ -122,7 +124,8 @@ do.
   close it. Raw results we haven't checked yet.
 - **Pi:** a result's `structuredContent` already reaches `tool_result` hooks;
   a tool's `_meta` doesn't, and an extension can't add to the capabilities
-  Pi's client declares. Not in the proposed patch.
+  Pi's client declares. An extension id in an extension's package manifest,
+  added to what Pi's client declares, would close the second.
 
 ## What each extension needs from them
 
@@ -245,8 +248,8 @@ the live server.
   can reach the socket, so a raw request there needs a per-plugin scope even
   more than an in-process API does.
 - **Who may call, in Pi.** Every extension runs in Pi's process with the
-  user's permissions, so the proposed `getMcpServerSession` doesn't create a
-  new trust boundary. It does let any extension send other methods to any
+  user's permissions, so a session API like change 1's doesn't create a new
+  trust boundary. It does let any extension send other methods to any
   configured server with the user's sign-in, which a manifest-declared scope
   would narrow.
 

@@ -35,11 +35,10 @@ asks, so the boundary is what you let Pi reach.
 It never reads Pi's stored sign-ins (`mcp-auth.json`, `auth.json`). Header and
 `env` values from your configuration (written out, `${VARIABLE}`, or a
 `!command` run through your shell, as Pi runs it) are sent only to the server
-they're configured for, and scrubbed from the log and from what the model
-reads. A server you sign in to through Pi is left alone on Pi 1.6.0. On a Pi
-that lends its connection (a change to Pi we prototyped, which adds
-`pi.getMcpServerSession()`), the extension uses Pi's connection, and Pi attaches the credential to each
-request: the extension still sees no token.
+they're configured for. They're scrubbed from everything the extension
+produces: the log, the tool results the model reads, the questions put to
+you, and the stubs Pi lists, so a server that echoes one back doesn't get it
+shown. A server you sign in to through Pi is left alone.
 
 ### What a server can make it do
 
@@ -57,8 +56,10 @@ the server's name (and cleaned of control and invisible characters), and a
 body in the extension's own words that says how to load it. Nothing of the
 skill's files is fetched to write it, and none is written to disk. The
 folders are named by hashes, never by anything a server sent; only folders of
-that shape are removed, and a symbolic link found there is removed, never
-followed. Pi lists the stubs only while the extension is loaded.
+that shape are removed, and a symbolic link found in their place is removed,
+never followed. Files are written whole: to a temporary file with a name
+nobody can guess, created only if nothing is there, then moved into place.
+Pi lists the stubs only while the extension is loaded.
 
 ### Loading a skill
 
@@ -69,7 +70,11 @@ followed. Pi lists the stubs only while the extension is loaded.
   skill changes on the server while you're asked, it isn't loaded.
 - **"Show me its SKILL.md first"** shows you the text, checked against its
   digest, with every line marked so the server's text can't pass for the
-  question's; the model sees none of it.
+  question's; the model sees none of it. A skill whose server generates its
+  content has no digest to hold it to, so what's loaded is compared with the
+  text you were shown: if the server changed it in between, nothing is loaded.
+- **A cancelled call does nothing.** If Pi cancels the tool call while you're
+  being asked, nothing is loaded and no yes is kept.
 - **Your yes is kept** for that skill from that place with exactly those files
   (every file's URI and digest). A change is asked about again.
 - **Verified before use.** Every file is checked against the size and SHA-256

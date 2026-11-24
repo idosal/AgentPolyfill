@@ -4,18 +4,14 @@
 // the four tools. Loading a skill is put to the person first, unless they
 // approved it before as it is now.
 //
-// A server is reached over Pi's own connection where Pi lends it (lent.ts, a
-// proposed Pi change: with Pi's sign-in, and no second process), and otherwise
-// over a connection of this extension's own, built from Pi's MCP configuration.
+// Each server is reached over a connection of this extension's own, built from
+// Pi's MCP configuration (pi-config.ts): Pi doesn't give extensions its own.
 
-import { createHash } from 'node:crypto';
 import { declarationOf, manifestHash, rootOf, SkillsHost, type Listed } from '../../core/src/skills.ts';
 import { describeError, LocalError, secrets } from '../../core/src/untrusted.ts';
-import { isHttp, type ServerTable, type UpstreamConfig } from '../../core/src/upstream.ts';
-import { Connection, fingerprintOf, type Wire } from '../../core/src/wire.ts';
+import { isHttp, type ServerTable } from '../../core/src/upstream.ts';
+import { Connection, fingerprintOf } from '../../core/src/wire.ts';
 import { directoryText, fileText, loadedText, previewText, questionText, statusText, type ServerNote } from './format.ts';
-import type { SessionLender } from './lent.ts';
-import { wireOf } from './lent.ts';
 import type { Known, Store } from './store.ts';
 import { MAX_STUBS, stubNames, syncStubs } from './stubs.ts';
 import { VERSION } from './version.ts';
@@ -25,44 +21,28 @@ export type Decision = 'load' | 'show' | 'no';
 export type Asked = { decision: Decision } | { unavailable: string };
 /** Puts a question to the person (a Pi dialog). */
 export type Ask = (message: string, choices: Decision[]) => Promise<Asked>;
-export type CallContext = { ask: Ask };
+/** `signal`: aborted when Pi cancels the tool call; nothing is loaded or kept after that. */
+export type CallContext = { ask: Ask; signal?: AbortSignal };
 export type ToolAnswer = { text: string; isError?: boolean };
 
-/** A server's raw entry in Pi's configuration: how Pi reaches it, before any value is resolved. */
-export type RawEntry = Record<string, unknown>;
-
 export type AppOptions = {
-    /** The servers as this extension's own connection would reach them (pi-config.ts). */
+    /** The servers as this extension's own connection reaches them, and the ones left out with why (pi-config.ts). */
     table: ServerTable;
-    /** Every server Pi connects, by name, as its configuration has it. */
-    entries: Map<string, RawEntry>;
-    /** Pi's own connections, where this Pi lends them. */
-    lend?: SessionLender;
     store: Store;
     /** Where the stubs go, or nothing to write none. */
     stubRoot?: string;
     log?: (line: string) => void;
     connectTimeoutMs?: number;
     now?: () => number;
-    signal?: AbortSignal;
 };
 
 /** A server found not to serve skills is not connected to again for this long: a day. */
 export const RECHECK_MS = 24 * 60 * 60 * 1000;
-const SIGN_IN = "it needs a sign-in, which Pi holds for its own connection (/mcp), and this Pi does not lend that connection to extensions: give the server an Authorization header in mcp.json (a ${VARIABLE} or a !command value works), or see \"Servers that need sign-in\" in the README";
+const SIGN_IN = "it needs a sign-in, which Pi holds for its own connection (/mcp) and doesn't give extensions: give the server an Authorization header in mcp.json (a ${VARIABLE} or a !command value works), or see \"Servers that need sign-in\" in the README";
 const CLIENT = { name: 'mcp-skills-pi', version: VERSION };
 
-type Conn = Wire & { readonly connected: boolean; close(): Promise<void>; readonly viaHost: boolean };
-
-/** Where a server is, without credentials: what an approval is tied to. */
-function placeOf(cfg: UpstreamConfig | undefined, raw: RawEntry | undefined): string {
-    if (cfg) return fingerprintOf(cfg);
-    const id = typeof raw?.url === 'string' ? { url: raw.url } : { command: String(raw?.command ?? ''), args: Array.isArray(raw?.args) ? raw.args.map(String) : [], cwd: null };
-    return createHash('sha256').update(JSON.stringify(id)).digest('hex').slice(0, 24);
-}
-
 export class App {
-    readonly conns = new Map<string, Conn>();
+    readonly conns = new Map<string, Connection>();
     readonly unavailable: ServerNote[] = [];
     readonly without: string[] = [];
     readonly skipped: string[] = [];
@@ -104,26 +84,16 @@ export class App {
     /** Looks at every server once, and writes the stubs. Resolves when all have been looked at. */
     async start(): Promise<void> {
         const settings = this.#o.store.settings();
-        const names = [...this.#o.entries.keys()].filter((n) => (!settings.servers || settings.servers.includes(n)) && !(settings.skip ?? []).includes(n));
-        await Promise.all(names.map((name) => this.#look(name)));
+        const wanted = (n: string) => (!settings.servers || settings.servers.includes(n)) && !(settings.skip ?? []).includes(n);
+        for (const [name, why] of Object.entries(this.#o.table.skipped)) if (wanted(name)) this.unavailable.push({ name, why });
+        await Promise.all(Object.keys(this.#o.table.servers).filter(wanted).map((name) => this.#look(name)));
         this.#writeStubs();
         this.#settled();
     }
 
-    async #lent(name: string): Promise<Conn | { why: string } | undefined> {
-        if (!this.#o.lend) return undefined;
-        try {
-            const timeout = this.#o.connectTimeoutMs ?? 10_000;
-            const s = await Promise.race([this.#o.lend(name, { signal: this.#o.signal }), new Promise<undefined>((r) => setTimeout(() => r(undefined), timeout).unref())]);
-            return s ? wireOf(s) : undefined;
-        } catch (e) {
-            return { why: describeError(e) };
-        }
-    }
-
     async #own(name: string): Promise<Connection | { why: string } | undefined> {
         const cfg = this.#o.table.servers[name];
-        if (!cfg) return this.#o.table.skipped[name] ? { why: this.#o.table.skipped[name]! } : undefined;
+        if (!cfg) return undefined;
         const c = new Connection(name, cfg, { client: CLIENT, signInNote: SIGN_IN });
         try {
             await c.connect(this.#o.connectTimeoutMs ?? 10_000);
@@ -134,36 +104,17 @@ export class App {
     }
 
     async #look(name: string): Promise<void> {
-        const place = placeOf(this.#o.table.servers[name], this.#o.entries.get(name));
+        const place = fingerprintOf(this.#o.table.servers[name]!);
         const known = this.#known[name];
         if (known && !known.declares && known.fingerprint === place && this.#now() - known.at < RECHECK_MS) {
             this.skipped.push(name);
             return;
         }
-        // Pi's own connection first, where it is lent; a server Pi has not connected (or that does not
-        // declare Skills on it) is tried over a connection of this extension's own.
-        let c: Conn | undefined;
-        let why: string | undefined;
-        const lent = await this.#lent(name);
-        if (lent && 'why' in lent) why = lent.why;
-        else if (lent) {
-            const d = declarationOf(lent);
-            if (d.declared) c = lent;
-            else why = d.reason;
-        }
-        if (!c) {
-            const own = await this.#own(name);
-            if (own && 'why' in own) {
-                if (!lent || 'why' in lent) this.unavailable.push({ name, why: why && why !== own.why ? `${why}; and over a connection of this extension's own, ${own.why}` : own.why });
-                else if (why) this.unavailable.push({ name, why });
-                else this.without.push(name);
-                return this.#log(`${name}: not used: ${own.why}`);
-            }
-            if (!own) {
-                if (lent && !('why' in lent)) this.without.push(name);
-                return;
-            }
-            c = Object.assign(own, { viaHost: false });
+        const c = await this.#own(name);
+        if (!c) return;
+        if ('why' in c) {
+            this.unavailable.push({ name, why: c.why });
+            return this.#log(`${name}: not used: ${c.why}`);
         }
         const d = declarationOf(c);
         this.#o.store.learn(name, { fingerprint: place, declares: d.declared, at: this.#now() });
@@ -176,7 +127,7 @@ export class App {
         this.conns.set(name, c);
         try {
             const { skills, refused } = await this.#list(name);
-            this.#log(`${name}: ${skills.length} skill(s), ${refused.length} left out, over ${c.viaHost ? "Pi's connection" : "this extension's own connection"} (protocol revision ${c.revision}${d.directoryRead ? ', lists directories' : ''})`);
+            this.#log(`${name}: ${skills.length} skill(s), ${refused.length} left out (protocol revision ${c.revision}${d.directoryRead ? ', lists directories' : ''})`);
         } catch (e) {
             this.#log(`${name}: skills/list failed (${describeError(e)}); its skills can still be loaded by URI`);
         }
@@ -193,7 +144,6 @@ export class App {
         const c = this.conns.get(label);
         if (!c) throw new LocalError(`no MCP server named ${JSON.stringify(label)} serves skills in this session`);
         if (c.connected) return;
-        if (c.viaHost) throw new LocalError(`Pi's connection to the MCP server ${JSON.stringify(label)} is not open now`);
         const own = await this.#own(label);
         if (!own || 'why' in own) throw new LocalError(`the MCP server ${JSON.stringify(label)} is not reachable now (${own?.why ?? 'no connection'})`);
         if (!declarationOf(own).declared) {
@@ -202,7 +152,7 @@ export class App {
             this.host.forget(label);
             throw new LocalError(`the MCP server ${JSON.stringify(label)} no longer declares the Skills extension`);
         }
-        this.conns.set(label, Object.assign(own, { viaHost: false }));
+        this.conns.set(label, own);
     }
 
     /** Reads a server's listing again once its own freshness hint (`ttlMs`) has run out, and not more than every ten seconds. */
@@ -326,9 +276,10 @@ export class App {
         const { entry } = listed;
         if (listed.declined) throw new LocalError(`this skill is not loaded: ${listed.declined}`);
         const hash = await manifestHash(entry);
-        const fingerprint = placeOf(this.#o.table.servers[server], this.#o.entries.get(server));
+        const fingerprint = fingerprintOf(this.conns.get(server)!.cfg);
         const approval = hash === undefined ? undefined : { server, fingerprint, uri: entry.uri, hash };
         let asked = false;
+        let shownBody: string | undefined;
         if (!approval || !this.#o.store.isApproved(approval)) {
             asked = true;
             const files = entry.resources === 'dynamic' ? [] : entry.resources;
@@ -338,6 +289,7 @@ export class App {
             if ('decision' in answer && answer.decision === 'show') {
                 const shown = await this.host.preview(server, uri);
                 if ((await manifestHash(shown.entry)) !== hash) throw new LocalError('this skill changed on the server while it was being shown, so it is not loaded: load it again, and the user is asked about it as it is now');
+                shownBody = shown.body;
                 answer = await ctx.ask(previewText({ server, entry: shown.entry, body: shown.body, isVerified: shown.isVerified }), ['no', 'load']);
             }
             if ('unavailable' in answer) throw new LocalError(`the skill is not loaded: the user could not be asked (${answer.unavailable}). A skill the user approves once in an interactive Pi session loads without the question afterwards, while it is unchanged`);
@@ -346,7 +298,18 @@ export class App {
                 throw new LocalError(`the user did not approve loading the skill ${JSON.stringify(entry.frontmatter.name)} from the MCP server ${JSON.stringify(server)}, so it is not loaded and nothing of it is used. Go on without it, and do not ask again unless the user brings it up`);
             }
         }
+        if (ctx.signal?.aborted) throw new LocalError('the call was cancelled, so the skill is not loaded');
         const loaded = await this.host.load(server, uri, { expect: hash });
+        // A generated skill has no digests to hold it to what the person read: what is loaded must be
+        // the text they were shown, or nothing.
+        if (shownBody !== undefined && loaded.body !== shownBody) {
+            this.host.release(server, uri);
+            throw new LocalError('this skill\'s content changed on the server after the user was shown it, so it is not loaded: load it again, and the user is asked about it as it is now');
+        }
+        if (ctx.signal?.aborted) {
+            this.host.release(server, uri);
+            throw new LocalError('the call was cancelled, so the skill is not loaded');
+        }
         if (approval && asked && !this.#o.store.approve(approval)) this.#log(`${server}: the approval of ${uri} could not be kept`);
         this.#log(`${server}: loaded ${uri}${loaded.isVerified ? '' : ' (dynamic, unverified)'}${asked ? '' : ' (approved earlier)'}`);
         return { text: loadedText(loaded, { asked }) };

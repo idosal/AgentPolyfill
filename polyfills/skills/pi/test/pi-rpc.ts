@@ -43,8 +43,10 @@ export type PiOptions = {
     /** Resume this session file. */
     session?: string;
     args?: string[];
-    /** Another Pi to run: the path of its cli.js (a patched build, say). Default: the one in devDependencies. */
+    /** Another Pi to run: the path of its cli.js. Default: the one in devDependencies. */
     piBin?: string;
+    /** A real model instead of the scripted stand-in: a provider and model id Pi knows (from models.json in the agent directory). */
+    model?: { provider: string; id: string };
 };
 
 export class Pi {
@@ -65,7 +67,8 @@ export class Pi {
         mkdirSync(this.agentDir, { recursive: true });
         this.brainLog = join(dir, 'brain.jsonl');
         this.#answer = o.answer ?? (() => undefined);
-        const args = [o.piBin ?? PI_BIN, '--mode', 'rpc', '--offline', '--provider', 'scripted', '--model', 'm1', '-e', BRAIN, ...o.extensions.flatMap((e) => ['-e', e])];
+        const model = o.model ? ['--provider', o.model.provider, '--model', o.model.id] : ['--provider', 'scripted', '--model', 'm1', '-e', BRAIN];
+        const args = [o.piBin ?? PI_BIN, '--mode', 'rpc', '--offline', ...model, ...o.extensions.flatMap((e) => ['-e', e])];
         if (o.session) args.push('--session', o.session);
         else if (o.sessionDir) args.push('--session-dir', o.sessionDir);
         else args.push('--no-session');
