@@ -1,0 +1,12 @@
+// Redirects www.agentpolyfill.com to agentpolyfill.com (the site is in ../).
+//
+//   npx wrangler@4.167.0 deploy      from this folder, once the zone is active
+{
+  "$schema": "https://unpkg.com/wrangler@4.167.0/config-schema.json",
+  "name": "agentpolyfill-www-redirect",
+  "main": "./index.js",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "www.agentpolyfill.com", "custom_domain": true }]
+}

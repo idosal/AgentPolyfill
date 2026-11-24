@@ -1,0 +1,49 @@
+# The website (site/): builds it with VitePress and checks every internal link
+# and asset. Runs only when the site, or a recording it shows, changes.
+# Deploying is done by hand for now (`npm run deploy` in site/).
+
+name: site
+
+on:
+  push:
+    paths:
+      - "site/**"
+      - ".github/workflows/site.yml"
+      - "polyfills/claude-code/*/docs/media/**"
+  pull_request:
+    paths:
+      - "site/**"
+      - ".github/workflows/site.yml"
+      - "polyfills/claude-code/*/docs/media/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      # The launch video and the polyfill cuts are not in git. A build downloads
+      # them from the release named in site/media.json and checks each SHA-256;
+      # here a missing one is a warning, and the link check lists it instead of
+      # failing. Every page, poster and other link is still checked.
+      - run: npm run build
+        env:
+          SITE_MEDIA: optional
+      - run: npm run check:links
+        env:
+          SITE_MEDIA: optional
