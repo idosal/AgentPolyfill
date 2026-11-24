@@ -25,7 +25,7 @@ import { serve } from './mcp-server.ts';
 import { isThePersons, threadOf } from './meta.ts';
 import { ThreadSession } from './threads.ts';
 import { VERSION } from './version.ts';
-import { findCodex, queueMessage, THREAD_ID, type Wake } from './waker.ts';
+import { codexNotFound, findCodex, queueMessage, THREAD_ID, type Wake } from './waker.ts';
 import { CODEX, INSTRUCTIONS, SERVER_NAME, TOOLS } from './words.ts';
 
 configureHost(CODEX);
@@ -162,9 +162,9 @@ const discover = (): Promise<void> =>
 // ---- Sessions ----
 
 const codex = findCodex(env);
-if (!off && !codex) log('no `codex` found on PATH or where its installers put it; events are stored but cannot wake a session (set MCP_EVENTS_CODEX_BIN)');
+if (!off && !codex) log(`${codexNotFound()}; events are stored, but cannot wake a session`);
 const wake: Wake = async (thread, text) => {
-    if (!codex) return { ok: false, why: 'no `codex` command was found to run `codex queue` with (set MCP_EVENTS_CODEX_BIN to its full path)' };
+    if (!codex) return { ok: false, why: codexNotFound() };
     return queueMessage(codex, thread, text, env);
 };
 

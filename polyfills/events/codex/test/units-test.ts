@@ -2,11 +2,11 @@
 // and running `codex queue`.
 
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { isThePersons, threadOf } from '../src/meta.ts';
-import { findCodex, queueMessage, remoteOf } from '../src/waker.ts';
+import { codexNotFound, findCodex, queueMessage, remoteOf } from '../src/waker.ts';
 import { TOOLS } from '../src/words.ts';
 import { FAKE_CODEX, newThread, startHelper, temp, world } from './harness.ts';
 
@@ -19,11 +19,14 @@ describe("what Codex says in a call's _meta", () => {
         assert.equal(threadOf({}), undefined);
     });
 
-    test("a turn the person started is theirs; one the queue, a goal or an automation started is not", () => {
+    test('CX1: only a turn Codex says the person started is theirs (typed, codex exec, voice); anything else, or nothing said, is not', () => {
         const turn = (turn_trigger: unknown) => ({ 'x-codex-turn-metadata': { turn_trigger } });
-        for (const t of ['user', 'composer', 'exec', 'realtime']) assert.equal(isThePersons(turn(t)), true, t);
-        for (const t of ['queue', 'goal', 'daemon_recovery', 'automation_cron_scheduled', 'automation_heartbeat_scheduled', 'guardian_review', 'memory_consolidation']) assert.equal(isThePersons(turn(t)), false, t);
-        assert.equal(isThePersons({}), true, 'an older Codex with no turn metadata');
+        // What Codex 0.172 sends: "user" from the TUI, "exec" from codex exec, "realtime" for voice.
+        for (const t of ['user', 'exec', 'realtime', 'voice']) assert.equal(isThePersons(turn(t)), true, t);
+        for (const t of ['queue', 'goal', 'daemon_recovery', 'automation_cron_scheduled', 'guardian_review', 'memory_consolidation', 'hook', 'composer', 'subagent', 'USER', '']) assert.equal(isThePersons(turn(t)), false, JSON.stringify(t));
+        assert.equal(isThePersons({}), false, 'no turn metadata (a Codex before 0.172): not the person');
+        assert.equal(isThePersons({ 'x-codex-turn-metadata': {} }), false, 'no turn_trigger: not the person');
+        assert.equal(isThePersons({ 'x-codex-turn-metadata': { turn_trigger: 7 } }), false);
     });
 });
 
@@ -54,13 +57,50 @@ describe('codex queue', () => {
     });
 
     test('MCP_EVENTS_CODEX_BIN must be a full path to a program; MCP_EVENTS_CODEX_REMOTE must be an address codex takes', () => {
-        assert.equal(findCodex({ MCP_EVENTS_CODEX_BIN: FAKE_CODEX }), FAKE_CODEX);
-        assert.equal(findCodex({ MCP_EVENTS_CODEX_BIN: 'codex' }), undefined);
+        assert.deepEqual(findCodex({ MCP_EVENTS_CODEX_BIN: FAKE_CODEX }, 'darwin'), { command: FAKE_CODEX, args: [] });
+        assert.equal(findCodex({ MCP_EVENTS_CODEX_BIN: 'codex' }, 'darwin'), undefined);
         const dir = temp();
-        assert.equal(findCodex({ PATH: dir, HOME: dir }) === undefined || findCodex({ PATH: dir, HOME: dir })!.endsWith('codex'), true);
+        writeFileSync(join(dir, 'codex'), '#!/bin/sh\n', { mode: 0o755 });
+        assert.deepEqual(findCodex({ PATH: dir, HOME: dir }, 'linux'), { command: join(dir, 'codex'), args: [] });
         assert.equal(remoteOf({ MCP_EVENTS_CODEX_REMOTE: 'ws://127.0.0.1:4500' }), 'ws://127.0.0.1:4500');
         assert.equal(remoteOf({ MCP_EVENTS_CODEX_REMOTE: 'unix://' }), 'unix://');
         assert.equal(remoteOf({ MCP_EVENTS_CODEX_REMOTE: 'http://x --thread y' }), undefined);
+    });
+});
+
+describe('CX2: codex on Windows is never run through cmd.exe', () => {
+    /** A folder laid out as npm installs Codex globally on Windows: a .cmd shim beside node_modules. */
+    function npmGlobal(withExe = false) {
+        const dir = temp('mcp-events-codex-win-');
+        writeFileSync(join(dir, 'codex.cmd'), '@ECHO off\r\nnode "%~dp0\\node_modules\\@openai\\codex\\bin\\codex.js" %*\r\n');
+        writeFileSync(join(dir, 'codex.bat'), '@ECHO off\r\n');
+        mkdirSync(join(dir, 'node_modules', '@openai', 'codex', 'bin'), { recursive: true });
+        writeFileSync(join(dir, 'node_modules', '@openai', 'codex', 'bin', 'codex.js'), '');
+        if (withExe) writeFileSync(join(dir, 'codex.exe'), '');
+        return dir;
+    }
+
+    test('a codex.exe on PATH is run as it is', () => {
+        const dir = npmGlobal(true);
+        assert.deepEqual(findCodex({ PATH: dir }, 'win32'), { command: join(dir, 'codex.exe'), args: [] });
+    });
+
+    test("npm's codex.cmd is not run: Node runs the package's own codex.js, with no shell between", () => {
+        const dir = npmGlobal();
+        const found = findCodex({ PATH: dir }, 'win32')!;
+        assert.equal(found.command, process.execPath);
+        assert.deepEqual(found.args, [join(dir, 'node_modules', '@openai', 'codex', 'bin', 'codex.js')]);
+        assert.ok(![found.command, ...found.args].some((p) => /\.(cmd|bat)$/i.test(p)));
+    });
+
+    test('a .cmd or .bat named in MCP_EVENTS_CODEX_BIN, or a shim with no codex.js beside it, is refused, and the wake says why', async () => {
+        const dir = npmGlobal();
+        assert.equal(findCodex({ MCP_EVENTS_CODEX_BIN: join(dir, 'codex.cmd') }, 'win32'), undefined);
+        assert.equal(findCodex({ MCP_EVENTS_CODEX_BIN: join(dir, 'codex.bat') }, 'win32'), undefined);
+        const bare = temp('mcp-events-codex-win-');
+        writeFileSync(join(bare, 'codex.cmd'), '@ECHO off\r\n');
+        assert.equal(findCodex({ PATH: bare, APPDATA: bare }, 'win32'), undefined);
+        assert.match(codexNotFound('win32'), /codex\.exe.*never run through cmd\.exe/);
     });
 });
 
