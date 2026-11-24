@@ -67,6 +67,9 @@ and its host part is never resolved.
   content can't close.
 - **A server's error text:** never. Errors are in the mod's own words, with the
   JSON-RPC code.
+- **A binary file's media type:** only when the server's whole value is a media
+  type (`image/png`); anything else is left out. Before 0.3.6 a value that only
+  began as one was printed as given.
 - **A skill's frontmatter:** never, and it grants nothing. `allowed-tools`,
   hooks and anything else in it are ignored.
 - **A skill whose URI, or the URI of one of its files, holds anything but
