@@ -23,11 +23,11 @@
 // path). Nothing outside `served/` is touched, and only folders whose names have
 // this shape are removed. A symbolic link found there is removed, never followed.
 
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { rootOf, type Listed } from '../../core/src/skills.ts';
-import { INVISIBLE_TEXT, oneLine } from '../../core/src/untrusted.ts';
+import { INVISIBLE_TEXT, oneLine, secrets } from '../../core/src/untrusted.ts';
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
 /** The most served skills written for Pi to list. More are still reachable with list_skills. */
@@ -48,7 +48,8 @@ const INVISIBLE_ALL = new RegExp(INVISIBLE_TEXT.source, 'gu');
  * that show nothing but change how the text reads, or hide text (INVISIBLE_TEXT).
  */
 export function plain(text: unknown, max: number): string {
-    const cleaned = String(text ?? '').toWellFormed().replace(INVISIBLE_ALL, '');
+    // No secret of the configuration, even one a server echoes back, reaches a stub, Pi's skill list or a question.
+    const cleaned = secrets.scrub(String(text ?? '').toWellFormed().replace(INVISIBLE_ALL, ''));
     return oneLine(cleaned, max);
 }
 
@@ -150,8 +151,9 @@ function writeIfChanged(path: string, text: string): boolean {
     } catch {
         // not there yet
     }
-    const tmp = join(path, '..', `.SKILL.md.${process.pid}.tmp`);
-    writeFileSync(tmp, text, { mode: 0o644 });
+    // A name nobody can guess, created only if nothing is there: a link planted in advance is never written through.
+    const tmp = join(path, '..', `.SKILL.md.${randomBytes(8).toString('hex')}.tmp`);
+    writeFileSync(tmp, text, { mode: 0o644, flag: 'wx' });
     renameSync(tmp, path);
     return true;
 }

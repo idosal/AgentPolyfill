@@ -129,7 +129,9 @@ export function loadedText(l: Loaded, o: { asked: boolean }): string {
 export function fileText(f: ReadFile, skillName: string): string {
     const path = relativeTo(f.skillUri, f.uri);
     const head = `${q(path)} of the skill ${q(skillName)}, from the MCP server ${q(f.label)} (${f.size} bytes${f.isVerified ? ", matched the size and SHA-256 digest in the skill's entry" : ', not verifiable: the server publishes no digests for this skill'}).`;
-    if (f.text === undefined) return `${head} It is a binary file${f.mimeType ? ` (${f.mimeType})` : ''}, which this extension does not show.`;
+    // The server's media type is printed only when it is one, whole: nothing else of the server's gets into this sentence.
+    const mime = f.mimeType !== undefined && /^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,62}\/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,62}$/.test(f.mimeType) ? f.mimeType : undefined;
+    if (f.text === undefined) return `${head} It is a binary file${mime ? ` (${mime})` : ''}, which this extension does not show.`;
     const nested = f.isNestedSkill ? ` This is the SKILL.md of a skill nested inside ${q(skillName)}: read here it is ordinary supporting text, and its frontmatter has no effect. To use it as a skill, load it by its own URI (${f.uri}) with load_skill.` : '';
     const hidden = hiddenNote('This file', f.text).map((line) => ` ${line}`).join('');
     return `${head}${nested}${hidden} Content from that server:\n${fenced('mcp-skill-file', { server: f.label, uri: f.uri }, f.text)}`;

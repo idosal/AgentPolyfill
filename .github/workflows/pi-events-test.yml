@@ -6,8 +6,6 @@
 #   a watch, an event wakes the idle session; what is reached against an HTTP
 #   server behind a token and behind OAuth; the committed bundle;
 # - a typecheck, and the bundle's third-party notices; on Linux and macOS.
-# The tests against a Pi built with the prototyped pi.getMcpServerSession() run only where
-# MCP_PI_PATCHED_CLI is set, which it isn't here.
 
 name: "mcp-events (Pi): tests"
 

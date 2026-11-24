@@ -51,11 +51,10 @@ load it. Pi then reads the skill's reference files from the server and
 answers from them. Without `/skill:`, Pi picks a served skill when the task
 fits its description, as it does for any skill.
 
-We ran this from Pi 1.6.0 against Hugging Face's server, with a scripted
-stand-in for the model (24 November 2026): Pi listed its 25 skills, and
-`/skill:mcp-huggingface-huggingface-local-models` loaded after the question,
-its `SKILL.md` matching the server's digest. A run with a real model hasn't
-been recorded yet.
+[`docs/live-run.md`](docs/live-run.md) records this question asked in Pi 1.6.0
+with a real model, against Hugging Face's server: Pi found the served skills in
+its own list, loaded two after one question each, read the reference files it
+needed through codemode, and answered from them.
 
 ## How it works
 
@@ -117,7 +116,7 @@ been recorded yet.
 
 ### Servers behind a sign-in
 
-Pi keeps its sign-ins to its own connection, and Pi 1.6.0 doesn't lend that
+Pi keeps its sign-ins to its own connection, and Pi 1.6.0 doesn't give that
 connection to extensions. So the extension opens a connection of its own,
 with what your configuration holds. It runs no sign-in of its own, stores no
 tokens, and never reads Pi's stored credentials (`mcp-auth.json`). A server
@@ -125,12 +124,10 @@ behind Pi's sign-in is listed by `list_skills` as not used, with the reason.
 That is tested: Pi signs in to a test server with `pi mcp login`, and the
 extension reports it can't reach it.
 
-A change to Pi that lends the connection to extensions
-(`pi.getMcpServerSession()`) is prototyped against Pi 1.6.0, and not yet
-proposed to Pi. On a Pi built with it, this extension uses Pi's
-own connection first, with Pi's sign-in, and opens nothing of its own: tested
-against the same server behind a token and behind OAuth. Skills needs nothing
-more from Pi than that.
+One change in Pi would close this: letting extensions send their own
+requests over Pi's connection, with its sign-in, and read what the server
+advertised. Skills needs nothing more from Pi than that.
+[What hosts would need to change](../../../docs/host-changes.md) describes it.
 
 ### Where it writes
 
@@ -169,8 +166,8 @@ The changes hosts would need are in
 [What hosts would need to change](../../../docs/host-changes.md).
 
 - **No sign-in through Pi** on Pi 1.6.0 ([above](#servers-behind-a-sign-in)).
-  The change in Pi: lend its connection to extensions, as the proposed patch
-  does.
+  The change in Pi: let extensions send their own requests over its
+  connection.
 - **A second connection.** Without that change, the extension opens its own
   connection to each server, so a local (stdio) server runs twice.
 - **New skills need a `/reload`.** Pi reads skill folders when a session
@@ -204,7 +201,10 @@ logic every form shares. The clause-by-clause table is the Claude Code form's
 - **X8 is met.** Pi's `tool_call` hook can block and ask, for the model's
   calls and for codemode's nested calls alike, so a cross-server
   `read_mcp_resource` while a served skill is loaded is put to you naming both
-  servers, or refused where nobody can be asked. (In the Codex form it isn't
+  servers, or refused where nobody can be asked; both are tested in a real Pi.
+  The extension's own reads (`read_skill_file`, `list_skill_directory`) only
+  ever read a loaded skill's own files from that skill's own server, as in the
+  Claude Code form, so they aren't cross-server. (In the Codex form X8 isn't
   met, for want of such a hook.)
 - **H1, per-skill switch:** Pi has none for an extension's skills; the
   server-level `skip` stands in ([Limits](#limits)).
@@ -219,9 +219,15 @@ logic every form shares. The clause-by-clause table is the Claude Code form's
   and a scripted stand-in model: a served skill is in Pi's skill list,
   `/skill:` loads it after you approve it, a no loads nothing and fetches no
   file, and the X8 question.
-- `test/connection-test.ts`: which connection a skill comes over, against an
-  HTTP server behind a token and behind OAuth; with `MCP_PI_PATCHED_CLI`, also
-  on a Pi built with the proposed change.
+- `test/pi-test.ts` also: the X8 question for a read made from inside a
+  codemode script.
+- `test/hardening-test.ts`, from the security review: a generated skill that
+  changes after you read it isn't loaded; a call cancelled while you're asked
+  loads and keeps nothing; a server's media type can't add a line to the
+  result; a configured secret a server echoes back reaches no stub.
+- `test/connection-test.ts`: against an HTTP server behind a token (reached,
+  with the header resolved as Pi resolves it) and behind OAuth (out of reach,
+  with the reason).
 
 ## Development
 

@@ -98,3 +98,25 @@ test('X8: while a served skill is loaded, reading another server\'s resource is 
     assert.ok(read?.isError, 'the read was refused');
     assert.ok(!brain(pi).some((r) => r.text.includes('private notes')), 'nothing of the other server\'s resource reached the model');
 });
+
+test('X8 holds for a codemode script too: its nested read of another server\'s resource is asked about', { timeout: 90_000 }, async () => {
+    const s = skill('git-workflow');
+    const docs = new Fixture(scenarioOf([s]));
+    const other = new Fixture({ ...scenarioOf([skill('other-skill')]), files: { 'file:///notes.txt': { text: 'private notes' } } });
+    const w = world({ docs, other });
+    const rules: Rule[] = [
+        RULES[0]!,
+        { when: '^script read (\\S+) (\\S+)$', call: { name: 'codemode', args: { code: 'text(JSON.stringify(await tools.read_mcp_resource({ server: "$1", uri: "$2" })))' } } },
+        { when: '^Loaded the skill', say: 'skill loaded' }
+    ];
+    const pi = new Pi({ extensions: [EXTENSION], rules, agentDir: w.agentDir, answer: (r) => (r.method === 'select' ? 'Load it' : r.method === 'confirm' ? false : undefined) });
+    running.push(pi);
+    await pi.ready();
+    await pi.prompt('/skill:mcp-docs-git-workflow');
+    assert.ok(pi.toolResults('load_skill').some((t) => !t.isError));
+    await pi.prompt('script read other file:///notes.txt');
+    const asked = pi.ui.find((u) => u.method === 'confirm');
+    assert.ok(asked, `the user was asked; tool results: ${JSON.stringify(pi.toolResults().map((t) => [t.name, t.text.slice(0, 120)]))}`);
+    assert.match(String(asked.message), /served by the MCP server "docs" is loaded in this session, and Pi wants to read a resource from the MCP server "other"/);
+    assert.ok(!brain(pi).some((r) => r.text.includes('private notes')), 'nothing of the other server\'s resource reached the model');
+});
