@@ -73,8 +73,8 @@ Real pixels on the left, character cells on the right
 ![Two Claude Code terminals side by side. In each, an arcade game, a cohort heatmap and a 3D scene appear under the tool call that returned them, and respond to the mouse.](docs/media/mcp-apps-cli.gif)
 
 Try it against a hosted demo server (classic shareware games from archive.org,
-played in the app's view). Add it, start `claude`, and ask for a game ("Load
-the game msdos_DOOM_1993 with the arcade tool"):
+played in the app's view). Add it, start `claude`, and ask for a game ("Find a
+shareware game in the arcade and load it"):
 
 ```
 claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp
@@ -160,10 +160,15 @@ scenario, and show that the extension has been in real use
 
 A polyfill can be a client-side implementation in a host that has not shipped
 the extension yet, used by real people against real servers. Each one here
-names the spec revision it implements, has a test for each client rule, runs
-against a server its author did not write, and runs the official conformance
-scenarios where they exist. Whether one counts as an independent
-implementation for a given SEP is for that extension's maintainers to decide.
+names the spec revision it implements and runs against a server its author
+did not write. Each checks the spec's client rules one by one:
+[Skills](polyfills/claude-code/skills/docs/conformance.md) with a test for
+each, and it passes the official conformance suite's client scenarios;
+[Events](polyfills/claude-code/events/docs/conformance.md) clause by clause,
+most with a test; [Apps](polyfills/claude-code/apps/docs/DESIGN.md#spec-parity)
+requirement by requirement in its design notes. Whether one counts as an
+independent implementation for a given SEP is for that extension's
+maintainers to decide.
 
 If your extension needs a client in a host that lacks it, open an issue, or
 build one with the `create-polyfill` skill.

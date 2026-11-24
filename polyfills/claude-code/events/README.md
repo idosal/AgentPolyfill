@@ -449,4 +449,6 @@ haven't shipped them yet.
 
 ## Licence
 
-Apache-2.0. See [`LICENSE`](../../../LICENSE).
+Apache-2.0. See [`LICENSE`](../../../LICENSE). The bundled helper (`mod/dist/helper.js`)
+includes npm packages under their own licences:
+[`mod/THIRD_PARTY_LICENSES.txt`](mod/THIRD_PARTY_LICENSES.txt).
