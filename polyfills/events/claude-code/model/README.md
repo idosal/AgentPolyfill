@@ -2,26 +2,32 @@
 
 Three models of the parts of this mod where a bug would matter most: how one watch's events get
 from an MCP server to a Claude Code session, how often events may wake that session, and whether
-one server's webhook posts can crowd out another's at the relay. Each is written in
-[Quint](https://quint-lang.org) (`delivery.qnt`, `wake.qnt`, `relay.qnt`) and, by hand from the
-Quint file, in TLA+ (`Delivery.tla`, `Wake.tla`, `Relay.tla`) for the TLC model checker.
+one server's webhook posts can crowd out another's at the relay. A fourth models how often events
+wake a Codex session in the Codex form, mcp-events for Codex (`polyfills/events/codex`), whose
+rules for waking differ ([`wakeCodex.qnt`](#wakecodexqnt-how-often-events-wake-a-codex-session)).
+Each is written in [Quint](https://quint-lang.org) (`delivery.qnt`, `wake.qnt`, `relay.qnt`,
+`wakeCodex.qnt`) and, by hand from the Quint file, in TLA+ (`Delivery.tla`, `Wake.tla`,
+`Relay.tla`, `WakeCodex.tla`) for the TLC model checker.
 
 **What has been checked, exactly.**
 
 - **TLC 1.7.4** (`node model/check.mjs`) visits every state of the TLA+ models that is
   reachable within each configuration's bounds, breadth first, and checks the invariants in
-  each (two configurations that must find a violation are also kept to part of the model).
+  each (some are also kept to part of the model: two configurations of 0.4.1 that must find a
+  violation, and four of the Codex model, [said below](#wakecodexqnt-checked)).
   Within those bounds that is exhaustive; past them it says nothing, and the bounds are small:
   poll and push with 3 events and 3 sessions, webhook with 1 event, or with 2 and the clock
-  stopped ([the bounds](#tlc-configuration-by-configuration)).
+  stopped ([the bounds](#tlc-configuration-by-configuration)); the Codex wake model with one
+  watch and the clock to four hours ([its bounds](#wakecodexqnt-checked)).
 - **Quint's own tools**: the scenarios (`quint test`), and `quint run`, Quint's random
   simulator, which samples runs. Simulation is not exhaustive at any bound.
 - **That the TLA+ models are the Quint models**, in part. `node model/conform.mjs` replays
   traces Quint generates (random runs from every init, and every scenario) in the TLA+ models
-  with TLC: all 2,140 traces (603 of `wake.qnt`, 333 of `delivery.qnt`, 1,204 of `relay.qnt`;
-  74,392 steps) are behaviours of the TLA+ models. That checks one direction (what Quint can do, TLA+ can do), on
-  samples. For the other, each counterexample TLC found on 0.5.0's models was also replayed as
-  a scenario in the Quint file, and Quint reproduced it; the rest is by reading. The TLA+ is written by hand because Quint's
+  with TLC: all 3,051 traces (603 of `wake.qnt`, 333 of `delivery.qnt`, 1,204 of `relay.qnt`,
+  911 of `wakeCodex.qnt`; 110,548 steps) are behaviours of the TLA+ models. That checks one direction (what Quint can do, TLA+ can do), on
+  samples. For the other, each counterexample TLC found on 0.5.0's models, and on
+  `wakeCodex.qnt`, was also replayed as a scenario in the Quint file, and Quint reproduced it;
+  the rest is by reading. The TLA+ is written by hand because Quint's
   own translation (`quint compile --target tlaplus`) needs Apalache, which was not installed.
 - **All of it checks the models, not the code.** That a model says what the code does is by
   reading; the tables below say what stands for what.
@@ -36,12 +42,15 @@ quint run model/delivery.qnt --init webhook --invariant Safety --max-samples 200
 quint test model/wake.qnt --backend typescript
 quint run model/wake.qnt --invariant Kept --max-samples 30000 --max-steps 40 --backend typescript
 quint test model/relay.qnt --backend typescript
+quint test model/wakeCodex.qnt --backend typescript
+quint run model/wakeCodex.qnt --invariant "OnlyThePerson and QuietAfterNotice and OneNotice and NoWakeUnwakeable and NothingLost" --max-samples 20000 --max-steps 40 --backend typescript
 ```
 
 (Quint 0.34.0, `npx @informalsystems/quint@0.34.0`.) In Quint, `init` in each model is the
 client from 0.5.1; `initBefore` (and `pollBefore`, `webhookBefore`, ...) is the client as it
 was in 0.4.1, so the faults that version had can be shown again. In TLA+ the constant `FIX`
-says which (and `MODES`, `EVILS` which of Quint's inits).
+says which (and `MODES`, `EVILS` which of Quint's inits). `wakeCodex.qnt` has inits of its own
+([below](#wakecodexqnt-how-often-events-wake-a-codex-session)).
 
 ## `delivery.qnt`: from the server to the session
 
@@ -176,7 +185,8 @@ stopped at that limit.
 Results on an Apple M1 Max (32 GB, macOS 15.4.1), TLC 1.7.4 on Temurin 21, one worker (so
 the search is breadth first exactly and a trace is a shortest one), 24 November 2026. The
 `delivery.qnt` and `wake.qnt` runs are of 0.5.1's models, which 0.6.0 and 0.7.0 leave as they
-are; the `relay.qnt` runs are of 0.7.0's. "States"
+are; the `relay.qnt` runs are of 0.7.0's. The `wakeCodex.qnt` runs (of mcp-events for Codex
+0.1.2) are in [its own section](#wakecodexqnt-checked). "States"
 is distinct states, as the view tells them apart; "Depth" is the longest of the shortest paths
 from an initial state, counting that state as 1. Where TLC finds a violation it stops there:
 "States" is how many it had found by then, and "Depth" the number of states in its trace.
@@ -312,3 +322,147 @@ invariants broke. TLC found three cases these runs missed (above). Against 0.5.1
 relay (`AtMostOnce`, `NothingForged`), and 10,000 of `wake.qnt` of up to 40 steps (`Kept`): no
 violation. Against 0.7.0's `relay.qnt`: 5,000 runs of up to 30 steps from `init`
 (`NoCrossRefusal`) and from `migrating` (`NoCrossRefusalAtOwn`): no violation.
+
+## `wakeCodex.qnt`: how often events wake a Codex session
+
+mcp-events for Codex (`polyfills/events/codex`, 0.1.2 here) shares the Events client and the wake
+budget with this mod (`polyfills/events/core`), and wakes a session in its own way. No hooks
+module takes the batch: the helper runs `codex queue`, which puts a message in the session's
+queue, and a turn starts with it. The helper learns that it worked only when `codex queue` ends.
+It sees the person only in the turn metadata Codex puts on each tool call. The pause past the
+hour's wakes also lifts by itself, an hour after it began. And `codex queue` cannot reach some
+sessions at all (a ChatGPT desktop-app chat), which the helper then stops trying to wake.
+
+One session, one watch; the budget (`core/src/wake.ts`, kept in `wakes.json`) with its
+`liftAfterMs`; the hand-over (`codex/src/threads.ts`, `codex/src/waker.ts`); which calls count as
+the person's (`codex/src/meta.ts`); the helper dying between any two steps; events arriving at
+any time; tool calls at any time, from turns the person started and from turns they did not. One
+unit of time stands for fifteen minutes: the hour is four units, the gap one, the pause lifts
+after four, and two wakes an hour.
+
+| In the model | In the code |
+| --- | --- |
+| `Take` | `ThreadSession.#handOver` (`codex/src/threads.ts`): `Delivery.take`, then `WakeBudget.gate`; past the hour's wakes `handNotice` (kept on disk) and the notice, else the batch; then `codex queue` is run. Not while `unwakeable` is set, and one at a time |
+| `QueueOk` | `codex queue` (`queueMessage`, `codex/src/waker.ts`) puts the message in the session's queue: a turn starts. The helper has not heard so yet |
+| `QueueFails`; `QueueRefused` | `codex queue` fails and the helper hears so (it tries again later); it answers "no rollout found" (`unreachable`), and the helper sets `unwakeable`, in memory, and stops trying |
+| `Heard` | `#queue` returns ok: a batch counts as a wake (`WakeBudget.woke`) and is marked handed over (`Delivery.ack`); the notice pauses waking (`WakeBudget.pause`, which sets `pausedAt`) |
+| `Lift` | `WakeBudget.gate` on a paused budget once `pausedAt + liftAfterMs` has passed: no longer paused, and the hour's wakes forgotten. The gate is asked on each stored event and before each hand-over; the model lets it come at any time the helper runs |
+| `HelperDies`, `HelperStarts` | the helper ends (Codex closed its input, or it was killed), and a new `ThreadSession` reads `wakes.json` and `delivered.pos`; `noticeHanded` on disk makes it start paused (the constructor) |
+| `CallIn(person, trigger)` | a `tools/call` (`codex/src/helper.ts`): `isThePersons` on `x-codex-turn-metadata.turn_trigger`, and if so `ThreadSession.spoke`, `WakeBudget.spoke`. `person` is whether the person started the turn; `trigger` is what Codex says started it: on the person's turns `user`, `exec`, `realtime` or `voice`, or no metadata (`"none"`, a Codex before 0.172); on other turns `queue` (a wake, this plugin's among them), a trigger neither rule names (`hook`), or no metadata |
+| `local` | whether `codex queue` can reach the session at all |
+
+`init` is 0.1.2, the session reachable or not. `initBefore` is 0.1.2 with CX1's fix (the security
+review) taken out: 0.1.0's rule, under which a call with no turn metadata, or with a trigger its
+denylist did not name, was the person's, and 0.1.0's pause, which lifted only on such a call.
+`initShortLift` is 0.1.2 with a pause that lifts after a quarter of an hour. In TLA+ the
+constants `ALLOW` and `LIFT` say which.
+
+- **`WithinHour`**: between two calls the code takes as the person's, made in turns the person
+  started, no hour holds more wakes than the limit. The count runs on across the pause lifting
+  by itself: the lift does not start it again.
+- **`Gap`**: two wakes are at least the gap apart.
+- **`OnlyThePerson`**: a call from a turn the person did not start never ends the pause or starts
+  the hour again. A woken turn's call cannot lift the pause.
+- **`QuietAfterNotice`**: once the session is told that waking stopped, or waking pauses, no wake
+  comes until the person's own call, or until the pause's time has passed.
+- **`OneNotice`**: the session is told at most once in a pause that waking stopped.
+- **`NoWakeUnwakeable`**: a helper that heard "no rollout found" runs `codex queue` for that
+  session no more, and a session `codex queue` cannot reach is never woken. (The first holds by
+  the check at the top of `#handOver`, which the model has; TLC checks that no other path runs
+  it.)
+- **`NothingLost`**: the position the hand-over has reached never passes an event that no wake
+  carried, so what was not handed over is still stored and still to be. That events are stored
+  whatever the budget says, and whether or not the session can be woken, is in the model's steps
+  rather than checked (`Arrive` waits only for the helper, as the watches store without asking
+  the budget); `unwakeableTest` shows it.
+- **`NeverRetried`**, a documented limit (the review of 0.1.2): no `codex queue` is run for a
+  session after it answered "no rollout found". It does not hold, and is not meant to:
+  `unwakeable` is kept in memory, so a new helper tries once more, and is refused again.
+
+Not modelled: several watches (each has its own gap; a wake takes every watch's events); two
+processes with the same session open (only the one that runs the watches wakes it); `codex queue`
+taking the message after the helper died (its effect is that of the helper dying after
+`QueueOk`, which the model has); its timeout, the retries' back-off and the timers (every step
+may come at any time instead); a batch of blank lines; a pause saved by a version before 0.1.1,
+with no `pausedAt` (it counts from when it is first read); `MCP_EVENTS_WAKES_PER_HOUR=0`. Taken
+as given, as the review does: Codex marks a turn it started from the queue `queue`, never one of
+the person's triggers, and neither the model nor a hook can set `_meta`.
+
+### `wakeCodex.qnt`, checked
+
+Why an hour of four units, where `wake.qnt` has three: the notice takes a gap's slot after the
+hour's last wake, so with three units even a pause that lifted after one could not put a third
+wake within an hour, and `WakeCodexShortLift` would find nothing. With four it does, and the check
+can tell the code's lift (an hour) from a short one. In general a lift shorter than the hour less
+the hour's wakes times the gap lets more wakes into an hour; the code's lift is the hour itself.
+
+`MCWakeCodex.tla` has two views and one action constraint:
+
+- **`View`**: the event counts (`stored`, `pos`, `upto`, `carried`) are read only as differences,
+  so they are counted from `pos`; `upto` is read only while a batch is queued.
+- **`ViewQuiet`**: `View`, and `shown` and `spoke` left out: no step reads them (`spoke` is written
+  from `shown`'s length), and only `WithinHour` and `Gap` do, which the configurations using it
+  do not check. It keeps those runs finite: with the helper dying after `codex queue` took a
+  batch, `shown` can grow without bound at one moment (below).
+- **`HeardBeforeDying`** (`ACTION_CONSTRAINT`): the helper does not die between `codex queue`
+  taking a batch and the helper hearing so. A run under it says nothing about that step.
+
+TLC 1.7.4 on Temurin 21, one worker, 24 November 2026, as for the runs above:
+
+| Configuration | Bounds | Invariants | Result | States | Depth |
+| --- | --- | --- | --- | --- | --- |
+| `WakeCodexKept` | 0.1.2; the clock from 0 to 16 (four hours), at most 3 events waiting; reachable and not | `OnlyThePerson`, `QuietAfterNotice`, `OneNotice`, `NoWakeUnwakeable`, `NothingLost` | hold | 311,010 | 49 |
+| `WakeCodexHeard` | 0.1.2; the clock from 0 to 12 (the pause lifts twice), 2 events; under `HeardBeforeDying` | all seven | hold | 5,466,060 | 75 |
+| `WakeCodexHour`, `WakeCodexGap` | 0.1.2; the clock from 0 to 10, 2 events | `WithinHour`; `Gap` | violated: [found in 0.1.2](#what-tlc-found-in-mcp-events-for-codex-012) | 2,686; 340 | 12; 8 |
+| `WakeCodexRetried` | as `WakeCodexHour` | `NeverRetried` | violated, as documented | 117 | 7 |
+| `WakeCodexBefore`, `WakeCodexBeforeHour` | CX1's fix taken out; as `WakeCodexHour`, the second under `HeardBeforeDying` | `OnlyThePerson`; `WithinHour` | violated (`deniedBeforeTest`) | 101; 9,809 | 6; 15 |
+| `WakeCodexShortLift` | the pause lifting after a quarter of an hour; as `WakeCodexHour`, under `HeardBeforeDying` | `WithinHour` | violated (`shortLiftTest`) | 35,718 | 19 |
+
+The last three are the configurations that must find a violation, so that the check is seen to
+need what CX1 fixed and the lift's length. `WakeCodexBefore`'s trace is CX1 as the review found
+it, in 6 states: the first wake, then a call from the woken turn with no turn metadata (or a
+`hook` trigger) starts the hour again. `WakeCodexBeforeHour`'s (15 states): two wakes, such a
+call, and a third wake at once. `WakeCodexShortLift`'s (19 states): two wakes, the notice, the
+pause lifting a quarter of an hour later, and a third wake within the hour.
+
+Quint (0.34.0): the scenarios (`quint test model/wakeCodex.qnt`) show the lift (`liftTest`), a
+woken turn's call ending nothing (`wokenTurnTest`), the person's ending the pause (`personTest`),
+the notice not given twice across a restart (`noticeUnheardTest`), a session that cannot be
+reached (`unwakeableTest`, `retriedTest`), the variants (`deniedBeforeTest`, `shortLiftTest`), and
+the two cases below (`unheardTwiceTest` and `unheardHourTest`; `noticeFailedTest`). In 20,000
+random runs of up to 40 steps from `init`, the five invariants of `WakeCodexKept` held (the CI job
+runs 10,000); `Kept`, with `WithinHour` and `Gap`, broke within the first hundred runs (the case
+below). From `initBefore`, `OnlyThePerson` broke at once, and from `initShortLift`
+`WithinHour`. `node model/conform.mjs` replays 911 traces of
+`wakeCodex.qnt` (300 random runs of up to 40 steps from each of the three inits, and the 11
+scenarios; 36,156 steps) in `WakeCodex.tla`, and each is a behaviour of it.
+
+This checks the model, not the code: that `wakeCodex.qnt` does what the Codex form does is by
+reading `core/src/wake.ts`, `codex/src/threads.ts`, `codex/src/helper.ts`, `codex/src/meta.ts`
+and `codex/src/waker.ts` at 0.1.2, with the table above.
+
+### What TLC found in mcp-events for Codex 0.1.2
+
+**A wake that `codex queue` took, and that the helper never heard of, is not counted**
+(`Gap`, `WithinHour`; reported, not fixed). Shortest trace (`WakeCodexGap`, 8 states): an event is
+stored; the helper takes it and runs `codex queue`, which queues it, and the session is woken; the
+helper dies before `codex queue` returns; the next helper finds the batch not marked handed over
+(delivery is at least once, as the Codex README says) and hands it over again at once. The
+session is woken twice, and the budget counts one wake or none. Each such death adds a wake that
+neither the gap nor the hour knows of: `WakeCodexHour` (12 states) has three at one moment, after
+two deaths.
+
+In the code, `#handOver` records the wake (`budget.woke`) and the position (`delivery.ack`) only
+after `codex queue` returns, and nothing on disk says that a batch was handed to it. The helper
+ends when Codex closes its input, and `stop()` does not wait for a wake in progress, so the moment
+is the one between Codex queueing the message and `woke()`. The notice has a guard against the
+same thing (`noticeHanded`, after which a new helper starts paused); a batch has none. In this mod
+the same case was 0.4.1's `twiceBeforeTest`, fixed in 0.5.0 by counting the batch the hooks module
+says it submitted. Only the helper ending at that moment causes it, not anything a server sends,
+and each time adds at most one wake. With that one step left out (`WakeCodexHeard`), all seven
+invariants hold.
+
+One more thing the model shows, which breaks no invariant (`noticeFailedTest`): the notice's
+`codex queue` fails, the person then speaks, and the helper restarts before the next wake;
+`WakeBudget.spoke` leaves `noticeHanded` set, so the new helper starts paused, with no notice
+given and the person's message passed over, until the pause's hour is up.

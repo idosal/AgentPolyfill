@@ -1,7 +1,8 @@
-// Model-checks the TLA+ models in this folder (Wake.tla, Delivery.tla, Relay.tla: wake.qnt,
-// delivery.qnt and relay.qnt in TLA+) with TLC, each configuration against what it should give:
-// every invariant it names holds, or the one named is violated (a defect of an earlier version that
-// must still be found, a documented limit, or a variant with a protection taken out).
+// Model-checks the TLA+ models in this folder (Wake.tla, Delivery.tla, Relay.tla, WakeCodex.tla:
+// wake.qnt, delivery.qnt, relay.qnt and wakeCodex.qnt in TLA+) with TLC, each configuration against
+// what it should give: every invariant it names holds, or the one named is violated (a defect of an
+// earlier version that must still be found, a defect found and not yet fixed, a documented limit,
+// or a variant with a protection taken out).
 //
 //   node model/check.mjs [--trace] [name ...]
 //
@@ -55,6 +56,18 @@ const RUNS = [
   ["WebhookBeforeB1Cursor.cfg", "MCDelivery.tla", "CursorSafe"],
   // 0.6.0, P3: one mailbox for a project's watches.
   ["RelayShared.cfg", "Relay.tla", "NoCrossRefusal"],
+  // wakeCodex.qnt, mcp-events for Codex 0.1.2 (README.md, "wakeCodex.qnt").
+  ["WakeCodexKept.cfg", "MCWakeCodex.tla", "holds"],
+  ["WakeCodexHeard.cfg", "MCWakeCodex.tla", "holds"],
+  // Found in 0.1.2: a wake codex queue took and the helper never heard of goes uncounted.
+  ["WakeCodexHour.cfg", "MCWakeCodex.tla", "WithinHour"],
+  ["WakeCodexGap.cfg", "MCWakeCodex.tla", "Gap"],
+  // A documented limit: a session codex queue cannot reach is tried once more by a new helper.
+  ["WakeCodexRetried.cfg", "MCWakeCodex.tla", "NeverRetried"],
+  // CX1's fix taken out, and a pause that lifts too soon: the check must see what each is for.
+  ["WakeCodexBefore.cfg", "MCWakeCodex.tla", "OnlyThePerson"],
+  ["WakeCodexBeforeHour.cfg", "MCWakeCodex.tla", "WithinHour"],
+  ["WakeCodexShortLift.cfg", "MCWakeCodex.tla", "WithinHour"],
 ];
 
 const java = process.env.JAVA ?? "java";
