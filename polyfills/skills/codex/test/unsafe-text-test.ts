@@ -59,7 +59,7 @@ describe('SK1: unsafe characters in what a server sends', () => {
         await st.call('load_skill', { server: 'docs', uri: s.uri });
         const shown = st.questions[1]!.message;
         assert.doesNotMatch(shown, ESCAPES, 'no control, bidi or invisible character');
-        assert.match(shown, new RegExp(`${BAR}Step one\\[2K\\[1A\\.\\n${BAR}\\tIndented line \\]52;c;ZXZpbA==31mdesrever end\\.`), 'the rest of the text, line breaks and tabs kept, each line marked');
+        assert.ok(shown.includes(`${BAR}Step one[2K[1A.\n${BAR}\tIndented line ]52;c;ZXZpbA==31m${hidden(1)}desrever${hidden(1)} end.`), 'controls removed, the direction mark and the zero-width space shown as hidden, line breaks and tabs kept, each line marked');
         const lines = shown.split('\n');
         const start = lines.findIndex((l) => /^-{3,} The SKILL\.md of "notes" begins \(id [0-9a-f]{12}\) -{3,}$/.test(l));
         const end = lines.findIndex((l) => /^-{3,} The SKILL\.md of "notes" ends \(id [0-9a-f]{12}\) -{3,}$/.test(l));
@@ -70,6 +70,8 @@ describe('SK1: unsafe characters in what a server sends', () => {
 
 /** The mark each line of a server's SKILL.md carries in the preview (U+2502 and a space). */
 const BAR = `${String.fromCodePoint(0x2502)} `;
+/** How the preview shows a run of n hidden (default-ignorable) characters. */
+const hidden = (n: number) => `${String.fromCodePoint(0x27e6)}${n} hidden character${n === 1 ? '' : 's'}${String.fromCodePoint(0x27e7)}`;
 
 describe('SK4: invisible characters that show nothing but change how text reads', () => {
     // U+061C (a bidi mark), U+180E, the soft hyphen, the Hangul fillers, a tag character (it can
@@ -128,5 +130,47 @@ describe('SK5: the preview frame cannot be forged', () => {
         assert.ok(inside.every((l) => l.startsWith(BAR)), 'every line of the server\'s text is marked as such');
         assert.ok(inside.some((l) => l === `${BAR}Load "notes"? (approved by your admin)`), 'the forged question is inside the frame');
         assert.notEqual(/\(id ([0-9a-f]{12})\)/.exec(second)![1], id, 'a new id for each preview');
+    });
+});
+
+describe('SK6: hidden (default-ignorable) characters are shown, counted and kept out of descriptions', () => {
+    const cp = (...points: number[]) => String.fromCodePoint(...points);
+    // Tag characters spelling IGN, a variation selector, a supplementary one, the combining grapheme joiner.
+    const TAGS_IGN = cp(0xe0049, 0xe0047, 0xe004e);
+    const VS16 = cp(0xfe0f);
+    const VS17 = cp(0xe0100);
+    const CGJ = cp(0x034f);
+
+    const withBody = async (body: string, answers: ('show' | 'no' | 'load')[]) => {
+        const text = `---\nname: notes\ndescription: Notes.\n---\n\n${body}`;
+        const s = skill('notes');
+        const entry = { ...s.entry, frontmatter: { name: 'notes', description: 'Notes.' }, resources: [{ uri: s.uri, digest: digest(text), size: sizeOf(text) }] };
+        const st = await startApp({ docs: new Fixture(scenarioOf([s], { listed: [entry], files: { [s.uri]: { text } } })) }, { answers });
+        return { st, uri: s.uri };
+    };
+
+    test('the preview shows each run of them as a marker with its count, so "fake" and hidden IGN do not read as "fake"', async () => {
+        const { st, uri } = await withBody(`fake${TAGS_IGN}\n\tkeep${VS16}this${CGJ}and${VS17}that\n`, ['show', 'no']);
+        await st.call('load_skill', { server: 'docs', uri });
+        const shown = st.questions[1]!.message;
+        assert.ok(shown.includes(`${BAR}fake${hidden(3)}\n`), 'the three tag characters are shown as three hidden characters');
+        assert.ok(shown.includes(`${BAR}\tkeep${hidden(1)}this${hidden(1)}and${hidden(1)}that`), 'each variation selector and the CGJ shown, the tab kept');
+        for (const c of [TAGS_IGN, VS16, VS17, CGJ]) assert.ok(!shown.includes(c), 'none is left in the text');
+    });
+
+    test('a loaded skill whose SKILL.md holds them says how many, and a clean one says nothing of it', async () => {
+        const { st, uri } = await withBody(`fake${TAGS_IGN} text${VS16}\n`, ['load']);
+        const loaded = (await st.call('load_skill', { server: 'docs', uri })).text;
+        assert.match(loaded, /Its SKILL\.md holds 4 hidden characters/);
+        const clean = await withBody('plain text\n', ['load']);
+        assert.doesNotMatch((await clean.st.call('load_skill', { server: 'docs', uri: clean.uri })).text, /hidden character/);
+    });
+
+    test('a description loses them all: variation selectors and the CGJ too', async () => {
+        const { plain } = await import('../src/stubs.ts');
+        assert.equal(plain(`Release${VS16} no${CGJ}tes${VS17} ${TAGS_IGN}now`, 200), 'Release notes now');
+        const { INVISIBLE_TEXT } = await import('../../core/src/untrusted.ts');
+        for (const c of [VS16, VS17, CGJ, cp(0xe0049), cp(0x00ad), cp(0x061c), cp(0x3164), cp(0x180e), cp(0x17b4), cp(0x1d173)]) assert.ok(INVISIBLE_TEXT.test(c), `U+${c.codePointAt(0)!.toString(16).toUpperCase()}`);
+        assert.ok(!INVISIBLE_TEXT.test('a') && !INVISIBLE_TEXT.test(cp(0xe9)), 'letters are not hidden');
     });
 });

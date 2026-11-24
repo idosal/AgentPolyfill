@@ -73,12 +73,20 @@ next start.
   zero-width characters from 0.1.1, everything but printable ASCII from 0.1.2;
   the same rule holds in the Claude Code form from 0.3.3 and 0.3.4.)
 - A skill's description, in Codex's list and in `list_skills`: on one line,
-  with control characters, direction marks, zero-width characters, the soft
-  hyphen, the fillers and the tag characters removed.
+  with control characters and every default-ignorable code point removed
+  (zero-width and direction marks, the soft hyphen, the combining grapheme
+  joiner, the fillers, variation selectors and tag characters).
+- A loaded skill or one of its files that holds hidden characters (default
+  ignorable code points: tag characters can spell text, a variation selector
+  can carry a byte): delivered as the server sent them, since they are part
+  of the verified content, with a line telling the model how many there are
+  and that whatever they spell is the server's text, not the user's.
 
 The SKILL.md you can read before deciding ("Show me its SKILL.md first") is
-shown with control, direction and zero-width characters removed, line breaks
-and tabs kept, between two marker lines that carry an id made for that one
+shown with control characters removed, line breaks and tabs kept, and each
+run of hidden characters shown as a marker with its count, such as
+`⟦3 hidden characters⟧`: text the model would read is never invisible to you
+there. It sits between two marker lines that carry an id made for that one
 preview, with each line of the server's text marked `│ `. A SKILL.md cannot
 write a marker line of its own: whatever it writes stays marked as its text.
 
