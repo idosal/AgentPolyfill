@@ -40,7 +40,8 @@ README says so. The full text is in
 2. **A named revision.** Its README names the spec and revision it implements
    (for example "SEP-3415, Final").
 3. **Tested against the spec and against someone else's server.** One test for
-   each rule the spec puts on a client, an interop run against a server
+   each rule the spec puts on a client (each MUST and SHOULD that can be
+   tested), an interop run against a server
    implementation the polyfill's author did not write, and the upstream MCP
    conformance suite where it has client scenarios for the extension.
 4. **It stands down.** When the host supports the extension natively, the

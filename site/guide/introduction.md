@@ -15,8 +15,8 @@ MCP now grows through extensions: Apps, Skills, Events, Server Cards. A server c
 quickly. Each host has to build and ship each one, on its own schedule. A
 polyfill closes that gap from the outside: it implements one published
 extension's client side as a plugin, follows that extension's spec (any
-exception is listed and can be switched off), and steps aside when the host
-ships its own. Servers need no changes.
+exception is listed in its README), and steps aside when the host ships its
+own. Servers need no changes.
 
 The aim is an open community around open specs, where anyone can use these
 capabilities in the host they have, build the next polyfill, or propose a new

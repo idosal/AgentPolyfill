@@ -65,12 +65,12 @@ form asks nothing. Say no to the marketplace and nothing is installed.
 
 ## Requirements
 
-| | Events | Apps | Skills | Server Cards, ARD |
-|---|---|---|---|---|
-| Claude Code | 2.1.326 or newer | 2.1.329 or later | 2.1.329 or newer | 2.1.329 or newer |
-| Runtime | Node 20 or newer, or Bun; `/mcp-events setup` can fetch Bun for the mod alone (macOS, Linux) | Nothing else, not even Node: the plugin carries a small helper program for each platform | Node 20 or newer, or Bun; `/mcp-skills setup` can fetch Bun for the mod alone (macOS, Linux) | Nothing else: no helper process, no Node, no account |
-| Also | A terminal session, or one an app keeps open | A Chromium-based browser (Chrome, Edge, Chromium, Brave); clicking into views needs Claude Code's fullscreen layout | | To add a server, the `claude` command, found on your `PATH` or in the usual install folders |
-| Platforms | Tested live on macOS; its tests also run on Linux and Windows | macOS, Linux (x64 or Arm64) and Windows x64; Windows has not yet been used in a Claude Code session | Run on macOS; Linux and Windows not tried yet | |
+| | Claude Code | What else it needs | Where it has run |
+|---|---|---|---|
+| Events | 2.1.326 or newer | Node 20 or newer, or Bun (webhook delivery through a relay needs Node 22 or newer, or Bun); `/mcp-events setup` can fetch Bun for the mod alone on macOS and Linux. A terminal session, or one an app keeps open. | Tested live on macOS; its tests also run on Linux and Windows |
+| Apps | 2.1.329 or later | Nothing else, not even Node: the plugin carries a small helper program for each platform. A Chromium-based browser (Chrome, Edge, Chromium, Brave); clicking into views needs Claude Code's fullscreen layout. | macOS, Linux (x64 or Arm64) and Windows x64; Windows has not yet been used in a Claude Code session |
+| Skills | 2.1.329 or newer | Node 20 or newer, or Bun; `/mcp-skills setup` can fetch Bun for the mod alone on macOS and Linux. | Run on macOS; Linux and Windows not tried yet |
+| Server Cards, ARD | 2.1.329 or newer | Nothing else: no helper process, no Node, no account. To add a server, the `claude` command, found on your `PATH` or in the usual install folders. | |
 
 All of them run as mods, the kind of Claude Code plugin whose code runs inside
 Claude Code; mods are on by default from Claude Code 2.1.287. Claude Code runs a
@@ -78,14 +78,17 @@ plugin's code only in a folder you have told it you trust, which it asks the
 first time you start `claude` in a folder. In a folder you have not trusted,
 the polyfills do nothing.
 
-Neither runtime download happens unless you type the command yourself and then
-answer Download in Claude Code's own dialog. What is fetched and how it is
-checked is on each polyfill's page.
+Neither runtime download happens unless you send the command yourself (at the
+prompt, or from your own Remote Control) and then answer Download in Claude
+Code's own dialog. What is fetched and how it is
+checked is on the [Events](./events#the-mod-s-own-runtime) and
+[Skills](./skills#the-mod-s-own-runtime) pages.
 
 ## First run
 
-Each polyfill has a hosted demo server to try it against. Add one, start
-`claude` in the same folder, and ask.
+Events and Apps each have a hosted demo server to try them against; Skills uses
+Hugging Face's public MCP server; Server Cards needs nothing set up. Add the
+server, start `claude` in the same folder, and ask.
 
 ### Events
 

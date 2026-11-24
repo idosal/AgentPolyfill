@@ -22,9 +22,10 @@ operating system, what you did and what happened.
 ## The common rule
 
 What a server sends (an event payload, a skill's text, an app's HTML) is data
-from that server, treated the way the host treats a tool result. Receiving it
-grants nothing. What happens next goes through Claude Code's own permissions. A
-polyfill never reads the host's stored credentials. Events, Apps and Skills connect only
+from that server, and receiving it grants nothing. Event payloads and skill text
+reach Claude as tool results; context an app sets goes with your next prompt
+(see [Apps](#apps)). Whatever Claude does next goes through Claude Code's normal
+permissions. A polyfill never reads the host's stored credentials. Events, Apps and Skills connect only
 to servers Claude Code itself uses in the session, asking Claude Code for its
 verdict on each one. Server Cards connects to no server: it reads public
 documents and adds a server to Claude Code's own config, only when you press
@@ -39,8 +40,8 @@ documents and adds a server to Claude Code's own config, only when you press
   many, and their ids.
 - An event arrives without anyone asking. In a session that approves actions
   without asking, a server you watch can set work in motion; how often is
-  bounded by the wake limits (once a minute per watch, 30 times an hour), not
-  prevented.
+  bounded by the wake limits (by default once a minute per watch, 30 times an
+  hour), not prevented.
 - Webhooks are verified by the mod; a relay holds no signing secret and cannot
   make an event up. The operator of a relay can read webhook payloads: with your
   own relay that is you, and the opt-in public relay is run by the mod's author.
@@ -82,7 +83,8 @@ lists each finding of the review of 24 November 2026 and where it stands.
 ### Server Cards
 
 - A catalog or card is someone else's claim, read before any connection with
-  plain `GET`s and no cookies or credentials. Nothing is sent to a third party.
+  plain `GET`s and no cookies or credentials. It sends nothing to a third party:
+  no query text, and no request that is not a `GET`.
 - It writes only your MCP configuration, one server at a time, when you press
   **Add** or approve Claude's request (a question no allow rule or auto mode
   answers), and never over a server you have.
@@ -108,14 +110,17 @@ lists each finding of the review of 24 November 2026 and where it stands.
 
 ## What was checked, and how
 
-- **Tests** for each client rule of each spec (Events, Skills, Server Cards and
-  ARD), and Apps' clause-by-clause compliance notes.
+- **Tests.** A test for each client rule of Events and Skills. For Server Cards
+  and ARD, one row per rule with the test that covers it (Server Cards: two
+  rules met by design, and one not met; ARD: one partly met). For Apps,
+  requirement-by-requirement compliance notes.
 - **Formal models.**
   - Events: a model of delivery and of waking, in Quint and in TLA+, simulated,
     and model-checked with TLC to small, stated bounds. TLC checks the model,
     not the code, and says nothing past its bounds.
   - Skills: a model of approval, loading and the gate, every reachable state to
-    its bound, by an explorer of its own and, in TLA+, by TLC.
+    its bound, by an explorer of its own and, in TLA+, by TLC. The model is
+    checked, not the code.
   - Apps: a TLA+ model of which server a view's app comes from and what it may
     make happen, checked with TLC within stated bounds; what TLC reports is
     exhaustive within them and says nothing past them.
