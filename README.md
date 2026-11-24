@@ -1,48 +1,46 @@
 # AgentPolyfill
 
-Polyfills for agent protocols. Run new MCP extensions in the agent you already
-use, before its host supports them. Today in Claude Code and Codex.
+Polyfills for agent protocols. Use new MCP extensions in the agent you already
+have, before its host supports them. Today in Claude Code and Codex.
 
-MCP now grows through extensions: Apps, Skills, Events, Server Cards. A server can adopt one
-quickly. Each host has to build and ship each one, on its own schedule. A
-polyfill closes that gap from the outside: it implements one published
-extension's client side as a plugin, follows that extension's spec (any
-exception is listed and can be switched off), and steps aside when the host
-ships its own. Servers need no changes.
+MCP grows through extensions now: Apps, Skills, Events, Server Cards. A server
+can adopt one in a day, but every host has to build each one itself, on its
+own schedule, so a new extension can sit unused for months. A polyfill closes
+that gap from the outside. It implements one published extension's client side
+as a plugin, follows that extension's spec (any exception is listed and can be
+switched off), and steps aside once the host ships its own. Servers don't
+change at all.
 
-The aim is an open community around open specs, where anyone can use these
-capabilities in the host they have, build the next polyfill, or propose a new
-extension, and support does not depend on one host's roadmap. Today that is
-Claude Code with four MCP extensions and one open draft beyond MCP (Agentic
-Resource Discovery), and Codex with Events, Skills, Server Cards and ARD
-([Other hosts](#other-hosts)).
-More hosts are where it is meant to go.
+We want this to be an open community around open specs: anyone can use these
+extensions in the host they have, bring a polyfill to another host, or propose
+a new extension, without waiting on one company's roadmap.
 
-- **For users:** one line to install, one line to try. See below.
-- **For builders:** the `create-polyfill` and `design-extension` skills, and
-  the [contract](docs/polyfill-contract.md) every polyfill here meets. New
-  polyfills, and existing ones brought to another host, are welcome:
-  [Build one](#build-one). One you keep in your own repository can be listed
-  in the [community directory](community/).
-- **For spec authors:** a polyfill can be the client half of the two
+- **If you use Claude Code or Codex,** installing takes one line and trying it
+  takes one more. See below.
+- **If you build,** the `create-polyfill` and `design-extension` skills and the
+  [contract](docs/polyfill-contract.md) every polyfill here meets are your
+  starting point. New polyfills, and existing ones brought to another host,
+  are welcome: [Build one](#build-one). If you keep one in your own
+  repository, list it in the [community directory](community/).
+- **If you write specs,** a polyfill can be the client half of the two
   implementations an extension needs to reach Stable:
   [For spec authors](#for-spec-authors).
 
 ## Install
 
 **Claude Code** (2.1.329 or newer). At the prompt of a `claude` session,
-every polyfill at once:
+install every polyfill at once:
 
 ```
 /plugin install agent-polyfill --marketplace idosal/AgentPolyfill
 ```
 
-Or only the one you want: `mcp-events`, `mcp-apps-cli`, `mcp-skills` or
-`mcp-server-cards` in place of `agent-polyfill`. Then start a new `claude`
-session.
+Or install just one, with its name in place of `agent-polyfill`:
+`mcp-events`, `mcp-apps-cli`, `mcp-skills` or `mcp-server-cards`. Then start a
+new `claude` session.
 
-**Codex** (Events and Server Cards need 0.170 or newer, Skills was run on
-0.172; all need Node 20 or newer). In a terminal:
+**Codex** (0.170 or newer; Skills was tested on 0.172; Node 20 or newer). In a
+terminal:
 
 ```
 codex plugin marketplace add idosal/AgentPolyfill
@@ -51,340 +49,353 @@ codex plugin add mcp-skills@agent-polyfill
 codex plugin add mcp-server-cards@agent-polyfill
 ```
 
-More ways to install are [further down](#more-ways-to-install).
+There are [more ways to install](#more-ways-to-install) further down.
 
 ## Polyfills
 
-| Extension | Spec | In Claude Code | In Codex |
+| Extension | Spec | Claude Code | Codex |
 |---|---|---|---|
-| Events (`io.modelcontextprotocol/events`) | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code). Works: poll, push and webhook delivery; an event wakes an idle session. No OAuth servers. | [`mcp-events`](polyfills/events/codex). Early, run in the Codex CLI (the TUI and `codex exec`): poll, push and webhook; an event wakes an idle Codex session through `codex queue`. No OAuth servers; a resumed session's watches start at its first mcp-events tool call; in the ChatGPT desktop app a watch records events but can't wake the chat (ask for `recent_events`). |
-| Apps (`io.modelcontextprotocol/ui`) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code). Early: app UIs render inline in the terminal, with mouse and keyboard. No OAuth servers. | Not yet |
-| Skills (`io.modelcontextprotocol/skills`) | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | [`mcp-skills`](polyfills/skills/claude-code). Early: skills served by an MCP server are listed, loaded and read in Claude Code, with the checks the spec asks of a client. No OAuth servers. | [`mcp-skills`](polyfills/skills/codex). Early: served skills in Codex's skill list (from the session after a server first serves them), loaded after a per-skill yes in Codex's own form, verified against the server's digests. No OAuth servers; a cross-server resource read (X8) is not gated. |
-| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (extension Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code). Early: finds the servers a domain publishes, checks each card against the schema, and adds one to Claude Code's own config with a click, so servers behind OAuth work. | [`mcp-server-cards`](polyfills/server-cards/codex). Early: the same discovery and checks; a server is added to Codex's config only after you choose "Add it" in Codex's own form. |
+| Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code) | [`mcp-events`](polyfills/events/codex) |
+| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | [`mcp-skills`](polyfills/skills/claude-code) | [`mcp-skills`](polyfills/skills/codex) |
+| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) |
+| Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet |
 
-Beyond MCP, `ard-discovery` ([Claude Code](polyfills/ard/claude-code),
+All of them are early. Here is what each one does, and where it stops:
+
+- **Events.** The agent watches events on your MCP servers, by poll, push or
+  webhook, and an event wakes an idle session. In Codex, a woken session is a
+  Codex CLI session (the terminal app or `codex exec`): a chat in the ChatGPT
+  desktop app keeps its events but can't be woken, so ask it for
+  `recent_events`. A resumed Codex session starts watching at its first Events
+  tool call.
+- **Skills.** Skills an MCP server serves show up next to your own, load only
+  after you say yes to each one, and are checked against the server's
+  digests. In Codex they appear in Codex's own skill list from the session
+  after a server first serves them. One rule of the spec can't be met in Codex
+  yet: a skill from one server reading another server's resources isn't put
+  to you first (rule X8), because Codex doesn't let a plugin ask.
+- **Server Cards.** Name a company and the agent finds the MCP servers its domain
+  publishes, checks each card against the schema, and adds the one you pick
+  to the host's own configuration. The host then connects it with its own
+  sign-in, so servers behind OAuth work. You see the host it connects to
+  before you add it.
+- **Apps.** A server's app opens right under the tool call in the terminal
+  and answers the mouse and keyboard: real pixels in iTerm2, kitty and
+  Ghostty, text cells everywhere else.
+
+Events, Skills and Apps can't reach servers behind OAuth yet, in either host.
+[Why, and what would fix it.](#how-it-works-in-each-host-and-where-it-stops)
+
+**Beyond MCP**, `ard-discovery` ([Claude Code](polyfills/ard/claude-code),
 [Codex](polyfills/ard/codex)) adds
-[Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a
-draft: it finds MCP servers through a domain's `ard.json` or by searching an
-ARD registry, and hands the cards to `mcp-server-cards`. Its search sends the
-words of your request to that registry, and asks you first every time; for
-that reason it is not part of the `agent-polyfill` bundle. Install it by name
-(`/plugin install ard-discovery --marketplace idosal/AgentPolyfill`, or
-`codex plugin add ard-discovery@agent-polyfill`).
+[Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91,
+a draft. It finds MCP servers through a domain's `ard.json`, or by searching
+an ARD registry you choose, and hands the cards to `mcp-server-cards`. A
+search sends the words of your request to that registry, so every search asks
+you first and names where it's going. That's also why it isn't part of the
+`agent-polyfill` bundle; install it by name.
 
-Neither host supports these extensions itself yet. For Claude Code, the
+Neither host supports these extensions itself yet. On 23 November 2026 the
 official
 [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix)
-showed Tasks on 23 November 2026, and none of Events, Apps or Skills (Server
-Cards is not in the matrix). Codex does not support Events for your own
-servers, nor Skills (openai/codex issue #48000). Hosts are adding extensions
-steadily, so check the matrix for today's picture. The Skills SEP notes that
-Claude Code support has been prototyped at Anthropic.
+listed Tasks for Claude Code, and none of Events, Apps or Skills (Server Cards
+isn't in the matrix). Codex doesn't support Events for your own servers, or
+Skills (openai/codex#48000). Hosts add extensions all the time, so check the
+matrix for today's picture. The Skills SEP notes that Claude Code support has
+been prototyped at Anthropic.
 
-### Events: Claude is woken when something happens
+## Try it
+
+### Events: the agent wakes up when something happens
 
 ![One sentence to Claude Code gives a private button page and a watch, and the session goes idle. Someone types "ship it" on the page and presses the button; the idle session wakes by itself and says what was typed.](polyfills/events/claude-code/docs/media/button-demo.gif)
 
-Try it against the same hosted demo server (no sign-in). Add it, start
-`claude`, and ask "Give me a demo button and tell me what I type when I press
-it":
+Add the hosted demo server (no sign-in), start `claude` or `codex`, and ask
+"Give me a demo button and tell me what I type when I press it":
 
 ```
 claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
-The same server offers new comments in a Hacker News thread, new npm and
-GitHub releases, and earthquakes; its source is in
-[`servers/event-feeds`](servers/event-feeds). [More in the Events README](polyfills/events/claude-code);
-in Codex, [the Codex README](polyfills/events/codex).
-
-### Apps: an MCP App's interface, in the terminal
-
-A server's app opens under the tool call and answers the mouse; real pixels
-in iTerm2, kitty and Ghostty, character cells elsewhere
-([full video, 33 s](https://github.com/idosal/AgentPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4)).
-
-![In Claude Code, a classic shareware game from the hosted arcade server runs under the tool call and is played with keys and clicks. Then a cohort retention heatmap from another MCP server opens inline, shows a tooltip wherever the pointer goes, and a control switches its period. Last, a 3D scene opens and turns when dragged.](docs/media/mcp-apps-cli.gif)
-
-Try it against a hosted demo server (classic shareware games from archive.org,
-played in the app's view). Add it, start `claude`, and ask for a game ("Find
-a shareware game in the arcade and load it"):
-
 ```
-claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp
+codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
-[More in the Apps README](polyfills/apps/claude-code).
+The same server also offers new comments in a Hacker News thread, new npm and
+GitHub releases, and earthquakes. Its source is in
+[`servers/event-feeds`](servers/event-feeds).
 
-### Skills: skills served by an MCP server
+### Skills: skills that come from an MCP server
 
 ![In Claude Code, the skills a server offers are listed. A question is asked, Claude asks to load one skill from the server, reads the files it points to, and answers from them.](polyfills/skills/claude-code/docs/media/demo.gif)
 
-Try it against Hugging Face's public MCP server (no sign-in). Add it, start
-`claude`, and type `/mcp-skills` to see what it serves, or just ask a question
-one of its skills covers:
+Add Hugging Face's public MCP server (no sign-in) and ask a question one of
+its skills covers. In Claude Code, `/mcp-skills` lists what it serves. In
+Codex, the served skills appear in the `$` list from your next session.
 
 ```
 claude mcp add --transport http huggingface https://huggingface.co/mcp
 ```
 
-[More in the Skills README](polyfills/skills/claude-code); in Codex,
-[the Codex README](polyfills/skills/codex).
+```
+codex mcp add huggingface --url https://huggingface.co/mcp
+```
 
 ### Server Cards: add a company's MCP server by its domain
 
-Nothing to set up. Start `claude` and ask "What MCP servers does neon.com
-publish?", then press **Add** on **Neon Docs** (no sign-in). For one behind a
-sign-in, ask about buildkite.com; after **Add**, Claude Code asks you to sign
-in through `/mcp`. `claude mcp remove neon-docs -s local` removes it again.
+Nothing to set up. Ask "What MCP servers does neon.com publish?" and add
+**Neon Docs** (no sign-in). For one behind a sign-in, ask about buildkite.com;
+once it's added, the host asks you to sign in. In Claude Code,
+`claude mcp remove neon-docs -s local` removes it again.
 
-[More in the Server Cards README](polyfills/server-cards/claude-code).
+### Apps: an MCP App's interface, in the terminal
+
+A server's app opens under the tool call and answers the mouse
+([full video, 33 s](https://github.com/idosal/AgentPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4)).
+
+![In Claude Code, a classic shareware game from the hosted arcade server runs under the tool call and is played with keys and clicks. Then a cohort retention heatmap from another MCP server opens inline, shows a tooltip wherever the pointer goes, and a control switches its period. Last, a 3D scene opens and turns when dragged.](docs/media/mcp-apps-cli.gif)
+
+Add the hosted arcade (classic shareware games from archive.org), start
+`claude`, and ask "Find a shareware game in the arcade and load it":
+
+```
+claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp
+```
+
+Each polyfill's own README has the details: requirements, what happens between
+installing and first use, and everything it can't do yet.
 
 ## What makes something a polyfill
 
-1. It implements one published extension, client side, and nothing else. No
-   extra protocol, no vendor additions. The one exception allowed is an
-   earlier form of the same extension that servers still speak, listed in the
-   polyfill's README and switched off by one setting.
+1. It implements one published extension, client side, and nothing else: no
+   extra protocol and no vendor additions. The one exception is an earlier
+   form of the same extension that servers still speak, listed in the
+   polyfill's README and switched off with one setting.
 2. It names the spec revision it implements.
-3. Every client rule in the spec has a test, and it is run against a server
+3. Every client rule in the spec has a test, and it runs against servers
    someone else wrote.
-4. It stands down when the host supports the extension natively.
-5. It says plainly what it cannot do on each host, and what the host would
+4. It stands down once the host supports the extension itself.
+5. It says plainly what it can't do in each host, and what the host would
    need to change.
 
 The full text is in [`docs/polyfill-contract.md`](docs/polyfill-contract.md).
-For rule 1, `mcp-events` uses that exception: by default it also talks to
-servers that advertise events in the form from before SEP-3415, and
-`MCP_EVENTS_PRE_STANDARD=off` makes it follow the SEP exactly.
 
-For rule 4, `mcp-events` and `mcp-skills` each have a setting that turns them
-off (`MCP_EVENTS_OFF=1`, `MCP_SKILLS_OFF=1`), `mcp-server-cards` and
-`ard-discovery` have a `disabled` setting in `/config`, and any of them is
-turned off by disabling its plugin (`/plugin disable mcp-apps-cli`). None can yet
-detect native support reliably, because a mod cannot see what Claude Code's
-own MCP client supports. So when Claude Code ships one of these extensions,
-disable that polyfill; its README says how.
+Events uses the exception in rule 1: by default it also talks to servers that
+advertise events in the form from before SEP-3415. `MCP_EVENTS_PRE_STANDARD=off`
+makes it follow the SEP exactly.
+
+For rule 4, no polyfill can detect native support on its own yet, because
+neither host tells a plugin which extensions its own MCP client supports. So
+when your host ships one of these extensions, turn that polyfill off. In Claude
+Code, disable its plugin (`/plugin disable mcp-events`), or use its own
+setting (`MCP_EVENTS_OFF=1`, `MCP_SKILLS_OFF=1`, or `disabled` in `/config`
+for Server Cards and ARD). In Codex, remove the plugin
+(`codex plugin remove mcp-events@agent-polyfill`). Each README says how.
+
+## How it works in each host, and where it stops
+
+Both hosts let outside code in, in different ways.
+
+- **Claude Code** runs mods inside the host (on by default since 2.1.287). A
+  mod can register tools, draw UI, start a turn in an idle session, and call a
+  server's tools over Claude Code's own connection.
+- **Codex** runs plugins that bring their own MCP server. Every tool call the
+  server receives says which session it came from, `codex queue --resume`
+  starts a turn in an idle session from outside, and Codex lists the skills a
+  plugin's folder holds alongside its own.
+
+That's the host half of almost any extension. The protocol half is missing in
+both. Neither host lets a plugin send an extension's own methods, such as
+`events/poll` or `skills/list`, over the host's connection, see everything a
+server advertised, or receive a server's notifications. So Events, Skills and
+Apps each open a second connection of their own, using the headers in your
+config. That connection can't use the host's sign-in, which is why those
+three can't reach servers behind OAuth.
+
+Server Cards doesn't have this problem. A card is a public document, and the
+server it describes goes into the host's own config, so the host connects it
+with its own sign-in.
+
+Four small, generic changes would remove the limit, in both hosts. None of
+them names an extension:
+
+| Change | Claude Code today | Codex today |
+|---|---|---|
+| Send any MCP method over the host's connection | missing | missing (its client can, internally) |
+| Read what the server advertised | missing | mostly there |
+| Deliver a server's notifications to the plugin | missing | only for OpenAI's hosted apps server |
+| Raw tool results; declare a client extension | missing | declaring only by Codex's own client |
+
+The first two are enough for Events (by poll and webhook) and Skills to work
+with every server you've signed in to. What each change would look like, what
+each extension needs, and the questions they raise about permissions are in
+[`docs/host-changes.md`](docs/host-changes.md).
+
+## Other hosts
+
+We haven't found a documented way for third-party code to send requests over
+the host's MCP connection in Cursor or VS Code, and ChatGPT runs no
+third-party code on the client side. For those, the only polyfill would be a
+gateway: an MCP server that presents an extension as plain tools. That's a
+weaker form (for Events, the model would have to poll, and nothing would wake
+it), and none is built here yet. Bringing a polyfill to another host is
+[welcome](#an-existing-polyfill-in-another-host).
 
 ## Build one
 
-There are three ways in: a new polyfill, an existing polyfill in another host,
-or your own polyfill listed in the community directory.
+There are three ways in: build a new polyfill, bring an existing one to
+another host, or list your own in the community directory.
 
 ### A new polyfill
 
-The `create-polyfill` skill walks an agent through building a polyfill to this
-contract: the spec's client rules as a checklist, how each wire need is reached
-on the host, stand-down, and what counts as proof.
+The `create-polyfill` skill walks an agent through building a polyfill to
+this contract: the spec's client rules as a checklist, how to reach each
+thing the extension needs in the host, standing down, and what counts as
+proof.
 
 ```
 /plugin install polyfill-author --marketplace idosal/AgentPolyfill
 ```
 
-Then ask for the extension you want, for example "polyfill MCP Server Cards in
-Claude Code". It points the agent at the primary sources (the SEP, the
+Then ask for the extension you want, for example "polyfill MCP Apps in
+Codex". The skill points the agent at the primary sources (the SEP, the
 extension's spec, the core spec for the revision in use, the conformance
 suite) and has it work from those.
 
 ### When the spec doesn't have what you want
 
-A polyfill stays exact, so new behaviour does not go into one. The
-`design-extension` skill, in the same plugin, covers that case: first check
-whether the protocol already has a slot for it, then, if it really is new,
-design it as its own extension under MCP's extension rules (your own
-identifier, a declaration, defined behaviour when the other side lacks it, a
-written spec, two implementations) and take it to the working group.
+A polyfill stays exact, so new behaviour doesn't go into one. The
+`design-extension` skill, in the same plugin, covers that case. First it
+checks whether the protocol already has a place for what you want. If it's
+really new, it helps you design it as its own extension under MCP's extension
+rules (your own identifier, a declaration, defined behaviour when the other
+side lacks it, a written spec, two implementations) and take it to the
+working group.
 
 Both skills are plain `SKILL.md` files
 ([create-polyfill](plugins/polyfill-author/skills/create-polyfill/SKILL.md),
 [design-extension](plugins/polyfill-author/skills/design-extension/SKILL.md)),
-so other agents that read skills can use them too.
+so any agent that reads skills can use them.
 
 ### An existing polyfill in another host
 
-A polyfill is one folder per extension: the host-neutral part (the protocol,
-the spec's client rules and their tests) in `core/`, and one adapter beside it
-for each host, which wires that core into what the host lets third-party code
-do. Events and Skills are built that way: one `core/`, a `claude-code/` mod
-and a `codex/` plugin. Bringing one to another host is a new adapter: find how
-the host lets a plugin reach the wire (a connection of its own, a tool call, a
-way to wake an idle session), meet the contract there, say what that host
-cannot do, and add the plugin to that host's marketplace.
+Each polyfill is one folder per extension. The part that doesn't depend on a
+host (the protocol, the spec's client rules and their tests) lives in `core/`,
+and next to it is one adapter per host, which wires that core into what the
+host lets outside code do. Events and Skills are built that way: one `core/`,
+a `claude-code/` mod and a `codex/` plugin.
+
+Bringing one to a new host means writing a new adapter. Find how the host lets
+a plugin reach the wire (a connection of its own, a tool call, a way to wake
+an idle session), meet the contract there, write down what that host can't
+do, and add the plugin to that host's marketplace.
 [`CONTRIBUTING.md`](CONTRIBUTING.md#bringing-a-polyfill-to-another-host) has
-the steps; `create-polyfill` covers it too ("polyfill MCP Apps in Codex").
+the steps, and `create-polyfill` covers it too.
 
 ### Your own, listed in the community directory
 
-A polyfill you keep in your own repository can be listed in
-[`community/`](community/) by pull request: one entry with the extension, the
-spec revision, the hosts, your repository and its install line. Listed
-polyfills are not reviewed or shipped by this project, and are not in its
-marketplaces; one that meets the contract can move into `polyfills/` after
+If you keep a polyfill in your own repository, you can list it in
+[`community/`](community/) with a pull request: one entry with the extension,
+the spec revision, the hosts, your repository and its install line. Listed
+polyfills aren't reviewed or shipped by this project and aren't in its
+marketplaces. One that meets the contract can move into `polyfills/` after a
 review.
 
 ## For spec authors
 
-An MCP extension reaches Stable through a second Extensions Track SEP that
-must, among other things, "Show two independent implementations, at least one
-client-side and one server-side, that interoperate", carry a conformance
-scenario, and show that the extension has been in real use
+An MCP extension reaches Stable through a second Extensions Track SEP. Among
+other things, that SEP must "Show two independent implementations, at least
+one client-side and one server-side, that interoperate", include a
+conformance scenario, and show the extension has been used for real
 ([SEP-3392](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3392-extension-lifecycle.md)).
 
-A polyfill can be a client-side implementation in a host that has not shipped
-the extension yet, used by real people against real servers. Each one here
-names the spec revision it implements. Events and Skills each have a test for
-each client rule and are run against servers their authors did not write, and
-Skills passes the official conformance suite's Skills client scenarios. Apps
-checks the spec requirement by requirement in its design notes. Whether one counts as an independent
-implementation for a given SEP is for that extension's maintainers to decide.
+A polyfill can be that client-side implementation, in hosts that haven't
+shipped the extension yet, used by real people against real servers. Each one
+here names the spec revision it implements. Events and Skills have a test for
+every client rule and run against servers their authors didn't write. Skills
+passes the official conformance suite's Skills client scenarios in both hosts,
+and Events passes the Events client scenarios proposed upstream (still an open
+pull request in the conformance suite). Apps checks the spec
+requirement by requirement in its design notes. Whether a polyfill counts as
+an independent implementation for a given SEP is up to that extension's
+maintainers.
 
-If your extension needs a client in a host that lacks it, open an issue, or
-build one with the `create-polyfill` skill.
-
-## Why this works in Claude Code, and where it stops
-
-Claude Code's mods (on by default since Claude Code 2.1.287) run third-party
-code inside the host. A mod
-can register tools, draw UI, start a turn in an idle session, and call a
-server's tools over Claude Code's own connection. That is the host half of
-almost any extension.
-
-The protocol half is missing. Over Claude Code's connection a mod can call a
-tool and read a resource's contents, and nothing else: it cannot send
-`events/poll` or `skills/list`, see what a server advertised, or receive a
-server's notifications. So Events, Skills and Apps each
-open a second connection of their own, using the headers in your config. A
-second connection cannot use Claude Code's sign-in, which is why none of those
-three reaches servers behind OAuth. Server Cards needs no connection: a card is
-a public document, and the server it describes is added to Claude Code's own
-config, so Claude Code connects it with its own sign-in.
-
-Four small, generic changes would remove that limit. None of them names an
-extension:
-
-| Change | Events | Skills | Apps | Server Cards |
-|---|---|---|---|---|
-| Send any MCP method over the host's connection | needed | needed | needed | only to check a card against the live server |
-| Read what the server advertised | needed | needed | needed | only to check a card against the live server |
-| Deliver server notifications to the plugin | push only | not needed | needed | not needed |
-| Raw tool results in hooks; declare a client extension | not needed | not needed | needed | not needed |
-
-The first two are enough for Events (by poll and webhook) and Skills on every
-server. The details, and the questions they raise about permissions, are in
-[`docs/host-changes.md`](docs/host-changes.md).
-
-## Other hosts
-
-OpenAI Codex is the second host. A Codex plugin brings an MCP server, every
-tool call it receives names the session (`_meta.threadId`), and
-`codex queue --resume` starts a turn in an idle session from outside, so
-Events works there as a plugin:
-[`polyfills/events/codex`](polyfills/events/codex). Codex also lists the
-skills a plugin's folder holds with its own, so Skills works there as a plugin
-too: [`polyfills/skills/codex`](polyfills/skills/codex). Both share their
-logic with the Claude Code forms, in `polyfills/<extension>/core/`. Server
-Cards and ARD run in Codex as plugins too
-([`polyfills/server-cards/codex`](polyfills/server-cards/codex),
-[`polyfills/ard/codex`](polyfills/ard/codex)), on the same card, discovery and
-registry code as the Claude Code forms. Their states are in the
-[table above](#polyfills).
-
-Codex has no documented way for third-party code to send requests over its
-own MCP connection, so as in Claude Code, servers behind OAuth are out of
-reach ([`docs/host-changes.md`](docs/host-changes.md)). We have not found such
-a way in Cursor or VS Code, and ChatGPT runs no third-party code on the client
-side; for those the only polyfill is a gateway (an MCP server that presents an
-extension as plain tools), a weaker form, and none is built here yet.
+If your extension needs a client in a host that doesn't have one, open an
+issue, or build it with the `create-polyfill` skill.
 
 ## More ways to install
 
-One polyfill, at the prompt of a `claude` session:
+**Claude Code.** One polyfill at a time, at the prompt of a `claude` session:
 
 ```
 /plugin install mcp-events --marketplace idosal/AgentPolyfill
 ```
 
-```
-/plugin install mcp-apps-cli --marketplace idosal/AgentPolyfill
-```
+The same works for `mcp-apps-cli`, `mcp-skills`, `mcp-server-cards` and
+`ard-discovery`; `ard-discovery` brings `mcp-server-cards` with it. In a
+terminal, use `claude plugin install` with the same arguments.
 
-```
-/plugin install mcp-skills --marketplace idosal/AgentPolyfill
-```
+The first install adds this repository's marketplace too. After that, the
+short form is `/plugin install mcp-events@agent-polyfill`. To add the
+marketplace on its own, run `/plugin marketplace add idosal/AgentPolyfill`.
+`agent-polyfill` holds nothing of its own: it depends on every MCP polyfill
+here (all of the above except `ard-discovery`), and each one stays a plugin
+you can disable or uninstall separately. Start a new `claude` session for
+plugins to load.
 
-```
-/plugin install mcp-server-cards --marketplace idosal/AgentPolyfill
-```
-
-```
-/plugin install ard-discovery --marketplace idosal/AgentPolyfill
-```
-
-`ard-discovery` installs `mcp-server-cards` with it.
-
-The same works in a terminal as `claude plugin install agent-polyfill --marketplace idosal/AgentPolyfill`.
-It adds this repository's marketplace and installs from it in one step; start
-a new `claude` session for the polyfills to load. `agent-polyfill` holds nothing
-of its own: it depends on each MCP polyfill (everything above but
-`ard-discovery`), and each stays a plugin you can disable or uninstall on its
-own.
-
-With the marketplace already added, the short form is
-`/plugin install mcp-events@agent-polyfill`; to add it by itself,
-`/plugin marketplace add idosal/AgentPolyfill`.
-
-In Codex, with the marketplace already added, `codex plugin add
-mcp-events@agent-polyfill` (or `mcp-skills@agent-polyfill`) installs one;
-`codex plugin remove mcp-events@agent-polyfill` removes it. There is no
-bundle for Codex.
-
-Each polyfill's own README lists its requirements, the steps between
-installing and first use, and its limits.
+**Codex.** With the marketplace added, `codex plugin add <name>@agent-polyfill`
+installs one (`mcp-events`, `mcp-skills`, `mcp-server-cards` or
+`ard-discovery`), and `codex plugin remove <name>@agent-polyfill` removes it.
+Codex has no bundle.
 
 ## Safety
 
-These are third-party plugins that run with your permissions, as every Claude
-Code mod and Codex plugin does. None of them reads the host's stored
-credentials (Claude Code's, or Codex's sign-ins and tokens). Each
-polyfill's `SECURITY.md` says what it checks and what it does not protect
-against; [`SECURITY.md`](SECURITY.md) says how to report a problem privately.
+These are third-party plugins, and they run with your permissions, like every
+Claude Code mod and Codex plugin. None of them reads the host's stored
+credentials: not Claude Code's, and not Codex's sign-ins or tokens. Each
+polyfill's `SECURITY.md` says what it checks and what it doesn't protect
+against. [`SECURITY.md`](SECURITY.md) says how to report a problem privately.
 
 ## Repository layout
 
-Each polyfill is a folder, `polyfills/<extension>/`, with one subfolder for
-each host it runs in, and a `core/` beside them when hosts share its logic:
-[`events`](polyfills/events) and [`skills`](polyfills/skills) (core, Claude
-Code and Codex), [`server-cards`](polyfills/server-cards) and
-[`ard`](polyfills/ard) (Claude Code and Codex), and
-[`apps`](polyfills/apps/claude-code) (Claude Code).
-Each host has its marketplace file:
-[`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) for Claude
-Code lists them all, with two plugins in [`plugins/`](plugins): `agent-polyfill`,
-which installs every MCP polyfill, and `polyfill-author`, the skills for
-building one; [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json)
-lists the Codex plugins. [`community/`](community/) is the community directory,
-and [`site/`](site) is the website, [agentpolyfill.com](https://agentpolyfill.com).
-The demo servers that are hosted for trying a polyfill live in
-[`servers/`](servers): [`event-feeds`](servers/event-feeds), the Events demo.
-Each polyfill releases on its own, under tags that start with its
-plugin's name (`mcp-apps-cli-v0.1.0`).
+- **`polyfills/<extension>/`**: one folder per extension, with a subfolder per
+  host it runs in, and a `core/` next to them when the hosts share code.
+  [`events`](polyfills/events) and [`skills`](polyfills/skills) have a core,
+  a Claude Code mod and a Codex plugin; [`server-cards`](polyfills/server-cards)
+  and [`ard`](polyfills/ard) run in both hosts; [`apps`](polyfills/apps)
+  runs in Claude Code.
+- **Marketplaces**, one per host.
+  [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) lists
+  everything for Claude Code, including the two plugins in
+  [`plugins/`](plugins): `agent-polyfill`, which installs every MCP polyfill,
+  and `polyfill-author`, the skills for building one.
+  [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) lists
+  the Codex plugins.
+- **[`servers/`](servers):** the demo servers hosted for trying a polyfill,
+  such as [`event-feeds`](servers/event-feeds) for Events.
+- **[`community/`](community/):** the community directory.
+- **[`site/`](site):** the website, [agentpolyfill.com](https://agentpolyfill.com).
+
+Each polyfill releases on its own, under tags that start with its plugin's
+name (for example `mcp-apps-cli-v0.1.0`).
 
 ## Contributing
 
-Problems and questions: open an issue here. A new polyfill, or an existing
-one in another host, is welcome if it meets the
+Found a problem or have a question? Open an issue. A new polyfill, or an
+existing one brought to another host, is welcome if it meets the
 [contract](docs/polyfill-contract.md); the `create-polyfill` skill is the
-quickest way to build one that does. [`CONTRIBUTING.md`](CONTRIBUTING.md) says
-how to add one to this repository, and how to list one you keep elsewhere in
-the [community directory](community/).
+quickest way to build one that does. [`CONTRIBUTING.md`](CONTRIBUTING.md)
+explains how to add one to this repository, and how to list one you keep
+elsewhere in the [community directory](community/).
 
 ## Licence and status
 
 Apache-2.0. See [LICENSE](LICENSE).
 
-A community project by [Ido Salomon](https://github.com/idosal). It is not
-part of the MCP specification and is not affiliated with or endorsed by the
-MCP project, the Agentic AI Foundation, the Linux Foundation, Anthropic or any
-host vendor. The author works in the MCP Apps working group; this is not
-working-group output. Model Context Protocol and MCP are trademarks of LF
-Projects, LLC. Claude and Claude Code are trademarks of Anthropic, PBC.
+A community project by [Ido Salomon](https://github.com/idosal). It isn't part
+of the MCP specification, and it isn't affiliated with or endorsed by the MCP
+project, the Agentic AI Foundation, the Linux Foundation, Anthropic, OpenAI or
+any other host vendor. The author works in the MCP Apps working group; this
+isn't working-group output. Model Context Protocol and MCP are trademarks of
+LF Projects, LLC. Claude and Claude Code are trademarks of Anthropic, PBC.
+OpenAI and Codex are trademarks of OpenAI.
