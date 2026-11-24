@@ -1,0 +1,18 @@
+CALL   ToolSearch {"query": "select:mcp__docs__big_link,ReadMcpResourceTool", "max_results": 2}
+MODEL  [tool schema loaded: mcp__docs__big_link] [tool schema loaded: ReadMcpResourceTool]
+CALL   mcp__docs__big_link {}
+MODEL  {"type": "text", "text": "The dump is ready."} {"type": "text", "text": "[Resource link: big.txt] fixture://docs/big.txt (A very large text resource)"}
+CALL   ReadMcpResourceTool {"server": "docs", "uri": "fixture://docs/big.txt"}
+MODEL  <persisted-output>
+Output too large (3MB). Full output saved to: <home>/.claude/projects/<project>/7dfeabf1-e58b-4b44-8abb-35a856f2534a/tool-results/toolu_018DMHqPKqpCVPSo8972aWA8.txt
+
+Preview (first 2KB):
+{"contents":[{"uri":"fixture://docs/big.txt","mimeType":"text/plain","text":"MARKER-BIG-DOCS xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx… [2314 characters in all]
+ANSWER I called three tools. The resource is a very large plain-text file, and I only saw its first 2 KB.
+
+**1. `ToolSearch`** (`select:mcp__docs__big_link,ReadMcpResourceTool`). I needed this to load the schemas for the two tools below. It returned their definitions:
+- `mcp__docs__big_link`, described as "Return a link to a very large text resource.", which takes no parameters.
+- `ReadMcpResourceTool`, which takes `server` and `uri`.
+
+**2. `mcp__docs__big_link`** (no arguments). I called it once. It returned:
+> The dump is ready.[Resource link: big.txt] fixture://docs/big.txt (A very large text reso… [1514 characters in all]

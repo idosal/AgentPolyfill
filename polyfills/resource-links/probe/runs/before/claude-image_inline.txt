@@ -1,0 +1,11 @@
+CALL   ToolSearch {"query": "select:mcp__docs__image_inline,ReadMcpResourceTool", "max_results": 5}
+MODEL  [tool schema loaded: mcp__docs__image_inline] [tool schema loaded: ReadMcpResourceTool]
+CALL   mcp__docs__image_inline {}
+MODEL  [image block, image/png, shown to the model as an image] {"type": "text", "text": "[Image: source: <home>/.claude/projects/<project>/325ea0a0-7212-4c84-89cf-1d3723010fc7/tool-results/mcp-docs-blob-1795555111902-obdyxf.png]"}
+ANSWER I called the docs server's `image_inline` tool once. It didn't return a resource link, so there was nothing to follow and I didn't read any linked resource.
+
+**Tools called**
+1. `ToolSearch`, with query `select:mcp__docs__image_inline,ReadMcpResourceTool`, to load the tool definitions. It returned two schemas:
+   - `mcp__docs__image_inline`: "Draw the revenue chart and return the image itself (for comparison with a link)." It takes no parameters.
+   - `ReadMcpResourceTool`: "Reads a specific resource from an MCP server, identified by server name and resource URI…"
+2. `mcp__docs__image_inline`,… [1578 characters in all]

@@ -1,0 +1,17 @@
+CALL   ToolSearch {"query": "select:mcp__docs__embedded_image,ReadMcpResourceTool", "max_results": 2}
+MODEL  [tool schema loaded: mcp__docs__embedded_image] [tool schema loaded: ReadMcpResourceTool]
+CALL   mcp__docs__embedded_image {}
+MODEL  {"type": "text", "text": "[Resource from docs at fixture://docs/chart.png] "} [image block, image/png, shown to the model as an image] {"type": "text", "text": "[Image: source: <home>/.claude/projects/<project>/dc9a247a-9220-4359-bb17-8c14524dae56/tool-results/mcp-docs-blob-1795555111856-og65nj.png]"}
+CALL   ReadMcpResourceTool {"server": "docs", "uri": "fixture://docs/chart.png"}
+MODEL  {"contents":[{"uri":"fixture://docs/chart.png","mimeType":"image/png","blobSavedTo":"<home>/.claude/projects/<project>/dc9a247a-9220-4359-bb17-8c14524dae56/tool-results/mcp-resource-1795555113734-0-76qkrr.png","text":"[Resource from docs at fixture://docs/chart.png] Binary content (image/png, 558 bytes) saved to <home>/.claude/projects/<project>/dc9a247a-9220-4359-bb17-8c14524dae56/tool-results/mcp-resource-1795555113734-0-76qkr… [609 characters in all]
+CALL   Read {"file_path": "<home>/.claude/projects/<project>/dc9a247a-9220-4359-bb17-8c14524dae56/tool-results/mcp-resource-1795555113734-0-76qkrr.png"}
+MODEL  [image block, image/png, shown to the model as an image]
+ANSWER I called four tools. I didn't run any shell commands or scripts, and I didn't decode anything myself.
+
+**1. `ToolSearch`** with `select:mcp__docs__embedded_image,ReadMcpResourceTool`. It returned the schemas for both tools:
+- `mcp__docs__embedded_image`: "Return the chart embedded in the result as a resource (for comparison with a link)." It takes no parameters.
+- `ReadMcpResourceTool`: reads a resource from an MCP server. It needs `server` and `uri`.
+
+**2. `mcp__docs__embedded_image`** (called once, no arguments). It returned:
+- the text `[Resource from docs at fixture://docs/chart.png]`
+- an… [2084 characters in all]

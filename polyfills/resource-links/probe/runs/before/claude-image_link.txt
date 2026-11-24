@@ -1,0 +1,14 @@
+CALL   ToolSearch {"query": "select:mcp__docs__image_link,ReadMcpResourceTool", "max_results": 5}
+MODEL  [tool schema loaded: mcp__docs__image_link] [tool schema loaded: ReadMcpResourceTool]
+CALL   mcp__docs__image_link {}
+MODEL  {"type": "text", "text": "The chart is ready."} {"type": "text", "text": "[Resource link: chart.png] fixture://docs/chart.png (A chart of the report, as a PNG image)"}
+CALL   ReadMcpResourceTool {"server": "docs", "uri": "fixture://docs/chart.png"}
+MODEL  {"contents":[{"uri":"fixture://docs/chart.png","mimeType":"image/png","blobSavedTo":"<home>/.claude/projects/<project>/bf881a7a-8b3c-4df2-9c01-af1a20a97b6a/tool-results/mcp-resource-1795555118281-0-3vn0r1.png","text":"[Resource from docs at fixture://docs/chart.png] Binary content (image/png, 558 bytes) saved to <home>/.claude/projects/<project>/bf881a7a-8b3c-4df2-9c01-af1a20a97b6a/tool-results/mcp-resource-1795555118281-0-3vn0r… [609 characters in all]
+CALL   Read {"file_path": "<home>/.claude/projects/<project>/bf881a7a-8b3c-4df2-9c01-af1a20a97b6a/tool-results/mcp-resource-1795555118281-0-3vn0r1.png"}
+MODEL  [image block, image/png, shown to the model as an image]
+ANSWER I called four tools. I didn't run any shell commands or decode anything myself.
+
+1. **`ToolSearch`** with `select:mcp__docs__image_link,ReadMcpResourceTool`. It returned the schemas for both tools. `mcp__docs__image_link` is described as "Draw the revenue chart. Returns a link to a PNG." and takes no parameters. The other is the standard `ReadMcpResourceTool` schema, which takes `server` and `uri`.
+
+2. **`mcp__docs__image_link`**, called once with no arguments. It returned, verbatim:
+   > The chart is ready.[Resource link: chart.png] fixture://docs/chart.png (A chart of the report, as a PNG im… [1365 characters in all]

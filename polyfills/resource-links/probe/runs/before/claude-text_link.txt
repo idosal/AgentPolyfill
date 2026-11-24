@@ -1,0 +1,12 @@
+CALL   ToolSearch {"query": "select:mcp__docs__text_link,ReadMcpResourceTool", "max_results": 5}
+MODEL  [tool schema loaded: mcp__docs__text_link] [tool schema loaded: ReadMcpResourceTool]
+CALL   mcp__docs__text_link {}
+MODEL  {"type": "text", "text": "The report is ready. Its full text is linked."} {"type": "text", "text": "[Resource link: report.txt] fixture://docs/report.txt (The full text of the report the tool summarised)"}
+CALL   ReadMcpResourceTool {"server": "docs", "uri": "fixture://docs/report.txt"}
+MODEL  {"contents":[{"uri":"fixture://docs/report.txt","mimeType":"text/plain","text":"Quarterly report (docs).\nThe secret word for this report is MARKER-TEXT-DOCS-OCTARINE.\nRevenue rose 12 percent.\n"}]}
+ANSWER I called three tools in total.
+
+**1. `ToolSearch`** (query `select:mcp__docs__text_link,ReadMcpResourceTool`). I used this only to load the two tools below. It returned their schemas. It described `mcp__docs__text_link` as "Summarise the quarterly report. Returns a link to its full text." and `ReadMcpResourceTool` as a reader for a resource from an MCP server, given by server name and URI.
+
+**2. `mcp__docs__text_link`** (no arguments, called once). It returned:
+> The report is ready. Its full text is linked.[Resource link: report.txt] fixture://docs/report.txt (The full text of the report the … [1267 characters in all]

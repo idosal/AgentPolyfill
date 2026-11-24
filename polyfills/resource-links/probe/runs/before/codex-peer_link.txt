@@ -1,0 +1,13 @@
+ANSWER I’ll look up the docs server’s `peer_link` tool and follow the returned link through the resource reader.
+CALL   docs.peer_link {}
+MODEL  {"content": [{"type": "text", "text": "The note is on the other server."}, {"type": "resource_link", "uri": "fixture://other/note.txt", "name": "note.txt", "description": "A note that only the other server serves", "mimeType": "text/plain"}], "structured_content": null}
+CALL   other.read_mcp_resource {"server": "other", "uri": "fixture://other/note.txt"}
+MODEL  {"content": [{"type": "text", "text": "{\"server\":\"other\",\"uri\":\"fixture://other/note.txt\",\"contents\":[{\"uri\":\"fixture://other/note.txt\",\"mimeType\":\"text/plain\",\"text\":\"A note from other. MARKER-NOTE-OTHER-VIRIDIAN.\\n\"}]}"}], "structured_content": null}
+ANSWER I called the docs server’s `peer_link` once and read the linked resource on the `other` server. The resource contains one line of plain text, `A note from other. MARKER-NOTE-OTHER-VIRIDIAN.`, followed by a newline.
+
+**Tool calls and returns**
+
+1. `functions.exec` looked up `peer_link` in the tool registry. The returned array is abbreviated after 300 characters, with `…` marking the cutoff.
+
+   ```text
+   [{"name":"mcp__docs__peer_link","description":"Return a link to a note that another server (other) serves, not this one.\n\nexec tool declaration:\n```ts\ndeclare const tools: { mcp__docs__pee… [1365 characters in all]

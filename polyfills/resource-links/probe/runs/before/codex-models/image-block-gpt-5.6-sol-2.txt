@@ -1,0 +1,10 @@
+ANSWER I’ll locate the docs server’s `image_inline` tool, render its output, and inspect the chart’s color placement.
+CALL   docs.image_inline {}
+MODEL  {"content": [{"type": "image", "data": "iVBORw0KGgoAAAANSUhEUgAAAQAAAACACAIAAABr1yBdAAAB9UlEQVR4nO3TQRHAMAzAsDAZpNIfmxZGHtadIVjznavF7j9abNYPiLd+QDwAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBAEA6AABIBwAA6QAAIB0AAKQDAIB0AACQDgAA0gEAQDoAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBAEA6AABIBwAA6QAAIB0AAKQDAIB0AACQDgAA0gEAQDoAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBAEA6AABIBwAA6QAAIB0AAKQDAIB0AACQDgAA0gEAQDoAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBAEA6AABIBwAA6QAAIB0AAKQDAIB0AACQ… [841 characters in all]
+ANSWER The chart is a wide horizontal rectangle split evenly:
+
+- Left half: bright royal blue
+- Right half: vivid yellow
+- A sharp vertical boundary runs down the center
+
+There are no labels, axes, gridlines, or gradients.

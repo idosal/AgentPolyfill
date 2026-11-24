@@ -1,0 +1,15 @@
+CALL   ToolSearch {"query": "select:mcp__docs__missing_link,ReadMcpResourceTool", "max_results": 2}
+MODEL  [tool schema loaded: mcp__docs__missing_link] [tool schema loaded: ReadMcpResourceTool]
+CALL   mcp__docs__missing_link {}
+MODEL  {"type": "text", "text": "Linked."} {"type": "text", "text": "[Resource link: gone.txt] fixture://docs/gone.txt"}
+CALL   ReadMcpResourceTool {"server": "docs", "uri": "fixture://docs/gone.txt"}
+MODEL  Resource not found: fixture://docs/gone.txt — it may have been deleted or the URI is stale. Re-run ListMcpResourcesTool to refresh.
+ANSWER I couldn't read the linked resource: the docs server returned a link to a file that doesn't exist.
+
+**Tools I called:**
+
+1. **`ToolSearch`** with `select:mcp__docs__missing_link,ReadMcpResourceTool`, to load the two tools. It returned their definitions. `missing_link` describes itself as: "Return a link to a resource that does not exist."
+2. **`mcp__docs__missing_link`** (no arguments). It returned:
+   `Linked.[Resource link: gone.txt] fixture://docs/gone.txt`
+3. **`ReadMcpResourceTool`** with server `docs` and uri `fixture://docs/gone.txt`. It returned:
+   `Resource not found: fixture://docs/… [1067 characters in all]

@@ -1,0 +1,15 @@
+CALL   ToolSearch {"query": "select:mcp__docs__peer_link,ReadMcpResourceTool", "max_results": 5}
+MODEL  [tool schema loaded: mcp__docs__peer_link] [tool schema loaded: ReadMcpResourceTool]
+CALL   mcp__docs__peer_link {}
+MODEL  {"type": "text", "text": "The note is on the other server."} {"type": "text", "text": "[Resource link: note.txt] fixture://other/note.txt (A note that only the other server serves)"}
+CALL   ReadMcpResourceTool {"server": "other", "uri": "fixture://other/note.txt"}
+MODEL  {"contents":[{"uri":"fixture://other/note.txt","mimeType":"text/plain","text":"A note from other. MARKER-NOTE-OTHER-VIRIDIAN.\n"}]}
+ANSWER I called three tools, and the linked resource turned out to be a short text note, not an image.
+
+**Tools called**
+
+1. **`ToolSearch`** with `select:mcp__docs__peer_link,ReadMcpResourceTool`. It returned the schemas for both tools:
+   - `mcp__docs__peer_link`: "Return a link to a note that another server (other) serves, not this one." It takes no parameters.
+   - `ReadMcpResourceTool`: reads a resource from an MCP server, given the server name and the resource URI.
+2. **`mcp__docs__peer_link`**, called once with no arguments. It returned, verbatim:
+   `The note is on the other server.[Resource … [1280 characters in all]

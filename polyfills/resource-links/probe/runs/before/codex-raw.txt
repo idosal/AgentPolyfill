@@ -1,0 +1,8 @@
+ANSWER I’ll call the docs server’s `text_link` tool once and report the result and visible resource fields.
+CALL   docs.text_link {}
+MODEL  {"content": [{"type": "text", "text": "The report is ready. Its full text is linked."}, {"type": "resource_link", "uri": "fixture://docs/report.txt", "name": "report.txt", "title": "Quarterly report", "description": "The full text of the report the tool summarised", "mimeType": "text/plain", "size": 112}], "structured_content": null}
+ANSWER ```json
+{"content":[{"type":"text","text":"The report is ready. Its full text is linked."},{"type":"resource_link","uri":"fixture://docs/report.txt","name":"report.txt","title":"Quarterly report","description":"The full text of the report the tool summarised","mimeType":"text/plain","size":112}]}
+```
+
+I can see the linked resource’s URI, name, title, description, MIME type, and size. The annotations field is absent.

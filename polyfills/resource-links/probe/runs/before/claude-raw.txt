@@ -1,0 +1,19 @@
+CALL   ToolSearch {"query": "select:mcp__docs__text_link", "max_results": 1}
+MODEL  [tool schema loaded: mcp__docs__text_link]
+CALL   mcp__docs__text_link {}
+MODEL  {"type": "text", "text": "The report is ready. Its full text is linked."} {"type": "text", "text": "[Resource link: report.txt] fixture://docs/report.txt (The full text of the report the tool summarised)"}
+ANSWER I made one call to `mcp__docs__text_link`. Before that I had to run ToolSearch once, because the tool's schema had to be loaded before it could be called.
+
+Here is the raw result, exactly as I received it:
+
+```
+The report is ready. Its full text is linked.[Resource link: report.txt] fixture://docs/report.txt (The full text of the report the tool summarised)
+```
+
+What I can and can't see for the linked resource:
+
+| Field | Visible? | Value |
+|---|---|---|
+| URI | Yes | `fixture://docs/report.txt` |
+| Name | Yes, probably | `report.txt` |
+| Title | Can't tell | The only label shown is `report.tx… [1005 characters in all]

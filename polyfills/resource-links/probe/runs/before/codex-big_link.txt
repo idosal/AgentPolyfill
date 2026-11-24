@@ -1,0 +1,10 @@
+ANSWER I’ll call the docs tool once, then try to read the resource it returns.
+CALL   docs.big_link {}
+MODEL  {"content": [{"type": "text", "text": "The dump is ready."}, {"type": "resource_link", "uri": "fixture://docs/big.txt", "name": "big.txt", "description": "A very large text resource", "mimeType": "text/plain", "size": 3145724}], "structured_content": null}
+CALL   docs.read_mcp_resource {"server": "docs", "uri": "fixture://docs/big.txt"}
+MODEL  {"content": [{"type": "text", "text": "{\"server\":\"docs\",\"uri\":\"fixture://docs/big.txt\",\"contents\":[{\"uri\":\"fixture://docs/big.txt\",\"mimeType\":\"text/plain\",\"text\":\"MARKER-BIG-DOCS xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx… [48128 characters in all]
+ANSWER I called `mcp__docs__big_link` once, then read `fixture://docs/big.txt` with `read_mcp_resource`. The returned content was plain text beginning with `MARKER-BIG-DOCS ` followed by a long run of lowercase `x` characters. The output was truncated, so I could verify only the visible portion. I did not see an image.
+
+| Tool | Return |
+|---|---|
+| `functions.exec` (tool discovery) | `[{"name":"list_mcp_resource_templates","description":"Lists resource templates provided by MCP servers. Parameterized resource templates allow servers to share data that requires parameters and provides context to lang… [1238 characters in all]

@@ -1,0 +1,16 @@
+CALL   ToolSearch {"query": "select:mcp__docs__binary_link,ReadMcpResourceTool", "max_results": 5}
+MODEL  [tool schema loaded: mcp__docs__binary_link] [tool schema loaded: ReadMcpResourceTool]
+CALL   mcp__docs__binary_link {}
+MODEL  {"type": "text", "text": "The export is ready."} {"type": "text", "text": "[Resource link: data.bin] fixture://docs/data.bin (Raw export of the figures)"}
+CALL   ReadMcpResourceTool {"server": "docs", "uri": "fixture://docs/data.bin"}
+MODEL  {"contents":[{"uri":"fixture://docs/data.bin","mimeType":"application/octet-stream","blobSavedTo":"<home>/.claude/projects/<project>/da023fa2-9a22-47d2-ba33-c1f2d6a0759f/tool-results/mcp-resource-1795555116638-0-q17gd0.bin","text":"[Resource from docs at fixture://docs/data.bin] Binary content (application/octet-stream, 256 bytes) saved to <home>/.claude/projects/<project>/da023fa2-9a22-47d2-ba33-c1f2d6a0759f/tool-results/mcp-re… [637 characters in all]
+CALL   Read {"file_path": "<home>/.claude/projects/<project>/da023fa2-9a22-47d2-ba33-c1f2d6a0759f/tool-results/mcp-resource-1795555116638-0-q17gd0.bin"}
+MODEL  <tool_use_error>This tool cannot read binary files. The file appears to be a binary .bin file. Use a skill for this file type if one is available, or a shell command or script that can read the format.</tool_use_error>
+ANSWER I called `binary_link` once and followed its link, but I couldn't see what the file contains. It's raw binary, and the only ways left to look inside were shell commands or decoding, which you ruled out.
+
+**Tools called and what each returned:**
+
+1. **`ToolSearch`** (`select:mcp__docs__binary_link,ReadMcpResourceTool`) loaded the two tool schemas. It described `binary_link` as: "Export the raw figures. Returns a link to a binary file."
+
+2. **`mcp__docs__binary_link`** (no arguments) returned, verbatim:
+   > The export is ready.[Resource link: data.bin] fixture://docs/data.bin (Raw export of the… [1852 characters in all]

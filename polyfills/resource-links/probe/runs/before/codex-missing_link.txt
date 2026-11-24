@@ -1,0 +1,14 @@
+ANSWER I’ll find the docs tool, call it once, and use the resource reader on the link it returns.
+CALL   docs.missing_link {}
+MODEL  {"content": [{"type": "text", "text": "Linked."}, {"type": "resource_link", "uri": "fixture://docs/gone.txt", "name": "gone.txt", "mimeType": "text/plain"}], "structured_content": null}
+CALL   docs.read_mcp_resource {"server": "docs", "uri": "fixture://docs/gone.txt"}
+MODEL  {"message": "resources/read failed: resources/read failed for `docs` (fixture://docs/gone.txt): Mcp error: -32002: Resource not found"}
+ANSWER I called `mcp__docs__missing_link` once and followed its link with `read_mcp_resource`. The server returned `Resource not found`, so I couldn’t inspect the contents or see an image.
+
+**`functions.exec` tool discovery output** (abbreviated at 300 characters)
+
+```text
+[{"name":"mcp__docs__missing_link","description":"Return a link to a resource that does not exist.\n\nexec tool declaration:\n```ts\ndeclare const tools: { mcp__docs__missing_link(args: { [key: string]: unknown; }): Promise<CallToolResult>; };\n```"},{"name":"mcp__other__missing_link","description":"R…
+```
+
+**`mcp__docs__missing_li… [936 characters in all]

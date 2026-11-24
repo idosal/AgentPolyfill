@@ -1,0 +1,14 @@
+ANSWER I’ll look up the docs tool, call it once, then read the resource it returns.
+CALL   docs.text_link {}
+MODEL  {"content": [{"type": "text", "text": "The report is ready. Its full text is linked."}, {"type": "resource_link", "uri": "fixture://docs/report.txt", "name": "report.txt", "title": "Quarterly report", "description": "The full text of the report the tool summarised", "mimeType": "text/plain", "size": 112}], "structured_content": null}
+CALL   docs.read_mcp_resource {"server": "docs", "uri": "fixture://docs/report.txt"}
+MODEL  {"content": [{"type": "text", "text": "{\"server\":\"docs\",\"uri\":\"fixture://docs/report.txt\",\"contents\":[{\"uri\":\"fixture://docs/report.txt\",\"mimeType\":\"text/plain\",\"text\":\"Quarterly report (docs).\\nThe secret word for this report is MARKER-TEXT-DOCS-OCTARINE.\\nRevenue rose 12 percent.\\n\"}]}"}], "structured_content": null}
+ANSWER I called `mcp__docs__text_link` once and read the returned resource. I used the tool interface to invoke both calls without running shell commands or decoding any data.
+
+**Tool discovery** returned the following output, abbreviated at 300 characters.
+
+```text
+[{"name":"mcp__docs__big_link","description":"Return a link to a very large text resource.\n\nexec tool declaration:\n```ts\ndeclare const tools: { mcp__docs__big_link(args: { [key: string]: unknown; }): Promise<CallToolResult>; };\n```"},{"name":"mcp__docs__binary_link","description":"Export the…
+```
+
+**`mcp__docs__text_link`** returned:… [1343 characters in all]

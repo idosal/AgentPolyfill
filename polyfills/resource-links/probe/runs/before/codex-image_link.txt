@@ -1,0 +1,11 @@
+ANSWER I’ll locate the docs tool, then check whether the returned resource can be opened and viewed directly.
+CALL   docs.image_link {}
+MODEL  {"content": [{"type": "text", "text": "The chart is ready."}, {"type": "resource_link", "uri": "fixture://docs/chart.png", "name": "chart.png", "title": "Revenue chart", "description": "A chart of the report, as a PNG image", "mimeType": "image/png", "size": 558}], "structured_content": null}
+CALL   docs.read_mcp_resource {"server": "docs", "uri": "fixture://docs/chart.png"}
+MODEL  {"content": [{"type": "text", "text": "{\"server\":\"docs\",\"uri\":\"fixture://docs/chart.png\",\"contents\":[{\"uri\":\"fixture://docs/chart.png\",\"mimeType\":\"image/png\",\"blob\":\"iVBORw0KGgoAAAANSUhEUgAAAQAAAACACAIAAABr1yBdAAAB9UlEQVR4nO3TQRHAMAzAsDAZpNIfmxZGHtadIVjznavF7j9abNYPiLd+QDwAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBAEA6AABIBwAA6QAAIB0AAKQDAIB0AACQDgAA0gEAQDoAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBAEA6AABIBwAA6QAAIB0AAKQDAIB0AACQDgAA0gEAQDoAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBA… [968 characters in all]
+ANSWER The linked resource returned a PNG as an encoded blob. I could not actually see the image, so I can’t report where the colours are. I used `functions.exec` to access the tools and print their returns. I ran no shell commands and did not decode the blob.
+
+**Tool lookup via `functions.exec`** (abbreviated at 300 characters)
+
+````text
+[{"name":"mcp__docs__image_link","description":"Draw the revenue chart. Returns a link to a PNG.\n\nexec tool declaration:\n```ts\ndeclare const tools: { mcp__docs__image_link(args: { [key: string]: unknown; }): Promise<CallToolResult>; };\n```"},{"name":"mcp__other… [1290 characters in all]

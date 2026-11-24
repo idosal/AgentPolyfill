@@ -1,0 +1,58 @@
+## gpt-6.2-sol | image_link
+input_image outputs reaching the model: 1
+  exec: text(ALL_TOOLS.filter(x=>x.name.includes("image_link"))) 
+  exec: const r=await tools.mcp__docs__image_link({}); for(const c of r.content){if(c.type==="image")image(c);else text(c)} 
+  exec: try { const r=await tools.read_mcp_resource({server:"docs",uri:"fixture://docs/chart.png"}); function walk(o){if(!o||typeof o!=="object")return;if(o.blob)image(`data:${o.mimeType||"image/png"};base64,${o.blob}`);else if(o.type==="image")ima
+  exec: const r=await tools.read_mcp_resource({server:"docs",uri:"fixture://docs/chart.png"}); const x=(typeof r==="string"?JSON.parse(r):r).contents[0]; if(x.blob) image(`data:${x.mimeType};base64,${x.blob}`);else text(Object.keys(x)) 
+
+## gpt-6.2-sol | image_link
+input_image outputs reaching the model: 1
+  exec: text(ALL_TOOLS.filter(x=>/image_link|mcp__docs/.test(x.name))) 
+  exec: const r=await tools.mcp__docs__image_link({}); for(const c of r.content){if(c.type==="image") image(c);else if(c.type==="resource"&&c.resource.blob) image(`data:${c.resource.mimeType};base64,${c.resource.blob}`);else text(c)} 
+  exec: const r=await tools.read_mcp_resource({server:"docs",uri:"fixture://docs/chart.png"});for(const c of (r.contents??[])){if(c.blob)image(`data:${c.mimeType};base64,${c.blob}`);else text(c)}if(!r.contents)text(r) 
+  exec: const r=await tools.read_mcp_resource({server:"docs",uri:"fixture://docs/chart.png"});const o=typeof r==="string"?JSON.parse(r):r;const c=o.contents[0];image(`data:${c.mimeType};base64,${c.blob}`); 
+
+## gpt-6.2-sol | image_link
+input_image outputs reaching the model: 1
+  exec: text(ALL_TOOLS.filter(x=>x.name.includes("image_link")||x.name.startsWith("mcp__docs"))) 
+  exec: const r=await tools.mcp__docs__image_link({}); for(const c of r.content){if(c.type==="image")image(c);else if(c.type==="resource"&&c.resource.blob)image(`data:${c.resource.mimeType};base64,${c.resource.blob}`);else text(c);} 
+  exec: try{const r=await tools.read_mcp_resource({server:"docs",uri:"fixture://docs/chart.png"});for(const c of (r.contents??r.content??[])){if(c.blob)image(`data:${c.mimeType};base64,${c.blob}`);else if(c.type==="image")image(c);else text(c);}if(
+  exec: const r=await tools.read_mcp_resource({server:"docs",uri:"fixture://docs/chart.png"});const c=JSON.parse(r).contents[0];image(`data:${c.mimeType};base64,${c.blob}`); 
+
+## gpt-6-luna | image_link
+input_image outputs reaching the model: 0
+  exec: const matches = ALL_TOOLS.filter(x => /image_link/i.test(x.name+" "+x.description) || /docs server/i.test(x.name+" "+x.description)); text(matches); 
+  exec: const r = await tools.mcp__docs__image_link({}); text(r); 
+  exec: const r = await tools.read_mcp_resource({server:"docs",uri:"fixture://docs/chart.png"}); text(r); 
+
+## gpt-5.6-sol | image_link
+input_image outputs reaching the model: 1
+  exec: const hits = ALL_TOOLS.filter(x => x.name.includes("image_link") || (x.description || "").includes("image_link")); text(hits); 
+  exec: const r = await tools.mcp__docs__image_link({}); for (const c of (r.content || [])) {   if (c.type === "image") image(c);   else if (c.type === "resource") text(c.resource?.text || c.resource?.uri || "");   else if (c.type === "resource_lin
+  exec: const r = await tools.read_mcp_resource({server:"docs", uri:"fixture://docs/chart.png"}); for (const c of (r.content || [])) {   if (c.type === "image") image(c);   else if (c.type === "resource" && c.resource?.blob) image({type:"image", da
+  exec: const r = await tools.mcp__docs__image_link({}); text(JSON.stringify(r)); 
+  exec: const r = await tools.list_mcp_resources({server:"docs"}); text(JSON.stringify(r)); 
+  exec: const hits = ALL_TOOLS.filter(x => /resource|image|fetch|open/i.test(x.name+" "+(x.description||"")) && /link|uri|resource|image/i.test(x.description||"")); text(hits.slice(0,50)); 
+  exec: text(ALL_TOOLS.filter(x=>x.name.startsWith("mcp__docs__"))); 
+  exec: const r = await tools.mcp__docs__image_inline({}); for (const c of (r.content || [])) {   if (c.type === "image") image(c);   else if (c.type === "resource" && c.resource?.blob) image({type:"image", data:c.resource.blob, mimeType:c.resource
+
+## gpt-6-luna | image_inline
+input_image outputs reaching the model: 1
+  exec: const hits = ALL_TOOLS.filter(x => /docs|image_inline/i.test(x.name+" "+x.description)); text(hits); 
+  exec: const r = await tools.mcp__docs__image_inline({}); for (const c of (r?.content ?? [])) { if (c.type === "image") image(c); else if (c.type === "text") text(c.text); } 
+
+## gpt-5.6-sol | image_inline
+input_image outputs reaching the model: 1
+  exec: const matches = ALL_TOOLS.filter(x => x.name.includes("image_inline") || (x.description || "").includes("image_inline")); text(matches); 
+  exec: const r = await tools.mcp__docs__image_inline({}); for (const c of (r.content || [])) {   if (c.type === "image") image(c);   else if (c.type === "text") text(c.text); } 
+
+## gpt-6-luna | image_inline
+input_image outputs reaching the model: 1
+  exec: const matches = ALL_TOOLS.filter(x => /image_inline/i.test(x.name+" "+x.description)); text(matches); 
+  exec: const result = await tools.mcp__docs__image_inline({}); for (const item of (result?.content ?? [])) {   if (item.type === "image") image(item);   else if (item.type === "text") text(item.text); } 
+
+## gpt-5.6-sol | image_inline
+input_image outputs reaching the model: 1
+  exec: const matches = ALL_TOOLS.filter(x => x.name.includes("image_inline") || (x.name.includes("docs") && x.description.toLowerCase().includes("image"))); text(matches); 
+  exec: const r = await tools.mcp__docs__image_inline({}); for (const c of (r.content || [])) {   if (c.type === "image") image(c);   else if (c.type === "text") text(c.text); } 
+

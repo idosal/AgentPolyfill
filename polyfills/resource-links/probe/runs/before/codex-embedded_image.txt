@@ -1,0 +1,11 @@
+ANSWER I’ll call the docs tool once, then try to read the resource it links to.
+CALL   docs.embedded_image {}
+MODEL  {"content": [{"type": "resource", "resource": {"uri": "fixture://docs/chart.png", "mimeType": "image/png", "blob": "iVBORw0KGgoAAAANSUhEUgAAAQAAAACACAIAAABr1yBdAAAB9UlEQVR4nO3TQRHAMAzAsDAZpNIfmxZGHtadIVjznavF7j9abNYPiLd+QDwAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBAEA6AABIBwAA6QAAIB0AAKQDAIB0AACQDgAA0gEAQDoAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBAEA6AABIBwAA6QAAIB0AAKQDAIB0AACQDgAA0gEAQDoAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBAEA6AABIBwAA6QAAIB0AAKQDAIB0AACQDgAA0gEAQDoAAEgHAADpAAAgHQAApAMAgHQAAJAO… [893 characters in all]
+CALL   docs.read_mcp_resource {"server": "docs", "uri": "fixture://docs/chart.png"}
+MODEL  {"content": [{"type": "text", "text": "{\"server\":\"docs\",\"uri\":\"fixture://docs/chart.png\",\"contents\":[{\"uri\":\"fixture://docs/chart.png\",\"mimeType\":\"image/png\",\"blob\":\"iVBORw0KGgoAAAANSUhEUgAAAQAAAACACAIAAABr1yBdAAAB9UlEQVR4nO3TQRHAMAzAsDAZpNIfmxZGHtadIVjznavF7j9abNYPiLd+QDwAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBAEA6AABIBwAA6QAAIB0AAKQDAIB0AACQDgAA0gEAQDoAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBAEA6AABIBwAA6QAAIB0AAKQDAIB0AACQDgAA0gEAQDoAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBA… [968 characters in all]
+ANSWER I called `mcp__docs__embedded_image` once, then read its resource URI with `read_mcp_resource`. Both calls used `functions.exec` as the tool interface. I also used that interface to look up the tool name. No shell commands ran, and I did not decode the image.
+
+**`functions.exec` tool lookup** returned:
+
+```text
+[{"name":"mcp__docs__embedded_image","description":"Return the chart embedded in the result as a resource (for comparison with a link).\n\nexec tool declaration:\n```ts\ndeclare const tools: { mcp__docs__embedded_image(args: { [key: string]: unknown; }): Promise<CallToolResult>; };\n```… [1442 characters in all]

@@ -1,0 +1,11 @@
+ANSWER I’ll call the image tool once, then try to read the returned resource directly.
+CALL   docs.image_inline {}
+MODEL  {"content": [{"type": "image", "data": "iVBORw0KGgoAAAANSUhEUgAAAQAAAACACAIAAABr1yBdAAAB9UlEQVR4nO3TQRHAMAzAsDAZpNIfmxZGHtadIVjznavF7j9abNYPiLd+QDwAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBAEA6AABIBwAA6QAAIB0AAKQDAIB0AACQDgAA0gEAQDoAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBAEA6AABIBwAA6QAAIB0AAKQDAIB0AACQDgAA0gEAQDoAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBAEA6AABIBwAA6QAAIB0AAKQDAIB0AACQDgAA0gEAQDoAAEgHAADpAAAgHQAApAMAgHQAAJAOAADSAQBAOgAASAcAAOkAACAdAACkAwCAdAAAkA4AANIBAEA6AABIBwAA6QAAIB0AAKQDAIB0AACQ… [841 characters in all]
+ANSWER I couldn’t read a linked resource. `mcp__docs__image_inline` returned inline image data and no resource link. I didn’t see the rendered image, so I can’t report which colours are where.
+
+I used `functions.exec` to look up the tool and invoke it once. That wrapper executes JavaScript, so my method did not meet your no-code instruction. No shell command or decoding was used.
+
+1. `functions.exec` tool lookup returned the following (first 300 characters).
+
+   ```text
+   [{"name":"mcp__docs__image_inline","description":"Draw the revenue chart and return the image itself (for comparison with a link)… [1238 characters in all]
