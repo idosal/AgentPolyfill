@@ -1,14 +1,14 @@
-# mcp-events for Codex: MCP Events in Codex
+# mcp-events for Codex
 
-A Codex plugin that lets Codex watch events on your MCP servers ("tell me
-when a deploy fails") and act when one fires, even while the session sits
-idle with nobody typing. It adds the client side of the MCP **Events**
-extension, [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
-(the Final text, as of 24 November 2026), which Codex does not support for
-your own servers yet.
+Codex can watch events on your MCP servers ("tell me when a deploy fails")
+and act when one fires, even while the session sits idle with nobody typing.
 
-It is the Codex form of [`mcp-events`](../claude-code) for Claude Code, and
-shares its Events client ([`../core`](../core)).
+Also available for Claude Code: [mcp-events for Claude Code](../claude-code/README.md).
+
+This plugin implements the client side of the MCP Events extension,
+[SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
+(the Final text, as of 24 November 2026), which Codex doesn't support for your
+own servers yet. Details are in [Spec and conformance](#spec-and-conformance).
 
 ## Install
 
@@ -17,15 +17,21 @@ codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-events
 ```
 
 The first command adds the [AgentPolyfill](../../../README.md) marketplace,
-the second installs the plugin (one small folder, [`plugin/`](plugin/), about
-0.6 MB; nothing else is downloaded). It needs **Codex 0.170 or newer** and
-**Node 20 or newer** on the PATH Codex runs with. To remove it:
-`codex plugin remove mcp-events@agent-polyfill`.
+and the second installs the plugin. The install is one small folder,
+[`plugin/`](plugin/), of about 0.6 MB. Nothing else is downloaded.
+
+You need:
+
+- **Codex 0.170 or newer.**
+- **Node 20 or newer** on the PATH Codex runs with. Webhook delivery through a
+  relay needs Node 22 or newer.
+
+To remove it, run `codex plugin remove mcp-events@agent-polyfill`.
 
 ## Try it
 
-A demo server with events is hosted for anyone to try, with no sign-in. Add
-it to Codex:
+A demo server with events is hosted for anyone to try, with no sign-in. Add it
+to Codex:
 
 ```bash
 codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
@@ -37,47 +43,56 @@ Start `codex` in a folder and ask:
 
 Codex makes a private button page with the server's `new_demo_button` tool,
 gives you its link, and watches it. Open the link, type a message and press
-the button: a few seconds later the idle session gets a message that starts
+the button. A few seconds later the idle session gets a message that starts
 with `[mcp-events]`, reads the event, and tells you what you typed. That is
 the run recorded in [`docs/live-run.md`](docs/live-run.md).
 
+The same server also offers `hn.comment` (new comments in a Hacker News
+thread), `hn.story`, `npm.release`, `github.release` and `usgs.earthquake`,
+all delivered by poll.
+
 To stop: "Stop watching the demo button."
 
-## From install to the first event
+## How it works
+
+### From install to the first event
+
+Here is every step and question between the install line and an event waking
+your session, and what happens when something is missing or you say no.
 
 1. **Install** (above). Neither command asks anything.
-2. **Node 20 or newer.** Codex does not need Node itself, so check with
+2. **Node 20 or newer.** Codex doesn't need Node itself, so check with
    `node --version`. Without it, Codex reports that the `mcp-events` server
    failed to start, and nothing else happens.
-3. **An MCP server with events in your Codex configuration**: added with
-   `codex mcp add`, or a `[mcp_servers.<name>]` table in
-   `~/.codex/config.toml` (or `$CODEX_HOME`), not switched off. A server you
-   sign in to through Codex (`codex mcp login`, OAuth) does not work
-   ([Which servers it works with](#which-servers-it-works-with)).
+3. **An MCP server with events in your Codex configuration.** That is, a
+   server added with `codex mcp add`, or a `[mcp_servers.<name>]` table in
+   `~/.codex/config.toml` (or under `$CODEX_HOME`), and not switched off. A
+   server you sign in to through Codex (`codex mcp login`, OAuth) doesn't work
+   ([Servers that need sign-in](#servers-that-need-sign-in)).
 4. **Ask for a watch**, in plain words. Starting and stopping a watch go
-   through Codex's approval, like any tool that changes something: in the
-   default mode Codex asks you (or, with `approvals_reviewer = "auto_review"`,
-   its reviewer decides). Say no and nothing is watched. Reading what
+   through Codex's approval, like any tool that changes something. In the
+   default mode Codex asks you, or, with `approvals_reviewer = "auto_review"`,
+   its reviewer decides. If you say no, nothing is watched. Reading what
    happened (`get_event`, `recent_events`, `list_watches`,
-   `list_event_types`) is marked read-only, so Codex does it without asking,
-   which matters for a session that wakes while you are away.
-5. **Waking.** When an event arrives, the plugin runs `codex queue --thread
-   <this session> --message "[mcp-events] …" --resume`. A session open in the
-   Codex TUI starts a turn with it as soon as it is idle. This uses the
-   Codex app-server daemon, which the TUI starts by itself
-   (`daemon_auto_start`, a stable feature, on by default: `codex features
-   list` shows it). If you run Codex without the daemon (`--no-daemon`, or
-   with `-c` overrides or `--profile`, which make the TUI run its own server),
-   see [Where it runs](#where-it-runs).
-6. **A server that delivers only by webhook** also needs a relay, a public
+   `list_event_types`) is marked read-only, so Codex does it without asking.
+   That matters for a session that wakes while you're away.
+5. **Waking.** When an event arrives, the plugin runs
+   `codex queue --thread <this session> --message "[mcp-events] …" --resume`.
+   A session open in the Codex TUI starts a turn with it as soon as it's idle.
+   This uses the Codex app-server daemon, which the TUI starts by itself
+   (`daemon_auto_start`, a stable feature, on by default; `codex features list`
+   shows it). If you run Codex without the daemon (`--no-daemon`, or with `-c`
+   overrides or `--profile`, which make the TUI run its own server), see
+   [Where it runs](#where-it-runs).
+6. **A server that delivers only by webhook** also needs a relay: a public
    https address that holds deliveries
    ([Webhook delivery](#webhook-delivery-the-relay)). Without one, a watch on
-   such a server is refused with a message that lists the choices. Push and
+   such a server is refused, with a message that lists the choices. Push and
    poll need no relay.
 
-## What Codex can do with it
+### What Codex can do with it
 
-The plugin gives Codex six tools. You do not call them yourself; you ask in
+The plugin gives Codex six tools. You don't call them yourself: you ask in
 plain words.
 
 | You say | Codex uses |
@@ -88,13 +103,12 @@ plain words.
 | "Show me that last event in full." | `get_event`, `recent_events` |
 | "Stop watching tickets." | `unwatch_event` |
 
-A watch belongs to the Codex session that set it, and is kept on disk with
-its cursor. Events that came while the session was closed arrive when the
-watch starts again, if the server kept them
-([Limits](#limits): a resumed session's watches start at its first call of
-one of these tools).
+A watch belongs to the Codex session that set it, and is kept on disk with its
+cursor. Events that came while the session was closed arrive when the watch
+starts again, if the server kept them. A resumed session's watches start at
+its first call of one of these tools ([Limits](#limits)).
 
-## How it works
+### How the parts fit together
 
 ```
 your MCP server (SEP-3415) ──events/stream · events/poll─────────────────►  helper (plugin/dist/helper.js), an MCP server
@@ -108,76 +122,102 @@ Codex  ── tools/call (_meta.threadId = this session) ───────�
 ```
 
 - **Which session.** Every call Codex makes to an MCP server carries the
-  session's id (`_meta.threadId`). That is whose a watch is, and where its
-  wake goes.
+  session's id (`_meta.threadId`). That id says whose a watch is, and where
+  its wake goes.
 - **Finding servers.** The first time a tool is called, the helper reads the
   MCP servers in Codex's configuration, connects to each once, and keeps the
-  ones that offer events. A server found without events is not asked again
-  for a day.
+  ones that offer events. A server found without events isn't asked again for
+  a day.
 - **Watching.** A watch is one subscription. The delivery mode follows the
   SEP's guidance: webhook where a relay is set up, then push
   (`events/stream`), then poll (`events/poll`).
-- **Waking Codex.** Each event is written to disk, then the session is handed
-  a message with `codex queue`. Its first line says it is from the plugin,
-  not typed by you; the rest names the server and event type, gives the new
-  events' ids, and repeats the note Codex saved with the watch, and carries
-  nothing the server wrote. Codex reads what happened with `get_event`.
+- **Waking Codex.** Each event is written to disk first. Then the session is
+  handed a message with `codex queue`. Its first line says it's from the
+  plugin, not typed by you. The rest names the server and event type, gives
+  the new events' ids, and repeats the note Codex saved with the watch. It
+  carries nothing the server wrote: Codex reads what happened with
+  `get_event`.
 - **One process per session** runs its watches. If the same session is open
   twice, the second lists them, and takes over if the first goes.
 - **Lifetime.** Codex starts the helper with the session, as a child of the
-  app server that runs it, and stops it when the session is unloaded (about a
-  minute after you close it).
+  app server that runs it. It stops the helper when the session is unloaded,
+  about a minute after you close it.
 
-## Which servers it works with
+### Which servers it works with
 
 - **Servers that implement the Events extension** (SEP-3415), over stdio or
   Streamable HTTP, with push, poll or webhook delivery.
-- **Servers that speak the form from before the standard** (a top-level
-  `events` capability, which ChatGPT reads), by default, as the Claude Code
-  form does. Strictly the SEP says a client must not send `events/*` to a
-  server that has not advertised the extension, so this is a step outside it;
-  `MCP_EVENTS_PRE_STANDARD=off` keeps to the SEP exactly.
+- **Servers that speak the form from before the standard**, which is what
+  ChatGPT reads. They advertise events as a top-level `events` capability
+  instead of the extension. The plugin uses these by default, as the Claude
+  Code form does. Strictly, the SEP says a client must not send `events/*` to
+  a server that hasn't advertised the extension, so this is a step outside
+  it. `MCP_EVENTS_PRE_STANDARD=off` keeps to the SEP exactly.
 - **Servers that need credentials**, when the credential is in the server's
-  configuration: `http_headers`, `http_headers_helper`, or a variable named by
-  `env_http_headers` or `bearer_token_env_var` that reaches the helper (see
-  Limits).
+  configuration ([below](#servers-that-need-credentials)).
 
-It does **not** work with a server you sign in to through Codex (`codex mcp
-login`, OAuth, `auth = "chatgpt"`): Codex keeps that sign-in to itself, and
-gives a plugin no way to send `events/*` over its own connection. The
-plugin never reads Codex's stored credentials. Such a server is listed by
-`list_event_types` under `unavailable`, with the reason.
+### Servers that need credentials
 
-## Webhook delivery: the relay
+The plugin works with a server whose credential is in its configuration:
+`http_headers`, `http_headers_helper`, or a variable named by
+`env_http_headers` or `bearer_token_env_var` that reaches the helper.
+
+That last condition matters. Codex passes a plugin's server only the variables
+the plugin names: here `CODEX_HOME` and the plugin's own `MCP_EVENTS_*`. So a
+server whose token comes from `bearer_token_env_var` or `env_http_headers` is
+left out, with the reason, unless that variable reaches the helper. To use
+such a server, put the header in `http_headers` or `http_headers_helper`, or
+run the helper as an MCP server of your own, with `env_vars` naming the
+variable.
+
+### Servers that need sign-in
+
+It doesn't work with a server you sign in to through Codex (`codex mcp login`,
+OAuth, `auth = "chatgpt"`). Codex keeps that sign-in to itself, and gives a
+plugin no way to send `events/*` over its own connection. The plugin never
+reads Codex's stored credentials. `list_event_types` lists such a server under
+`unavailable`, with the reason.
+
+### Webhook delivery: the relay
 
 Push and poll need no setup. A server that delivers only by webhook needs a
-public https address, which Codex on your machine does not have. A relay is
-that address: it keeps each delivery until the plugin collects it, at once
-while the session is open and on its next start otherwise.
+public https address, which Codex on your machine doesn't have. A relay is
+that address. It keeps each delivery until the plugin collects it: at once
+while the session is open, and on its next start otherwise.
 
-- **Your own relay (recommended):** a small Cloudflare Worker on your own
-  account, the same one the Claude Code form uses (one relay serves both).
-  From a clone of this repository, with Node 22.18 or newer:
+#### Your own relay (recommended)
 
-  ```bash
-  cd polyfills/events/claude-code/mod/relay
-  npm install && npx wrangler login && npm run setup
-  ```
+This is a small Cloudflare Worker on your own account, the same one the
+Claude Code form uses. One relay serves both. From a clone of this
+repository, with Node 22.18 or newer:
 
-  It writes `~/.mcp-events/relay.json`, which the plugin reads.
-- **The public relay (opt-in):** run by Ido Salomon, the author of this
-  plugin, at `https://mcp-events-public-relay.idosalomon.workers.dev`. Off
-  unless you set `MCP_EVENTS_RELAY=public` in the environment Codex starts
-  from. Event payloads pass through it and are stored there until collected
-  (about a day at most); it cannot create or alter an event. Each watch that
-  uses it says so.
-- **A forwarder of your own:** `MCP_EVENTS_PUBLIC_URL` (and
-  `MCP_EVENTS_RECEIVER_PORT`), to the plugin's local receiver.
+```bash
+cd polyfills/events/claude-code/mod/relay
+npm install && npx wrangler login && npm run setup
+```
 
-Webhook delivery through a relay needs Node 22 or newer. The relay's own
-documentation: [`../claude-code/mod/relay/README.md`](../claude-code/mod/relay/README.md).
+It writes `~/.mcp-events/relay.json`, which the plugin reads.
 
-## Where it runs
+#### The public relay (opt-in)
+
+It's run by Ido Salomon, the author of this plugin, at
+`https://mcp-events-public-relay.idosalomon.workers.dev`. It's off unless you
+set `MCP_EVENTS_RELAY=public` in the environment Codex starts from.
+
+- **Event payloads pass through it**, and are stored there until collected,
+  for about a day at most.
+- It can't create or alter an event.
+- Each watch that uses it says so.
+
+#### A forwarder of your own
+
+Set `MCP_EVENTS_PUBLIC_URL` (and `MCP_EVENTS_RECEIVER_PORT`) to forward to
+the plugin's local receiver.
+
+The relay's own documentation is in
+[`../claude-code/mod/relay/README.md`](../claude-code/mod/relay/README.md).
+
+### Where it runs
 
 | | Tools | An event wakes the session |
 |---|---|---|
@@ -188,98 +228,57 @@ documentation: [`../claude-code/mod/relay/README.md`](../claude-code/mod/relay/R
 | The ChatGPT desktop app (Work chats) | Yes: a watch is set and stores its events | No: its chats are not local Codex sessions, which is all `codex queue` reaches. Ask for `recent_events` |
 | The IDE extension | Not tested | Not tested |
 
-Tested live in the Codex TUI 0.172.0 on macOS. The tests also run on Linux in
-CI; Windows has not been tried. On Windows the plugin runs only `codex.exe`,
-or Node with an npm install's `codex.js`, never npm's `codex.cmd`
-([`SECURITY.md`](SECURITY.md)); without either it cannot wake a session.
+It's tested live in the Codex TUI 0.172.0 on macOS. The tests also run on
+Linux in CI. Windows hasn't been tried. On Windows the plugin runs only
+`codex.exe`, or Node with an npm install's `codex.js`, never npm's `codex.cmd`
+([`SECURITY.md`](SECURITY.md)). Without either, it can't wake a session.
 
-## Limits
+### If something doesn't work
 
-- **No interactive OAuth**, as above. The change in Codex that would remove
-  this: a way for a plugin to send `events/*` (or any MCP request) over
-  Codex's own, signed-in connection, such as exposing its client's
-  `send_custom_request` through the app server.
-- **A resumed session's watches wait for a tool call.** Codex starts a
-  resumed session's MCP servers only when one of their tools is first called.
-  Until then nothing runs the session's watches. They start again, from their
-  cursors, the moment Codex calls any of this plugin's tools in that session
-  (the plugin asks Codex to call `list_watches` after a resume; asking "check
-  my watches" also does it). Seen live: asked "What are you watching?", Codex
-  answered from memory and called nothing. The change in Codex: start a
-  resumed session's plugin servers when it opens, as for a new session.
-- **It needs an open session.** Nothing starts Codex when an event arrives
-  and no session is open. (`codex queue --resume` would resume a closed
-  session in the daemon, but by then no helper is running to receive the
-  event.)
-- **The ChatGPT desktop app.** In the ChatGPT desktop app, a watch records
-  events but can't wake the chat: its threads aren't local Codex sessions
-  that `codex queue` can reach. Ask for recent events. Waking works in the
-  Codex TUI (and `codex exec` resumes). The first wake that fails this way
-  is the last one tried for that chat, and `list_watches` says why.
-- **Events wake a session only so often.** A watch can start a wake at most
-  once a minute; a session is woken at most 30 times in an hour, then told
-  once that events are waiting, and not woken again for an hour, or until,
-  sooner, you write to it and Codex calls one of the plugin's tools in that
-  turn. Telling that you wrote depends on the turn metadata Codex 0.172 sends
-  with each call (`turn_trigger`: `user`, `exec`, or voice); with an older
-  Codex, or a turn it marks otherwise, the pause ends only after its hour.
-  Nothing is dropped: `recent_events` lists what waited. Two settings below
-  change the numbers.
-- **The wake is an input message.** Codex has no separate channel for a
-  plugin's message, so it appears in the conversation like something typed,
-  with a first line saying it is from the plugin. The change in Codex: a
-  turn started by an extension, marked as such to the model and in the UI.
-- **Credentials from environment variables.** Codex passes a plugin's server
-  only the variables the plugin names (here `CODEX_HOME` and its own
-  `MCP_EVENTS_*`). A server whose token comes from `bearer_token_env_var` or
-  `env_http_headers` is left out, with the reason, unless that variable
-  reaches the helper. Put the header in `http_headers` or
-  `http_headers_helper`, or run the helper as an MCP server of your own with
-  `env_vars` naming the variable.
-- **Only `config.toml`'s servers.** Servers from a project's
-  `.codex/config.toml`, and those other plugins bring, are not read.
-- **A second connection.** The helper opens its own connection to each server
-  that offers events, so a local (stdio) server runs twice.
-- **Delivery is at least once.** After a crash at the wrong moment an event
-  can be announced twice.
-- **Sizes.** One event is at most 256 KiB, one answer from a remote server
-  4 MiB, one session's stored events 64 MiB.
-- **Managed machines.** Where your organisation manages Codex's MCP servers,
-  it connects to nothing: on macOS and Linux it looks at `/etc/codex`
-  (and, on macOS, managed-preferences profiles), on Windows at
-  `%ProgramData%\OpenAI\Codex\requirements.toml`. A Windows policy set only in
-  the registry or by MDM is not detected.
-- **One forwarder port.** With `MCP_EVENTS_PUBLIC_URL` and a fixed
-  `MCP_EVENTS_RECEIVER_PORT`, only the first session to open the receiver gets
-  the port; webhook watches in a second session fail until it is free. A relay
-  has no such limit.
-- **Experimental parts of Codex.** The app server is marked experimental in
-  Codex's CLI; `codex queue` and `daemon_auto_start` are not. Nothing needs to
-  be turned on.
+- Ask Codex "what can you watch?" If a server you expected is missing, it's
+  listed under `unavailable`, with the reason.
+- `list_watches` says when waking the session last failed, and why.
+- The log is `~/.codex/mcp-events/mcp-events.log`. Tokens are removed from it.
+- `codex mcp list` shows whether Codex sees the `mcp-events` server.
 
-## Security
+For bugs and questions, [open an issue](https://github.com/idosal/AgentPolyfill/issues)
+that names `mcp-events` for Codex, with your Codex version, your operating
+system and the relevant lines of the log. For a security problem, see
+[`SECURITY.md`](SECURITY.md) instead.
 
-An event is data from a server you configured. What the server sent reaches
-Codex only as a tool result, when Codex reads it with `get_event` or
-`recent_events`. The message that wakes the session carries nothing the
-server wrote: only which watch has new events, how many, and their ids.
-Receiving an event gives Codex no permission it did not already have. Keep in
-mind that an event arrives without anyone asking, so in a session that
-approves actions without asking, a server you watch can set work in motion,
-as often as the wake limit allows. Details, what is stored, and how to report
-a vulnerability: [`SECURITY.md`](SECURITY.md).
+### What differs between Claude Code and Codex
+
+Both forms share the same Events client ([`../core`](../core)). Where they
+differ:
+
+| | Claude Code | Codex |
+|---|---|---|
+| What runs | A mod: a hooks module inside Claude Code, and a helper process it starts | A plugin: a helper that Codex starts as an MCP server for each session |
+| Needs | Claude Code 2.1.326 or newer; Node 20 or newer, or Bun | Codex 0.170 or newer; Node 20 or newer on the PATH Codex runs with |
+| No Node on the machine | `/mcp-events setup` fetches Bun (macOS and Linux) | Codex reports that the `mcp-events` server failed to start; the plugin downloads nothing |
+| Who a watch belongs to | The project folder. One session per project runs the watches | The Codex session that set it (`_meta.threadId`). One process per session runs them |
+| Asking before a tool runs | Claude Code asks the first time Claude uses each tool, in the default permission mode | `watch_event` and `unwatch_event` go through Codex's approval; the four tools that only read run without asking |
+| How a wake arrives | `$.prompt.submit`, shown as "Prompt from the mcp-events plugin" | `codex queue --thread <id> --message "[mcp-events] …" --resume`, an input message whose first line says it's from the plugin |
+| After 30 wakes in an hour | Not woken again until you send a message | Not woken again for an hour, or until you write and Codex calls one of the plugin's tools in that turn (this needs Codex 0.172's turn metadata) |
+| Servers it reads | Claude Code's configuration scopes, and only servers Claude Code itself uses in the session | `[mcp_servers.*]` in `config.toml`; not a project's `.codex/config.toml`, and not servers other plugins bring |
+| Servers it can't reach | `/mcp` OAuth sign-in, and claude.ai connectors | `codex mcp login`, OAuth, `auth = "chatgpt"`; and tokens in variables that don't reach the helper |
+| Setting up your own relay | `/mcp-events:relay-setup` inside Claude Code, or by hand | By hand, from a clone. The same relay serves both forms |
+| A session you come back to | Watches pick up when Claude Code starts in the project again | A resumed session's watches start at its first call of one of the plugin's tools |
+| One prompt, then exit | `claude -p`: tools work, no wake | `codex exec`: tools work, no wake |
+| Where state is kept | The plugin's data folder | `$CODEX_HOME/mcp-events` |
+| Tested live | Claude Code on macOS | The Codex TUI 0.172.0 on macOS |
 
 ## Settings
 
-Environment variables, in the environment Codex's app server runs with (the plugin
-passes on only these; for the daemon that is the environment it was started
-from, so run `codex app-server daemon restart` after a change). None is
-needed to start.
+Settings are environment variables, in the environment Codex's app server
+runs with. The plugin passes on only these. For the daemon, that is the
+environment it was started from, so run `codex app-server daemon restart`
+after a change. You don't need any of them to start.
 
 | Variable | What it does |
 |---|---|
 | `MCP_EVENTS_OFF=1` | Installed, and doing nothing (no tools). |
-| `MCP_EVENTS_PRE_STANDARD` | `off` refuses servers that advertise events only in the form from before the standard; a comma-separated list allows that form for those servers only. |
+| `MCP_EVENTS_PRE_STANDARD` | `off` refuses servers that advertise events only in the form from before the standard. A comma-separated list of server names allows that form for those servers only. |
 | `MCP_EVENTS_SERVERS` / `MCP_EVENTS_SKIP` | Only these server names, or never these. |
 | `MCP_EVENTS_CONFIG` | A servers file of your own (TOML `[mcp_servers.*]`, or JSON `{"mcpServers": …}`) instead of `config.toml`. |
 | `MCP_EVENTS_CODEX_BIN` | The full path of the `codex` to run `codex queue` with. Default: the first on the PATH, then where Codex's installers put it. |
@@ -287,47 +286,127 @@ needed to start.
 | `MCP_EVENTS_BATCH_MS` | How long the plugin waits after an event before waking, so a burst is one message. Default 1000. |
 | `MCP_EVENTS_WAKE_GAP_S` | The least time between two wakes one watch starts, in seconds. Default 60; 0 for none. |
 | `MCP_EVENTS_WAKES_PER_HOUR` | How many times events may wake a session in an hour. Default 30; 0 for no limit. |
-| `MCP_EVENTS_WAKE_VALUES=1` | Put a few short payload fields into the wake message. Off by default: it puts text a server wrote into the conversation. |
+| `MCP_EVENTS_WAKE_VALUES=1` | Put a few short payload fields into the wake message. Off by default, because it puts text a server wrote into the conversation. |
 | `MCP_EVENTS_MIN_POLL_MS` | The least time between two polls of one watch. Default 1000. |
-| `MCP_EVENTS_RELAY=public`, `MCP_EVENTS_RELAY_URL`, `MCP_EVENTS_RELAY_ACCESS_KEY`, `MCP_EVENTS_RELAY_FILE` | The relay, as above. |
+| `MCP_EVENTS_RELAY=public`, `MCP_EVENTS_RELAY_URL`, `MCP_EVENTS_RELAY_ACCESS_KEY`, `MCP_EVENTS_RELAY_FILE` | The relay ([Webhook delivery](#webhook-delivery-the-relay)). |
 | `MCP_EVENTS_PUBLIC_URL`, `MCP_EVENTS_RECEIVER_PORT` | A forwarder of your own to the local receiver. |
 | `MCP_EVENTS_STATE` | Where watches and events are kept. Default `$CODEX_HOME/mcp-events`. |
 
-## If something does not work
+### When Codex supports Events itself
 
-- Ask Codex "what can you watch?" A server you expected that is missing is
-  listed under `unavailable`, with the reason.
-- `list_watches` says when waking the session last failed, and why.
-- The log is `~/.codex/mcp-events/mcp-events.log`; tokens are removed from it.
-- `codex mcp list` shows whether Codex sees the `mcp-events` server.
+This plugin is a stopgap. Codex supports Events today only for OpenAI's own
+hosted apps server. Once it handles them for your servers, remove this plugin
+(`codex plugin remove mcp-events@agent-polyfill`) or set `MCP_EVENTS_OFF=1`.
+Running both would show each event twice. The plugin can't stand down by
+itself: Codex gives a plugin no way to see what its own MCP client supports.
 
-Bugs and questions: [open an issue](https://github.com/idosal/AgentPolyfill/issues)
-that names `mcp-events` for Codex, with your Codex version, your operating
-system and the relevant lines of the log.
+## Limits
 
-## When Codex supports Events itself
+The changes both hosts would need are in
+[What hosts would need to change](../../../docs/host-changes.md).
 
-Codex supports Events today only for OpenAI's own hosted apps server. Once it
-handles them for your servers, remove this plugin (`codex plugin remove
-mcp-events@agent-polyfill`) or set `MCP_EVENTS_OFF=1`; running both would
-show each event twice. It cannot stand down by itself: Codex gives a plugin
-no way to see what its own MCP client supports.
+- **No interactive OAuth** ([Servers that need sign-in](#servers-that-need-sign-in)).
+  The change in Codex that would remove this: a way for a plugin to send
+  `events/*`, or any MCP request, over Codex's own, signed-in connection. One
+  way is to expose its client's `send_custom_request` through the app server.
+- **It needs an open session.** Nothing starts Codex when an event arrives and
+  no session is open. (`codex queue --resume` would resume a closed session in
+  the daemon, but by then no helper is running to receive the event.)
+- **A resumed session's watches wait for a tool call.** Codex starts a resumed
+  session's MCP servers only when one of their tools is first called. Until
+  then nothing runs the session's watches. They start again, from their
+  cursors, the moment Codex calls any of this plugin's tools in that session.
+  The plugin asks Codex to call `list_watches` after a resume, and asking
+  "check my watches" also does it. Seen live: asked "What are you watching?",
+  Codex answered from memory and called nothing. The change in Codex: start a
+  resumed session's plugin servers when it opens, as for a new session.
+- **The ChatGPT desktop app.** In the ChatGPT desktop app, a watch records
+  events but can't wake the chat: its threads aren't local Codex sessions
+  that `codex queue` can reach. Ask for recent events. Waking works in the
+  Codex TUI (and `codex exec` resumes). The first wake that fails this way is
+  the last one tried for that chat, and `list_watches` says why.
+- **Events wake a session only so often.** A watch can start a wake at most
+  once a minute. A session is woken at most 30 times in an hour. Then it's
+  told once that events are waiting, and isn't woken again for an hour, or
+  until, sooner, you write to it and Codex calls one of the plugin's tools in
+  that turn. Telling that you wrote depends on the turn metadata Codex 0.172
+  sends with each call (`turn_trigger`: `user`, `exec`, or voice). With an
+  older Codex, or a turn it marks otherwise, the pause ends only after its
+  hour. Nothing is dropped: `recent_events` lists what waited. Two
+  [settings](#settings) change the numbers.
+- **The wake is an input message.** Codex has no separate channel for a
+  plugin's message, so it appears in the conversation like something typed,
+  with a first line saying it's from the plugin. The change in Codex: a turn
+  started by an extension, marked as such to the model and in the UI.
+- **Credentials from environment variables** reach the plugin only if the
+  plugin names them ([Servers that need credentials](#servers-that-need-credentials)).
+- **Only `config.toml`'s servers.** Servers from a project's
+  `.codex/config.toml`, and those other plugins bring, aren't read.
+- **A second connection.** The helper opens its own connection to each server
+  that offers events, so a local (stdio) server runs twice.
+- **Delivery is at least once.** After a crash at the wrong moment an event
+  can be announced twice.
+- **Sizes.** One event is at most 256 KiB, one answer from a remote server
+  4 MiB, and one session's stored events 64 MiB.
+- **Managed machines.** Where your organisation manages Codex's MCP servers,
+  the plugin connects to nothing. On macOS and Linux it looks at `/etc/codex`
+  (and, on macOS, managed-preferences profiles). On Windows it looks at
+  `%ProgramData%\OpenAI\Codex\requirements.toml`. A Windows policy set only in
+  the registry or by MDM isn't detected.
+- **One forwarder port.** With `MCP_EVENTS_PUBLIC_URL` and a fixed
+  `MCP_EVENTS_RECEIVER_PORT`, only the first session to open the receiver gets
+  the port. Webhook watches in a second session fail until it's free. A relay
+  has no such limit.
+- **Experimental parts of Codex.** The app server is marked experimental in
+  Codex's CLI. `codex queue` and `daemon_auto_start` aren't. Nothing needs to
+  be turned on.
 
-## Proof and conformance
+## Security
 
-- [`docs/live-run.md`](docs/live-run.md): a watch made from a real Codex
-  session, a button press, and the idle session waking and answering; then
-  the same session resumed and woken again.
-- [`docs/interop.md`](docs/interop.md): runs against servers others wrote:
-  hookbench's reference server (7 of 7), Hookdeck's Outpost demo against its
-  own mock Outpost (4 of 4), and this repository's event-feeds (3 of 3).
-  mcp-mailbox is a relay, not an Events server, and was not run.
-- [`docs/conformance.md`](docs/conformance.md): the SEP's client rules, which
-  the shared client meets (the clause-by-clause table is the Claude Code
-  form's), and which of them this form's tests check end to end. The
-  upstream conformance suite's Events client scenarios (its open pull request
-  #541) pass 17 of 17, against the shared client and end to end through the
-  bundled helper (`npm run conformance`, `npm run conformance:helper`).
+An event is data from a server you configured. What the server sent reaches
+Codex only as a tool result, when Codex reads it with `get_event` or
+`recent_events`.
+
+The message that wakes the session carries nothing the server wrote: only
+which watch has new events, how many, and their ids.
+
+Receiving an event gives Codex no permission it didn't already have. Keep in
+mind that an event arrives without anyone asking. So in a session that
+approves actions without asking, a server you watch can set work in motion, as
+often as the [wake limit](#limits) allows.
+
+A watch belongs to the Codex session that set it, and another session sees
+none of its watches or events. Starting and stopping a watch go through
+Codex's approval. The plugin never reads Codex's stored credentials, and it
+leaves alone servers that sign in through Codex. Details, what is stored, and
+how to report a vulnerability are in [`SECURITY.md`](SECURITY.md).
+
+## Spec and conformance
+
+mcp-events implements
+[SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md),
+the Final text as of 24 November 2026. One step outside it is on by default:
+servers that advertise events in the form from before the standard
+([Which servers it works with](#which-servers-it-works-with)).
+`MCP_EVENTS_PRE_STANDARD=off` makes it follow the SEP exactly.
+
+### Proof
+
+- [`docs/conformance.md`](docs/conformance.md) covers the SEP's client rules,
+  which the shared client meets, and which of them this form's tests check end
+  to end. The clause-by-clause table is in the Claude Code form's
+  [`docs/conformance.md`](../claude-code/docs/conformance.md), since both forms
+  run the same client. The upstream conformance suite's Events client
+  scenarios (its open pull request #541) pass 17 of 17, against the shared
+  client and end to end through the bundled helper (`npm run conformance`,
+  `npm run conformance:helper`).
+- [`docs/interop.md`](docs/interop.md) records runs against servers others
+  wrote: hookbench's reference server (7 of 7), Hookdeck's Outpost demo
+  against its own mock Outpost (4 of 4), and this repository's event-feeds
+  (3 of 3). mcp-mailbox is a relay, not an Events server, and wasn't run.
+- [`docs/live-run.md`](docs/live-run.md) records a watch made from a real
+  Codex session, a button press, and the idle session waking and answering.
+  Then the same session is resumed and woken again.
 
 ## Development
 
@@ -342,22 +421,30 @@ npm run build             # plugin/dist/helper.js; a test fails when it is stale
 node ../../../tools/bundle-notices.mjs . --plugin plugin   # plugin/THIRD_PARTY_LICENSES.txt
 ```
 
-- [`plugin/`](plugin/) is what gets installed, and all of it: the manifest
-  (`.codex-plugin/plugin.json`), the server's entry (`.mcp.json`), the
-  bundled helper (`dist/helper.js`) and a skill.
+- [`plugin/`](plugin/) is what gets installed, all of it: the manifest
+  (`.codex-plugin/plugin.json`), the server's entry (`.mcp.json`), the bundled
+  helper (`dist/helper.js`) and a skill.
 - `src/` is what is specific to Codex: reading `config.toml`
   (`codex-config.ts`), the MCP server Codex starts (`mcp-server.ts`,
   `helper.ts`), sessions (`threads.ts`, `meta.ts`), waking (`waker.ts`) and
   what it says (`words.ts`). The rest is [`../core`](../core).
-- `test/` runs the helper as Codex does, against the Claude Code form's
-  fixture events server (written from the SEP, sharing no code with the
-  client), with a stand-in `codex`; `test/interop/run.ts` runs the interop.
-  CI: [`codex-events-test.yml`](../../../.github/workflows/codex-events-test.yml).
+- `test/` runs the helper as Codex does, with a stand-in `codex`, against the
+  Claude Code form's fixture events server. That server was written from the
+  SEP and shares no code with the client. `test/interop/run.ts` runs the
+  interop. CI: [`codex-events-test.yml`](../../../.github/workflows/codex-events-test.yml).
 - To release, change the version in `plugin/.codex-plugin/plugin.json`,
   `package.json` and `src/version.ts`, rebuild, and merge to `main`.
 
 ## Licence
 
-Apache-2.0. See [`LICENSE`](../../../LICENSE). The bundled helper includes
-npm packages under their own licences:
+Part of [AgentPolyfill](../../../README.md): MCP extensions for hosts that
+haven't shipped them yet.
+
+Apache-2.0. See [`LICENSE`](../../../LICENSE). The bundled helper includes npm
+packages under their own licences:
 [`plugin/THIRD_PARTY_LICENSES.txt`](plugin/THIRD_PARTY_LICENSES.txt).
+
+This is a community project. It isn't affiliated with or endorsed by
+Anthropic, OpenAI, the Model Context Protocol project, the Agentic AI
+Foundation or the Linux Foundation. Claude and Claude Code are trademarks of
+Anthropic, PBC. OpenAI and Codex are trademarks of OpenAI.
