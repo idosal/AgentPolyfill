@@ -9,12 +9,12 @@ It adds the client side of the MCP **Skills** extension
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md),
 Final), which Claude Code does not support by itself yet.
 
-![A Claude Code session lists the 25 skills that Hugging Face's MCP server serves. Asked which model quantization to use on a 16 GB Mac, Claude picks the matching skill, Claude Code asks once whether to load it, and Claude reads the skill's files from the server and answers from them.](docs/media/demo.webp)
+![A Claude Code session lists the 25 skills that Hugging Face's MCP server serves. Asked which model quantization to use on a 16 GB Mac, Claude picks the matching skill, Claude Code asks once whether to load it, and Claude reads the skill's files from the server and answers from them.](docs/media/demo.gif)
 
 *A real session against Hugging Face's public MCP server, which you can add
 yourself with one line of configuration (below). The picture zooms in on parts
 of the terminal, and waits are shortened.
-[Full video](docs/media/demo.mp4) (34 seconds).*
+[Full video](docs/media/demo.mp4) (21 seconds).*
 
 ## Install
 

@@ -11,11 +11,11 @@ type into it. Existing MCP servers work unmodified.
 
 ![Real pixels on the left, character cells on the right](docs/demo-side-by-side.png)
 
-The [video](https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4) (57 s, MP4)
-shows the same prompts in two terminals: pixels on the left, cells on the
-right. It plays DOOM through an arcade MCP App, then a cohort heatmap, a
-three.js scene Claude writes, and a live system monitor. Each side is one
-real `claude` session.
+The [video](https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4) (32 s, MP4)
+is one real `claude` session: a cohort heatmap from an MCP server opens under
+the tool call and answers the pointer, a 3D scene Claude writes turns when
+dragged, and the same heatmap is shown in character cells. The still above is
+from an earlier recording of two terminals side by side.
 
 ## Install
 
