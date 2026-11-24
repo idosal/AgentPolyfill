@@ -24,9 +24,7 @@ const audiences = home.audiences.map((a) => ({
   display: grid;
   grid-template-columns: 1fr;
   gap: 32px;
-  margin-top: 32px;
-  border-top: 1px solid var(--vp-c-divider);
-  padding-top: 32px;
+  margin-top: 24px;
 }
 @media (min-width: 760px) {
   .ap-aud {
