@@ -2,7 +2,7 @@
 
 import type { EngineInterface, On } from 'claude-code'
 import type { View } from './state'
-import { discover, helper, send } from './helper'
+import { discover, helper, send, usedByClaudeCode } from './helper'
 import { dropView, openView, saveViews } from './views'
 import { earlyCalls, ENGINE, modelContext, openings, partialArgs, ranCalls, seenCalls, state, views, withheldCalls } from './state'
 import { offerFullscreenSoon } from './fullscreen'
@@ -238,12 +238,16 @@ function warmFor($: EngineInterface, names: readonly unknown[]) {
  * is made ready for it in the terminal's theme and the tool's UI read ahead
  * too (see the helper's /prewarm), so its first picture waits on none of
  * them; a server not known to have apps gets Chrome alone, not a tab (about
- * 30 MB) for a view that may never come. Only names go, never arguments.
+ * 30 MB) for a view that may never come. Only names go, never arguments,
+ * and nothing at all for a server Claude Code doesn't use (usedByClaudeCode).
  */
 function prewarm($: EngineInterface, server: string, tool: string, likely: boolean) {
-  if (!likely) return helper($, '/prewarm', {}).catch(() => {})
-  return terminalTheme($)
-    .then((theme) => helper($, '/prewarm', { server, tool, theme }))
+  return usedByClaudeCode($, server)
+    .then((used) => {
+      if (!used) return
+      if (!likely) return helper($, '/prewarm', {})
+      return terminalTheme($).then((theme) => helper($, '/prewarm', { server, tool, theme }))
+    })
     .catch(() => {})
 }
 
