@@ -26,7 +26,7 @@ hero:
 
 <div class="ap-home"><div class="wrap">
 
-<p class="poc"><strong>An early proof of concept.</strong> It works today, and it has real gaps. Events, Skills and Apps can't reach servers behind OAuth yet, Apps doesn't run in Codex, and a few spec rules can't be met from a plugin. Each gap comes from what the hosts' plugin APIs expose, and small, generic changes to those APIs would close them: <a href="/guide/how-it-works#how-it-works-in-each-host-and-where-it-stops">what hosts would need to change</a>.</p>
+<p class="poc"><strong>An early proof of concept.</strong> Some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs. <a href="/guide/how-it-works#how-it-works-in-each-host-and-where-it-stops">What's missing</a>.</p>
 
 <section aria-label="The launch video">
   <LaunchVideo />
