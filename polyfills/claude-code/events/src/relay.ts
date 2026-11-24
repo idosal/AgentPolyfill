@@ -13,7 +13,7 @@
 // "the relay refused", never quoted, because what this plugin reports reaches a model.
 
 import { randomBytes } from 'node:crypto';
-import { closeSync, constants, existsSync, fstatSync, openSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, constants, existsSync, fstatSync, openSync, readFileSync, writeFileSync } from 'node:fs';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { homedir } from 'node:os';
@@ -108,8 +108,12 @@ export function mailboxKey(dir: string, relay = ''): string {
     if (existsSync(file)) {
         try {
             const saved = JSON.parse(readFileSync(file, 'utf8')) as { key?: unknown; relay?: unknown };
-            // The key belongs to one relay: it is not shown to another one.
-            if (typeof saved.key === 'string' && KEY_RE.test(saved.key) && (saved.relay === undefined || saved.relay === relay)) return saved.key;
+            // The key belongs to one relay, the one it was made for: it is not shown to another one. A
+            // saved key that does not say which relay it is for is not used at all.
+            if (typeof saved.key === 'string' && KEY_RE.test(saved.key) && saved.relay === relay) {
+                if (process.platform !== 'win32') chmodSync(file, 0o600);
+                return saved.key;
+            }
         } catch {
             // unreadable: make a new one (watches at the old mailbox subscribe again at the new)
         }
@@ -129,6 +133,8 @@ export type RelayOptions = {
     owner?: () => boolean;
     /** Opens the socket (tests stand in for the relay with one of their own). */
     socket?: (url: string, protocols: string[]) => WebSocket;
+    /** The most bytes of delivery bodies waiting to be judged at once (tests lower it). */
+    maxWaitingBytes?: number;
 };
 
 type Pending = { resolve: (m: Extract<RelayMessage, { t: 'ok' }>) => void; reject: (e: Error) => void; timer: NodeJS.Timeout };
@@ -139,9 +145,15 @@ const PING_EVERY_MS = 25000;
 const PONG_WITHIN_MS = 10000;
 /** After another connection took this mailbox over, wait before taking it back, so two processes don't trade it forever. */
 const REPLACED_WAIT_MS = 30000;
-/** The largest frame taken from the relay (a delivery is at most 1 MiB of body plus its headers), and the most deliveries waiting to be judged. */
-const MAX_FRAME = 2 * 1024 * 1024;
+/**
+ * The largest frame taken from the relay: a delivery's body is at most 256 KiB (handleDelivery
+ * measures it), which as a JSON string inside the frame is at most about twice that, plus headers.
+ * And the most deliveries waiting to be judged, in number and in bytes of body.
+ */
+const MAX_FRAME = 768 * 1024;
 const MAX_WAITING = 2000;
+/** More than a relay holds for one mailbox by default (16 MiB), so what a relay kept while Claude Code was closed fits. */
+const MAX_WAITING_BYTES = 24 * 1024 * 1024;
 const HEADER = /^[\x20-\x7e]{1,2048}$/;
 
 export class RelayClient {
@@ -160,8 +172,17 @@ export class RelayClient {
     /** Per hook: how many held deliveries an `add` is still waiting for. */
     #flush = new Map<string, { left: number; done: () => void }>();
     #waiting = 0;
+    #waitingBytes = 0;
     /** Hooks asked for on the current connection. */
     #attached = new Set<string>();
+    /**
+     * Hooks the relay still sends for on this connection although collecting for them stopped here
+     * (the relay is told only when an address is retired), and which of those had a delivery arrive
+     * meanwhile. The relay sends what it holds for a hook once per connection, so collecting such a
+     * hook again takes a new connection.
+     */
+    #stale = new Set<string>();
+    #missed = new Set<string>();
     #backoff: number;
     #retry?: NodeJS.Timeout;
     #ping?: NodeJS.Timeout;
@@ -212,6 +233,8 @@ export class RelayClient {
         });
         this.#ws = ws;
         this.#attached.clear();
+        this.#stale.clear();
+        this.#missed.clear();
         ws.addEventListener('message', (e) => this.#onMessage(ws, e.data));
         ws.addEventListener('close', (e) => this.#onClose(ws, e.code));
         this.#backoff = this.#o.backoffMs ?? 1000;
@@ -231,9 +254,15 @@ export class RelayClient {
             const mailbox = await this.#mailboxId();
             const u = new URL(`${this.url}/mailboxes/${mailbox}/socket`);
             const status = await new Promise<number>((resolve, reject) => {
-                const req = (u.protocol === 'https:' ? httpsRequest : httpRequest)(u, { method: 'GET', headers: { 'sec-websocket-protocol': this.#protocols().join(', ') }, timeout: 8000 }, (res) => {
+                // Asked as the WebSocket itself asks, so the answer is the one the WebSocket got.
+                const headers = { connection: 'Upgrade', upgrade: 'websocket', 'sec-websocket-version': '13', 'sec-websocket-key': randomBytes(16).toString('base64'), 'sec-websocket-protocol': this.#protocols().join(', ') };
+                const req = (u.protocol === 'https:' ? httpsRequest : httpRequest)(u, { method: 'GET', headers, timeout: 8000 }, (res) => {
                     resolve(res.statusCode ?? 0);
                     res.destroy(); // the body is not read
+                });
+                req.on('upgrade', (_res, socket) => {
+                    socket.destroy();
+                    resolve(101);
                 });
                 req.on('timeout', () => req.destroy(new Error('timed out')));
                 req.on('error', reject);
@@ -243,6 +272,8 @@ export class RelayClient {
             if (status === 401) return `${where} refused this project's mailbox key.`;
             if (status === 503) return `${where} is not accepting connections (status 503). A relay with no access key set refuses everyone: see relay/README.md.`;
             if (status === 426) return `${where} accepts these credentials, but the WebSocket could not be opened.`;
+            if (status === 429) return `${where} is not opening new mailboxes or connections right now (it limits how many it opens). Try again later${this.#o.settings.isPublic ? ', or set up a relay of your own (/mcp-events:relay-setup)' : ''}.`;
+            if (status === 101) return `${where} accepted the connection on a second try; try again.`;
             return `${where} answered status ${status}. Is that address an mcp-events relay?`;
         } catch (e) {
             const sys = (e as { code?: unknown })?.code;
@@ -302,11 +333,18 @@ export class RelayClient {
                 return void this.#log('relay: dropped a malformed delivery');
             }
             // More waiting than could be real: leave the rest at the relay, which sends them again on the next connection.
-            if (this.#waiting >= MAX_WAITING) return;
+            const bytes = d.body.length;
+            if (this.#waiting >= MAX_WAITING || this.#waitingBytes + bytes > (this.#o.maxWaitingBytes ?? MAX_WAITING_BYTES)) {
+                if (this.#hooks.has(d.hook)) this.#missed.add(d.hook);
+                return;
+            }
             this.#waiting++;
+            this.#waitingBytes += bytes;
             this.#work = this.#work.then(async () => {
                 try {
                     const hook = this.#hooks.get(d.hook);
+                    // Not collected for here just now: it stays at the relay, and is asked for again when it is.
+                    if (!hook) this.#missed.add(d.hook);
                     if (hook) {
                         let r: { status: number; reason?: string };
                         try {
@@ -323,6 +361,7 @@ export class RelayClient {
                     }
                 } finally {
                     this.#waiting--;
+                    this.#waitingBytes -= bytes;
                     const f = this.#flush.get(d.hook);
                     if (f && --f.left <= 0) f.done();
                 }
@@ -349,7 +388,7 @@ export class RelayClient {
         }
     }
 
-    #onClose(ws: WebSocket, code: number): void {
+    #onClose(ws: WebSocket, code: number, reopening = false): void {
         if (ws !== this.#ws) return;
         clearInterval(this.#ping);
         clearTimeout(this.#pong);
@@ -362,7 +401,7 @@ export class RelayClient {
             this.#pending.delete(n);
         }
         for (const f of this.#flush.values()) f.done();
-        if (this.#closed || this.#hooks.size === 0) return;
+        if (reopening || this.#closed || this.#hooks.size === 0) return;
         if (code === 4001 && this.#o.owner && !this.#o.owner()) {
             // Another process runs this project's watches now, and has the mailbox: leave it be.
             this.#log('relay: another Claude Code session took over this project\'s watches and its mailbox; this one stops collecting');
@@ -406,6 +445,7 @@ export class RelayClient {
     async #attach(hook: string): Promise<void> {
         const ok = await this.#request({ t: 'add', hook });
         this.#attached.add(hook);
+        this.#stale.delete(hook);
         const held = Number(ok.queued ?? 0);
         if (held <= 0) return;
         await new Promise<void>((resolve) => {
@@ -427,6 +467,9 @@ export class RelayClient {
         if (!HOOK_RE.test(hook)) throw new LocalError('not a hook name');
         this.#hooks.set(hook, h);
         try {
+            // The relay will not send again, on this connection, what it sent while nobody here collected
+            // for this hook: start a new connection, on which it sends all it still holds.
+            if (this.#stale.has(hook) && this.#missed.has(hook)) this.#reopen();
             await this.#ensure();
         } catch (e) {
             this.#hooks.delete(hook);
@@ -438,8 +481,20 @@ export class RelayClient {
     /** Stops collecting for a hook. `forget` also retires its address at the relay, for good. */
     async remove(hook: string, forget: boolean): Promise<void> {
         this.#hooks.delete(hook);
-        this.#attached.delete(hook);
+        if (this.#attached.delete(hook) && !forget) this.#stale.add(hook);
         if (forget && this.#ws?.readyState === WebSocket.OPEN) await this.#request({ t: 'remove', hook }).catch((e) => this.#log(`relay: ${e instanceof LocalError ? e.message : 'could not retire an address'}`));
+    }
+
+    /** Drops the current connection without waiting for it, so the next `connect` starts a new one. */
+    #reopen(): void {
+        const ws = this.#ws;
+        if (!ws) return;
+        this.#onClose(ws, 1000, true);
+        try {
+            ws.close();
+        } catch {
+            // already closing
+        }
     }
 
     async close(): Promise<void> {

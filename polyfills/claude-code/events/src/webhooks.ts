@@ -57,6 +57,9 @@ export const REPLAY_SLACK_S = 10 * 60;
 export const MAX_AGE_S = 8 * 24 * 3600;
 const MAX_REMEMBERED = 5000;
 
+/** The longest cursor kept. A cursor is the server's own text, saved with the watch: one longer than this is treated as no cursor. */
+export const MAX_CURSOR = 16 * 1024;
+
 export type ReplayState = { newest?: number; floor?: number; recent: [id: string, timestamp: number][] };
 
 /**
@@ -150,6 +153,9 @@ export function isChallenge(raw: string): boolean {
  * a direct POST, the relay's receipt time for one the relay held.
  */
 export async function handleDelivery(hook: Hook, headers: Record<string, string | string[] | undefined>, raw: string, o: { nowS?: number } = {}): Promise<Outcome> {
+    // The same bound however it arrived: the receiver stops reading at this size, and what a relay
+    // hands over is measured here (its word on what it let through is not taken).
+    if (Buffer.byteLength(raw, 'utf8') > MAX_BODY) return { status: 413, reason: 'larger than 256 KiB' };
     const v = verify(hook.secret, headers, raw, o.nowS);
     // Stale: not wanted again, so the server is told not to retry it (410). Anything else that does not verify is refused.
     if (!v.ok) return { status: v.stale ? 410 : 401, reason: v.reason };
@@ -171,7 +177,7 @@ export async function handleDelivery(hook: Hook, headers: Record<string, string 
     let undo: (() => void) | undefined;
     try {
         if (typeof body.type === 'string') {
-            if (body.type === 'gap') await hook.onGap?.(typeof body.cursor === 'string' ? body.cursor : null, subId);
+            if (body.type === 'gap') await hook.onGap?.(typeof body.cursor === 'string' && body.cursor.length <= MAX_CURSOR ? body.cursor : null, subId);
             else if (body.type === 'terminated') {
                 const code = (body.error as { code?: unknown } | undefined)?.code;
                 await hook.onTerminated?.({ code: typeof code === 'number' ? code : undefined });

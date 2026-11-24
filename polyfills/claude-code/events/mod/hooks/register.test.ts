@@ -4,6 +4,7 @@
 
 import type { On } from 'claude-code'
 import { expect, test } from 'claude-code/testing'
+import { isThePersons } from './tools'
 
 // The test environment has timers; the mod API's types leave them out.
 declare const setTimeout: (fn: () => void, ms: number) => unknown
@@ -140,4 +141,16 @@ test('MCP_EVENTS_OFF=1: installed, and doing nothing', async ($, on) => {
   await settle()
   expect(seen.registered).toEqual([])
   expect(seen.spawned).toEqual([])
+})
+
+test("the helper is told when the person speaks, and not when a plugin's prompt (the mod's own wake) goes by", async ($, on) => {
+  const { seen } = standIn(on, { node: 'v22.3.0', says: [[READY]] })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await settle()
+  // A prompt submitted here is a plugin's, as the mod's own wake is.
+  await $.prompt.submit({ text: '[mcp-events] deploys · deploy.finished: 1 new event' })
+  await settle()
+  expect(seen.calls.filter((c) => c.route === '/spoke').length).toBe(0)
+  expect(['composer', 'bridge', 'sdk'].map(isThePersons)).toEqual([true, true, true])
+  expect(['plugin', 'task-notification', 'scheduled-trigger', 'peer', 'peer-send-message', 'channel', 'unclassified', undefined].map(isThePersons)).toEqual(Array(8).fill(false))
 })
