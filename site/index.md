@@ -19,26 +19,24 @@ hero:
     - theme: alt
       text: GitHub
       link: https://github.com/idosal/AgentPolyfill
+    - theme: alt
+      text: Security
+      link: /guide/security
 ---
 
 <div class="ap-home"><div class="wrap">
 
-<section>
-  <h2>See it in action</h2>
+<section aria-label="The launch video">
   <LaunchVideo />
 </section>
 
 <section>
   <h2>The polyfills</h2>
-  <p class="lede">Each adds one MCP extension's client side to Claude Code, to its spec, until Claude Code ships its own.</p>
+  <p class="lede">Each implements one MCP extension's client side, to spec, until Claude Code ships its own.</p>
   <PolyfillCards />
   <h3 class="beyond">Beyond MCP</h3>
   <PolyfillCards group="beyond" />
-</section>
-
-<section>
-  <h2>Who it is for</h2>
-  <Audiences />
+  <p class="closing">Building a polyfill or writing a spec? <a href="/guide/build-a-polyfill">Build a polyfill</a> · <a href="/guide/spec-authors">For spec authors</a></p>
 </section>
 
 </div></div>

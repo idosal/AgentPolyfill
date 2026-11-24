@@ -12,16 +12,16 @@ const polyfills = props.group === 'beyond' ? home.beyond : home.polyfills
 <template>
   <div class="ap-cards" :class="{ single: polyfills.length === 1 }">
     <article v-for="p in polyfills" :key="p.name" class="card">
-      <Recording :cut="p.cut" :alt="p.alt" />
+      <Recording :cut="p.cut" :alt="p.alt" :autoplay="false" />
       <div class="body">
         <header>
           <h3><a :href="p.link">{{ p.name }}</a></h3>
           <span v-if="p.state" class="state" :data-state="p.state.toLowerCase()" :title="p.stateNote">{{ p.state }}</span>
         </header>
-        <p class="spec"><template v-if="p.id"><code>{{ p.id }}</code> · </template><span class="whole">{{ p.spec }}</span></p>
+        <p class="spec"><span class="whole">{{ p.spec }}</span></p>
         <p class="line">{{ p.line }}</p>
         <p v-if="p.note" class="note">{{ p.note }}</p>
-        <a class="more" :href="p.link">The {{ p.name }} guide <svg class="arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h9.5M9 4.5 12.5 8 9 11.5" /></svg></a>
+        <a class="more" :href="p.link" :aria-label="`The ${p.name} guide`">Guide <svg class="arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h9.5M9 4.5 12.5 8 9 11.5" /></svg></a>
       </div>
     </article>
   </div>
@@ -107,10 +107,6 @@ h3 a:hover {
 .spec .whole {
   white-space: nowrap;
 }
-.spec code {
-  font-size: 12px;
-  padding: 1px 4px;
-}
 .line {
   margin-top: 12px;
   font-size: 15px;
@@ -120,7 +116,7 @@ h3 a:hover {
 }
 .note {
   margin-top: 10px;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.55;
   color: var(--vp-c-text-3);
   text-wrap: pretty;

@@ -10,6 +10,7 @@ const { frontmatter } = useData()
     <CopyCommand
       command="/plugin install agent-polyfill --marketplace idosal/AgentPolyfill"
       label="Install every polyfill"
+      :wrap="false"
     />
     <p class="note">In Claude Code 2.1.329 or newer. Start a new session after.</p>
   </div>

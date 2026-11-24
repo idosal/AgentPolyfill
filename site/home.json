@@ -1,5 +1,5 @@
 {
-  "//": "The home page's polyfill cards (polyfills: the MCP extensions; beyond: outside MCP) and audiences. Read by PolyfillCards.vue, Audiences.vue and scripts/agents.mjs (the Markdown copies for agents). Every line is taken from the repository's README and each polyfill's README: keep them in step when those change.",
+  "//": "The home page's polyfill cards (polyfills: the MCP extensions; beyond: outside MCP) and audiences. Read by PolyfillCards.vue and scripts/agents.mjs; the audiences only by the latter (the Markdown copies for agents). Every line is taken from the repository's README and each polyfill's README: keep them in step when those change.",
   "polyfills": [
     {
       "name": "Events",
@@ -53,7 +53,7 @@
       "id": "",
       "state": "Early",
       "stateNote": "Finds the servers a domain publishes, checks each card against the schema, and adds one to Claude Code's own config with a click, so servers behind OAuth work.",
-      "line": "Find the MCP servers a domain publishes, and add one with a press. Servers behind OAuth work.",
+      "line": "Find the MCP servers a domain publishes, and add one in one click. Works with servers behind OAuth.",
       "cut": "server-cards",
       "alt": "In Claude Code, the question What MCP servers does neon.com publish? lists Neon and Neon Docs from neon.com's own catalog, each with an Add button. Add is pressed on Neon Docs, which is marked added, with a note to run /mcp to connect or sign in.",
       "add": "",
@@ -88,7 +88,7 @@
       "plugin": "ard-discovery",
       "spec": "Agentic Resource Discovery v0.91, a draft outside MCP",
       "id": "",
-      "line": "Find the MCP servers a domain lists in its ARD file, or search an ARD registry by task, and add one with a press.",
+      "line": "Find the MCP servers a domain lists in its ARD file, or search an ARD registry, and add one in one click.",
       "cut": "ard",
       "alt": "In Claude Code, the question What does buildkite.com list via ARD? reads buildkite.com's own listing, and a picker shows the Buildkite MCP server with an Add button. Claude says buildkite.com lists one MCP server and has not added it.",
       "addStep": "Not in the bundle. Install it by name:",
@@ -96,7 +96,7 @@
       "ask": "What MCP servers does buildkite.com list through ARD?",
       "then": "A domain lookup sends no query to a registry. A registry search sends your words to a third party, so it asks you first, every time.",
       "link": "/guide/ard",
-      "note": "Not in the bundle: its registry search sends your words to a third party, so it asks you first, every time."
+      "note": "Installed separately: its registry search sends your words to a third party, so it asks you first, every time."
     }
   ]
 }
