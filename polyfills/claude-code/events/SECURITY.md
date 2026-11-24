@@ -258,7 +258,7 @@ above say what was considered, not that nothing is left.
 
 Please do not open a public issue for a security problem. Use **Report a
 vulnerability** on this repository's
-[Security tab](https://github.com/idosal/MCPolyfill/security/advisories/new)
+[Security tab](https://github.com/idosal/AgentPolyfill/security/advisories/new)
 (GitHub's private reporting), with what you did, what happened, and the
 versions of Claude Code and of the mod. If that is not available to you, open
 an issue that says only that you have a security report, and you will be
