@@ -1,12 +1,16 @@
 # SEP-3415 client conformance, clause by clause
 
-How this client stands against the **Final** text of SEP-3415
-(`seps/3415-events-extension.md` in `modelcontextprotocol/modelcontextprotocol`,
-as of 20 November 2026) and against the transport rules it defers to
-(Streamable HTTP in the 2026-07-28 specification, and SEP-2243).
+How this client (mcp-events 0.5.0) stands against the **Final** text of
+SEP-3415 (`seps/3415-events-extension.md` in
+`modelcontextprotocol/modelcontextprotocol`, as fetched on 24 November 2026)
+and against the transport rules it defers to (Streamable HTTP in the
+2026-07-28 specification, and SEP-2243).
 
-**Result: 86 client-side clauses. 80 met, 6 not applicable, none missing, with
-`MCP_EVENTS_PRE_STANDARD=off`.**
+**Result: 86 client-side clauses. With `MCP_EVENTS_PRE_STANDARD=off`: 80 met,
+6 not applicable, none missing. By default: 78 met, 2 met with a documented
+exception (CAP-2 and CAP-4, below), 6 not applicable, none missing.** The
+upstream conformance suite's Events client scenarios pass 17 of 17 (see the
+end).
 
 **One deliberate deviation is on by default.** A server that advertises events
 only as the top-level `events` capability of the earlier design sketch, which
@@ -34,7 +38,7 @@ separate thing; see the end.
 | DM-1 | Listing | "A client that cannot use any of the listed modes cannot subscribe" | `src/events-client.ts`; `src/watcher.ts` | spec-test "webhook is for an authenticated connection…"; e2e "nothing public is opened unless asked…" | MET |
 | TERM-1 | Event type removal | "fetches `events/list` again and resubscribes against the current descriptor" | `src/watcher.ts` | spec-test "NotFound or Unsupported: the list is read again…" | MET (N1) |
 | STATE-1 | Client-Owned State | "The client maintains its own subscription registry" | `src/store.ts`; `src/watcher.ts` | e2e "a watch resumes from its saved cursor…" | MET |
-| DEDUP-1 | Event Occurrences, Guarantees | "client-side deduplication within a subscription" | `src/watcher.ts`; `src/store.ts` | e2e same test ("no duplicate of the earlier event") | MET (last 500 ids) |
+| DEDUP-1 | Event Occurrences, Guarantees | "client-side deduplication within a subscription" | `src/watcher.ts`; `src/store.ts` | e2e same test ("no duplicate of the earlier event"); recovery-test "an event written to the spool before the watch was saved is not written again…"; properties "a genuine delivery handed over any number of times…" | MET (last 500 ids; a starting helper also counts the ids already in its own and listed sessions' spools) |
 
 ### Poll
 
@@ -61,7 +65,7 @@ separate thing; see the end.
 | PUSH-6 | Lifecycle | "Clients MUST NOT depend on receiving it" | `src/watcher.ts` | spec-test "over HTTP, a stream silent for three times…" (reconnect with no result) | MET |
 | PUSH-7 | Heartbeat interval | "The client MAY suggest an interval… the grant is authoritative" | `src/watcher.ts` | spec-test same (grant of 300 ms is used) | MET |
 | PUSH-8 | Heartbeat interval | "Clients SHOULD NOT apply their default request timeout to `events/stream`" | `src/events-client.ts` | no test | MET (2^31-1 ms; see B5) |
-| PUSH-9 | Heartbeat interval | "three times the granted `heartbeatMs`… SHOULD treat the stream as dead and reconnect" | `src/watcher.ts` | spec-test "over HTTP, a stream silent for three times the granted heartbeat…" | MET |
+| PUSH-9 | Heartbeat interval | "three times the granted `heartbeatMs`… SHOULD treat the stream as dead and reconnect" | `src/watcher.ts` | spec-test "over HTTP, a stream silent for three times the granted heartbeat…", "…a server that grants no interval is held to the one its heartbeats keep…", "…a grant is authoritative…"; upstream `sep-3415-client-stream-reconnect-with-cursor` | MET (with no grant, see B5) |
 | PUSH-10 | Heartbeat interval | "On stdio, the client detects a dead server by end of file" | `src/watcher.ts` | spec-test "over stdio the heartbeat is not a deadline…" | MET |
 | PUSH-11 | Reconnection | "a new `events/stream` with the same subscription and its last known cursor" | `src/watcher.ts` | spec-test "an absent cursor is a null cursor…"; e2e restart test | MET |
 | PUSH-12 | Reconnection | "Clients SHOULD wait a random jitter before reconnecting" | `src/watcher.ts` | no test | MET |
@@ -74,7 +78,7 @@ separate thing; see the end.
 | --- | --- | --- | --- | --- | --- |
 | WH-1 | Subscribing, Secret generation | "Client SDKs SHOULD generate the secret" / "from a CSPRNG by default" | `src/webhooks.ts`; `src/watcher.ts` | units "secret is whsec_ + base64 of 24-64 bytes" | MET |
 | WH-2 | Subscribing | "SHOULD NOT expose an interface that encourages hand-picked values" | `src/tools.ts` (no secret input anywhere) | no test | MET |
-| WH-3 | Subscribing | "the client MUST call `events/subscribe` again with the same subscription key before `refreshBefore`" | `src/watcher.ts` | **no test** | MET by reading (N2) |
+| WH-3 | Subscribing | "the client MUST call `events/subscribe` again with the same subscription key before `refreshBefore`" | `src/watcher.ts` | upstream `sep-3415-client-refresh-before-expiry` | MET (N2) |
 | WH-4 | Subscribing | "always pass the last persisted cursor" | `src/watcher.ts` | relay.e2e "events delivered while Claude Code is closed…" (indirect) | MET |
 | WH-5 | Subscription TTL | "the client's suggested lifetime in milliseconds" | `src/watcher.ts` | no test | MET |
 | WH-6 | Subscription TTL | "clients SHOULD still call `events/subscribe` and `events/list` occasionally" | `src/watcher.ts` | no test | N/A (never asks for `ttlMs: null`; if granted anyway: hourly subscribe, no periodic list) |
@@ -93,7 +97,7 @@ separate thing; see the end.
 | --- | --- | --- | --- | --- | --- |
 | RX-1 | Delivery | "The receiver MUST verify the signature before processing" | `src/webhooks.ts`; `src/relay.ts` | units "a changed body, another secret, or a stale timestamp does not"; relay.units "a changed body, another secret, or no signature: refused, and nothing runs"; relay.e2e "a forged, altered or replayed delivery…" | MET (N5) |
 | RX-2 | Delivery, Signature scheme | "SHOULD reject deliveries whose `webhook-timestamp` is more than 5 minutes old" | `src/webhooks.ts`; `mod/relay/src/index.ts` | units same; relay.units "a relayed delivery is judged against the time the relay received it…"; mod/relay/test "malformed deliveries are refused…" | MET (relayed: against the relay's receipt time, plus B1) |
-| RX-3 | Delivery | "SHOULD deduplicate on `webhook-id`" | `src/webhooks.ts`; `mod/relay/src/mailbox.ts` | relay.units "the very same signed delivery is taken once…"; hardening "two copies arriving at the same moment cannot both get in"; mod/relay/test "a retry with the same webhook-id is stored once" | MET (10-minute memory; B1) |
+| RX-3 | Delivery | "SHOULD deduplicate on `webhook-id`" | `src/webhooks.ts`; `mod/relay/src/mailbox.ts` | relay.units "the very same signed delivery is taken once…"; hardening "two copies arriving at the same moment cannot both get in"; mod/relay/test "a retry with the same webhook-id is stored once" | MET (each id taken is remembered for 8 days, up to 1,000; B1) |
 | RX-4 | Delivery | "MUST scope that to the subscription" | `src/store.ts`; `src/watcher.ts` | no direct test | MET |
 | RX-5 | Delivery | "The client persists every cursor it receives" | `src/watcher.ts` | relay.e2e offline test (indirect) | MET |
 | RX-6 | Delivery | "The endpoint MUST make `cursor` and `eventId` available to the consuming client" | `mod/relay/src/index.ts`; `mod/relay/src/mailbox.ts` | mod/relay/test "a delivery is stored, then handed over unchanged…" | MET |
@@ -151,8 +155,6 @@ separate thing; see the end.
 
 Met by reading the code, and not held there by a test:
 
-- **Webhook refresh before `refreshBefore` (a MUST).** The fixture grants at
-  least 15 minutes, so no test reaches a refresh.
 - **`HeaderMismatch` on `events/unsubscribe`** (list again, retry once).
 - **Over real Streamable HTTP**, the routing headers, abort-as-cancel and the
   three-heartbeat rule are tested with a stand-in `fetch`, not through the
@@ -176,11 +178,11 @@ conforming server's events.
 
 | # | Behaviour | Where | Note |
 | --- | --- | --- | --- |
-| B1 | **Replay guard**: a delivery signed more than 10 minutes before the newest accepted one is refused with 410 even if it was never taken; nothing signed more than 8 days ago is taken; per-watch id memory saved to disk. The SEP asks only for the 5-minute window and `webhook-id` dedup. | `src/webhooks.ts` | This can happen to a delivery left at the relay after a 503 (`src/relay.ts`, "comes again on the next connection") or past its waiting limit, while later ones are accepted. The server's watermark cursor has already passed it, so it is lost. |
+| B1 | **Replay guard**: the id of every delivery taken is remembered, saved with the watch, for 8 days and up to 1,000 ids; past 1,000 the oldest are forgotten and everything signed at or before them is refused for good; nothing signed more than 8 days ago is taken. The SEP asks only for the 5-minute window and `webhook-id` dedup. | `src/webhooks.ts` | Until 0.5.0 a delivery signed more than 10 minutes before the newest one taken was refused, though it was never taken. That happened to one left at the relay after a 503, and its event was lost, because the server's watermark had passed it (found by the model: `model/delivery.qnt`, `refusedAsOld`). Now the loss needs more than 1,000 deliveries to that watch taken in between. |
 | B2 | A stale timestamp is answered **410** (do not retry) rather than a retryable status. | `src/webhooks.ts`; `mod/relay/src/index.ts` | The SEP permits 410 for "stale". With more than 5 minutes of clock skew every delivery is refused and none is retried. |
 | B3 | Admission limits on events in **all** modes: an `eventId` over 512 characters is dropped silently; an event over 256 KiB serialized or nested deeper than 24 is skipped with a notice (the SEP's 256 KiB is guidance for webhook bodies only); strings equal to a known secret are rewritten to `[redacted]`; a non-ISO `timestamp` is dropped; the occurrence's `name` is replaced by the watch's. | `src/watcher.ts`; `src/untrusted.ts` | |
 | B4 | Timestamps more than 5 minutes **ahead** are refused. | `src/webhooks.ts`; `mod/relay/src/index.ts` | Standard Webhooks tolerance; the SEP text says only "old". |
-| B5 | 60 s deadline for the first message (before `active`) on HTTP streams, and the same 60 s when `active` carries no `heartbeatMs`. | `src/watcher.ts` | The SEP counts liveness from `active` only. |
+| B5 | 60 s deadline for the first message (before `active`) on HTTP streams. When `active` grants no `heartbeatMs` (the SEP says every `active` does), the stream is held to three times the longest quiet before a heartbeat seen so far, and to 60 s until a heartbeat has come. | `src/watcher.ts` | The SEP counts liveness from `active` only. The server "sends a heartbeat whenever `heartbeatMs` passes without any other message", so the quiet before a heartbeat is its interval. Until 0.5.0 it was 60 s in that case, which is why the upstream suite's push scenario, whose stand-in grants none, did not see a reconnect. |
 | B6 | A `hasMore` batch that brought nothing new is drained at the poll floor, not at once. | `src/watcher.ts` | So a server that always says "more" cannot spin the loop. |
 | B7 | Event-type admission filters on `events/list`: names over 128 characters or with control characters, names matching a known secret, types with no known delivery mode, more than 200 types or 20 pages; descriptions cut at 2,000; schemas bounded ("tamed") before display. | `src/events-client.ts`; `src/untrusted.ts` | |
 | B8 | 4 MiB cap on one response or one SSE message. | `src/events-client.ts` | A larger poll result fails every time (`maxEvents: 100` limits the risk). |
@@ -189,7 +191,7 @@ conforming server's events.
 | B11 | A lasting (relay) subscription is kept, not unsubscribed, when the session ends. | `src/watcher.ts` | Permitted: unsubscribe is optional. |
 | B12 | Private request `_meta` key `dev.mcp-events-plugin/streamKey`. | `src/events-client.ts` | Stripped before sending (checked on the wire over stdio; no test asserts it). |
 | B13 | Unknown control-envelope `type` is acknowledged 200 and ignored; `list_changed` is acted on wherever it arrives, opted in or not. | `src/webhooks.ts`; `src/events-client.ts` | Harmless. |
-| B14 | One session per project runs the watches; spool, hand-over to Claude Code, tools. | `src/store.ts`, `src/delivery.ts`, `src/tools.ts` | Application layer, which the SEP leaves open. |
+| B14 | One session per project runs the watches; spool, hand-over to Claude Code, tools. Each session that runs them is listed for the project; the next one takes over what listed sessions stored and never handed over. The hooks module acknowledges a submitted batch again before the next take. | `src/store.ts`, `src/delivery.ts`, `src/tools.ts`, `src/watcher.ts`, `mod/hooks/register.ts` | Application layer, which the SEP leaves open. |
 | B15 | **On by default:** servers of the form from before the standard (top-level `events` key; error codes -32011..-32015 read as the SEP's), unless `MCP_EVENTS_PRE_STANDARD=off` or a list that leaves the server out. Opt-in: `MCP_EVENTS_DEV` (http on loopback, webhook without credentials). | `src/events-client.ts`; `src/helper.ts`; `src/watcher.ts`; `src/relay.ts`; `src/tunnel.ts` | The first is against CAP-2 and CAP-4 for such a server; see the top of this page. |
 
 Within the SEP, fixed here: `maxEvents: 100`, a suggested `heartbeatMs` of
@@ -207,22 +209,38 @@ the remaining grant and at least hourly.
 
 ## The upstream conformance suite
 
-As of 24 November 2026:
+The suite's Events client scenarios are in an open pull request,
+`modelcontextprotocol/conformance#541` ("client conformance scenarios",
+stacked on #521; neither merged on 24 November 2026; `main` has no Events
+scenarios): `events-client-no-extension`, `events-client-poll`,
+`events-client-push` and `events-client-webhook`, 17 checks against an HTTP
+stand-in server. They quote the SEP from before it was Final (for one, a
+dead stream at twice the heartbeat, where the Final text says three times).
 
-- **On `main` of `modelcontextprotocol/conformance`: no Events scenarios**, for
-  clients or servers.
-- **Client scenarios exist in an open pull request**, #541 ("client conformance
-  scenarios"), stacked on #521 (server scenarios), neither merged:
-  `events-client-poll`, `events-client-push`, `events-client-webhook` and
-  `events-client-no-extension`, 17 checks against an HTTP stand-in server.
-  They quote the SEP as it was before it was Final (for one, a dead stream at
-  twice the heartbeat, where the Final text says three times).
-- **They were not run.** They are unmerged code from a contributor's branch,
-  and this client has no entry point of the shape the suite starts (a command
-  given the server's address, which subscribes to everything listed and exits
-  after a set time). The driver is small: an `EventsConnection` and a
-  `WatchManager` over a temporary state folder. From reading the scenarios,
-  poll, webhook and no-extension should pass, and the push reconnect check
-  would likely read as a warning, because the stand-in grants no `heartbeatMs`
-  and this client then waits its own 60 seconds. That is a prediction, not a
-  result.
+`npm run conformance` runs them against this client through
+[`test/conformance-driver.ts`](../test/conformance-driver.ts) (the same
+`EventsConnection` and `WatchManager` the helper runs, over a temporary state
+folder), from a checkout of the suite named in `MCP_CONFORMANCE_SUITE_DIR`.
+That checkout is code this repository does not hold: read it before you run it.
+
+**Result, 24 November 2026: 17 of 17 pass**, unmodified, at the pull request's
+head `c8625de3118c2d5dc0561696cddeb0baaf124f2c`, on Node 22.23.1, macOS 15 on
+Apple Silicon. 0.4.1 passed 15: in `events-client-push` the stand-in's
+`notifications/events/active` carries no `heartbeatMs`, so the client waited
+its own 60 seconds before treating the silent stream as dead, and inside the
+9-second run it never reconnected. `sep-3415-client-stream-reconnect-with-cursor`
+was a warning, and `sep-3415-client-null-cursor-not-replayed` a failure for
+want of a reconnect to grade (the suite: "Not testable"). B5 above is the
+change.
+
+| Scenario | Checks | 0.4.1 | 0.5.0 |
+| --- | --- | --- | --- |
+| `events-client-no-extension` | 1 | 1 | 1 |
+| `events-client-poll` | 10 | 10 | 10 |
+| `events-client-push` | 3 | 1 (1 warning, 1 failure) | 3 |
+| `events-client-webhook` | 3 | 3 | 3 |
+
+The webhook scenario runs with the client's testing switch (`MCP_EVENTS_DEV`)
+on, as its stand-in is plain http on this machine and asks for no credentials,
+and the client subscribes by webhook only to an https address on an
+authenticated connection.

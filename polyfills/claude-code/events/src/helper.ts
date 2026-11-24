@@ -211,13 +211,19 @@ const routes: Record<string, (p: Record<string, unknown>) => Promise<unknown> | 
     },
     '/take'() {
         const n = next();
-        return n && 'lines' in n ? n : {};
+        // `spool` says whose position `upto` is: the hooks module hands it back with the ack.
+        return n && 'lines' in n ? { ...n, spool: session } : {};
     },
     '/ack'(p) {
         const upto = Number(p.upto);
+        // A position in another session's spool (the hooks module's memory of a batch an earlier
+        // helper handed over, after /clear) means nothing here.
+        if (p.spool !== undefined && p.spool !== session) return {};
         // Claude Code took it, so it counts: a batch as one wake for its watches, the notice as said.
         if (taken && 'notice' in taken) budget.pause();
         else if (taken && upto >= taken.batch.upto) budget.woke(taken.batch.watches);
+        // A batch the helper before this one handed over, whose ack it never heard: a wake all the same.
+        else if (!taken && Number.isFinite(upto) && upto > delivery.position) budget.woke(delivery.watchesUpTo(upto));
         taken = undefined;
         delivery.ack(upto);
         if (delivery.pending) announce();
