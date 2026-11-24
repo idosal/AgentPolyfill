@@ -131,8 +131,8 @@ export default defineConfig({
 
     footer: {
       message:
-        'A community project. Not affiliated with or endorsed by the MCP project, the Agentic AI Foundation, the Linux Foundation, Anthropic, any host vendor, or the authors of Agentic Resource Discovery. <a href="/about">About</a> · <a href="/llms.txt">llms.txt</a>',
-      copyright: `Apache-2.0 · <a href="${repo}">Source on GitHub</a>`,
+        'A community project. Not affiliated with or endorsed by the MCP project, the Agentic AI Foundation, the Linux Foundation, Anthropic, any host vendor, or the authors of Agentic Resource Discovery. <a href="/about">About</a>',
+      copyright: `Apache-2.0 · <a href="${repo}">Source on GitHub</a> · <a href="/llms.txt">llms.txt</a>`,
     },
 
     externalLinkIcon: true,

@@ -17,7 +17,7 @@ const polyfills = home.polyfills
           <h3><a :href="p.link">{{ p.name }}</a></h3>
           <span class="state" :data-state="p.state.toLowerCase()" :title="p.stateNote">{{ p.state }}</span>
         </header>
-        <p class="spec"><template v-if="p.id"><code>{{ p.id }}</code> · </template>{{ p.spec }}</p>
+        <p class="spec"><template v-if="p.id"><code>{{ p.id }}</code> · </template><span class="whole">{{ p.spec }}</span></p>
         <p class="line">{{ p.line }}</p>
         <template v-if="p.add">
           <p class="step">{{ p.addStep }}</p>
@@ -96,6 +96,9 @@ h3 a:hover {
   font-size: 13px;
   color: var(--vp-c-text-3);
 }
+.spec .whole {
+  white-space: nowrap;
+}
 .spec code {
   font-size: 12px;
   padding: 1px 4px;
@@ -122,7 +125,7 @@ h3 a:hover {
 }
 .card :deep(.ap-cmd code) {
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .ask {
   font-size: 15px;
