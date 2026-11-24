@@ -3,12 +3,15 @@
 // copied). The ARD plugin (polyfills/ard/codex) builds the same way, through
 // `bundle` and `bundleTests` below.
 //
-//   node build.mjs           build plugin/dist/server.mjs
-//   node build.mjs --check   fail if plugin/dist/server.mjs is not what the sources build
-//   node build.mjs --tests   build the tests into test/.build, run by `npm test`
+//   node build.mjs             build plugin/dist/server.mjs
+//   node build.mjs --check     fail if plugin/dist/server.mjs is not what the sources build
+//   node build.mjs --out DIR   build server.mjs into DIR instead (test/bundle.test.ts)
+//   node build.mjs --tests     build the tests into test/.build, run by `npm test`
 //
-// The tests run against the built file: every import of a shared module, from
-// the Claude Code form's own rule tests too, is pointed at plugin/dist/server.mjs.
+// The tests run against the committed file: every import of a shared module,
+// from the Claude Code form's own rule tests too, is pointed at
+// plugin/dist/server.mjs, and `--tests` does not rebuild it. Run `npm run build`
+// after changing the sources; test/bundle.test.ts fails while it is stale.
 
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, relative, resolve } from 'node:path'
@@ -78,7 +81,21 @@ export async function bundleTests({ esbuild, root, files, server }) {
 export async function main({ esbuild, root, entry, name, version, ruleTests }) {
   const server = resolve(root, 'plugin/dist/server.mjs')
   const args = process.argv.slice(2)
+  if (args.includes('--tests')) {
+    const own = readdirSync(resolve(root, 'test'))
+      .filter(f => f.endsWith('.test.ts'))
+      .map(f => resolve(root, 'test', f))
+    await bundleTests({ esbuild, root, files: [...ruleTests.map(f => resolve(root, f)), ...own], server })
+    return
+  }
   const text = await bundle({ esbuild, root, entry, name, version })
+  const out = args.indexOf('--out')
+  if (out >= 0) {
+    const dir = resolve(args[out + 1] ?? '.')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'server.mjs'), text)
+    return
+  }
   if (args.includes('--check')) {
     let held = ''
     try {
@@ -93,12 +110,6 @@ export async function main({ esbuild, root, entry, name, version, ruleTests }) {
   }
   mkdirSync(dirname(server), { recursive: true })
   writeFileSync(server, text)
-  if (args.includes('--tests')) {
-    const own = readdirSync(resolve(root, 'test'))
-      .filter(f => f.endsWith('.test.ts'))
-      .map(f => resolve(root, 'test', f))
-    await bundleTests({ esbuild, root, files: [...ruleTests.map(f => resolve(root, f)), ...own], server })
-  }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
