@@ -11,7 +11,10 @@
 //     release's own SHASUMS256.txt: an archive that does not match is deleted and nothing is run;
 //   - the archive is hashed in this module, so no checksum program on the PATH is trusted;
 //   - exactly one named file is taken out of the archive, into a folder made for it, and the copy is
-//     moved into place only after it answered with the version expected.
+//     moved into place only after it answered with the version expected;
+//   - only the copy of the pinned version is ever run, from a real folder holding a real file (no
+//     symbolic link): a folder of any other version, whoever put it there, is never run, not even
+//     to ask its version, and is deleted by name by the next setup.
 //
 // It needs `curl` and `unzip`, as Bun's own installer does.
 
@@ -83,23 +86,19 @@ export async function platformOf($: EngineInterface): Promise<string | undefined
 
 const folder = (data: string) => `${data}/runtime`
 
-/** The copies of Bun this mod fetched earlier that still run, newest first. */
-export async function fetched($: EngineInterface, data: string): Promise<{ path: string; version: string }[]> {
-  const entries = await $.fs.list(folder(data)).catch(() => [])
-  const found: { path: string; version: string }[] = []
-  for (const entry of entries) {
-    const version = /^bun-(\d+\.\d+\.\d+)$/.exec(entry.name)?.[1]
-    if (!version || entry.kind !== 'dir' || entry.isLink) continue
-    const path = `${folder(data)}/${entry.name}/bun`
-    // A copy that no longer answers with its own version, and exits cleanly, (cut short, damaged) is not used.
-    const says = await run($, [path, '--version'])
-    if (says.ok && says.stdout.trim() === version) found.push({ path, version })
-  }
-  const parts = (v: string) => v.split('.').map(Number) as [number, number, number]
-  return found.sort((a, b) => {
-    const [x, y] = [parts(a.version), parts(b.version)]
-    return y[0] - x[0] || y[1] - x[1] || y[2] - x[2]
-  })
+/**
+ * The copy of the pinned Bun this mod fetched earlier, if it is there and still runs. Only that one
+ * folder is looked at, and only a real folder holding a real file (no symbolic link, which could
+ * point anywhere): a copy of another version is never run, not even to ask its version.
+ */
+export async function pinned($: EngineInterface, data: string, pin: Pin = BUN): Promise<{ path: string; version: string } | undefined> {
+  const home = `${folder(data)}/bun-${pin.version}`
+  const path = `${home}/bun`
+  const [dir, file] = await Promise.all([$.fs.stat(home).catch(() => undefined), $.fs.stat(path).catch(() => undefined)])
+  if (dir?.kind !== 'dir' || dir.isLink || file?.kind !== 'file' || file.isLink) return undefined
+  // A copy that no longer answers with its own version, and exits cleanly, (cut short, damaged) is not used.
+  const says = await run($, [path, '--version'])
+  return says.ok && says.stdout.trim() === pin.version ? { path, version: pin.version } : undefined
 }
 
 /** The SHA-256 of a file, read in pieces and hashed here. */
@@ -136,7 +135,7 @@ export async function install($: EngineInterface, data: string, pin: Pin = BUN):
   const platform = await platformOf($)
   const asset = platform === undefined ? undefined : pin.assets[platform]
   if (!asset) throw new SetupError('This mod fetches a runtime only on macOS and Linux (arm64 or x64). Install Node from https://nodejs.org or Bun from https://bun.sh instead, then start a new session.')
-  const have = (await fetched($, data)).find((copy) => copy.version === pin.version)
+  const have = await pinned($, data, pin)
   if (have) return { ...have, bytes: 0, isNew: false }
 
   const now = await $.clock.now()
@@ -158,7 +157,7 @@ export async function install($: EngineInterface, data: string, pin: Pin = BUN):
 async function installLocked($: EngineInterface, data: string, pin: Pin, asset: { name: string; sha256: string }, now: number) {
   const home = `${folder(data)}/bun-${pin.version}`
   // Another session may have put it in place while this one waited for the lock.
-  const have = (await fetched($, data)).find((copy) => copy.version === pin.version)
+  const have = await pinned($, data, pin)
   if (have) return { ...have, bytes: 0, isNew: false }
   // What a fetch that was cut short (the session ended under it) left behind.
   for (const entry of await $.fs.list(folder(data)).catch(() => [])) {
@@ -200,11 +199,11 @@ async function installLocked($: EngineInterface, data: string, pin: Pin, asset: 
     throw new SetupError(isGone ? `${why} The download was deleted.` : `${why} Its folder could not be deleted, and nothing in it is left runnable: ${work}`)
   }
   await erase($, work)
-  const placed = (await fetched($, data)).find((copy) => copy.version === pin.version)
+  const placed = await pinned($, data, pin)
   if (!placed) throw new SetupError('The runtime was put in place but does not start from there. Run /mcp-skills setup remove, then /mcp-skills setup again.')
-  // Copies of earlier versions are no longer needed.
-  for (const old of await fetched($, data)) {
-    if (old.version !== pin.version) await erase($, old.path.slice(0, -'/bun'.length))
+  // Copies of any other version are not needed, and are never run: deleted by their names.
+  for (const entry of await $.fs.list(folder(data)).catch(() => [])) {
+    if (/^bun-\d+\.\d+\.\d+$/.test(entry.name) && entry.name !== `bun-${pin.version}`) await erase($, `${folder(data)}/${entry.name}`)
   }
   return { ...placed, bytes: unpacked.size, isNew: true }
 }

@@ -4,7 +4,7 @@
 
 import { isHttp, type ServerTable } from './config.ts';
 import { directoryText, fileText, listingText, loadedText, statusText, type ServerNote } from './format.ts';
-import { declarationOf, manifestHash, rootOf, SkillsHost, type Listed } from './skills.ts';
+import { declarationOf, keyOf, manifestHash, rootOf, SkillsHost, type Listed } from './skills.ts';
 import { describeError, LocalError, secrets } from './untrusted.ts';
 import { Connection, fingerprintOf } from './wire.ts';
 
@@ -47,6 +47,10 @@ export type AppOptions = {
 
 /** One server as an earlier session found it: told from another of the same name by where it is. */
 export type Known = { fingerprint: string; declares: boolean; at: number };
+/** A skill a person named in a command: by its identity, whether they disabled it, and whether its server lists it. */
+export type Named = { server: string; uri: string; name: string; isDisabled: boolean; isListed: boolean };
+/** The most disabled skills the hooks module is taken at its word about: twice what it keeps. */
+const MAX_DISABLED = 4000;
 /** A server found not to serve skills is not connected to again for this long: a day. */
 export const RECHECK_MS = 24 * 60 * 60 * 1000;
 
@@ -61,6 +65,12 @@ export class App {
     readonly host: SkillsHost;
     readonly #o: AppOptions;
     readonly #listedAt = new Map<string, { at: number; ttlMs: number }>();
+    /**
+     * The skills the user disabled, by identity (server and URI). The hooks module keeps the list
+     * and sends it (setDisabled); here a disabled skill is not offered to the model, not loaded and
+     * not read, as if its server did not serve it.
+     */
+    #disabled = new Set<string>();
     readonly #log: (line: string) => void;
     readonly #now: () => number;
     #settled!: () => void;
@@ -239,29 +249,56 @@ export class App {
         return [...new Set([...Object.keys(this.#o.table.servers), ...Object.keys(this.#o.table.skipped)])];
     }
 
+    /** Every skill listed, the disabled ones included. */
     get skills(): Listed[] {
         return this.host.listed();
     }
 
+    /** The listed skills the user has not disabled: all that is offered to the model. */
+    get offered(): Listed[] {
+        return this.host.listed().filter((l) => !this.isDisabled(l.label, l.entry.uri));
+    }
+
+    isDisabled(server: string, uri: string): boolean {
+        return this.#disabled.has(keyOf(server, uri));
+    }
+
+    /**
+     * Takes the hooks module's list of disabled skills, as pairs of server and URI; anything else in
+     * it is left out. Says whether the set changed.
+     */
+    setDisabled(skills: unknown): boolean {
+        const next = new Set<string>();
+        for (const s of Array.isArray(skills) ? skills.slice(0, MAX_DISABLED) : []) {
+            const { server, uri } = (typeof s === 'object' && s !== null ? s : {}) as { server?: unknown; uri?: unknown };
+            if (typeof server === 'string' && typeof uri === 'string' && server.length <= 4096 && uri.length <= 4096) next.add(keyOf(server, uri));
+        }
+        const changed = next.size !== this.#disabled.size || [...next].some((k) => !this.#disabled.has(k));
+        this.#disabled = next;
+        return changed;
+    }
+
     /** What the session's skill listing gains. */
     catalog(): { text: string; skills: number; servers: number } {
-        const usable = this.skills.filter((l) => !l.declined);
-        return { text: listingText(this.skills), skills: usable.length, servers: this.conns.size };
+        const usable = this.offered.filter((l) => !l.declined);
+        return { text: listingText(this.offered), skills: usable.length, servers: this.conns.size };
     }
 
     status(only?: string, isCompact = false, columns?: number): string {
         return statusText({
             isCompact,
             columns,
-            skills: this.skills.filter((l) => only === undefined || l.label === only),
-            all: this.skills,
+            skills: this.offered.filter((l) => only === undefined || l.label === only),
+            all: this.offered,
             refused: this.host.refused(only),
             loaded: this.host.held().map((h) => ({ label: h.label, uri: h.entry.uri })),
             servers: [...this.conns.entries()]
                 .filter(([name]) => only === undefined || name === only)
                 .map(([name, c]) => {
                     const d = declarationOf(c);
-                    return { name, skills: this.host.listed(name).length, directoryRead: d.declared && d.directoryRead, revision: c.revision };
+                    const listed = this.host.listed(name);
+                    const disabled = listed.filter((l) => this.isDisabled(name, l.entry.uri)).length;
+                    return { name, skills: listed.length - disabled, disabled, directoryRead: d.declared && d.directoryRead, revision: c.revision };
                 }),
             unavailable: only === undefined ? this.unavailable : this.unavailable.filter((u) => u.name === only),
             without: only === undefined ? this.without : [],
@@ -276,9 +313,16 @@ export class App {
             const v = p[key];
             if (typeof v !== 'string' || !v.trim()) throw new LocalError(`"${key}" is required`);
             if (v.length > 4096) throw new LocalError(`"${key}" is too long`);
+            // A skill's identity is taken exactly as given: the permission check looked it up that
+            // way, so a padded server or URI must not reach a skill the check never saw.
+            if (['server', 'uri', 'skill'].includes(key) && v !== v.trim()) throw new LocalError(`"${key}" has spaces or line breaks around it, so it names no skill`);
             return v.trim();
         };
         try {
+            if (name === 'load_skill' || name === 'read_skill_file' || name === 'list_skill_directory') {
+                const [server, uri] = [text('server'), text(name === 'load_skill' ? 'uri' : 'skill')];
+                this.#refuseDisabled(server, uri);
+            }
             switch (name) {
                 case 'list_skills': {
                     const only = typeof p.server === 'string' && p.server ? p.server : undefined;
@@ -319,8 +363,14 @@ export class App {
         return c ? fingerprintOf(c.cfg) : '';
     }
 
+    /** A skill the user disabled is not loaded, read or asked about: nothing of it is requested from its server. */
+    #refuseDisabled(server: string, uri: string): void {
+        if (this.isDisabled(server, uri)) throw new LocalError(`the user disabled the skill ${uri} of the MCP server ${JSON.stringify(server)}, so it is not loaded and none of its files is read. Only the user can enable it again, with /mcp-skills enable`);
+    }
+
     /** The facts of a skill's current entry, for the approval question. No file is fetched. */
     async entry(server: string, uri: string): Promise<EntryFacts> {
+        this.#refuseDisabled(server, uri);
         await this.#ensure(server);
         const { entry, declined } = await this.host.entry(server, uri);
         const files = entry.resources === 'dynamic' ? [] : entry.resources;
@@ -336,13 +386,32 @@ export class App {
         return all.filter((l) => l.entry.frontmatter.name === name && (server === undefined || l.label === server));
     }
 
+    /**
+     * A skill by what a person typed, for a command: a name, server:name or a URI among the listed
+     * skills (the disabled ones too, marked), or server:URI, which also names a skill the server
+     * does not list, as load_skill takes one.
+     */
+    named(what: string): Named[] {
+        const as = (server: string, uri: string, isListed: boolean): Named => ({ server, uri, name: lastSegmentOf(uri), isDisabled: this.isDisabled(server, uri), isListed });
+        const pair = /^([^:/\s]+):([A-Za-z][A-Za-z0-9+.-]*:\/\/\S+)$/.exec(what);
+        if (pair) {
+            const [, server, uri] = pair as unknown as [string, string, string];
+            if (!this.conns.has(server) || rootOf(uri) === undefined) return [];
+            return [as(server, uri, this.host.listed(server).some((l) => l.entry.uri === uri))];
+        }
+        return this.find(what).map((l) => as(l.label, l.entry.uri, true));
+    }
+
     #nameOf(server: string, skillUri: string): string {
         return this.host.held().find((h) => h.label === server && h.entry.uri === skillUri)?.entry.frontmatter.name ?? 'skill';
     }
 
-    /** The session's conversation was cleared: nothing of a loaded skill is in context any more. */
-    release(): void {
-        this.host.release();
+    /**
+     * The session's conversation was cleared: nothing of a loaded skill is in context any more. Or,
+     * given one skill, the hooks module did not hand its load to Claude (it was disabled meanwhile).
+     */
+    release(server?: string, uri?: string): void {
+        this.host.release(server, uri);
     }
 
     async stop(): Promise<void> {
@@ -350,4 +419,9 @@ export class App {
     }
 }
 
+/** A skill's name as its URI gives it: the last segment of its directory. */
+const lastSegmentOf = (uri: string): string => {
+    const root = rootOf(uri) ?? uri;
+    return root.slice(root.lastIndexOf('/') + 1);
+};
 const capital = (s: string) => (s ? s[0]!.toUpperCase() + s.slice(1) + (/[.!?]$/.test(s) ? '' : '.') : s);

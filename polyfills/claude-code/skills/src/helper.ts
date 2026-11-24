@@ -12,10 +12,12 @@
 //             {t:"servers", names}        which configured servers this would connect to;
 //                                         the hooks module answers with Claude Code's own
 //                                         verdict on each (POST /verdict)
-//             {t:"catalog", text, ...}    the skills found, for the session's skill listing
+//             {t:"catalog", text, rev, ...}  the skills found, for the session's skill listing,
+//                                         without those the user disabled; rev counts the
+//                                         lists of disabled skills received (POST /disabled)
 //   http    a local endpoint (127.0.0.1, a random port, a bearer token said only on
-//           stdout), from the hooks module to here: /tool, /verdict, /catalog, /status,
-//           /release, /stop
+//           stdout), from the hooks module to here: /tool, /verdict, /disabled, /catalog,
+//           /status, /entry, /preview, /find, /refresh, /release, /stop
 //
 // Two things are written to disk: a log, and which of your servers serve skills (so the others are
 // not connected to at every start). No skill content, no approvals, no tokens.
@@ -105,9 +107,12 @@ const learn = (name: string, k: Known) => {
 
 let catalogSent = false;
 let isComplete = false;
+// How many lists of disabled skills the hooks module has sent. Each listing carries the count it
+// was made under, so the hooks module can tell one made before its latest list from one made after.
+let disabledRev = 0;
 const sendCatalog = () => {
     catalogSent = true;
-    emit({ t: 'catalog', ...app.catalog(), complete: isComplete });
+    emit({ t: 'catalog', ...app.catalog(), complete: isComplete, rev: disabledRev });
 };
 // While servers are still being looked at, what the others serve is sent as each is done (a little
 // at a time), so one slow or hung server does not hold back the rest of the session's first listing.
@@ -172,13 +177,21 @@ const routes: Record<string, (p: Record<string, unknown>) => Promise<unknown> | 
         verdictWaiters.get(String(p.name ?? ''))?.({ ok: p.ok === true, reason: typeof p.reason === 'string' ? p.reason : undefined });
         return {};
     },
+    // The skills the user disabled, as the hooks module keeps them: not offered, loaded or read from
+    // now on. Answered at once, with the listing as it now is: nothing here waits for a server.
+    '/disabled'(p) {
+        const changed = app.setDisabled(p.skills);
+        disabledRev++;
+        if (changed && catalogSent) sendCatalog();
+        return { ...app.catalog(), complete: isComplete, rev: disabledRev };
+    },
     async '/catalog'() {
         await settled();
         return app.catalog();
     },
     async '/status'(p) {
         await settled();
-        return { text: app.status(undefined, p.compact === true, typeof p.columns === 'number' ? p.columns : undefined), names: [...new Set(app.skills.map((l) => l.entry.frontmatter.name))].slice(0, 500), servers: app.configured };
+        return { text: app.status(undefined, p.compact === true, typeof p.columns === 'number' ? p.columns : undefined), names: [...new Set(app.offered.map((l) => l.entry.frontmatter.name))].slice(0, 500), servers: app.configured };
     },
     // The facts of a skill's entry, for the approval question: no file is fetched.
     async '/entry'(p) {
@@ -195,23 +208,25 @@ const routes: Record<string, (p: Record<string, unknown>) => Promise<unknown> | 
         try {
             const found = app.find(String(p.what ?? ''));
             if (found.length !== 1) return { candidates: found.map((l) => ({ server: l.label, uri: l.entry.uri, name: l.entry.frontmatter.name })) };
+            // A skill the user disabled can still be read by them here: this panel is theirs, not the model's.
             const { entry, body, isVerified } = await app.host.preview(found[0]!.label, found[0]!.entry.uri);
-            return { server: found[0]!.label, uri: entry.uri, name: entry.frontmatter.name, description: oneLine(entry.frontmatter.description, 1024), body, isVerified, files: entry.resources === 'dynamic' ? [] : entry.resources.filter((r) => r.uri !== entry.uri).map((r) => r.uri.slice(entry.uri.length - 'SKILL.md'.length)) };
+            return { server: found[0]!.label, uri: entry.uri, name: entry.frontmatter.name, description: oneLine(entry.frontmatter.description, 1024), body, isVerified, isDisabled: app.isDisabled(found[0]!.label, entry.uri), files: entry.resources === 'dynamic' ? [] : entry.resources.filter((r) => r.uri !== entry.uri).map((r) => r.uri.slice(entry.uri.length - 'SKILL.md'.length)) };
         } catch (e) {
             return { error: e instanceof LocalError ? e.message : describeError(e) };
         }
     },
     async '/find'(p) {
         await settled();
-        return { found: app.find(String(p.what ?? '')).map((l) => ({ server: l.label, uri: l.entry.uri, name: l.entry.frontmatter.name })) };
+        return { found: app.named(String(p.what ?? '')) };
     },
     async '/refresh'() {
         await settled();
         await app.refresh();
         return {};
     },
-    '/release'() {
-        app.release();
+    '/release'(p) {
+        if (typeof p.server === 'string' && typeof p.uri === 'string') app.release(p.server, p.uri);
+        else app.release();
         return {};
     },
     '/stop'() {

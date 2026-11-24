@@ -96,6 +96,28 @@ describe('the bundled helper', () => {
         await new Promise((r) => h.child.once('exit', r));
     });
 
+    test('H1: the skills the user disabled, once sent, are left out of the listing from then on, and each listing says which list it was made under', async () => {
+        const [off, on] = [skill('release-notes'), skill('incident-review')];
+        const cfgDir = mkdtempSync(join(tmpdir(), 'mcp-skills-cfg-'));
+        const config = join(cfgDir, 'servers.json');
+        writeFileSync(config, JSON.stringify({ mcpServers: { docs: new Fixture(scenarioOf([off, on])).config } }));
+        const h = await startHelper({ MCP_SKILLS_CONFIG: config, CLAUDE_PROJECT_DIR: mkdtempSync(join(tmpdir(), 'mcp-skills-proj-')) });
+        const first = await h.next('catalog');
+        assert.equal(first.rev, 0, 'made before any list of disabled skills arrived');
+        const answer = (await h.post('/disabled', { skills: [{ server: 'docs', uri: off.uri }] })).json;
+        assert.equal(answer.rev, 1);
+        assert.doesNotMatch(String(answer.text), /release-notes/);
+        assert.match(String(answer.text), /incident-review/);
+        // The listing is sent again, made under the new list.
+        for (const end = Date.now() + 5000; !h.messages.some((m) => m.t === 'catalog' && m.rev === 1) && Date.now() < end; ) await new Promise((r) => setTimeout(r, 50));
+        const again = h.messages.find((m) => m.t === 'catalog' && m.rev === 1);
+        assert.ok(again, 'the changed listing is sent');
+        assert.doesNotMatch(String(again.text), /release-notes/);
+        assert.equal((await h.post('/tool', { name: 'load_skill', input: { server: 'docs', uri: off.uri } })).json.isError, true);
+        assert.deepEqual((await h.post('/find', { what: 'release-notes' })).json.found, [{ server: 'docs', uri: off.uri, name: 'release-notes', isDisabled: true, isListed: true }]);
+        await h.post('/stop');
+    });
+
     test('a server found not to serve skills is remembered, and not connected to again at the next start; /refresh looks again', async () => {
         const [serves, plain] = [new Fixture(scenarioOf([skill('kept-skill')])), new Fixture({ caps: 'none' })];
         const cfgDir = mkdtempSync(join(tmpdir(), 'mcp-skills-cfg-'));

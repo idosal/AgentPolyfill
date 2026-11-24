@@ -19,22 +19,28 @@
 //     ask before every tool call but reading and searching (a command, and also
 //     a write, a subagent, another server's tool); and for any loaded skill,
 //     before a resource read from another MCP server;
+//   - keeps the skills the person disabled (/mcp-skills disable), by identity:
+//     such a skill is not offered to Claude, loaded or read until they enable it;
 //   - stands down when Claude Code serves MCP skills itself.
 
 import type { EngineInterface, Register } from 'claude-code'
-import { BUN, SetupError, fetched, install, platformOf, remove } from './runtime'
+import { BUN, SetupError, install, pinned, platformOf, remove } from './runtime'
 import { INERT_TOOLS, PLUGIN, RESOURCE_TOOLS, TOOLS } from './tools'
 
 type Endpoint = { url: string; token: string }
 type Catalog = { text: string; skills: number; servers: number }
-type HelperMessage = { t?: string; url?: string; token?: string; names?: unknown; text?: string; skills?: number; servers?: number; expects?: number; complete?: boolean }
+type HelperMessage = { t?: string; url?: string; token?: string; names?: unknown; text?: string; skills?: number; servers?: number; expects?: number; complete?: boolean; rev?: unknown }
+/** A skill the person disabled, by its identity: the server's name in their configuration, and the URI of its SKILL.md. */
+type Off = { server: string; uri: string; name: string; at: number }
+/** A skill as the helper names it for a command. */
+type Named = { server: string; uri: string; name: string; isDisabled?: boolean; isListed?: boolean }
 /** A skill this conversation loaded: the session is acting on it until the conversation is cleared. */
 type Acting = { server: string; uri: string; name: string; root: string; isApproved: boolean }
 /** A person's yes to a skill, bound to what the skill was: which server (by where it is), and every file's address and digest. */
 type Approval = { hash: string; fingerprint: string; name: string; at: number }
 /** What the helper says of a skill's current entry. */
 type Facts = { server: string; uri: string; name: string; files: number; bytes: number; isDynamic: boolean; hash?: string; fingerprint: string; declined?: string; error?: string }
-type Preview = { server: string; uri: string; name: string; description: string; body: string; isVerified: boolean; files: string[] }
+type Preview = { server: string; uri: string; name: string; description: string; body: string; isVerified: boolean; isDisabled?: boolean; files: string[] }
 
 const LOAD = `mcp__${PLUGIN}__load_skill`
 /** The mod's tools that only read: a listing, a verified file of a loaded skill, a directory of one. */
@@ -69,7 +75,19 @@ const state: {
   setup?: Promise<void>
   /** What the helper runs on, for the status: set where it is the mod's own copy of Bun. */
   ownRuntime?: string
-} = { isEnded: false, areToolsLoaded: false, restarts: [], problemShown: false, pending: new Map(), loadedHere: [] }
+  /** Where the running helper listens, once it is ready. */
+  endpoint?: Endpoint
+  /** The skills the person disabled, as last read from the store (with those it could not keep); undefined until read. */
+  disabled?: Map<string, Off>
+  /** Disabled here, and not kept in the store (it was full): in force until Claude Code is restarted. */
+  disabledHere: Map<string, Off>
+  /** The list of disabled skills the running helper was last sent, and the helper it was sent to. */
+  told?: { list: string; to: Endpoint }
+  /** What the helper answered to that list: a listing it made under an earlier list is not used. */
+  rev?: number
+  /** Changes to the disabled skills, and each sending of them to the helper, one at a time. */
+  lock: Promise<unknown>
+} = { isEnded: false, areToolsLoaded: false, restarts: [], problemShown: false, pending: new Map(), loadedHere: [], disabledHere: new Map(), lock: Promise.resolve() }
 
 const debug = ($: EngineInterface, text: string) => $.ui.log(`${PLUGIN}: ${text}`, { to: 'debug' })
 const plain = (text: unknown) => String(text).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').slice(0, 300)
@@ -121,8 +139,8 @@ async function runtime($: EngineInterface): Promise<string[]> {
   const own = async (): Promise<string[] | undefined> => {
     const data = await dataFolder($).catch(() => undefined)
     // Only the release this version of the mod pins and checked when it was fetched: a copy of any
-    // other version in that folder, whoever put it there, is never run.
-    const copy = data ? (await fetched($, data)).find((c) => c.version === BUN.version) : undefined
+    // other version in that folder, whoever put it there, is never run, not even to ask its version.
+    const copy = data ? await pinned($, data) : undefined
     if (!copy) return undefined
     state.ownRuntime = `its own copy of Bun ${copy.version}`
     return [copy.path]
@@ -267,9 +285,19 @@ function ensureHelper($: EngineInterface): Promise<Endpoint> {
             }
             if (message.t === 'ready' && typeof message.url === 'string' && typeof message.token === 'string') {
               ready = true
+              const where = { url: message.url, token: message.token }
+              state.endpoint = where
+              state.rev = undefined
+              // Before anything uses this helper, it is told which skills the person disabled. Until it
+              // has been told, no listing of its is used (applyCatalog), so none can offer such a skill.
+              await syncDisabled($, where).catch((error: unknown) => {
+                debug($, `the helper could not be told which skills are disabled (${plain(error instanceof Error ? error.message : error)}); nothing is listed until it is`)
+                // No listing of its can be used yet, so the session does not wait for one.
+                state.gotCatalog?.()
+              })
               // No server is known to serve skills, and none is new: the session does not wait for a first listing.
               if (!(Number(message.expects) > 0)) state.gotCatalog?.()
-              resolve({ url: message.url, token: message.token })
+              resolve(where)
             } else if (ready) {
               void onMessage($, message).catch((error: unknown) => debug($, `a helper message failed: ${plain(error)}`))
             }
@@ -278,7 +306,10 @@ function ensureHelper($: EngineInterface): Promise<Endpoint> {
       } catch (error) {
         failure = error
       }
-      if (state.helper === starting) state.helper = undefined
+      if (state.helper === starting) {
+        state.helper = undefined
+        state.endpoint = undefined
+      }
       if (!ready) {
         const why = failure instanceof Error ? failure.message : String(failure)
         debug($, `the helper did not start: ${plain(why)}`)
@@ -339,23 +370,180 @@ async function onMessage($: EngineInterface, message: HelperMessage): Promise<vo
       )
       return
     }
-    case 'catalog': {
-      const before = state.catalog?.text
-      state.catalog = { text: String(message.text ?? ''), skills: Number(message.skills) || 0, servers: Number(message.servers) || 0 }
-      // Once a server serves skills, Claude has the tools from the start instead of through ToolSearch.
-      if (state.catalog.servers > 0 && !state.areToolsLoaded) {
-        state.areToolsLoaded = true
-        await Promise.all(TOOLS.map((spec) => $.tool.register({ ...spec, isDeferred: false }))).catch(() => {})
-      }
-      // A listing sent while a server is still being looked at does not end the wait for the first
-      // one; whatever has arrived when the wait ends is what the first listing holds.
-      if (message.complete !== false) state.gotCatalog?.()
-      // A listing that arrived or changed after the session's skill listing was composed: compose it again.
-      if (before !== undefined ? before !== state.catalog.text : state.catalog.text !== '') $.ui.invalidate('prompt.attachment')
-      return
-    }
+    case 'catalog':
+      return applyCatalog($, message)
   }
 }
+
+/**
+ * Takes a listing from the helper, unless it was made before the helper was sent the latest list of
+ * disabled skills (its `rev` is lower than the one the helper answered to that list), or before it
+ * was sent any: such a listing may hold a skill the person disabled.
+ */
+async function applyCatalog($: EngineInterface, message: HelperMessage): Promise<void> {
+  if (state.rev === undefined || typeof message.rev !== 'number' || message.rev < state.rev) return
+  const before = state.catalog?.text
+  state.catalog = { text: String(message.text ?? ''), skills: Number(message.skills) || 0, servers: Number(message.servers) || 0 }
+  // Once a server serves skills, Claude has the tools from the start instead of through ToolSearch.
+  if (state.catalog.servers > 0 && !state.areToolsLoaded) {
+    state.areToolsLoaded = true
+    await Promise.all(TOOLS.map((spec) => $.tool.register({ ...spec, isDeferred: false }))).catch(() => {})
+  }
+  // A listing sent while a server is still being looked at does not end the wait for the first
+  // one; whatever has arrived when the wait ends is what the first listing holds.
+  if (message.complete !== false) state.gotCatalog?.()
+  // A listing that arrived or changed after the session's skill listing was composed: compose it again.
+  if (before !== undefined ? before !== state.catalog.text : state.catalog.text !== '') $.ui.invalidate('prompt.attachment')
+}
+
+// ---- Skills the person disabled ("per-skill enable/disable", SEP-2640's host guidance)
+//
+// Kept in the mod's store under DISABLED, by identity (server and SKILL.md URI, as approvals are),
+// so the list holds across sessions and is shared by every session on the machine. A disabled skill
+// is left out of what the helper offers Claude (the listing, list_skills), and is refused at the
+// permission check of load_skill and again when any of the mod's tools runs for it: the store is
+// read at each of those, so a skill disabled in another session is refused here too. Disabling a
+// skill takes nothing back from the conversation: a skill loaded before is still acted on, and
+// still gated, until the conversation is cleared.
+
+const DISABLED = 'disabled'
+/** The most skills kept disabled. Past it a disable is refused: dropping an old one would offer it again. */
+const MAX_DISABLED = 2000
+/** And at most this much of the store, so the whole list goes to the helper in one request (it takes up to 1 MiB). */
+const MAX_DISABLED_BYTES = 512 * 1024
+
+/** A skill's name as its URI gives it: the last segment of its directory. */
+const nameIn = (uri: string) => {
+  const root = uri.endsWith('/SKILL.md') ? uri.slice(0, -'/SKILL.md'.length) : uri
+  return root.slice(root.lastIndexOf('/') + 1)
+}
+
+/** The disabled skills the store holds. A key in a shape this version cannot read is no skill; any value under a key it can read still disables that skill. */
+async function storedOff($: EngineInterface): Promise<Map<string, Off>> {
+  const stored = await $.store.get(DISABLED)
+  const out = new Map<string, Off>()
+  if (typeof stored !== 'object' || stored === null || Array.isArray(stored)) return out
+  for (const [key, value] of Object.entries(stored as Record<string, unknown>)) {
+    const at = key.indexOf('\n')
+    if (at <= 0 || at === key.length - 1) continue
+    const v = (typeof value === 'object' && value !== null ? value : {}) as { name?: unknown; at?: unknown }
+    const uri = key.slice(at + 1)
+    out.set(key, { server: key.slice(0, at), uri, name: typeof v.name === 'string' && v.name ? v.name : nameIn(uri), at: Number(v.at) || 0 })
+  }
+  return out
+}
+
+/** Runs one change to the disabled skills, or one sending of them, after those already under way. */
+function serial<T>(run: () => Promise<T>): Promise<T> {
+  const next = state.lock.then(run, run)
+  state.lock = next.catch(() => {})
+  return next
+}
+
+/** Every disabled skill: the store's, and those disabled here that it could not keep. */
+async function readOff($: EngineInterface): Promise<Map<string, Off>> {
+  const all = await storedOff($)
+  for (const [key, off] of state.disabledHere) all.set(key, off)
+  return all
+}
+
+/** Sends the helper the disabled skills, where it has not been sent this list, and takes the listing it answers with. */
+async function tell($: EngineInterface, where: Endpoint | undefined): Promise<void> {
+  if (!where || !state.disabled) return
+  const list = [...state.disabled.keys()].sort().join('\0')
+  if (state.told?.list === list && state.told.to === where) return
+  const answer = (await post($, where, '/disabled', { skills: [...state.disabled.values()].map(({ server, uri }) => ({ server, uri })) })) as HelperMessage
+  if (typeof answer.rev !== 'number') throw new Error('the helper did not take the list')
+  state.told = { list, to: where }
+  state.rev = answer.rev
+  await applyCatalog($, answer)
+}
+
+/**
+ * The disabled skills as they are now: read from the store (another session may have changed it),
+ * and sent to the helper if it has not been sent them. Rejects where the store cannot be read.
+ */
+function syncDisabled($: EngineInterface, where?: Endpoint): Promise<Map<string, Off>> {
+  return serial(async () => {
+    state.disabled = await readOff($)
+    await tell($, where ?? state.endpoint)
+    return state.disabled
+  })
+}
+
+/** Keeps a change to the disabled skills: written, read back, and written again if another session's write took it out. */
+async function keepOff($: EngineInterface, key: string, off: Off | undefined): Promise<boolean> {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const all = await storedOff($)
+    if (off) all.set(key, off)
+    else all.delete(key)
+    await $.store.set(DISABLED, Object.fromEntries([...all].map(([k, o]) => [k, { name: o.name, at: o.at }])))
+    if ((await storedOff($)).has(key) === Boolean(off)) return true
+  }
+  return false
+}
+
+/**
+ * `/mcp-skills disable <skill>`: from any input, since it only takes something away from Claude.
+ * In force in this session at once, before it is written: a load under way when it is typed is not
+ * handed to Claude. Refused past MAX_DISABLED, never by dropping an earlier one.
+ */
+async function disable($: EngineInterface, where: Endpoint, skill: Named): Promise<string> {
+  const key = approvalKey(skill.server, skill.uri)
+  const what = `${quoted(skill.name)} from the MCP server ${quoted(skill.server)} (${plain(skill.uri)})`
+  return serial(async () => {
+    const all = await readOff($)
+    if (all.has(key)) {
+      state.disabled = all
+      return `${what[0]!.toUpperCase()}${what.slice(1)} is disabled already. /mcp-skills enable ${plain(skill.server)}:${plain(skill.name)} turns it back on.`
+    }
+    if (all.size >= MAX_DISABLED) return `${MAX_DISABLED} skills are disabled, the most this mod keeps. Enable one first (/mcp-skills enable <skill>); nothing was changed.`
+    const off: Off = { server: skill.server, uri: skill.uri, name: skill.name, at: await $.clock.now() }
+    all.set(key, off)
+    if (JSON.stringify([...all.entries()]).length > MAX_DISABLED_BYTES) return 'The list of disabled skills would grow past what this mod keeps (512 KB). Enable some first; nothing was changed.'
+    state.disabled = all
+    const isKept = await keepOff($, key, off).catch(() => false)
+    if (!isKept) state.disabledHere.set(key, off)
+    await tell($, where).catch((error: unknown) => debug($, `the helper could not be told of a disabled skill (${plain(error instanceof Error ? error.message : error)}); it is refused here all the same`))
+    const loaded = (state.acting ?? state.loadedHere).some((a) => a.server === skill.server && a.uri === skill.uri)
+    return [
+      `Disabled ${what}. Claude is not offered it from now on, and cannot load it or read its files, in this session and in others${isKept ? '' : ' (in this session only, until Claude Code is restarted: it could not be kept, since the mod\'s store is full)'}.`,
+      loaded ? 'It was loaded in this conversation already: what Claude read of it stays in the conversation until it is cleared, and so do the questions Claude Code asks because it was loaded.' : '',
+      `/mcp-skills enable ${plain(skill.server)}:${plain(skill.name)} turns it back on.`,
+    ]
+      .filter(Boolean)
+      .join(' ')
+  })
+}
+
+/**
+ * `/mcp-skills enable <skill>`: only from the person's own input, since it offers Claude a skill
+ * again. Matched against what is kept, so a skill its server no longer lists can be enabled too.
+ * Enabling approves nothing: a load is asked about as it would have been.
+ */
+async function enable($: EngineInterface, what: string, origin: { kind?: string } | undefined, several: (found: Named[]) => string): Promise<string> {
+  if (!isPerson(origin)) return 'Only you can enable a skill you disabled: type /mcp-skills enable <skill> yourself, at the prompt of a `claude` session.'
+  if (!what) return 'Which skill? /mcp-skills enable <name>'
+  return serial(async () => {
+    const all = await readOff($)
+    const found = [...all.values()].filter((o) => o.uri === what || o.name === what || `${o.server}:${o.name}` === what || `${o.server}:${o.uri}` === what)
+    if (found.length !== 1) return found.length ? several(found) : `No skill you disabled is named ${quoted(what)}. /mcp-skills lists the ones you did.`
+    const off = found[0]!
+    const key = approvalKey(off.server, off.uri)
+    if (!state.disabledHere.has(key) || (await storedOff($)).has(key)) {
+      if (!(await keepOff($, key, undefined).catch(() => false))) return `${quoted(off.name)} could not be enabled: the mod's store could not be written. It stays disabled.`
+    }
+    state.disabledHere.delete(key)
+    all.delete(key)
+    state.disabled = all
+    await tell($, state.endpoint).catch(() => {})
+    return `Enabled ${quoted(off.name)} from the MCP server ${quoted(off.server)}. Claude is offered it again; loading it is asked about as before (a yes you gave stands while the skill is unchanged).`
+  })
+}
+
+const refusal = (off: Off) => `You disabled the skill ${quoted(off.name)} from the MCP server ${quoted(off.server)} (${plain(off.uri)}), so it is not loaded and none of its files is read. Only you can enable it again: /mcp-skills enable ${plain(off.server)}:${plain(off.name)}.`
+/** The person's own input: typed at the prompt, or sent from their own Remote Control. */
+const isPerson = (origin: { kind?: string } | undefined) => origin?.kind === 'composer' || origin?.kind === 'bridge'
 
 const normal = (server: unknown) => String(server ?? '').replace(/[^A-Za-z0-9_-]/g, '_')
 
@@ -445,12 +633,43 @@ async function serve($: EngineInterface, name: string, e: Record<string, unknown
   // mod's own call of the tool) was approved by nobody.
   const decided = typeof id === 'string' ? state.pending.get(id) : undefined
   if (typeof id === 'string') state.pending.delete(id)
+  // The skill this call is about, for the three tools that load or read one.
+  const target = name === 'list_skills' ? undefined : { server: input.server, uri: name === 'load_skill' ? input.uri : input.skill }
+  const offNow = () => (typeof target?.server === 'string' && typeof target.uri === 'string' ? state.disabled?.get(approvalKey(target.server, target.uri)) : undefined)
+  const UNREAD = { deny: 'MCP Skills could not read which skills you disabled, so it neither lists nor loads a served skill just now. Try again.' }
   try {
     const where = await ensureHelper($)
+    // A skill the person disabled, here or in another session, is not loaded or read: the store
+    // is read for this call, and the helper is told the list before it lists anything.
+    if (!(await syncDisabled($, where).then(() => true, () => false))) return UNREAD
+    const off = offNow()
+    if (off) return { deny: refusal(off) }
     // The skill is loaded as it was put to the person, or not at all.
-    const answer = await post($, where, '/tool', { name, input: name === 'load_skill' && decided?.hash ? { ...input, expect: decided.hash } : input })
+    const ask = () => post($, where, '/tool', { name, input: name === 'load_skill' && decided?.hash ? { ...input, expect: decided.hash } : input })
+    let list = state.told?.list
+    let answer = await ask()
+    // A list of disabled skills that changed while the helper answered: a listing is asked for again,
+    // under the new list. For a skill's own content, see below.
+    for (let again = 0; name === 'list_skills' && answer.isError !== true && again < 3; again++) {
+      if (!(await syncDisabled($, where).then(() => true, () => false))) return UNREAD
+      if (state.told?.list === list) break
+      list = state.told?.list
+      answer = await ask()
+    }
     const text = typeof answer.text === 'string' ? answer.text : 'The MCP Skills helper gave no answer.'
     if (answer.isError === true) return { deny: text }
+    // Disabled while the helper answered: nothing of it goes to Claude, and the helper lets go of it.
+    const letGo = () => {
+      if (name === 'load_skill') void post($, where, '/release', { server: target?.server, uri: target?.uri }).catch(() => {})
+    }
+    if (target) {
+      const read = await syncDisabled($, where).then(() => true, () => false)
+      const late = offNow()
+      if (!read || late) {
+        letGo()
+        return late ? { deny: refusal(late) } : UNREAD
+      }
+    }
     if (name !== 'load_skill') return { result: text }
     const acting = answer.acting as { server?: unknown; uri?: unknown; name?: unknown; hash?: unknown; fingerprint?: unknown } | undefined
     if (typeof acting?.server !== 'string' || typeof acting.uri !== 'string') return { result: text }
@@ -468,6 +687,13 @@ async function serve($: EngineInterface, name: string, e: Record<string, unknown
       } catch (error) {
         debug($, `the approval of ${quoted(String(acting.name ?? ''))} could not be kept (${plain(error instanceof Error ? error.message : error)}); it is asked about again next time`)
       }
+    }
+    // The last look, with nothing awaited between it and the answer: a disable made in this session
+    // meanwhile wins.
+    const last = offNow()
+    if (last) {
+      letGo()
+      return { deny: refusal(last) }
     }
     // From here on the session is acting on this skill. Kept apart from what is read back from the
     // conversation, so a load made before that read cannot stand in for it: a skill loaded unapproved
@@ -505,7 +731,7 @@ export const register: Register = (on) => {
     void ensureHelper($).catch(() => {})
     await Promise.all([
       ...TOOLS.map((spec) => $.tool.register({ ...spec })),
-      $.command.register({ name: 'mcp-skills', description: 'Skills your MCP servers serve: list them, read one (show), have Claude use one (use)', argumentHint: '[show|use|refresh|forget|setup] [skill]' }),
+      $.command.register({ name: 'mcp-skills', description: 'Skills your MCP servers serve: list them, read one (show), have Claude use one (use), turn one off or on (disable, enable)', argumentHint: '[show|use|disable|enable|refresh|forget|setup] [skill]' }),
     ])
     // The first request of a session carries its skill listing. Where a server is known to serve
     // skills, wait a little for it, so its skills are in that listing; a slower server's skills are
@@ -517,8 +743,14 @@ export const register: Register = (on) => {
   // The session's skill listing, with the MCP-served skills added under their own heading.
   on('prompt.attachment', { type: 'skill_listing' }, async ($, e, next) => {
     const listing = await next(e)
-    const mine = state.off ? '' : (state.catalog?.text ?? '')
-    if (!mine || listing.text == null) return listing
+    if (state.off || listing.text == null) return listing
+    // A skill disabled since the helper last listed (in another session, say): the helper is told,
+    // and answers with its listing under the new list, before anything of it is used. Where the
+    // store cannot be read, or no helper is running to be told, nothing is added: the listing could
+    // hold a skill that is disabled.
+    if (!state.endpoint || !(await syncDisabled($).then(() => true, () => false))) return listing
+    const mine = state.catalog?.text ?? ''
+    if (!mine) return listing
     return { ...listing, text: `${listing.text}\n\n${mine}` }
   })
 
@@ -556,6 +788,10 @@ export const register: Register = (on) => {
       if (state.off) return verdict
       const asked = (e.input ?? {}) as { server?: unknown; uri?: unknown }
       if (typeof asked.server !== 'string' || typeof asked.uri !== 'string') return verdict
+      // A skill the person disabled is refused here, whatever a rule or a mode says, and again when
+      // the call runs. (A store that cannot be read throws, and the call is held for the person.)
+      const off = (await syncDisabled($)).get(approvalKey(asked.server, asked.uri))
+      if (off) return { decision: 'deny' as const, reason: refusal(off) }
       let facts: Facts
       try {
         facts = (await post($, await ensureHelper($), '/entry', { server: asked.server, uri: asked.uri })) as Facts
@@ -642,15 +878,26 @@ export const register: Register = (on) => {
   // /mcp-skills use <skill> [what]  ask Claude to load the skill and use it
   // /mcp-skills refresh             look at every server again
   // /mcp-skills forget [<skill>]    drop the approvals kept (all, or one skill's)
-  // <skill> is a name, server:name, or the URI of a SKILL.md.
+  // /mcp-skills disable <skill>     Claude is not offered the skill, and cannot load or read it
+  // /mcp-skills enable <skill>      undoes that; only from the person's own input
+  // <skill> is a name, server:name, the URI of a SKILL.md, or server:URI.
   on('command.run', { command: 'mcp-skills' }, async ($, e) => {
     if (state.off) return { text: `MCP Skills is off in this session: ${state.off}` }
     const [verb = '', what = '', ...rest] = String(e.args ?? '').trim().split(/\s+/)
     if (verb === 'setup') return { text: await setup($, what, e.origin as { kind?: string } | undefined) }
-    const several = (found: { server: string; uri: string; name: string }[]) =>
-      found.length ? `That names more than one skill. Say which: ${found.slice(0, 10).map((f) => `${f.server}:${f.name}`).join(', ')}.` : `No served skill is named ${quoted(what)}. Run /mcp-skills to see them.`
+    // A name a server serves twice is told apart by its URI.
+    const label = (f: Named, all: Named[]) => (all.filter((g) => g.server === f.server && g.name === f.name).length > 1 ? `${f.server}:${f.uri}` : `${f.server}:${f.name}`)
+    const several = (found: Named[]) =>
+      found.length ? `That names more than one skill. Say which: ${found.slice(0, 10).map((f) => label(f, found)).join(', ')}.` : `No served skill is named ${quoted(what)}. Run /mcp-skills to see them.`
+    if (verb === 'enable') return { text: await enable($, what, e.origin as { kind?: string } | undefined, several) }
     try {
       const where = await ensureHelper($)
+      if (verb === 'disable') {
+        if (!what) return { text: 'Which skill? /mcp-skills disable <name>' }
+        const { found } = (await post($, where, '/find', { what })) as { found: Named[] }
+        if (found.length !== 1) return { text: several(found) }
+        return { text: await disable($, where, found[0]!) }
+      }
       if (verb === 'show') {
         if (!what) return { text: 'Which skill? /mcp-skills show <name>' }
         const shown = (await post($, where, '/preview', { what })) as Partial<Preview> & { error?: string; candidates?: { server: string; uri: string; name: string }[] }
@@ -663,9 +910,11 @@ export const register: Register = (on) => {
       }
       if (verb === 'use') {
         if (!what) return { text: 'Which skill? /mcp-skills use <name> [what to do with it]' }
-        const { found } = (await post($, where, '/find', { what })) as { found: { server: string; uri: string; name: string }[] }
+        const { found } = (await post($, where, '/find', { what })) as { found: Named[] }
         if (found.length !== 1) return { text: several(found) }
-        const [skill] = found as [{ server: string; uri: string; name: string }]
+        const [skill] = found as [Named]
+        const off = (await syncDisabled($, where)).get(approvalKey(skill.server, skill.uri))
+        if (off) return { text: `You disabled ${quoted(skill.name)} from the MCP server ${quoted(skill.server)}, so Claude cannot load it. /mcp-skills enable ${label(skill, found)} turns it back on.` }
         const request = rest.join(' ')
         const text = `The user asked to use the skill ${quoted(skill.name)} served by the MCP server ${quoted(skill.server)}. Load it with mcp__mcp-skills__load_skill (server ${quoted(skill.server)}, uri ${quoted(skill.uri)})${request ? `, then use it for this request of theirs: ${request}` : ', then ask them what they want done with it'}.`
         // Submitted once this command has answered: a prompt submitted from inside it would wait on itself.
@@ -680,7 +929,9 @@ export const register: Register = (on) => {
         return { text: keys.length ? `Forgot ${keys.length} approval${keys.length === 1 ? '' : 's'}. ${keys.length === 1 ? 'That skill is' : 'Those skills are'} asked about again before loading.` : 'No approval to forget.' }
       }
       if (verb === 'refresh') await post($, where, '/refresh', {})
-      else if (verb) return { text: 'Usage: /mcp-skills, /mcp-skills show <skill>, /mcp-skills use <skill> [what to do], /mcp-skills refresh, /mcp-skills forget [<skill>]' }
+      else if (verb) return { text: 'Usage: /mcp-skills, /mcp-skills show <skill>, /mcp-skills use <skill> [what to do], /mcp-skills disable <skill>, /mcp-skills enable <skill>, /mcp-skills refresh, /mcp-skills forget [<skill>]' }
+      // The helper counts the disabled skills of each server from the list as it is now.
+      const off = await syncDisabled($, where)
       const status = await post($, where, '/status', { compact: true, columns: e.presentation?.columns })
       const acting = await actingSkills($)
       const lines = [typeof status.text === 'string' ? status.text : 'The MCP Skills helper gave no answer.']
@@ -703,9 +954,12 @@ export const register: Register = (on) => {
       if (others.size) lines.push(`Not looked at, because they are not in your MCP configuration files (a plugin's servers, claude.ai connectors): ${[...others].slice(0, 12).map(quoted).join(', ')}${others.size > 12 ? ` and ${others.size - 12} more` : ''}.`)
       const kept = Object.values(await approvals($))
       if (kept.length) lines.push(`Approved by you, each as it was when you approved it: ${kept.slice(0, 30).map((a) => quoted(a.name)).join(', ')}${kept.length > 30 ? ` and ${kept.length - 30} more` : ''}. /mcp-skills forget drops them.`)
+      // Named by name and server only: nothing a server wrote about a disabled skill is shown here.
+      const disabled = [...off.values()]
+      if (disabled.length) lines.push(`Disabled by you, so Claude is not offered them and cannot load or read them: ${disabled.slice(0, 30).map((o) => `${quoted(o.name)} from the MCP server ${quoted(o.server)}`).join(', ')}${disabled.length > 30 ? ` and ${disabled.length - 30} more` : ''}. /mcp-skills enable <skill> turns one back on.`)
       if (acting.length) lines.push(`Loaded in this conversation: ${named(acting)}. Until the conversation is cleared, Claude Code asks you before a resource read from any other MCP server${acting.some((a) => !a.isApproved) ? ', and before anything but reading and searching, since a skill is loaded that nobody was asked about' : ''}.`)
       if (state.ownRuntime) lines.push(`The helper runs on ${state.ownRuntime}. /mcp-skills setup remove deletes it.`)
-      lines.push('Read one before it is loaded: /mcp-skills show <name>. Have Claude use one: /mcp-skills use <name> [what to do].')
+      lines.push('Read one before it is loaded: /mcp-skills show <name>. Have Claude use one: /mcp-skills use <name> [what to do]. Keep one from Claude: /mcp-skills disable <name>.')
       return { text: lines.join('\n') }
     } catch (error) {
       return { text: error instanceof NoHelper ? error.message : `MCP Skills could not answer: ${plain(error instanceof Error ? error.message : error)}` }
@@ -722,7 +976,7 @@ export const register: Register = (on) => {
     return h(
       Box,
       { flexDirection: 'column' },
-      h(Text, { dimColor: true }, `Served by the MCP server ${quoted(shown.server)} at ${plain(shown.uri)}. ${shown.isVerified ? 'It matches the digest the server published for it.' : 'The server publishes no digest for it.'} Not loaded: Claude has not read this.`),
+      h(Text, { dimColor: true }, `Served by the MCP server ${quoted(shown.server)} at ${plain(shown.uri)}. ${shown.isVerified ? 'It matches the digest the server published for it.' : 'The server publishes no digest for it.'} Not loaded: Claude has not read this.${shown.isDisabled ? ' You disabled it: Claude is not offered it.' : ''}`),
       h(Text, { dimColor: true }, plain(files)),
       h(Text, {}, ' '),
       h(Markdown, { text: shown.body.replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, ' ') }),

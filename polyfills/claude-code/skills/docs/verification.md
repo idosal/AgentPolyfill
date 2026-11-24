@@ -20,8 +20,10 @@ own rules decide); the load, which takes exactly the approved set or nothing;
 the digest check of every file read; the record of which skills the
 conversation is acting on, and whether each was approved; the gate on every
 other tool call; the cross-server resource read; a resume, which reads that
-record back from the conversation; and the rules that decide which servers are
-used at all.
+record back from the conversation; the person disabling the skill and enabling
+it again, at any moment, here or in another session, and the skill's line
+entering the model's context; and the rules that decide which servers are used
+at all.
 
 **Where it is.** [`verification/skillGate.qnt`](../verification/skillGate.qnt)
 (Quint); [`verification/SkillGate.tla`](../verification/SkillGate.tla), the
@@ -46,6 +48,9 @@ invariant, and are kept in step by hand; two checks below tie them together.
 | `acting`; `convoAny`, `convoU` | `state.acting` / `loadedHere` and `note`; the conversation itself |
 | `Resume` | Claude Code starting again on the conversation, perhaps without a person, perhaps with the server elsewhere; `actingSkills` reads it back |
 | `HelperRestart`, `Clear`, `Forget`, `ElsewhereYes` | the helper restarting; `/clear`; `/mcp-skills forget`; a yes given in another session on the machine |
+| `off`; `Disable`, `Enable` | the disabled skills in the mod's store (`storedOff`, `syncDisabled` in `register.ts`); `/mcp-skills disable` and `enable`, in this session or another, since every session reads the same store |
+| `Check` and `Run` with `off` | the refusal in `tool.check` for `load_skill`, and the one in `serve` for each of the mod's tools, before the helper is asked and again after it answers |
+| `Offer` | the skill's line entering the model's context: the skill listing (`prompt.attachment`, composed after the helper was told the list as the store holds it, `applyCatalog`) and `list_skills` |
 | `used` and its facts | `discoverServers` in `config.ts`, then Claude Code's verdict through `$.mcp.connect` |
 
 **The invariants, in plain words:**
@@ -69,6 +74,10 @@ invariant, and are kept in step by hand; two checks below tie them together.
   Consistency: no yes without a person; the helper holds an entry only for a
   skill the conversation acts on; the hooks module's record matches the
   conversation.
+- **DisabledNeverReaches.** While the person has the skill disabled, nothing of
+  it enters the model's context: not its line in a listing, not its
+  `SKILL.md`, not a file. And disabling it does not end the window of a skill
+  already loaded (a model that let it would break ActingMatchesConversation).
 - **ServerRule.** A repository's own settings never approve its servers when
   its trust is inherited from a folder around it; a server from an untrusted
   folder, or one that was rejected, is never used; nothing Claude Code does not
@@ -76,7 +85,8 @@ invariant, and are kept in step by hand; two checks below tie them together.
 
 **The bound.** One server serving one skill, each part of which can be in 3
 versions (4 in a second run); two locations for that server; a second server to
-read resources from; a skill with a manifest, and a dynamic one; any number of
+read resources from; a skill with a manifest, and a dynamic one; the skill
+enabled or disabled; any number of
 steps (each checker runs until no new state appears). Every combination of the
 7 facts behind `ServerRule` (192). The two servers are interchangeable in the
 code (approvals and the gate are keyed by server), which is why one skill
@@ -87,21 +97,21 @@ by the example tests (U1, U2).
 
 | Check | Result |
 |---|---|
-| `node verification/model.ts`: every reachable state, breadth first, every invariant in every state and on every step | manifest: 145,152 states, 2,825,172 transitions, depth 16; dynamic: 6,480 states. Every invariant holds |
-| the same with `--versions=4` | manifest: 884,480 states, 19,924,736 transitions, depth 16 (the same depth: a third version already reaches every behaviour); dynamic: 24,064. Every invariant holds |
+| `node verification/model.ts`: every reachable state, breadth first, every invariant in every state and on every step | manifest: 290,304 states, 5,974,992 transitions, depth 17; dynamic: 12,960 states. Every invariant holds |
+| the same with `--versions=4` | manifest: 1,768,960 states, 41,973,248 transitions, depth 17 (the same depth: a third version already reaches every behaviour); dynamic: 48,128. Every invariant holds |
 | 0.3.0's rule (`--old`) | **Gate fails.** Shortest trace: another mod loads the skill unchecked (unapproved); the person then approves the same skill; its load replaced the unapproved record, so a command ran beside the unapproved text. With the versions changing in between, the unapproved text can differ from what was approved. Fixed in 0.3.1: a skill loaded unapproved stays unapproved until the conversation is cleared |
 | a read-back that misses a load (`--lossy`, the documented limit of W1) | **Gate fails**, as expected: after a resume that misses the load, a command runs beside unapproved text. This is the limit SECURITY.md states, not a new finding |
-| each of 8 protections taken out of the model, one at a time (`test/model-test.ts`) | every one is caught: no `expect` at the run, no location in the approval, no verification, no hash check on the retry, no gate, no cross-server gate, a yes kept for a dynamic skill, a repository approving itself under inherited trust |
-| `quint typecheck verification/skillGate.qnt` | passes |
-| `quint run` (Quint's simulator, TypeScript backend), 20,000 random traces of up to 25 steps, per instance | `manifest`, `dynamic`: no violation. `rule030`: Gate violated. `lossy`: Safety violated |
-| TLC 1.7.4 on `SkillGate.tla` (`node verification/check.mjs`): every reachable state, breadth first, every invariant in every state. A state here is the gate's state with what the last step did (`ev`, `kept`), so there are more of them than the explorer counts | manifest, 3 versions: 649,404 states, depth 18; 4 versions: 3,838,592, depth 18. Dynamic, 3 versions: 33,696, depth 11; 4 versions: 126,720, depth 11. Every invariant holds, `ServerRule` included |
+| each of 13 protections taken out of the model, one at a time (`test/model-test.ts`) | every one is caught: no `expect` at the run, no location in the approval, no verification, no hash check on the retry, no gate, no cross-server gate, a yes kept for a dynamic skill, a repository approving itself under inherited trust; and, for disabling (0.3.2), no refusal at the run (shortest trace: `Disable`, `Unchecked`), a run that trusts its check (`Check`, `Disable`, `Run`: the person disabled the skill while its load waited), no refusal at a read (`Unchecked`, `Disable`, `ReadFile`), a listing that ignores the list (`List`, `Disable`, `Offer`), all breaking DisabledNeverReaches; and a disable that ends the window, breaking ActingMatchesConversation |
+| `quint typecheck verification/skillGate.qnt` | passed for 0.3.1's model. **Not run for 0.3.2's** (the actions for disabling were added by hand, in step with the TLA+ file): Quint is not installed on this machine and nothing was downloaded. The CI job `model` runs it |
+| `quint run` (Quint's simulator, TypeScript backend), 20,000 random traces of up to 25 steps, per instance | for 0.3.1's model: `manifest`, `dynamic`: no violation. `rule030`: Gate violated. `lossy`: Safety violated. Not run for 0.3.2's |
+| TLC 1.7.4 on `SkillGate.tla` (`node verification/check.mjs`): every reachable state, breadth first, every invariant in every state. A state here is the gate's state with what the last step did (`ev`, `kept`), so there are more of them than the explorer counts | manifest, 3 versions: 1,398,168 states, depth 19; 4 versions: 8,347,904, depth 19. Dynamic, 3 versions: 68,688, depth 12; 4 versions: 257,536, depth 12. Every invariant holds, `DisabledNeverReaches` and `ServerRule` included |
 | TLC on 0.3.0's rule (`Rule030.cfg`) and on the lossy read-back (`Lossy.cfg`), 3 versions | **Gate fails** in both, with the same shortest traces as the explorer's: `Unchecked`, `Check` (the person says yes), `Run`, `Tool`; and `Unchecked`, `Resume` (the read-back misses the load), `Tool` |
-| TLC counting the gate's states alone (`VIEW st`, the `*States.cfg` configurations), against the explorer's count | 145,152 and 884,480 (manifest, 3 and 4 versions), 6,480 and 24,064 (dynamic): the same as `model.ts`, at both bounds |
-| `node verification/conform.mjs`: 300 random Quint traces of up to 25 steps per instance, each replayed in `SkillGate.tla` with TLC | all 1,200 traces (30,000 steps) are behaviours of the TLA+ model |
+| TLC counting the gate's states alone (`VIEW st`, the `*States.cfg` configurations), against the explorer's count | 290,304 and 1,768,960 (manifest, 3 and 4 versions), 12,960 and 48,128 (dynamic): the same as `model.ts`, at both bounds |
+| `node verification/conform.mjs`: 300 random Quint traces of up to 25 steps per instance, each replayed in `SkillGate.tla` with TLC | for 0.3.1's model: all 1,200 traces (30,000 steps) are behaviours of the TLA+ model. **Not run for 0.3.2's**: it needs Quint (above) |
 
 TLC's runs: an Apple M1 Max (32 GB, macOS 15.4.1), TLC 1.7.4 on Temurin 21,
-one worker, 24 November 2026. TLC counts the initial state as depth 1, the
-explorer counts steps.
+one worker, 24 November 2026; the largest, manifest with 4 versions, took 12
+minutes. TLC counts the initial state as depth 1, the explorer counts steps.
 
 **What this shows.** In the model, within that bound, the invariants hold in
 every reachable state and on every step, and they are not vacuous (each
@@ -123,14 +133,24 @@ say nothing past it; Quint's simulation is a sample.
 - What the person decides. The model lets the person say yes or no to
   anything; it shows that a yes is bound to what was shown, not that the
   person read it.
+- The parts of disabling that are steps of their own in the code: the helper
+  holds a copy of the list, and the hooks module reads the store again after
+  the helper answers. The model takes each of `Check`, `Run`, `ReadFile` and
+  `Offer` as one step that reads the store; that the code makes them so (a
+  listing made under an older list is not used, a load disabled while the
+  helper fetched it is dropped) is checked by the example tests in
+  `gates.test.ts` (H1), not by the model.
 - More than one skill per server, nested skills, or parallel tool calls. Each
   skill has its own approval, keyed by its own URI, and the gate takes any
   unapproved skill: these are checked by the example tests, not the model.
 - That the three files are one machine, beyond what is checked: TLC on
   `SkillGate.tla` reaches as many states of the gate as `model.ts` does, at
-  both bounds (the number, not the states one by one, is compared), and every
-  sampled Quint trace is a behaviour of `SkillGate.tla`; the rest is by
-  reading. TLC checked the TLA+ file, not `skillGate.qnt` itself.
+  both bounds (the number, not the states one by one, is compared), and, for
+  0.3.1's model, every sampled Quint trace was a behaviour of `SkillGate.tla`;
+  the rest is by reading. For 0.3.2's actions (disabling), the Quint file was
+  neither typechecked nor sampled here, so that it says the same as the other
+  two rests on reading alone until CI runs. TLC checked the TLA+ file, not
+  `skillGate.qnt` itself.
 
 ## Properties of what untrusted input reaches
 
