@@ -1,0 +1,34 @@
+{
+  "name": "agent-polyfill",
+  "owner": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "interface": {
+    "displayName": "AgentPolyfill"
+  },
+  "plugins": [
+    {
+      "name": "mcp-server-cards",
+      "source": {
+        "source": "local",
+        "path": "./polyfills/server-cards/codex/plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE"
+      },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "ard-discovery",
+      "source": {
+        "source": "local",
+        "path": "./polyfills/ard/codex/plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
