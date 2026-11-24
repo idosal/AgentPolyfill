@@ -22,7 +22,7 @@ export * from './mcp'
 export * from './tools'
 
 export const NAME = 'mcp-server-cards'
-export const VERSION = '0.1.0'
+export const VERSION = '0.1.1'
 export const DISCOVER = 'discover_mcp_servers'
 
 export const DISCOVER_DESCRIPTION =

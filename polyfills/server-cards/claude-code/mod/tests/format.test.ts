@@ -58,3 +58,11 @@ test('X-3 whatever is shown passes a plain-text filter', async () => {
   const text = formatServer({ identifier: 'i\x07d', listedIn: ['c'], cardFrom: 'c', card, isLocal: false, errors: [] }, 1)
   expect(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/.test(text)).toBe(false)
 })
+
+test('X-6 characters that show as nothing (tag characters, variation selectors, a soft hyphen) are taken out of whatever is shown, and a line separator is a space', async () => {
+  expect(plainText('Good\u{e0049}\u{e0047}\u00ad Corp\ufe0f')).toBe('Good Corp')
+  const card = { ...BUILDKITE_CARD, title: 'CI\u{e0041}\u{e0042}', description: 'Builds\u2028then more\u{e0049}' } as unknown as ServerCard
+  const text = formatServer({ identifier: 'urn:x\u{e0041}', listedIn: ['c'], cardFrom: 'c', card, isLocal: false, errors: [] }, 1)
+  expect(/[\u00ad\u2028\u2029\ufe00-\ufe0f]|[\u{e0000}-\u{e0fff}]/u.test(text)).toBe(false)
+  expect(text.includes('Builds then more')).toBe(true)
+})

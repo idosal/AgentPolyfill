@@ -1,6 +1,6 @@
 {
   "name": "ard-discovery",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Agentic Resource Discovery (ARD v0.91 draft) for Claude Code: find MCP servers through a domain's /.well-known/ard.json and rel=\"ard\" links, or by searching an ARD registry, which receives your query once you approve each search; mcp-server-cards checks, shows and adds them",
   "author": {
     "name": "Ido Salomon",

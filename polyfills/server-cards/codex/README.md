@@ -298,12 +298,12 @@ These are the rows where Codex differs:
 | S-1 | HTTPS for cards; plain HTTP only for local development | discovery.md | F-1, F-3 | met, for every redirect hop too |
 | N-1 | No step from a public origin to a local or private address | the polyfills' own | F-1 | met for documents and, here, for redirects |
 | N-2 | Bounded answers | the polyfills' own | F-4, F-6 | 512 KiB per answer, read no further; five redirects |
-| V-3 | No text that displays as something else | the polyfills' own (security reviews SC1 and, for these forms, C1) | X-4, X-5, A-24, A-25, P-6, P-7, O-9, O-10, C-7, E-3, E-9, E-10 | met. Control and invisible characters are refused. A URL from a card or a finder also may hold no `` ` ``, `<`, `>` or square bracket outside an IPv6 host, so a host that renders the form as Markdown can't show a link text in place of the URL. This is in the shared core, so the Claude Code form has it too. A URL may not name a user before its host (`https://good.example@evil.example/`) or hold a backslash (`https://evil.example\@good.example/`). Either one shows one host and connects to another (C3), and the form names the host on its own line. A card's fixed header value holds no markup either (C4) |
+| V-3 | No text that displays as something else | the polyfills' own (security reviews SC1 and, for these forms, C1) | X-4, X-5, X-6, A-24, A-25, P-6, P-7, O-9, O-10, C-7, E-3, E-9, E-10 | met. Control and invisible characters are refused, and characters that show as nothing (a soft hyphen, variation selectors, tag characters) are taken out of everything shown. A URL from a card or a finder also may hold no `` ` ``, `<`, `>` or square bracket outside an IPv6 host, so a host that renders the form as Markdown can't show a link text in place of the URL. This is in the shared core, so the Claude Code form has it too. A URL may not name a user before its host (`https://good.example@evil.example/`) or hold a backslash (`https://evil.example\@good.example/`). Either one shows one host and connects to another (C3), and the form names the host on its own line. A card's fixed header value holds no markup either (C4) |
 
 ### Proof
 
-- **Per rule:** 114 tests, run with `npm test`.
-  - 88 are the shared rule tests from `../claude-code/mod/tests` (card,
+- **Per rule:** 115 tests, run with `npm test`.
+  - 89 are the shared rule tests from `../claude-code/mod/tests` (card,
     configure, discover, format, offer), run against the committed bundle.
   - 24 are this form's own: the fetch guard (F-), the Codex plan (C-), and
     the server as Codex runs it (E-), over stdio, with a stand-in `codex`
