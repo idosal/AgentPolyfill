@@ -13,7 +13,9 @@ extension would use them the same way.
 We checked Claude Code against the mod API types in 2.1.330, and Codex
 against CLI 0.170.0 (its `app-server` protocol, as
 `codex app-server generate-json-schema` prints it) and its source at
-`rust-v0.172.0`.
+`rust-v0.172.0`. Google Antigravity is closed source: we checked it against
+its documentation (App v2.35.1 and CLI v1.5.16, read on 2026-11-25), not a
+running copy.
 
 ## How a plugin plugs in today
 
@@ -21,22 +23,24 @@ The two hosts are built differently. In Claude Code, a mod is code that runs
 inside the host and calls its API. In Codex, nothing third-party runs inside
 the host: a plugin brings MCP servers, skills and hooks, and other programs
 can drive Codex from outside through `app-server`, an experimental JSON-RPC
-API. The Codex column names that API's methods.
+API. The Codex column names that API's methods. Antigravity is like Codex:
+a plugin brings MCP servers, skills, hooks and rules, and in the desktop App,
+sidecars (background processes the App runs for the plugin).
 
-| What a polyfill needs | Claude Code (a mod) | Codex (a plugin, or an app-server client) |
-|---|---|---|
-| Add tools the model can call | `$.tool.register` | An MCP server in the plugin, or `dynamicTools` for an app-server client |
-| Draw its own UI | `ui.render` hooks | No. The desktop app shows a server's MCP App; nothing draws in the terminal. |
-| Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon |
-| Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives |
-| Call a server's tool over the host's connection, with its sign-in | `$.mcp.call(server, tool, args)` | `mcpServer/tool/call` |
-| Ask whether the host would use a server | `$.mcp.connect(server)` | `mcpServerStatus/list` (start-up and sign-in state) |
-| Read a resource over the host's connection | Only indirectly, by calling the built-in `ReadMcpResourceTool`. You get text or a saved file, without the resource's `_meta`. | `mcpServer/resource/read`, with `_meta` |
-| Send any other MCP method | No | No. Codex's MCP client has a generic `send_custom_request`, but `app-server` doesn't expose it. |
-| See what a server advertised | No | Mostly: capabilities (including `extensions`) and `serverInfo` are in `mcpServerStatus/list`. The negotiated protocol revision isn't. |
-| Receive a server's notifications | No | Only from OpenAI's hosted apps server. `mcpServer/event/stream/*` refuses any other server. Elicitation requests are relayed. |
-| See a tool's `_meta`, its `outputSchema`, or a result as the server sent it | No | Not checked yet |
-| Declare a client extension to servers | No | Only Codex's own client (the terminal or the desktop app) can, and its declaration goes to every server. A plugin or the config can't. |
+| What a polyfill needs | Claude Code (a mod) | Codex (a plugin, or an app-server client) | Antigravity (a plugin) |
+|---|---|---|---|
+| Add tools the model can call | `$.tool.register` | An MCP server in the plugin, or `dynamicTools` for an app-server client | An MCP server in the plugin's `mcp_config.json` |
+| Draw its own UI | `ui.render` hooks | No. The desktop app shows a server's MCP App; nothing draws in the terminal. | Only as an MCP App: the App shows a server's views itself (v2.34.0 and later). The CLI and IDE show text. |
+| Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `agentapi send-message <conversation_id>`, from a plugin's sidecar, in the App only. Sidecars are off until you turn each one on. |
+| Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives | Not for an MCP server. Hooks get `conversationId`, and a `PreToolUse` hook can add it to the call's arguments (`overwrite`). |
+| Call a server's tool over the host's connection, with its sign-in | `$.mcp.call(server, tool, args)` | `mcpServer/tool/call` | No. Only an MCP App view can call its own server's tools. |
+| Ask whether the host would use a server | `$.mcp.connect(server)` | `mcpServerStatus/list` (start-up and sign-in state) | No |
+| Read a resource over the host's connection | Only indirectly, by calling the built-in `ReadMcpResourceTool`. You get text or a saved file, without the resource's `_meta`. | `mcpServer/resource/read`, with `_meta` | No. An App view reads `antigravity-file://` only. |
+| Send any other MCP method | No | No. Codex's MCP client has a generic `send_custom_request`, but `app-server` doesn't expose it. | No |
+| See what a server advertised | No | Mostly: capabilities (including `extensions`) and `serverInfo` are in `mcpServerStatus/list`. The negotiated protocol revision isn't. | No |
+| Receive a server's notifications | No | Only from OpenAI's hosted apps server. `mcpServer/event/stream/*` refuses any other server. Elicitation requests are relayed. | No. None are documented. |
+| See a tool's `_meta`, its `outputSchema`, or a result as the server sent it | No | Not checked yet | No. `PostToolUse` gets the call and any error, not the result. |
+| Declare a client extension to servers | No | Only Codex's own client (the terminal or the desktop app) can, and its declaration goes to every server. A plugin or the config can't. | No. The App declares the Apps extension itself. |
 
 The row that matters most is "send any other MCP method". Because neither host
 has it, each polyfill that speaks an extension's protocol (Events, Skills,
@@ -61,8 +65,12 @@ headers for the method, or takes them from the caller.
   app-server method such as `mcpServer/request { threadId, server, method, params }`,
   behind `experimentalApi`, returning the raw result.
 
-This change alone brings servers behind OAuth to Events and Skills, in both
-hosts, and removes their second connection.
+- **Antigravity** has nothing like it. Its MCP client is closed, so this
+  would be a new plugin API, for example a method a plugin's MCP server or
+  sidecar can call.
+
+This change alone brings servers behind OAuth to Events and Skills, in every
+host, and removes their second connection.
 
 ### 2. Read what the server advertised
 
@@ -73,6 +81,7 @@ to a server that hasn't declared them, so a polyfill has to be able to check.
 - **Claude Code:** missing.
 - **Codex:** almost there. `mcpServerStatus/list` has the capabilities and
   `serverInfo`; adding the negotiated revision would finish it.
+- **Antigravity:** missing.
 
 ### 3. Deliver a server's notifications to the plugin
 
@@ -85,6 +94,8 @@ resource updates.
   notification work only for OpenAI's hosted apps server. Accepting any
   configured server, and forwarding a server's other notifications to a client
   that asked for them, would close it.
+- **Antigravity:** missing, and its MCP client documents no notifications at
+  all.
 
 ### 4. Raw tool results, and declaring a client extension
 
@@ -97,6 +108,8 @@ do.
 - **Codex:** its own client can declare extensions; a plugin can't add to that
   list. Letting a plugin's manifest, or the config, add extension ids would
   close it. Raw results we haven't checked yet.
+- **Antigravity:** neither. Its App declares `io.modelcontextprotocol/ui`
+  itself, and its `PostToolUse` hook gets no result.
 
 ## What each extension needs from them
 
@@ -173,6 +186,33 @@ the live server.
   arrives looking like the person typed it. A turn an extension starts should
   reach the model and the UI marked as the extension's.
 
+### In Antigravity
+
+- **Tell a plugin's MCP server which conversation is calling.** Hooks get
+  `conversationId`; an MCP server gets nothing. The polyfills pass it from a
+  `PreToolUse` hook to the call through a one-use ticket. A `_meta` field on
+  each `tools/call`, as Codex sends `threadId`, would make that unnecessary.
+- **Support MCP elicitation,** so a server can ask you something in the
+  host's own form. Today a polyfill asks through a `PreToolUse` hook that
+  answers `force_ask`: a yes or no, with no other choices, and only when the
+  hook matches the tool's name. A documented form of the name Antigravity
+  gives an MCP tool in hooks would help too.
+- **Let something other than a sidecar send a message to a conversation.**
+  `agentapi send-message` is on a sidecar's `PATH`, in the App only, and
+  sidecars are off until you turn each one on. The Conversation Management
+  API of App v2.35.0 has no reference page yet. A documented way to post to
+  a conversation from the CLI and the IDE would let Events wake a session
+  there.
+- **Read `${VAR}` in `mcp_config.json`,** as a plugin's own file can for its
+  declared `variables`. Then the Server Cards polyfill could add a server
+  whose card needs an API key, without ever writing the key.
+- **Add a server without editing the file:** an `agy mcp add`, or a plugin
+  API for it.
+- **Support SEP-2640 natively,** or let a plugin add skills somewhere other
+  than your personal skills folder. A plugin's own folder is read-only and is
+  replaced on update, so the Skills polyfill writes its entries into
+  `~/.gemini/config/skills/`.
+
 ## Questions these changes raise
 
 - **Permissions.** A general pipe could call `tools/call` and skip the host's
@@ -193,5 +233,7 @@ the live server.
 - **Events:** a public address for webhook delivery, and sessions that run
   when nobody is at the keyboard.
 - **Apps:** what a terminal can draw and which input it passes on.
+- **MCP Apps in Antigravity's CLI and IDE,** which show text only. The App
+  supports MCP Apps itself, so there is no Apps polyfill for Antigravity.
 - **Hosts with no extension layer and no API like Codex's `app-server`**
   (ChatGPT is one). See the [README](../README.md#other-hosts).

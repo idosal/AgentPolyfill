@@ -15,4 +15,15 @@ import { build } from '../../server-cards/antigravity/build.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
-await build({ esbuild, root: here, name: 'ard-discovery', version: JSON.parse(readFileSync(join(here, 'plugin/plugin.json'), 'utf8')).version })
+await build({
+  esbuild,
+  root: here,
+  name: 'ard-discovery',
+  version: JSON.parse(readFileSync(join(here, 'plugin/plugin.json'), 'utf8')).version,
+  ruleTests: [
+    // ARD's registry client rules, from the Claude Code form.
+    '../claude-code/mod/tests/registry.test.ts',
+    // This plugin carries the Server Cards core too, so its rules run here as well.
+    ...['card', 'configure', 'discover', 'format', 'offer'].map(n => `../../server-cards/claude-code/mod/tests/${n}.test.ts`),
+  ],
+})

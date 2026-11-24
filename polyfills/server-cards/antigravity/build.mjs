@@ -20,15 +20,29 @@ const BANNER = (name, version) =>
 
 const common = { bundle: true, format: 'esm', platform: 'node', target: 'node20', legalComments: 'none', logLevel: 'error' }
 
-export async function build({ esbuild, root, entry = 'src/main.ts', name, version }) {
+// `claude-code/testing` (the shared rule tests' kit) is node:test with a small expect.
+const testingKit = {
+  name: 'testing-kit',
+  setup(b) {
+    b.onResolve({ filter: /^claude-code\/testing$/ }, () => ({ path: resolve(here, '../codex/test/testing.ts') }))
+  },
+}
+
+/**
+ * `ruleTests`: shared rule tests (paths relative to `root`), built from the
+ * same sources the bundle is, with the host left at its defaults, as the
+ * Codex form runs them.
+ */
+export async function build({ esbuild, root, entry = 'src/main.ts', name, version, ruleTests = [] }) {
   const server = resolve(root, 'plugin/dist/server.mjs')
   const args = process.argv.slice(2)
   if (args.includes('--tests')) {
     const outDir = resolve(root, 'test/.build')
     rmSync(outDir, { recursive: true, force: true })
     mkdirSync(outDir, { recursive: true })
-    for (const f of readdirSync(resolve(root, 'test')).filter(f => f.endsWith('.test.ts')))
-      await esbuild.build({ ...common, entryPoints: [resolve(root, 'test', f)], outfile: join(outDir, basename(f).replace(/\.ts$/, '.mjs')) })
+    const own = readdirSync(resolve(root, 'test')).filter(f => f.endsWith('.test.ts')).map(f => resolve(root, 'test', f))
+    for (const f of [...ruleTests.map(t => resolve(root, t)), ...own])
+      await esbuild.build({ ...common, entryPoints: [f], outfile: join(outDir, basename(f).replace(/\.tsx?$/, '.mjs')), plugins: [testingKit] })
     return
   }
   const out = await esbuild.build({
@@ -65,5 +79,12 @@ export async function build({ esbuild, root, entry = 'src/main.ts', name, versio
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const esbuild = await import('esbuild')
-  await build({ esbuild, root: here, name: 'mcp-server-cards', version: JSON.parse(readFileSync(join(here, 'plugin/plugin.json'), 'utf8')).version })
+  await build({
+    esbuild,
+    root: here,
+    name: 'mcp-server-cards',
+    version: JSON.parse(readFileSync(join(here, 'plugin/plugin.json'), 'utf8')).version,
+    // The shared discovery, validation, input and transport rules (the Claude Code form's tests).
+    ruleTests: ['card', 'configure', 'discover', 'format', 'offer'].map(n => `../claude-code/mod/tests/${n}.test.ts`),
+  })
 }
