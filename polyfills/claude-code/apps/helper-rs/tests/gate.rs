@@ -11,10 +11,15 @@
 //! each request it writes to a server: here the test answers as the mod
 //! would, yes unless a test says otherwise; the last tests check those
 //! answers, and the mod's /revoke.
-#![cfg(unix)]
+//!
+//! The servers it plants are `node tests/gate-server.mjs`, node from PATH, so
+//! the same tests run on macOS, Linux and Windows. The helper is reached the
+//! way its ready line says: a Unix socket, or loopback TCP (Windows, or
+//! `MCP_APPS_CLI_TRANSPORT=tcp`, which these tests pass on to it).
 
 use std::io::{BufRead, BufReader, Read, Write};
-use std::net::TcpListener;
+use std::net::{TcpListener, TcpStream};
+#[cfg(unix)]
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -59,10 +64,16 @@ impl Listener {
     }
 }
 
+/// The stand-in servers' script (node from PATH runs it).
+fn gate_server() -> String {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests").join("gate-server.mjs").to_string_lossy().into_owned()
+}
+
 struct World {
     root: PathBuf,
     project: PathBuf,
-    /// Short: a Unix socket's path has a small limit (104 bytes on macOS).
+    /// Where a Unix socket goes. Short: its path has a small limit (104 bytes
+    /// on macOS). Unused over TCP.
     socket: PathBuf,
 }
 
@@ -73,9 +84,9 @@ impl World {
         for dir in ["home/.claude", "tmp", "markers", "work/repo"] {
             std::fs::create_dir_all(root.join(dir)).unwrap();
         }
-        let root = std::fs::canonicalize(root).unwrap();
-        let project = root.join("work/repo");
-        let socket = PathBuf::from(format!("/tmp/mag-{}-{}.sock", std::process::id(), &tag[..tag.len().min(4)]));
+        let root = plain(std::fs::canonicalize(root).unwrap());
+        let project = root.join("work").join("repo");
+        let socket = if cfg!(windows) { root.join("helper.sock") } else { PathBuf::from(format!("/tmp/mag-{}-{}.sock", std::process::id(), &tag[..tag.len().min(4)])) };
         World { root, project, socket }
     }
     fn write(&self, path: &Path, value: &Value) {
@@ -91,7 +102,7 @@ impl World {
     }
     /// A stdio server that leaves a marker file when it is started.
     fn marker_server(&self, marker: &str) -> Value {
-        json!({"command": "/bin/sh", "args": ["-c", format!("echo ran > '{}'; sleep 1", self.marker(marker).display())]})
+        json!({"command": "node", "args": [gate_server(), "marker", self.marker(marker).to_string_lossy()]})
     }
     fn marker(&self, name: &str) -> PathBuf {
         self.root.join("markers").join(name)
@@ -109,6 +120,15 @@ impl World {
     }
 }
 
+/// A canonical path as Claude Code writes it: on Windows, without the `\\?\`
+/// prefix `canonicalize` adds (the helper looks a project up both ways).
+fn plain(path: PathBuf) -> PathBuf {
+    match path.to_string_lossy().strip_prefix(r"\\?\") {
+        Some(rest) if !rest.starts_with("UNC") => PathBuf::from(rest),
+        _ => path,
+    }
+}
+
 impl Drop for World {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.root);
@@ -116,9 +136,18 @@ impl Drop for World {
     }
 }
 
+/// Where the helper listens, as its ready line says.
+#[derive(Clone)]
+enum Address {
+    /// A Unix socket's path.
+    Socket(String),
+    /// Loopback TCP, `127.0.0.1:<port>`.
+    Tcp(String),
+}
+
 struct Helper {
     child: Child,
-    socket: String,
+    address: Address,
     token: String,
     /// What the test, as the mod, answers the helper's checks: a yes of this
     /// epoch, or no (None).
@@ -127,26 +156,65 @@ struct Helper {
     said: Arc<Mutex<Vec<Value>>>,
 }
 
-fn post(socket: &str, token: &str, route: &str, body: &Value) -> Value {
-    let mut stream = UnixStream::connect(socket).unwrap();
-    stream.set_read_timeout(Some(Duration::from_secs(60))).unwrap();
+fn post(address: &Address, token: &str, route: &str, body: &Value) -> Value {
     let body = body.to_string();
-    write!(stream, "POST {route} HTTP/1.1\r\nhost: localhost\r\nx-mcp-apps-cli-token: {token}\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{body}", body.len()).unwrap();
+    let request = format!("POST {route} HTTP/1.1\r\nhost: localhost\r\nx-mcp-apps-cli-token: {token}\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{body}", body.len());
+    let answer = match address {
+        #[cfg(unix)]
+        Address::Socket(path) => exchange(UnixStream::connect(path).unwrap(), &request),
+        #[cfg(not(unix))]
+        Address::Socket(path) => panic!("a Unix socket ({path}) on a platform without them"),
+        Address::Tcp(at) => exchange(TcpStream::connect(at).unwrap(), &request),
+    };
+    serde_json::from_str(answer.split_once("\r\n\r\n").map_or("", |(_, b)| b)).unwrap_or(Value::Null)
+}
+
+trait Timed: Read + Write {
+    fn timeout(&self, after: Duration);
+}
+#[cfg(unix)]
+impl Timed for UnixStream {
+    fn timeout(&self, after: Duration) {
+        self.set_read_timeout(Some(after)).unwrap();
+    }
+}
+impl Timed for TcpStream {
+    fn timeout(&self, after: Duration) {
+        self.set_read_timeout(Some(after)).unwrap();
+    }
+}
+
+/// Writes one request and reads the answer to its end (the helper closes).
+fn exchange(mut stream: impl Timed, request: &str) -> String {
+    stream.timeout(Duration::from_secs(60));
+    stream.write_all(request.as_bytes()).unwrap();
     let mut answer = String::new();
     let _ = stream.read_to_string(&mut answer);
-    serde_json::from_str(answer.split_once("\r\n\r\n").map_or("", |(_, b)| b)).unwrap_or(Value::Null)
+    answer
 }
 
 impl Helper {
     fn start(world: &World) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_mcp-apps-cli-helper"))
+        let mut command = Command::new(env!("CARGO_BIN_EXE_mcp-apps-cli-helper"));
+        command
             .args(["--cwd", world.project.to_str().unwrap(), "--socket", world.socket.to_str().unwrap()])
             .current_dir(&world.project)
             .env_clear()
             .env("PATH", std::env::var("PATH").unwrap_or_default())
             .env("HOME", world.root.join("home"))
+            .env("USERPROFILE", world.root.join("home"))
             .env("TMPDIR", world.root.join("tmp"))
-            .env("MCP_APPS_CLI_STORAGE_DIR", "off")
+            .env("TMP", world.root.join("tmp"))
+            .env("TEMP", world.root.join("tmp"))
+            .env("MCP_APPS_CLI_STORAGE_DIR", "off");
+        // What Windows itself needs to start programs and open sockets (node
+        // among them), and the transport a run asks for.
+        for name in ["SystemRoot", "SYSTEMROOT", "windir", "PATHEXT", "ComSpec", "MCP_APPS_CLI_TRANSPORT"] {
+            if let Some(value) = std::env::var_os(name) {
+                command.env(name, value);
+            }
+        }
+        let mut child = command
             .env("ANTHROPIC_API_KEY", ANTHROPIC)
             .env("GITHUB_TOKEN", GITHUB)
             .env("MY_TOKEN", MINE)
@@ -164,12 +232,17 @@ impl Helper {
                 }
             }
         };
-        let (socket, token): (String, String) = (ready["socket"].as_str().unwrap().into(), ready["token"].as_str().unwrap().into());
+        let address = match (ready["socket"].as_str(), ready["url"].as_str()) {
+            (Some(path), _) => Address::Socket(path.into()),
+            (None, Some(url)) => Address::Tcp(url.trim_start_matches("http://").trim_end_matches('/').into()),
+            _ => panic!("the ready line names no socket or url: {ready}"),
+        };
+        let token: String = ready["token"].as_str().unwrap().into();
         // Its later lines are read (so it never blocks writing them) and kept;
         // its checks are answered as the mod would.
         let verdict = Arc::new(Mutex::new(Some(0)));
         let said = Arc::new(Mutex::new(Vec::new()));
-        let (answers, kept, at, key) = (verdict.clone(), said.clone(), socket.clone(), token.clone());
+        let (answers, kept, at, key) = (verdict.clone(), said.clone(), address.clone(), token.clone());
         std::thread::spawn(move || {
             for line in lines.map_while(Result::ok) {
                 let Ok(message) = serde_json::from_str::<Value>(&line) else { continue };
@@ -184,11 +257,11 @@ impl Helper {
                 kept.lock().unwrap().push(message);
             }
         });
-        Helper { child, socket, token, verdict, said }
+        Helper { child, address, token, verdict, said }
     }
 
     fn post(&self, route: &str, body: &Value) -> Value {
-        post(&self.socket, &self.token, route, body)
+        post(&self.address, &self.token, route, body)
     }
 
     /// From now on, the checks are answered with a yes of this epoch, or no.
@@ -296,37 +369,10 @@ fn an_mcp_policy_turns_every_server_off() {
     }
 }
 
-/// A stdio MCP server (Python, standard library only) that logs its start and
-/// each method it is sent to `log`; `hang` leaves tools/list unanswered.
+/// A stdio MCP server (tests/gate-server.mjs) that logs its start and each
+/// method it is sent to `log`; `hang` leaves tools/list unanswered.
 fn probe_server(w: &World, log: &str, hang: bool) -> Value {
-    let script = w.root.join("probe.py");
-    std::fs::write(
-        &script,
-        r#"import json, os, sys
-log = open(sys.argv[1], "a")
-log.write("start %d\n" % os.getpid()); log.flush()
-for line in sys.stdin:
-    try:
-        m = json.loads(line)
-    except ValueError:
-        continue
-    method = m.get("method", "")
-    log.write(method + "\n"); log.flush()
-    if "id" not in m:
-        continue
-    if method == "initialize":
-        result = {"protocolVersion": m["params"]["protocolVersion"], "capabilities": {"tools": {}}, "serverInfo": {"name": "probe", "version": "0"}}
-    elif method == "tools/list" and sys.argv[2] == "hang":
-        continue
-    elif method == "tools/list":
-        result = {"tools": [{"name": "t", "inputSchema": {"type": "object"}}]}
-    else:
-        result = {}
-    print(json.dumps({"jsonrpc": "2.0", "id": m["id"], "result": result}), flush=True)
-"#,
-    )
-    .unwrap();
-    json!({"command": "python3", "args": ["-I", script.to_str().unwrap(), w.marker(log).to_str().unwrap(), if hang { "hang" } else { "answer" }]})
+    json!({"command": "node", "args": [gate_server(), "probe", w.marker(log).to_string_lossy(), if hang { "hang" } else { "answer" }]})
 }
 
 /// The lines a probe server logged, and the pid of each start.
@@ -337,8 +383,18 @@ fn probe_log(w: &World, log: &str) -> (Vec<String>, Vec<u32>) {
     (lines, pids)
 }
 
+#[cfg(unix)]
 fn alive(pid: u32) -> bool {
     Command::new("kill").args(["-0", &pid.to_string()]).stderr(Stdio::null()).status().is_ok_and(|s| s.success())
+}
+
+#[cfg(windows)]
+fn alive(pid: u32) -> bool {
+    Command::new("tasklist")
+        .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
+        .stderr(Stdio::null())
+        .output()
+        .is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains(&format!("\"{pid}\"")))
 }
 
 fn eventually(what: &str, check: impl Fn() -> bool) {
