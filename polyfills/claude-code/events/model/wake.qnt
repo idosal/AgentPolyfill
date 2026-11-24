@@ -91,4 +91,12 @@ module wake {
     .expect(not(Gap))
   run onceAfterTest = init.then(Arrive).then(Take).then(Submit).then(HelperDies).then(HelperStarts).then(AckRemembered)
     .then(Arrive).expect(Kept and s.shown == [0] and s.budget.wakes == [0])
+
+  // Found by TLC in 0.5.0 (model/README.md): the helper dies after the notice that waking stopped
+  // was submitted, before its ack. Only a batch is remembered across the restart, so the next
+  // helper does not know the notice was given, and hands it over again.
+  run noticeTwiceTest = init.then(Arrive).then(Take).then(Submit).then(Ack).then(Tick)
+    .then(Arrive).then(Take).then(Submit).then(Ack).then(Tick)
+    .then(Arrive).then(Take).then(Submit).then(HelperDies).then(HelperStarts).then(Take).then(Submit)
+    .expect(not(OneNotice) and s.notices == 2 and s.shown == [0, 1])
 }

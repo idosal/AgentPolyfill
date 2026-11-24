@@ -591,4 +591,19 @@ module delivery {
   // Forged deliveries are dropped and acknowledged; nothing of theirs is stored.
   run forgedDroppedTest = webhook.then(Forge).then(Forge).then(Take).then(Take).then(FlushAcks)
     .expect(NothingForged and rly.mailbox == Set())
+
+  // Found by TLC in 0.5.0 (model/README.md). The event is written to the first session's spool
+  // and shown, and the watch is not saved after it. The next session's helper counts it as seen
+  // (loaded), in memory only; Settle takes the first session off the list; the helper restarts,
+  // and neither the list nor the saved watch has the event: it is stored and shown again.
+  run seenForgottenTest = poll.then(Emit).then(Poll).then(Append).then(HandTake).then(HandSubmit).then(HandAck)
+    .then(Close).then(Open).then(Settle).then(HelperCrash).then(HelperStart)
+    .then(Poll).then(Append).then(HandTake).then(HandSubmit)
+    .expect(not(AtMostOnce) and hist.shown == [1, 1] and hist.cut == Set())
+  // The same through the relay, which hands the delivery over again because it was never acknowledged.
+  run seenForgottenWebhookTest = webhook.then(Emit).then(PostOf(1, true)).then(Take).then(Append)
+    .then(HandTake).then(HandSubmit).then(HandAck)
+    .then(Close).then(Open).then(Settle).then(HelperCrash).then(HelperStart)
+    .then(Take).then(Append).then(HandTake).then(HandSubmit)
+    .expect(not(AtMostOnce) and hist.shown == [1, 1] and hist.cut == Set())
 }
