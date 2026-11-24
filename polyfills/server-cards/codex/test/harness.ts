@@ -100,10 +100,23 @@ export async function localWeb(routes: Record<string, Route>) {
   return { origin, requests, close: () => new Promise<void>(r => server.close(() => r())) }
 }
 
-export type Answer = { action: 'accept' | 'decline' | 'cancel'; afterMs?: number } | 'error'
+/**
+ * How the stand-in person answers a form. An accept carries `content`: by
+ * default the form's one choice that isn't "no" (the person says yes); pass
+ * `content` to send something else ({} for an accept without the field).
+ */
+export type Answer = { action: 'accept' | 'decline' | 'cancel'; afterMs?: number; content?: Record<string, unknown> } | 'error'
+
+/** The yes of a form with a required choice: its one option other than "no". */
+const yesOf = (schema: any): Record<string, unknown> => {
+  const d = schema?.properties?.decision
+  const values: unknown[] = Array.isArray(d?.enum) ? d.enum : Array.isArray(d?.oneOf) ? d.oneOf.map((o: any) => o.const) : []
+  const yes = values.find(v => v !== 'no')
+  return yes === undefined ? {} : { decision: yes }
+}
 
 /** The built server on stdio, and a client that answers its forms with `answer`. */
-export function startServer(serverFile: string, opts: { env?: Record<string, string>; elicitation?: boolean; answer?: Answer } = {}) {
+export function startServer(serverFile: string, opts: { env?: Record<string, string>; elicitation?: boolean; answer?: Answer; protocol?: string } = {}) {
   const child: ChildProcess = spawn(process.execPath, [serverFile], {
     env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', ...(opts.env ?? {}) },
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -125,7 +138,7 @@ export function startServer(serverFile: string, opts: { env?: Record<string, str
         asked.push(m.params)
         const a = opts.answer ?? { action: 'decline' }
         if (a === 'error') send({ jsonrpc: '2.0', id: m.id, error: { code: -32603, message: 'no' } })
-        else setTimeout(() => send({ jsonrpc: '2.0', id: m.id, result: { action: a.action, ...(a.action === 'accept' ? { content: {} } : {}) } }), a.afterMs ?? 0)
+        else setTimeout(() => send({ jsonrpc: '2.0', id: m.id, result: { action: a.action, ...(a.action === 'accept' ? { content: a.content ?? yesOf(m.params?.requestedSchema) } : {}) } }), a.afterMs ?? 0)
       } else if (m.id !== undefined && pending.has(m.id)) {
         pending.get(m.id)!(m)
         pending.delete(m.id)
@@ -139,7 +152,7 @@ export function startServer(serverFile: string, opts: { env?: Record<string, str
       send({ jsonrpc: '2.0', id: n, method, params })
     })
   const ready = request('initialize', {
-    protocolVersion: '2025-06-18',
+    protocolVersion: opts.protocol ?? '2025-06-18',
     capabilities: opts.elicitation === false ? {} : { elicitation: { form: {}, url: {} } },
     clientInfo: { name: 'test', version: '0' },
   }).then(r => {

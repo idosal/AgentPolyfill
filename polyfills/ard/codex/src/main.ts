@@ -54,6 +54,9 @@ const MARKUP = /[`<>[\]]/
 const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
 const refuse = (text: string) => ({ text: shownText(text), isError: true })
 
+/** The search form's choices. */
+export const SEARCH_CHOICES = { yes: { value: 'search', title: 'Send the search' }, no: { value: 'no', title: "Don't send it" } } as const
+
 /** The registry setting: ARD_DISCOVERY_REGISTRY, which may be empty (search only a registry the request names). */
 export const registrySetting = (env: NodeJS.ProcessEnv) =>
   env.ARD_DISCOVERY_REGISTRY !== undefined ? env.ARD_DISCOVERY_REGISTRY.trim() : DEFAULT_REGISTRY
@@ -147,6 +150,8 @@ export function tools(session: Session, defaultRegistry: string): Tool[] {
             'A registry is a service someone else runs, and it sees the query.',
           ].join('\n'),
         ),
+        SEARCH_CHOICES.yes,
+        SEARCH_CHOICES.no,
       )
       if ('why' in ok) return refuse(`Nothing was sent: ${ok.why}.`)
 

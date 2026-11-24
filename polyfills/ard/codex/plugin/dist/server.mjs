@@ -1523,7 +1523,8 @@ function serve(opts) {
     send({ id, method, params });
   });
   const elicit = async (message, requestedSchema) => {
-    const m = await request("elicitation/create", { mode: "form", message, requestedSchema }, opts.elicitTimeoutMs ?? 10 * 6e4);
+    const params = { ...protocol >= "2025-11-25" ? { mode: "form" } : {}, message, requestedSchema };
+    const m = await request("elicitation/create", params, opts.elicitTimeoutMs ?? 10 * 6e4);
     log(`elicitation answered: ${m.error ? "error" : String(m.result?.action)}`);
     if (m.error) throw new Error(`the client could not ask: ${String(m.error.message ?? m.error.code)}`);
     const r = m.result;
@@ -1574,7 +1575,7 @@ function serve(opts) {
         log(`tools/call ${tool.name}`);
         let result;
         try {
-          result = await tool.run(args, { canElicit: offersForm(clientCaps), elicit, meta });
+          result = await tool.run(args, { canElicit: offersForm(clientCaps), elicit, meta, protocol });
         } catch (err) {
           result = { text: `${tool.name} failed: ${err instanceof Error ? err.message : String(err)}`, isError: true };
         }
@@ -1615,20 +1616,27 @@ var ADD = "add_mcp_server";
 var str = (v) => typeof v === "string" ? v : void 0;
 var shownText = (s) => s.split("\n").map(plainText).join("\n");
 var refuse = (text) => ({ text: shownText(text), isError: true });
-async function askPerson(ctx, message) {
+var choiceSchema = (protocol, choices) => {
+  const decision = protocol >= "2025-11-25" ? { type: "string", title: "Your answer", oneOf: choices.map((c) => ({ const: c.value, title: c.title })) } : { type: "string", title: "Your answer", enum: choices.map((c) => c.value), enumNames: choices.map((c) => c.title) };
+  return { type: "object", properties: { decision }, required: ["decision"] };
+};
+async function askPerson(ctx, message, yes, no) {
   if (!ctx.canElicit) return { why: "this Codex client offers no form to ask the person (MCP elicitation)" };
   let answer;
   try {
-    answer = await ctx.elicit(message, CONFIRM_SCHEMA);
+    answer = await ctx.elicit(message, choiceSchema(ctx.protocol, [no, yes]));
   } catch (err) {
     return { why: `the person could not be asked (${err instanceof Error ? err.message : String(err)})` };
   }
   if (answer.action === "decline")
     return { why: "the form was declined, by the person or by Codex itself where nobody can be asked (codex exec, --ask-for-approval never)" };
   if (answer.action !== "accept") return { why: "the form was closed without an answer, by the person or by Codex where nobody can be asked (codex exec)" };
-  return { ok: true };
+  const decision = answer.content?.decision;
+  if (decision === yes.value) return { ok: true };
+  if (decision === no.value) return { why: `the person chose "${no.title}"` };
+  return { why: "the form came back without the person's choice" };
 }
-var CONFIRM_SCHEMA = { type: "object", properties: {}, required: [] };
+var ADD_CHOICES = { yes: { value: "add", title: "Add it" }, no: { value: "no", title: "Don't add it" } };
 var Session = class {
   constructor(deps) {
     this.deps = deps;
@@ -1749,7 +1757,7 @@ function addTool(session, discoverName, foundBy) {
       if (await isNameTaken(session.deps.run, plan.name))
         return refuse(`A server named "${plan.name}" already exists in Codex's configuration (or codex could not say). Ask the person: add it under another name (pass \`name\`), or keep theirs.`);
       const file = configPath(session.deps.env);
-      const asked = await askPerson(ctx, askText(plan, card, provenance, file));
+      const asked = await askPerson(ctx, askText(plan, card, provenance, file), ADD_CHOICES.yes, ADD_CHOICES.no);
       if ("why" in asked) return refuse(`Nothing was written: ${asked.why}. Don't ask again unless the person brings it up.`);
       if (await isNameTaken(session.deps.run, plan.name))
         return refuse(`A server named "${plan.name}" appeared in Codex's configuration while the person was asked. Nothing was written.`);
@@ -1938,6 +1946,7 @@ var UNSEEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069
 var MARKUP = /[`<>[\]]/;
 var str2 = (v) => typeof v === "string" ? v : void 0;
 var refuse2 = (text) => ({ text: shownText(text), isError: true });
+var SEARCH_CHOICES = { yes: { value: "search", title: "Send the search" }, no: { value: "no", title: "Don't send it" } };
 var registrySetting = (env) => env.ARD_DISCOVERY_REGISTRY !== void 0 ? env.ARD_DISCOVERY_REGISTRY.trim() : DEFAULT_REGISTRY;
 function tools(session, defaultRegistry) {
   const discoverTool2 = {
@@ -2007,7 +2016,9 @@ function tools(session, defaultRegistry) {
             `Query: "${query}"`,
             "A registry is a service someone else runs, and it sees the query."
           ].join("\n")
-        )
+        ),
+        SEARCH_CHOICES.yes,
+        SEARCH_CHOICES.no
       );
       if ("why" in ok) return refuse2(`Nothing was sent: ${ok.why}.`);
       const s = await search(session.deps.fetch, query, endpoints);
@@ -2048,13 +2059,13 @@ function start(env = process.env) {
 if (isMain(import.meta.url)) start();
 export {
   ADD,
+  ADD_CHOICES,
   ARD_SOURCES,
   BY,
   CARD_SCHEMA_URL,
   CARD_TYPE,
   CATALOG_TYPE,
   CODEX_PROTOCOL_VERSIONS,
-  CONFIRM_SCHEMA,
   DEFAULT_REGISTRY,
   DISCOVER,
   HOST_PROTOCOL_VERSIONS,
@@ -2068,6 +2079,7 @@ export {
   PREFIX,
   PROTOCOL_VERSIONS,
   SEARCH,
+  SEARCH_CHOICES,
   SHOWN_QUERY,
   Session,
   UNSAFE_TEXT,
@@ -2078,6 +2090,7 @@ export {
   base32,
   byteLength,
   cachedGet,
+  choiceSchema,
   codexCandidates,
   codexDeps,
   codexRunner,
