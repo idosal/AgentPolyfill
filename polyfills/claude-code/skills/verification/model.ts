@@ -22,7 +22,10 @@
 //   - the approvals kept across sessions, given in this session or in another one;
 //   - helper restarts, Claude Code restarts (a resume, with the server at the same or another
 //     location, with or without a person), clearing the conversation, forgetting approvals, and a
-//     load_skill call that reached the tool with no permission check (another mod's $.tool.call).
+//     load_skill call that reached the tool with no permission check (another mod's $.tool.call);
+//   - the person disabling the skill and enabling it again, at any moment, in this session or
+//     another (the list is the mod's store, shared by every session), and the skill's listing line
+//     entering the model's context (the skill listing, list_skills).
 //
 // Bound: VERSIONS versions of each part of the skill (default 3), 2 locations of its server, a
 // skill with a manifest and a "dynamic" one; and, separately, every combination of the facts that
@@ -56,6 +59,8 @@ export type State = {
     convoAny: boolean;
     convoU: boolean;
     convoLast: Opt<Approval>;
+    /** The person has disabled the skill: the list in the mod's store, keyed by server and URI. */
+    off: boolean;
 };
 
 export type Options = {
@@ -71,14 +76,14 @@ export type Options = {
 };
 
 /** Each takes out one protection the code has. Every one must be caught: see test/model-test.ts. */
-export const MUTANTS = ['no-expect', 'no-location', 'no-verify', 'no-retry-check', 'no-gate', 'no-cross-read-gate', 'keep-dynamic', 'trust-repo-when-inherited'] as const;
+export const MUTANTS = ['no-expect', 'no-location', 'no-verify', 'no-retry-check', 'no-gate', 'no-cross-read-gate', 'keep-dynamic', 'trust-repo-when-inherited', 'no-disable-at-run', 'run-trusts-check', 'no-disable-at-read', 'listing-ignores-disabled', 'disable-ends-window'] as const;
 export type Mutant = (typeof MUTANTS)[number];
 
 const LOCS = [0, 1];
 
 export function initial(o: Options): State[] {
     const out: State[] = [];
-    for (const present of [true, false]) for (const loc of LOCS) out.push({ srvEntry: 0, srvBody: 0, srvFile: 0, loc, registry: null, held: null, store: null, pend: null, present, acting: null, convoAny: false, convoU: false, convoLast: null });
+    for (const present of [true, false]) for (const loc of LOCS) out.push({ srvEntry: 0, srvBody: 0, srvFile: 0, loc, registry: null, held: null, store: null, pend: null, present, acting: null, convoAny: false, convoU: false, convoLast: null, off: false });
     return o.versions > 0 ? out : [];
 }
 
@@ -86,7 +91,9 @@ export function initial(o: Options): State[] {
 export type Event =
     | { kind: 'content'; what: 'SKILL.md' | 'file'; v: V; against: V; l: number; approved: boolean; forV: Opt<V>; forL: number; how: How }
     | { kind: 'run'; tool: 'act' | 'read-own' | 'read-other'; unapprovedInContext: boolean; skillInContext: boolean; personYes: boolean }
-    | { kind: 'kept'; v: V; l: number; yesV: Opt<V>; yesL: number };
+    | { kind: 'kept'; v: V; l: number; yesV: Opt<V>; yesL: number }
+    /** The skill's line (its name, description, server, URI) entered the model's context. */
+    | { kind: 'offer' };
 
 type Step = { name: string; next: State; events: Event[] };
 
@@ -109,7 +116,8 @@ export function steps(st: State, o: Options): Step[] {
     if (st.registry !== st.srvEntry) push('List', { ...st, registry: st.srvEntry });
 
     // ---- Check: the permission check of a load_skill call (tool.check in register.ts, App.entry).
-    if (st.pend === null) {
+    // A skill the person disabled is refused there, before anything else: nothing changes.
+    if (st.pend === null && !st.off) {
         // SkillsHost.entry(): a loaded skill is asked about afresh (skills/get); otherwise the registry's entry, or skills/get.
         const e: V = st.held !== null ? st.srvEntry : (st.registry ?? st.srvEntry);
         const base = { ...st, registry: e };
@@ -131,6 +139,9 @@ export function steps(st: State, o: Options): Step[] {
     // reached the tool with no permission check (another mod's): approved by nobody.
     const run = (name: string, p: Pend) => {
         let next: State = { ...st, pend: null };
+        // A skill disabled since the check (or never checked) is refused when the call runs: the
+        // store is read again there. Refused unchecked, nothing changes.
+        if (st.off && o.mutant !== 'no-disable-at-run' && !(o.mutant === 'run-trusts-check' && name === 'Run')) return name === 'Run' ? push(`${name}:disabled`, next) : undefined;
         const expect = o.mutant === 'no-expect' ? null : p.hash;
         const known = st.held !== null && expect === null ? null : st.registry;
         let listed: V;
@@ -163,7 +174,7 @@ export function steps(st: State, o: Options): Step[] {
     else run('Unchecked', { hash: null, approved: false, isNew: false, how: 'none', forV: null, forL: st.loc });
 
     // ---- ReadFile: read_skill_file, resolved against the held entry only, and verified.
-    if (st.held !== null && (o.dynamic || st.srvFile === st.held.v || o.mutant === 'no-verify')) {
+    if (st.held !== null && (!st.off || o.mutant === 'no-disable-at-read') && (o.dynamic || st.srvFile === st.held.v || o.mutant === 'no-verify')) {
         const h = st.held;
         push('ReadFile', st, { kind: 'content', what: 'file', v: st.srvFile, against: h.v, l: st.loc, approved: h.approved, forV: h.approved ? h.v : null, forL: st.loc, how: h.approved ? 'stored' : 'none' });
     }
@@ -180,6 +191,16 @@ export function steps(st: State, o: Options): Step[] {
             if (decision === 'allow') push(`Tool(${tool},${rule}):runs`, st, event(false));
             else if (decision === 'ask' && st.present) push(`Tool(${tool},${rule}):person-yes`, st, event(true));
         }
+
+    // ---- Offer: the skill's line enters the model's context: the session's skill listing, composed
+    // (prompt.attachment) after the helper was told the list as the store holds it now, or
+    // list_skills. Only a skill the helper has an entry for is listed.
+    if (st.registry !== null && (!st.off || o.mutant === 'listing-ignores-disabled')) push('Offer', st, { kind: 'offer' });
+
+    // ---- Disable / Enable: /mcp-skills disable and enable, here or in another session. Neither
+    // touches the conversation: a skill loaded before is still acted on (and still gated).
+    if (!st.off) push('Disable', { ...st, off: true, ...(o.mutant === 'disable-ends-window' ? { acting: null } : {}) });
+    else push('Enable', { ...st, off: false });
 
     // ---- HelperRestart: the helper stops and is started again: its registry and held entry are gone.
     if (st.held !== null || st.registry !== null) push('HelperRestart', { ...st, registry: null, held: null });
@@ -222,6 +243,10 @@ export function stateInvariants(st: State, o: Options): string[] {
 export function stepInvariants(events: Event[], st: State, o: Options): string[] {
     const bad: string[] = [];
     for (const e of events) {
+        // DisabledNeverReaches: while the person has the skill disabled, nothing of it enters the
+        // model's context: not its listing line, not its SKILL.md, not a file.
+        if ((e.kind === 'content' || e.kind === 'offer') && st.off) bad.push('DisabledNeverReaches');
+        if (e.kind === 'offer') continue;
         if (e.kind === 'content') {
             // ApprovedContent: content that reaches the model as approved is exactly the set the person said yes
             // to, at the location they said it for; a dynamic skill's SKILL.md only with a yes given in this load's check.

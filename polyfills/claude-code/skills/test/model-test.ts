@@ -29,6 +29,18 @@ describe('the model of the skill gate', () => {
         assert.equal(explore({ ...base, lossyReadback: true }).violation?.invariant, 'Gate');
     });
 
+    test('a skill the person disabled reaches the model by no path: each guard taken out lets it through', () => {
+        const caught = (mutant: Options['mutant']) => explore({ ...base, mutant }).violation;
+        // Loaded with no check at all (another mod's call), once disabled.
+        assert.deepEqual(caught('no-disable-at-run'), { invariant: 'DisabledNeverReaches', trace: ['Init(present=true,loc=0)', 'Disable', 'Unchecked:loaded'] });
+        // A run that trusts the check before it: the person disabled the skill while the load waited.
+        assert.deepEqual(caught('run-trusts-check')?.trace.slice(1), ['Check:person-yes', 'Disable', 'Run:loaded']);
+        assert.deepEqual(caught('no-disable-at-read')?.trace.slice(1), ['Unchecked:loaded', 'Disable', 'ReadFile']);
+        assert.deepEqual(caught('listing-ignores-disabled')?.trace.slice(1), ['List', 'Disable', 'Offer']);
+        // Disabling a loaded skill must not end its window: the conversation still holds its text.
+        assert.equal(caught('disable-ends-window')?.invariant, 'ActingMatchesConversation');
+    });
+
     test('each protection, taken out of the model, is caught by an invariant', () => {
         for (const mutant of MUTANTS) {
             const caught = [explore({ ...base, mutant }), explore({ ...base, dynamic: true, mutant })].some((r) => r.violation) || exploreServers(mutant).violation !== undefined;

@@ -1,10 +1,11 @@
 ----------------------------- MODULE SkillGate -----------------------------
 (***************************************************************************)
 (* skillGate.qnt in TLA+, for TLC: the mcp-skills mod's skill gate.        *)
-(* Approval, loading, verification, the acting window, and the gate on     *)
-(* other tool calls. One server serves a skill and may change its entry,   *)
-(* its SKILL.md and a supporting file at any moment, each separately; a    *)
-(* second server is only a place resources can be read from.               *)
+(* Approval, loading, verification, the acting window, the gate on other   *)
+(* tool calls, and the person disabling and enabling the skill. One server *)
+(* serves a skill and may change its entry, its SKILL.md and a supporting  *)
+(* file at any moment, each separately; a second server is only a place    *)
+(* resources can be read from.                                             *)
 (*                                                                         *)
 (* Written by hand from skillGate.qnt, action for action and invariant for *)
 (* invariant, with the same three variables (st, ev, kept), so that Quint's *)
@@ -44,7 +45,7 @@ Quiet(s) == Go(s, NoEvent, NoKept)
 Init == \E present \in BOOLEAN, l \in LOCS :
     /\ st = [srvEntry |-> 0, srvBody |-> 0, srvFile |-> 0, loc |-> l, registry |-> NONE, held |-> NONE,
              heldApproved |-> FALSE, store |-> NONE, storeLoc |-> NONE, pend |-> NoPend, present |-> present,
-             acting |-> "none", convoAny |-> FALSE, convoU |-> FALSE, convoLast |-> "none"]
+             acting |-> "none", convoAny |-> FALSE, convoU |-> FALSE, convoLast |-> "none", off |-> FALSE]
     /\ ev = NoEvent
     /\ kept = NoKept
 
@@ -64,6 +65,8 @@ Check ==
         hash == IF DYNAMIC THEN NONE ELSE e
     IN \E answer \in BOOLEAN :
         /\ ~st.pend.active
+        \* A skill the person disabled is refused at the check, before anything else: nothing changes.
+        /\ ~st.off
         /\ IF hash # NONE /\ st.store = hash /\ st.storeLoc = st.loc
            THEN Quiet([base EXCEPT !.pend = [active |-> TRUE, hash |-> hash, approved |-> TRUE, isNew |-> FALSE,
                                              how |-> "stored", forV |-> st.store, forL |-> st.storeLoc]])
@@ -116,14 +119,19 @@ Load(s, p) ==
        ELSE IF s.srvBody = listed2 THEN Loaded(s2, p, listed2)
        ELSE failed2
 
-RunLoad == st.pend.active /\ LET r == Load(st, st.pend) IN Go(r.st, r.ev, r.kept)
+\* A skill disabled since the check is refused when the call runs: the store is read again there.
+RunLoad == /\ st.pend.active
+           /\ IF st.off THEN Quiet([st EXCEPT !.pend = NoPend])
+              ELSE LET r == Load(st, st.pend) IN Go(r.st, r.ev, r.kept)
 
 \* Unchecked: a load_skill call that reached the tool with no permission check (another mod's): approved by nobody.
-Unchecked == ~st.pend.active /\ LET r == Load(st, [NoPend EXCEPT !.active = TRUE, !.forL = st.loc]) IN Go(r.st, r.ev, r.kept)
+\* Refused, with nothing changed, while the skill is disabled.
+Unchecked == ~st.pend.active /\ ~st.off /\ LET r == Load(st, [NoPend EXCEPT !.active = TRUE, !.forL = st.loc]) IN Go(r.st, r.ev, r.kept)
 
 \* ReadFile: read_skill_file, resolved against the held entry only, and verified.
 ReadFile ==
     /\ st.held # NONE
+    /\ ~st.off
     /\ DYNAMIC \/ st.srvFile = st.held
     /\ Go(st, [NoEvent EXCEPT !.kind = "content", !.what = "file", !.v = st.srvFile, !.against = st.held,
                               !.l = st.loc, !.approved = st.heldApproved,
@@ -139,6 +147,16 @@ Tool == \E kind \in {"act", "read-own", "read-other"}, rule \in {"allow", "ask"}
     IN /\ decision = "allow" \/ (decision = "ask" /\ st.present /\ yes)
        /\ Go(st, [NoEvent EXCEPT !.kind = "run", !.tool = kind, !.unapprovedInContext = st.convoU,
                                  !.skillInContext = st.convoAny, !.personYes = (decision = "ask")], NoKept)
+
+\* Offer: the skill's line enters the model's context: the session's skill listing, composed after
+\* the helper was told the list as the store holds it now, or list_skills. Only a skill the helper
+\* has an entry for is listed.
+Offer == st.registry # NONE /\ ~st.off /\ Go(st, [NoEvent EXCEPT !.kind = "offer"], NoKept)
+
+\* Disable / Enable: /mcp-skills disable and enable, here or in another session (the list is the
+\* mod's store). Neither touches the conversation: a skill loaded before is still acted on.
+Disable == ~st.off /\ Quiet([st EXCEPT !.off = TRUE])
+Enable == st.off /\ Quiet([st EXCEPT !.off = FALSE])
 
 \* HelperRestart: the helper stops and is started again: its registry and held entry are gone.
 HelperRestart == Quiet([st EXCEPT !.registry = NONE, !.held = NONE, !.heldApproved = FALSE])
@@ -165,6 +183,7 @@ ElsewhereYes == /\ ~DYNAMIC
 
 Next == \/ ServerSetEntry \/ ServerSetBody \/ ServerSetFile \/ ListSkills \/ Check \/ RunLoad \/ Unchecked
         \/ ReadFile \/ Tool \/ HelperRestart \/ Resume \/ Clear \/ Forget \/ ElsewhereYes
+        \/ Offer \/ Disable \/ Enable
 
 Spec == Init /\ [][Next]_vars
 
@@ -194,8 +213,12 @@ HeldImpliesActing == st.held = NONE \/ st.convoAny
 \* With nothing lost on read-back, the hooks module knows whether the conversation acts on the skill, and whether unapproved.
 ActingMatchesConversation == LOSSY \/ ~STICKY \/ ((st.acting # "none") = st.convoAny /\ (st.acting = "U") = st.convoU)
 
+\* While the person has the skill disabled, nothing of it enters the model's context: not its
+\* listing line, not its SKILL.md, not a file. (No step that adds content changes off.)
+DisabledNeverReaches == (ev.kind # "content" /\ ev.kind # "offer") \/ ~st.off
+
 Safety == ApprovedContent /\ Verified /\ KeptIsConsented /\ Gate /\ CrossServerRead /\ NobodyAnswers
-          /\ NoKeptYesForDynamic /\ HeldImpliesActing /\ ActingMatchesConversation
+          /\ NoKeptYesForDynamic /\ HeldImpliesActing /\ ActingMatchesConversation /\ DisabledNeverReaches
 
 \* ---- Which servers are used at all (config.ts discoverServers, then Claude Code's own verdict).
 Used(trust, fromRepo, person, repo, rejected, off, claudeCodeUses) ==
