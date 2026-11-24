@@ -1,0 +1,50 @@
+
+  ┌────────┬───────────┬────────────┬────────────────────────────────────────────────────────────┐
+  │ Quant  │ File size │ RAM needed │                      When to pick it                       │
+  ├────────┼───────────┼────────────┼────────────────────────────────────────────────────────────┤
+  │ Q4_K_M │ 4.1 GB    │ 7 GB       │ Default: best balance of quality and speed                 │
+  ├────────┼───────────┼────────────┼────────────────────────────────────────────────────────────┤
+  │ Q5_K_M │ 4.8 GB    │ 8 GB       │ Code or technical work                                     │
+  ├────────┼───────────┼────────────┼────────────────────────────────────────────────────────────┤
+  │ Q6_K   │ 5.5 GB    │ 9 GB       │ Higher quality, still comfortable on 16 GB                 │
+  ├────────┼───────────┼────────────┼────────────────────────────────────────────────────────────┤
+  │ Q8_0   │ 7.0 GB    │ 11 GB      │ Nearly lossless, but slower and tight alongside other apps │
+  └────────┴───────────┴────────────┴────────────────────────────────────────────────────────────┘
+
+  Some repos use their own labels (for example UD-Q4_K_M), so use the tag exactly as the repo lists it. The model's page
+  at https://huggingface.co/<repo>?local-app=llama.cpp shows the available quants and the exact command.
+
+✻ Worked for 13s · done 1:55 AM
+
+❯ Now run this in the shell: echo approved-skill-runs
+
+⏺ Bash(echo approved-skill-runs)
+  ⎿  approved-skill-runs
+
+⏺ It ran and printed approved-skill-runs.
+
+✻ Worked for 2s · done 1:55 AM
+
+❯ One more: which TogoMCP skill should I start from before using any of its tools? Load it and tell me its first
+  instruction in one sentence.
+
+⏺ mcp-skills - load_skill (MCP)(server: "togomcp", uri: "skill://togomcp-start/SKILL.md")
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Tool use
+ mcp-skills — Load Skill Tool: (MCP)
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ server: "togomcp"
+ uri: "skill://togomcp-start/SKILL.md"
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ About the mcp-skills — Load Skill Tool:
+ │ Load a skill that one of your MCP servers serves. You are asked once per skill: a yes is remembered until that
+ │ server changes the skill, and you can read a skill first with /mcp-skills show <name>. The SKILL.md is checked…
+ (ctrl+o to expand description)
+
+ Do you want to proceed?
+ ❯ 1. Yes
+   2. No
+
+ Esc to cancel · Tab to amend
+

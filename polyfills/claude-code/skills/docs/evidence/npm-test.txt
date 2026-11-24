@@ -1,0 +1,119 @@
+$ npm test    # 2026-11-24T00:17Z, node v22.23.1
+    ok 1 - C1: skills/list and skills/get are sent only to a server that declared the extension
+    ok 2 - C1: a server that declares it without the resources capability the extension requires is left alone, and the user is told why
+    ok 3 - C1: the declaration counts on an earlier protocol revision too, where it arrives in the initialize answer
+    ok 4 - C2: resources/directory/read is never sent to a server that has not declared directoryRead: true
+    ok 5 - C2: where the server declared directoryRead, a generated skill's directory is read from the server, direct children only
+    ok 6 - C3: every request carries the request metadata the 2026-07-28 revision requires
+ok 1 - Capability Negotiation
+    ok 1 - R1: the authority of a skill URI is never resolved: the only thing a skill URI is given to is its own server
+    ok 2 - R2: a resource is not a skill because its URI says skill://: without the server's entry for it, nothing is loaded
+    ok 3 - R2: no scheme is privileged: a skill under another scheme is listed and loaded like any other
+    ok 4 - R3: a nested SKILL.md read as a file of the enclosing skill is ordinary text: its frontmatter has no effect
+    ok 5 - R4: a nested skill becomes active only through a load of its own
+    ok 6 - D3: a relative reference resolves against the skill's own directory, as a filesystem path would
+ok 2 - Resource Mapping
+    ok 1 - U1, U2: a skill is the pair of server and uri: the same uri on two servers is two skills, kept, loaded and read apart
+    ok 2 - M1: metadata keys reserved for MCP extensions that this client does not know are ignored
+    ok 3 - N1, N2: two skills of one server with the same name are both kept, and told apart by their paths
+    ok 4 - N3, N4, X3, X4, X7: every listed skill is named with the label the user gave its server, never what the server calls itself, under a heading that says it is not a local skill
+    ok 5 - E1: an entry whose resources is missing, or anything but a list or "dynamic", is not listed and not loaded
+    ok 6 - E2: a file whose length differs from the entry's size fails verification, even where the digest is right
+    ok 7 - E3, L3: a generated ("dynamic") skill is loaded as unverifiable, said so, and no more than 16 MiB of it is retrieved
+ok 3 - Skill Entries
+    ok 1 - L1: a skill at the limits is accepted: 512 files, and 16 MiB in all, read whole
+    ok 2 - L2: a skill past a limit is declined from its entry alone, before any file is retrieved, and the reason is said
+ok 4 - Limits
+    ok 1 - S1: an empty listing is no proof the server has no skills: a skill it does not list is loaded by its URI alone
+    ok 2 - S2: a listing in pages is read to its end, each cursor passed back as given
+    ok 3 - S3: a listed entry is a complete manifest: loading a listed skill needs no skills/get
+    ok 4 - G1: skills/get is asked only about the URI of a SKILL.md
+    ok 5 - G2: an answer to skills/get that is another skill's entry, or not a complete result, is not used
+ok 5 - Listing Skills, Getting a Skill
+    ok 1 - D1: a resources/read of a SKILL.md by any other route is not a load: nothing is held, and its files are not readable
+ok 6 - Reading Skill Content
+    ok 1 - V1, V2: a file that does not match its digest is not used: the read fails, and none of the content is shown or kept
+    ok 2 - V1: a SKILL.md that does not match its digest is not loaded
+    ok 3 - V3: a mismatch against a listing may be staleness: the entry is read again with skills/get, and the load proceeds from the current one
+    ok 4 - V4, V5: while a skill is loaded, a file its entry does not list is a verification failure: it is not read, though the server would serve it
+    ok 5 - V6: the frontmatter of the fetched SKILL.md is compared with the entry's, field by field: any difference and the skill is not loaded
+    ok 6 - V6: a SKILL.md with no readable frontmatter is not loaded
+    ok 7 - V6: a generated skill's frontmatter is compared too, though its bytes cannot be verified
+    ok 8 - V7: nothing is retrieved ahead of need: connecting and listing read no file, loading reads SKILL.md alone, a file is read when asked for
+    ok 9 - V8: what was retrieved and verified is kept for the session, and used again only for the same digest
+    ok 10 - V9: a digest match is reported as consistency, not as trust
+    ok 11 - W1: the entry a skill was loaded from is held until the conversation is cleared, and loading it again takes the server's current entry
+ok 7 - Integrity and Verification
+    ok 1 - X14: what an approval is bound to is every file's address and digest: it differs when a file is rotated, added or removed
+    ok 2 - X14: the facts of a skill are put to the user from its entry alone: no file is fetched to ask
+    ok 3 - X14: a skill is loaded as it was approved, or not at all: one that changed in between is refused, and nothing is held
+    ok 4 - X13: a skill can be read before it is loaded: the preview is verified, holds nothing, and opens nothing
+ok 8 - Content-bound approval
+    ok 1 - Y1, Y3: for a skill with a manifest, a directory is answered from the held entry: a file the server added since is neither shown nor readable
+    ok 2 - Y4: a file in the manifest that the server no longer serves fails as a read, in the mod's own words
+ok 9 - Reading Directories
+    ok 1 - X1: a server's text is kept inside a fence the server cannot close, under a line that names the server
+    ok 2 - X1: a description is one bounded line in the listing, whatever the server put in it
+    ok 3 - X6: a file is read only from the server its skill was loaded from: the tool takes the pair, and no other server is asked
+    ok 4 - X10: allowed-tools and every other frontmatter field of an MCP-served skill grant nothing: the answer carries text, and nothing else
+    ok 5 - X15: nothing of a skill's content is written to disk: there is no disk cache
+ok 10 - Security Considerations
+    ok 1 - reads Claude Code's project, local and user scopes, and honours the filters
+    ok 2 - a servers file of the user's own: a server switched off in Claude Code stays off, and the file may not sit in the project's repository
+    ok 3 - a server from the project's .mcp.json is used only once Claude Code itself would use it
+    ok 4 - a project inside a folder Claude Code trusts is trusted, as Claude Code itself takes it; one beside it is not
+    ok 5 - environment variables are expanded the way Claude Code expands them
+    ok 6 - credentials the environment carries anyway are never sent to a remote server, whatever its config asks for
+    ok 7 - a yes-or-no approval setting is taken from the highest file that sets it; a servers file of your own must sit outside the project
+    ok 8 - an MCP policy from any place Claude Code reads one turns discovery off
+    ok 9 - a server whose name is not a plain name is not used: names are repeated to the model
+    ok 10 - a server's headersHelper is kept with where it runs: Claude Code's folder for a user server, the project for project and local ones, and only in a trusted folder
+    ok 11 - where an organisation manages which MCP servers are allowed, discovery is off: this plugin can't judge that policy
+ok 11 - server discovery
+    ok 1 - mod/dist/helper.js is what src/ builds
+    ok 2 - with a servers file of the user's own: lists, loads and reads, answering only to its token
+    ok 3 - a server found not to serve skills is remembered, and not connected to again at the next start; /refresh looks again
+    ok 4 - with Claude Code's own config: connects only to servers Claude Code says it uses
+ok 12 - the bundled helper
+    ok 1 - an empty object declares the extension with no optional features
+    ok 2 - anything else is no declaration
+ok 13 - the declaration
+    ok 1 - the root is the SKILL.md URI without /SKILL.md
+    ok 2 - a reference resolves inside the skill, or not at all
+ok 14 - a skill URI
+    ok 1 - a valid one
+    ok 2 - the name: the Agent Skills naming rule, and equal to the last segment of the path
+    ok 3 - the description: present, and no longer than Agent Skills allows
+    ok 4 - the files: each with a digest and a size, each once, each inside the skill, its own SKILL.md among them
+    ok 5 - what an approval would be bound to: every uri and digest, whatever the order
+ok 15 - an entry
+    ok 1 - the bytes a digest covers: text as UTF-8, a blob as its decoded bytes
+    ok 2 - of several contents, the one for the file asked about
+    ok 3 - verification says which check failed
+    ok 4 - a SKILL.md: frontmatter between --- lines, then the body
+ok 16 - content
+    ok 1 - a server's error text is never repeated
+    ok 2 - one line means one line
+    ok 3 - the listing is bounded however many skills a server lists
+    ok 4 - an answer larger than the mod accepts fails the request instead of filling memory
+ok 17 - what is said
+    ok 1 - is run as Claude Code documents it: in a shell, told which server it is for, printing a JSON object of text values
+    ok 2 - one server is told from another by where it is, not by its name
+ok 18 - a server's headersHelper
+    ok 1 - a request refused with 429 or 5xx is sent again after a wait, and then answered
+    ok 2 - the wait a server names is the wait, within reason
+    ok 3 - a server that keeps refusing fails the request, in the mod's own words
+    ok 4 - any other answer is passed on as it is: a 401 is a sign-in, not a reason to wait
+ok 19 - a server that is busy
+    ok 1 - the hooks module registers the tools the helper serves, under the prefix the helper names them by
+    ok 2 - Claude Code's shell tools are among the tools that run code
+    ok 3 - one version, in the three places that state it
+    ok 4 - the Skills logic uses nothing of Node, so it can run wherever a request can be sent
+ok 20 - the parts agree
+# tests 91
+# suites 20
+# pass 91
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0

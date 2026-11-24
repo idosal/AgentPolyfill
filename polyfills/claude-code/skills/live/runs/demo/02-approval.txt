@@ -1,0 +1,28 @@
+       transformers-js  Use Transformers.js to run state-of-the-art machine learning…
+       trl-training  Post-train LLMs with TRL (Transformers Reinforcement Learning) …
+     Read one before it is loaded: /mcp-skills show <name>. Have Claude use one:
+     /mcp-skills use <name> [what to do].
+
+❯ Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?
+
+⏺ mcp-skills - load_skill (MCP)(server: "huggingface", uri:
+                               "skill://huggingface-local-models/SKILL.md")
+
+────────────────────────────────────────────────────────────────────────────────────────
+ Tool use
+ mcp-skills — Load Skill Tool: (MCP)
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ server: "huggingface"
+ uri: "skill://huggingface-local-models/SKILL.md"
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ About the mcp-skills — Load Skill Tool:
+ │ Load a skill that one of your MCP servers serves. You are asked once per skill:
+ │ a yes is remembered until that server changes the skill, and you can read a…
+ (ctrl+o to expand description)
+
+ Do you want to proceed?
+ ❯ 1. Yes
+   2. No
+
+ Esc to cancel · Tab to amend
+

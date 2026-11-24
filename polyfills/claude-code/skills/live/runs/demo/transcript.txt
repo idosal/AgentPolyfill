@@ -1,0 +1,145 @@
+===== 00-start @ 01:59:30
+ ▐▛███▛█   Claude Code v2.1.329
+▝▜██████▀  Fable 5.2
+ ▝▝   ▝▝   <repo>/live/runs/demo/project
+
+
+❯ /clear
+
+────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ manual mode on · ? for shortcuts
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+===== 01-skills @ 01:59:37
+       hf-cloud-sagemaker-production-defaults  Create a SageMaker endpoint (real-tim…
+       hf-cloud-serving-image-selection  Pick the right serving container for a Sage…
+       hf-mem  Estimate the GPU memory needed to run a Hugging Face model (weights, …
+       huggingface-best  Use when the user asks about finding the best, top, or reco…
+       huggingface-community-evals  Run evaluations for Hugging Face Hub models usin…
+       huggingface-datasets  Use this skill for Hugging Face Dataset Viewer API work…
+       huggingface-gradio  Build Gradio web UIs and demos in Python. Use when creati…
+       huggingface-llm-trainer  Train or fine-tune language and vision models using …
+       huggingface-local-models  Use to select models to run locally with llama.cpp …
+       huggingface-lora-space-builder  Build and publish a Gradio demo on Hugging Fa…
+       huggingface-paper-publisher  Publish and manage research papers on Hugging Fa…
+       huggingface-papers  Look up and read Hugging Face paper pages in markdown, an…
+       huggingface-spaces  Build, deploy, and maintain applications on Hugging Face …
+       huggingface-tool-builder  Use this skill when the user wants to build tool/sc…
+       huggingface-trackio  Track and visualize ML training experiments with Trackio…
+       huggingface-vision-trainer  Trains and fine-tunes vision models for object de…
+       huggingface-zerogpu  AI demos and GPU compute with Gradio Spaces and Hugging …
+       train-sentence-transformers  Train or fine-tune sentence-transformers models …
+       transformers-js  Use Transformers.js to run state-of-the-art machine learning…
+       trl-training  Post-train LLMs with TRL (Transformers Reinforcement Learning) …
+     Read one before it is loaded: /mcp-skills show <name>. Have Claude use one:
+     /mcp-skills use <name> [what to do].
+
+────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ manual mode on · ? for shortcuts
+
+===== 02-approval @ 01:59:48
+       transformers-js  Use Transformers.js to run state-of-the-art machine learning…
+       trl-training  Post-train LLMs with TRL (Transformers Reinforcement Learning) …
+     Read one before it is loaded: /mcp-skills show <name>. Have Claude use one:
+     /mcp-skills use <name> [what to do].
+
+❯ Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?
+
+⏺ mcp-skills - load_skill (MCP)(server: "huggingface", uri:
+                               "skill://huggingface-local-models/SKILL.md")
+
+────────────────────────────────────────────────────────────────────────────────────────
+ Tool use
+ mcp-skills — Load Skill Tool: (MCP)
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ server: "huggingface"
+ uri: "skill://huggingface-local-models/SKILL.md"
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ About the mcp-skills — Load Skill Tool:
+ │ Load a skill that one of your MCP servers serves. You are asked once per skill:
+ │ a yes is remembered until that server changes the skill, and you can read a…
+ (ctrl+o to expand description)
+
+ Do you want to proceed?
+ ❯ 1. Yes
+   2. No
+
+ Esc to cancel · Tab to amend
+
+===== 03-answer @ 02:00:04
+  │ Q8_0   │ 7.0 GB  │ ~11 GB   │ +0.03%             │ Yes, but tight alongside   │
+  │        │         │          │                    │ other apps                 │
+  └────────┴─────────┴──────────┴────────────────────┴────────────────────────────┘
+
+  - Q6_K: pick this for code or technical work, or if you just want the best quality. It
+    is nearly lossless and still leaves about 7 GB for macOS and your other apps.
+  - Q5_K_M: pick this if you want a long context window or keep a lot of other things
+    open.
+  - Q4_K_M: only worth it if you care most about speed or memory is under pressure.
+  - Q8_0: skip it. The quality gain over Q6_K is negligible, it runs slower, and it eats
+    into the memory the Mac shares between the system and the GPU.
+
+  To run one with llama.cpp on a Mac:
+
+  brew install llama.cpp
+  llama-server -hf <repo>:Q6_K
+
+  Sizes vary a little between models, so check the specific repo's ?local-app=llama.cpp
+  page on Hugging Face for its exact quant labels and sizes. If you tell me which model
+  you have in mind, I can look up the exact files.
+
+✻ Brewed for 12s · done 1:59 AM
+
+────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ manual mode on · ? for shortcuts
+
+===== final @ 02:00:05
+
+  - Q6_K: pick this for code or technical work, or if you just want the best quality. It
+    is nearly lossless and still leaves about 7 GB for macOS and your other apps.
+  - Q5_K_M: pick this if you want a long context window or keep a lot of other things
+    open.
+  - Q4_K_M: only worth it if you care most about speed or memory is under pressure.
+  - Q8_0: skip it. The quality gain over Q6_K is negligible, it runs slower, and it eats
+    into the memory the Mac shares between the system and the GPU.
+
+  To run one with llama.cpp on a Mac:
+
+  brew install llama.cpp
+  llama-server -hf <repo>:Q6_K
+
+  Sizes vary a little between models, so check the specific repo's ?local-app=llama.cpp
+  page on Hugging Face for its exact quant labels and sizes. If you tell me which model
+  you have in mind, I can look up the exact files.
+
+✻ Brewed for 12s · done 1:59 AM
+
+────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────
+  Press Ctrl-C again to exit
+
+Resume this session with:
+claude --resume 5206625e-d58b-4ed6-960b-9abd6d723c9b
+

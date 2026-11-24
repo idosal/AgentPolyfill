@@ -1,0 +1,30 @@
+{
+  "name": "mcp-skills-polyfill",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "description": "A Claude Code mod that adds the client side of the MCP Skills extension (SEP-2640): skills served by your MCP servers are listed for Claude and loaded on demand.",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "node --test --no-warnings \"test/*-test.ts\"",
+    "typecheck": "tsc --noEmit -p .",
+    "build": "node build.mjs",
+    "interop": "node --no-warnings test/interop/run.ts",
+    "test:mod": "claude plugin test mod",
+    "interop:real": "node --no-warnings test/interop/real.ts",
+    "typecheck:mod": "tsc -p tsconfig.mod.json"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "yaml": "^2.8.0",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "@types/node": "^22.10.0",
+    "esbuild": "0.28.2",
+    "typescript": "^5.9.3"
+  }
+}
