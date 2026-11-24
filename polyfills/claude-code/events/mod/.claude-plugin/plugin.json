@@ -7,6 +7,6 @@
     "url": "https://github.com/idosal"
   },
   "license": "Apache-2.0",
-  "homepage": "https://github.com/idosal/MCPolyfill/tree/main/polyfills/claude-code/events",
-  "repository": "https://github.com/idosal/MCPolyfill"
+  "homepage": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/claude-code/events",
+  "repository": "https://github.com/idosal/AgentPolyfill"
 }

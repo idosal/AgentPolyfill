@@ -17,20 +17,20 @@ on what is being typed or shown. [Full video](docs/media/demo.mp4) (24 seconds).
 At the prompt of a `claude` session:
 
 ```
-/plugin install mcp-events --marketplace idosal/MCPolyfill
+/plugin install mcp-events --marketplace idosal/AgentPolyfill
 ```
 
 Or in a terminal:
 
 ```bash
-claude plugin install mcp-events --marketplace idosal/MCPolyfill
+claude plugin install mcp-events --marketplace idosal/AgentPolyfill
 ```
 
-Either adds the [MCPolyfill](../../../README.md) marketplace and installs
+Either adds the [AgentPolyfill](../../../README.md) marketplace and installs
 the plugin in one step. With the marketplace already added,
-`/plugin install mcp-events@mcpolyfill` does the same; to add the marketplace
-by itself, `/plugin marketplace add idosal/MCPolyfill`.
-`/plugin install mcpolyfill --marketplace idosal/MCPolyfill` installs every
+`/plugin install mcp-events@agent-polyfill` does the same; to add the marketplace
+by itself, `/plugin marketplace add idosal/AgentPolyfill`.
+`/plugin install agent-polyfill --marketplace idosal/AgentPolyfill` installs every
 polyfill in the marketplace, this one included.
 
 The install is one small folder ([`mod/`](mod/), about 0.8 MB), and nothing
@@ -69,8 +69,8 @@ To stop: "Stop watching the demo button."
 of buttons. It needs Node 22.18 or newer.
 
 ```bash
-git clone https://github.com/idosal/MCPolyfill
-cd MCPolyfill/polyfills/claude-code/events/demo
+git clone https://github.com/idosal/AgentPolyfill
+cd AgentPolyfill/polyfills/claude-code/events/demo
 npm install
 DEPLOYS_TOKEN=demo-token npm start
 ```
@@ -444,7 +444,7 @@ Environment variables, for example in the `env` block of
 - A server that has just gained events support is noticed within a day, or at
   once if you delete `servers-without-events.json` in the data folder.
 
-Bugs and questions: [open an issue](https://github.com/idosal/MCPolyfill/issues)
+Bugs and questions: [open an issue](https://github.com/idosal/AgentPolyfill/issues)
 that names `mcp-events`, with your Claude Code version, your operating system,
 and the relevant lines of the log. For a security problem, see [`SECURITY.md`](SECURITY.md) instead.
 
@@ -507,7 +507,7 @@ claude --plugin-dir mod   # run it from this checkout
 
 ## Related
 
-Part of [MCPolyfill](../../../README.md): MCP extensions for hosts that
+Part of [AgentPolyfill](../../../README.md): MCP extensions for hosts that
 haven't shipped them yet.
 
 ## Licence

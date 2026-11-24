@@ -35,7 +35,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/idosal/MCPolyfill.git",
+    "url": "git+https://github.com/idosal/AgentPolyfill.git",
     "directory": "polyfills/claude-code/events"
   }
 }

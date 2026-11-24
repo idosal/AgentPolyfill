@@ -1,9 +1,9 @@
-// Interop: the mcp-events client (the MCPolyfill polyfill's helper process, driven by its own test
+// Interop: the mcp-events client (the AgentPolyfill polyfill's helper process, driven by its own test
 // harness exactly as Claude Code's hooks module drives it) against a running event-feeds.
 //
 //   node --no-warnings test/interop/run.ts [base-url]       default: the deployed server
 //   MCP_EVENTS_PLUGIN=/path/to/mcp-events  (the polyfill's source; default ../../polyfills/claude-code/events
-//                                           in the MCPolyfill repository; read, not changed)
+//                                           in the AgentPolyfill repository; read, not changed)
 //   INTEROP_FEEDS=0                         skip the wait for a real Hacker News comment
 //
 // It prints one line per check and exits non-zero on the first failure.
@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const BASE = (process.argv[2] ?? 'https://event-feeds.idosalomon.workers.dev').replace(/\/$/, '');
-// The polyfill's source: next to this server in the MCPolyfill repository, or a checkout of its own.
+// The polyfill's source: next to this server in the AgentPolyfill repository, or a checkout of its own.
 const inRepo = fileURLToPath(new URL('../../../../polyfills/claude-code/events', import.meta.url));
 const PLUGIN = process.env.MCP_EVENTS_PLUGIN ?? (existsSync(join(inRepo, 'test', 'harness.ts')) ? inRepo : inRepo);
 const h = (await import(pathToFileURL(join(PLUGIN, 'test', 'harness.ts')).href)) as typeof import('./harness-types.ts');

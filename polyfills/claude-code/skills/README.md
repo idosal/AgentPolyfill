@@ -21,20 +21,20 @@ of the terminal, and waits are shortened.
 At the prompt of a `claude` session:
 
 ```
-/plugin install mcp-skills --marketplace idosal/MCPolyfill
+/plugin install mcp-skills --marketplace idosal/AgentPolyfill
 ```
 
 Or in a terminal:
 
 ```bash
-claude plugin install mcp-skills --marketplace idosal/MCPolyfill
+claude plugin install mcp-skills --marketplace idosal/AgentPolyfill
 ```
 
-Either adds the [MCPolyfill](../../../README.md) marketplace and installs
+Either adds the [AgentPolyfill](../../../README.md) marketplace and installs
 the plugin in one step. With the marketplace already added,
-`/plugin install mcp-skills@mcpolyfill` does the same; to add the marketplace
-by itself, `/plugin marketplace add idosal/MCPolyfill`.
-`/plugin install mcpolyfill --marketplace idosal/MCPolyfill` installs every
+`/plugin install mcp-skills@agent-polyfill` does the same; to add the marketplace
+by itself, `/plugin marketplace add idosal/AgentPolyfill`.
+`/plugin install agent-polyfill --marketplace idosal/AgentPolyfill` installs every
 polyfill in the marketplace, this one included.
 
 That is the whole install: no settings to fill in, nothing to configure per
@@ -62,8 +62,8 @@ type that command. To turn it off, disable or uninstall the plugin (`/plugin`).
 To run it from a clone of this repository instead, for one session:
 
 ```bash
-git clone https://github.com/idosal/MCPolyfill
-claude --plugin-dir MCPolyfill/polyfills/claude-code/skills/mod
+git clone https://github.com/idosal/AgentPolyfill
+claude --plugin-dir AgentPolyfill/polyfills/claude-code/skills/mod
 ```
 
 ## Try it
@@ -366,7 +366,7 @@ connection the mod has to make for itself today.
 
 ## Problems and questions
 
-[Open an issue](https://github.com/idosal/MCPolyfill/issues) that names
+[Open an issue](https://github.com/idosal/AgentPolyfill/issues) that names
 `mcp-skills`. Say which Claude Code version you run
 (`claude --version`), how the server is configured (without its token), and
 what `/mcp-skills` prints. For a security problem, see
@@ -376,7 +376,7 @@ what `/mcp-skills` prints. For a security problem, see
 
 This mod is one of a set of polyfills that add MCP extensions to Claude Code
 ahead of native support, collected at
-[MCPolyfill](../../../README.md).
+[AgentPolyfill](../../../README.md).
 
 ## Licence
 

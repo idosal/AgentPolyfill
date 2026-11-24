@@ -197,7 +197,7 @@ export default {
                 rateLimited: Boolean(env.DELIVERIES_PER_HOOK && env.DELIVERIES_PER_SENDER && env.SOCKETS_PER_SENDER),
                 newMailboxesPerHour: Number(env.NEW_MAILBOXES_PER_HOUR) || null,
                 newMailboxesPerSenderPerHour: Number(env.NEW_MAILBOXES_PER_SENDER_PER_HOUR) || null,
-                source: 'https://github.com/idosal/MCPolyfill/tree/main/polyfills/claude-code/events/mod/relay'
+                source: 'https://github.com/idosal/AgentPolyfill/tree/main/polyfills/claude-code/events/mod/relay'
             });
         }
         // SEP-3415 endpoint verification, option 4: this origin says which paths receive webhooks,

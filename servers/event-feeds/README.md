@@ -5,16 +5,16 @@ when they happen. It implements the server side of the MCP Events extension,
 [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
 (`io.modelcontextprotocol/events`, protocol revision 2026-07-28), on one Cloudflare Worker.
 
-It is run by Ido Salomon as part of [MCPolyfill](https://github.com/idosal/MCPolyfill), so that anyone
+It is run by Ido Salomon as part of [AgentPolyfill](https://github.com/idosal/AgentPolyfill), so that anyone
 with an Events-capable client can try Events in a minute without running anything. Source:
-[`servers/event-feeds`](https://github.com/idosal/MCPolyfill/tree/main/servers/event-feeds).
+[`servers/event-feeds`](https://github.com/idosal/AgentPolyfill/tree/main/servers/event-feeds).
 
 - Server: `https://event-feeds.idosalomon.workers.dev/mcp`
 - Web page: <https://event-feeds.idosalomon.workers.dev/> (what this is, and a demo button)
 
 ## Try it
 
-Claude Code does not have Events built in yet. With the `mcp-events` polyfill from MCPolyfill
+Claude Code does not have Events built in yet. With the `mcp-events` polyfill from AgentPolyfill
 installed, add the server:
 
 ```bash
@@ -26,7 +26,7 @@ Then start `claude` and say one of these:
 - "Give me a demo button and tell me what I type when I press it."
   Claude makes a private button page, gives you the link, and watches it. Press the button; the idle
   session wakes within a few seconds, reads your message with `read_event_text`, and answers.
-- "Tell me when someone comments on the Show HN for MCPolyfill."
+- "Tell me when someone comments on the Show HN for AgentPolyfill."
 - "Watch npm for a new version of wrangler and tell me what changed."
 
 No sign-in. Any other client that speaks MCP Events can use the same URL.
@@ -220,8 +220,8 @@ This project is not affiliated with any of them.
 You need Node 22.18 or newer and a Cloudflare account (the free plan works; see the note below).
 
 ```bash
-git clone https://github.com/idosal/MCPolyfill
-cd MCPolyfill/servers/event-feeds
+git clone https://github.com/idosal/AgentPolyfill
+cd AgentPolyfill/servers/event-feeds
 npm install
 npx wrangler deploy
 openssl rand -base64 32 | npx wrangler secret put CHANNEL_SECRET
@@ -279,4 +279,4 @@ src/channel.ts       signed channel ids
 src/pages.ts         the two web pages
 ```
 
-Apache-2.0, like the rest of MCPolyfill.
+Apache-2.0, like the rest of AgentPolyfill.

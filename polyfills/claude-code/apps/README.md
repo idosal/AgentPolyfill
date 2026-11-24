@@ -11,7 +11,7 @@ type into it. Existing MCP servers work unmodified.
 
 ![Real pixels on the left, character cells on the right](docs/demo-side-by-side.png)
 
-The [video](https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4) (33 s, MP4)
+The [video](https://github.com/idosal/AgentPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4) (33 s, MP4)
 shows a classic shareware game from the hosted arcade server, played with keys
 and clicks; a cohort heatmap from an MCP server that opens under the tool call
 and answers the pointer; and a 3D scene Claude writes, turned by dragging. The
@@ -22,19 +22,19 @@ still above is from an earlier recording of two terminals side by side.
 At the prompt of a `claude` session:
 
 ```
-/plugin install mcp-apps-cli --marketplace idosal/MCPolyfill
+/plugin install mcp-apps-cli --marketplace idosal/AgentPolyfill
 ```
 
 Or in a terminal:
 
 ```bash
-claude plugin install mcp-apps-cli --marketplace idosal/MCPolyfill
+claude plugin install mcp-apps-cli --marketplace idosal/AgentPolyfill
 ```
 
-Either adds the [MCPolyfill](../../../README.md) marketplace and installs
+Either adds the [AgentPolyfill](../../../README.md) marketplace and installs
 the plugin in one step. Start a new `claude` session for it to load. With
-the marketplace already added, `/plugin install mcp-apps-cli@mcpolyfill`
-does the same; `/plugin install mcpolyfill --marketplace idosal/MCPolyfill`
+the marketplace already added, `/plugin install mcp-apps-cli@agent-polyfill`
+does the same; `/plugin install agent-polyfill --marketplace idosal/AgentPolyfill`
 installs every polyfill in the marketplace, this one included.
 
 The plugin is one zip, attached to a release of this repository and checked
@@ -170,10 +170,10 @@ started rendering MCP Apps natively, because a mod cannot see what Claude
 Code's own MCP client supports. When it does, turn the plugin off:
 
 ```bash
-claude plugin disable mcp-apps-cli@mcpolyfill
+claude plugin disable mcp-apps-cli@agent-polyfill
 ```
 
-or remove it with `claude plugin uninstall mcp-apps-cli@mcpolyfill`.
+or remove it with `claude plugin uninstall mcp-apps-cli@agent-polyfill`.
 
 ## Privacy and security
 
@@ -239,7 +239,7 @@ see [Packaging and releasing](docs/DESIGN.md#packaging-and-releasing).
 
 ## Related
 
-Part of [MCPolyfill](../../../README.md): MCP extensions for hosts that
+Part of [AgentPolyfill](../../../README.md): MCP extensions for hosts that
 haven't shipped them yet.
 
 ## License
