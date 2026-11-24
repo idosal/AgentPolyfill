@@ -15,8 +15,8 @@ openai/codex#48000).
 
 <Recording
   cut="skills"
-  alt="In Claude Code, /mcp-skills lists the skills Hugging Face's MCP server serves. Asked to use huggingface-local-models for a 16 GB Mac, Claude asks to load it and Claude Code asks once for approval; the skill and its files are read from the server, and Claude answers from it."
-  caption="A real session against Hugging Face's public MCP server (21 s). Waits are sped up, with a badge saying how fast."
+  alt="In Codex, in the ChatGPT desktop app, asked what skills the Hugging Face MCP server serves, Codex lists its 25 skills, all visible in Codex. Asked which GGUF quantization to use for a 7B model on a 16 GB Mac, Codex asks in its own form whether to load the skill huggingface-local-models from that server, saying its 4 files are each checked against the server's SHA-256 digest when read, with Do not load it, Show me its SKILL.md first, and Load it. After Load it, Codex answers from the skill: Q4_K_M."
+  caption="A real session in Codex, in the ChatGPT desktop app, against Hugging Face's public MCP server (25 s; waits sped up, with a badge saying how fast)."
 />
 
 ## Install
