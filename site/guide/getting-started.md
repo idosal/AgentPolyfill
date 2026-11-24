@@ -159,12 +159,15 @@ for Codex, and Apps is Claude Code only for now. ARD discovery is installed by
 name, as in Claude Code, because its search sends your words to a third party:
 `codex plugin add ard-discovery@agent-polyfill`.
 
-To try Events, add the hosted demo server and ask, in `codex`, "Give me a demo
-button and tell me what I type when I press it":
+To try Events, add the hosted demo server:
 
 ```bash
 codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 ```
+
+Then ask, in the Codex CLI (`codex`), "Give me a demo button and tell me what I
+type when I press it". In the ChatGPT desktop app a watch records events but
+can't wake the chat; ask for `recent_events` there.
 
 To try Skills, add Hugging Face's public MCP server to `~/.codex/config.toml`
 and ask a question one of its skills covers:

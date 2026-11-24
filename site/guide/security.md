@@ -108,8 +108,9 @@ lists each finding of the review of 24 November 2026 and where it stands.
 ### ARD discovery
 
 - Search sends the words of your request to an ARD registry, a service someone
-  else runs, and to at most three registries it refers to. Each search asks you
-  first, showing the query and where it goes; with nobody to ask, nothing is
+  else runs, and to at most three registries it refers to. It ships with no
+  registry: you name one, or set one; with neither, nothing is sent. Each
+  search asks you first, showing the query and where it goes; with nobody to ask, nothing is
   sent. This is why it is not in the `agent-polyfill` bundle.
 - Discovery by domain sends no query, only plain `GET`s to that domain.
 - Everything it finds goes through `mcp-server-cards`' checks. It writes nothing.
