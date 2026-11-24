@@ -65,7 +65,10 @@ permission dialog. The mod raises it; it does not draw one or decide for you.
   the same place, with the same files, is not asked about. Anything else is:
   a file changed, added or removed; the server moved; a skill nested inside
   one you approved. A skill whose content the server generates (no digests) is
-  asked about at every load. `/mcp-skills forget` drops what is kept.
+  asked about at every load. `/mcp-skills forget` drops what is kept. At most
+  2,000 approvals are kept; past that the oldest are dropped, and those skills
+  are asked about again. A yes that cannot be kept (Claude Code's store for a
+  mod is full) still loads the skill it was given for.
 - *You can read it first.* `/mcp-skills show <skill>` shows the skill's
   `SKILL.md`, verified, in a panel. The panel is not part of the conversation:
   Claude does not read it, and nothing is loaded or approved by opening it.
@@ -102,7 +105,11 @@ what is stopped. Seen in a live headless run under the default permission mode:
 `Write`, `Edit`, `Bash` and `Agent` refused though allowed by rule, `Read`
 allowed ([`docs/evidence/headless.txt`](docs/evidence/headless.txt)). If the
 session is later resumed with a person present, each such call is put to them
-instead.
+instead. A skill loaded this way stays unapproved until the conversation is
+cleared, even if it is loaded again later with a yes: its earlier text is
+still in the conversation, and may differ from what was approved. (Before
+0.3.1 the later yes ended the refusals; the model of the gate found this, see
+[`docs/verification.md`](docs/verification.md).)
 
 To use a skill fully in headless runs, approve it once in an interactive
 session on the same machine. The approval stands while the skill is unchanged,

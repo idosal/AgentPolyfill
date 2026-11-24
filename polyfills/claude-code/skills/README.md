@@ -6,8 +6,8 @@ when a task calls for it, and reads the files it refers to as it needs them.
 Nothing is installed locally, and you approve each skill once.
 
 It adds the client side of the MCP **Skills** extension
-([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md)),
-which Claude Code does not support by itself yet.
+([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md),
+Final), which Claude Code does not support by itself yet.
 
 ![A Claude Code session lists the 25 skills that Hugging Face's MCP server serves. Asked which model quantization to use on a 16 GB Mac, Claude picks the matching skill, Claude Code asks once whether to load it, and Claude reads the skill's files from the server and answers from them.](docs/media/demo.webp)
 
@@ -116,7 +116,8 @@ that serves two skills (`npm install`, then point a server entry at
   your usual permissions, as they would for a skill on your disk.
 - **No slow starts.** A server found not to serve skills is not connected to
   again for a day. A session waits for a first listing (at most 4 seconds) only
-  for servers that serve skills or that it has not looked at yet.
+  for servers that serve skills or that it has not looked at yet, and a server
+  that is slow or hangs does not hold back the others' skills.
 
 ## From install to the first skill
 
@@ -219,8 +220,9 @@ itself, the mod turns itself off (see [Settings](#settings)).
   skill that was not approved before loads only if your rules allow the tool,
   and then Claude can only read and search while it is loaded: commands, file
   writes and edits, subagents and other servers' tools are refused
-  ([details](SECURITY.md)). Approve the skill once in an interactive session to
-  use it unattended.
+  ([details](SECURITY.md)). That holds until the conversation is cleared, even
+  if the skill is loaded again later with a yes. Approve the skill once in an
+  interactive session to use it unattended.
 - **Managed machines.** Where an organisation's policy says which MCP servers
   are allowed, the mod connects to nothing, because it cannot apply that policy.
 - **Not tried yet:** Windows and Linux (everything here was run on macOS; the
@@ -308,7 +310,10 @@ helper, as it can already run code through its own hooks.
 
 - [`docs/conformance.md`](docs/conformance.md): every rule the Skills
   extension sets for a client, whether the mod meets it, and the test that
-  checks it.
+  checks it (59 rules: 53 met, 3 met with a stated limit, 3 that do not apply).
+- [`docs/verification.md`](docs/verification.md): a model of the approval
+  and gate state machine, explored state by state, and property tests of what
+  a server's input reaches; what each shows and what it does not.
 - [`docs/host-changes.md`](docs/host-changes.md): what Claude Code would need
   to offer for this mod to work with every server, and how much of the mod
   each addition would remove.
@@ -320,11 +325,13 @@ helper, as it can already run code through its own hooks.
 | What | How to run it | Result |
 |---|---|---|
 | Two real public servers, Hugging Face (25 skills, 135 files) and TogoMCP (5 skills, 8 files): every skill loaded, every file verified | `npm run interop:real` | all verified |
-| The official MCP conformance suite's client scenarios for SEP-2640 | [`test/conformance/run.sh`](test/conformance/run.sh) | 4 of 4 pass |
-| The client rules, one test per rule, against a hand-written server | `npm test` | 93 pass |
-| Approval, the permission questions, first-run behaviour and the runtime setup, in Claude Code's own test kit | `npm run test:mod` | 74 pass |
+| The official MCP conformance suite's client scenarios for SEP-2640 (it has four) | [`test/conformance/run.sh`](test/conformance/run.sh) | 4 of 4 pass |
+| The client rules, one test per rule, against a hand-written server; discovery; the bundled helper; property tests; the model of the gate | `npm test` | 118 pass |
+| Approval, the permission questions, first-run behaviour and the runtime setup, in Claude Code's own test kit | `npm run test:mod` | 80 pass |
+| A model of approval, loading and the gate, every reachable state to its bound ([what it shows](docs/verification.md)) | `node verification/model.ts` | every invariant holds |
+| Time to a listing, memory and CPU of the helper | [`tools/measure.ts`](tools/measure.ts) | [numbers](docs/evidence/measure.txt) |
 | The official TypeScript SDK's Skills server and client, over stdio and HTTP | `npm run interop` | 15 checks pass |
-| The bundled helper on Bun instead of Node | `npm run test:bun` | 4 pass |
+| The bundled helper on Bun instead of Node | `npm run test:bun` | 5 pass (Bun 1.3.3) |
 | Real Claude Code sessions, recorded | [`live/`](live/) | [screens](live/runs/) |
 
 The output of each run is in [`docs/evidence/`](docs/evidence/).
@@ -342,6 +349,8 @@ npm run interop     # against the official TypeScript SDK
 npm run interop:real
 npm run test:bun    # the bundled helper on Bun
 npm run build       # mod/dist/helper.js, from src/
+node verification/model.ts   # the model of the gate, every state to its bound
+node tools/measure.ts        # time to a listing, memory and CPU of the helper
 ```
 
 `mod/` is all an installed copy carries: the manifest, the hooks module
