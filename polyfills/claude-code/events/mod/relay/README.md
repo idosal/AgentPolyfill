@@ -54,14 +54,27 @@ why the mod says so each time. What keeps it from being more than that:
   addresses in another's mailbox.
 - It holds no signing secret, so it cannot create or alter an event.
 - A delivery is deleted once collected, and after 23 hours if it never is
-  (the clear-out runs hourly, so within a day).
-- One mailbox holds at most 100 deliveries (4 MiB) for at most 16 webhook
-  addresses; an address that has had no delivery, and no plugin connected
-  for it, for a week is retired.
-- Rate limits: about 120 deliveries a minute to one mailbox, 1,200 a minute
-  from one sender, 60 connections a minute from one address. Past any of
-  them the answer is `429` with `Retry-After`. Cloudflare's rate limiter is
-  approximate and counts per location.
+  (the clear-out runs hourly, so within about a day; this depends on
+  Cloudflare running the mailbox's alarm).
+- One mailbox holds at most 100 deliveries (4 MiB of bodies) for at most 16
+  webhook addresses. An address its owner has not asked for or collected from
+  in a week is retired, whatever was posted to it meanwhile. A mailbox with no
+  address and nobody connected gives its storage back.
+- Rate limits: about 120 deliveries a minute to one webhook address, 300
+  delivery requests a minute from one sender, 30 connections a minute from
+  one address. Past any of them the answer is `429` with `Retry-After`.
+  Cloudflare's rate limiter is approximate and counts per location. An
+  address's allowance is spent only by a well-formed delivery to an address
+  that exists, so junk sent elsewhere in a mailbox does not use it up.
+- A request whose limit cannot be checked is refused with `503`
+  (`REQUIRE_LIMITS`): with its limits off, an open relay is free storage.
+- A connection that sends more than 600 messages in a minute, or a frame over
+  256 KiB, is closed. Asking again for an address already asked for on the
+  same connection sends nothing again.
+- It opens at most 300 new mailboxes in an hour, and 20 from one address.
+  Past either, a new mailbox is refused with `429` until the hour is over;
+  mailboxes that exist are not affected. To count per address it keeps, for
+  that hour only, a hash of the address salted with a value made for the hour.
 - Request logs are off.
 - `GET /` says who runs it, that it is open, and how long it keeps a delivery.
 
@@ -74,10 +87,14 @@ Nothing it could misuse to make an event up.
   checks what needs no secret (size, encoding, the Standard Webhooks headers,
   the timestamp's freshness), stores the delivery byte for byte, and the plugin
   verifies it on collection.
-- **It does not keep your mailbox key.** A mailbox's public name is the
-  SHA-256 of a key the plugin makes and keeps. The plugin presents that key to
-  open the mailbox; the relay checks it against the name and does not store
-  it.
+- **Two keys, received and not stored.** A mailbox's public name is the
+  SHA-256 of a key the plugin makes and keeps. Presenting a key whose hash is
+  the name in the address is what opens the mailbox, so the relay receives
+  that key each time the plugin connects (in a WebSocket header, never in a
+  URL) and stores none. The same goes for the relay's access key, where it
+  has one, which is a secret of the Worker's. Someone who runs a relay could
+  keep a mailbox key they were shown and read that mailbox with it; they
+  could read its payloads anyway (next point).
 - **It can read payloads.** Webhooks are signed, not encrypted, so whoever runs
   the relay can read the events that pass through it. Run your own.
 - **It can delay or drop.** It cannot replay: the plugin refuses a delivery it
@@ -100,13 +117,13 @@ Nothing it could misuse to make an event up.
 - Anyone who knows a webhook address can POST to it. What they send is stored
   (within the limits below) and then dropped by the plugin, because it does not
   verify. It cannot displace a genuine delivery already stored. It can crowd
-  out new ones. Junk counts against the mailbox's rate limit before anything
-  is checked, so a steady stream of it gets genuine deliveries answered `429`
-  even while the plugin is connected. While Claude Code is closed only expiry
-  clears the mailbox, so enough junk fills it, and genuine deliveries are
-  answered `503` until the plugin next connects or the junk expires. Whether an event sent meanwhile is retried is up to
-  the server. A webhook address is known only to the MCP server you gave it
-  to; treat it as a secret.
+  out new ones: all of a mailbox's addresses share its room, and while Claude
+  Code is closed nothing collects from it, so enough junk to one address fills
+  it, and genuine deliveries to any of them are answered `503` until the
+  plugin next connects or the junk reaches the end of its retention time.
+  Whether an event sent meanwhile is retried is up to the server. A webhook
+  address is known to the MCP server you gave it to, so one server can do
+  this to the others that share the mailbox; treat an address as a secret.
 
 ## Addresses
 
@@ -131,13 +148,18 @@ The socket's messages are in [`src/protocol.ts`](src/protocol.ts).
 | A hook nobody used is retired after | 30 days | `HOOK_IDLE_TTL_S` |
 | A challenge waits for the plugin | 4 s | `ASK_TIMEOUT_MS` |
 | Challenges waiting at once | 16 | |
+| One frame from the plugin | 256 KiB | |
+| Messages one connection sends in a minute | 1,200 | `SOCKET_MESSAGES_PER_MINUTE` |
+| New mailboxes opened in an hour, in all and from one address | no ceiling | `NEW_MAILBOXES_PER_HOUR`, `NEW_MAILBOXES_PER_SENDER_PER_HOUR` |
+| A request whose rate limit cannot be checked | let through | `REQUIRE_LIMITS=1` refuses it |
 
 A full mailbox answers `503` with `Retry-After`, so the server tries again
 later. Request logs are off (`observability` in `wrangler.jsonc`): webhook
 addresses are capabilities.
 
-There is no rate limit of its own on POSTs to a known address beyond those
-limits; Cloudflare's platform protections apply. Whether your plan's limits
+A relay behind an access key has no rate limit of its own on POSTs to a known
+address beyond those limits (the rate limits of `wrangler.public.jsonc` are
+bindings you can copy); Cloudflare's platform protections apply. Whether your plan's limits
 suit your event volume is yours to check.
 
 ## Develop

@@ -87,8 +87,8 @@ Then ask:
 
 Claude sets a watch and the session goes idle. Open http://127.0.0.1:4010/ and
 press **Deploy a bad commit**. A couple of seconds later the session wakes by
-itself, shows a "Prompt from the mcp-events plugin" line, reads the deploy's
-log and tells you the cause.
+itself, shows a "Prompt from the mcp-events plugin" line saying one event is
+new, reads the event and the deploy's log, and tells you the cause.
 
 To stop: "Stop watching the deploys server."
 
@@ -118,10 +118,12 @@ session, and what happens when one is missing or you say no:
    ([Which servers it works with](#which-servers-it-works-with)).
 5. **Ask for a watch**, in plain words. In the default permission mode, the
    first time Claude uses each of the mod's tools, Claude Code asks "Do you
-   want to proceed?", as for any MCP tool. That includes what Claude does
-   when an event wakes the session while you are away: a tool it may not use
-   yet waits at that question until you answer, and so does any tool of the
-   server's that Claude uses to act on the event. Choose the answer that stops
+   want to proceed?", as for any MCP tool. This matters for waking: the
+   message that wakes a session says only that there are new events, and
+   Claude reads what happened with `get_event`. If Claude has to ask before it
+   may call that, an event that arrives while you are away waits at that
+   question until you answer, and so does any tool of the server's that
+   Claude uses to act on the event. Choose the answer that stops
    Claude Code asking again for that tool, or allow all six of the mod's tools
    up front in `~/.claude/settings.json`:
 
@@ -195,9 +197,9 @@ lives in a small helper process the module starts.
   (`events/stream`), then poll (`events/poll`).
 - **Waking Claude.** Each event is written to disk, then handed to Claude Code
   as a prompt from the plugin, which starts a turn once the session is idle.
-  Claude reads it as a message from the plugin, never as your words. The line
-  names the server and event type and shows a few fields; Claude fetches the
-  rest with `get_event`.
+  Claude reads it as a message from the plugin, never as your words. The
+  message names the server and event type and gives the new events' ids, and
+  nothing the server wrote; Claude reads what happened with `get_event`.
 - **One session per project** runs the watches. A second Claude Code window on
   the same project can list them; if the first closes, the second takes over.
 - **Nothing to watch, nothing running.** If no server offers events and
@@ -265,13 +267,15 @@ in `~/.claude/settings.json`. Know what that means before you do:
   `https://mcp-events-public-relay.idosalomon.workers.dev`. Opening that
   address in a browser shows what it is and what it keeps.
 - **The payloads of your webhook-delivered events pass through that server**
-  and are stored there until the mod collects them, for 24 hours at most.
+  and are stored there until the mod collects them, for about a day at most.
   Webhooks are signed, not encrypted, so whoever runs a relay can read them.
 - It cannot create or alter an event: the signing secret never leaves your
   machine, and the mod checks every delivery. Your mailbox opens only with a
   key that the mod makes and keeps.
 - It is a courtesy with limits (100 waiting deliveries and 16 webhook
-  addresses per project, about two deliveries a second) and no promise of
+  addresses per project, about two deliveries a second to one address, and
+  a ceiling on how many new mailboxes it opens in an hour, past which new
+  users are turned away until the hour is over) and no promise of
   availability. Its source is the same [`mod/relay/`](mod/relay/), deployed
   from `wrangler.public.jsonc`.
 - A relay of your own always takes precedence over it.
@@ -285,7 +289,7 @@ server it is.
 |---|---|
 | Push, poll | Nobody. |
 | Webhook, your own relay | Nobody else's server. It runs on your Cloudflare account. |
-| Webhook, the public relay | The public relay's operator could read payloads in transit and while stored (24 hours at most). It cannot forge them. |
+| Webhook, the public relay | The public relay's operator could read payloads in transit and while stored (about a day at most). It cannot forge them. |
 | Webhook, `MCP_EVENTS_PUBLIC_URL` | Whoever runs the forwarder you pointed it at. |
 
 More on the relay: [`mod/relay/README.md`](mod/relay/README.md). Webhook
@@ -310,12 +314,15 @@ welcome.
 ## Limits
 
 - **No interactive OAuth**, as above.
-- **No limit on wakes.** Each batch of events starts a turn once the session
-  is idle, so a server that sends events often keeps the session busy, and
-  uses your plan or API spend, until you stop the watch.
 - **It needs an open session.** Nothing starts Claude Code when an event
   arrives. With a relay, webhook events wait for your next session (for up to
   a week on your own relay, a day on the public one).
+- **Events wake a session only so often.** A watch can start a wake at most
+  once a minute: events that come sooner wait, and are announced together. A
+  session is woken at most 30 times in an hour; after that it is told once
+  that events are waiting, and is not woken again until you send a message.
+  Nothing is dropped, and `recent_events` lists what waited. Two settings
+  below change the numbers.
 - **A second connection.** The helper opens its own connection to each server
   that offers events, so a local (stdio) server runs twice. Servers without
   events are disconnected at once and not asked again for a day.
@@ -334,14 +341,16 @@ welcome.
 
 ## Security
 
-An event is data from a server you configured, labelled as that server's. The
-whole event reaches Claude as a tool result (`get_event`); the line that wakes
-the session carries a few short fields of it as a message from the plugin,
-never as your words. Receiving one gives Claude
+An event is data from a server you configured. What the server sent reaches
+Claude only as a tool result, when Claude reads it with `get_event` or
+`recent_events`. The message that wakes the session is a prompt from the
+plugin, not a tool result, so it carries nothing the server wrote: only which
+watch has new events, how many, and their ids. Receiving an event gives Claude
 no permission it did not already have: what Claude does next goes through
 Claude Code's own permission mode, rules and hooks. Keep in mind that an event
 arrives without anyone asking, so in a session that approves actions without
-asking, a server you watch can set work in motion.
+asking, a server you watch can set work in motion, as often as the wake limit
+above allows.
 
 The mod connects only to servers Claude Code itself uses, verifies every
 webhook itself, holds no OAuth grant, and listens only on the loopback address
@@ -361,6 +370,9 @@ Environment variables, for example in the `env` block of
 | `MCP_EVENTS_SOURCES` | Which Claude Code configuration scopes to read: `project,local,user` (default all three). |
 | `MCP_EVENTS_CONFIG` | A servers file of your own (`{"mcpServers": {...}}`) instead of Claude Code's configuration. It must be outside the project folder and its repository. |
 | `MCP_EVENTS_BATCH_MS` | How long the helper waits after an event before handing it over, so a burst arrives as one prompt. Default 1000. |
+| `MCP_EVENTS_WAKE_GAP_S` | The least time between two wakes that one watch starts, in seconds. Default 60; 0 for none. |
+| `MCP_EVENTS_WAKES_PER_HOUR` | How many times events may wake a session in an hour before waking stops until you send a message. Default 30; 0 for no limit. |
+| `MCP_EVENTS_WAKE_VALUES=1` | Put a few short fields of each event's payload into the message that wakes the session, instead of only its id. Off by default: it puts text a server wrote into a prompt. |
 | `MCP_EVENTS_MIN_POLL_MS` | The least time between two polls of one watch, whatever the server recommends. Default 1000. |
 | `MCP_EVENTS_RELAY=public` | Use the public relay for webhook delivery when you have no relay of your own. Off by default; event payloads then pass through a server you do not run (see above). |
 | `MCP_EVENTS_RELAY_URL`, `MCP_EVENTS_RELAY_ACCESS_KEY` | Your own relay, instead of `~/.mcp-events/relay.json`. |
