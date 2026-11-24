@@ -38,6 +38,7 @@ const RUNS = [
   ["PollSeenForgotten.cfg", "MCDelivery.tla", "AtMostOnce"],
   ["PushSeenForgotten.cfg", "MCDelivery.tla", "AtMostOnce"],
   ["WebhookSeenForgotten.cfg", "MCDelivery.tla", "AtMostOnce"],
+  ["PollCarriedTwice.cfg", "MCDelivery.tla", "AtMostOnce"],
   // A documented limit: AtMostOnce's one exception is reachable.
   ["Strict.cfg", "MCDelivery.tla", "StrictAtMostOnce"],
   // 0.4.1, the defects the Quint scenarios show: TLC must find each.

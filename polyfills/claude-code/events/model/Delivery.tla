@@ -380,13 +380,13 @@ Carry ==
 
 \* 0.5.0: then an earlier session whose waiting events are all here (or were handed over) is
 \* marked as handed over and taken off the list.
-Settle ==
+SettleOf(t) ==
     LET s == host.session IN
-    \E t \in disk.listed \ {s} :
-        /\ cfg.fix /\ Running /\ mem.step.kind = ""
-        /\ Elems(TailFrom(disk.spool[t], disk.pos[t])) \subseteq (Elems(disk.spool[s]) \cup Handed(disk))
-        /\ disk' = [disk EXCEPT !.pos[t] = Len(disk.spool[t]), !.listed = disk.listed \ {t}]
-        /\ UNCHANGED <<cfg, now, srv, rly, host, mem, hist>>
+    /\ cfg.fix /\ Running /\ mem.step.kind = "" /\ t # s /\ t \in disk.listed
+    /\ Elems(TailFrom(disk.spool[t], disk.pos[t])) \subseteq (Elems(disk.spool[s]) \cup Handed(disk))
+    /\ disk' = [disk EXCEPT !.pos[t] = Len(disk.spool[t]), !.listed = disk.listed \ {t}]
+    /\ UNCHANGED <<cfg, now, srv, rly, host, mem, hist>>
+Settle == \E t \in disk.listed \ {host.session} : SettleOf(t)
 
 Next == \/ Tick \/ Emit \/ Expire \/ Post \/ Abandon \/ Lapse
         \/ RelayDrop \/ Forge \/ Replay

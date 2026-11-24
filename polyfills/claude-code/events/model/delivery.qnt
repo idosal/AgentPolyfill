@@ -488,10 +488,13 @@ module delivery {
   // 0.5.0: then an earlier session whose waiting events are all here (or were handed over) is
   // marked as handed over and taken off the list.
   action Settle = {
+    nondet t = disk.listed.exclude(Set(host.session)).oneOf()
+    SettleOf(t)
+  }
+  action SettleOf(t: int): bool = {
     val s = host.session
-    nondet t = disk.listed.exclude(Set(s)).oneOf()
     all {
-      cfg.fix, running, mem.step.kind == "",
+      cfg.fix, running, mem.step.kind == "", t != s, disk.listed.contains(t),
       elems(tailFrom(disk.spool.get(t), disk.pos.get(t))).subseteq(elems(disk.spool.get(s)).union(handed(disk))),
       disk' = { ...disk, pos: disk.pos.set(t, disk.spool.get(t).length()), listed: disk.listed.exclude(Set(t)) },
       cfg' = cfg, now' = now, srv' = srv, rly' = rly, host' = host, mem' = mem, hist' = hist
@@ -599,6 +602,14 @@ module delivery {
   run seenForgottenTest = poll.then(Emit).then(Poll).then(Append).then(HandTake).then(HandSubmit).then(HandAck)
     .then(Close).then(Open).then(Settle).then(HelperCrash).then(HelperStart)
     .then(Poll).then(Append).then(HandTake).then(HandSubmit)
+    .expect(not(AtMostOnce) and hist.shown == [1, 1] and hist.cut == Set())
+  // Found by TLC in 0.5.0, with three sessions (model/README.md). The second session carries the
+  // event the first stored and never showed, and shows it; Claude Code closes before the first
+  // session is settled. The third session settles the second first, which takes the record that
+  // the event was handed over off the list, and then carries the event from the first again.
+  run carriedTwiceTest = poll.then(Emit).then(Poll).then(Append).then(Close).then(Open).then(Carry)
+    .then(HandTake).then(HandSubmit).then(HandAck).then(Close).then(Open).then(SettleOf(2)).then(Carry)
+    .then(HandTake).then(HandSubmit)
     .expect(not(AtMostOnce) and hist.shown == [1, 1] and hist.cut == Set())
   // The same through the relay, which hands the delivery over again because it was never acknowledged.
   run seenForgottenWebhookTest = webhook.then(Emit).then(PostOf(1, true)).then(Take).then(Append)
