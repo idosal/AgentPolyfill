@@ -46,7 +46,12 @@ const only = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 
 function size(dir) {
   let total = 0;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+  // TLC may remove a state folder between two looks, as it moves on or finishes.
+  let entries = [];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {}
+  for (const entry of entries) {
     const at = path.join(dir, entry.name);
     try {
       total += entry.isDirectory() ? size(at) : fs.statSync(at).size;

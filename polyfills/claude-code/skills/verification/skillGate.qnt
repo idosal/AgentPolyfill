@@ -1,10 +1,10 @@
 // -*- mode: Bluespec; -*-
-// The mcp-skills mod's skill gate: approval, loading, verification, the acting window, and the
-// gate on other tool calls. The same state machine as verification/model.ts, action for action and
-// invariant for invariant (docs/verification.md maps each to the code). This file is for Quint's
-// simulator (`quint run`, which samples). TLC checks SkillGate.tla, this file written in TLA+ by
-// hand (verification/check.mjs, exhaustive to each configuration's bound); verification/conform.mjs
-// replays traces of this file in that one.
+// The mcp-skills mod's skill gate: approval, loading, verification, the acting window, the gate
+// on other tool calls, and the person disabling and enabling the skill. The same state machine as
+// verification/model.ts, action for action and invariant for invariant (docs/verification.md maps
+// each to the code). This file is for Quint's simulator (`quint run`, which samples). TLC checks
+// SkillGate.tla, this file written in TLA+ by hand (verification/check.mjs, exhaustive to each
+// configuration's bound); verification/conform.mjs replays traces of this file in that one.
 //
 // One server serves a skill and may change its entry, its SKILL.md and a supporting file at any
 // moment, each separately; a second server is only a place resources can be read from.
@@ -39,7 +39,8 @@ module skillGate {
     pend: Pend,
     present: bool,                               // a person can be asked in this session
     acting: str,                                 // hooks module: "none", "A" (approved) or "U"
-    convoAny: bool, convoU: bool, convoLast: str // the conversation: any load, any unapproved one, the latest's line
+    convoAny: bool, convoU: bool, convoLast: str, // the conversation: any load, any unapproved one, the latest's line
+    off: bool                                    // the person disabled the skill (the mod's store, by server and URI)
   }
 
   // What a step did that an invariant is about: content entering the conversation, or a tool call running.
@@ -70,7 +71,7 @@ module skillGate {
     go({
       srvEntry: 0, srvBody: 0, srvFile: 0, loc: l, registry: NONE, held: NONE, heldApproved: false,
       store: NONE, storeLoc: NONE, pend: noPend, present: present,
-      acting: "none", convoAny: false, convoU: false, convoLast: "none"
+      acting: "none", convoAny: false, convoU: false, convoLast: "none", off: false
     }, noEvent, noKept)
   }
 
@@ -91,6 +92,8 @@ module skillGate {
     nondet answer = BOOLS.oneOf()
     all {
       not(st.pend.active),
+      // A skill the person disabled is refused at the check, before anything else: nothing changes.
+      not(st.off),
       if (hash != NONE and st.store == hash and st.storeLoc == st.loc)
         quiet({ ...base, pend: { active: true, hash: hash, approved: true, isNew: false, how: "stored", forV: st.store, forL: st.storeLoc } })
       else if (st.present)
@@ -143,20 +146,23 @@ module skillGate {
     else failed2
   }
 
+  // A skill disabled since the check is refused when the call runs: the store is read again there.
   action runLoad = {
     val r = load(st, st.pend)
-    all { st.pend.active, go(r.st, r.ev, r.kept) }
+    all { st.pend.active, if (st.off) quiet({ ...st, pend: noPend }) else go(r.st, r.ev, r.kept) }
   }
 
   // Unchecked: a load_skill call that reached the tool with no permission check (another mod's): approved by nobody.
+  // Refused, with nothing changed, while the skill is disabled.
   action unchecked = {
     val r = load(st, { ...noPend, active: true, forL: st.loc })
-    all { not(st.pend.active), go(r.st, r.ev, r.kept) }
+    all { not(st.pend.active), not(st.off), go(r.st, r.ev, r.kept) }
   }
 
   // ReadFile: read_skill_file, resolved against the held entry only, and verified.
   action readFile = all {
     st.held != NONE,
+    not(st.off),
     DYNAMIC or st.srvFile == st.held,
     go(st, { ...noEvent, kind: "content", what: "file", v: st.srvFile, against: st.held, l: st.loc, approved: st.heldApproved,
              forV: if (st.heldApproved) st.held else NONE, forL: st.loc, how: if (st.heldApproved) "stored" else "none" }, noKept)
@@ -176,6 +182,16 @@ module skillGate {
       go(st, { ...noEvent, kind: "run", tool: kind, unapprovedInContext: st.convoU, skillInContext: st.convoAny, personYes: decision == "ask" }, noKept)
     }
   }
+
+  // Offer: the skill's line enters the model's context: the session's skill listing, composed after
+  // the helper was told the list as the store holds it now, or list_skills. Only a skill the helper
+  // has an entry for is listed.
+  action offer = all { st.registry != NONE, not(st.off), go(st, { ...noEvent, kind: "offer" }, noKept) }
+
+  // Disable / Enable: /mcp-skills disable and enable, here or in another session (the list is the
+  // mod's store). Neither touches the conversation: a skill loaded before is still acted on.
+  action disableSkill = all { not(st.off), quiet({ ...st, off: true }) }
+  action enableSkill = all { st.off, quiet({ ...st, off: false }) }
 
   // HelperRestart: the helper stops and is started again: its registry and held entry are gone.
   action helperRestart = quiet({ ...st, registry: NONE, held: NONE, heldApproved: false })
@@ -207,7 +223,7 @@ module skillGate {
 
   action step = any {
     serverSetEntry, serverSetBody, serverSetFile, listSkills, check, runLoad, unchecked, readFile, tool,
-    helperRestart, resume, clear, forget, elsewhereYes
+    helperRestart, resume, clear, forget, elsewhereYes, offer, disableSkill, enableSkill
   }
 
   // ---- Invariants (same names as in model.ts).
@@ -235,8 +251,12 @@ module skillGate {
   // With nothing lost on read-back, the hooks module knows whether the conversation acts on the skill, and whether unapproved.
   val ActingMatchesConversation = LOSSY or not(STICKY) or ((st.acting != "none") == st.convoAny and (st.acting == "U") == st.convoU)
 
+  // While the person has the skill disabled, nothing of it enters the model's context: not its
+  // listing line, not its SKILL.md, not a file. (No step that adds content changes off.)
+  val DisabledNeverReaches = (ev.kind != "content" and ev.kind != "offer") or not(st.off)
+
   val Safety = ApprovedContent and Verified and KeptIsConsented and Gate and CrossServerRead and NobodyAnswers
-    and NoKeptYesForDynamic and HeldImpliesActing and ActingMatchesConversation
+    and NoKeptYesForDynamic and HeldImpliesActing and ActingMatchesConversation and DisabledNeverReaches
 
   // ---- Which servers are used at all (config.ts discoverServers, then Claude Code's own verdict).
   pure def used(trust: str, fromRepo: bool, person: bool, repo: bool, rejected: bool, off: bool, claudeCodeUses: bool): bool =
