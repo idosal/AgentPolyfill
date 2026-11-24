@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, describe, test } from 'node:test';
 import { execFileSync } from 'node:child_process';
+import { VERSION } from '../src/version.ts';
 import { Fixture, scenarioOf, skill, temp } from './harness.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -95,7 +96,7 @@ describe('the bundled plugin server', () => {
         const c = codex(env, (p) => ({ action: 'accept', content: { decision: (p.requestedSchema as { properties: { decision: { enum: string[] } } }).properties.decision.enum.at(-1) } }));
         const init = (await c.init()).result as Json;
         assert.equal(init.protocolVersion, '2025-06-18');
-        assert.deepEqual(init.serverInfo, { name: 'mcp-skills', title: 'MCP Skills (polyfill)', version: '0.1.0' });
+        assert.deepEqual(init.serverInfo, { name: 'mcp-skills', title: 'MCP Skills (polyfill)', version: VERSION });
         assert.match(String(init.instructions), /mcp-skills:<server>:<name>/);
         const tools = ((await c.request('tools/list')).result as { tools: { name: string; annotations: Json }[] }).tools;
         assert.deepEqual(tools.map((t) => t.name), ['list_skills', 'load_skill', 'read_skill_file', 'list_skill_directory']);
@@ -114,7 +115,7 @@ describe('the bundled plugin server', () => {
         assert.match((await c.call('load_skill', { server: 'docs', uri: s.uri })).text, /approved earlier/);
         assert.equal(c.asked.length, 1, 'not asked again');
         const hello = (f.requests('skills/list')[0]!.params._meta as Json)['io.modelcontextprotocol/clientInfo'] as Json;
-        assert.deepEqual([hello.name, hello.version], ['mcp-skills-codex', '0.1.0']);
+        assert.deepEqual([hello.name, hello.version], ['mcp-skills-codex', VERSION]);
         assert.equal((await c.request('server/discover')).error !== undefined, true);
         c.child.kill();
     });

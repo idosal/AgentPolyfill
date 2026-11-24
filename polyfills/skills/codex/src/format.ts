@@ -10,7 +10,7 @@
 
 import { randomBytes } from 'node:crypto';
 import { rootOf, type DirectoryChild, type Listed, type Loaded, type ReadFile, type Refused, type SkillEntry } from '../../core/src/skills.ts';
-import { oneLine } from '../../core/src/untrusted.ts';
+import { oneLine, shownText } from '../../core/src/untrusted.ts';
 import { plain } from './stubs.ts';
 import { PLUGIN } from './version.ts';
 
@@ -81,13 +81,19 @@ export function questionText(o: { server: string; entry: SkillEntry; files: numb
 /** The same question after the person read the skill's SKILL.md. */
 export function previewText(o: { server: string; entry: SkillEntry; body: string; isVerified: boolean }): string {
     const max = 12_000;
-    const body = o.body.length > max ? `${o.body.slice(0, max)}\n[… ${o.body.length - max} more characters]` : o.body;
+    const name = q(o.entry.frontmatter.name);
+    // The server's text, as a person may read it in a terminal: no control, direction-changing or
+    // invisible character (a terminal could act on one), line breaks and tabs kept.
+    const clean = shownText(o.body).replace(/\n+$/, '');
+    const body = clean.length > max ? `${clean.slice(0, max)}\n[… ${clean.length - max} more characters]` : clean;
     return [
-        `The SKILL.md of ${q(o.entry.frontmatter.name)}, from the MCP server ${q(o.server)}${o.isVerified ? ', checked against its digest' : ' (generated: not verifiable)'}. This is shown to you only; the model has not seen it.`,
+        `The SKILL.md of ${name}, from the MCP server ${q(o.server)}${o.isVerified ? ', checked against its digest' : ' (generated: not verifiable)'}. This is shown to you only; the model has not seen it. Between the two marker lines is the server's text.`,
         '',
+        `----- The SKILL.md of ${name} begins -----`,
         body,
+        `----- The SKILL.md of ${name} ends -----`,
         '',
-        `Load ${q(o.entry.frontmatter.name)}?`
+        `Load ${name}?`
     ].join('\n');
 }
 
