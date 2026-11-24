@@ -80,7 +80,8 @@ What else can come up, once each:
 
 ## Requirements
 
-- **Claude Code** with plugin hooks. Tested with 2.1.329.
+- **Claude Code** 2.1.329 or later (the version it is tested with); it runs
+  as a mod, Claude Code's plugin hooks module.
 - **macOS** (Apple Silicon or Intel), **Linux** (x64 or Arm64, any
   distribution) or **Windows** x64. Windows is new: its helper passes the
   same checks on GitHub's Windows machines, but it hasn't yet been used in
@@ -131,6 +132,37 @@ Opening a link or saving a file from an app always asks.
 
 [`docs/DESIGN.md`](docs/DESIGN.md) lists the rest, with what Claude Code
 could add to remove each.
+
+## Spec
+
+It implements MCP Apps (`io.modelcontextprotocol/ui`) as published in
+`specification/2026-01-26` (Stable), plus `ui/download-file` from the draft.
+Where it departs from the spec:
+
+- **Default CSP.** When an app declares no `ui.csp`, views get basic-host's
+  default policy, which allows `eval` and `blob:` and still opens no other
+  domain, instead of the spec's `default-src 'none'`. Apps that run code they
+  generate, like the three.js example, need it.
+- **Display modes.** A terminal has no floating windows: fullscreen is a view
+  as tall as the terminal, and picture-in-picture is a pane beside the chat.
+- **`platform`** is sent as `"desktop"`; the spec has no value for a terminal.
+
+[Spec parity](docs/DESIGN.md#spec-parity) goes through it requirement by
+requirement.
+
+## When Claude Code supports MCP Apps itself
+
+The plugin draws views only in an interactive terminal session. Claude
+Code's desktop app renders MCP Apps itself, and `claude -p` and the Agent
+SDK are left alone. In the terminal it cannot tell whether Claude Code has
+started rendering MCP Apps natively, because a mod cannot see what Claude
+Code's own MCP client supports. When it does, turn the plugin off:
+
+```bash
+claude plugin disable mcp-apps-cli@mcpolyfill
+```
+
+or remove it with `claude plugin uninstall mcp-apps-cli@mcpolyfill`.
 
 ## Privacy and security
 
