@@ -145,7 +145,8 @@ export function tools(session: Session, defaultRegistry: string): Tool[] {
         ctx,
         shownText(
           [
-            `Send this search to ${endpoints.join(', ')}, and to up to three registries ${endpoints.length === 1 ? 'it refers' : 'they refer'} to?`,
+            // The hosts first, as in mcp-server-cards' form: some clients join the lines.
+            `${[...new Set(endpoints.map(ep => new URL(ep).host))].join(', ')}: send this search to ${endpoints.join(', ')}, and to up to three registries ${endpoints.length === 1 ? 'it refers' : 'they refer'} to?`,
             `Query: "${query}"`,
             'A registry is a service someone else runs, and it sees the query.',
           ].join('\n'),

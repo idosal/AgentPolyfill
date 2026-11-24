@@ -87,7 +87,7 @@ test('A-3 a search with no form, or declined, sends nothing', async () => {
 test('A-4 the question names the registry endpoint and the exact query', async () => {
   const s = server({ answer: { action: 'decline' } })
   await s.call('ard_search', { query: QUERY })
-  assert.equal(s.asked[0]!.message, `Send this search to ${web.origin}/search, and to up to three registries it refers to?\nQuery: "${QUERY}"\nA registry is a service someone else runs, and it sees the query.`)
+  assert.equal(s.asked[0]!.message, `${new URL(web.origin).host}: send this search to ${web.origin}/search, and to up to three registries it refers to?\nQuery: "${QUERY}"\nA registry is a service someone else runs, and it sees the query.`)
 })
 
 test('A-5 accepted: the query is posted, only Server Cards are shown, and a result is added by identifier after its own form', async () => {

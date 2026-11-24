@@ -47,7 +47,7 @@ To try search without sending anything to a third party, start the [demo registr
 3. **By task (`ard_search`):** first, if the registry is named by domain (`huggingface.co`), it reads that domain's catalogs for the registries they list (a `GET`, no query). Then Codex shows you the form:
 
    ```
-   Send this search to https://huggingface-hf-discover.hf.space/search, and to up to three registries it refers to?
+   huggingface-hf-discover.hf.space: send this search to https://huggingface-hf-discover.hf.space/search, and to up to three registries it refers to?
    Query: "check why my CI build failed"
    A registry is a service someone else runs, and it sees the query.
    ```
