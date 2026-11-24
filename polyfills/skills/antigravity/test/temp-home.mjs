@@ -1,0 +1,10 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+const root = mkdtempSync(join(tmpdir(), 'ag-skills-tests-'));
+process.env.HOME = root;
+process.env.USERPROFILE = root;
+process.env.TMPDIR = process.env.TMP = process.env.TEMP = root;
+delete process.env.AGENTPOLYFILL_STATE_DIR;
+delete process.env.MCP_SKILLS_DISABLED;
+process.on('exit', () => { try { rmSync(root, { recursive: true, force: true }); } catch {} });
