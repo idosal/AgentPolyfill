@@ -127,7 +127,10 @@ instructions to the model, are what tell it apart from what you typed.
   delivery it alters or replays is refused. Both forms use the same relay,
   with the same client. The public relay is off unless you turn it on by name
   (`MCP_EVENTS_RELAY=public`). The plugin then says, with every such watch,
-  whose server it is.
+  whose server it is. A delivery from the public relay is refused if it was
+  signed more than 25 hours ago, whatever the relay says about when it
+  arrived (eight days from a relay of your own). A relay that sends a frame
+  larger than any delivery can be loses the connection.
 - **It listens on nothing**, unless a webhook watch uses
   `MCP_EVENTS_PUBLIC_URL`. That opens a local receiver on 127.0.0.1 for your
   own forwarder. It downloads nothing.
@@ -160,6 +163,12 @@ only by you:
 - **A relay operator reading webhook payloads.** Webhooks are signed, not
   encrypted. With your own relay, that operator is you. With the public relay,
   it's the person who runs it.
+- **A relay delaying or dropping events.** A relay can hold a delivery back
+  (within the bound above) or never hand it over. It can't make one up.
+- **Abuse of the public relay.** Its limits and what they don't stop are in
+  [the relay's README](../claude-code/mod/relay/README.md#a-relay-anyone-may-use).
+  Requests anyone sends it count against its operator's Cloudflare quotas and
+  bill, and its operator may switch it off.
 
 ## Reporting a vulnerability
 

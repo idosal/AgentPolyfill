@@ -37,7 +37,12 @@ export const PUBLIC_RELAY = {
     get operator() {
         return `Ido Salomon, the author of this ${host.kind}`;
     },
-    retention: '24 hours'
+    retention: '24 hours',
+    /**
+     * The longest a delivery from it is taken after it was signed: its retention (23 hours, cleared
+     * out hourly) and an hour more. It says when a delivery arrived, and that is only its word.
+     */
+    maxHeldS: 25 * 3600
 };
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '[::1]']);
@@ -201,6 +206,8 @@ const ACK_BATCH = 500;
 const ACK_EVERY_MS = 200;
 /** More than a relay holds for one mailbox by default (16 MiB), so what a relay kept while Claude Code was closed fits. */
 const MAX_WAITING_BYTES = 24 * 1024 * 1024;
+/** Missed hooks remembered (see `#missed`): more than a mailbox has addresses. */
+const MAX_MISSED = 256;
 const HEADER = /^[\x20-\x7e]{1,2048}$/;
 
 export class RelayClient {
@@ -321,8 +328,9 @@ export class RelayClient {
             if (status === 401) return `${where} refused this project's mailbox key.`;
             if (status === 503)
                 return this.#o.settings.isPublic
-                    ? `${where} is not accepting connections right now (it refuses them while it cannot check its limits). Try again later, or set up a relay of your own (/mcp-events:relay-setup).`
+                    ? `${where} is not accepting connections right now (it refuses them while it cannot check its limits, or while it holds as many mailboxes as it will). Try again later, or set up a relay of your own (/mcp-events:relay-setup).`
                     : `${where} is not accepting connections (status 503): a relay with no access key set refuses everyone (see relay/README.md), and one that requires rate limits refuses while it cannot check them.`;
+            if (status === 410) return `${where} has blocked this mailbox; ${host.relaySetup}.`;
             if (status === 426) return `${where} accepts these credentials, but the WebSocket could not be opened.`;
             if (status === 429) return `${where} is not opening new mailboxes or connections right now (it limits how many it opens). Try again later${this.#o.settings.isPublic ? ', or set up a relay of your own (/mcp-events:relay-setup)' : ''}.`;
             if (status === 101) return `${where} accepted the connection on a second try; try again.`;
@@ -378,7 +386,19 @@ export class RelayClient {
             this.#pong = undefined;
             return;
         }
-        if (data.length > MAX_FRAME) return void this.#log('relay: ignored an oversized frame');
+        if (data.length > MAX_FRAME) {
+            // No genuine relay sends this. Drop the connection, so it cannot keep sending them on it
+            // (reconnecting backs off). The WebSocket has already read this one whole: Node's has no
+            // limit on a message's size to set.
+            this.#log('relay: dropped the connection after an oversized frame');
+            // A client may close only with 1000 or 3000-4999: 4009 is "message too big" here.
+            try {
+                ws.close(4009, 'frame too large');
+            } catch {
+                // already closing
+            }
+            return;
+        }
         let m: RelayMessage;
         try {
             m = JSON.parse(data) as RelayMessage;
@@ -409,7 +429,7 @@ export class RelayClient {
             // More waiting than could be real: leave the rest at the relay, which sends them again on the next connection.
             const bytes = d.body.length;
             if (this.#waiting >= MAX_WAITING || this.#waitingBytes + bytes > (this.#o.maxWaitingBytes ?? MAX_WAITING_BYTES)) {
-                if (this.#hooks.has(d.hook)) this.#missed.add(d.hook);
+                if (this.#hooks.has(d.hook)) this.#miss(d.hook);
                 return;
             }
             this.#waiting++;
@@ -418,11 +438,11 @@ export class RelayClient {
                 try {
                     const hook = this.#hooks.get(d.hook);
                     // Not collected for here just now: it stays at the relay, and is asked for again when it is.
-                    if (!hook) this.#missed.add(d.hook);
+                    if (!hook) this.#miss(d.hook);
                     if (hook) {
                         let r: { status: number; reason?: string };
                         try {
-                            r = await handleDelivery(hook, d.headers, d.body, { nowS: d.receivedAt });
+                            r = await handleDelivery(hook, d.headers, d.body, { nowS: d.receivedAt, ...(this.#o.settings.isPublic ? { maxAgeS: PUBLIC_RELAY.maxHeldS } : {}) });
                         } catch {
                             r = { status: 503, reason: 'could not judge a delivery' };
                         }
@@ -460,6 +480,14 @@ export class RelayClient {
                 this.#send({ t: 'answer', id: a.id, status, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
             })();
         }
+    }
+
+    /**
+     * Remembers that a delivery came for a hook while nobody here collected for it. Only hooks this
+     * client has collected for count: a relay that names others is not given memory to fill.
+     */
+    #miss(hook: string): void {
+        if ((this.#hooks.has(hook) || this.#stale.has(hook)) && this.#missed.size < MAX_MISSED) this.#missed.add(hook);
     }
 
     #onClose(ws: WebSocket, code: number, reopening = false): void {

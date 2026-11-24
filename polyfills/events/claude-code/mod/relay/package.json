@@ -12,6 +12,7 @@
     "test": "node --test --no-warnings \"test/*-test.ts\"",
     "typecheck": "tsc --noEmit -p .",
     "deploy": "wrangler deploy",
+    "deploy:public": "wrangler deploy -c wrangler.public.jsonc --var VERSION:$(git rev-parse --short HEAD)",
     "setup": "node scripts/setup.mjs"
   },
   "devDependencies": {
