@@ -3,21 +3,39 @@
 // muted while it is on screen and pauses when it leaves; with reduced motion
 // it waits for a press. The poster (a frame of the same recording) is in the
 // server-rendered page, so the frame shows without JavaScript.
+//
+// Either `cut` names one of the launch video's cuts in media.json (its file,
+// poster and size come from there), or `src`, `poster`, `width` and `height`
+// give a recording from the repository.
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { withBase } from 'vitepress'
+import media from '../../../media.json'
 
 const props = withDefaults(
   defineProps<{
-    src: string
-    poster: string
+    cut?: string
+    src?: string
+    poster?: string
     alt: string
-    width: number
-    height: number
+    width?: number
+    height?: number
     caption?: string
     loop?: boolean
   }>(),
   { loop: true },
 )
+
+// A cut keeps its file name when it is rendered again, so its hash goes in
+// the URL: a browser that kept the old one fetches the new one.
+const source = computed(() => {
+  const cut = props.cut ? media.cuts.find((c) => c.name === props.cut) : undefined
+  if (props.cut && !cut) throw new Error(`Recording: no cut named ${props.cut} in media.json`)
+  if (cut) {
+    const v = cut.sha256.slice(0, 12)
+    return { src: `/media/${cut.file}?v=${v}`, poster: `/media/${cut.poster}?v=${v}`, width: cut.width, height: cut.height }
+  }
+  return { src: props.src!, poster: props.poster!, width: props.width!, height: props.height! }
+})
 
 const root = ref<HTMLElement>()
 const video = ref<HTMLVideoElement>()
@@ -28,12 +46,12 @@ let observer: IntersectionObserver | undefined
 let visible = false
 let userPaused = false
 
-const ratio = computed(() => `${props.width} / ${props.height}`)
+const ratio = computed(() => `${source.value.width} / ${source.value.height}`)
 
 function load() {
   if (loaded.value || !video.value) return
   loaded.value = true
-  video.value.src = withBase(props.src)
+  video.value.src = withBase(source.value.src)
 }
 
 async function play() {
@@ -86,9 +104,9 @@ onBeforeUnmount(() => observer?.disconnect())
     <div class="frame" :style="{ aspectRatio: ratio }">
       <video
         ref="video"
-        :poster="withBase(poster)"
-        :width="width"
-        :height="height"
+        :poster="withBase(source.poster)"
+        :width="source.width"
+        :height="source.height"
         :loop="loop"
         muted
         playsinline
