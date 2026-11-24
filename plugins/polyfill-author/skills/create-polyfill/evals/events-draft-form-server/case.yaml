@@ -1,8 +1,9 @@
 schema_version: "1.1"
 name: events-draft-form-server
 expected_outcome: |
-  A plan for an exact SEP-3415 client that refuses the draft-form server unless the user opts in
-  for that server, adds no policy of its own, states the OAuth limit, has a rule-by-rule checklist
+  A plan for an exact SEP-3415 client that does not silently adapt to the draft-form server (it
+  refuses it unless the user opts in for that server, or accepts it as the one stated exception
+  with an off setting), adds no policy of its own, states the OAuth limit, has a rule-by-rule checklist
   and independent proof, and names how it stands down.
 context:
   scaffold_script: place-files.sh
