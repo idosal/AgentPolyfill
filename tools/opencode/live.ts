@@ -13,7 +13,8 @@
 import { randomUUID } from 'node:crypto';
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { REPO, sleep, World, type Message } from './harness.ts';
+import { spawn } from 'node:child_process';
+import { freePort, REPO, sleep, World, type Message } from './harness.ts';
 
 const model = process.argv[2] ?? 'opencode/deepseek-v4.1-flash-free';
 const out = process.argv[3] ?? join(process.env.TMPDIR ?? '/tmp', `opencode-live-${Date.now()}`);
@@ -34,7 +35,8 @@ const world = new World({
         tickets: {
             type: 'local',
             command: [process.execPath, '--no-warnings', join(REPO, 'polyfills', 'events', 'claude-code', 'test', 'fixture-events-server.ts')],
-            environment: { FIXTURE_UPSTREAM: upstream, FIXTURE_TICKET_DELIVERY: 'poll', FIXTURE_POLL_MS: '1000' }
+            // LIVE_TICKET_DELIVERY (for example "poll,push") changes how the fixture offers tickets.
+            environment: { FIXTURE_UPSTREAM: upstream, FIXTURE_TICKET_DELIVERY: process.env.LIVE_TICKET_DELIVERY ?? 'poll', FIXTURE_POLL_MS: '1000' }
         },
         huggingface: { type: 'remote', url: 'https://huggingface.co/mcp', oauth: false }
     },
@@ -100,6 +102,8 @@ try {
     say('\n## Skills');
     const sk = await world.createSession();
     await ask(sk, 'Which GGUF quantization should I use to run a 7B model on a 16 GB Mac? Use a skill from my MCP servers if one fits.');
+    // X8: this session loaded Hugging Face's skills; a read of another server's resource is asked about first.
+    await ask(sk, 'Now read the MCP resource fixture://status from the tickets server, with OpenCode\'s read_mcp_resource tool.');
 
     say('\n## Server Cards');
     const sc = await world.createSession();
@@ -110,6 +114,15 @@ try {
     say('\n## ARD');
     const ard = await world.createSession();
     await ask(ard, 'What does buildkite.com list in its ard.json? Use ARD discovery.');
+    // A registry search, to the repository's demo registry on loopback (it reads ten publishers' live catalogs).
+    const port = await freePort();
+    const registry = spawn(process.execPath, [join(REPO, 'polyfills', 'ard', 'claude-code', 'demo', 'registry.mjs'), String(port)], { stdio: 'ignore' });
+    try {
+        await sleep(8000);
+        await ask(ard, `Search the ARD registry at http://127.0.0.1:${port} for an MCP server that can check why my CI build failed.`);
+    } finally {
+        registry.kill();
+    }
 } finally {
     await world.stop({ keep: true });
     say(`\n(world kept at ${world.dir}; transcript ${transcript})`);

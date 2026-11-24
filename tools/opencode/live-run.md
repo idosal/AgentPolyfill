@@ -69,6 +69,39 @@ four tools were in the model's tools; in the first run the model called
 its one entry, `com.buildkite/remote-mcp-server`, with a valid card. No
 registry search was sent: the plugin ships with none, and none was named.
 
+## Later runs: the cross-server check, a registry search, push
+
+Two more runs of `live.ts`, after the fixes from the security review.
+
+**X8 live.** After the skills loaded, the model was asked to read a resource of
+the tickets server. It did so from a Code Mode program
+(`tools.opencode.read_mcp_resource(...)`), and OpenCode asked first:
+
+```
+mcp_skills_cross_server on huggingface->tickets:fixture://status
+metadata: {"skillsFrom":["huggingface"],"server":"tickets","uri":"fixture://status","note":"A skill served by \"huggingface\" may have led to this read from \"tickets\"."}
+```
+
+**A registry search.** To the repository's demo registry
+(`polyfills/ard/claude-code/demo/registry.mjs`, which reads ten publishers'
+live catalogs), on loopback:
+
+```
+ard_search on 127.0.0.1:63205
+metadata: {"question":"127.0.0.1:63205: send this search to http://127.0.0.1:63205/search, and to up to three registries it refers to?","query":"check why my CI build failed",…}
+```
+
+It returned Buildkite's and Netlify's servers, each confirmed by its
+publisher's own catalog.
+
+**Push.** With the fixture offering `ticket.created` by poll and push
+(`LIVE_TICKET_DELIVERY=poll,push`), the model watched it, by push, and set up
+no automation beside it; the event woke the session once. OpenCode's own log
+showed it skips both fixture event types ("skipping MCP event type with a
+schema that can't be checked"), which is why the plugin no longer leaves push
+to OpenCode. In that run the free model's usage limit was reached after the
+Events part.
+
 ## In OpenCode's TUI
 
 The same world, kept running by [`tui-world.ts`](tui-world.ts), with

@@ -84,8 +84,10 @@ export type McpConfig = { type: 'local'; command: string[]; environment?: Record
 export type Rule = { action: string; resource: string; effect: 'allow' | 'ask' | 'deny' };
 
 export type WorldOptions = {
-    /** Plugin folders, by absolute path. */
-    plugins: string[];
+    /** Plugin folders, by absolute path, or OpenCode's object form with options. */
+    plugins: (string | { package: string; options?: Record<string, unknown> })[];
+    /** Where the configuration goes: the project's opencode.json (default), or the global one in this world's home. */
+    configIn?: 'project' | 'global';
     mcp?: Record<string, McpConfig>;
     permissions?: Rule[];
     /** More environment for OpenCode (and so for the plugins). */
@@ -141,7 +143,9 @@ export class World {
             ...(this.#o.mcp ? { mcp: this.#o.mcp } : {}),
             ...(this.#o.permissions ? { permissions: this.#o.permissions } : {})
         };
-        writeFileSync(join(this.project, 'opencode.json'), JSON.stringify(config, null, 2));
+        const dir = this.#o.configIn === 'global' ? join(this.home, '.config', 'opencode') : this.project;
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(join(dir, 'opencode.json'), JSON.stringify(config, null, 2));
     }
 
     async start(): Promise<this> {

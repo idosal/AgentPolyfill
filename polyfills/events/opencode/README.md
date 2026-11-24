@@ -8,12 +8,13 @@ and Codex ([mcp-events for Codex](../codex/README.md)).
 
 This plugin implements the client side of the MCP Events extension,
 [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
-(the Final text, as of 24 November 2026), for the part OpenCode doesn't do
-itself. OpenCode 2.4 has Events support of its own: its MCP client takes
-events by push (`events/stream`), and its automations can start a prompt in a
-session when one arrives. It doesn't poll, and it doesn't take webhooks. So
-this plugin watches the event types a server delivers by **poll** or
-**webhook** only, and leaves push to OpenCode. Details are in
+(the Final text, as of 24 November 2026), by push, poll or webhook. OpenCode
+2.4 has part of Events itself: its MCP client takes events by push
+(`events/stream`) for its automations, which can start a prompt in a session
+when one arrives. It doesn't poll, it doesn't take webhooks, and it skips any
+event type whose schemas it can't turn into a checker, valid SEP-3415 schemas
+among them. So this plugin watches every event type, and names OpenCode's
+automations as the alternative for push. Details are in
 [Spec and conformance](#spec-and-conformance).
 
 ## Install
@@ -74,7 +75,7 @@ Six tools, in OpenCode's `mcp_events` namespace:
 
 | Tool | What it does |
 |---|---|
-| `mcp_events_list_event_types` | What each server can report, and how. It says which event types OpenCode watches itself (push) and which this plugin watches (poll, webhook). |
+| `mcp_events_list_event_types` | What each server can report, and how. |
 | `mcp_events_watch_event` | Starts a watch for this session, with a note saying what to do when it fires. |
 | `mcp_events_unwatch_event` | Stops one. |
 | `mcp_events_list_watches` | This session's watches. |
@@ -123,12 +124,17 @@ As in the other forms: through a relay of your own, the public relay (opt-in,
 (`MCP_EVENTS_PUBLIC_URL`). The [Claude Code form's README](../claude-code/README.md)
 describes each. Set the variables in the environment OpenCode starts in.
 
-### Push: OpenCode's own
+### Push, and OpenCode's automations
 
-For an event type a server offers by push, `mcp_events_watch_event` tells the
-model to use OpenCode's own way instead: `automation_create` with an event
-trigger and a prompt action to the session. The plugin opens no push stream
-of its own, so there is never a second subscription for the same event.
+An event type a server offers by push is watched by push (`events/stream`),
+as the SEP's order of delivery modes says. OpenCode's own automations take
+push events too, for the event types its client accepts, and the plugin says
+so when it lists event types or watches one by push: a watch, or an automation
+with an event trigger (`automation_create`), not both, or each event reaches
+the session twice. The plugin doesn't leave push to OpenCode, because
+OpenCode's client skips event types whose schemas it can't check: in a run,
+it skipped both of the fixture server's types, whose payload schemas use
+`pattern`, `format` and the SEP's `x-mcp-content`.
 
 ## Permissions
 
@@ -154,16 +160,18 @@ grants nothing.
 ### When OpenCode supports more of Events itself
 
 The plugin checks for OpenCode's own Events tool (`opencode_list_mcp_events`)
-when it loads, and leaves push to OpenCode when it's there. If OpenCode comes
-to poll or take webhooks too, turn the plugin off with `MCP_EVENTS_OFF=1`, or
+when it loads, and names OpenCode's automations as the alternative for push
+when it's there. If OpenCode comes to watch every event type for a session,
+by push, poll and webhook, turn the plugin off with `MCP_EVENTS_OFF=1`, or
 remove it.
 
 ## Limits
 
 - **Servers behind OAuth.** See [Which servers it works with](#which-servers-it-works-with).
-- **Push is OpenCode's.** Event types offered by push are watched with
-  OpenCode's automations, not this plugin's tools, so the two look different
-  to the model.
+- **Two ways to take push events.** OpenCode's automations and this plugin's
+  watches both take push events; the plugin tells the model to use one or the
+  other. It can't tell which event types OpenCode's own client accepts: a plugin
+  can't ask, and `opencode_list_mcp_events` is the model's tool.
 - **Watches resume when OpenCode opens the project.** OpenCode loads a
   project's plugins when something uses that project (the TUI, the desktop
   app, or a client of its server). Until then a saved watch doesn't run.
@@ -211,7 +219,7 @@ What is different in OpenCode:
 
 | Clause | In OpenCode |
 |---|---|
-| PUSH-* | Left to OpenCode's own client: the plugin opens no `events/stream`. |
+| PUSH-* | The shared client's, as in the other forms: one `events/stream` per watch, on the plugin's own connection. OpenCode's own connection opens its own streams, for its automations only. |
 | SEC-3, SEC-4 (receipt is not authorization; policy between receipt and action) | OpenCode's permission rules, for what the model does after a wake, and for the watch itself. |
 | CAP-1 | The client declares the extension on its own connection to each server (`clientInfo` `mcp-events-opencode`). OpenCode's own connection declares it too, for push. |
 
@@ -230,7 +238,12 @@ from the SEP, sharing no code with the client), with a scripted model:
 - `unwatch_event` is asked about too;
 - after OpenCode restarts, the watch resumes from its cursor, and an event
   from while it was down wakes the session once;
-- an event type offered by push is left to OpenCode.
+- an event type offered by push is watched by push, and an event wakes the
+  session, with OpenCode's automations named as the alternative;
+- a webhook-only event type is watched by webhook, to the plugin's receiver
+  inside OpenCode's server, and a signed delivery wakes the session;
+- a server that answers 401 is named as needing a sign-in, and the header in
+  its configuration appears in no tool result, log line or model request.
 
 ## Development
 
