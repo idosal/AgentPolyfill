@@ -1,5 +1,5 @@
 {
-  "//": "The home page's polyfill cards (polyfills: the MCP extensions; beyond: outside MCP) and audiences. Read by PolyfillCards.vue and scripts/agents.mjs; the audiences only by the latter (the Markdown copies for agents). Every line is taken from the repository's README and each polyfill's README: keep them in step when those change.",
+  "//": "The home page's polyfill cards (polyfills: the MCP extensions; beyond: outside MCP) and audiences. Read by PolyfillCards.vue and scripts/agents.mjs; the audiences only by the latter (the Markdown copies for agents). Every line is taken from the repository's README and each polyfill's README, in the README's order: keep them in step when those change. The recordings are Claude Code sessions, and their alt text says so.",
   "polyfills": [
     {
       "name": "Events",
@@ -10,33 +10,15 @@
         "Codex"
       ],
       "id": "io.modelcontextprotocol/events",
-      "state": "Works",
-      "stateNote": "Poll, push and webhook delivery; an event wakes an idle session. No OAuth servers.",
-      "line": "Claude reacts to events on your MCP servers, even while the session is idle.",
+      "line": "The agent watches events on your MCP servers, by poll, push or webhook, and an event wakes an idle session.",
       "cut": "events",
       "alt": "In Claude Code, asked to watch a Worker on Cloudflare and say what breaks, Claude starts a watch through Cloudflare's MCP server, and the session goes idle. When the Worker throws an error, the idle session wakes by itself, reads the event and says what broke: a SyntaxError in the Worker.",
-      "addStep": "Try it with the hosted demo server:",
+      "addStep": "Try it with the hosted demo server (no sign-in):",
       "add": "claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev/mcp",
+      "addCodex": "codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp",
       "ask": "Give me a demo button and tell me what I type when I press it",
+      "then": "In Codex, a woken session is a Codex CLI session (the terminal app or `codex exec`). A chat in the ChatGPT desktop app keeps its events but can't be woken, so ask it for `recent_events`.",
       "link": "/guide/events"
-    },
-    {
-      "name": "Apps",
-      "plugin": "mcp-apps-cli",
-      "spec": "MCP Apps 2026-01-26, Stable",
-      "hosts": [
-        "Claude Code"
-      ],
-      "id": "io.modelcontextprotocol/ui",
-      "state": "Early",
-      "stateNote": "App UIs render inline in the terminal, with mouse and keyboard. No OAuth servers.",
-      "line": "MCP App interfaces open inline in the terminal, and work with mouse and keys.",
-      "cut": "apps",
-      "alt": "In Claude Code, Play DOOM opens the game from the hosted arcade server under the tool call, and it is played with clicks and keys. A system monitor app draws a live CPU chart, and in a terminal with no image support it draws the chart in text. Then a 3D torus knot renders inline and turns when dragged.",
-      "addStep": "Try it with the hosted demo server:",
-      "add": "claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp",
-      "ask": "Find a shareware game in the arcade and load it",
-      "link": "/guide/apps"
     },
     {
       "name": "Skills",
@@ -47,14 +29,14 @@
         "Codex"
       ],
       "id": "io.modelcontextprotocol/skills",
-      "state": "Early",
-      "stateNote": "Skills served by an MCP server are listed, loaded and read in Claude Code, with the checks the spec asks of a client. No OAuth servers.",
-      "line": "Skills from your MCP servers join Claude's skill list. You approve each one once.",
+      "line": "Skills an MCP server serves show up next to your own, load only after you say yes to each one, and are checked against the server's digests.",
       "cut": "skills",
       "alt": "In Claude Code, /mcp-skills lists the skills Hugging Face's MCP server serves. Asked to use huggingface-local-models for a 16 GB Mac, Claude asks to load it and Claude Code asks once for approval; the skill and its files are read from the server, and Claude answers from it.",
-      "addStep": "Try it with Hugging Face's MCP server:",
+      "addStep": "Try it with Hugging Face's public MCP server (no sign-in):",
       "add": "claude mcp add --transport http huggingface https://huggingface.co/mcp",
+      "addCodex": "codex mcp add huggingface --url https://huggingface.co/mcp",
       "ask": "Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?",
+      "then": "In Claude Code, `/mcp-skills` lists what it serves. In Codex, the served skills appear in the `$` list from your next session.",
       "link": "/guide/skills"
     },
     {
@@ -66,27 +48,42 @@
         "Codex"
       ],
       "id": "",
-      "state": "Early",
-      "stateNote": "Finds the servers a domain publishes, checks each card against the schema, and adds one to Claude Code's own config with a click, so servers behind OAuth work.",
-      "line": "Find the MCP servers a domain publishes, and add one in one click. Works with servers behind OAuth.",
+      "line": "Name a company and the agent finds the MCP servers its domain publishes, and adds the one you pick. Servers behind OAuth work.",
       "cut": "server-cards",
       "alt": "In Claude Code, the question What MCP servers does neon.com publish? lists Neon and Neon Docs from neon.com's own catalog, each with an Add button. Add is pressed on Neon Docs, which is marked added, with a note to run /mcp to connect or sign in.",
       "add": "",
       "ask": "What MCP servers does neon.com publish?",
-      "then": "Then press Add on Neon Docs (no sign-in).",
+      "then": "Then add Neon Docs (no sign-in): press Add in Claude Code, or choose \"Add it\" in Codex's form.",
       "link": "/guide/server-cards"
+    },
+    {
+      "name": "Apps",
+      "plugin": "mcp-apps-cli",
+      "spec": "MCP Apps 2026-01-26, Stable",
+      "hosts": [
+        "Claude Code"
+      ],
+      "id": "io.modelcontextprotocol/ui",
+      "line": "A server's app opens right under the tool call in the terminal, and answers the mouse and keyboard.",
+      "cut": "apps",
+      "alt": "In Claude Code, Play DOOM opens the game from the hosted arcade server under the tool call, and it is played with clicks and keys. A system monitor app draws a live CPU chart, and in a terminal with no image support it draws the chart in text. Then a 3D torus knot renders inline and turns when dragged.",
+      "addStep": "Try it with the hosted arcade (classic shareware games from archive.org):",
+      "add": "claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp",
+      "ask": "Find a shareware game in the arcade and load it",
+      "note": "Not in Codex yet.",
+      "link": "/guide/apps"
     }
   ],
   "audiences": [
     {
-      "title": "If you use agents",
-      "text": "One line to install, one line to try. Turn off any polyfill on its own.",
+      "title": "If you use Claude Code or Codex",
+      "text": "Installing takes one line and trying it takes one more.",
       "link": "/guide/getting-started",
       "linkText": "Getting started"
     },
     {
       "title": "If you build",
-      "text": "The `create-polyfill` and `design-extension` skills, and the contract every polyfill meets. New polyfills welcome.",
+      "text": "The `create-polyfill` and `design-extension` skills, and the contract every polyfill here meets. New polyfills, and existing ones brought to another host, are welcome.",
       "link": "/guide/build-a-polyfill",
       "linkText": "Build a polyfill"
     },
@@ -107,15 +104,16 @@
         "Codex"
       ],
       "id": "",
-      "line": "Find the MCP servers a domain lists in its ARD file, or search an ARD registry, and add one in one click.",
+      "line": "Finds MCP servers through a domain's ard.json, or by searching an ARD registry you choose, and hands the cards to Server Cards.",
       "cut": "ard",
       "alt": "In Claude Code, What does buildkite.com list via ARD? shows Buildkite's MCP server with an Add button. Then a search of an ARD registry for a server that checks CI builds: Claude Code first asks whether to send the query to the registry and up to three it refers to, and after Yes the result says where the query went.",
       "addStep": "Not in the bundle. Install it by name:",
       "add": "/plugin install ard-discovery --marketplace idosal/AgentPolyfill",
+      "addCodex": "codex plugin marketplace add idosal/AgentPolyfill && codex plugin add ard-discovery@agent-polyfill",
       "ask": "What MCP servers does buildkite.com list through ARD?",
-      "then": "A domain lookup sends no query to a registry. A registry search sends your words to a third party, so it asks you first, every time.",
+      "then": "A domain lookup sends no query to a registry. A search sends the words of your request to the registry you chose, so every search asks you first and names where it's going.",
       "link": "/guide/ard",
-      "note": "Installed separately: its registry search sends your words to a third party, so it asks you first, every time."
+      "note": "Installed by name, not with the others: a search sends your words to the registry you chose, so every search asks you first."
     }
   ]
 }
