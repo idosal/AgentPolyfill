@@ -37,7 +37,7 @@
     },
     {
       "name": "ard-discovery",
-      "description": "Agentic Resource Discovery (ARD v0.91, a draft outside MCP): find MCP servers through a domain's ard.json or by searching an ARD registry; installs mcp-server-cards with it",
+      "description": "Agentic Resource Discovery (ARD v0.91, a draft outside MCP): find MCP servers through a domain's ard.json or by searching an ARD registry (each search asks you first); installs mcp-server-cards with it",
       "source": "./polyfills/claude-code/ard/mod"
     },
     {

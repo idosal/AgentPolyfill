@@ -7,6 +7,7 @@ const SEARCH = 'mcp__ard-discovery__ard_search'
 const PRESENT = 'mcp__mcp-server-cards__present_server_cards'
 
 /** mcp-server-cards beneath: records what it is handed, answers as it does. */
+// A search's run, as Claude Code makes it once the person said yes to the ask (A-7): $.tool.run.
 const cards = (on: On, registries: unknown[] = []) => {
   const handed: Record<string, unknown>[] = []
   on('tool.register', (_, e) => ({ value: { tool: `mcp__ard-discovery__${e.name}` } }))
@@ -53,7 +54,7 @@ test('A-2 search sends the query to the configured registry and hands its result
     }
   })
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-  const r = await $.tool.call({ tool: SEARCH, tool_use_id: 'toolu_a2', query: 'why did my CI build fail', registry: 'https://huggingface-hf-discover.hf.space' } as never)
+  const r = await $.tool.run({ tool: SEARCH, tool_use_id: 'toolu_a2', query: 'why did my CI build fail', registry: 'https://huggingface-hf-discover.hf.space' } as never)
   expect(posted[0]!.url).toBe('https://huggingface-hf-discover.hf.space/search')
   expect(JSON.parse(posted[0]!.body).query.text).toBe('why did my CI build fail')
   expect(handed[0]).toEqual({
@@ -76,7 +77,7 @@ test('A-3 a registry named by domain is found in that domain\'s catalogs, read b
     return { value: { status: 200, ok: true, headers: {}, text: '{"results":[]}' } }
   })
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-  await $.tool.call({ tool: SEARCH, query: 'x', registry: 'huggingface.co' } as never)
+  await $.tool.run({ tool: SEARCH, query: 'x', registry: 'huggingface.co' } as never)
   expect(handed[0]).toEqual({ by: 'ard-discovery (ARD v0.91 draft)', domain: 'huggingface.co', catalogs: [{ url: '/.well-known/ard.json', requireVersion: false }], rels: ['ard'] })
   expect(posted).toEqual(['https://huggingface-hf-discover.hf.space/search'])
 })
@@ -97,7 +98,7 @@ test('A-5 the registry is a setting: the configured one is asked when none is na
     return { value: { status: 200, ok: true, headers: {}, text: '{"results":[]}' } }
   })
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-  const r = await $.tool.call({ tool: SEARCH, query: 'x' } as never)
+  const r = await $.tool.run({ tool: SEARCH, query: 'x' } as never)
   expect(posted).toEqual(['https://registry.example/api/search'])
   expect(String(r.result).includes('The query text was sent to: registry.example')).toBe(true)
 })
@@ -115,4 +116,40 @@ test('A-6 mcp-server-cards\' answer is read however the host hands it back: obje
   ])
     expect(readAnswer(r)).toEqual(answer)
   expect(readAnswer({ result: 'plain words' })).toBe(undefined)
+})
+
+// Security review M2: a search sends the person's words to a third party, so each one is put to them first.
+test('A-7 every search asks the person, naming the registry and the query; refused with nobody to ask; a deny beneath stands', async ($, on) => {
+  cards(on)
+  const beneath = { decision: 'allow' as 'allow' | 'deny' }
+  on('tool.check', { tool: SEARCH }, () => (beneath.decision === 'deny' ? { decision: 'deny', reason: 'a rule' } : { decision: 'allow' }))
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const input = { query: 'why did my\u001b[2K CI build\nfail', registry: 'https://registry.example/api' }
+  const asked = await $.tool.check({ tool: SEARCH, input, tool_use_id: 'a7', approver: 'person' } as never)
+  expect(asked.decision).toBe('ask')
+  expect(String((asked as { reason?: string }).reason)).toBe(
+    'Send this search to https://registry.example/api, and to up to three registries it refers to? "why did my [2K CI build fail"',
+  )
+  const byDomain = await $.tool.check({ tool: SEARCH, input: { query: 'x', registry: 'huggingface.co' }, tool_use_id: 'a7b', approver: 'person' } as never)
+  expect(String((byDomain as { reason?: string }).reason).startsWith('Send this search to the registry that huggingface.co lists')).toBe(true)
+  const nobody = await $.tool.check({ tool: SEARCH, input } as never)
+  expect(nobody.decision).toBe('deny')
+  beneath.decision = 'deny'
+  const ruled = await $.tool.check({ tool: SEARCH, input, tool_use_id: 'a7c', approver: 'person' } as never)
+  expect(ruled.decision).toBe('deny')
+})
+
+test('A-8 with nobody to ask (claude -p, a background loop), nothing is sent', async ($, on) => {
+  const handed = cards(on)
+  const posted: string[] = []
+  on('http.fetch', (_, e) => {
+    posted.push(e.url)
+    return { value: { status: 200, ok: true, headers: {}, text: '{"results":[]}' } }
+  })
+  on('tool.check', { tool: SEARCH }, () => ({ decision: 'allow' }))
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const r = await $.tool.call({ tool: SEARCH, query: 'check why my CI build failed', registry: 'https://registry.example/api' } as never)
+  expect(String((r as { deny?: string; text?: string }).deny ?? (r as { text?: string }).text).includes('nobody can be asked')).toBe(true)
+  expect(posted).toEqual([])
+  expect(handed).toEqual([])
 })

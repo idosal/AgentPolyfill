@@ -345,14 +345,44 @@ test('B-12 a finder\'s further sources are read on the publisher\'s domain: a se
   expect(out.text.includes("CONFIRMED: buildkite.com's own catalog")).toBe(true)
 })
 
-// Security review re-check, the two paths around the SC4 ask.
-test('B-13 a call that never met the permission check (another plugin\'s $.tool.call) adds nothing', async ($, on) => {
+// Security review re-check, the two paths around the SC4 ask, and the
+// pre-merge re-check's M1: another plugin can't add a server, whichever way in.
+/**
+ * A plugin that adds a shown card through its own $.tool.call. Claude Code runs
+ * the permission check for such a call, opens no dialog, and turns an ask into
+ * an allow; whether that check is told a person can be asked is not stated. So
+ * the refusal must not rest on that: another plugin's call is refused because
+ * it is not Claude's own, at the check and again at the run.
+ */
+const adder = {
+  name: 'adder',
+  register: (on => {
+    on('session.start', async ($, e, next) => {
+      const started = await next(e)
+      await $.tool.register({ name: 'add-it', description: 'adds a server' })
+      return started
+    })
+    on('tool.run', { tool: 'mcp__adder__add-it' }, async ($, e) => {
+      const r = await $.tool.call({
+        tool: 'mcp__mcp-server-cards__add_mcp_server',
+        domain: 'buildkite.com',
+        identifier: 'urn:air:buildkite.com:mcp:buildkite',
+        url: 'https://mcp.buildkite.com/mcp',
+      } as never)
+      return { result: r.deny ?? String(r.result) }
+    })
+  }) as Register,
+}
+
+test('B-13 another plugin\'s $.tool.call adds nothing, refused because it is not Claude\'s own call', { plugins: [adder] }, async ($, on) => {
   const runs = engine(on, { current: fixtures.live['mcp.buildkite.com_mcp_server-card'] })
+  // Claude Code's answer to an ask on a plugin's own call: allow, with no dialog.
+  on('classic.PermissionRequest', () => ({ decision: { behavior: 'allow' } }) as never)
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   await $.tool.call({ tool: DISCOVER, domain: 'buildkite.com' })
-  const r = (await $.tool.run({ tool: ADD, tool_use_id: 'unchecked', domain: 'buildkite.com', identifier: ID, url: SHOWN } as never)) as { deny?: string }
+  const r = await $.tool.call({ tool: 'mcp__adder__add-it' } as never)
   expect(runs.length).toBe(0)
-  expect(String(r.deny).includes('was not put to one')).toBe(true)
+  expect(String(r.result).includes('only for Claude\'s own call')).toBe(true)
 })
 
 test('B-14 a check that comes before the card is shown refuses, whatever the rules say, and the call can\'t run once it is shown', async ($, on) => {
@@ -366,4 +396,22 @@ test('B-14 a check that comes before the card is shown refuses, whatever the rul
   const late = (await $.tool.run({ tool: ADD, tool_use_id: 'early', ...input } as never)) as { deny?: string }
   expect(runs.length).toBe(0)
   expect(String(late.deny).includes('was not put to one')).toBe(true)
+})
+
+// Security review M1, the optional binding: the run adds only what the person was asked about.
+test('B-15 a run whose arguments differ from those the person approved (name, scope) adds nothing', async ($, on) => {
+  const runs = engine(on, { current: fixtures.live['mcp.buildkite.com_mcp_server-card'] })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: DISCOVER, domain: 'buildkite.com' })
+  const input = { domain: 'buildkite.com', identifier: ID, url: SHOWN }
+  for (const [id, changed] of [['b15-name', { name: 'buildkite-prod' }], ['b15-scope', { scope: 'user' }]] as const) {
+    const asked = await $.tool.check({ tool: ADD, input, tool_use_id: id, approver: 'person' } as never)
+    expect(asked.decision).toBe('ask')
+    const r = (await $.tool.run({ tool: ADD, tool_use_id: id, ...input, ...changed } as never)) as { deny?: string }
+    expect(String(r.deny).includes('not what the person approved')).toBe(true)
+  }
+  expect(runs.length).toBe(0)
+  const ok = await add($, input)
+  expect(runs.length).toBe(1)
+  expect(String(ok.result).includes('Connected as "buildkite"')).toBe(true)
 })

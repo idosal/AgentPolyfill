@@ -36,7 +36,7 @@ Every fetch is bounded: at most 512 KiB per answer, 64 KiB per card, 20 cards, 3
 **What reaches the model.** A card's fields, and the names and descriptions a finder gave, as tool results: with the URL each came from, control characters and invisible marks removed, and each field capped in length. A refused card shows only why it was refused. A secret's default value is never shown.
 
 **What it writes.** Only your MCP configuration, through `claude mcp add`, for one server at a time.
-- **Who decides:** you. Either you press **Add**, or Claude asks and Claude Code puts the question to you. The polyfill makes that question itself, so no allow rule or auto mode answers it. It names the server, URL, headers, scope and how to undo it. With nobody to ask, the addition is refused. The add runs only for a call that question was put to: a call that skipped Claude Code's check (another plugin's own `$.tool.call`) is refused, and so is one checked before its card was shown.
+- **Who decides:** you. Either you press **Add**, or Claude asks and Claude Code puts the question to you. The polyfill makes that question itself, so no allow rule or auto mode answers it. It names the server, URL, headers, scope and how to undo it. With nobody to ask, the addition is refused. Only Claude's own call is taken: a call from another plugin (its `$.tool.call`) is refused, at the check and at the run. The add runs only for a call that question was put to, and only as it was put: the same URL, scope and name. One checked before its card was shown is refused.
 - **Never over a server you have:** a name taken in any scope is not reused. Claude's add is refused; the picker uses the next free name (`github-2`) and says so.
 - **Which server:** only a card a tool showed in this session, or that another plugin handed over and the picker showed.
 - **Which URL:** when Claude adds it, only if the URL in Claude Code's approval prompt is the one the card gives. When you press **Add**, it is the URL shown beside the button.
@@ -58,7 +58,7 @@ What another plugin handed over and the picker's list are kept for the session.
 
 **What it never does.** It never reads Claude Code's credentials, runs no sign-in of its own, and holds no token. It runs nothing a card says: the only commands it runs are `claude mcp get` (is the name taken?) and `claude mcp add`, with arguments it builds itself.
 
-**What another plugin can do through it.** `present_server_cards` is not offered to the model, and a call the model makes is refused, so only a plugin's own code can call it. What a plugin hands over is read as above. A plugin can't add a server: only you can, with **Add** or by approving Claude's request.
+**What another plugin can do through it.** `present_server_cards` is not offered to the model, and a call the model makes is refused, so only a plugin's own code can call it. What a plugin hands over is read as above. A plugin can't add a server through this mod: `add_mcp_server` refuses any call that is not Claude's own, and only you can add one, with **Add** or by approving Claude's request. (A plugin can still run `claude mcp add` itself, with the rights Claude Code gives it; see below.)
 
 ## What it does not protect against
 
