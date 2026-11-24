@@ -12,7 +12,7 @@ declare const setTimeout: (fn: () => void, ms: number) => unknown
 type Call = { route: string; body: Record<string, unknown>; authorization: string | undefined }
 
 /** Stands in for the engine and for a helper that says the lines in `says`, one batch per step. */
-function standIn(on: On, o: { node?: string; says: string[][]; take?: () => Record<string, unknown>; attended?: boolean; off?: boolean }) {
+function standIn(on: On, o: { node?: string; says: string[][]; take?: () => Record<string, unknown>; attended?: boolean; off?: boolean; fails?: (route: string) => boolean }) {
   const seen = { registered: [] as { name: string; isDeferred?: unknown }[], spawned: [] as string[][], calls: [] as Call[], submitted: [] as string[], order: [] as string[] }
   let step: () => void = () => {}
   on('session.start', (_, e) => ({ cwd: e.cwd }))
@@ -46,6 +46,7 @@ function standIn(on: On, o: { node?: string; says: string[][]; take?: () => Reco
     const body = JSON.parse(typeof e.init?.body === 'string' ? e.init.body : '{}') as Record<string, unknown>
     seen.calls.push({ route, body, authorization: e.init?.headers?.authorization })
     seen.order.push(route)
+    if (o.fails?.(route)) return { value: { status: 500, ok: false, headers: {}, text: '{}' } }
     const answer = route === '/tool' ? { text: `answer to ${String(body.name)}`, ...(body.name === 'get_event' ? { isError: true } : {}) } : route === '/take' ? (o.take?.() ?? {}) : {}
     return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify(answer) } }
   })
@@ -100,6 +101,25 @@ test('waiting events are taken, submitted as a prompt, and only then acknowledge
   expect(seen.submitted).toEqual(['[mcp-events] one\n[mcp-events] two', '[mcp-events] three'])
   expect(seen.order.filter((s) => s !== '/verdict')).toEqual(['/take', 'submit', '/ack', '/take', 'submit', '/ack', '/take'])
   expect(seen.calls.filter((c) => c.route === '/ack').map((c) => c.body.upto)).toEqual([40, 60])
+})
+
+test('a batch whose acknowledgement was lost (the helper restarted after the submit) is acknowledged again before the next take, not shown again', async ($, on) => {
+  const batches = [{ lines: ['[mcp-events] one'], upto: 40, spool: 's' }, { lines: ['[mcp-events] two'], upto: 60, spool: 's' }]
+  let acks = 0
+  const { seen, next } = standIn(on, {
+    node: 'v22.3.0',
+    says: [[READY, JSON.stringify({ t: 'pending' })], [JSON.stringify({ t: 'pending' })]],
+    take: () => batches.shift() ?? {},
+    // The first /ack never reaches a helper that is still there.
+    fails: (route) => route === '/ack' && ++acks === 1,
+  })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await settle()
+  next()
+  await settle()
+  expect(seen.submitted).toEqual(['[mcp-events] one', '[mcp-events] two'])
+  expect(seen.order.filter((s) => s !== '/verdict')).toEqual(['/take', 'submit', '/ack', '/ack', '/take', 'submit', '/ack', '/take'])
+  expect(seen.calls.filter((c) => c.route === '/ack').map((c) => [c.body.upto, c.body.spool])).toEqual([[40, 's'], [40, 's'], [60, 's']])
 })
 
 test('the catalog joins the instructions only while there is something to watch, and watch_event is then loaded from the start', async ($, on) => {

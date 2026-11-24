@@ -51,11 +51,10 @@ export function verify(secret: string, headers: Record<string, string | string[]
     return { ok: false, reason: 'no matching v1 signature' };
 }
 
-/** How much earlier than the newest accepted delivery one may be signed (retries, reordering) and still be taken. */
-export const REPLAY_SLACK_S = 10 * 60;
 /** Nothing signed longer ago than this is taken, whatever anyone says about when it arrived (the relay keeps a delivery a week). */
 export const MAX_AGE_S = 8 * 24 * 3600;
-const MAX_REMEMBERED = 5000;
+/** The most delivery ids one watch remembers. Past it, the oldest are forgotten and a floor takes their place. */
+export const MAX_REMEMBERED = 1000;
 
 /** The longest cursor kept. A cursor is the server's own text, saved with the watch: one longer than this is treated as no cursor. */
 export const MAX_CURSOR = 16 * 1024;
@@ -67,11 +66,13 @@ export type ReplayState = { newest?: number; floor?: number; recent: [id: string
  *
  * A direct POST is fresh by the clock. A delivery the relay held is not: the relay says when
  * it arrived, and that is only its word. So acceptance rests on what this side knows:
- *   - a delivery signed more than REPLAY_SLACK_S before the newest one accepted is refused;
- *   - inside that window, every accepted delivery's id is remembered, so each is taken once;
- *     if there are ever too many to remember, the oldest are forgotten and everything signed
- *     at or before their time is refused from then on (never accepted again);
+ *   - every accepted delivery's id is remembered (for MAX_AGE_S), so each is taken once;
+ *   - if there are ever more than MAX_REMEMBERED to remember, the oldest are forgotten and
+ *     everything signed at or before their time is refused from then on (never accepted again);
  *   - nothing older than MAX_AGE_S by this machine's clock is taken at all.
+ * A delivery that was never taken is taken however much newer ones were taken meanwhile: one
+ * the relay kept after this side could not store it (a 503) comes back after them. (Until 0.5.0
+ * one signed ten minutes before the newest taken was refused, and its event lost.)
  * Taking a delivery has two steps, begin and commit, so two copies arriving together (by
  * whatever route) cannot both get in: the second finds the first in progress.
  * The state is the watch's, saved with it, so it holds across restarts.
@@ -87,9 +88,8 @@ export class ReplayGuard {
     /** Starts taking a delivery. Returns a reason to refuse, `'duplicate'` for one already taken, `'busy'` for one being taken right now, or nothing (then `commit` or `abort` must follow). */
     begin(id: string, timestamp: number, nowS = Math.floor(Date.now() / 1000)): string | undefined {
         if (timestamp < nowS - MAX_AGE_S) return 'signed too long ago';
-        const { newest, floor, recent } = this.state;
-        if (floor !== undefined && timestamp < floor) return 'signed at or before deliveries already accepted (a replay)';
-        if (newest !== undefined && timestamp < newest - REPLAY_SLACK_S) return 'signed well before deliveries already accepted (a replay)';
+        const { floor, recent } = this.state;
+        if (floor !== undefined && timestamp < floor) return 'signed at or before deliveries already accepted and forgotten (a replay)';
         if (recent.some(([seen]) => seen === id)) return 'duplicate';
         if (this.#inProgress.has(id)) return 'busy';
         this.#inProgress.add(id);
@@ -97,15 +97,16 @@ export class ReplayGuard {
     }
 
     /** The delivery was taken: remember it. Returns a way to take that back (if saving the memory fails). */
-    commit(id: string, timestamp: number): () => void {
+    commit(id: string, timestamp: number, nowS = Math.floor(Date.now() / 1000)): () => void {
         this.#inProgress.delete(id);
         const s = this.state;
         const before: ReplayState = { newest: s.newest, floor: s.floor, recent: [...s.recent] };
         s.recent.push([id, timestamp]);
         if (s.newest === undefined || timestamp > s.newest) s.newest = timestamp;
-        s.recent = s.recent.filter(([, t]) => t >= s.newest! - REPLAY_SLACK_S);
-        // Too many to remember inside the window: forget the oldest, and from now on refuse
-        // everything signed at or before the newest of the forgotten ones.
+        // What is past the age limit is refused by `begin` anyway: it need not be remembered.
+        s.recent = s.recent.filter(([, t]) => t >= nowS - MAX_AGE_S);
+        // Too many to remember: forget the oldest, and from now on refuse everything signed at or
+        // before the newest of the forgotten ones.
         if (s.recent.length > MAX_REMEMBERED) {
             s.recent.sort((a, b) => a[1] - b[1]);
             const forgotten = s.recent.splice(0, s.recent.length - MAX_REMEMBERED);

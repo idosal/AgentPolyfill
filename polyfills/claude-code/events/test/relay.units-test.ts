@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import type { Occurrence } from '../src/events-client.ts';
 import { PUBLIC_RELAY, readRelaySettings } from '../src/relay.ts';
-import { handleDelivery, newSecret, ReplayGuard, sign, type Hook } from '../src/webhooks.ts';
+import { handleDelivery, MAX_REMEMBERED, newSecret, ReplayGuard, sign, type Hook } from '../src/webhooks.ts';
 import { temp } from './harness.ts';
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -55,26 +55,46 @@ describe('one delivery, however it arrived', () => {
         assert.deepEqual([bad.status, bad.body], [401, undefined]);
     });
 
-    test('a genuine delivery from well before ones already accepted is a replay: refused', async () => {
+    test('a delivery never taken is taken although newer ones were (it waited at the relay); one already taken is refused, however long ago', async () => {
         const replay = new ReplayGuard();
         let saved = 0;
         const { hook, got } = recorder({ replay, accepted: () => void saved++ });
         const t = now() - 7200;
+        // It could not be stored when it first came (503), so the relay kept it; newer ones were taken meanwhile.
+        const held = event('held');
+        const heldHeaders = signed(hook.secret, held, t - 1800, 'msg_held');
         const first = event('first');
-        assert.equal((await handleDelivery(hook, signed(hook.secret, first, t), first, { nowS: t })).status, 200);
+        const firstHeaders = signed(hook.secret, first, t, 'msg_first');
+        assert.equal((await handleDelivery(hook, firstHeaders, first, { nowS: t })).status, 200);
         assert.equal(replay.state.newest, t, 'the newest accepted signing time is remembered');
         assert.equal(saved, 1, 'and the watch is told, so it can save that');
-        // Somebody who can write to the mailbox presents an old, correctly signed delivery again,
-        // with a receipt time made up to match it.
-        const old = event('old');
-        const replayed = await handleDelivery(hook, signed(hook.secret, old, t - 601), old, { nowS: t - 601 });
-        assert.equal(replayed.status, 410);
-        assert.match(replayed.reason ?? '', /replay/);
-        // A retry signed a little earlier than the newest one is ordinary.
-        const retry = event('retry');
-        assert.equal((await handleDelivery(hook, signed(hook.secret, retry, t - 590), retry, { nowS: t - 590 })).status, 200);
-        assert.deepEqual(got, ['first', 'retry']);
+        // Handed over again on the next connection, half an hour older than the newest one taken.
+        assert.equal((await handleDelivery(hook, heldHeaders, held, { nowS: t - 1800 })).status, 200, 'not a replay: it was never taken (0.4.1 refused it, and its event was lost)');
+        assert.deepEqual(got, ['first', 'held']);
         assert.equal(replay.state.newest, t, 'an older delivery does not move the mark back');
+        // Somebody who can write to the mailbox presents one already taken, with a receipt time made up to match it.
+        const replayed = await handleDelivery(hook, firstHeaders, first, { nowS: t });
+        assert.equal(replayed.status, 200, 'answered as already taken');
+        const again = await handleDelivery(hook, heldHeaders, held, { nowS: t - 1800 });
+        assert.equal(again.status, 200);
+        assert.deepEqual(got, ['first', 'held'], 'neither runs twice');
+    });
+
+    test('past the ids it can remember, everything signed at or before the forgotten ones is refused for good', async () => {
+        const replay = new ReplayGuard();
+        const { hook, got } = recorder({ replay });
+        const t = now() - 3600;
+        for (let i = 0; i <= MAX_REMEMBERED; i++) {
+            const e = event(`e${i}`);
+            assert.equal((await handleDelivery(hook, signed(hook.secret, e, t + i, `msg_${i}`), e, { nowS: t + i })).status, 200);
+        }
+        assert.equal(replay.state.recent.length, MAX_REMEMBERED);
+        assert.equal(replay.state.floor, t + 1, 'the oldest was forgotten, so its time is the floor');
+        const early = event('early');
+        const r = await handleDelivery(hook, signed(hook.secret, early, t, 'msg_never_seen'), early, { nowS: t });
+        assert.equal(r.status, 410);
+        assert.match(r.reason ?? '', /replay/);
+        assert.equal(got.length, MAX_REMEMBERED + 1);
     });
 
     test('the very same signed delivery is taken once, however many others came in between', async () => {
