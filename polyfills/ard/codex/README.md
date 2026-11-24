@@ -104,6 +104,7 @@ The ARD rules (W-1 to W-6, R-1 to R-8, P-1, B-1) and the Server Cards rules are 
 | Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own (security review M2) | A-3, A-4 | met where Codex puts the form to the person: a form naming the exact endpoints and the query; refused with no form, or on decline or close. Under `--dangerously-bypass-approvals-and-sandbox` Codex accepts the form itself |
 | Q-4 | What is sent is what was shown | this plugin's own (security review R1) | A-6 | met: at most 300 characters, one line, no invisible characters or direction marks |
 | Q-5 | The query goes only where the form said | this plugin's own | mcp-server-cards F-5 | met: a redirect to another origin, or one that would turn the `POST` into a `GET`, is not followed |
+| V-3 | No URL that displays as something else | the polyfills' own (security review C1) | A-8; mcp-server-cards X-4, P-6, O-9 (run here) | met: a result's card URL, its card's remote URL, a registry URL a catalog names, and where a result was found may hold no `` ` ``, `<`, `>` or square bracket outside an IPv6 host; such a result is refused and never put in a form |
 | D-1 | Domain discovery reads `ard.json`, which needs no `specVersion` | §5.1 | A-2 | met |
 | H-3 | A search result is confirmed only by its publisher's own catalog | the polyfills' own | mcp-server-cards O-2 to O-4, O-8 (run here) | met |
 
@@ -113,7 +114,7 @@ ARD is a draft; no host supports it natively yet. Remove or disable the plugin (
 
 ## Proof
 
-- **Per rule:** 95 tests, run with `npm test`: ARD's 8 registry rule tests and the Server Cards core's 80 rule tests, all from the Claude Code forms and run against this bundle, and 7 of this form's (A-), over stdio, with a stand-in `codex` command and a local registry on 127.0.0.1.
+- **Per rule:** 102 tests, run with `npm test`: ARD's 8 registry rule tests and the Server Cards core's 84 rule tests, all from the Claude Code forms and run against the committed bundle; 8 of this form's (A-), over stdio, with a stand-in `codex` command and a local registry on 127.0.0.1; and 2 bundle checks (byte-identical to a fresh build; a copy of `plugin/` alone starts and lists its tools).
 - **The real host:** below.
 - **Upstream conformance:** the MCP conformance suite has no Server Card or ARD scenarios.
 
@@ -132,7 +133,7 @@ ARD is a draft; no host supports it natively yet. Remove or disable the plugin (
 
 - **The query leaves your machine** once you accept that search. That is what a search is. Only the words Codex puts in `query` are sent, with no cookie or credential, but the registry sees them.
 - **Search results today.** The one public registry, Hugging Face Discover, returns MCP Registry `server.json` entries, not Server Cards, so nothing it returns can be added yet (see the Claude Code form's [findings](../claude-code/README.md#findings-to-report-upstream)).
-- **A public name that resolves to a private address** is not caught: Node's `fetch` resolves names itself. Redirects are checked.
+- **A public name that resolves to a private address** is not caught: Node's `fetch` resolves names itself. Redirects are checked. Checking the resolved address in the plugin's own fetch (a `lookup` that refuses private results) is a known follow-up.
 - **Under `--dangerously-bypass-approvals-and-sandbox`, a search is sent (and a server added) without asking you**: Codex accepts the form itself, as it approves every tool in that mode. Codex putting the approval mode in a tool call's metadata would let the plugin tell that answer from yours.
 - The limits of adding a server are [mcp-server-cards'](../../server-cards/codex/README.md#limits-and-the-host-changes-that-would-remove-them).
 
@@ -150,7 +151,7 @@ npm ci
 npm run build       # plugin/dist/server.mjs, from src/, ../claude-code/mod/hooks and ../../server-cards
 npm run check       # fails if plugin/dist/server.mjs is not what the sources build
 npm run typecheck
-npm test
+npm test            # against the committed plugin/dist/server.mjs: run npm run build first
 ```
 
 | Path | What it is |

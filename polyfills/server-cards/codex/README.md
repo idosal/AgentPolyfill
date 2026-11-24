@@ -135,6 +135,7 @@ The discovery, validation, input and transport rules are those of the Claude Cod
 | S-1 | HTTPS for cards; plain HTTP only for local development | discovery.md | F-1, F-3 | met, for every redirect hop too |
 | N-1 | No step from a public origin to a local or private address | the polyfills' own | F-1 | met for documents and, here, for redirects |
 | N-2 | Bounded answers | the polyfills' own | F-4, F-6 | 512 KiB per answer, read no further; five redirects |
+| V-3 | No text that displays as something else | the polyfills' own (security reviews SC1 and, for these forms, C1) | X-4, A-24, P-6, O-9, E-9 | met: besides control and invisible characters, a URL from a card or a finder may hold no `` ` ``, `<`, `>` or square bracket outside an IPv6 host, so a host that renders the form as Markdown can't show a link text in place of the URL. In the shared core, so the Claude Code form has it too |
 
 ## Stand-down
 
@@ -142,7 +143,7 @@ Codex has no Server Card support to detect yet. When it ships, remove or disable
 
 ## Proof
 
-- **Per rule:** 100 tests, run with `npm test`. 80 are the Claude Code form's rule tests (card, configure, discover, format, offer), run against the built bundle. 20 are this form's: the fetch guard (F-), the Codex plan (C-), and the server as Codex runs it (E-), over stdio, with a stand-in `codex` command and a web on 127.0.0.1.
+- **Per rule:** 107 tests, run with `npm test`. 84 are the Claude Code form's rule tests (card, configure, discover, format, offer), run against the committed bundle. 21 are this form's: the fetch guard (F-), the Codex plan (C-), and the server as Codex runs it (E-), over stdio, with a stand-in `codex` command and a web on 127.0.0.1. 2 check the bundle: it is byte-identical to a fresh build, and a copy of `plugin/` alone starts and lists its tools.
 - **The real host**, 24 November 2026, with the user's own Codex login and the plugin's server, and every add going to a throwaway `CODEX_HOME`:
   - `codex exec` (0.170.0): `discover_mcp_servers` returned Neon and Neon Docs for neon.com, and Buildkite for buildkite.com, all valid.
   - Through app-server (0.172.0), as the TUI runs: the add of Neon Docs (`https://neon.com/docs/mcp`) put the form to the client, which accepted after two seconds; `codex mcp get neon-docs` then showed it, and `codex mcp remove neon-docs` removed it.
@@ -157,7 +158,7 @@ Codex has no Server Card support to detect yet. When it ships, remove or disable
 
 - **The card is not compared with the live server** (rule S-3). The plugin can't send `server/discover` over Codex's connection. A Codex app-server method that passes an MCP request to a configured server would let it.
 - **No picker in the TUI.** Codex's TUI draws no third-party UI. The desktop app shows MCP Apps, which a later version could use.
-- **A public name that resolves to a private address** is not caught: Node's `fetch` resolves names itself. Redirects are now checked.
+- **A public name that resolves to a private address** is not caught: Node's `fetch` resolves names itself. Redirects are now checked. Checking the resolved address in the plugin's own fetch (a `lookup` that refuses private results) is a known follow-up.
 - **Under `--dangerously-bypass-approvals-and-sandbox`, a server is added without asking you**: Codex accepts the form itself, as it approves every tool in that mode. The plugin can't tell that answer from yours. Codex putting the approval mode in a tool call's metadata would let it.
 - **Headers other than a bearer token** need `codex app-server`, which Codex marks experimental (it is on by default, and the TUI runs on it). A `--header` and `--env-header` for `codex mcp add` would remove that.
 - **A secret in a URL, or mixed into a header,** can't be added: Codex reads environment variables only as a bearer token or a whole header value.
@@ -178,8 +179,10 @@ npm ci
 npm run build       # plugin/dist/server.mjs, from src/ and ../claude-code/mod/hooks
 npm run check       # fails if plugin/dist/server.mjs is not what the sources build
 npm run typecheck
-npm test
+npm test            # against the committed plugin/dist/server.mjs: run npm run build first
 ```
+
+`plugin/dist/server.mjs` is committed, because Codex installs `plugin/` as it is. `npm test` fails while it is stale, and CI rebuilds it and fails if the result differs.
 
 | Path | What it is |
 |---|---|

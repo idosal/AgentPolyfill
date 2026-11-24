@@ -26,6 +26,10 @@ It runs the same registry client as the Claude Code form ([its SECURITY.md](../c
 
 **Bounds:** three registries asked, three referrals, 50 results read per answer, 10 shown, 512 KiB per answer.
 
+## Text that displays as something else
+
+The rules of `mcp-server-cards`: a result whose card URL or remote URL, a registry URL a catalog names, or where a result was found holds `` ` ``, `<`, `>` or a square bracket outside an IPv6 host is refused, so the form can't show a link text in place of a URL (security review C1). The query is shown verbatim, in quotes.
+
 ## Where it won't go
 
 The address rules of `mcp-server-cards`, for registries and referrals as for catalogs and cards: HTTPS, plain HTTP only for a loopback address you name yourself (as for the demo registry), no step from a public source to a local or private address, and no redirect to one.
