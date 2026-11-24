@@ -110,6 +110,7 @@ export function discover($: EngineInterface, server: string) {
         server,
         new Set(Object.keys(definitions).filter((name) => definitions[name]?.annotations?.readOnlyHint === true)),
       )
+      state.toolNames.set(server, new Set(Object.keys(definitions)))
       return tools
     })
     found.catch(() => discovered.delete(server))

@@ -271,6 +271,8 @@ export const state = {
   serversWithApps: new Map<string, boolean>(),
   /** Each server's tools whose annotations say they only read (readOnlyHint). */
   readOnlyTools: new Map<string, Set<string>>(),
+  /** Each server's tools, as it lists them: an app may ask to run only one of these. */
+  toolNames: new Map<string, Set<string>>(),
   /** Whether Claude Code draws fullscreen (input reaches views) or on the main screen; undefined until a drawing says. */
   layoutFullscreen: undefined as boolean | undefined,
   /** Which session this is, counted up as one ends: an answer from an earlier one grants nothing (F5). */
