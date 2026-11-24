@@ -435,9 +435,10 @@ turn off.
 ## What's verified
 
 In live `claude` sessions (a pseudo-terminal driven by a script, and a real
-iTerm2 window), the mod's tests (`claude plugin test mod`,
-66 tests), the Rust helper's (`cargo test --workspace` in `helper-rs`, 64
-tests, including seeded fuzz-style tests of every parser, and every check in `bench/` run against it) and the Node helper's (`npm test` in `mod/helper`, 37 tests:
+iTerm2 window), the mod's tests (`claude plugin test mod`), the Rust
+helper's (`cargo test --workspace` in `helper-rs`, including seeded
+fuzz-style tests of every parser, and every check in `bench/` run against
+it) and the Node helper's (`npm test` in `mod/helper`:
 lines, gaps, Braille lines, bar ends, text placement, frame-to-frame
 stability, sextants, full colour, a 3D scene checked against a model of
 Claude Code's colour-pair budget, 256-colour pictures, strips in their
@@ -485,7 +486,7 @@ Checked against `specification/2026-01-26/apps.mdx` (and the draft's
 | Host capabilities | ✓ openLinks, downloadFile, serverTools, serverResources, logging, updateModelContext, message, sandbox.csp |
 | Sandbox and CSP from `_meta.ui.csp` (connect, resource, frame, base-uri domains) | ✓; the CSP is logged and the view's header names the domains it may reach. Not applied: the person's machine or network other than where the server runs, and sources naming no domain (`*`, `https:`). The view's document can't navigate away (a form or `location` would carry data past the CSP), and WebRTC is off |
 | Restrictive default CSP when `ui.csp` is absent | ≈ basic-host's default (see below) |
-| Dedicated origin (`_meta.ui.domain`) | ✓ Claude's format: the app is served at `https://{first 32 hex of sha256(server URL)}.claudemcpcontent.com`, its storage first party; any other domain isn't given (logged), so a server can't take another's |
+| Dedicated origin (`_meta.ui.domain`) | ✓ Claude's format, so that servers' CSP and CORS rules written for Claude accept the view: the app is served at `https://{first 32 hex of sha256(server URL)}.claudemcpcontent.com`, its storage first party. The helper answers every HTTP request Chrome makes to that origin and to `host.` under it, inside Chrome (request interception, `page.rs`), so none goes to that host or to Anthropic; any other domain isn't given (logged), so a server can't take another's |
 | `prefersBorder` | ✓ `true` draws a border and background around the app; omitted or `false`, none |
 | Consent | ✓ configurable; defaults as Claude Desktop: app tool calls run (deny rules apply), messages asked; links and downloads asked |
 | `permissions` | ✓ `clipboardWrite` (copies after a click or key); camera, microphone, location not granted (see below) |

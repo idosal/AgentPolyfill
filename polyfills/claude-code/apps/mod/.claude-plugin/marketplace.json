@@ -1,7 +1,8 @@
 {
   "name": "mcp-apps-cli",
   "owner": {
-    "name": "MCP Apps"
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
   },
   "plugins": [
     {
@@ -9,5 +10,5 @@
       "source": "./"
     }
   ],
-  "description": "Render MCP App UIs inline in the Claude Code terminal (local checkout)"
+  "description": "Unofficial MCP Apps client for the Claude Code terminal (local checkout)"
 }
