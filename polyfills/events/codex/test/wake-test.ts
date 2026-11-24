@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
 import { ThreadSession } from '../src/threads.ts';
-import { newThread, sleep, startHelper, temp, untilActive, waitFor, world } from './harness.ts';
+import { eventIdsIn, newThread, sleep, startHelper, temp, untilActive, waitFor, world } from './harness.ts';
 
 describe('which session', () => {
     test("a watch belongs to the session that made it: its events wake that session, and another session does not see it", async () => {
@@ -200,8 +200,7 @@ describe('when codex queue fails', () => {
             assert.match(listed.text, /This chat can't be woken: it isn't a local Codex session/);
             assert.match(listed.text, /recent_events and get_event read them/);
             const recent = await h.call('recent_events', {}, thread, 'user');
-            assert.match(recent.text, /e1/);
-            assert.match(recent.text, /e2/);
+            assert.deepEqual(eventIdsIn(recent.text), ['e1', 'e2']);
             assert.match((await h.call('get_event', { id: 'e2' }, thread, 'user')).text, /"title": "two"/);
         } finally {
             await h.stop();

@@ -1,16 +1,17 @@
 ---
-description: mcp-skills adds the client side of the MCP Skills extension (SEP-2640) to Claude Code. Skills your MCP servers serve are listed, approved once, loaded, and checked against the server's manifest.
+description: mcp-skills adds the client side of the MCP Skills extension (SEP-2640) to Claude Code and Codex. Skills your MCP servers serve are listed, approved once, loaded, and checked against the server's digests.
 ---
 
 # Skills
 
-`mcp-skills` lets Claude use the [skills](https://agentskills.io/) your MCP
-servers serve: they appear in Claude's skill listing, Claude loads one when a
-task calls for it, and reads the files it refers to as it needs them. Nothing is
+`mcp-skills` lets your agent use the [skills](https://agentskills.io/) your
+MCP servers serve: they appear next to your own skills, the agent loads one
+when a task calls for it, and reads the files it refers to as it needs them. Nothing is
 installed locally, and you approve each skill once. It adds the client side of
 the MCP **Skills** extension, `io.modelcontextprotocol/skills`
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md),
-Final), which Claude Code does not support by itself yet.
+Final), which neither host supports by itself yet (for Codex,
+openai/codex#48000).
 
 <Recording
   cut="skills"
@@ -20,12 +21,23 @@ Final), which Claude Code does not support by itself yet.
 
 ## Install
 
-```
+::: code-group
+
+```txt [Claude Code]
 /plugin install mcp-skills --marketplace idosal/AgentPolyfill
 ```
 
-Or in a terminal, `claude plugin install mcp-skills --marketplace idosal/AgentPolyfill`.
-That is the whole install: no settings to fill in, nothing to configure per
+```bash [Codex]
+codex plugin marketplace add idosal/AgentPolyfill
+codex plugin add mcp-skills@agent-polyfill
+```
+
+:::
+
+### In Claude Code
+
+The terminal form is `claude plugin install mcp-skills --marketplace idosal/AgentPolyfill`.
+That's the whole install: no settings to fill in, nothing to configure per
 server. You need:
 
 - **Claude Code 2.1.329 or newer** (the version it was tested on), with mods.
@@ -45,37 +57,44 @@ The mod downloads nothing unless you type that command.
 
 ### In Codex
 
-Skills also works in OpenAI Codex, as a plugin, and is early there: served
-skills appear in Codex's skill list (from the session after a server first
-serves them), are loaded after a per-skill yes in Codex's own form, and are
-verified against the server's digests. Servers behind OAuth are out of reach,
-and a cross-server resource read (X8) is not gated. Install it in a terminal:
+Codex 0.172 (the version it was tested on), with Node 20 or newer. Served
+skills appear in Codex's own skill list from the session after a server first
+serves them, load after a yes for each one in Codex's own form, and are
+checked against the server's digests. One rule of the spec can't be met in
+Codex yet: a skill from one server reading another server's resources isn't
+put to you first (rule X8), because Codex doesn't let a plugin ask.
 
-```bash
-codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-skills@agent-polyfill
-```
-
-The rest of this page is about the Claude Code form. The Codex form's
-requirements, limits and tests are in its README,
-[`polyfills/skills/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex), and
-[Getting started](./getting-started#codex) has a first run.
+The sections below describe the Claude Code plugin. Where the Codex plugin
+differs, its README says so:
+[`polyfills/skills/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex).
 
 ## Try it
 
 Add Hugging Face's public MCP server. It serves skills, and needs no account
 for this:
 
-```bash
+::: code-group
+
+```bash [Claude Code]
 claude mcp add --transport http huggingface https://huggingface.co/mcp
 ```
 
-Start `claude` in the same folder and ask something one of its skills covers:
+```bash [Codex]
+codex mcp add huggingface --url https://huggingface.co/mcp
+```
+
+:::
+
+In Codex, the served skills appear in the `$` list from your next session.
+Start `claude` or `codex` in the same folder and ask something one of its
+skills covers:
 
 > Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?
 
-Claude finds `huggingface-local-models` in its skill listing and loads it.
-Claude Code asks you once whether to load that skill. Claude then reads the
-skill's reference files from the server and answers from them.
+The agent finds `huggingface-local-models` among its skills and loads it. The
+host asks you once whether to load that skill. The agent then reads the
+skill's reference files from the server and answers from them. In Claude Code,
+these commands help:
 
 | Command | What it does |
 |---|---|

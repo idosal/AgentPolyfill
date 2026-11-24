@@ -7,20 +7,21 @@ aside: false
 
 AgentPolyfill is a community project by
 [Ido Salomon](https://github.com/idosal): polyfills for agent protocols. Each
-one brings a published protocol extension to agent hosts that have not shipped
-it yet. Today that is four MCP extensions and one open draft beyond MCP, in
-Claude Code and Codex.
+one lets you run a protocol extension in the clients you already use,
+before they support it. Today that's four MCP extensions and one open draft
+beyond MCP, and it works in Claude Code and Codex.
 
 ## Not affiliated
 
-AgentPolyfill is not part of the MCP specification and is not affiliated with or
-endorsed by the MCP project, the Agentic AI Foundation, the Linux Foundation,
-Anthropic, any host vendor, or the authors of Agentic Resource Discovery. The
-author works in the MCP Apps working group;
-this is not working-group output.
+AgentPolyfill isn't part of the MCP specification, and it isn't affiliated
+with or endorsed by the MCP project, the Agentic AI Foundation, the Linux
+Foundation, Anthropic, OpenAI or any other host vendor, or the authors of
+Agentic Resource Discovery. The author works in the MCP Apps working group;
+this isn't working-group output.
 
 Model Context Protocol and MCP are trademarks of LF Projects, LLC. Claude and
-Claude Code are trademarks of Anthropic, PBC.
+Claude Code are trademarks of Anthropic, PBC. OpenAI and Codex are trademarks
+of OpenAI.
 
 ## Licence
 

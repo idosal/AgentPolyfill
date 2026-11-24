@@ -30,6 +30,10 @@ Apps (`io.modelcontextprotocol/ui`) as published in `specification/2026-01-26`
 Or in a terminal, `claude plugin install mcp-apps-cli --marketplace idosal/AgentPolyfill`.
 Start a new `claude` session for it to load.
 
+Apps isn't in Codex yet. Codex gives a plugin no way to draw in its terminal,
+and its terminal doesn't declare MCP Apps to servers, which no plugin can
+change ([How it works](./how-it-works#how-a-plugin-plugs-in-today)).
+
 The plugin is one zip, attached to a release of the repository and checked
 against the SHA-256 in the repository's marketplace file before Claude Code
 unpacks it. It carries a small helper program for each platform and needs

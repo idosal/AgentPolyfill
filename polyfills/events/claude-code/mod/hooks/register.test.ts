@@ -169,7 +169,7 @@ test("the helper is told when the person speaks, and not when a plugin's prompt 
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   await settle()
   // A prompt submitted here is a plugin's, as the mod's own wake is.
-  await $.prompt.submit({ text: '[mcp-events] deploys · deploy.finished: 1 new event' })
+  await $.prompt.submit({ text: '[mcp-events] deploys · deploy.finished: 1 new event', wait: false, origin: { kind: 'plugin', name: 'mcp-events' } })
   await settle()
   expect(seen.calls.filter((c) => c.route === '/spoke').length).toBe(0)
   expect(['composer', 'bridge', 'sdk'].map(isThePersons)).toEqual([true, true, true])

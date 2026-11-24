@@ -8,7 +8,15 @@ import { describe, test } from 'node:test';
 import { isThePersons, threadOf } from '../src/meta.ts';
 import { codexNotFound, findCodex, queueMessage, remoteOf } from '../src/waker.ts';
 import { TOOLS } from '../src/words.ts';
-import { FAKE_CODEX, newThread, startHelper, temp, world } from './harness.ts';
+import { eventIdsIn, FAKE_CODEX, newThread, startHelper, temp, world } from './harness.ts';
+
+describe('the tests read event ids exactly', () => {
+    test('an id in a watch id ("w-9ee342" holds "e3") is not an event; only "[event eN, watch" counts', () => {
+        const text = '[mcp-events] tickets · ticket.created: title=one [event e1, watch w-9ee342; get_event e1 returns the record].\n[mcp-events] tickets · ticket.created: title=two [event e2, watch w-9ee342; get_event e2 returns the record].';
+        assert.deepEqual(eventIdsIn(text), ['e1', 'e2']);
+        assert.match(text, /e3/, 'the bare pattern the restart test used would have matched');
+    });
+});
 
 describe("what Codex says in a call's _meta", () => {
     test('the session is _meta.threadId, else the turn metadata thread_id; anything that is not a Codex session id is no session', () => {
