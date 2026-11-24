@@ -1,0 +1,23 @@
+{
+  "name": "mcp-events-relay",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "description": "A mailbox for MCP Events webhooks: gives a local MCP client a stable public address, holds deliveries until the client collects them, and never holds a signing secret.",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "WRANGLER_WRITE_LOGS=false wrangler dev --local --log-level error",
+    "test": "node --test --no-warnings \"test/*-test.ts\"",
+    "typecheck": "tsc --noEmit -p .",
+    "deploy": "wrangler deploy",
+    "setup": "node scripts/setup.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261119.1",
+    "@types/node": "^22.10.0",
+    "typescript": "~5.9.3",
+    "wrangler": "^4.165.0"
+  }
+}

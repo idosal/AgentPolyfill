@@ -1,0 +1,38 @@
+{
+  "name": "claude-events-mod",
+  "private": true,
+  "version": "0.3.4",
+  "type": "module",
+  "description": "A Claude Code mod that adds MCP Events (SEP-3415) support: Claude can watch events on your MCP servers and react when they happen.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test --no-warnings \"test/*-test.ts\"",
+    "typecheck": "tsc --noEmit -p .",
+    "build": "node build.mjs",
+    "interop": "cd test/interop && npm install --silent && cd ../.. && node --no-warnings test/interop/run.ts",
+    "test:mod": "claude plugin test mod",
+    "perf": "node build.mjs && PERF_RUNTIME='node --no-warnings' node --no-warnings test/perf.ts",
+    "typecheck:interop": "tsc --noEmit -p test/interop",
+    "validate": "claude plugin validate ."
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.9.3",
+    "esbuild": "0.28.2"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idosal/claude-events-mod.git"
+  }
+}
