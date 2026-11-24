@@ -7,8 +7,8 @@
 (* time, and the person speaking. One watch.                               *)
 (*                                                                         *)
 (* Written by hand from wake.qnt, action for action and with the same      *)
-(* state (one record, s), so that a trace of one is a trace of the other:  *)
-(* model/conform.mjs replays traces of the Quint model in this one.        *)
+(* state (one record, s), so that Quint's traces can be replayed here as   *)
+(* they are: model/conform.mjs does that.                                  *)
 (* FIX = TRUE is the client from 0.5.0, FALSE is 0.4.1.                    *)
 (***************************************************************************)
 EXTENDS Integers, Sequences, FiniteSets

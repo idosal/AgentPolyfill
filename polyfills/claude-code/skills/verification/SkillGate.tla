@@ -7,10 +7,10 @@
 (* second server is only a place resources can be read from.               *)
 (*                                                                         *)
 (* Written by hand from skillGate.qnt, action for action and invariant for *)
-(* invariant, with the same three variables (st, ev, kept), so that a      *)
-(* trace of one is a trace of the other (verification/conform.mjs replays  *)
-(* traces of the Quint model in this one). docs/verification.md maps each  *)
-(* part to the code and says what checking it shows.                       *)
+(* invariant, with the same three variables (st, ev, kept), so that Quint's *)
+(* traces can be replayed here as they are (verification/conform.mjs does  *)
+(* that). docs/verification.md maps each part to the code and says what    *)
+(* checking it shows.                                                      *)
 (***************************************************************************)
 EXTENDS Integers
 
