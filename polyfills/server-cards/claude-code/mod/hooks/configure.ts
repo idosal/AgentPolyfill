@@ -11,7 +11,7 @@
 // `$`, a secret reference is named for this card alone, and a secret may not
 // stand where it could change which host is reached.
 
-import { hasUserinfo, PLAIN_URL, UNSAFE_TEXT, type Input, type Remote, type ServerCard } from './card'
+import { hasUserinfo, INVISIBLE_TEXT, PLAIN_URL, UNSAFE_TEXT, type Input, type Remote, type ServerCard } from './card'
 import { isAllowedUrl, isPrivateHost } from './discover'
 import { base32, sha256 } from './sha256'
 
@@ -76,10 +76,12 @@ export const isCompatible = (remote: Remote) =>
   !remote.supportedProtocolVersions?.length ||
   remote.supportedProtocolVersions.some(v => host.protocolVersions.includes(v))
 
-// RFC 9110 field-name (token); a value may hold no control character or
-// invisible formatting mark (card.ts UNSAFE_TEXT), CR and LF among them.
+// RFC 9110 field-name (token); a value that is written may hold no control
+// character or invisible formatting mark (card.ts UNSAFE_TEXT), CR and LF among
+// them, nor a character that shows as nothing (INVISIBLE_TEXT): the question
+// shows values without those, so the value written would not be the one asked about.
 const HEADER_NAME = /^[!#%&'*+.^_`|~0-9A-Za-z-]+$/
-const BAD_VALUE = UNSAFE_TEXT
+const BAD_VALUE = { test: (v: string) => UNSAFE_TEXT.test(v) || INVISIBLE_TEXT.test(v) }
 // A value put into the URL after its start may hold only unreserved
 // characters (RFC 3986), so it cannot change the host, path, query or fragment.
 const URL_VALUE = /^[A-Za-z0-9._~-]+$/

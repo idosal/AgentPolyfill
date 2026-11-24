@@ -61,6 +61,11 @@ The rules are the same in both forms:
 
 - A card holding a control character or an invisible formatting or direction
   mark is refused.
+- Other characters that show as nothing don't get a card refused (an emoji's
+  variation selector is one), but they're taken out of everything shown, to
+  you and to the model: a soft hyphen, variation selectors, and tag
+  characters, which can carry text nobody sees. A line separator is shown as a
+  space.
 - A remote URL must be printable ASCII, with no `` ` ``, `<`, `>` or square
   brackets outside an IPv6 host. So must every other URL from a card or a
   finder that is shown (security review C1). So a host that renders the form
@@ -69,6 +74,9 @@ The rules are the same in both forms:
   one host and connects to another (C3). The form names the host first, since
   some clients join its lines, and again on a line of its own.
 - A card's fixed header values hold no markup (C4).
+- A header value that would be written, from the card or given, is refused if
+  it holds a character that shows as nothing, so the value written is the one
+  you were asked about.
 - Everything shown passes a plain-text filter, line by line.
 
 ### What it writes
