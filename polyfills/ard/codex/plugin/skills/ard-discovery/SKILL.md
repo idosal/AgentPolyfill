@@ -14,7 +14,7 @@ The `ard-discovery` MCP server has three tools.
 How to use them:
 
 - Prefer `ard_discover` when the person names a company or domain: it sends nothing but plain GETs to that domain.
-- Use `ard_search` only for a task with no named service. Write the query in plain words on one line, under 300 characters, with nothing private in it: the registry sees it.
+- Use `ard_search` only for a task with no named service. Write the query in plain words on one line, under 300 characters, with no `` ` ``, `<`, `>` or square brackets, with nothing private in it: the registry sees it.
 - Report which registry answered. Its order is its relevance ranking, not a judgement of trust. Say which results their publisher confirms ("CONFIRMED") and which it doesn't.
 - To add one, tell the person which server it is, the URL it connects to and whether its publisher confirms it, then call `add_mcp_server` with its `identifier` and that URL (and `domain` only for a server `ard_discover` found).
 - After the add, pass on the undo command, any environment variable to set, and `codex mcp login <name>` if the server needs a sign-in.

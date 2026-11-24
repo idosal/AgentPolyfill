@@ -16,7 +16,7 @@ It runs the same registry client as the Claude Code form ([its SECURITY.md](../c
 **Search sends your query to a third party.** `ard_search` makes one `POST` of the query text to the registry's `/search` endpoint, with a filter for Server Cards and `federation: "referrals"`, then the same `POST` to at most three registries that registry refers to, one hop, and no further. With the default setting, that registry is a Hugging Face Space at `https://huggingface-hf-discover.hf.space`.
 - **Each search asks you first,** through Codex's form (MCP elicitation): `Send this search to <endpoints>, and to up to three registries it refers to?`, then the query. A registry named by domain is resolved first, by reading that domain's catalogs (a `GET`, no query), so the form names the exact endpoints.
 - **Nothing is sent** if Codex's client offers no form, or if you decline or close it. Under `--ask-for-approval never` and in `codex exec`, Codex declines the form itself, so nothing is sent. Under `--dangerously-bypass-approvals-and-sandbox`, Codex accepts the form itself, so the search is sent without asking you, as every tool runs without asking in that mode. See [the table](../../server-cards/codex/README.md#which-codex-modes-ask-you).
-- **What is sent is what you saw:** a query over 300 characters, or with control characters, invisible characters or direction marks, is refused before you are asked.
+- **What is sent is what you saw:** a query over 300 characters, or with control characters, invisible characters, direction marks, or `` ` ``, `<`, `>` or square brackets (Markdown or HTML, which a host could render as something else in the form), is refused before you are asked.
 - **Only where you were told.** A registry that redirects the search to another origin, or with a 301, 302 or 303 that would turn it into a `GET`, is not followed. A referral is a registry the first one names, and the form says up to three of those may be asked; every result names each registry that was.
 - Only the words in `query` are sent, with `Content-Type`, `Accept` and a `User-Agent` naming the plugin: no cookie, no credential, no file. The query is not stored.
 
@@ -28,7 +28,7 @@ It runs the same registry client as the Claude Code form ([its SECURITY.md](../c
 
 ## Text that displays as something else
 
-The rules of `mcp-server-cards`: a result whose card URL or remote URL, a registry URL a catalog names, or where a result was found holds `` ` ``, `<`, `>` or a square bracket outside an IPv6 host is refused, so the form can't show a link text in place of a URL (security review C1). The query is shown verbatim, in quotes.
+The rules of `mcp-server-cards`: a result whose card URL or remote URL, a registry URL a catalog names, or where a result was found holds `` ` ``, `<`, `>` or a square bracket outside an IPv6 host is refused, so the form can't show a link text in place of a URL (security review C1). The query is shown verbatim, in quotes, and holds none of those characters either.
 
 ## Where it won't go
 
