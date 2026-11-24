@@ -232,7 +232,7 @@ export const register: Register = (on, options) => {
     for (const s of d.servers) {
       if (!s.card) continue
       discovered.set(shownKey(d.origin, s.identifier), { card: s.card, isLocal: s.isLocal })
-      offered.push(...picksFor(s.card, s.identifier, `published by ${new URL(d.origin).host}`, null, `published by ${d.origin}`, s.isLocal))
+      offered.push(...picksFor(s.card, s.identifier, `listed by ${new URL(d.origin).host}`, null, `listed in ${d.origin}'s catalog`, s.isLocal))
     }
     if (showPicker) await keepPicks($, e.tool_use_id, offered)
     return { result: formatDiscovery(d) + (showPicker && offered.length ? pickerLine : '') }
@@ -312,7 +312,7 @@ export const register: Register = (on, options) => {
         }
       card = shown.card
       fromLocal = shown.isLocal
-      provenance = `published by ${target.origin}`
+      provenance = `listed in ${target.origin}'s catalog`
     } else {
       const hit = searched.get(identifier)
       if (!hit?.installCard)

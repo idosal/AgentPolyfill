@@ -82,7 +82,7 @@ Ask Claude "What MCP servers does buildkite.com publish?", then press **Add** un
 ### A domain that redirects
 
 Some domains answer with a redirect to another domain: `neon.tech` sends `/.well-known/ai-catalog.json`, and every other path, to `neon.com`.
-- Claude Code's fetch follows redirects without saying where they led. So the polyfill can't tell, and it shows the catalog under the domain you asked for: for `neon.tech`, "listed in https://neon.tech/.well-known/ai-catalog.json" and "published by neon.tech", though `neon.com` served it.
+- Claude Code's fetch follows redirects without saying where they led. So the polyfill can't tell, and it shows the catalog under the domain you asked for: for `neon.tech`, "listed in https://neon.tech/.well-known/ai-catalog.json" and "listed by neon.tech", though `neon.com` served it. "Listed by" is all the polyfill can say: neon.tech's own server pointed there, as a catalog may point at cards on other domains.
 - The card URLs inside are shown as the catalog wrote them (here, on `neon.com`).
 - To see the origin that really serves a catalog, ask for the domain the company uses itself (`neon.com`).
 
