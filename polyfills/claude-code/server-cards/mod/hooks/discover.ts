@@ -59,6 +59,8 @@ export type Discovery = {
   origin: string
   /** the domain is this machine or its own network (local development) */
   isLocal: boolean
+  /** the ARD draft's parts were used (the `ard` setting) */
+  ard: boolean
   sources: Source[]
   servers: FoundServer[]
   registries: Registry[]
@@ -308,13 +310,15 @@ export const discover = async (
   input: string,
   options: DiscoverOptions = {},
 ): Promise<Discovery | { error: string }> => {
-  const ard = options.ard !== false
+  // Off unless asked for: the polyfill is SEP-2127 and what it references.
+  const ard = options.ard === true
   const target = parseTarget(input)
   if ('error' in target) return target
   const { origin, page, isLocal } = target
   const result: Discovery = {
     origin,
     isLocal,
+    ard,
     sources: [],
     servers: [],
     registries: [],
@@ -456,10 +460,12 @@ export const discover = async (
       try {
         links = JSON.parse(res.text)
       } catch {}
-      source.state = links.length ? 'found' : 'absent'
-      source.note = links.length
-        ? `${links.length} rel="ard"/"ai-catalog" link${links.length === 1 ? '' : 's'}`
-        : 'no rel="ard" or rel="ai-catalog" link'
+      const usable = ard ? links : links.filter(l => l.rel !== 'ard')
+      const names = ard ? 'rel="ard" or rel="ai-catalog"' : 'rel="ai-catalog"'
+      source.state = usable.length ? 'found' : 'absent'
+      source.note = usable.length
+        ? `${usable.length} ${names} link${usable.length === 1 ? '' : 's'}`
+        : `no ${names} link`
       return links
     } catch (err) {
       source.state = 'error'

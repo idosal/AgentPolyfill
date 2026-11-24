@@ -124,3 +124,37 @@ test('B-5 with `ard` off: no ard.json, no rel="ard", no registry search', { opti
   }
   expect(refused).toBe(true)
 })
+
+test('B-6 with `ard` turned on: ard.json is read and registry search is offered', { options: { ard: true } }, async ($, on) => {
+  const fetched: string[] = []
+  const registered: string[] = []
+  on('tool.register', (_, e) => {
+    registered.push(e.name)
+    return { value: { tool: `mcp__mcp-server-cards__${e.name}` } }
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('http.fetch', (_, e) => {
+    fetched.push(e.url)
+    if (e.url === 'https://buildkite.com/.well-known/ard.json')
+      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify(fixtures.catalogs['buildkite.com']) } }
+    if (e.url === 'https://mcp.buildkite.com/mcp/server-card')
+      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify(fixtures.live['mcp.buildkite.com_mcp_server-card']) } }
+    return { value: { status: 404, ok: false, headers: {}, text: '' } }
+  })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  expect(registered.includes('search_mcp_servers')).toBe(true)
+  const d = await $.tool.call({ tool: DISCOVER, domain: 'buildkite.com' })
+  expect(fetched.includes('https://buildkite.com/.well-known/ard.json')).toBe(true)
+  expect(String(d.result).includes('urn:air:buildkite.com:mcp:buildkite')).toBe(true)
+})
+
+test('B-7 by default registry search is not offered', async ($, on) => {
+  const registered: string[] = []
+  on('tool.register', (_, e) => {
+    registered.push(e.name)
+    return { value: { tool: `mcp__mcp-server-cards__${e.name}` } }
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  expect(registered).toEqual(['discover_mcp_servers', 'add_mcp_server'])
+})

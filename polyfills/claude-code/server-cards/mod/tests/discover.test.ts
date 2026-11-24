@@ -1,5 +1,9 @@
 import { expect, test } from 'claude-code/testing'
-import { discover, findCatalogLinks, isPrivateHost, parseTarget, type Deps } from '../hooks/discover'
+import { discover as discoverWith, findCatalogLinks, isPrivateHost, parseTarget, type Deps } from '../hooks/discover'
+
+// Most tests here exercise the ARD paths too (ard.json, rel="ard"), so they
+// run with ARD on; DEF-1 and DEF-2 hold the default, which is off.
+const discover = (deps: Deps, input: string) => discoverWith(deps, input, { ard: true })
 import type { Fetch } from '../hooks/http'
 import { fixtures } from './fixtures'
 
@@ -441,4 +445,29 @@ test('C-9 the cache cap holds under concurrent writes, and sizes are bytes', asy
   await discover(deps, 'euro.example')
   const keys = await deps.store.keys()
   expect(keys.some(k => k.includes('euro.example/.well-known/ard.json'))).toBe(false)
+})
+
+// The default (ard off): exactly what SEP-2127 and the AI Catalog it relies on name.
+test('DEF-1 by default only /.well-known/ai-catalog.json is read, not ard.json', async () => {
+  const { deps, calls } = web({
+    'https://example.com/.well-known/ai-catalog.json': { body: catalog([entry('x', 'https://example.com/card')]) },
+    'https://example.com/.well-known/ard.json': { body: catalog([entry('y', 'https://example.com/card2')], null) },
+    'https://example.com/card': { body: CARD },
+  })
+  const d = await discoverWith(deps, 'example.com')
+  if ('error' in d) throw new Error(d.error)
+  expect(calls.some(c => c.url === 'https://example.com/.well-known/ard.json')).toBe(false)
+  expect(d.servers.map(s => s.identifier)).toEqual(['x'])
+})
+
+test('DEF-2 by default rel="ard" is not followed; rel="ai-catalog" (AI Catalog) is', async () => {
+  const { deps, calls } = web({
+    'https://example.com/docs': { body: '<link rel="ard" href="/a.json"><link rel="ai-catalog" href="/c.json">' },
+    'https://example.com/c.json': { body: catalog([entry('x', 'https://example.com/card')]) },
+    'https://example.com/card': { body: CARD },
+  })
+  const d = await discoverWith(deps, 'https://example.com/docs')
+  if ('error' in d) throw new Error(d.error)
+  expect(calls.some(c => c.url === 'https://example.com/a.json')).toBe(false)
+  expect(d.servers.map(s => s.identifier)).toEqual(['x'])
 })
