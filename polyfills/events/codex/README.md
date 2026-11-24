@@ -333,7 +333,8 @@ The changes both hosts would need are in
   sends with each call (`turn_trigger`: `user`, `exec`, or voice). With an
   older Codex, or a turn it marks otherwise, the pause ends only after its
   hour. With the session open in two windows, only a turn in the window that
-  runs its watches counts. Nothing is dropped: `recent_events` lists what
+  runs its watches counts. That's the window whose `list_watches` shows them
+  active; the other shows them as `elsewhere`. Nothing is dropped: `recent_events` lists what
   waited. Two [settings](#settings) change the numbers.
 - **The wake is an input message.** Codex has no separate channel for a
   plugin's message, so it appears in the conversation like something typed,

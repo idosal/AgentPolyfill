@@ -67,7 +67,8 @@ export class ThreadSession {
     /** Why the last wake failed, until one succeeds: list_watches says so. */
     lastWakeError?: string;
     /** The last wake's `codex queue` did not answer (it timed out): counted as handed over, not tried again. */
-    #unanswered = false;
+    /** What the last `codex queue` that didn't answer carried: a batch, or the notice. */
+    #unanswered: 'batch' | 'notice' | undefined;
     /**
      * Why this session can never be woken, once `codex queue` has said so (a ChatGPT desktop-app chat,
      * which is not a local Codex session). Its events are still stored and readable; it is not tried again.
@@ -131,8 +132,10 @@ export class ThreadSession {
     async call(name: string, input: Record<string, unknown>): Promise<ToolAnswer> {
         const answer = await this.#tools.call(name, input);
         if (name === 'list_watches' && this.unwakeable) return { ...answer, text: `${answer.text}\n\nThis chat can't be woken: it isn't a local Codex session, which is all codex queue reaches (a ChatGPT desktop-app chat, say). Its watches still store every event: recent_events and get_event read them. Waking works in the Codex TUI.` };
-        if (name === 'list_watches' && this.lastWakeError && this.#unanswered)
+        if (name === 'list_watches' && this.lastWakeError && this.#unanswered === 'batch')
             return { ...answer, text: `${answer.text}\n\nThe last wake's codex queue did not answer (${this.lastWakeError}), so it may not have woken this session. Its events count as handed over and are not handed over again; recent_events lists them.` };
+        if (name === 'list_watches' && this.lastWakeError && this.#unanswered === 'notice')
+            return { ...answer, text: `${answer.text}\n\nThe codex queue that was to tell this session that waking had stopped did not answer (${this.lastWakeError}), so the session may not have been told. Waking stays paused; the events that wait are stored, handed over once the pause ends, and recent_events lists them.` };
         if (name === 'list_watches' && this.lastWakeError) return { ...answer, text: `${answer.text}\n\nWaking this session failed the last time it was tried (${this.lastWakeError}); it is tried again.` };
         return answer;
     }
@@ -166,18 +169,18 @@ export class ThreadSession {
         this.#timer.unref?.();
     }
 
-    async #queue(text: string): Promise<QueueResult> {
+    async #queue(text: string, carries: 'batch' | 'notice'): Promise<QueueResult> {
         const r = await this.#wake(this.id, text);
-        this.#unanswered = false;
+        this.#unanswered = undefined;
         if (r.ok) {
             this.lastWakeError = undefined;
             this.#retryMs = 0;
             if (!r.resumed) this.#log('codex queue took the message but could not resume the session; it runs when the session is next opened');
         } else if (r.maybe) {
-            // It may have queued the message: counted as handed over, never handed over again.
-            // list_watches says so, as it may not have woken the session.
+            // It may have queued the message: a batch counts as handed over, never handed over again;
+            // the notice counts as given. list_watches says so, as it may not have reached the session.
             this.lastWakeError = r.why;
-            this.#unanswered = true;
+            this.#unanswered = carries;
             this.#retryMs = 0;
             this.#log(`${r.why}; it may have queued the message, so it counts as handed over`);
         } else if (r.unreachable) {
@@ -222,7 +225,7 @@ export class ThreadSession {
             if (gate.kind === 'notice') {
                 // The events stay where they are; the session is told, once, that waking has stopped.
                 this.budget.handNotice();
-                const r = await this.#queue([WAKE_HEADER, this.budget.notice(batch.events)].join('\n'));
+                const r = await this.#queue([WAKE_HEADER, this.budget.notice(batch.events)].join('\n'), 'notice');
                 if (r.ok || r.maybe) {
                     this.budget.pause();
                     return;
@@ -240,12 +243,12 @@ export class ThreadSession {
             // handing it over a second time (a wake no budget knew of). Not recorded, not handed over.
             if (!this.budget.handBatch(batch.watches, batch.upto)) {
                 this.lastWakeError = 'the hand-over could not be recorded: wakes.json could not be saved';
-                this.#unanswered = false;
+                this.#unanswered = undefined;
                 this.#log(`${this.lastWakeError}; the session is not woken until it can be`);
                 again = Math.max(MIN_RETRY_MS, this.#retryMs);
                 return;
             }
-            const r = await this.#queue([WAKE_HEADER, ...batch.lines].join('\n'));
+            const r = await this.#queue([WAKE_HEADER, ...batch.lines].join('\n'), 'batch');
             if (!r.ok && !r.maybe) {
                 // Codex said it did not take it: nothing was handed over. Tried again later, unless no
                 // try can ever reach this session.

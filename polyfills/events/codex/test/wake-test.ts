@@ -198,6 +198,38 @@ describe('a hand-over the helper never heard back about (the wake model, TLC)', 
         }
     });
 
+    test("the notice's codex queue times out: list_watches says the session may not have been told, not that the events were handed over", async () => {
+        const base = temp('mcp-events-codex-notice-maybe-');
+        const thread = newThread();
+        const texts: string[] = [];
+        const s = new ThreadSession(thread, {
+            base,
+            connections: new Map(),
+            unavailable: () => [],
+            wake: async (_id: string, text: string) => {
+                texts.push(text);
+                // The hour's one wake goes through; the notice after it gets no answer.
+                return texts.length === 1 ? { ok: true, resumed: true } : { ok: false, why: 'codex queue did not finish within 60 s', maybe: true };
+            },
+            log: () => {},
+            env: { MCP_EVENTS_WAKE_GAP_S: '0', MCP_EVENTS_BATCH_MS: '50', MCP_EVENTS_WAKES_PER_HOUR: '1' }
+        });
+        try {
+            assert.equal(s.start(), true);
+            s.spool.append({ kind: 'event', watch: 'w-aaaaaa', server: 'tickets', event: 'ticket.created', eventId: 'a1', data: {} });
+            await waitFor(() => texts.length === 1, 5000, 'the wake');
+            s.spool.append({ kind: 'event', watch: 'w-aaaaaa', server: 'tickets', event: 'ticket.created', eventId: 'a2', data: {} });
+            await waitFor(() => texts.length === 2, 5000, 'the notice');
+            assert.match(texts[1]!, /has stopped waking it/);
+            const text = (await s.call('list_watches', {})).text;
+            assert.match(text, /The codex queue that was to tell this session that waking had stopped did not answer \(codex queue did not finish within 60 s\), so the session may not have been told\. Waking stays paused/);
+            assert.doesNotMatch(text, /count as handed over/, 'the waiting events are not said to be handed over');
+            assert.equal(wakesOf(base, thread).paused, true, 'the notice counts as given: waking is paused');
+        } finally {
+            await s.stop();
+        }
+    });
+
     test('a hand-over that cannot be recorded is not made: codex queue is not run, list_watches says why, and it is tried again once it can be', async () => {
         const base = temp('mcp-events-codex-unsaved-');
         const thread = newThread();
