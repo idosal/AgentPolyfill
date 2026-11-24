@@ -3,9 +3,10 @@ import { computed, ref } from 'vue'
 
 const props = defineProps<{ command: string; label?: string }>()
 const copied = ref(false)
-// Where a wrapped command may break: after a dot, after "//", and after a
-// slash that ends a path segment, so a URL never splits inside a word.
-const parts = computed(() => props.command.split(/(?<=\.|[^/:]\/|\/\/)/))
+// Where a wrapped command may break: after a space, after a dot, after "//",
+// and after a slash that ends a path segment. Each piece between those is kept
+// whole, so neither a URL nor a flag like --marketplace splits at a hyphen.
+const parts = computed(() => props.command.split(/(?<=\s|\.|[^/:]\/|\/\/)/))
 let timer: ReturnType<typeof setTimeout> | undefined
 
 async function copy() {
@@ -22,7 +23,7 @@ async function copy() {
 
 <template>
   <div class="ap-cmd">
-    <code :aria-label="label"><template v-for="(part, i) in parts" :key="i"><wbr v-if="i" />{{ part }}</template></code>
+    <code :aria-label="label"><template v-for="(part, i) in parts" :key="i"><wbr v-if="i" /><span class="piece">{{ part }}</span></template></code>
     <button type="button" :data-copied="copied" :aria-label="copied ? 'Copied' : 'Copy command'" @click="copy">
       <svg v-if="!copied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
         <rect x="5.25" y="5.25" width="8" height="8" rx="1.5" />
@@ -35,3 +36,9 @@ async function copy() {
     </button>
   </div>
 </template>
+
+<style scoped>
+.piece {
+  white-space: nowrap;
+}
+</style>

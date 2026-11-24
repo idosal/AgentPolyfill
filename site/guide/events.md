@@ -13,8 +13,8 @@ Final), which Claude Code does not support by itself yet.
 
 <Recording
   cut="events"
-  alt="One sentence to Claude Code gives a private button page and a watch, and the session goes idle. Someone types ship it on the page and presses the button; the idle session wakes by itself and says what was typed."
-  caption="A real session against the hosted demo server (21 s, waits shortened). One sentence gives a private button page and a watch, and the session goes idle. Someone types on the page and presses the button; the idle session wakes by itself and says what was typed."
+  alt="One sentence to Claude Code, Give me a demo button, starts a watch and gives a private button page, and the session goes idle. On the page, ship it is typed and Press is pressed; the idle session wakes by itself, reads the event and says the message was ship it."
+  caption="A real session against the hosted demo server (21 s; waits sped up, with a badge saying how fast). One sentence gives a private button page and a watch, and the session goes idle. A press on the page wakes it."
 />
 
 ## Install

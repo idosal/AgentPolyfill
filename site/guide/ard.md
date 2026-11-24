@@ -15,6 +15,12 @@ servers in two ways:
 - **By task.** It asks an ARD registry for a server that can do something, in
   plain words.
 
+<Recording
+  cut="ard"
+  alt="In Claude Code, the question What does buildkite.com list via ARD? reads buildkite.com's own listing, and a picker shows the Buildkite MCP server with an Add button. Claude says buildkite.com lists one MCP server and has not added it."
+  caption="A real session (15 s, ard-discovery 0.1.3): buildkite.com's own listing, found from its domain. A domain lookup sends no query to a registry."
+/>
+
 It only finds. Each Server Card it finds goes to
 [`mcp-server-cards`](./server-cards), which checks it against the schema and
 shows it under the answer with an **Add** button. For a search result,

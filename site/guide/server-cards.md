@@ -29,7 +29,7 @@ does not support by itself yet:
 <Recording
   cut="server-cards"
   alt="In Claude Code, the question What MCP servers does neon.com publish? lists Neon and Neon Docs from neon.com's own catalog, each with an Add button. Add is pressed on Neon Docs, which is marked added, with a note to run /mcp to connect or sign in."
-  caption="A real session (21 s, recorded with 0.1.0): neon.com's two servers, found from its domain. Add on Neon Docs writes it to Claude Code's config; connecting is left to /mcp."
+  caption="A real session (16 s, mcp-server-cards 0.1.1): neon.com's two servers, found from its domain. Add on Neon Docs writes it to Claude Code's config; connecting is left to /mcp."
 />
 
 ## Install
