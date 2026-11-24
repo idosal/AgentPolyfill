@@ -338,12 +338,12 @@ var parseLinkHeader = (value) => {
     if (close < 0) break;
     const href = value.slice(open + 1, close);
     let j = close + 1;
-    let quoted2 = false;
+    let quoted = false;
     let params = "";
     for (; j < value.length; j++) {
       const c = value[j];
-      if (c === '"' && value[j - 1] !== "\\") quoted2 = !quoted2;
-      if (c === "," && !quoted2) break;
+      if (c === '"' && value[j - 1] !== "\\") quoted = !quoted;
+      if (c === "," && !quoted) break;
       params += c;
     }
     let rel = "";
@@ -1632,6 +1632,8 @@ var originOf = (input) => {
 };
 
 // polyfills/ard/claude-code/mod/hooks/registry.ts
+var UNSEEN = new RegExp("[\\s\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u2069\\ufeff]|\\p{Default_Ignorable_Code_Point}", "gu");
+var registryText = (s, max) => JSON.stringify(s.replace(UNSEEN, " ").replace(/ +/g, " ").trim().slice(0, max));
 var CARD_TYPE2 = "application/mcp-server-card+json";
 var MAX_REGISTRIES = 3;
 var MAX_REFERRALS = 3;
@@ -1684,7 +1686,7 @@ var search = async (post, text, endpoints) => {
           code = [err.errorCode, err.message].filter((x) => typeof x === "string").join(": ");
         } catch {
         }
-        call.note = `HTTP ${res.status}${code ? ` (${code.slice(0, 200)})` : ""}`;
+        call.note = `HTTP ${res.status}${code ? ` (the registry says ${registryText(code, 200)})` : ""}`;
         return;
       }
       let body;
@@ -1735,10 +1737,10 @@ var search = async (post, text, endpoints) => {
           } catch {
           }
           if (u && mayFollow2(u, fromLocal)) referrals.push(u.href);
-          else out.problems.push(`${endpoint}: referral ${String(ref.url).slice(0, 200)} is not HTTPS on a public host; not followed`);
+          else out.problems.push(`${endpoint}: referral ${registryText(String(ref.url), 200)} is not HTTPS on a public host; not followed`);
         }
     } catch (err) {
-      call.note = err instanceof Error ? err.message : String(err);
+      call.note = (err instanceof Error ? err.message : String(err)).replace(UNSEEN, " ").replace(/ +/g, " ").trim().slice(0, 300);
     }
   };
   const first = [...new Set(endpoints)];
@@ -1765,13 +1767,13 @@ var ARD_SOURCES = { catalogs: [{ url: "/.well-known/ard.json", requireVersion: f
 var SHOWN_QUERY = 300;
 var SHOWN_REGISTRY = 200;
 var NO_REGISTRY = "No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as `registry`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment Pi starts in. Nothing was sent.";
-var UNSEEN = new RegExp("[\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u2069\\ufeff]|\\p{Default_Ignorable_Code_Point}", "u");
-var quoted = (text, max) => JSON.stringify(text.replace(/\s+/g, " ").replace(UNSEEN_ALL, "").slice(0, max));
-var UNSEEN_ALL = new RegExp(UNSEEN.source, "gu");
+var UNSEEN2 = new RegExp("[\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2028-\\u202e\\u2060-\\u2069\\ufeff]|\\p{Default_Ignorable_Code_Point}", "u");
+var oneLine = (text, max) => text.replace(UNSEEN_ALL, " ").replace(/\s+/g, " ").trim().slice(0, max);
+var UNSEEN_ALL = new RegExp(UNSEEN2.source, "gu");
 var MARKUP = /[`<>[\]]/;
 var str2 = (v) => typeof v === "string" ? v : void 0;
 var refuse2 = (text) => ({ text: shownText(text), isError: true });
-var unshowable = (registry, from) => registry.length > SHOWN_REGISTRY || UNSEEN.test(registry) || /\s/.test(registry) ? `${from} must be at most ${SHOWN_REGISTRY} characters, with no spaces, control characters or direction marks, so the form names exactly where the search goes. Nothing was sent.` : void 0;
+var unshowable = (registry, from) => registry.length > SHOWN_REGISTRY || UNSEEN2.test(registry) || /\s/.test(registry) ? `${from} must be at most ${SHOWN_REGISTRY} characters, with no spaces, control characters or direction marks, so the form names exactly where the search goes. Nothing was sent.` : void 0;
 var SEARCH_CHOICES = { yes: "Send the search", no: "Don't send it" };
 var registrySetting = (env) => (env.ARD_DISCOVERY_REGISTRY ?? "").trim();
 function tools(session, defaultRegistry) {
@@ -1813,7 +1815,7 @@ function tools(session, defaultRegistry) {
       const query = (str2(args.query) ?? "").trim();
       if (!query) return refuse2("Give `query`: what the person needs, in plain words.");
       if (query.length > SHOWN_QUERY) return refuse2(`Keep the search under ${SHOWN_QUERY} characters, so the person sees all of it before it is sent.`);
-      if (UNSEEN.test(query)) return refuse2("Write the search on one line, without control characters or direction marks, so the person sees exactly what is sent.");
+      if (UNSEEN2.test(query)) return refuse2("Write the search on one line, without control characters or direction marks, so the person sees exactly what is sent.");
       if (MARKUP.test(query)) return refuse2("Write the search in plain words, without `, <, > or square brackets, so the form shows exactly what is sent.");
       const asked = (str2(args.registry) ?? defaultRegistry).trim();
       if (!asked) return refuse2(NO_REGISTRY);
@@ -1859,10 +1861,10 @@ function tools(session, defaultRegistry) {
       const lines = [
         `Registry search for "${query.slice(0, 200)}" (ARD v0.91 \xA75.3). The query text was sent to: ${[...new Set(s.registries.map((r2) => new URL(r2.endpoint).host))].join(", ")}.`,
         "Registries asked:",
-        ...s.registries.map((r2) => `  - ${r2.endpoint}: ${r2.state === "ok" ? `${r2.results} results` : `failed (${quoted(r2.note ?? "", 200)})`}`)
+        ...s.registries.map((r2) => `  - ${r2.endpoint}: ${r2.state === "ok" ? `${r2.results} results` : `failed (${oneLine(r2.note ?? "", 260)})`}`)
       ];
       if (s.skipped) lines.push(`(${s.skipped} results of other types were ignored.)`);
-      if (s.problems.length) lines.push("Problems:", ...s.problems.map((p) => `  - ${quoted(p, 300)}`));
+      if (s.problems.length) lines.push("Problems:", ...s.problems.map((p) => `  - ${oneLine(p, 300)}`));
       if (!s.entries.length) {
         lines.push("No MCP Server Cards matched.");
         return { text: shownText(lines.join("\n")) };

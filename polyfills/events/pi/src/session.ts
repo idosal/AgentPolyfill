@@ -45,13 +45,12 @@ export class PiSession {
     readonly id: string;
     readonly project: ProjectState;
     readonly spool: Spool;
-    budget: WakeBudget;
+    readonly budget: WakeBudget;
     readonly manager: WatchManager;
     readonly #tools: ReturnType<typeof createTools>;
     readonly #send: Send;
     readonly #log: (s: string) => void;
     readonly #batchMs: number;
-    readonly #env: NodeJS.ProcessEnv;
     #delivery?: Delivery;
     #timer?: NodeJS.Timeout;
     #at = 0;
@@ -68,7 +67,6 @@ export class PiSession {
         this.project = new ProjectState(o.base, `pi session ${id}`, { dir: join(o.base, 'watches', id) });
         this.spool = new Spool(o.base, id);
         // Past the hour's wakes, waking starts again when the person writes: Pi tells the extension (the `input` event).
-        this.#env = env;
         this.budget = new WakeBudget(wakeLimits(env), join(this.spool.dir, 'wakes.json'));
         this.manager = new WatchManager({ connections: o.connections, project: this.project, spool: this.spool, session: id, log: this.#log, env, connectTimeoutMs: o.connectTimeoutMs, redact: secrets });
         this.#tools = createTools(() => [...o.connections.values()], o.unavailable, this.manager);
@@ -90,7 +88,7 @@ export class PiSession {
         if (owner && !was) {
             // The count as the process that ran the watches left it: a standby that takes over carries on
             // from its wakes and its pause, not from what it read when it opened.
-            this.budget = new WakeBudget(wakeLimits(this.#env), join(this.spool.dir, 'wakes.json'));
+            this.budget.reload();
             this.#delivery = new Delivery(this.spool, { values: process.env.MCP_EVENTS_WAKE_VALUES === '1' });
             if (this.manager.watches.length) this.#log(`runs ${this.manager.watches.length} watch(es)`);
             if (this.#delivery.pending) this.announce();
@@ -108,6 +106,8 @@ export class PiSession {
 
     /** The person wrote to the session: if waking had stopped at its hourly limit, it starts again. */
     spoke(): void {
+        // Only the process that runs the watches writes the count; one that only lists them leaves it.
+        if (!this.manager.owner) return;
         if (this.budget.spoke()) this.#log('the user is back: waking starts again');
         if (this.#delivery?.pending) this.announce();
     }
