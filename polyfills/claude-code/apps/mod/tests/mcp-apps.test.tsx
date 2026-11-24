@@ -56,6 +56,8 @@ function standIns(
     holdFrame?: Promise<unknown>
     /** Discovery answers once this settles. */
     holdDiscover?: Promise<unknown>
+    /** The helper's answer to /open waits for this. */
+    holdOpen?: Promise<unknown>
     /** Whether the app calls one of its server's tools as it opens (it does, by default). */
     appCall?: boolean
     /** The person's environment, as the helper's ready line reports it. */
@@ -178,6 +180,7 @@ function standIns(
     }
     if (route === '/open') {
       opened()
+      if (opts.holdOpen) await opts.holdOpen
       answer = { ok: true, mode: body.mode }
     }
     if (opts.answers?.[route] !== undefined) answer = opts.answers[route]
@@ -711,6 +714,64 @@ test('when the session ends, open views get their teardown', async ($, on) => {
   await $.session.end({ reason: 'clear' } as never)
   await settle(() => sent.some((s) => s.route === '/close'))
   expect(sent.find((s) => s.route === '/close')!.body.viewId).toBe(TOOL_USE_ID)
+  finish()
+})
+
+// Found by the model (model/AppsViews.tla, Race and RaceBefore): a view's
+// /open and /close are separate requests, which the helper matches by view
+// id; taken out of order, a close could undo a reopen or leave a page running
+// unseen. They go one at a time, the close once the open is answered.
+test("a view's /open and /close reach the helper one at a time: the close waits for the open's answer", async ($, on) => {
+  let release!: () => void
+  const holdOpen = new Promise<void>((resolve) => (release = resolve))
+  const { sent, finish } = standIns(on, { holdOpen, appCall: false })
+  on('session.end', () => ({ sessionId: 'test' }) as never)
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+  await settle(() => sent.some((s) => s.route === '/open'))
+  // The session ends while the helper is still opening the view.
+  const ending = $.session.end({ reason: 'clear' } as never)
+  for (let i = 0; i < 500; i++) await Promise.resolve()
+  expect(sent.some((s) => s.route === '/close')).toBe(false)
+  release()
+  await settle(() => sent.some((s) => s.route === '/close'))
+  const order = sent.filter((s) => s.route === '/open' || s.route === '/close').map((s) => s.route)
+  expect(order[0]).toBe('/open')
+  expect(order.slice(1).every((route) => route === '/close')).toBe(true)
+  await ending
+  finish()
+})
+
+// Found by the model (model/AppsViews.tla, Traffic and TrafficBefore): an
+// app's own traffic to its server (a call of its tools, a read of its
+// resources) went on after Claude Code stopped using that server. Each is now
+// let through only on Claude Code's verdict, asked afresh.
+test("an app's calls and reads stop once Claude Code stops using its server", { options: { appToolCalls: 'allow' } }, async ($, on) => {
+  let using = true
+  let sentSoFar: Sent[] = []
+  const answered = (id: number) => sentSoFar.find((s) => s.route === '/reply' && s.body.id === id)
+  const { sent, finish } = standIns(on, {
+    decision: 'allow',
+    appCall: false,
+    connect: (server) => (using ? { isConnected: true, server } : { isConnected: false, reason: 'disabled', message: 'switched off' }),
+    script: async function* () {
+      yield appRequest(41, 'ui/allow-tool', { name: 'get-weather', arguments: {} })
+      yield appRequest(42, 'ui/allow-read', { method: 'resources/read' })
+      await settle(() => answered(41) !== undefined && answered(42) !== undefined)
+      // The person switches the server off in /mcp.
+      using = false
+      yield appRequest(43, 'ui/allow-tool', { name: 'get-weather', arguments: {} })
+      yield appRequest(44, 'ui/allow-read', { method: 'resources/read' })
+    },
+  })
+  sentSoFar = sent
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+  await settle(() => answered(43) !== undefined && answered(44) !== undefined)
+  const allow = (id: number) => (answered(id)!.body.result as { allow?: boolean } | undefined)?.allow
+  expect([allow(41), allow(42)]).toEqual([true, true])
+  expect([allow(43), allow(44)]).toEqual([false, false])
+  expect(String((answered(43)!.body.result as { reason?: string }).reason)).toContain('not using the vanilla server')
   finish()
 })
 

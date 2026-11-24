@@ -25,7 +25,7 @@ const post = (route, body) => new Promise((resolve, reject) => { const q = http.
 const rowText = (frame) => { if (frame.styled) return frame.styled.map((runs) => runs.map((r) => r[0]).join("")); if (frame.lines) return frame.lines.map((row) => (Array.isArray(row) ? row.map((r) => r[0]).join("") : row)); return []; };
 await new Promise((resolve) => helper.stdout.on("data", (d) => { buf += d; let k; while ((k = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, k); buf = buf.slice(k + 1); let m; try { m = JSON.parse(line); } catch { continue; }
   if (m.type === "ready") { socket = m.socket; token = m.token; resolve(); }
-  if (m.type === "request" && m.method === "ui/allow-tool") post("/reply", { id: m.id, result: { allow: true } });
+  if (m.type === "request" && (m.method === "ui/allow-tool" || m.method === "ui/allow-read")) post("/reply", { id: m.id, result: { allow: true } });
   if (m.type === "request" && m.method === "tools/call") client.callTool({ name: m.params.name, arguments: m.params.arguments ?? {} }).then((r) => post("/reply", { id: m.id, result: r }), (e) => post("/reply", { id: m.id, error: String(e) }));
   if (m.type === "frame" && m.frame) (frames[m.viewId] ??= []).push({ t: Date.now(), frame: m.frame }); } }));
 const result = await client.callTool({ name: "get-cohort-data", arguments: {} });

@@ -26,7 +26,7 @@ const post = (route, body) => new Promise((resolve, reject) => { const q = http.
 let stderr = ""; helper.stderr.on("data", (d) => (stderr += d));
 await new Promise((resolve) => helper.stdout.on("data", (d) => { buf += d; let k; while ((k = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, k); buf = buf.slice(k + 1); let m; try { m = JSON.parse(line); } catch { continue; }
   if (m.type === "ready") { socket = m.socket; token = m.token; resolve(); }
-  if (m.type === "request" && m.method === "ui/allow-tool") post("/reply", { id: m.id, result: { allow: true } });
+  if (m.type === "request" && (m.method === "ui/allow-tool" || m.method === "ui/allow-read")) post("/reply", { id: m.id, result: { allow: true } });
   if (m.type === "request" && m.method === "tools/call") client.callTool({ name: m.params.name, arguments: m.params.arguments ?? {} }).then((r) => post("/reply", { id: m.id, result: r }), (e) => post("/reply", { id: m.id, error: String(e) }));
   if (m.type === "frame" && m.image) { const png = m.image.file ? fs.readFileSync(m.image.file) : m.image.png ? Buffer.from(m.image.png, "base64") : null; last[m.viewId] = { cols: m.image.cols, png }; } } }));
 const result = await client.callTool({ name: tool, arguments: {} });
