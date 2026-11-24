@@ -44,10 +44,10 @@ All of them are early. Here is what each one does, and where it stops:
   tool call.
 - **Skills.** Skills an MCP server serves show up next to your own, load only
   after you say yes to each one, and are checked against the server's
-  digests. In Codex they appear in Codex's own `$` skill list after you ask
-  once to list the served skills, from the next turn. One rule of the spec can't be met in Codex
-  yet: a skill from one server reading another server's resources isn't put
-  to you first (rule X8), because Codex doesn't let a plugin ask.
+  digests. In Codex they appear in Codex's own skill list after you ask once
+  to list the served skills, from the next turn. One rule of the spec can't be
+  met in Codex yet: a skill from one server reading another server's resources
+  isn't put to you first (rule X8), because Codex doesn't let a plugin ask.
 - **Server Cards.** Name a company and the agent finds the MCP servers its
   domain publishes, checks each card against the schema, and adds the one you
   pick to the host's own configuration. The host then connects it with its own
