@@ -8,7 +8,7 @@ The source is the extension's Beta specification,
 [`specification/beta/skills.mdx`](https://github.com/modelcontextprotocol/ext-skills/blob/main/specification/beta/skills.mdx)
 in `modelcontextprotocol/ext-skills`, as of 22 November 2026 (commit
 `1631b3f`). Every sentence on that page that binds a client or host is below;
-rules that bind only a server are left out. This page describes version 0.2.1
+rules that bind only a server are left out. This page describes version 0.2.2
 of the mod.
 
 **Status** is one of: **met**, **partly**, **not met**, **n/a** (the rule

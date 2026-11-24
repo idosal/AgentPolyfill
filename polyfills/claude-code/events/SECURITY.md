@@ -205,8 +205,8 @@ is bounded (see "Events wake a session only so often" below), not prevented.
   person.** The Events client, webhook verification and the relay were
   reviewed adversarially during development. On 24 November 2026 an AI
   reviewer that had not built any of it reviewed the mod and the public
-  relay; what it found is fixed in version 0.4.0 (each fix with a test) or
-  listed above. No person has audited any of it.
+  relay; what it found is fixed in versions 0.4.0 and 0.4.1 (each fix with a
+  test) or listed above. No person has audited any of it.
 
 This software wakes an agent on outside input, and it is young. The lists
 above say what was considered, not that nothing is left.
