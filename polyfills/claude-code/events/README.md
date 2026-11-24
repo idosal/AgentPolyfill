@@ -274,8 +274,8 @@ in `~/.claude/settings.json`. Know what that means before you do:
   key that the mod makes and keeps.
 - It is a courtesy with limits (100 waiting deliveries and 16 webhook
   addresses per project, about two deliveries a second to one address, and
-  a ceiling on how many new mailboxes it opens in an hour, past which new
-  users are turned away until the hour is over) and no promise of
+  a ceiling of 2,000 new mailboxes an hour, past which new users are turned
+  away until the hour is over) and no promise of
   availability. Its source is the same [`mod/relay/`](mod/relay/), deployed
   from `wrangler.public.jsonc`.
 - A relay of your own always takes precedence over it.

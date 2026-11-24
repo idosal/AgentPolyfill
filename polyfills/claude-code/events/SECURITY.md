@@ -151,10 +151,14 @@ is bounded (see "Events wake a session only so often" below), not prevented.
 - **It does not stop a server you watch from waking the session.** Within the
   wake limits above, any server you watch wakes an idle session whenever it
   sends an event. Stopping the watch stops it.
-- **The public relay can be abused, and has a cost.** It is rate-limited, it
-  refuses what it cannot limit, and it opens only so many new mailboxes in an
-  hour; someone who uses that up keeps new users out until the hour is over.
-  Its operator pays for it and may switch it off.
+- **The public relay can be abused, and has a cost.** It is rate-limited per
+  sender (an IPv4 address, or an IPv6 /64), it refuses what it cannot limit,
+  and it opens at most 2,000 new mailboxes in an hour, 60 from one sender.
+  Someone with enough addresses can spend that ceiling and keep new users out
+  until the hour is over; mailboxes that already exist keep working. MCP
+  servers hosted on Cloudflare Workers reach it from one address and share a
+  rate limit, which any Worker can spend. Its operator pays for it and may
+  switch it off.
 - **A challenge is echoed by the mod with the relay in
   [`mod/relay/`](mod/relay/).** A server cannot tell that relay from one that
   echoes challenges itself.

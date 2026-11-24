@@ -13,7 +13,7 @@
 // passed through to the connected plugin and answered by it.
 
 import { ACCESS_KEY_RE, ACCESS_PREFIX, HOOK_RE, HOOKS_PATH, KEY_PREFIX, KEY_RE, MAILBOX_RE, mailboxIdOf, SUBPROTOCOL, type DeliveryHeaders } from './protocol.ts';
-import { allowed, LIMITS_DOWN, SENDER_HEADER, TOO_MANY, type Verdict } from './limits.ts';
+import { allowed, LIMITS_DOWN, SENDER_HEADER, senderKey, TOO_MANY, WORKERS_SENDER, type Verdict } from './limits.ts';
 import type { Mailbox } from './mailbox.ts';
 import type { Registry } from './registry.ts';
 
@@ -44,6 +44,8 @@ export interface Env {
      */
     DELIVERIES_PER_HOOK?: RateLimit;
     DELIVERIES_PER_SENDER?: RateLimit;
+    /** Deliveries from MCP servers hosted on Cloudflare Workers, which all reach this relay from one address. */
+    DELIVERIES_FROM_WORKERS?: RateLimit;
     SOCKETS_PER_SENDER?: RateLimit;
     /** "1": refuse a request whose limit cannot be checked (the limiter is missing, or does not answer). For a relay anyone may use. */
     REQUIRE_LIMITS?: string;
@@ -54,8 +56,8 @@ export interface Env {
 }
 
 const DAY_S = 24 * 3600;
-/** The address a request came from, as Cloudflare reports it. */
-const sender = (request: Request) => request.headers.get('cf-connecting-ip') ?? 'unknown';
+/** Who a request came from, as Cloudflare reports its address: the address, or for IPv6 its /64 (see senderKey). */
+const sender = (request: Request) => senderKey(request.headers.get('cf-connecting-ip') ?? 'unknown');
 /** The answer to a request a limit did not let through, or undefined if it did. */
 function refusal(v: Verdict): Response | undefined {
     if (v === 'yes') return undefined;
@@ -120,7 +122,8 @@ async function deliver(request: Request, env: Env, mailbox: string, hook: string
     // is spent later, by the mailbox, and only on a delivery that is well formed and names an address
     // that exists: anyone can POST to a mailbox, so what they send to a made-up address must not use
     // up what its real ones may receive.
-    const flood = refusal(await allowed(env.DELIVERIES_PER_SENDER, sender(request), env.REQUIRE_LIMITS === '1'));
+    const who = sender(request);
+    const flood = refusal(await allowed(who === WORKERS_SENDER ? env.DELIVERIES_FROM_WORKERS : env.DELIVERIES_PER_SENDER, who, env.REQUIRE_LIMITS === '1'));
     if (flood) return flood;
     const bytes = await readCapped(request, MAX_BODY);
     if (!bytes) return json(413, { error: 'the body is over 256 KiB' });
@@ -192,6 +195,8 @@ export default {
                 holds: 'Event payloads pass through this server and are kept until collected, or dropped after retentionHours. It holds no signing secret: it cannot create or alter an event, and the client checks every signature itself.',
                 retentionHours: (Number.isFinite(ttl) && ttl > 0 ? ttl : 7 * DAY_S) / 3600,
                 rateLimited: Boolean(env.DELIVERIES_PER_HOOK && env.DELIVERIES_PER_SENDER && env.SOCKETS_PER_SENDER),
+                newMailboxesPerHour: Number(env.NEW_MAILBOXES_PER_HOUR) || null,
+                newMailboxesPerSenderPerHour: Number(env.NEW_MAILBOXES_PER_SENDER_PER_HOUR) || null,
                 source: 'https://github.com/idosal/MCPolyfill/tree/main/polyfills/claude-code/events/mod/relay'
             });
         }

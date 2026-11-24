@@ -29,3 +29,36 @@ export const LIMITS_DOWN = { status: 503, error: 'this relay cannot check its li
 
 /** The header a mailbox reads the sender's address from. The Worker sets it, whatever the request said. */
 export const SENDER_HEADER = 'x-relay-sender';
+
+/**
+ * Who is sending, for the limits that count per sender. An IPv4 address is itself. An IPv6 address
+ * is its /64: one home, office or server usually has a whole /64 and can send from any address in
+ * it, so counting each address apart would let one sender count as millions. An IPv4 address
+ * written as IPv6 (`::ffff:a.b.c.d`) is the IPv4 address.
+ */
+export function senderKey(ip: string): string {
+    const raw = ip.trim().toLowerCase().replace(/^\[|\]$/g, '').replace(/%.*$/, '');
+    const mapped = /^(?:0{0,4}:){0,5}:?ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(raw) ?? /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(raw);
+    if (mapped) return mapped[1]!;
+    if (!raw.includes(':')) return raw || 'unknown';
+    // An embedded IPv4 tail (a:b::1.2.3.4) is two groups.
+    let text = raw;
+    const v4 = /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(text);
+    if (v4) text = text.slice(0, v4.index) + [((+v4[1]! << 8) | +v4[2]!).toString(16), ((+v4[3]! << 8) | +v4[4]!).toString(16)].join(':');
+    const halves = text.split('::');
+    if (halves.length > 2) return raw;
+    const head = halves[0] ? halves[0].split(':') : [];
+    const tail = halves.length === 2 && halves[1] ? halves[1].split(':') : [];
+    const fill = halves.length === 2 ? 8 - head.length - tail.length : 0;
+    const groups = [...head, ...Array(Math.max(0, fill)).fill('0'), ...tail];
+    if (groups.length !== 8 || !groups.every((g) => /^[0-9a-f]{1,4}$/.test(g))) return raw;
+    return `${groups.slice(0, 4).map((g) => parseInt(g, 16).toString(16)).join(':')}::/64`;
+}
+
+/**
+ * Where a request a Cloudflare Worker makes to another Cloudflare site comes from: Cloudflare sets
+ * `CF-Connecting-IP` to one address for every Worker (2a06:98c0:3600::103). So every MCP server
+ * hosted on Workers is one sender here, and is counted in a bucket of its own, larger than one
+ * machine's, rather than in one machine's.
+ */
+export const WORKERS_SENDER = senderKey('2a06:98c0:3600::103');
