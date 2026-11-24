@@ -397,8 +397,10 @@ fn alive(pid: u32) -> bool {
         .is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains(&format!("\"{pid}\"")))
 }
 
+/// Up to 30 s: a stand-in server takes seconds to start on a slow machine
+/// (GitHub's Windows runner), and the check returns as soon as it holds.
 fn eventually(what: &str, check: impl Fn() -> bool) {
-    for _ in 0..200 {
+    for _ in 0..1200 {
         if check() {
             return;
         }
