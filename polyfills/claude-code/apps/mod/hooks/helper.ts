@@ -480,15 +480,14 @@ async function onHelperMessage($: EngineInterface, message: HelperMessage) {
         // its resources) goes only while Claude Code still uses that server
         // under that name, asked afresh each time: one switched off or
         // disconnected after the view opened gets nothing more from its app
-        // (found by the model, model/AppsViews.tla). Asked again right before
-        // a yes goes back, so the yes is as new as it can be: a question to the
-        // person may have taken minutes. The yes carries its epoch (see verdict).
+        // (found by the model, model/AppsViews.tla). For a tool, asked again
+        // right before the yes goes back, so the yes is as new as it can be: a
+        // question to the person may have taken minutes. The yes carries its
+        // epoch (see verdict).
         const notUsed = { allow: false, reason: `Claude Code is not using the ${view?.server} server now` }
-        if (view && (message.method === 'ui/allow-tool' || message.method === 'ui/allow-read')) {
-          if (!(await usedByClaudeCode($, view.server))) {
-            await answer({ result: notUsed })
-            return
-          }
+        if (view && message.method === 'ui/allow-tool' && !(await usedByClaudeCode($, view.server))) {
+          await answer({ result: notUsed })
+          return
         }
         if (view && message.method === 'ui/allow-read') {
           const found = isLive(view) ? await verdict($, view.server) : undefined

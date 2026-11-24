@@ -400,9 +400,12 @@ fn a_revoke_stops_the_server_and_refuses_a_yes_from_before_it() {
     std::thread::sleep(Duration::from_millis(300));
     assert_eq!(probe_log(&w, "probe-revoke").0.len(), sent_before, "the server was sent something on a yes from before the revoke");
 
-    // A yes given after it: started again.
+    // A yes given after it: started again (its tools read again, as asked;
+    // the ones read before were kept, and cost the server nothing).
     helper.answer(Some(1));
     assert_eq!(helper.post("/discover", &json!({"server": "probe"}))["ok"], true);
+    assert_eq!(probe_log(&w, "probe-revoke").1.len(), 1);
+    assert_eq!(helper.post("/discover", &json!({"server": "probe", "refresh": true}))["ok"], true);
     assert_eq!(probe_log(&w, "probe-revoke").1.len(), 2);
 }
 
