@@ -20,10 +20,18 @@ type Json = Record<string, unknown>;
 const running: ChildProcess[] = [];
 after(() => running.forEach((c) => c.kill()));
 
+/**
+ * The small environment Codex starts a plugin's MCP server with: HOME, PATH and a few more, and on
+ * Windows the system's own (SYSTEMROOT, TEMP, ...), without which programs there do not run.
+ */
+const CODEX_ENV = ['PATH', 'USER', 'SHELL', 'LANG', 'TMPDIR', 'SYSTEMROOT', 'SystemRoot', 'SYSTEMDRIVE', 'TEMP', 'TMP', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'COMSPEC', 'PATHEXT'];
+const codexEnv = () => Object.fromEntries(CODEX_ENV.flatMap((k) => (process.env[k] === undefined ? [] : [[k, process.env[k]!]])));
+
 /** A stand-in for Codex: starts the bundle, sends requests, and answers its questions with `answer`. */
 function codex(env: Record<string, string>, answer: (params: Json) => Json | undefined = () => ({ action: 'decline' })) {
+    // The home folder is the test's own, on Windows too (USERPROFILE), where the stubs would go.
     const home = env.HOME ?? temp();
-    const child = spawn(RUNTIME, [BUNDLE], { cwd: join(ROOT, 'mod'), env: { PATH: process.env.PATH ?? '', HOME: home, USERPROFILE: home, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
+    const child = spawn(RUNTIME, [BUNDLE], { cwd: join(ROOT, 'mod'), env: { ...codexEnv(), HOME: home, USERPROFILE: home, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
     running.push(child);
     let buf = '';
     let id = 0;
