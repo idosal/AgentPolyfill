@@ -1,16 +1,16 @@
 // Checks that the TLA+ models in this folder say what the Quint models say, on samples: Quint
-// generates traces of wake.qnt, delivery.qnt and relay.qnt (random runs of each init, and the
-// scenarios of `quint test`), and TLC replays every one in Wake.tla, Delivery.tla or Relay.tla. Each trace's first state
-// must be an initial state there and each step a step of Next there, or TLC stops at the first
-// one that is not and this prints it.
+// generates traces of wake.qnt, delivery.qnt, relay.qnt and wakeCodex.qnt (random runs of each
+// init, and the scenarios of `quint test`), and TLC replays every one in Wake.tla, Delivery.tla,
+// Relay.tla or WakeCodex.tla. Each trace's first state must be an initial state there and each
+// step a step of Next there, or TLC stops at the first one that is not and this prints it.
 //
-//   node model/conform.mjs [traces per init: default 300 of wake.qnt and relay.qnt, 40 of delivery.qnt]
+//   node model/conform.mjs [traces per init: default 300 of wake.qnt, relay.qnt and wakeCodex.qnt, 40 of delivery.qnt]
 //
 // Needs Quint 0.34.0 (QUINT, default `npx --yes @informalsystems/quint@0.34.0`), Java and
 // tla2tools.jar (JAVA, TLA2TOOLS, as for check.mjs). Works in a temporary folder, removed after.
 // This samples one direction only: what Quint can do, TLA+ can do. For the other, each
-// counterexample TLC found on 0.5.0's models was replayed as a scenario in the Quint file, and
-// Quint reproduced it; the rest is by reading.
+// counterexample TLC found on 0.5.0's models, and on wakeCodex.qnt, was replayed as a scenario in
+// the Quint file, and Quint reproduced it; the rest is by reading.
 
 import { execSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -63,6 +63,21 @@ const MODELS = [
     },
     inits: ["init", "migrating", "initBefore", "migratingNoDrain"],
     steps: 30,
+    traces: 300,
+  },
+  {
+    qnt: "wakeCodex.qnt",
+    module: "WakeCodex",
+    vars: ["s"],
+    constants: { MAX_TIME: "10", HOUR: "4", GAP: "1", PER_HOUR: "2", PENDING: "2" },
+    group: (state) => {
+      const lift = Number(state.s.lift["#bigint"] ?? state.s.lift);
+      const version = state.s.record ? "Codex 0.1.3" : "Codex 0.1.2";
+      const label = state.s.allow ? `${version}${lift === 4 ? "" : `, the pause lifting after ${lift}`}` : `${version} without CX1's fix`;
+      return { label, constants: { ALLOW: state.s.allow ? "TRUE" : "FALSE", LIFT: String(lift), RECORD: state.s.record ? "TRUE" : "FALSE" } };
+    },
+    inits: ["init", "initUnrecorded", "initBefore", "initShortLift"],
+    steps: 40,
     traces: 300,
   },
 ];

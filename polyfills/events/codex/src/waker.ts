@@ -20,9 +20,10 @@ import { delimiter, isAbsolute, join } from 'node:path';
 
 /**
  * `unreachable`: `codex queue` can never reach this session (a ChatGPT desktop-app chat, which is not a
- * local Codex session): no later try will either, so the session is not tried again.
+ * local Codex session): no later try will either, so the session is not tried again. `maybe`: it may
+ * have queued the message all the same (it timed out), so it counts as handed over.
  */
-export type QueueResult = { ok: true; resumed: boolean } | { ok: false; why: string; permanent?: true; unreachable?: true };
+export type QueueResult = { ok: true; resumed: boolean } | { ok: false; why: string; permanent?: true; unreachable?: true; maybe?: true };
 
 /** Why a session that is not a local Codex session cannot be woken. */
 export const NOT_LOCAL = "this chat can't be woken: it isn't a local Codex session (a ChatGPT desktop-app chat, say), which is all codex queue reaches";
@@ -127,7 +128,8 @@ export function queueMessage(bin: CodexCommand | string, thread: string, text: s
         const child = spawn(codex.command, args, { env: childEnv, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, shell: false });
         const timer = setTimeout(() => {
             child.kill('SIGKILL');
-            finish({ ok: false, why: `codex queue did not finish within ${timeoutMs / 1000} s` });
+            // It may have queued the message before it hung: the caller counts it as handed over (at most once).
+            finish({ ok: false, why: `codex queue did not finish within ${timeoutMs / 1000} s`, maybe: true });
         }, timeoutMs);
         child.stdout?.on('data', (d: Buffer) => (out = (out + d.toString('utf8')).slice(-MAX_OUTPUT)));
         child.stderr?.on('data', (d: Buffer) => (err = (err + d.toString('utf8')).slice(-MAX_OUTPUT)));

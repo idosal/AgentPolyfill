@@ -2,7 +2,8 @@
 // Stands in for `codex` in the tests: records each `codex queue` it is given, and answers as
 // Codex 0.170 does. FAKE_CODEX_LOG is where; FAKE_CODEX_MODE names a file whose content picks
 // the answer: "ok" (default), "noresume" (queued, but no daemon to resume on), "fail", "old"
-// (a Codex without `queue`), "norollout" (a ChatGPT desktop-app chat, not a local session).
+// (a Codex without `queue`), "norollout" (a ChatGPT desktop-app chat, not a local session),
+// "queuehang" (the message is queued, as the log says, and then it hangs for 15 s before answering).
 
 import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 
@@ -11,7 +12,7 @@ const args = process.argv.slice(2);
 if (process.env.FAKE_CODEX_LOG) {
     appendFileSync(
         process.env.FAKE_CODEX_LOG,
-        JSON.stringify({ at: Date.now(), args, mode, leaked: Object.keys(process.env).filter((k) => k.startsWith('MCP_EVENTS_')) }) + '\n'
+        JSON.stringify({ at: Date.now(), pid: process.pid, args, mode, leaked: Object.keys(process.env).filter((k) => k.startsWith('MCP_EVENTS_')) }) + '\n'
     );
 }
 if (mode === 'old') {
@@ -29,5 +30,10 @@ if (mode === 'fail') {
     process.exit(1);
 }
 const thread = args[args.indexOf('--thread') + 1];
+if (mode === 'queuehang') {
+    // Codex has queued it (the session is woken); the answer comes late, or never if this is killed.
+    setTimeout(() => process.stdout.write(`Queued message q-${Date.now()} for thread ${thread}.\n`), 15000);
+} else {
 if (mode === 'noresume') process.stderr.write(`Warning: message was queued, but could not resume thread ${thread}: start a local daemon or specify a server with --remote\n`);
 process.stdout.write(`Queued message q-${Date.now()} for thread ${thread}.\n`);
+}
