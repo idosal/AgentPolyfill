@@ -66,8 +66,10 @@ export class ThreadSession {
     #stopped = false;
     /** Why the last wake failed, until one succeeds: list_watches says so. */
     lastWakeError?: string;
-    /** The last wake's `codex queue` did not answer (it timed out): counted as handed over, not tried again. */
-    /** What the last `codex queue` that didn't answer carried: a batch, or the notice. */
+    /**
+     * What the last `codex queue` that didn't answer (it timed out) carried, until one answers: a
+     * batch, counted as handed over and not tried again, or the notice, counted as given.
+     */
     #unanswered: 'batch' | 'notice' | undefined;
     /**
      * Why this session can never be woken, once `codex queue` has said so (a ChatGPT desktop-app chat,
@@ -182,7 +184,7 @@ export class ThreadSession {
             this.lastWakeError = r.why;
             this.#unanswered = carries;
             this.#retryMs = 0;
-            this.#log(`${r.why}; it may have queued the message, so it counts as handed over`);
+            this.#log(`${r.why}; it may have queued the message, so it counts as ${carries === 'batch' ? 'handed over' : 'given (waking stays paused)'}`);
         } else if (r.unreachable) {
             // No later try can reach it: stop trying. Events go on being stored, for recent_events and get_event.
             this.unwakeable = r.why;

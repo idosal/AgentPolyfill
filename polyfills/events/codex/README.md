@@ -334,8 +334,9 @@ The changes both hosts would need are in
   older Codex, or a turn it marks otherwise, the pause ends only after its
   hour. With the session open in two windows, only a turn in the window that
   runs its watches counts. That's the window whose `list_watches` shows them
-  active; the other shows them as `elsewhere`. Nothing is dropped: `recent_events` lists what
-  waited. Two [settings](#settings) change the numbers.
+  active; the other shows them as `elsewhere`. Nothing is dropped:
+  `recent_events` lists what waited. Two [settings](#settings) change the
+  numbers.
 - **The wake is an input message.** Codex has no separate channel for a
   plugin's message, so it appears in the conversation like something typed,
   with a first line saying it's from the plugin. The change in Codex: a turn
