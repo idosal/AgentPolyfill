@@ -1,0 +1,28 @@
+// The AgentPolyfill website, served as static assets by Cloudflare Workers.
+// No Worker code: every request is answered from the VitePress build.
+//
+//   npm run build                                  build into .vitepress/dist
+//   npx wrangler@4.167.0 dev                       serve the build locally, as Workers will
+//   npx wrangler@4.167.0 deploy                    publish (npm run deploy builds first)
+{
+  "$schema": "https://unpkg.com/wrangler@4.167.0/config-schema.json",
+  "name": "agentpolyfill-site",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./.vitepress/dist",
+    // VitePress writes 404.html; unknown paths get it with a 404 status.
+    "not_found_handling": "404-page",
+    // VitePress (cleanUrls) writes guide/events.html and links /guide/events.
+    "html_handling": "auto-trailing-slash"
+  },
+  "workers_dev": true,
+  "preview_urls": false,
+
+  // The custom domains, once the agentpolyfill.com zone is active in this
+  // Cloudflare account: uncomment the three lines below and deploy. Cloudflare
+  // creates the DNS records and certificates for both names.
+  // "routes": [
+  //   { "pattern": "agentpolyfill.com", "custom_domain": true },
+  //   { "pattern": "www.agentpolyfill.com", "custom_domain": true }
+  // ]
+}
