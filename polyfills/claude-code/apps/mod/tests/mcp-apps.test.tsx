@@ -39,6 +39,8 @@ function standIns(
     images?: boolean
     swapEveryDraw?: boolean
     timers?: boolean
+    /** Answers each wait (`$.clock.sleep`) in place of `timers`. */
+    sleep?: (ms: number) => unknown
     script?: () => AsyncIterable<unknown>
     /** The session's permission verdict for an app's tool call. */
     decision?: 'allow' | 'ask' | 'deny'
@@ -84,7 +86,7 @@ function standIns(
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   // Timers never fire here (discovery always answers first), unless a test
   // wants them to, at once.
-  on('clock.sleep', () => (opts.timers ? { value: undefined } : new Promise(() => {})))
+  on('clock.sleep', (_$, e) => (opts.sleep ? opts.sleep(e.ms) : opts.timers ? { value: undefined } : new Promise(() => {})) as never)
   on('ui.log', () => ({ value: undefined }))
   const asked: string[] = []
   on('tool.call', (_$, e) => {
@@ -391,12 +393,11 @@ for (const [terminal, swapEveryDraw, expected] of [
   })
 }
 
-// An idle session paints an in-place swap only once something else on the
-// screen changes, so kitty and Ghostty swap a view's first new picture (it
-// finds out a terminal drawing the alt text) and draw the rest anew; iTerm2
-// shows a picture drawn anew only after a swap, so it keeps swapping.
+// Each new picture is swapped in place in every terminal: Claude Code paints
+// swaps at its frame rate, where redraws come ten a second at most (kitty and
+// Ghostty drew each picture anew, which held an animation to 10 fps).
 for (const [terminal, swapEveryDraw, expected] of [
-  ['kitty or Ghostty', false, 1],
+  ['kitty or Ghostty', false, 3],
   ['iTerm2', true, 3],
 ] as const) {
   test(`three new pictures in ${terminal}: ${expected} swapped in place`, async ($, on) => {
@@ -430,6 +431,57 @@ for (const [terminal, swapEveryDraw, expected] of [
     finish()
   })
 }
+
+// A swap leaves Claude Code's drawn tree as it was, and a repaint (a scroll,
+// text arriving under the view) draws from the tree: in kitty and Ghostty,
+// each picture after the first is swapped, and once they stop the view is
+// drawn anew, once, with the latest.
+test('kitty or Ghostty: pictures are swapped, and the view drawn anew once after the last', async ($, on) => {
+  let mounted!: () => void
+  const isMounted = new Promise<void>((resolve) => (mounted = resolve))
+  // The redraw's wait (250 ms) is held here; any other wait never ends.
+  const held: Array<() => void> = []
+  const sleep = (ms: number) => (ms === 250 ? new Promise((resolve) => held.push(() => resolve({ value: undefined }))) : new Promise(() => {}))
+  let redraws = 0
+  on('ui.invalidate', (_$, e, next) => {
+    if (e.event === 'ui.render') redraws++
+    return next(e)
+  })
+  const swaps: unknown[] = []
+  on('ui.blit', (_$, e) => {
+    swaps.push(e)
+    return { value: {} }
+  })
+  const { sent, finish } = standIns(on, {
+    images: true,
+    swapEveryDraw: false,
+    sleep,
+    script: async function* () {
+      await isMounted
+      for (let v = 2; v <= 4; v++) yield { type: 'frame', viewId: TOOL_USE_ID, v, image: { png: PNG, cols: 20, rows: 2 } }
+    },
+  })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+  await until(() => sent.some((s) => s.route === '/open'), () => Promise.resolve())
+  let ui = await $.ui.mount({ ...ROW, surface: 'terminal' })
+  for (let i = 0; i < 20 && !(await ui.find({ type: 'Image' })); i++) {
+    await ui.unmount()
+    ui = await $.ui.mount({ ...ROW, surface: 'terminal' })
+  }
+  mounted()
+  await settle(() => swaps.length === 3 && held.length === 2)
+  for (let i = 0; i < 500; i++) await Promise.resolve()
+  // Each picture swapped; the first one's swap painted with a redraw, the
+  // others waiting on their trailing redraw.
+  expect(swaps.length).toBe(3)
+  const before = redraws
+  for (const release of held) release()
+  for (let i = 0; i < 500; i++) await Promise.resolve()
+  expect(redraws - before).toBe(1)
+  await ui.unmount()
+  finish()
+})
 
 // kitty and Ghostty on this machine read a picture from a file: a short
 // command instead of the PNG through the terminal. Claude Code first asks

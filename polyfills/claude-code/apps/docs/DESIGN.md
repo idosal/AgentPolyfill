@@ -670,12 +670,21 @@ newer Stable at most once a day and fetches it for the next launch.
   - An idle session doesn't paint a `Raster` swap (`$.ui.blit`), nor a redraw
     that changes only its cells, so an animation stood still between turns.
     The mod redraws cell views per frame with an invisible change to the
-    header text, which does get painted. An `Image` swap waited the same way
-    (a hover showed up to a second late), so in kitty and Ghostty each
-    picture after a view's first is drawn anew like that; iTerm2 keeps to
-    swaps. Ask: paint blits when idle.
+    header text, which does get painted. Claude Code redraws ten times a
+    second at most, so cell views are held to 10 fps in a session. Ask:
+    paint Raster blits when idle.
+  - `Image` swaps are painted at Claude Code's frame rate, idle or not (2.1.329;
+    an earlier version painted them only once something else changed). So
+    every terminal swaps each new picture in place. Until 0.1.4 kitty and
+    Ghostty drew each picture anew instead, which the redraw limit held to
+    10 fps: DOOM on the hosted arcade, in a session with the kitty identity,
+    went from 8.5 to 14.7 pictures a second while walking, and 9.3 to 16.2
+    in its menus (the helper alone: 16.5 and 14.3).
   - `$.ui.blit` doesn't update the drawn tree, so a scroll repainted stale
-    cells; redrawing per frame avoids it. Ask: let blits update the tree.
+    pictures and cells. Cell views redraw per frame anyway; a picture view
+    in kitty and Ghostty is drawn anew once, 250 ms after its last swapped
+    picture, and in iTerm2 each drawing gets a fresh copy swapped in. Ask:
+    let blits update the tree.
   - `Raster` colours are 4 bits a channel, with 1024 colour pairs per Raster
     and new pairs admitted at about 160 a second, then drawn as the nearest
     held pair (wrong-colour patches). Hence the photo palette. Styled text

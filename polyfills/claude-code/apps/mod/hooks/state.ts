@@ -54,6 +54,8 @@ export type View = {
   swapped?: boolean
   /** Whether a picture has been swapped in place (`$.ui.blit`) once. */
   blitted?: boolean
+  /** Counts a view's swapped pictures: the latest one's trailing redraw is the one that runs (see redrawWhenStill). */
+  swapSeq?: number
   /** The latest PNG and rows of each band of a picture sent in strips. */
   strips?: Array<{ png: string; rows: number }>
   /** Rows of its picture scrolled off the top of the transcript (see `noteScrolledOff`). */
