@@ -55,6 +55,10 @@ instructions to the model, are what tell it apart from what you typed.
   or until, sooner, you write to it and Codex then calls one of the plugin's
   tools in that turn. Nothing is dropped. `MCP_EVENTS_WAKE_GAP_S` and
   `MCP_EVENTS_WAKES_PER_HOUR` change the numbers.
+  - **Across restarts.** The count is kept on disk. Each wake is recorded
+    before `codex queue` runs. So a wake the plugin never heard back about,
+    because it stopped or `codex queue` didn't answer, still counts, and its
+    events aren't handed over again.
   - **How it knows you wrote.** From the turn metadata Codex 0.172 sends with
     each call (`x-codex-turn-metadata.turn_trigger`). It never reads what you
     wrote.

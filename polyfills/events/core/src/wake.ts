@@ -14,7 +14,7 @@
 // and get_event read them. MCP_EVENTS_WAKE_GAP_S and MCP_EVENTS_WAKES_PER_HOUR
 // change the two numbers; 0 turns either off.
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { closeSync, fsyncSync, openSync, readFileSync, renameSync, writeSync } from 'node:fs';
 import { LINE_PREFIX } from './format.ts';
 import { host } from './host.ts';
 
@@ -30,7 +30,10 @@ export type Gate =
     /** Said already: nothing until the person speaks (or, where the pause lifts by itself, for `ms`). */
     | { kind: 'paused'; ms?: number };
 
-type Saved = { last?: Record<string, number>; wakes?: number[]; paused?: boolean; pausedAt?: number; noticeHanded?: boolean };
+/** A batch handed to the host and not yet counted: its watches, and where it ends in the session's store. */
+export type Handed = { watches: string[]; upto: number };
+
+type Saved = { last?: Record<string, number>; wakes?: number[]; paused?: boolean; pausedAt?: number; noticeHanded?: boolean; handed?: Handed };
 
 export function wakeLimits(env: NodeJS.ProcessEnv): { gapMs: number; perHour: number } {
     const num = (v: string | undefined, fallback: number) => {
@@ -63,6 +66,13 @@ export class WakeBudget {
     readonly #liftAfterMs?: number;
     /** When waking stopped, for a pause that lifts by itself. */
     #pausedAt?: number;
+    /**
+     * A batch handed to the host and not yet counted, recorded before the host is asked (Codex's
+     * `codex queue`): a helper that ends before it hears back leaves it here, and the next one counts
+     * it instead of handing the batch over again. The Claude Code mod does not use it (its hooks
+     * module says which batch it submitted).
+     */
+    #handed?: Handed;
 
     /**
      * `file`: where the count is kept, so a helper that restarts does not start the hour again.
@@ -81,9 +91,16 @@ export class WakeBudget {
             this.#paused = saved.paused === true;
             if (typeof saved.pausedAt === 'number') this.#pausedAt = saved.pausedAt;
             this.#noticeHanded = saved.noticeHanded === true;
+            const h = saved.handed;
+            if (h && Array.isArray(h.watches) && typeof h.upto === 'number') this.#handed = { watches: h.watches.filter((w) => typeof w === 'string'), upto: h.upto };
         } catch {
             // nothing kept yet
         }
+    }
+
+    /** The batch handed to the host and not yet counted, if a helper ended before it heard back. */
+    get handed(): Handed | undefined {
+        return this.#handed;
     }
 
     get paused(): boolean {
@@ -95,12 +112,27 @@ export class WakeBudget {
         return this.#noticeHanded;
     }
 
-    #save(): void {
-        if (!this.#file) return;
+    /**
+     * Saves the count whole: written and flushed beside the file, then put in its place, so a crash
+     * leaves the old file or the new one, never half of one (which would read as nothing kept, and
+     * lose a hand-over's record). Returns whether it was saved.
+     */
+    #save(): boolean {
+        if (!this.#file) return true;
+        const tmp = `${this.#file}.${process.pid}.tmp`;
         try {
-            writeFileSync(this.#file, JSON.stringify({ last: Object.fromEntries(this.#last), wakes: this.#wakes, paused: this.#paused, pausedAt: this.#pausedAt, noticeHanded: this.#noticeHanded } satisfies Saved), { mode: 0o600 });
+            const fd = openSync(tmp, 'w', 0o600);
+            try {
+                writeSync(fd, JSON.stringify({ last: Object.fromEntries(this.#last), wakes: this.#wakes, paused: this.#paused, pausedAt: this.#pausedAt, noticeHanded: this.#noticeHanded, handed: this.#handed } satisfies Saved));
+                fsyncSync(fd);
+            } finally {
+                closeSync(fd);
+            }
+            renameSync(tmp, this.#file);
+            return true;
         } catch {
             // counted in memory all the same
+            return false;
         }
     }
 
@@ -130,10 +162,41 @@ export class WakeBudget {
         return { kind: 'go' };
     }
 
-    /** The session was woken with events of these watches. */
+    /**
+     * A batch of these watches is about to be handed to the host, which may wake the session before
+     * this process hears back: recorded first, on disk. Returns whether it was recorded; if not, the
+     * batch must not be handed over now.
+     */
+    handBatch(watches: string[], upto: number): boolean {
+        this.#handed = { watches: [...watches], upto };
+        if (this.#save()) return true;
+        // Not on disk, so not handed over: a later save must not write it either.
+        this.#handed = undefined;
+        return false;
+    }
+
+    /** The host said it did not take the batch: nothing was handed over after all. */
+    dropHanded(): void {
+        if (!this.#handed) return;
+        this.#handed = undefined;
+        this.#save();
+    }
+
+    /**
+     * The host said it did not take the notice (Codex's `codex queue` failed): it was not handed over,
+     * so a helper that starts later does not start paused by a notice the session was never shown.
+     */
+    dropNotice(): void {
+        if (!this.#noticeHanded) return;
+        this.#noticeHanded = false;
+        this.#save();
+    }
+
+    /** The session was woken with events of these watches. It counts the batch recorded by handBatch, if any, in the same write. */
     woke(watches: string[], now = Date.now()): void {
         for (const w of watches) this.#last.set(w, now);
         this.#wakes.push(now);
+        this.#handed = undefined;
         // A notice handed over before, and never acknowledged, was never shown.
         this.#noticeHanded = false;
         // Watches come and go: forget the ones not heard from for an hour.

@@ -12,34 +12,38 @@
 (* Written by hand from wakeCodex.qnt, action for action and with the same *)
 (* state (one record, s), so that Quint's traces can be replayed here as   *)
 (* they are: model/conform.mjs does that. Quint's init variants are the    *)
-(* constants ALLOW and LIFT: TRUE and 4 is 0.1.2; FALSE and 0 is 0.1.2     *)
-(* with CX1's fix taken out (0.1.0's rule and pause).                      *)
+(* constants ALLOW, LIFT and RECORD: TRUE, 4 and TRUE is 0.1.3; RECORD     *)
+(* FALSE is 0.1.2 (no record of the hand-over, no timeout counted, a       *)
+(* failed notice kept as handed over); ALLOW FALSE and LIFT 0 is CX1's fix *)
+(* taken out (0.1.0's rule and pause).                                     *)
 (***************************************************************************)
 EXTENDS Integers, Sequences, FiniteSets
 
 CONSTANTS
     ALLOW,      \* TRUE: the allowlist (0.1.1 on); FALSE: 0.1.0's denylist
     LIFT,       \* liftAfterMs, in units; 0: the pause lasts until the person speaks (0.1.0)
+    RECORD,     \* TRUE: 0.1.3's record of the hand-over, timeout and dropNotice; FALSE: 0.1.2
     MAX_TIME,   \* the clock's bound; one unit stands for fifteen minutes
     HOUR,       \* an hour, in those units
     GAP,        \* MCP_EVENTS_WAKE_GAP_S: how soon one watch may start another wake
     PER_HOUR,   \* MCP_EVENTS_WAKES_PER_HOUR
     PENDING     \* the model's bound: events stored and not yet handed over, at most
 
-ASSUME ALLOW \in BOOLEAN /\ LIFT \in Nat /\ MAX_TIME \in Nat /\ HOUR \in Nat /\ GAP \in Nat
-       /\ PER_HOUR \in Nat /\ PENDING \in Nat
+ASSUME ALLOW \in BOOLEAN /\ LIFT \in Nat /\ RECORD \in BOOLEAN /\ MAX_TIME \in Nat /\ HOUR \in Nat
+       /\ GAP \in Nat /\ PER_HOUR \in Nat /\ PENDING \in Nat
 
 \* What Codex says started the turn a call is made in (turn_trigger); "none": no turn metadata.
 PersonsTriggers == {"user", "exec", "realtime", "voice", "none"}
 OtherTriggers == {"queue", "hook", "none"}
 
 \* The state, as in wakeCodex.qnt:
-\*   allow, lift, local (codex queue can reach the session); now; stored (events in the
-\*   spool); pos (how many were handed over, on disk); budget (wakes.json: wakes, last,
-\*   paused, pausedAt (-1 unset), noticeHanded); helper; unwakeable (the helper's memory);
-\*   queued ("", "batch" or "notice": run through codex queue, not heard back about); upto
-\*   (the batch's end); answered (codex queue took it, the helper has not heard so); and
-\*   history: spoke, shown, carried, noticeAt, quiet, early, twice, byOther, refused, retried.
+\*   allow, lift, record, local (codex queue can reach the session); now; stored (events in
+\*   the spool); pos (how many were handed over, on disk); budget (wakes.json: wakes, last,
+\*   paused, pausedAt (-1 unset), noticeHanded, handed (the recorded batch's end, -1 none));
+\*   helper; unwakeable (the helper's memory); queued ("", "batch" or "notice": run through
+\*   codex queue, not heard back about); upto (the batch's end); answered (codex queue took it,
+\*   the helper has not heard so); and history: spoke, shown, carried, noticeAt, quiet, early,
+\*   twice, byOther, refused, retried, dup, excused, noticeFailed, stale.
 VARIABLE s
 
 MaxOf(a, b) == IF a > b THEN a ELSE b
@@ -49,13 +53,16 @@ IsThePersons(allow, trigger) ==
 QuietFrom(lift, t) == IF lift > 0 THEN t + lift ELSE 1000
 Pause(b, lift, t) == [b EXCEPT !.paused = TRUE, !.noticeHanded = FALSE,
                                !.pausedAt = IF lift > 0 THEN t ELSE b.pausedAt]
+\* WakeBudget.woke: one wake, counted now; it clears the hand-over's record in the same write.
+Woke(b, t) == [b EXCEPT !.wakes = Append(Recent(b.wakes, t), t), !.last = t, !.noticeHanded = FALSE, !.handed = -1]
 
 Init == \E local \in BOOLEAN :
-          s = [allow |-> ALLOW, lift |-> LIFT, local |-> local, now |-> 0, stored |-> 0, pos |-> 0,
-               budget |-> [wakes |-> <<>>, last |-> -100, paused |-> FALSE, pausedAt |-> -1, noticeHanded |-> FALSE],
+          s = [allow |-> ALLOW, lift |-> LIFT, record |-> RECORD, local |-> local, now |-> 0, stored |-> 0, pos |-> 0,
+               budget |-> [wakes |-> <<>>, last |-> -100, paused |-> FALSE, pausedAt |-> -1, noticeHanded |-> FALSE, handed |-> -1],
                helper |-> TRUE, unwakeable |-> FALSE, queued |-> "", upto |-> 0, answered |-> FALSE,
                spoke |-> 0, shown |-> <<>>, carried |-> 0, noticeAt |-> -100, quiet |-> -100,
-               early |-> FALSE, twice |-> FALSE, byOther |-> FALSE, refused |-> FALSE, retried |-> FALSE]
+               early |-> FALSE, twice |-> FALSE, byOther |-> FALSE, refused |-> FALSE, retried |-> FALSE,
+               dup |-> FALSE, excused |-> 0, noticeFailed |-> FALSE, stale |-> FALSE]
 
 Tick == s.now < MAX_TIME /\ s' = [s EXCEPT !.now = s.now + 1]
 
@@ -67,13 +74,17 @@ Lift == /\ s.helper /\ s.budget.paused /\ s.lift > 0 /\ s.now >= s.budget.paused
         /\ s' = [s EXCEPT !.budget = [s.budget EXCEPT !.paused = FALSE, !.pausedAt = -1, !.wakes = <<>>]]
 
 \* #handOver: the next batch, through the gate; past the hour's wakes the notice (noticeHanded
-\* first). Either way codex queue is run. Not for a session the helper knows it cannot reach.
+\* first), else the batch (0.1.3: its record first). Either way codex queue is run. Not for a
+\* session the helper knows it cannot reach.
 Takes == /\ s.helper /\ s.queued = "" /\ ~s.unwakeable /\ s.stored > s.pos
          /\ ~s.budget.paused /\ s.now - s.budget.last >= GAP
 Take == LET notice == Len(Recent(s.budget.wakes, s.now)) >= PER_HOUR IN
         /\ Takes
         /\ s' = [s EXCEPT !.queued = IF notice THEN "notice" ELSE "batch", !.upto = s.stored, !.answered = FALSE,
-                          !.budget = IF notice THEN [s.budget EXCEPT !.noticeHanded = TRUE] ELSE s.budget,
+                          !.budget = IF notice THEN [s.budget EXCEPT !.noticeHanded = TRUE]
+                                     ELSE IF s.record THEN [s.budget EXCEPT !.handed = s.stored]
+                                     ELSE s.budget,
+                          !.noticeFailed = IF notice THEN FALSE ELSE s.noticeFailed,
                           !.retried = s.retried \/ s.refused]
 
 \* codex queue takes the message: a turn starts (the session is woken), whether or not the
@@ -81,34 +92,59 @@ Take == LET notice == Len(Recent(s.budget.wakes, s.now)) >= PER_HOUR IN
 QueueOk == /\ s.helper /\ s.queued # "" /\ ~s.answered /\ s.local
            /\ s' = IF s.queued = "batch"
                    THEN [s EXCEPT !.answered = TRUE, !.shown = Append(s.shown, s.now),
-                                  !.carried = MaxOf(s.carried, s.upto), !.early = s.early \/ s.now < s.quiet]
+                                  !.carried = MaxOf(s.carried, s.upto), !.early = s.early \/ s.now < s.quiet,
+                                  !.dup = s.dup \/ s.pos < s.carried]
                    ELSE [s EXCEPT !.answered = TRUE,
                                   !.twice = s.twice \/ (s.noticeAt >= 0 /\ (s.lift = 0 \/ s.now - s.noticeAt < s.lift)),
                                   !.noticeAt = s.now, !.quiet = MaxOf(s.quiet, QuietFrom(s.lift, s.now))]
-\* It fails, and the helper hears so: it tries again later. The notice stays handed over.
-QueueFails == s.helper /\ s.queued # "" /\ ~s.answered /\ s.local /\ s' = [s EXCEPT !.queued = ""]
+\* codex queue said it did not take it: a batch's record is dropped (dropHanded), and, 0.1.3, the
+\* notice is no longer handed over (dropNotice); in 0.1.2 it stayed so.
+NotTaken(b, what, record) ==
+    IF what = "batch" THEN [b EXCEPT !.handed = -1]
+    ELSE IF record THEN [b EXCEPT !.noticeHanded = FALSE] ELSE b
+\* It fails, and the helper hears so: it tries again later.
+QueueFails == /\ s.helper /\ s.queued # "" /\ ~s.answered /\ s.local
+              /\ s' = [s EXCEPT !.queued = "", !.budget = NotTaken(s.budget, s.queued, s.record),
+                                !.noticeFailed = s.noticeFailed \/ s.queued = "notice"]
 \* "no rollout found": no try can reach this session, and the helper stops trying (in memory).
 QueueRefused == /\ s.helper /\ s.queued # "" /\ ~s.answered /\ ~s.local
-                /\ s' = [s EXCEPT !.queued = "", !.unwakeable = TRUE, !.refused = TRUE]
+                /\ s' = [s EXCEPT !.queued = "", !.unwakeable = TRUE, !.refused = TRUE,
+                                  !.budget = NotTaken(s.budget, s.queued, s.record),
+                                  !.noticeFailed = s.noticeFailed \/ s.queued = "notice"]
+\* 0.1.3: codex queue times out, having queued the message or not: counted as handed over, at most
+\* once. A batch is marked handed over and counted; the notice pauses waking.
+QueueUnknown == /\ s.helper /\ s.queued # "" /\ s.record
+                /\ s' = IF s.queued = "batch"
+                        THEN [s EXCEPT !.queued = "", !.answered = FALSE, !.pos = MaxOf(s.pos, s.upto),
+                                       !.budget = Woke(s.budget, s.now),
+                                       !.excused = IF s.answered THEN s.excused ELSE MaxOf(s.excused, s.upto)]
+                        ELSE [s EXCEPT !.queued = "", !.answered = FALSE, !.budget = Pause(s.budget, s.lift, s.now),
+                                       !.quiet = MaxOf(s.quiet, QuietFrom(s.lift, s.now))]
 
-\* The helper hears that codex queue took it: a batch counts as a wake (WakeBudget.woke) and is
-\* marked handed over (Delivery.ack); the notice pauses waking.
+\* The helper hears that codex queue took it: a batch is marked handed over (Delivery.ack) and
+\* counts as a wake (WakeBudget.woke, which clears the record); the notice pauses waking.
 Heard == /\ s.helper /\ s.answered
          /\ s' = IF s.queued = "batch"
-                 THEN [s EXCEPT !.queued = "", !.answered = FALSE, !.pos = s.upto,
-                                !.budget = [s.budget EXCEPT !.wakes = Append(Recent(s.budget.wakes, s.now), s.now),
-                                                            !.last = s.now, !.noticeHanded = FALSE]]
+                 THEN [s EXCEPT !.queued = "", !.answered = FALSE, !.pos = s.upto, !.budget = Woke(s.budget, s.now)]
                  ELSE [s EXCEPT !.queued = "", !.answered = FALSE, !.budget = Pause(s.budget, s.lift, s.now),
                                 !.quiet = MaxOf(s.quiet, QuietFrom(s.lift, s.now))]
 
-HelperDies == s.helper /\ s' = [s EXCEPT !.helper = FALSE, !.queued = "", !.answered = FALSE, !.unwakeable = FALSE]
+\* The helper ends. A batch it handed to codex queue that Codex has not taken is skipped if the
+\* next helper counts it (excused).
+HelperDies == /\ s.helper
+              /\ s' = [s EXCEPT !.helper = FALSE, !.queued = "", !.answered = FALSE, !.unwakeable = FALSE,
+                                !.excused = IF s.queued = "batch" /\ ~s.answered THEN MaxOf(s.excused, s.upto) ELSE s.excused]
 \* A new helper reads the budget and the position from disk. A notice handed to codex queue by a
-\* helper that stopped before it heard back counts as given (the ThreadSession constructor).
-HelperStarts == /\ ~s.helper
-                /\ s' = IF s.budget.noticeHanded
-                        THEN [s EXCEPT !.helper = TRUE, !.budget = Pause(s.budget, s.lift, s.now),
-                                       !.quiet = MaxOf(s.quiet, QuietFrom(s.lift, s.now))]
-                        ELSE [s EXCEPT !.helper = TRUE]
+\* helper that ended before it heard back counts as given: it starts paused (the ThreadSession
+\* constructor). Then, 0.1.3, a batch such a helper handed over (the record) is marked handed over
+\* and counted, now (ThreadSession.start).
+HelperStarts == LET b == IF s.budget.noticeHanded THEN Pause(s.budget, s.lift, s.now) ELSE s.budget IN
+                /\ ~s.helper
+                /\ s' = [s EXCEPT !.helper = TRUE,
+                                  !.budget = IF b.handed >= 0 THEN Woke(b, s.now) ELSE b,
+                                  !.pos = IF b.handed >= 0 THEN MaxOf(s.pos, b.handed) ELSE s.pos,
+                                  !.quiet = IF s.budget.noticeHanded THEN MaxOf(s.quiet, QuietFrom(s.lift, s.now)) ELSE s.quiet,
+                                  !.stale = s.stale \/ (s.budget.noticeHanded /\ s.noticeFailed)]
 
 \* A tools/call in a turn the person started (person) or not, with what Codex says started it.
 \* If IsThePersons, WakeBudget.spoke: the pause ends and the hour starts again.
@@ -125,7 +161,7 @@ CallIn(person, trigger) ==
 PersonCall == \E t \in PersonsTriggers : CallIn(TRUE, t)
 OtherCall == \E t \in OtherTriggers : CallIn(FALSE, t)
 
-Next == \/ Tick \/ Arrive \/ Lift \/ Take \/ QueueOk \/ QueueFails \/ QueueRefused \/ Heard
+Next == \/ Tick \/ Arrive \/ Lift \/ Take \/ QueueOk \/ QueueFails \/ QueueRefused \/ QueueUnknown \/ Heard
         \/ HelperDies \/ HelperStarts \/ PersonCall \/ OtherCall
 
 Spec == Init /\ [][Next]_s
@@ -149,10 +185,20 @@ OneNotice == ~s.twice
 \* 6. A helper that heard "no rollout found" runs no codex queue for that session again, and a
 \*    session codex queue cannot reach is never woken.
 NoWakeUnwakeable == ~(s.unwakeable /\ s.queued # "") /\ (s.local \/ Len(s.shown) = 0)
-\* 7. Nothing is lost: what is not handed over stays stored, and the hand-over never passes an
-\*    event that no wake carried.
+\* 7. What is handed over was stored: the position never passes the store.
+Stored == s.pos <= s.stored
+\* 8. At most once: no wake announces an event an earlier wake announced.
+AtMostOnce == ~s.dup
+\* 9. A helper never starts paused by a notice the person's own call came after.
+NoStalePause == ~s.stale
+\* 10. The hand-over passes an event that no wake carried only for a batch handed to codex queue
+\*     that the helper never heard back about, and that Codex had not taken.
+OnlyUnheardSkipped == s.pos <= MaxOf(s.carried, s.excused)
+\* A documented limit of 0.1.3's at-most-once: that one case skips the batch (still stored). 0.1.2's
+\* at-least-once kept this, and broke Gap and AtMostOnce.
 NothingLost == s.pos <= s.carried /\ s.pos <= s.stored
 \* A documented limit: unwakeable is kept in memory, so a new helper runs codex queue once more.
 NeverRetried == ~s.retried
-Kept == WithinHour /\ Gap /\ OnlyThePerson /\ QuietAfterNotice /\ OneNotice /\ NoWakeUnwakeable /\ NothingLost
+Kept == WithinHour /\ Gap /\ OnlyThePerson /\ QuietAfterNotice /\ OneNotice /\ NoWakeUnwakeable
+        /\ Stored /\ AtMostOnce /\ NoStalePause /\ OnlyUnheardSkipped
 =============================================================================

@@ -72,10 +72,11 @@ const MODELS = [
     constants: { MAX_TIME: "10", HOUR: "4", GAP: "1", PER_HOUR: "2", PENDING: "2" },
     group: (state) => {
       const lift = Number(state.s.lift["#bigint"] ?? state.s.lift);
-      const label = state.s.allow ? `Codex 0.1.2${lift === 4 ? "" : `, the pause lifting after ${lift}`}` : "Codex 0.1.2 without CX1's fix";
-      return { label, constants: { ALLOW: state.s.allow ? "TRUE" : "FALSE", LIFT: String(lift) } };
+      const version = state.s.record ? "Codex 0.1.3" : "Codex 0.1.2";
+      const label = state.s.allow ? `${version}${lift === 4 ? "" : `, the pause lifting after ${lift}`}` : `${version} without CX1's fix`;
+      return { label, constants: { ALLOW: state.s.allow ? "TRUE" : "FALSE", LIFT: String(lift), RECORD: state.s.record ? "TRUE" : "FALSE" } };
     },
-    inits: ["init", "initBefore", "initShortLift"],
+    inits: ["init", "initUnrecorded", "initBefore", "initShortLift"],
     steps: 40,
     traces: 300,
   },
