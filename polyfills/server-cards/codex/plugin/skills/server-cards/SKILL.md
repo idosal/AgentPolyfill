@@ -8,7 +8,7 @@ description: Connect Codex to a company's or product's MCP server by its domain,
 The `mcp-server-cards` MCP server has two tools.
 
 1. **`discover_mcp_servers(domain)`** reads the domain's AI Catalog (`/.well-known/ai-catalog.json` and `rel="ai-catalog"` links), fetches each Server Card it lists and checks it against the schema. It is read-only.
-2. **`add_mcp_server(domain, identifier, url, remote?, name?, values?)`** adds one server shown in this session to Codex's MCP configuration. Codex shows the person a form first, naming the server, its URL, its headers, the file written and the undo command. If they decline, or the client has no form, nothing is written.
+2. **`add_mcp_server(domain, identifier, url, remote?, name?, values?)`** adds one server shown in this session to Codex's MCP configuration. Codex shows the person a form first, naming the server, its URL, its headers, the file written and the undo command, with a required choice. Only their **Add it** adds; anything else, or no form, writes nothing.
 
 How to use them:
 

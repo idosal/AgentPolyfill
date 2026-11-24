@@ -201,8 +201,14 @@ test('E-3 an add with a form: the question names the server, URL, headers, file 
   assert.equal(r.isError, false, r.text)
   assert.equal(s.asked.length, 1)
   const q = s.asked[0]!
-  assert.equal(q.mode, 'form')
-  assert.deepEqual(q.requestedSchema, { type: 'object', properties: {}, required: [] })
+  // A required choice, which Codex 0.172 does not answer by itself; the
+  // 2025-06-18 revision this client asks for writes it as enum and enumNames.
+  assert.equal(q.mode, undefined)
+  assert.deepEqual(q.requestedSchema, {
+    type: 'object',
+    properties: { decision: { type: 'string', title: 'Your answer', enum: ['no', 'add'], enumNames: ["Don't add it", 'Add it'] } },
+    required: ['decision'],
+  })
   // The host on its own line (security review C3), then the URL.
   assert.ok(q.message.startsWith(`Add the MCP server "example-docs" to Codex?\nIt connects to the host ${new URL(web.origin).host}\nURL: ${web.origin}/mcp\nHeaders: none\n`), q.message)
   assert.ok(q.message.endsWith(`Written to ${s.fake.dir}/config.toml (all your projects).\nTo undo: codex mcp remove example-docs`), q.message)
@@ -319,4 +325,25 @@ test('E-10 a card whose remote URL names a user before its host, or holds a back
   }
   assert.equal(s.asked.length, 0)
   assert.deepEqual(adds(s.fake), [])
+})
+
+test('E-11 only the explicit "add" adds: an accept without the choice, with "no", or with another value writes nothing', async () => {
+  for (const content of [{}, { decision: 'no' }, { decision: 'yes' }, { decision: ['add'] }, { other: 'add' }]) {
+    const s = server({ answer: { action: 'accept', afterMs: 50, content } })
+    await s.call('discover_mcp_servers', { domain: web.origin })
+    const r = await s.call('add_mcp_server', addDocs)
+    assert.equal(r.isError, true, JSON.stringify(content))
+    assert.match(r.text, /^Nothing was written/, JSON.stringify(content))
+    assert.deepEqual(adds(s.fake), [], JSON.stringify(content))
+  }
+  const titled = server({ protocol: '2025-11-25', answer: { action: 'accept', afterMs: 50 } })
+  await titled.call('discover_mcp_servers', { domain: web.origin })
+  const r = await titled.call('add_mcp_server', addDocs)
+  assert.equal(r.isError, false, r.text)
+  assert.equal(titled.asked[0]!.mode, 'form')
+  assert.deepEqual(titled.asked[0]!.requestedSchema, {
+    type: 'object',
+    properties: { decision: { type: 'string', title: 'Your answer', oneOf: [{ const: 'no', title: "Don't add it" }, { const: 'add', title: 'Add it' }] } },
+    required: ['decision'],
+  })
 })

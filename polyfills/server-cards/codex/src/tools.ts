@@ -20,30 +20,49 @@ const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
 export const shownText = (s: string) => s.split('\n').map(plainText).join('\n')
 const refuse = (text: string): ToolResult => ({ text: shownText(text), isError: true })
 
+/** One answer the form offers: a value, and its title as the person sees it. */
+export type Choice = { value: string; title: string }
+
+/**
+ * The form: one required choice, "no" first. As polyfills/skills/codex writes
+ * it: a titled single choice (oneOf) from revision 2025-11-25 on, enum and
+ * enumNames before. Codex 0.172 accepts a form by itself only when it has no
+ * fields (codex-mcp/src/elicitation.rs, can_auto_accept_elicitation); a
+ * required field is put to the person, or declined where nobody can be asked.
+ */
+export const choiceSchema = (protocol: string, choices: readonly Choice[]) => {
+  const decision =
+    protocol >= '2025-11-25'
+      ? { type: 'string', title: 'Your answer', oneOf: choices.map(c => ({ const: c.value, title: c.title })) }
+      : { type: 'string', title: 'Your answer', enum: choices.map(c => c.value), enumNames: choices.map(c => c.title) }
+  return { type: 'object', properties: { decision }, required: ['decision'] }
+}
+
 /**
  * Puts a question to the person through the client's form (MCP elicitation)
- * and says whether they accepted. The form is the consent: refused when the
- * client offers no form, and on a decline or a close. Codex itself answers the
- * form in some modes: it declines it where nobody can be asked (codex exec,
- * --ask-for-approval never), and accepts it under
- * --dangerously-bypass-approvals-and-sandbox, as it approves every tool there.
+ * and says whether they chose `yes`. The form is the consent, and only the
+ * explicit choice counts: a decline, a close, an accept without the choice, or
+ * any other value is no. Refused when the client offers no form.
  */
-export async function askPerson(ctx: CallContext, message: string): Promise<{ ok: true } | { why: string }> {
+export async function askPerson(ctx: CallContext, message: string, yes: Choice, no: Choice): Promise<{ ok: true } | { why: string }> {
   if (!ctx.canElicit) return { why: 'this Codex client offers no form to ask the person (MCP elicitation)' }
   let answer
   try {
-    answer = await ctx.elicit(message, CONFIRM_SCHEMA)
+    answer = await ctx.elicit(message, choiceSchema(ctx.protocol, [no, yes]))
   } catch (err) {
     return { why: `the person could not be asked (${err instanceof Error ? err.message : String(err)})` }
   }
   if (answer.action === 'decline')
     return { why: 'the form was declined, by the person or by Codex itself where nobody can be asked (codex exec, --ask-for-approval never)' }
   if (answer.action !== 'accept') return { why: 'the form was closed without an answer, by the person or by Codex where nobody can be asked (codex exec)' }
-  return { ok: true }
+  const decision = answer.content?.decision
+  if (decision === yes.value) return { ok: true }
+  if (decision === no.value) return { why: `the person chose "${no.title}"` }
+  return { why: "the form came back without the person's choice" }
 }
 
-/** An empty form: the question is the message, and the answer is accept or decline. */
-export const CONFIRM_SCHEMA = { type: 'object', properties: {}, required: [] as string[] }
+/** The add form's choices. */
+export const ADD_CHOICES = { yes: { value: 'add', title: 'Add it' }, no: { value: 'no', title: "Don't add it" } } as const
 
 /**
  * What a session showed, so that add_mcp_server adds only a card a tool showed
@@ -186,7 +205,7 @@ export function addTool(session: Session, discoverName: string, foundBy: string)
       // through the client's form, and refused where there is no form or the
       // form is not accepted.
       const file = configPath(session.deps.env)
-      const asked = await askPerson(ctx, askText(plan, card, provenance, file))
+      const asked = await askPerson(ctx, askText(plan, card, provenance, file), ADD_CHOICES.yes, ADD_CHOICES.no)
       if ('why' in asked) return refuse(`Nothing was written: ${asked.why}. Don't ask again unless the person brings it up.`)
       // The person may have taken a while: check the name again.
       if (await isNameTaken(session.deps.run, plan.name))

@@ -17,6 +17,8 @@ export type CallContext = {
   elicit: (message: string, requestedSchema: Record<string, unknown>) => Promise<Elicited>
   /** The call's `_meta`, as the client sent it. */
   meta: Record<string, unknown>
+  /** The protocol revision negotiated with the client. */
+  protocol: string
 }
 
 export type ToolResult = { text: string; isError?: boolean }
@@ -80,7 +82,9 @@ export function serve(opts: ServerOptions) {
     })
 
   const elicit = async (message: string, requestedSchema: Record<string, unknown>): Promise<Elicited> => {
-    const m = await request('elicitation/create', { mode: 'form', message, requestedSchema }, opts.elicitTimeoutMs ?? 10 * 60_000)
+    // `mode` is a field from 2025-11-25 on; earlier revisions have form mode only.
+    const params = { ...(protocol >= '2025-11-25' ? { mode: 'form' } : {}), message, requestedSchema }
+    const m = await request('elicitation/create', params, opts.elicitTimeoutMs ?? 10 * 60_000)
     log(`elicitation answered: ${m.error ? 'error' : String(m.result?.action)}`)
     if (m.error) throw new Error(`the client could not ask: ${String(m.error.message ?? m.error.code)}`)
     const r = m.result
@@ -133,7 +137,7 @@ export function serve(opts: ServerOptions) {
         log(`tools/call ${tool.name}`)
         let result: ToolResult
         try {
-          result = await tool.run(args, { canElicit: offersForm(clientCaps), elicit, meta })
+          result = await tool.run(args, { canElicit: offersForm(clientCaps), elicit, meta, protocol })
         } catch (err) {
           result = { text: `${tool.name} failed: ${err instanceof Error ? err.message : String(err)}`, isError: true }
         }

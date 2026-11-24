@@ -150,3 +150,21 @@ test('A-10 a registry or a result URL that names a user before its host is refus
   const r = await s.call('ard_search', { query: QUERY, registry: `${web.origin}/at-registry` })
   assert.match(r.text, /REFUSED: [^\n]*names a user before its host/)
 })
+
+test('A-11 only the explicit "search" sends: an accept without the choice, or with "no", sends nothing; the form is a required choice', async () => {
+  const before = searches().length
+  for (const content of [{}, { decision: 'no' }, { decision: 'add' }]) {
+    const s = server({ answer: { action: 'accept', afterMs: 50, content } })
+    const r = await s.call('ard_search', { query: QUERY })
+    assert.match(r.text, /^Nothing was sent/, JSON.stringify(content))
+    assert.deepEqual(s.asked[0]!.requestedSchema, {
+      type: 'object',
+      properties: { decision: { type: 'string', title: 'Your answer', enum: ['no', 'search'], enumNames: ["Don't send it", 'Send the search'] } },
+      required: ['decision'],
+    })
+  }
+  assert.equal(searches().length, before)
+  const yes = server({ answer: { action: 'accept', afterMs: 50, content: { decision: 'search' } } })
+  assert.equal((await yes.call('ard_search', { query: QUERY })).isError, false)
+  assert.equal(searches().length, before + 1)
+})
