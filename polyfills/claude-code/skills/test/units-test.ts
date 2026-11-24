@@ -6,7 +6,7 @@ import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
-import { TOOLS, PLUGIN, EXECUTION_TOOLS } from '../mod/hooks/tools.ts';
+import { TOOLS, PLUGIN, INERT_TOOLS } from '../mod/hooks/tools.ts';
 import { App } from '../src/app.ts';
 import { listingText, TOOL_PREFIX } from '../src/format.ts';
 import { checkEntry, contentOf, declarationOf, manifestKey, resolveRef, rootOf, splitSkillMd, verifyFile, VerificationError, type SkillEntry } from '../src/skills.ts';
@@ -241,8 +241,9 @@ describe('the parts agree', () => {
         const used = new Set([...readFileSync(new URL('../src/format.ts', import.meta.url), 'utf8').matchAll(/\$\{TOOL_PREFIX\}(\w+)/g)].map((m) => m[1]));
         for (const name of used) assert.ok(TOOLS.some((t) => t.name === name), `${name} is named to the model and exists`);
     });
-    test('Claude Code\'s shell tools are among the tools that run code', () => {
-        for (const tool of ['Bash', 'PowerShell']) assert.ok(EXECUTION_TOOLS.includes(tool));
+    test('no tool that runs, writes, fetches or delegates is among those let through beside an unapproved skill', () => {
+        for (const tool of ['Bash', 'PowerShell', 'Monitor', 'REPL', 'Write', 'Edit', 'NotebookEdit', 'Task', 'Agent', 'Skill', 'Workflow', 'WebFetch', 'WebSearch']) assert.ok(!INERT_TOOLS.includes(tool), tool);
+        assert.ok(INERT_TOOLS.every((tool) => !tool.startsWith('mcp__')));
     });
     test('one version, in the three places that state it', () => {
         const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };

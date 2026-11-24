@@ -206,8 +206,10 @@ itself, the mod turns itself off (see [Settings](#settings)).
 - **No `/name` command per skill.** Use `/mcp-skills use <name>`, or just ask.
 - **Unattended runs** (`claude -p`): nobody can be asked about a skill, so a
   skill that was not approved before loads only if your rules allow the tool,
-  and then every shell command while it is loaded is refused. Approve the skill
-  once in an interactive session to use it unattended.
+  and then Claude can only read and search while it is loaded: commands, file
+  writes and edits, subagents and other servers' tools are refused
+  ([details](SECURITY.md)). Approve the skill once in an interactive session to
+  use it unattended.
 - **Managed machines.** Where an organisation's policy says which MCP servers
   are allowed, the mod connects to nothing, because it cannot apply that policy.
 - **Not tried yet:** Windows; the desktop app and IDE extensions (the preview
@@ -246,7 +248,6 @@ Environment variables, for the rare case:
 | Variable | What it does |
 |---|---|
 | `MCP_SKILLS_OFF=1` | The mod does nothing, without being uninstalled. |
-| `MCP_SKILLS_EXECUTION_TOOLS` | Tool names (comma-separated) that also count as running code, for a skill loaded with nobody asked. Claude Code's own shell tools always count. |
 | `MCP_SKILLS_SOURCES` | Which Claude Code configurations to read: `project,local,user` (default all three). |
 | `MCP_SKILLS_SERVERS` / `MCP_SKILLS_SKIP` | Only these server names, or never these (comma-separated). |
 | `MCP_SKILLS_CONFIG` | A servers file of your own (`{"mcpServers": {...}}`) instead of Claude Code's configuration. It must be outside the project folder and its repository. |
@@ -270,7 +271,7 @@ Environment variables, for the rare case:
 | Two real public servers, Hugging Face (25 skills, 135 files) and TogoMCP (5 skills, 8 files): every skill loaded, every file verified | `npm run interop:real` | all verified |
 | The official MCP conformance suite's client scenarios for SEP-2640 | [`test/conformance/run.sh`](test/conformance/run.sh) | 4 of 4 pass |
 | The client rules, one test per rule, against a hand-written server | `npm test` | 91 pass |
-| Approval, the permission questions and first-run behaviour, in Claude Code's own test kit | `npm run test:mod` | 38 pass |
+| Approval, the permission questions and first-run behaviour, in Claude Code's own test kit | `npm run test:mod` | 42 pass |
 | The official TypeScript SDK's Skills server and client, over stdio and HTTP | `npm run interop` | 15 checks pass |
 | Real Claude Code sessions, recorded | [`live/`](live/) | [screens](live/runs/) |
 
