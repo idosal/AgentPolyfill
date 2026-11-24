@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "mcpolyfill",
-      "description": "Every polyfill in this marketplace in one install (MCP Apps and MCP Events); it adds nothing of its own",
+      "description": "Every polyfill in this marketplace in one install (MCP Apps, MCP Events and MCP Skills); it adds nothing of its own",
       "source": "./plugins/mcpolyfill"
     },
     {
