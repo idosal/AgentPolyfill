@@ -16,6 +16,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$1"; OUT="$(cd "$1" && pwd)"
 PY="${PTY_PYTHON:-python3}"
 PROJECT="${DEMO_PROJECT:-$OUT/project}"; mkdir -p "$PROJECT/.claude"
+# The project's own settings approve its .mcp.json servers only where the folder's trust question was
+# answered for it: give it a folder outside any folder Claude Code already trusts (the default is
+# inside <out-dir>), so the run answers that question itself.
 
 cat > "$PROJECT/.mcp.json" <<'JSON'
 { "mcpServers": { "huggingface": { "type": "http", "url": "https://huggingface.co/mcp" } } }

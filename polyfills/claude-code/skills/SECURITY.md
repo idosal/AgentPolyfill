@@ -23,7 +23,13 @@ extension requires a person's approval, the mod has Claude Code ask.
 **Which servers.** It reads the same config files Claude Code reads and asks
 Claude Code about each server (`$.mcp.connect`) before connecting. A server that
 is switched off, not approved, refused by policy, or waiting for a sign-in is
-left alone. Where a managed MCP policy or an allow or deny list exists, it
+left alone. A project's `.mcp.json` server counts as approved only by your own
+answer or settings, or by the project's settings once you answered the trust
+question for that folder itself: in a folder inside one you trusted, the
+repository's own settings approve nothing (they can still turn a server off).
+That is what Claude Code's documentation says; Claude Code 2.1.329 itself was
+seen honouring such a repository's approval, so here the mod is the stricter of
+the two. Where a managed MCP policy or an allow or deny list exists, it
 connects to nothing, because it cannot apply that policy. It never reads Claude
 Code's stored credentials and holds no OAuth tokens. Header values from your
 config are sent to the server they are configured for and to nothing else, and
