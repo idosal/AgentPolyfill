@@ -1,0 +1,85 @@
+{
+  "//": "The home page's polyfill cards and audiences. Read by PolyfillCards.vue, Audiences.vue and scripts/agents.mjs (the Markdown copies for agents). Every line is taken from the repository's README and each polyfill's README: keep them in step when those change.",
+  "polyfills": [
+    {
+      "name": "Events",
+      "plugin": "mcp-events",
+      "spec": "SEP-3415, Final",
+      "id": "io.modelcontextprotocol/events",
+      "state": "Works",
+      "stateNote": "Poll, push and webhook delivery; an event wakes an idle session. No OAuth servers.",
+      "line": "Claude is woken when something happens: it watches events on your MCP servers and acts when one fires, even while the session sits idle.",
+      "cut": "events",
+      "alt": "One sentence to Claude Code gives a private button page and a watch, and the session goes idle. Someone types \"ship it\" on the page and presses the button; the idle session wakes by itself and says what was typed.",
+      "addStep": "Add the hosted demo server:",
+      "add": "claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev/mcp",
+      "ask": "Give me a demo button and tell me what I type when I press it",
+      "link": "/guide/events"
+    },
+    {
+      "name": "Apps",
+      "plugin": "mcp-apps-cli",
+      "spec": "MCP Apps 2026-01-26, Stable",
+      "id": "io.modelcontextprotocol/ui",
+      "state": "Early",
+      "stateNote": "App UIs render inline in the terminal, with mouse and keyboard. No OAuth servers.",
+      "line": "An MCP App's interface, in the terminal: it opens under the tool call and answers the mouse. Real pixels in iTerm2, kitty and Ghostty, character cells elsewhere.",
+      "cut": "apps",
+      "alt": "In Claude Code, a classic shareware game from the hosted arcade server runs under the tool call and is played with keys and clicks. Then a cohort retention heatmap from another MCP server opens inline, shows a tooltip wherever the pointer goes, and a control switches its period. Last, a 3D scene opens and turns when dragged.",
+      "addStep": "Add the hosted demo server:",
+      "add": "claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp",
+      "ask": "Find a shareware game in the arcade and load it",
+      "link": "/guide/apps"
+    },
+    {
+      "name": "Skills",
+      "plugin": "mcp-skills",
+      "spec": "SEP-2640, Final",
+      "id": "io.modelcontextprotocol/skills",
+      "state": "Early",
+      "stateNote": "Skills served by an MCP server are listed, loaded and read in Claude Code, with the checks the spec asks of a client. No OAuth servers.",
+      "line": "Skills served by an MCP server appear in Claude's skill listing; Claude loads one when a task calls for it, after you approve it once.",
+      "cut": "skills",
+      "alt": "In Claude Code, /mcp-skills lists the skills Hugging Face's MCP server serves. Asked to use the trl-training skill on a question about aligning a 7B model, Claude asks to load it, Claude Code asks once for approval, and Claude answers from the skill.",
+      "addStep": "Add Hugging Face's public MCP server:",
+      "add": "claude mcp add --transport http huggingface https://huggingface.co/mcp",
+      "ask": "Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?",
+      "link": "/guide/skills"
+    },
+    {
+      "name": "Server Cards",
+      "plugin": "mcp-server-cards",
+      "spec": "SEP-2127, Final (extension Beta)",
+      "id": "",
+      "state": "Early",
+      "stateNote": "Finds the servers a domain publishes, checks each card against the schema, and adds one to Claude Code's own config with a click, so servers behind OAuth work.",
+      "line": "Add a company's MCP server by its domain: Claude finds the servers it publishes and checks each card, and Add puts one into Claude Code's own config, so servers behind OAuth work.",
+      "cut": "server-cards",
+      "alt": "In Claude Code, the question What MCP servers does neon.com publish? lists Neon and Neon Docs from neon.com's own catalog, each with an Add button. Add is pressed on Neon Docs, which is marked added, with a note to run /mcp to connect or sign in.",
+      "add": "",
+      "ask": "What MCP servers does neon.com publish?",
+      "then": "Then press Add on Neon Docs (no sign-in).",
+      "link": "/guide/server-cards"
+    }
+  ],
+  "audiences": [
+    {
+      "title": "If you use agents",
+      "text": "One line to install, one line to try. Each polyfill is a plugin of its own that you can disable or uninstall on its own.",
+      "link": "/guide/getting-started",
+      "linkText": "Getting started"
+    },
+    {
+      "title": "If you build",
+      "text": "The `create-polyfill` and `design-extension` skills, and the contract every polyfill here meets. New polyfills are welcome.",
+      "link": "/guide/build-a-polyfill",
+      "linkText": "Build a polyfill"
+    },
+    {
+      "title": "If you write specs",
+      "text": "A polyfill can be the client half of the two implementations an extension needs to reach Stable.",
+      "link": "/guide/spec-authors",
+      "linkText": "For spec authors"
+    }
+  ]
+}

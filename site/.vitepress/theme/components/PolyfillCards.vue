@@ -1,86 +1,17 @@
 <script setup lang="ts">
 import Recording from './Recording.vue'
 import CopyCommand from './CopyCommand.vue'
+import home from '../../../home.json'
 
-// Every line here is taken from the repository's README and each polyfill's
-// README. Keep them in step when those change.
-const polyfills = [
-  {
-    name: 'Events',
-    plugin: 'mcp-events',
-    spec: 'SEP-3415, Final',
-    id: 'io.modelcontextprotocol/events',
-    state: 'Works',
-    stateNote: 'Poll, push and webhook delivery; an event wakes an idle session. No OAuth servers.',
-    line: 'Claude is woken when something happens: it watches events on your MCP servers and acts when one fires, even while the session sits idle.',
-    video: '/media/events-button.mp4',
-    poster: '/media/events-button.jpg',
-    width: 1280,
-    height: 720,
-    alt: 'One sentence to Claude Code gives a private button page and a watch, and the session goes idle. Someone types "ship it" on the page and presses the button; the idle session wakes by itself and says what was typed.',
-    add: 'claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev/mcp',
-    ask: 'Give me a demo button and tell me what I type when I press it',
-    link: '/guide/events',
-  },
-  {
-    name: 'Apps',
-    plugin: 'mcp-apps-cli',
-    spec: 'MCP Apps 2026-01-26, Stable',
-    id: 'io.modelcontextprotocol/ui',
-    state: 'Early',
-    stateNote: 'App UIs render inline in the terminal, with mouse and keyboard. No OAuth servers.',
-    line: "An MCP App's interface, in the terminal: it opens under the tool call and answers the mouse. Real pixels in iTerm2, kitty and Ghostty, character cells elsewhere.",
-    video: '/media/apps.mp4',
-    poster: '/media/apps.jpg',
-    width: 880,
-    height: 495,
-    alt: 'In Claude Code, a classic shareware game from the hosted arcade server runs under the tool call and is played with keys and clicks. Then a cohort retention heatmap from another MCP server opens inline, shows a tooltip wherever the pointer goes, and a control switches its period. Last, a 3D scene opens and turns when dragged.',
-    add: 'claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp',
-    ask: 'Find a shareware game in the arcade and load it',
-    link: '/guide/apps',
-  },
-  {
-    name: 'Skills',
-    plugin: 'mcp-skills',
-    spec: 'SEP-2640, Final',
-    id: 'io.modelcontextprotocol/skills',
-    state: 'Early',
-    stateNote: 'Skills served by an MCP server are listed, loaded and read in Claude Code, with the checks the spec asks of a client. No OAuth servers.',
-    line: "Skills served by an MCP server appear in Claude's skill listing; Claude loads one when a task calls for it, after you approve it once.",
-    video: '/media/skills.mp4',
-    poster: '/media/skills.jpg',
-    width: 960,
-    height: 540,
-    alt: "In Claude Code, the skills a server offers are listed. A question is asked, Claude asks to load one skill from the server, reads the files it points to, and answers from them.",
-    add: 'claude mcp add --transport http huggingface https://huggingface.co/mcp',
-    ask: 'Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?',
-    link: '/guide/skills',
-  },
-  {
-    name: 'Server Cards',
-    plugin: 'mcp-server-cards',
-    spec: 'SEP-2127, Final (extension Beta)',
-    id: '',
-    state: 'Early',
-    stateNote: "Finds the servers a domain publishes, checks each card against the schema, and adds one to Claude Code's own config with a click, so servers behind OAuth work.",
-    line: "Add a company's MCP server by its domain: Claude finds the servers it publishes and checks each card, and Add puts one into Claude Code's own config, so servers behind OAuth work.",
-    video: '/media/server-cards.mp4',
-    poster: '/media/server-cards.jpg',
-    width: 1280,
-    height: 720,
-    alt: 'In Claude Code, the question What MCP servers does neon.com publish? lists Neon and Neon Docs, each with an Add button, from neon.com\'s own catalog. Add is pressed on Neon Docs, and it is added to Claude Code\'s configuration.',
-    add: '',
-    ask: 'What MCP servers does neon.com publish?',
-    then: 'Then press Add on Neon Docs (no sign-in).',
-    link: '/guide/server-cards',
-  },
-]
+// The cards' lines are in home.json, shared with the Markdown copy of the home
+// page for agents.
+const polyfills = home.polyfills
 </script>
 
 <template>
   <div class="ap-cards">
     <article v-for="p in polyfills" :key="p.name" class="card">
-      <Recording :src="p.video" :poster="p.poster" :alt="p.alt" :width="p.width" :height="p.height" />
+      <Recording :cut="p.cut" :alt="p.alt" />
       <div class="body">
         <header>
           <h3><a :href="p.link">{{ p.name }}</a></h3>
@@ -89,14 +20,14 @@ const polyfills = [
         <p class="spec"><template v-if="p.id"><code>{{ p.id }}</code> · </template>{{ p.spec }}</p>
         <p class="line">{{ p.line }}</p>
         <template v-if="p.add">
-          <p class="step">Add the hosted demo server:</p>
+          <p class="step">{{ p.addStep }}</p>
           <CopyCommand :command="p.add" :label="`Add the ${p.name} demo server`" />
           <p class="step">Start <code>claude</code> and ask:</p>
         </template>
         <p v-else class="step">Nothing to set up. Start <code>claude</code> and ask:</p>
         <p class="ask">“{{ p.ask }}”</p>
         <p v-if="p.then" class="then">{{ p.then }}</p>
-        <a class="more" :href="p.link">The {{ p.name }} guide <span aria-hidden="true">→</span></a>
+        <a class="more" :href="p.link">The {{ p.name }} guide <svg class="arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h9.5M9 4.5 12.5 8 9 11.5" /></svg></a>
       </div>
     </article>
   </div>
@@ -157,8 +88,8 @@ h3 a:hover {
 }
 .state[data-state='works'] {
   border-color: transparent;
-  background: var(--ap-jade-soft);
-  color: var(--vp-c-brand-1);
+  background: var(--vp-c-default-soft);
+  color: var(--vp-c-text-1);
 }
 .spec {
   margin-top: 6px;
@@ -211,6 +142,15 @@ h3 a:hover {
   font-size: 14px;
   font-weight: 600;
   color: var(--vp-c-brand-1);
+}
+.more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.more .arrow {
+  width: 14px;
+  height: 14px;
 }
 .more:hover {
   text-decoration: underline;

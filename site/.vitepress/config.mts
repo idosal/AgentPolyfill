@@ -25,6 +25,16 @@ export default defineConfig({
 
   sitemap: { hostname: site },
 
+  // Each page's Markdown copy, written by scripts/agents.mjs after the build.
+  transformHead({ pageData }) {
+    if (pageData.isNotFound || pageData.relativePath === '404.md') return []
+    const page = pageData.relativePath.replace(/\.md$/, '')
+    return [
+      ['link', { rel: 'alternate', type: 'text/markdown', href: `/${page}.md`, title: 'This page as Markdown' }],
+      ['link', { rel: 'alternate', type: 'text/plain', href: '/llms.txt', title: 'llms.txt' }],
+    ]
+  },
+
   markdown: {
     theme: { light: 'github-light', dark: 'github-dark' },
   },
@@ -121,7 +131,7 @@ export default defineConfig({
 
     footer: {
       message:
-        'A community project. Not affiliated with or endorsed by the MCP project, the Agentic AI Foundation, the Linux Foundation, Anthropic or any host vendor. <a href="/about">About</a>',
+        'A community project. Not affiliated with or endorsed by the MCP project, the Agentic AI Foundation, the Linux Foundation, Anthropic, any host vendor, or the authors of Agentic Resource Discovery. <a href="/about">About</a> · <a href="/llms.txt">llms.txt</a>',
       copyright: `Apache-2.0 · <a href="${repo}">Source on GitHub</a>`,
     },
 

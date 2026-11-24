@@ -1,0 +1,8 @@
+# agentpolyfill.com: every page is open to people, search engines and agents.
+# For agents: /llms.txt indexes the site, /llms-full.txt has every page, and
+# each page is plain Markdown at its address plus .md.
+User-agent: *
+Content-Signal: search=yes, ai-input=yes
+Allow: /
+
+Sitemap: https://agentpolyfill.com/sitemap.xml
