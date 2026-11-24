@@ -139,21 +139,29 @@ export default function mcpSkills(pi: ExtensionAPI): void {
         if (app?.conns.size) event.systemPromptOptions.sections[SECTION] = INSTRUCTIONS;
     });
 
-    // SEP-2640 X8: while a served skill is loaded, a read of another server's resource is put to the
-    // person, with both servers named, or refused where nobody can be asked. Pi runs this for the
+    // SEP-2640 X8: while a served skill is loaded, anything that reads from another MCP server is put
+    // to the person, with both servers named, or refused where nobody can be asked: Pi's own
+    // read_mcp_resource, and this extension's own reads of another server's skills (a skill's text may
+    // be what asks for them, whether or not that other skill was approved before). Pi runs this for the
     // model's calls and for calls a codemode script makes alike.
+    const CROSS: Record<string, (input: Record<string, unknown>) => string> = {
+        read_mcp_resource: (i) => `read a resource from the MCP server ${JSON.stringify(i.server)}${typeof i.uri === 'string' ? ` (${oneLine(i.uri, 200)})` : ''}`,
+        load_skill: (i) => `load a skill from the MCP server ${JSON.stringify(i.server)}${typeof i.uri === 'string' ? ` (${oneLine(i.uri, 200)})` : ''}`,
+        read_skill_file: (i) => `read a file of a skill of the MCP server ${JSON.stringify(i.server)}${typeof i.path === 'string' ? ` (${oneLine(i.path, 200)})` : ''}`,
+        list_skill_directory: (i) => `list a folder of a skill of the MCP server ${JSON.stringify(i.server)}`
+    };
     pi.on('tool_call', async (event, ctx) => {
-        if (!app || event.toolName !== 'read_mcp_resource') return;
+        const describe = Object.hasOwn(CROSS, event.toolName) ? CROSS[event.toolName] : undefined;
+        if (!app || !describe) return;
+        const input = (event.input ?? {}) as Record<string, unknown>;
         const held = [...new Set(app.host.held().map((h) => h.label))];
-        const target = (event.input as { server?: unknown }).server;
-        if (!held.length || typeof target !== 'string') return;
-        const others = held.filter((s) => s !== target);
+        if (!held.length || typeof input.server !== 'string') return;
+        const others = held.filter((s) => s !== input.server);
         if (!others.length) return;
-        const uri = (event.input as { uri?: unknown }).uri;
-        const why = `A skill served by the MCP server ${others.map((s) => JSON.stringify(s)).join(', ')} is loaded in this session, and Pi wants to read a resource from the MCP server ${JSON.stringify(target)}${typeof uri === 'string' ? ` (${oneLine(uri, 200)})` : ''}. The skill's text may be what asks for it.`;
-        if (!ctx.hasUI) return { block: true, reason: `${why} Nobody can be asked in this mode, so it is not read.` };
-        const ok = await ctx.ui.confirm('mcp-skills: read another server\'s resource?', `${why}\n\nAllow this one read?`);
-        if (!ok) return { block: true, reason: `${why} The user did not allow it.` };
+        const why = secrets.scrub(`A skill served by the MCP server ${others.map((s) => JSON.stringify(s)).join(', ')} is loaded in this session, and Pi wants to ${describe(input)}. The loaded skill's text may be what asks for it.`);
+        if (!ctx.hasUI) return { block: true, reason: `${why} Nobody can be asked in this mode, so it is not done.` };
+        const ok = await ctx.ui.confirm('mcp-skills: reach another MCP server?', `${why}\n\nAllow this one?`, { signal: ctx.signal });
+        if (!ok || ctx.signal?.aborted) return { block: true, reason: `${why} The user did not allow it.` };
     });
 
     pi.on('session_shutdown', async () => {

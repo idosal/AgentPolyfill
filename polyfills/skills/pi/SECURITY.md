@@ -89,11 +89,13 @@ Pi lists the stubs only while the extension is loaded.
 ### While a skill is loaded
 
 - Its files are read only from its own server, and only those its entry lists.
-- **A read of another server's resource is asked about** (SEP-2640 X8): while
-  a served skill is loaded, Pi's `read_mcp_resource` against any other server
-  is put to you, naming both servers, or refused where nobody can be asked.
-  Pi runs that check for the model's calls and for codemode's nested calls
-  alike.
+- **Reaching another server is asked about** (SEP-2640 X8): while a served
+  skill is loaded, Pi's `read_mcp_resource` against any other server, and this
+  extension's own `load_skill`, `read_skill_file` and `list_skill_directory`
+  against another server, are put to you, naming both servers, or refused
+  where nobody can be asked. A skill of that other server approved before
+  doesn't skip it. Pi runs that check for the model's calls and for codemode's
+  nested calls alike.
 
 ## What is stored
 

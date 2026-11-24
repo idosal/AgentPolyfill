@@ -71,8 +71,9 @@ needed through codemode, and answered from them.
   its digest, before you decide. The model sees nothing of it until you choose
   "Load it".
 - **One more question, only while a served skill is loaded:** if Pi then
-  reads a resource from *another* MCP server (Pi's `read_mcp_resource`),
-  you're asked first, with both servers named. That's SEP-2640's rule X8: a
+  reaches *another* MCP server (Pi's `read_mcp_resource`, or loading or
+  reading a skill of that server), you're asked first, with both servers
+  named. That's SEP-2640's rule X8: a
   skill's text may be what asks for the read.
 - **Print and JSON modes** can't ask, so a skill you haven't approved isn't
   loaded there. Approve it once in an interactive session (or over RPC), and
@@ -202,10 +203,10 @@ logic every form shares. The clause-by-clause table is the Claude Code form's
   calls and for codemode's nested calls alike, so a cross-server
   `read_mcp_resource` while a served skill is loaded is put to you naming both
   servers, or refused where nobody can be asked; both are tested in a real Pi.
-  The extension's own reads (`read_skill_file`, `list_skill_directory`) only
-  ever read a loaded skill's own files from that skill's own server, as in the
-  Claude Code form, so they aren't cross-server. (In the Codex form X8 isn't
-  met, for want of such a hook.)
+  The same question covers this extension's own tools: with a skill of one
+  server loaded, `load_skill`, `read_skill_file` or `list_skill_directory`
+  against another server asks first, every time, even for a skill approved
+  before. (In the Codex form X8 isn't met, for want of such a hook.)
 - **H1, per-skill switch:** Pi has none for an extension's skills; the
   server-level `skip` stands in ([Limits](#limits)).
 - No step outside the SEP is taken.

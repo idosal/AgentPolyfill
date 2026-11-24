@@ -120,3 +120,35 @@ test('X8 holds for a codemode script too: its nested read of another server\'s r
     assert.match(String(asked.message), /served by the MCP server "docs" is loaded in this session, and Pi wants to read a resource from the MCP server "other"/);
     assert.ok(!brain(pi).some((r) => r.text.includes('private notes')), 'nothing of the other server\'s resource reached the model');
 });
+
+test("X8 holds for this extension's own tools too: with a skill of one server loaded, loading or reading another server's skill asks first", { timeout: 90_000 }, async () => {
+    const a = skill('git-workflow');
+    const b = skill('other-skill', { 'notes.md': 'private notes\n' });
+    const docs = new Fixture(scenarioOf([a]));
+    const other = new Fixture(scenarioOf([b]));
+    const w = world({ docs, other });
+    const rules: Rule[] = [
+        RULES[0]!,
+        { when: '^load (\\S+) (\\S+)$', call: { name: 'load_skill', args: { server: '$1', uri: '$2' } } },
+        { when: '^read (\\S+) (\\S+) (\\S+)$', call: { name: 'read_skill_file', args: { server: '$1', skill: '$2', path: '$3' } } },
+        { when: '^Loaded the skill', say: 'skill loaded' }
+    ];
+    let allow = true;
+    const pi = new Pi({ extensions: [EXTENSION], rules, agentDir: w.agentDir, answer: (r) => (r.method === 'select' ? 'Load it' : r.method === 'confirm' ? allow : undefined) });
+    running.push(pi);
+    await pi.ready();
+    await pi.prompt('/skill:mcp-docs-git-workflow');
+    assert.equal(pi.ui.filter((u) => u.method === 'confirm').length, 0, 'the first skill is only asked about once, as any load');
+    // Loading the other server's skill: the cross-server question first, naming both servers.
+    await pi.prompt(`load other ${b.uri}`);
+    const asked = pi.ui.filter((u) => u.method === 'confirm');
+    assert.equal(asked.length, 1);
+    assert.match(String(asked[0]!.message), /served by the MCP server "docs" is loaded in this session, and Pi wants to load a skill from the MCP server "other"/);
+    assert.ok(pi.toolResults('load_skill').at(-1) && !pi.toolResults('load_skill').at(-1)!.isError);
+    // Reading its file: asked again, every time; a no reads nothing.
+    allow = false;
+    await pi.prompt(`read other ${b.uri} notes.md`);
+    assert.equal(pi.ui.filter((u) => u.method === 'confirm').length, 2);
+    assert.ok(pi.toolResults('read_skill_file').at(-1)?.isError, 'refused');
+    assert.ok(!brain(pi).some((r) => r.text.includes('private notes')), 'nothing of the file reached the model');
+});
