@@ -184,8 +184,8 @@ module wakeCodex {
            excused: if (s.queued == "batch" and not(s.answered)) maxOf(s.excused, s.upto) else s.excused }
   }
   // A new helper reads the budget and the position from disk. A notice handed to `codex queue` by a
-  // helper that ended before it heard back counts as given: it starts paused (the ThreadSession
-  // constructor). Then, 0.1.3, a batch handed to `codex queue` by such a helper (the record) is
+  // helper that ended before it heard back counts as given: it starts paused (ThreadSession.start,
+  // from 0.1.4; the constructor before). Then, 0.1.3, a batch handed to `codex queue` by such a helper (the record) is
   // marked handed over and counted, now (ThreadSession.start).
   action HelperStarts = {
     val b = if (s.budget.noticeHanded) pause(s.budget, s.lift, s.now) else s.budget
