@@ -58,6 +58,9 @@ and its host part is never resolved.
 
 ### What reaches the model
 
+- **A file's media type,** in the sentence that says a file is binary: only
+  when the server's whole value is one (`type/subtype`, from 0.3.6), so
+  nothing else of the server's rides along in it.
 - **A skill's description:** one line, with control characters removed, and
   bounded, under a heading that says these aren't local skills, with
   the server's name.

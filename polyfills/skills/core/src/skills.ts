@@ -244,12 +244,23 @@ function fromBase64(text: string): Uint8Array | undefined {
 
 export type FileContent = { uri: string; bytes: Uint8Array; mimeType?: string; isText: boolean };
 
+/**
+ * A server's media type, kept only when the whole value is one (`type/subtype`, with any parameters
+ * of printable ASCII after it, which are dropped): adapters print it in their own sentences, so
+ * nothing else of the server's may ride along in it.
+ */
+export function mediaType(v: unknown): string | undefined {
+    if (typeof v !== 'string') return undefined;
+    const m = /^([A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,62}\/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,62})(?:[ \t]*;[\x20-\x7e]*)?$/.exec(v);
+    return m ? m[1] : undefined;
+}
+
 /** The raw bytes of one file out of a `resources/read` result: the same bytes a digest covers. */
 export function contentOf(result: Json, uri: string): FileContent {
     const contents = Array.isArray(result.contents) ? result.contents.filter(isObject) : [];
     const item = contents.find((c) => c.uri === uri) ?? (contents.length === 1 ? contents[0] : undefined);
     if (!item) throw new LocalError('the server answered the read with no content for that file');
-    const mimeType = typeof item.mimeType === 'string' && /^[\w.+-]+\/[\w.+-]+/.test(item.mimeType) ? item.mimeType.slice(0, 100) : undefined;
+    const mimeType = mediaType(item.mimeType);
     if (typeof item.text === 'string') return { uri, bytes: new TextEncoder().encode(item.text), mimeType, isText: true };
     if (typeof item.blob === 'string') {
         const bytes = fromBase64(item.blob);
@@ -663,7 +674,7 @@ export class SkillsHost {
             for (const c of r.resources) {
                 // A direct child of the directory asked about, and nothing else.
                 if (!isObject(c) || typeof c.uri !== 'string' || !c.uri.startsWith(`${dir}/`) || c.uri.slice(dir.length + 1).includes('/') || c.uri.length > 2048 || NOT_URI_TEXT.test(c.uri)) continue;
-                children.push({ uri: c.uri, name: c.uri.slice(dir.length + 1), isDirectory: c.mimeType === DIRECTORY_MIME, mimeType: typeof c.mimeType === 'string' ? c.mimeType.slice(0, 100) : undefined, size: typeof c.size === 'number' && c.size >= 0 ? c.size : undefined });
+                children.push({ uri: c.uri, name: c.uri.slice(dir.length + 1), isDirectory: c.mimeType === DIRECTORY_MIME, mimeType: c.mimeType === DIRECTORY_MIME ? DIRECTORY_MIME : mediaType(c.mimeType), size: typeof c.size === 'number' && c.size >= 0 ? c.size : undefined });
                 if (children.length >= 2000) break;
             }
             cursor = typeof r.nextCursor === 'string' && r.nextCursor ? r.nextCursor : undefined;

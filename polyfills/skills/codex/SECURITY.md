@@ -104,6 +104,10 @@ instance without Node).
 
 ### What reaches the model
 
+- **A file's media type,** in the sentence that says a file is binary: only
+  when the server's whole value is one (`type/subtype`, from 0.1.6), so
+  nothing else of the server's rides along in it.
+
 - **A skill's description,** in Codex's skill list and in `list_skills`: on one
   line, with control characters and every default-ignorable code point
   removed. Those are zero-width and direction marks, the soft hyphen, the
@@ -156,7 +160,9 @@ and bytes it has, whether it changed since you last approved it, and whether
 it's nested inside another skill. You choose "Do not load it", "Show me its
 SKILL.md first" or "Load it". "Show me" fetches the skill's `SKILL.md`,
 verifies it, and shows it to you only. The model sees nothing of it until you
-choose "Load it".
+choose "Load it". A skill whose server generates its content has no digest to
+hold it to, so from 0.1.6 what's loaded after "Show me" is compared with the
+text you were shown: if the server changed it in between, nothing is loaded.
 
 The question is a form with a required choice. In Codex 0.172's source
 (`codex-mcp/src/elicitation.rs`), Codex accepts a form by itself only when it
