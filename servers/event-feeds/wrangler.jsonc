@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // event-feeds: one Worker, one small Durable Object per demo-button channel.
+  "name": "event-feeds",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-19",
+  "workers_dev": true,
+  "preview_urls": false,
+  "send_metrics": false,
+  // No request logs, no traces, no Logpush: the server keeps nothing about who calls it.
+  "observability": { "enabled": false },
+  "logpush": false,
+  "durable_objects": {
+    "bindings": [
+      { "name": "CHANNELS", "class_name": "ButtonChannel" },
+      // One per upstream host: the global cap on how often that host is read (src/gate-do.ts).
+      { "name": "GATES", "class_name": "UpstreamGate" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ButtonChannel"] },
+    { "tag": "v2", "new_sqlite_classes": ["UpstreamGate"] }
+  ],
+  // Rate limits per client address (an IPv6 client counts by its /64; Cloudflare counts per location). Every route is limited, and a
+  // limiter that fails refuses the request (src/index.ts, `allow`).
+  "ratelimits": [
+    // POST /mcp: every MCP request.
+    { "name": "RL_CLIENT", "namespace_id": "4101", "simple": { "limit": 240, "period": 60 } },
+    // POST /api/press, GET /b/new, and the new_demo_button tool.
+    { "name": "RL_PRESS", "namespace_id": "4102", "simple": { "limit": 20, "period": 60 } },
+    // Every other route: the front page, button pages, robots.txt, anything else.
+    { "name": "RL_PAGE", "namespace_id": "4104", "simple": { "limit": 60, "period": 60 } }
+  ],
+  "vars": {
+    // Where the source lives (shown on the front page).
+    "SOURCE_URL": "https://github.com/idosal/MCPolyfill/tree/main/servers/event-feeds"
+  },
+  "dev": { "ip": "127.0.0.1", "port": 8797 }
+
+  // Secret, set with `wrangler secret put CHANNEL_SECRET` (any 32+ random bytes, base64), never in this file:
+  //   CHANNEL_SECRET   signs demo-button channel ids so they cannot be forged or kept alive past an hour
+}

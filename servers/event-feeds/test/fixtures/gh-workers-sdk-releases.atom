@@ -1,0 +1,446 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/" xml:lang="en-US">
+  <id>tag:github.com,2008:https://github.com/cloudflare/workers-sdk/releases</id>
+  <link type="text/html" rel="alternate" href="https://github.com/cloudflare/workers-sdk/releases"/>
+  <link type="application/atom+xml" rel="self" href="https://github.com/cloudflare/workers-sdk/releases.atom"/>
+  <title>Release notes from workers-sdk</title>
+  <updated>2026-11-23T19:22:46Z</updated>
+  <entry>
+    <id>tag:github.com,2008:Repository/426659329/wrangler@4.167.0</id>
+    <updated>2026-11-23T19:24:30Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/cloudflare/workers-sdk/releases/tag/wrangler%404.167.0"/>
+    <title>wrangler@4.167.0</title>
+    <content type="html">&lt;h3&gt;Minor Changes&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17060&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17060/hovercard&quot;&gt;#17060&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/fa50abac64e5d9a3e5daa7258c8cf816a90c5349&quot;&gt;&lt;code&gt;fa50aba&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/petebacondarwin&quot;&gt;@petebacondarwin&lt;/a&gt;! - Support &lt;code&gt;--env-file&lt;/code&gt; in the experimental &lt;code&gt;cf-wrangler dev&lt;/code&gt; delegate&lt;/p&gt;
+&lt;p&gt;Wrangler-bundled projects can now use &lt;code&gt;cf dev -- --env-file ../../.env&lt;/code&gt; to load a shared development file outside the project directory without enabling &lt;code&gt;CLOUDFLARE_INCLUDE_PROCESS_ENV&lt;/code&gt;. Repeat &lt;code&gt;--env-file&lt;/code&gt; to load multiple files, with later files overriding earlier values.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17093&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17093/hovercard&quot;&gt;#17093&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/310633d2c435d7035f706fbf08052b8d9d910857&quot;&gt;&lt;code&gt;310633d&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/for-the-kidz&quot;&gt;@for-the-kidz&lt;/a&gt;! - Remove the &lt;code&gt;wrangler dispatch-namespace rename&lt;/code&gt; command&lt;/p&gt;
+&lt;p&gt;Renaming a Workers for Platforms dispatch namespace left the namespace name stored in dispatcher bindings out of date, which could make Workers in the namespace impossible to read or delete by name. The Cloudflare API now rejects requests that change a dispatch namespace&#39;s name, so the command has been removed. To use a different name, create a new dispatch namespace and redeploy your Workers to it.&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;Patch Changes&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17102&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17102/hovercard&quot;&gt;#17102&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/1e65920b41428e28f372ba6d864a3fee8ae06acf&quot;&gt;&lt;code&gt;1e65920&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/samarthyadavv&quot;&gt;@samarthyadavv&lt;/a&gt;! - Exit with a nonzero status when the Basin SQL service rejects a query&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;wrangler basin sql query&lt;/code&gt; reports the service error and exits with status 1 so shell scripts and CI can detect a rejected query.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17099&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17099/hovercard&quot;&gt;#17099&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/fc3d7708bbfee147e0fd34a285d88eeb8d9c1a65&quot;&gt;&lt;code&gt;fc3d770&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/mayanthacreates&quot;&gt;@mayanthacreates&lt;/a&gt;! - Show that &lt;code&gt;--local&lt;/code&gt; is the default in D1 command help&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;wrangler d1 execute&lt;/code&gt;, &lt;code&gt;wrangler d1 export&lt;/code&gt;, &lt;code&gt;wrangler d1 migrations apply&lt;/code&gt; and &lt;code&gt;wrangler d1 migrations list&lt;/code&gt; run against the local database unless &lt;code&gt;--remote&lt;/code&gt; is passed, but their &lt;code&gt;--help&lt;/code&gt; output did not say so. The &lt;code&gt;--local&lt;/code&gt; flag description now ends with &quot;(default)&quot;.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17070&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17070/hovercard&quot;&gt;#17070&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update &lt;code&gt;DEFAULT_COMPAT_DATE&lt;/code&gt; to 2026-11-23&lt;/p&gt;
+&lt;p&gt;Use the bundled workerd release&#39;s compatibility date by default when scaffolding new projects or when no compatibility date is configured.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17070&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17070/hovercard&quot;&gt;#17070&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update dependencies of &quot;miniflare&quot;, &quot;wrangler&quot;&lt;/p&gt;
+&lt;p&gt;The following dependency versions have been updated:&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Dependency&lt;/th&gt;
+&lt;th&gt;From&lt;/th&gt;
+&lt;th&gt;To&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;@cloudflare/workers-types&lt;/td&gt;
+&lt;td&gt;^5.20261119.1&lt;/td&gt;
+&lt;td&gt;^5.20261123.1&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;workerd&lt;/td&gt;
+&lt;td&gt;1.20261119.1&lt;/td&gt;
+&lt;td&gt;1.20261123.1&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17078&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17078/hovercard&quot;&gt;#17078&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/b00799168dc2580013ea3c9b7d4f4505e120afa2&quot;&gt;&lt;code&gt;b007991&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/petebacondarwin&quot;&gt;@petebacondarwin&lt;/a&gt;! - Recover from missing Worker scripts after an interrupted first deploy&lt;/p&gt;
+&lt;p&gt;When the Workers API returns a service without a script, &lt;code&gt;wrangler deploy&lt;/code&gt; uses the first-deploy flow instead of crashing. &lt;code&gt;wrangler versions upload&lt;/code&gt; tells you to run &lt;code&gt;wrangler deploy&lt;/code&gt; first.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17123&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17123/hovercard&quot;&gt;#17123&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/1edd2f45a69c442dbc084a44ae5372d04775be2a&quot;&gt;&lt;code&gt;1edd2f4&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/petebacondarwin&quot;&gt;@petebacondarwin&lt;/a&gt;! - Fix intermittent subdomain lookup failures on a Worker&#39;s first deploy&lt;/p&gt;
+&lt;p&gt;After a successful first upload, &lt;code&gt;wrangler deploy&lt;/code&gt; can now read the subdomain settings from the script API if the Worker API does not yet see the new Worker. The normal deploy continues without waiting for the Worker API to catch up.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Updated dependencies [&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/b00799168dc2580013ea3c9b7d4f4505e120afa2&quot;&gt;&lt;code&gt;b007991&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/7afc49c652d8be84e4f7a6d3673145340e37a685&quot;&gt;&lt;code&gt;7afc49c&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/086706dfec2238540e8170d69fd9481c547f306d&quot;&gt;&lt;code&gt;086706d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5b45f32b75e40540f6be934978e48b2cd816ed42&quot;&gt;&lt;code&gt;5b45f32&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/00413bbb0decc8d3282a7bc5259d629614e66876&quot;&gt;&lt;code&gt;00413bb&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5bc7dba8e4d2b9254b48d3c4d3ef2df23a918637&quot;&gt;&lt;code&gt;5bc7dba&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/086706dfec2238540e8170d69fd9481c547f306d&quot;&gt;&lt;code&gt;086706d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5970e6a842b36665ab092f54ae276d34b02e3a29&quot;&gt;&lt;code&gt;5970e6a&lt;/code&gt;&lt;/a&gt;]:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;@cloudflare/workers-utils@0.57.0&lt;/li&gt;
+&lt;li&gt;&lt;a href=&quot;mailto:miniflare@5.20261123.0-beta&quot;&gt;miniflare@5.20261123.0-beta&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;</content>
+    <author>
+      <name>petebacondarwin</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15655?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/426659329/miniflare@5.20261123.0-beta</id>
+    <updated>2026-11-23T19:24:01Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/cloudflare/workers-sdk/releases/tag/miniflare%405.20261123.0-beta"/>
+    <title>miniflare@5.20261123.0-beta</title>
+    <content type="html">&lt;h3&gt;Minor Changes&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17129&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17129/hovercard&quot;&gt;#17129&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5b45f32b75e40540f6be934978e48b2cd816ed42&quot;&gt;&lt;code&gt;5b45f32&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/edmundhung&quot;&gt;@edmundhung&lt;/a&gt;! - Support &lt;code&gt;captions.get()&lt;/code&gt; and &lt;code&gt;customerCode&lt;/code&gt; in the local Stream binding&lt;/p&gt;
+&lt;p&gt;The local Stream binding now implements the Stream fields added in &lt;code&gt;@cloudflare/workers-types&lt;/code&gt;. &lt;code&gt;captions.get(language)&lt;/code&gt; returns the stored WebVTT file for an uploaded caption. Generated captions have no content in local mode, so they return an empty WebVTT file, and a missing caption throws &lt;code&gt;NotFoundError&lt;/code&gt; as the API does. Videos also include &lt;code&gt;customerCode&lt;/code&gt;, set to &lt;code&gt;&quot;placeholder&quot;&lt;/code&gt; to match the placeholder subdomain in local playback URLs.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17024&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17024/hovercard&quot;&gt;#17024&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/00413bbb0decc8d3282a7bc5259d629614e66876&quot;&gt;&lt;code&gt;00413bb&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/edmundhung&quot;&gt;@edmundhung&lt;/a&gt;! - Start even when a binding refers to a Worker that isn&#39;t running&lt;/p&gt;
+&lt;p&gt;A service, Durable Object or Workflow binding to a Worker that isn&#39;t running now always fails only when it&#39;s used, and events sent to a tail consumer that isn&#39;t running are dropped. Before, Miniflare failed to start when the dev registry was disabled, as it is in the Vitest plugin.&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;Patch Changes&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17070&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17070/hovercard&quot;&gt;#17070&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update &lt;code&gt;DEFAULT_COMPAT_DATE&lt;/code&gt; to 2026-11-23&lt;/p&gt;
+&lt;p&gt;Use the bundled workerd release&#39;s compatibility date by default when scaffolding new projects or when no compatibility date is configured.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17070&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17070/hovercard&quot;&gt;#17070&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update dependencies of &quot;miniflare&quot;, &quot;wrangler&quot;&lt;/p&gt;
+&lt;p&gt;The following dependency versions have been updated:&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Dependency&lt;/th&gt;
+&lt;th&gt;From&lt;/th&gt;
+&lt;th&gt;To&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;@cloudflare/workers-types&lt;/td&gt;
+&lt;td&gt;^5.20261119.1&lt;/td&gt;
+&lt;td&gt;^5.20261123.1&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;workerd&lt;/td&gt;
+&lt;td&gt;1.20261119.1&lt;/td&gt;
+&lt;td&gt;1.20261123.1&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17101&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17101/hovercard&quot;&gt;#17101&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/7afc49c652d8be84e4f7a6d3673145340e37a685&quot;&gt;&lt;code&gt;7afc49c&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/samarthyadavv&quot;&gt;@samarthyadavv&lt;/a&gt;! - Honor KV bulk read options in Local Explorer&lt;/p&gt;
+&lt;p&gt;Local Explorer now parses values when &lt;code&gt;type: &quot;json&quot;&lt;/code&gt; is set and includes metadata when &lt;code&gt;withMetadata: true&lt;/code&gt; is set. Both options also work together, including when using &lt;code&gt;cf kv keys bulk-get --local&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Bulk reads also preserve metadata for stored JSON &lt;code&gt;null&lt;/code&gt; values when requested. Missing keys still return bare &lt;code&gt;null&lt;/code&gt;.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17119&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17119/hovercard&quot;&gt;#17119&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/086706dfec2238540e8170d69fd9481c547f306d&quot;&gt;&lt;code&gt;086706d&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/tw4&quot;&gt;@tw4&lt;/a&gt;! - Honor &lt;code&gt;start_after&lt;/code&gt; when listing R2 objects through the Local Explorer API&lt;/p&gt;
+&lt;p&gt;Previously, the local R2 list objects endpoint ignored the &lt;code&gt;start_after&lt;/code&gt; query parameter, so a listing resumed from a saved key returned that key again. Local listings now only return objects whose keys sort after &lt;code&gt;start_after&lt;/code&gt;, matching the R2 list objects API.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17090&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17090/hovercard&quot;&gt;#17090&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5bc7dba8e4d2b9254b48d3c4d3ef2df23a918637&quot;&gt;&lt;code&gt;5bc7dba&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/pelle&quot;&gt;@pelle&lt;/a&gt;! - Fix &lt;code&gt;unsafeEvictDurableObject()&lt;/code&gt; blocking the Node.js event loop&lt;/p&gt;
+&lt;p&gt;Dev control calls (&lt;code&gt;evictDurableObject()&lt;/code&gt; and &lt;code&gt;execDurableObjectSql()&lt;/code&gt;) were proxied synchronously with &lt;code&gt;Atomics.wait()&lt;/code&gt;. Eviction waits for the Durable Object&#39;s &lt;code&gt;waitUntil()&lt;/code&gt; work, so if that work was waiting on Node.js (for example a function-valued service binding or &lt;code&gt;node-handler&lt;/code&gt;), Node.js could never answer and eviction failed after workerd&#39;s 30 second timeout. These calls are now always asynchronous. A rejected RPC call made through the proxy is now also parsed as an asynchronous response, so errors such as evicting a Durable Object that is not running are still thrown.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17119&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17119/hovercard&quot;&gt;#17119&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/086706dfec2238540e8170d69fd9481c547f306d&quot;&gt;&lt;code&gt;086706d&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/tw4&quot;&gt;@tw4&lt;/a&gt;! - Fix local R2 listings repeating a page when &lt;code&gt;startAfter&lt;/code&gt; and &lt;code&gt;cursor&lt;/code&gt; are used together with some Unicode keys&lt;/p&gt;
+&lt;p&gt;When both options were passed, the local R2 simulator picked the later of the two using JavaScript string comparison, which orders some characters (such as fullwidth letters and emoji) differently from how keys are stored and listed. Paginating with a saved &lt;code&gt;startAfter&lt;/code&gt; could then return the same page forever. Keys are now compared in the same order they are listed in.&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;</content>
+    <author>
+      <name>petebacondarwin</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15655?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/426659329/create-cloudflare@2.75.1</id>
+    <updated>2026-11-23T19:23:50Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/cloudflare/workers-sdk/releases/tag/create-cloudflare%402.75.1"/>
+    <title>create-cloudflare@2.75.1</title>
+    <content type="html">&lt;h3&gt;Patch Changes&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17114&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17114/hovercard&quot;&gt;#17114&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/6564a0cbbf9167e6617f1121ffa826d7e3ff35da&quot;&gt;&lt;code&gt;6564a0c&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update dependencies of &quot;create-cloudflare&quot;&lt;/p&gt;
+&lt;p&gt;The following dependency versions have been updated:&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Dependency&lt;/th&gt;
+&lt;th&gt;From&lt;/th&gt;
+&lt;th&gt;To&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;create-solid&lt;/td&gt;
+&lt;td&gt;0.12.0&lt;/td&gt;
+&lt;td&gt;0.13.0&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17115&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17115/hovercard&quot;&gt;#17115&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/2180512b16b7edc4b023cd16e518a78c960a56d0&quot;&gt;&lt;code&gt;2180512&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update dependencies of &quot;create-cloudflare&quot;&lt;/p&gt;
+&lt;p&gt;The following dependency versions have been updated:&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Dependency&lt;/th&gt;
+&lt;th&gt;From&lt;/th&gt;
+&lt;th&gt;To&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;create-vike&lt;/td&gt;
+&lt;td&gt;0.0.694&lt;/td&gt;
+&lt;td&gt;0.0.695&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17116&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17116/hovercard&quot;&gt;#17116&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/0db57427a9eb8f148f43360ce77735917fffca82&quot;&gt;&lt;code&gt;0db5742&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update dependencies of &quot;create-cloudflare&quot;&lt;/p&gt;
+&lt;p&gt;The following dependency versions have been updated:&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Dependency&lt;/th&gt;
+&lt;th&gt;From&lt;/th&gt;
+&lt;th&gt;To&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;@angular/create&lt;/td&gt;
+&lt;td&gt;22.2.7&lt;/td&gt;
+&lt;td&gt;22.3.0&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17117&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17117/hovercard&quot;&gt;#17117&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/beac369fe43905d6b2839a5d67080039b74f0a7e&quot;&gt;&lt;code&gt;beac369&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update dependencies of &quot;create-cloudflare&quot;&lt;/p&gt;
+&lt;p&gt;The following dependency versions have been updated:&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Dependency&lt;/th&gt;
+&lt;th&gt;From&lt;/th&gt;
+&lt;th&gt;To&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;create-react-router&lt;/td&gt;
+&lt;td&gt;8.5.1&lt;/td&gt;
+&lt;td&gt;8.5.2&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17118&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17118/hovercard&quot;&gt;#17118&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/97ed1852ddaf9893b8b0fd01e4bb3751ef5df130&quot;&gt;&lt;code&gt;97ed185&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update dependencies of &quot;create-cloudflare&quot;&lt;/p&gt;
+&lt;p&gt;The following dependency versions have been updated:&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Dependency&lt;/th&gt;
+&lt;th&gt;From&lt;/th&gt;
+&lt;th&gt;To&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;sv&lt;/td&gt;
+&lt;td&gt;1.3.0&lt;/td&gt;
+&lt;td&gt;1.7.0&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17070&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17070/hovercard&quot;&gt;#17070&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update &lt;code&gt;DEFAULT_COMPAT_DATE&lt;/code&gt; to 2026-11-23&lt;/p&gt;
+&lt;p&gt;Use the bundled workerd release&#39;s compatibility date by default when scaffolding new projects or when no compatibility date is configured.&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;</content>
+    <author>
+      <name>petebacondarwin</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15655?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/426659329/@cloudflare/workers-utils@0.57.0</id>
+    <updated>2026-11-23T19:24:26Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare%2Fworkers-utils%400.57.0"/>
+    <title>@cloudflare/workers-utils@0.57.0</title>
+    <content type="html">&lt;h3&gt;Minor Changes&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/16879&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/16879/hovercard&quot;&gt;#16879&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5970e6a842b36665ab092f54ae276d34b02e3a29&quot;&gt;&lt;code&gt;5970e6a&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/edmundhung&quot;&gt;@edmundhung&lt;/a&gt;! - Add &lt;code&gt;readD1Migrations()&lt;/code&gt; and &lt;code&gt;applyD1Migrations()&lt;/code&gt; for reading and applying D1 migrations&lt;/p&gt;
+&lt;p&gt;These move from the Vitest plugin so other tools apply migrations the same way. &lt;code&gt;readD1Migrations()&lt;/code&gt; is available from the main entry point and throws when the migrations directory is missing. &lt;code&gt;applyD1Migrations()&lt;/code&gt; is available from the &lt;code&gt;apply-d1-migrations&lt;/code&gt; entry point, which has no Node.js imports so it runs inside workerd, and it also accepts the D1 binding from Miniflare&#39;s &lt;code&gt;getD1Database()&lt;/code&gt;.&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;Patch Changes&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17070&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17070/hovercard&quot;&gt;#17070&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update &lt;code&gt;DEFAULT_COMPAT_DATE&lt;/code&gt; to 2026-11-23&lt;/p&gt;
+&lt;p&gt;Use the bundled workerd release&#39;s compatibility date by default when scaffolding new projects or when no compatibility date is configured.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17078&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17078/hovercard&quot;&gt;#17078&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/b00799168dc2580013ea3c9b7d4f4505e120afa2&quot;&gt;&lt;code&gt;b007991&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/petebacondarwin&quot;&gt;@petebacondarwin&lt;/a&gt;! - Recover from missing Worker scripts after an interrupted first deploy&lt;/p&gt;
+&lt;p&gt;When the Workers API returns a service without a script, &lt;code&gt;wrangler deploy&lt;/code&gt; uses the first-deploy flow instead of crashing. &lt;code&gt;wrangler versions upload&lt;/code&gt; tells you to run &lt;code&gt;wrangler deploy&lt;/code&gt; first.&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ul&gt;</content>
+    <author>
+      <name>petebacondarwin</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15655?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/426659329/@cloudflare/workers-auth@0.18.7</id>
+    <updated>2026-11-23T19:24:23Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare%2Fworkers-auth%400.18.7"/>
+    <title>@cloudflare/workers-auth@0.18.7</title>
+    <content type="html">&lt;h3&gt;Patch Changes&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17070&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17070/hovercard&quot;&gt;#17070&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update &lt;code&gt;DEFAULT_COMPAT_DATE&lt;/code&gt; to 2026-11-23&lt;/p&gt;
+&lt;p&gt;Use the bundled workerd release&#39;s compatibility date by default when scaffolding new projects or when no compatibility date is configured.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Updated dependencies [&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/b00799168dc2580013ea3c9b7d4f4505e120afa2&quot;&gt;&lt;code&gt;b007991&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5970e6a842b36665ab092f54ae276d34b02e3a29&quot;&gt;&lt;code&gt;5970e6a&lt;/code&gt;&lt;/a&gt;]:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;@cloudflare/workers-utils@0.57.0&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;</content>
+    <author>
+      <name>petebacondarwin</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15655?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/426659329/@cloudflare/vitest-plugin@1.9.1</id>
+    <updated>2026-11-23T19:24:34Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare%2Fvitest-plugin%401.9.1"/>
+    <title>@cloudflare/vitest-plugin@1.9.1</title>
+    <content type="html">&lt;h3&gt;Patch Changes&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17070&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17070/hovercard&quot;&gt;#17070&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update &lt;code&gt;DEFAULT_COMPAT_DATE&lt;/code&gt; to 2026-11-23&lt;/p&gt;
+&lt;p&gt;Use the bundled workerd release&#39;s compatibility date by default when scaffolding new projects or when no compatibility date is configured.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/16879&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/16879/hovercard&quot;&gt;#16879&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5970e6a842b36665ab092f54ae276d34b02e3a29&quot;&gt;&lt;code&gt;5970e6a&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/edmundhung&quot;&gt;@edmundhung&lt;/a&gt;! - Throw from &lt;code&gt;readD1Migrations()&lt;/code&gt; when the migrations directory doesn&#39;t exist&lt;/p&gt;
+&lt;p&gt;Passing options with a missing &lt;code&gt;migrationsDir&lt;/code&gt; used to return no migrations, so a typo silently applied nothing. It now throws &quot;No migrations present at …&quot;, as Wrangler does. Passing a directory path that doesn&#39;t exist throws the same error. A migrations directory that can&#39;t be read now also throws when you pass options, and both forms name the directory in the error.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17108&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17108/hovercard&quot;&gt;#17108&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/65f6f33eaad8a4712f915d884bfb4c04a862c516&quot;&gt;&lt;code&gt;65f6f33&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/Hebilicious&quot;&gt;@Hebilicious&lt;/a&gt;! - Resolve the runner&#39;s &lt;code&gt;vitest/worker&lt;/code&gt; import from the plugin, not from the project root&lt;/p&gt;
+&lt;p&gt;The runner is a virtual module, &lt;code&gt;/index.mjs&lt;/code&gt;, so Vite resolved its &lt;code&gt;vitest/worker&lt;/code&gt; import from the project root. When the root could not resolve &lt;code&gt;vitest&lt;/code&gt;, as in a pnpm workspace whose root package does not depend on it, no test file ran and Workers threw &lt;code&gt;No such module &quot;vitest/worker&quot;&lt;/code&gt;. When a parent directory had another &lt;code&gt;vitest&lt;/code&gt; version, the runner loaded that version and Vitest failed to find the runner. The plugin now resolves &lt;code&gt;vitest/worker&lt;/code&gt; from its own package, so the runner uses the same Vitest as the pool.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Updated dependencies [&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/7afc49c652d8be84e4f7a6d3673145340e37a685&quot;&gt;&lt;code&gt;7afc49c&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/086706dfec2238540e8170d69fd9481c547f306d&quot;&gt;&lt;code&gt;086706d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5b45f32b75e40540f6be934978e48b2cd816ed42&quot;&gt;&lt;code&gt;5b45f32&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/00413bbb0decc8d3282a7bc5259d629614e66876&quot;&gt;&lt;code&gt;00413bb&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5bc7dba8e4d2b9254b48d3c4d3ef2df23a918637&quot;&gt;&lt;code&gt;5bc7dba&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/086706dfec2238540e8170d69fd9481c547f306d&quot;&gt;&lt;code&gt;086706d&lt;/code&gt;&lt;/a&gt;]:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;mailto:miniflare@5.20261123.0-beta&quot;&gt;miniflare@5.20261123.0-beta&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;</content>
+    <author>
+      <name>petebacondarwin</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15655?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/426659329/@cloudflare/vite-plugin@2.0.0-rc.4</id>
+    <updated>2026-11-23T19:24:19Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare%2Fvite-plugin%402.0.0-rc.4"/>
+    <title>@cloudflare/vite-plugin@2.0.0-rc.4</title>
+    <content type="html">&lt;h3&gt;Patch Changes&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17070&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17070/hovercard&quot;&gt;#17070&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update &lt;code&gt;DEFAULT_COMPAT_DATE&lt;/code&gt; to 2026-11-23&lt;/p&gt;
+&lt;p&gt;Use the bundled workerd release&#39;s compatibility date by default when scaffolding new projects or when no compatibility date is configured.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Updated dependencies [&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/7afc49c652d8be84e4f7a6d3673145340e37a685&quot;&gt;&lt;code&gt;7afc49c&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/086706dfec2238540e8170d69fd9481c547f306d&quot;&gt;&lt;code&gt;086706d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5b45f32b75e40540f6be934978e48b2cd816ed42&quot;&gt;&lt;code&gt;5b45f32&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/00413bbb0decc8d3282a7bc5259d629614e66876&quot;&gt;&lt;code&gt;00413bb&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5bc7dba8e4d2b9254b48d3c4d3ef2df23a918637&quot;&gt;&lt;code&gt;5bc7dba&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/086706dfec2238540e8170d69fd9481c547f306d&quot;&gt;&lt;code&gt;086706d&lt;/code&gt;&lt;/a&gt;]:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;@cloudflare/build-output-utils@1.0.0-rc.4&lt;/li&gt;
+&lt;li&gt;@cloudflare/config@1.0.0-rc.4&lt;/li&gt;
+&lt;li&gt;@cloudflare/runtime-types@0.1.33&lt;/li&gt;
+&lt;li&gt;&lt;a href=&quot;mailto:miniflare@5.20261123.0-beta&quot;&gt;miniflare@5.20261123.0-beta&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;</content>
+    <author>
+      <name>petebacondarwin</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15655?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/426659329/@cloudflare/runtime-types@0.1.33</id>
+    <updated>2026-11-23T19:24:15Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare%2Fruntime-types%400.1.33"/>
+    <title>@cloudflare/runtime-types@0.1.33</title>
+    <content type="html">&lt;h3&gt;Patch Changes&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17070&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17070/hovercard&quot;&gt;#17070&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update &lt;code&gt;DEFAULT_COMPAT_DATE&lt;/code&gt; to 2026-11-23&lt;/p&gt;
+&lt;p&gt;Use the bundled workerd release&#39;s compatibility date by default when scaffolding new projects or when no compatibility date is configured.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Updated dependencies [&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/7afc49c652d8be84e4f7a6d3673145340e37a685&quot;&gt;&lt;code&gt;7afc49c&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/086706dfec2238540e8170d69fd9481c547f306d&quot;&gt;&lt;code&gt;086706d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5b45f32b75e40540f6be934978e48b2cd816ed42&quot;&gt;&lt;code&gt;5b45f32&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/00413bbb0decc8d3282a7bc5259d629614e66876&quot;&gt;&lt;code&gt;00413bb&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5bc7dba8e4d2b9254b48d3c4d3ef2df23a918637&quot;&gt;&lt;code&gt;5bc7dba&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/086706dfec2238540e8170d69fd9481c547f306d&quot;&gt;&lt;code&gt;086706d&lt;/code&gt;&lt;/a&gt;]:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;mailto:miniflare@5.20261123.0-beta&quot;&gt;miniflare@5.20261123.0-beta&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;</content>
+    <author>
+      <name>petebacondarwin</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15655?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/426659329/@cloudflare/remote-bindings@0.0.70</id>
+    <updated>2026-11-23T19:24:12Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare%2Fremote-bindings%400.0.70"/>
+    <title>@cloudflare/remote-bindings@0.0.70</title>
+    <content type="html">&lt;h3&gt;Patch Changes&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Updated dependencies [&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/b00799168dc2580013ea3c9b7d4f4505e120afa2&quot;&gt;&lt;code&gt;b007991&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/1edd2f45a69c442dbc084a44ae5372d04775be2a&quot;&gt;&lt;code&gt;1edd2f4&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/7afc49c652d8be84e4f7a6d3673145340e37a685&quot;&gt;&lt;code&gt;7afc49c&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/086706dfec2238540e8170d69fd9481c547f306d&quot;&gt;&lt;code&gt;086706d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5b45f32b75e40540f6be934978e48b2cd816ed42&quot;&gt;&lt;code&gt;5b45f32&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/00413bbb0decc8d3282a7bc5259d629614e66876&quot;&gt;&lt;code&gt;00413bb&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5bc7dba8e4d2b9254b48d3c4d3ef2df23a918637&quot;&gt;&lt;code&gt;5bc7dba&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/086706dfec2238540e8170d69fd9481c547f306d&quot;&gt;&lt;code&gt;086706d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5970e6a842b36665ab092f54ae276d34b02e3a29&quot;&gt;&lt;code&gt;5970e6a&lt;/code&gt;&lt;/a&gt;]:
+&lt;ul&gt;
+&lt;li&gt;@cloudflare/workers-utils@0.57.0&lt;/li&gt;
+&lt;li&gt;@cloudflare/deploy-helpers@0.29.1&lt;/li&gt;
+&lt;li&gt;@cloudflare/workers-auth@0.18.7&lt;/li&gt;
+&lt;li&gt;&lt;a href=&quot;mailto:miniflare@5.20261123.0-beta&quot;&gt;miniflare@5.20261123.0-beta&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;</content>
+    <author>
+      <name>petebacondarwin</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15655?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/426659329/@cloudflare/pages-shared@0.13.219</id>
+    <updated>2026-11-23T19:24:08Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/cloudflare/workers-sdk/releases/tag/%40cloudflare%2Fpages-shared%400.13.219"/>
+    <title>@cloudflare/pages-shared@0.13.219</title>
+    <content type="html">&lt;h3&gt;Patch Changes&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/pull/17070&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/cloudflare/workers-sdk/pull/17070/hovercard&quot;&gt;#17070&lt;/a&gt; &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt; Thanks &lt;a href=&quot;https://github.com/apps/dependabot&quot;&gt;@dependabot&lt;/a&gt;! - Update &lt;code&gt;DEFAULT_COMPAT_DATE&lt;/code&gt; to 2026-11-23&lt;/p&gt;
+&lt;p&gt;Use the bundled workerd release&#39;s compatibility date by default when scaffolding new projects or when no compatibility date is configured.&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;Updated dependencies [&lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/657179d3d707a244038168675292b288e0a1f4ef&quot;&gt;&lt;code&gt;657179d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/7afc49c652d8be84e4f7a6d3673145340e37a685&quot;&gt;&lt;code&gt;7afc49c&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/086706dfec2238540e8170d69fd9481c547f306d&quot;&gt;&lt;code&gt;086706d&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5b45f32b75e40540f6be934978e48b2cd816ed42&quot;&gt;&lt;code&gt;5b45f32&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/00413bbb0decc8d3282a7bc5259d629614e66876&quot;&gt;&lt;code&gt;00413bb&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/5bc7dba8e4d2b9254b48d3c4d3ef2df23a918637&quot;&gt;&lt;code&gt;5bc7dba&lt;/code&gt;&lt;/a&gt;, &lt;a href=&quot;https://github.com/cloudflare/workers-sdk/commit/086706dfec2238540e8170d69fd9481c547f306d&quot;&gt;&lt;code&gt;086706d&lt;/code&gt;&lt;/a&gt;]:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;mailto:miniflare@5.20261123.0-beta&quot;&gt;miniflare@5.20261123.0-beta&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/li&gt;
+&lt;/ul&gt;</content>
+    <author>
+      <name>petebacondarwin</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15655?s=60&amp;v=4"/>
+  </entry>
+</feed>

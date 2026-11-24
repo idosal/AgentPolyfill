@@ -1,0 +1,22 @@
+{
+  "name": "event-feeds",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A public MCP server that implements the server side of MCP Events (SEP-3415): Hacker News, npm, GitHub releases, USGS earthquakes and a private demo button, on one Cloudflare Worker.",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "test": "node --no-warnings --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "interop": "node --no-warnings test/interop/run.ts",
+    "smoke": "node --no-warnings test/smoke.ts"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20261120.0",
+    "typescript": "^5.9.0",
+    "wrangler": "^4.166.0"
+  }
+}
