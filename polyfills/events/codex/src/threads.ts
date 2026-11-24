@@ -62,6 +62,11 @@ export class ThreadSession {
     #stopped = false;
     /** Why the last wake failed, until one succeeds: list_watches says so. */
     lastWakeError?: string;
+    /**
+     * Why this session can never be woken, once `codex queue` has said so (a ChatGPT desktop-app chat,
+     * which is not a local Codex session). Its events are still stored and readable; it is not tried again.
+     */
+    unwakeable?: string;
 
     constructor(id: string, o: ThreadOptions) {
         const env = o.env ?? process.env;
@@ -106,6 +111,7 @@ export class ThreadSession {
 
     async call(name: string, input: Record<string, unknown>): Promise<ToolAnswer> {
         const answer = await this.#tools.call(name, input);
+        if (name === 'list_watches' && this.unwakeable) return { ...answer, text: `${answer.text}\n\nThis chat can't be woken: it isn't a local Codex session, which is all codex queue reaches (a ChatGPT desktop-app chat, say). Its watches still store every event: recent_events and get_event read them. Waking works in the Codex TUI.` };
         if (name === 'list_watches' && this.lastWakeError) return { ...answer, text: `${answer.text}\n\nWaking this session failed the last time it was tried (${this.lastWakeError}); it is tried again.` };
         return answer;
     }
@@ -136,6 +142,11 @@ export class ThreadSession {
             this.lastWakeError = undefined;
             this.#retryMs = 0;
             if (!r.resumed) this.#log('codex queue took the message but could not resume the session; it runs when the session is next opened');
+        } else if (r.unreachable) {
+            // No later try can reach it: stop trying. Events go on being stored, for recent_events and get_event.
+            this.unwakeable = r.why;
+            this.lastWakeError = r.why;
+            this.#log(`${r.why}; not trying to wake this session again (its events are still stored)`);
         } else {
             this.lastWakeError = r.why;
             this.#retryMs = Math.min(MAX_RETRY_MS, Math.max(MIN_RETRY_MS, this.#retryMs * 2));
@@ -145,7 +156,7 @@ export class ThreadSession {
     }
 
     async #handOver(): Promise<void> {
-        if (this.#waking || this.#stopped) return;
+        if (this.#waking || this.#stopped || this.unwakeable) return;
         // Only the process that runs the watches wakes the session.
         if (!this.manager.owner || !this.#delivery) return;
         this.#waking = true;
@@ -175,12 +186,13 @@ export class ThreadSession {
                 this.budget.handNotice();
                 const r = await this.#queue([WAKE_HEADER, this.budget.notice(batch.events)].join('\n'));
                 if (r.ok) this.budget.pause();
-                else again = this.#retryMs;
+                else if (!r.unreachable) again = this.#retryMs;
                 return;
             }
             const r = await this.#queue([WAKE_HEADER, ...batch.lines].join('\n'));
             if (!r.ok) {
-                again = this.#retryMs;
+                // Tried again later, unless no try can ever reach this session.
+                if (!r.unreachable) again = this.#retryMs;
                 return;
             }
             this.budget.woke(batch.watches);

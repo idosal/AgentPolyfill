@@ -181,6 +181,33 @@ describe('when codex queue fails', () => {
         }
     });
 
+    test("a chat Codex has no local session for (the ChatGPT desktop app's) is not tried again; its events are kept and readable, and list_watches says why", async () => {
+        const w = world();
+        writeFileSync(w.mode, 'norollout');
+        const h = await startHelper(w, { MCP_EVENTS_WAKE_GAP_S: '0' });
+        const thread = newThread();
+        try {
+            await h.call('watch_event', { server: 'tickets', event: 'ticket.created' }, thread);
+            await untilActive(h, thread);
+            w.emit('ticket.created', { title: 'one' });
+            await waitFor(() => w.queued().length === 1, 20000, 'the one try');
+            // The retry that used to follow 5 s later does not come, nor does a new event bring one.
+            await sleep(6000);
+            w.emit('ticket.created', { title: 'two' });
+            await sleep(2000);
+            assert.equal(w.queued().length, 1, 'tried once, and not again');
+            const listed = await h.call('list_watches', {}, thread, 'user');
+            assert.match(listed.text, /This chat can't be woken: it isn't a local Codex session/);
+            assert.match(listed.text, /recent_events and get_event read them/);
+            const recent = await h.call('recent_events', {}, thread, 'user');
+            assert.match(recent.text, /e1/);
+            assert.match(recent.text, /e2/);
+            assert.match((await h.call('get_event', { id: 'e2' }, thread, 'user')).text, /"title": "two"/);
+        } finally {
+            await h.stop();
+        }
+    });
+
     test('MCP_EVENTS_CODEX_REMOTE sends the wake to the app server Codex runs against', async () => {
         const w = world();
         const h = await startHelper(w, { MCP_EVENTS_WAKE_GAP_S: '0', MCP_EVENTS_CODEX_REMOTE: 'ws://127.0.0.1:47811' });

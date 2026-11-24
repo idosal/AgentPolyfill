@@ -78,6 +78,9 @@ export function questionText(o: { server: string; entry: SkillEntry; files: numb
     ].join('\n');
 }
 
+/** The mark at the start of each line of a server's SKILL.md in the preview: a box-drawing bar (U+2502) and a space. */
+const BAR = `${String.fromCodePoint(0x2502)} `;
+
 /** The same question after the person read the skill's SKILL.md. */
 export function previewText(o: { server: string; entry: SkillEntry; body: string; isVerified: boolean }): string {
     const max = 12_000;
@@ -86,12 +89,15 @@ export function previewText(o: { server: string; entry: SkillEntry; body: string
     // invisible character (a terminal could act on one), line breaks and tabs kept.
     const clean = shownText(o.body).replace(/\n+$/, '');
     const body = clean.length > max ? `${clean.slice(0, max)}\n[… ${clean.length - max} more characters]` : clean;
+    // The frame cannot be forged from inside: its marker lines carry an id made for this one
+    // preview, and every line of the server's text starts with the bar, which no marker line does.
+    const id = randomBytes(6).toString('hex');
     return [
-        `The SKILL.md of ${name}, from the MCP server ${q(o.server)}${o.isVerified ? ', checked against its digest' : ' (generated: not verifiable)'}. This is shown to you only; the model has not seen it. Between the two marker lines is the server's text.`,
+        `The SKILL.md of ${name}, from the MCP server ${q(o.server)}${o.isVerified ? ', checked against its digest' : ' (generated: not verifiable)'}. This is shown to you only; the model has not seen it. The server's text is between the two marker lines with the id ${id}, each of its lines marked with ${BAR.trim()}.`,
         '',
-        `----- The SKILL.md of ${name} begins -----`,
-        body,
-        `----- The SKILL.md of ${name} ends -----`,
+        `----- The SKILL.md of ${name} begins (id ${id}) -----`,
+        ...body.split('\n').map((line) => `${BAR}${line}`),
+        `----- The SKILL.md of ${name} ends (id ${id}) -----`,
         '',
         `Load ${name}?`
     ].join('\n');

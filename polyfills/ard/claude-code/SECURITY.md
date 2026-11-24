@@ -6,7 +6,7 @@ The client rules it follows are listed with their tests in the [README](README.m
 
 ## What is trusted
 
-- **You.** Every search is put to you first, and so is every server you add. The registry is a default you can change, or empty (the `registry` setting); a registry named in the request is used instead.
+- **You.** Every search is put to you first, and so is every server you add. The registry is yours to choose: none is set by default. A search uses the registry named in the request, or the one you set with the `registry` setting.
 - **Claude Code**: its permission dialog, its rules, its network policy, its sign-in.
 - **`mcp-server-cards`**, the declared dependency that checks, shows and adds what this mod finds.
 - **Not the registry.** It ranks other people's servers. Its score is relevance, never trust, and its descriptions are its own. A result counts as confirmed only when the publisher's own catalog lists the server.
@@ -14,7 +14,7 @@ The client rules it follows are listed with their tests in the [README](README.m
 
 ## What the mod sends, and where
 
-**Search sends your query to a third party.** `ard_search` makes one `POST` of the query text to the registry's `/search` endpoint, with a filter for Server Cards and `federation: "referrals"`. With the default setting, that registry is a Hugging Face Space at `https://huggingface-hf-discover.hf.space`, which huggingface.co's own catalog lists as its "Hugging Face Discover Registry". It then makes the same `POST` to at most three registries that registry refers to, one hop, and no further.
+**Search sends your query to a third party.** `ard_search` makes one `POST` of the query text to the registry's `/search` endpoint, with a filter for Server Cards and `federation: "referrals"`. No registry is set by default: the registry is the one named in the request, or the one you set with `registry`. With neither, the search is refused before you are asked, and nothing is sent. It then makes the same `POST` to at most three registries that registry refers to, one hop, and no further.
 - **Each search asks you first.** Before anything is sent, Claude Code shows you the query and where it goes: `Send this search to <registry>, and to up to three registries it refers to? "<query>"` (for a registry named by domain, the registries that domain lists, up to three). The mod makes that question itself, so no allow rule or auto mode answers it. If you say no, nothing is sent. What is sent is what you were shown: a query longer than the 300 characters the question shows, or one with control characters, invisible characters or direction marks (which could make the question read differently from what is sent), is refused.
 - **A session with nobody to ask can't search.** In `claude -p`, or a background loop, every search is refused and nothing is sent.
 - Only the words Claude puts in `query` are sent, with `Content-Type` and `Accept` headers: no cookie, no credential, no file.
@@ -39,7 +39,7 @@ Nothing. It changes no configuration and keeps no store. Adding a server is `mcp
 
 ## What it does not protect against
 
-- **The registry seeing your query, once you say yes.** That is what a search is. Read the query in the prompt before you allow it. Change the default registry to one you trust with it, or set `registry` to empty and name one each time.
+- **The registry seeing your query, once you say yes.** That is what a search is. Read the query in the prompt before you allow it. Set `registry` only to a registry you trust with it, or leave it empty and name one each time.
 - **A public name that resolves to a private address, or a redirect to one.** Claude Code's `$.http.fetch` resolves names and follows redirects without reporting either, so only addresses named directly are refused.
 - **A registry that ranks a bad server first.** The order is the registry's. A server whose publisher doesn't confirm it is marked so, and adding it is your call.
 
