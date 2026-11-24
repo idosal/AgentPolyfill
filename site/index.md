@@ -3,11 +3,11 @@ layout: home
 markdownStyles: false
 titleTemplate: false
 title: AgentPolyfill
-description: "Polyfills for agent protocols: run protocol extensions in the clients you already use, before they support them. Works in Claude Code and Codex."
+description: "Polyfills for agent protocols: bring more of MCP to the clients you already use. Plugins add Apps, Skills, Events, Server Cards and ARD to Claude Code and Codex."
 hero:
   name: AgentPolyfill
   text: Polyfills for agent protocols
-  tagline: Run protocol extensions in the clients you already use, before they support them. Works in Claude Code and Codex.
+  tagline: Bring more of MCP to the clients you already use. Plugins add Apps, Skills, Events, Server Cards and ARD to Claude Code and Codex.
   image:
     light: /mark-light.svg
     dark: /mark-dark.svg
