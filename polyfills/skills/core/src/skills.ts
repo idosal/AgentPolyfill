@@ -15,7 +15,7 @@
 
 import { parse as parseYaml } from 'yaml';
 import type { Wire } from './wire.ts';
-import { describeError, errorCode, LocalError, UNSAFE_TEXT } from './untrusted.ts';
+import { describeError, errorCode, INVISIBLE_TEXT, LocalError, NOT_URI_TEXT, UNSAFE_TEXT } from './untrusted.ts';
 
 export const SKILLS_EXTENSION = 'io.modelcontextprotocol/skills';
 /** "Limits": what every conforming host accepts. This one accepts exactly that, and declines more. */
@@ -80,7 +80,7 @@ const DIGEST = /^sha256:[\da-f]{64}$/;
 
 /** The skill's root directory: its `SKILL.md` URI without `/SKILL.md`, no trailing slash. */
 export function rootOf(skillUri: string): string | undefined {
-    if (!skillUri.endsWith(SKILL_MD) || /[#?\s]/.test(skillUri) || UNSAFE_TEXT.test(skillUri)) return undefined;
+    if (!skillUri.endsWith(SKILL_MD) || /[#?]/.test(skillUri) || NOT_URI_TEXT.test(skillUri)) return undefined;
     const root = skillUri.slice(0, -SKILL_MD.length);
     // A scheme, then a skill path of at least one segment.
     return /^[A-Za-z][A-Za-z0-9+.-]*:\/\/[^/]+(\/[^/]+)*$/.test(root) ? root : undefined;
@@ -118,7 +118,7 @@ export function resolveRef(skillUri: string, ref: string): string {
     const root = rootOf(skillUri);
     if (root === undefined) throw new LocalError('that is not the URI of a SKILL.md');
     let path = ref.trim();
-    if (UNSAFE_TEXT.test(path)) throw new LocalError('a file reference cannot hold control, direction-changing or invisible characters');
+    if (UNSAFE_TEXT.test(path) || INVISIBLE_TEXT.test(path)) throw new LocalError('a file reference cannot hold control, direction-changing or invisible characters');
     path = path.replace(/#.*$/, ''); // a fragment names a place in the file, not another file
     if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(path)) {
         // A full URI: it has to be this skill's own SKILL.md, its directory, or lie inside that.
@@ -153,7 +153,7 @@ export function checkEntry(raw: unknown): Checked {
     const bad = (invalid: string): Checked => ({ invalid, ...(uri !== undefined ? { uri } : {}) });
     if (uri === undefined) return bad('it has no uri');
     // Such a URI is never repeated, not even in the note that leaves it out: a terminal could act on it.
-    if (UNSAFE_TEXT.test(uri)) return { invalid: 'its uri holds control, direction-changing or invisible characters' };
+    if (NOT_URI_TEXT.test(uri)) return { invalid: 'its uri holds a character a URI cannot (only printable ASCII: no space, control, direction mark, invisible or other non-ASCII character)' };
     if (uri.length > 2048) return bad('its uri is longer than 2048 characters');
     const root = rootOf(uri);
     if (root === undefined) return bad('its uri is not the URI of a SKILL.md inside a named directory');
@@ -178,7 +178,7 @@ export function checkEntry(raw: unknown): Checked {
     for (const r of resources) {
         if (!isObject(r) || typeof r.uri !== 'string') return bad('one of its files has no uri');
         if (r.uri.length > 2048 || /[#?\s]/.test(r.uri)) return bad('one of its files has a uri that is too long or holds a query, fragment or space');
-        if (UNSAFE_TEXT.test(r.uri)) return bad('one of its files has a uri that holds control, direction-changing or invisible characters');
+        if (NOT_URI_TEXT.test(r.uri)) return bad('one of its files has a uri that holds a character a URI cannot (only printable ASCII: no control, direction mark, invisible or other non-ASCII character)');
         if (typeof r.digest !== 'string' || !DIGEST.test(r.digest)) return bad('one of its files has a digest that is not "sha256:" and 64 lowercase hexadecimal characters');
         if (typeof r.size !== 'number' || !Number.isSafeInteger(r.size) || r.size < 0) return bad('one of its files has no size');
         // "Each uri MUST be the skill's SKILL.md or a file within the skill's directory."
@@ -277,7 +277,7 @@ export function splitSkillMd(bytes: Uint8Array): { frontmatter: Json; body: stri
     } catch {
         return undefined;
     }
-    text = text.replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+    text = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
     if (!text.startsWith('---\n')) return undefined;
     const end = text.indexOf('\n---', 3);
     if (end < 0) return undefined;
@@ -662,7 +662,7 @@ export class SkillsHost {
             if (!Array.isArray(r.resources)) throw new LocalError('the server answered the directory read without a list');
             for (const c of r.resources) {
                 // A direct child of the directory asked about, and nothing else.
-                if (!isObject(c) || typeof c.uri !== 'string' || !c.uri.startsWith(`${dir}/`) || c.uri.slice(dir.length + 1).includes('/') || c.uri.length > 2048 || UNSAFE_TEXT.test(c.uri)) continue;
+                if (!isObject(c) || typeof c.uri !== 'string' || !c.uri.startsWith(`${dir}/`) || c.uri.slice(dir.length + 1).includes('/') || c.uri.length > 2048 || NOT_URI_TEXT.test(c.uri)) continue;
                 children.push({ uri: c.uri, name: c.uri.slice(dir.length + 1), isDirectory: c.mimeType === DIRECTORY_MIME, mimeType: typeof c.mimeType === 'string' ? c.mimeType.slice(0, 100) : undefined, size: typeof c.size === 'number' && c.size >= 0 ? c.size : undefined });
                 if (children.length >= 2000) break;
             }

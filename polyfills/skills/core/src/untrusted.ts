@@ -48,9 +48,25 @@ export function oneLine(text: unknown, max: number): string {
  * core's UNSAFE_TEXT.
  */
 // eslint-disable-next-line no-control-regex, no-misleading-character-class
-export const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/;
+export const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/;
 // eslint-disable-next-line no-control-regex, no-misleading-character-class
-const UNSAFE_BUT_LINES = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g;
+const UNSAFE_BUT_LINES = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g;
+
+/**
+ * What a URI cannot hold: anything but printable ASCII. RFC 3986 writes every other character
+ * percent-encoded, so a URI holding a space, a control, a mark that changes direction, an
+ * invisible character (a soft hyphen, a filler, a tag character that can carry hidden ASCII to a
+ * model) or any other non-ASCII character is not taken as one.
+ */
+export const NOT_URI_TEXT = /[^\x21-\x7e]/;
+
+/**
+ * Characters that show nothing, or change how the text around them reads: zero-width and format
+ * marks, direction marks (U+061C among them), the soft hyphen, the Hangul fillers and the tag
+ * characters. Taken out of a server's text before it is shown in a listing; controls are
+ * oneLine's to remove.
+ */
+export const INVISIBLE_TEXT = /[\u00AD\u061C\u115F\u1160\u180E\u200B-\u200F\u202A-\u202E\u2060-\u206F\u3164\uFEFF\uFFA0\u{E0000}-\u{E007F}]/u;
 
 /** A server's text for a person to read: every UNSAFE_TEXT character removed but line breaks and tabs. */
 export function shownText(text: string): string {
