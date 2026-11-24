@@ -206,7 +206,7 @@ function homeMarkdown() {
     return match[1]
   }
   const paragraphs = (chunk) => [...chunk.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map((m) => html(m[1]))
-  const [lede, beyond] = paragraphs(section('What a polyfill does'))
+  const [lede, beyond] = paragraphs(section('The polyfills'))
   const [who] = paragraphs(section('Who it is for'))
 
   const cards = home.polyfills.map((p) => {
@@ -219,8 +219,8 @@ function homeMarkdown() {
       p.line,
       '',
     ]
-    if (p.add) lines.push(p.addStep, '', '```bash', p.add, '```', '', `Start \`claude\` and ask: "${p.ask}"`)
-    else lines.push(`Nothing to set up. Start \`claude\` and ask: "${p.ask}"`)
+    if (p.add) lines.push(p.addStep, '', '```bash', p.add, '```', '', `Then ask Claude: "${p.ask}"`)
+    else lines.push(`Nothing to set up. Ask Claude: "${p.ask}"`)
     if (p.then) lines.push('', p.then)
     lines.push('', videoLine({ file: cut.file, seconds: cut.seconds, description: p.alt }), '', `The ${p.name} guide: ${resolveLink(p.link, 'index')}`)
     return lines.join('\n')
@@ -231,7 +231,7 @@ function homeMarkdown() {
 
 > ${text} ${tagline}
 
-Install every polyfill, at the prompt of a \`claude\` session (Claude Code 2.1.329 or newer), then start a new session:
+Install every polyfill. Run it in Claude Code 2.1.329 or newer, then start a new session:
 
 \`\`\`
 ${INSTALL}
@@ -239,9 +239,9 @@ ${INSTALL}
 
 The same works in a terminal: \`${INSTALL_CLI}\`.
 
-${videoLine({ file: media.launch.file, seconds: media.launch.seconds, description: media.launch.caption })}
+${videoLine({ file: media.launch.file, seconds: media.launch.seconds, description: media.launch.description })}
 
-## What a polyfill does
+## The polyfills
 
 ${lede}
 
@@ -251,9 +251,7 @@ ${beyond}
 
 ## Who it is for
 
-${who}
-
-${audiences.join('\n')}
+${who ? `${who}\n\n` : ''}${audiences.join('\n')}
 
 ---
 

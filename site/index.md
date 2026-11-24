@@ -7,7 +7,7 @@ description: Open agent extensions, in the host you already have. Claude Code pl
 hero:
   name: AgentPolyfill
   text: Open agent extensions, in the host you already have.
-  tagline: "Claude Code and MCP first. Plugins that add four MCP extensions to Claude Code: Events, Apps, Skills and Server Cards. Servers need no changes."
+  tagline: "Claude Code plugins that add MCP Events, Apps, Skills and Server Cards. No server changes needed."
   actions:
     - theme: brand
       text: Get started
@@ -24,15 +24,14 @@ hero:
 </section>
 
 <section>
-  <h2>What a polyfill does</h2>
-  <p class="lede">MCP now grows through extensions: Apps, Skills, Events, Server Cards. A server can adopt one quickly. Each host has to build and ship each one, on its own schedule. A polyfill closes that gap from the outside: it implements one published extension's client side as a plugin, follows that extension's spec (any exception is listed in its README), and steps aside when the host ships its own.</p>
+  <h2>The polyfills</h2>
+  <p class="lede">Each one implements a published MCP extension's client side, follows its spec, and steps aside when Claude Code ships its own.</p>
   <PolyfillCards />
-  <p class="lede beyond">Beyond MCP, <a href="/guide/ard"><code>ard-discovery</code></a> adds Agentic Resource Discovery v0.91, a draft: it finds MCP servers through a domain's <code>ard.json</code> or by searching an ARD registry, and hands the cards to <code>mcp-server-cards</code>. Its search sends the words of your request to that registry, and asks you first every time; for that reason it is not part of the <code>agent-polyfill</code> bundle. Install it by name.</p>
+  <p class="lede beyond">Beyond MCP, <a href="/guide/ard"><code>ard-discovery</code></a> finds servers through Agentic Resource Discovery (v0.91, a draft). Its search sends your query to a third-party registry, so it asks you every time and is installed on its own, outside the bundle.</p>
 </section>
 
 <section>
   <h2>Who it is for</h2>
-  <p class="lede">The aim is an open community around open specs, where anyone can use these capabilities in the host they have, build the next polyfill, or propose a new extension, and support does not depend on one host's roadmap. Today that is Claude Code, four MCP extensions, and one open draft beyond MCP (Agentic Resource Discovery). Other hosts are where it is meant to go; they are not built yet.</p>
   <Audiences />
 </section>
 

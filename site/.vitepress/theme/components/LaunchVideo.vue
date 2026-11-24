@@ -36,7 +36,7 @@ function play() {
         :width="launch.width"
         :height="launch.height"
         :poster="withBase(`/media/${launch.poster}?v=${version}`)"
-        aria-label="The AgentPolyfill launch video: Apps, Events, Skills and Server Cards in real Claude Code sessions"
+        :aria-label="`The AgentPolyfill launch video. ${launch.description}`"
         @play="started = true"
       >
         <source :src="withBase(`/media/${launch.file}?v=${version}`)" type="video/mp4" />

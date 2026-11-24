@@ -22,9 +22,9 @@ const polyfills = home.polyfills
         <template v-if="p.add">
           <p class="step">{{ p.addStep }}</p>
           <CopyCommand :command="p.add" :label="`Add the ${p.name} demo server`" />
-          <p class="step">Start <code>claude</code> and ask:</p>
+          <p class="step">Then ask Claude:</p>
         </template>
-        <p v-else class="step">Nothing to set up. Start <code>claude</code> and ask:</p>
+        <p v-else class="step">Nothing to set up. Ask Claude:</p>
         <p class="ask">“{{ p.ask }}”</p>
         <p v-if="p.then" class="then">{{ p.then }}</p>
         <a class="more" :href="p.link">The {{ p.name }} guide <svg class="arrow" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h9.5M9 4.5 12.5 8 9 11.5" /></svg></a>
