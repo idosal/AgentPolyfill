@@ -6,8 +6,17 @@ var CARD_TYPE = "application/mcp-server-card+json";
 var CARD_SCHEMA_URL = "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json";
 var isObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
 var hasMarkup = (s) => /[`<>[\]]/.test(s.replace(/^([a-z][a-z0-9+.-]*:\/\/)\[[0-9a-f:.]+\]/i, "$1"));
+var hasUserinfo = (s) => {
+  if (/^[a-z][a-z0-9+.-]*:\/\/[^/?#\\]*@/i.test(s)) return true;
+  try {
+    const u = new URL(s);
+    return !!(u.username || u.password);
+  } catch {
+    return false;
+  }
+};
 var isUri = (v) => {
-  if (typeof v !== "string" || !/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>"{}|\\^`]*$/.test(v) || /%(?![0-9a-fA-F]{2})/.test(v) || hasMarkup(v))
+  if (typeof v !== "string" || !/^[a-zA-Z][a-zA-Z0-9+.-]*:[^\s<>"{}|\\^`]*$/.test(v) || /%(?![0-9a-fA-F]{2})/.test(v) || hasMarkup(v) || hasUserinfo(v))
     return false;
   try {
     new URL(v);
@@ -20,7 +29,7 @@ var length = (s) => [...s].length;
 var UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/;
 var plainText = (s) => String(s ?? "").replace(new RegExp(UNSAFE_TEXT.source, "g"), "");
 var NAME = /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/;
-var URL_CHAR = "[\\x21-\\x3b\\x3d\\x3f-\\x5a\\x5c\\x5e\\x5f\\x61-\\x7e]";
+var URL_CHAR = "[\\x21-\\x3b\\x3d\\x3f-\\x5a\\x5e\\x5f\\x61-\\x7e]";
 var IPV6_HOST = "\\[[0-9A-Fa-f:.]+\\]";
 var PLAIN_URL = new RegExp(`^https?://(?:${IPV6_HOST}${URL_CHAR}*|${URL_CHAR}+)$`);
 var REMOTE_URL = new RegExp(`^(?:https?://(?:${IPV6_HOST}${URL_CHAR}*|${URL_CHAR}+)|\\{[a-zA-Z_][a-zA-Z0-9_]*\\}${URL_CHAR}*)$`);
@@ -83,7 +92,9 @@ var checkRemote = (errors, where, v) => {
   if (v.type !== "streamable-http" && v.type !== "sse")
     errors.push(`${where}.type must be "streamable-http" or "sse"`);
   if (typeof v.url !== "string" || !REMOTE_URL.test(v.url))
-    errors.push(`${where}.url must be printable ASCII without \`, <, > or square brackets (but an IPv6 host's), starting with http://, https:// or a {variable}`);
+    errors.push(`${where}.url must be printable ASCII without \`, <, >, a backslash or square brackets (but an IPv6 host's), starting with http://, https:// or a {variable}`);
+  else if (hasUserinfo(String(v.url)))
+    errors.push(`${where}.url names a user before its host (an "@" in it), so it would show one host and connect to another`);
   if (v.headers !== void 0) {
     if (!Array.isArray(v.headers)) errors.push(`${where}.headers must be an array`);
     else
@@ -488,6 +499,7 @@ var discover = async (deps, input, options = {}) => {
           else if (!isAllowedUrl(u)) found.errors = [`${u.href}: Server Cards must be served over HTTPS`];
           else if (!mayFollow(u, catalogIsLocal)) found.errors = [`${u.href}: a public catalog may not point at a local or private address`];
           else if (hasMarkup(u.href)) found.errors = ["the card URL holds `, <, > or a square bracket outside an IPv6 host, which could show as something else"];
+          else if (hasUserinfo(u.href)) found.errors = ['the card URL names a user before its host (an "@"), so it would show one host and connect to another'];
           else {
             found.cardUrl = found.cardFrom = u.href;
             found.isLocal = catalogIsLocal && isPrivateHost(u.hostname);
@@ -511,7 +523,7 @@ var discover = async (deps, input, options = {}) => {
         }
       } else if (REGISTRY_TYPES.includes(type)) {
         const u = typeof entry.url === "string" ? resolve(entry.url, catalogUrl.split("#")[0]) : void 0;
-        const usable = !!u && mayFollow(u, catalogIsLocal) && !hasMarkup(u.href);
+        const usable = !!u && mayFollow(u, catalogIsLocal) && !hasMarkup(u.href) && !hasUserinfo(u.href);
         if (typeof entry.url === "string" && !usable)
           result.problems.push(`${catalogUrl}: registry ${id} has no plain HTTPS URL on a public host`);
         result.registries.push({
@@ -888,8 +900,9 @@ var planAdd = (card, remoteIndex, values, name, scope, fromLocal = false) => {
   if (missing.length) return { missing };
   if (url.length > MAX_URL) return { error: `The URL is longer than ${MAX_URL} characters.` };
   if (!/^[\x21-\x7e]+$/.test(url)) return { error: "The URL holds a space, a control character or a non-ASCII character." };
-  if (!PLAIN_URL.test(url)) return { error: "The URL holds `, <, > or a square bracket outside an IPv6 host, which could show as something else." };
+  if (!PLAIN_URL.test(url)) return { error: "The URL holds `, <, >, a backslash or a square bracket outside an IPv6 host, which could show as something else." };
   const probe = url.replace(/\$\{[A-Z0-9_]+\}/g, "x");
+  if (hasUserinfo(probe)) return { error: `${url}: the URL names a user before its host (an "@"), so it would show one host and connect to another.` };
   let parsed;
   try {
     parsed = new URL(probe);
@@ -906,6 +919,13 @@ var planAdd = (card, remoteIndex, values, name, scope, fromLocal = false) => {
   const argv = ["claude", "mcp", "add", "--transport", transport, "--scope", scope, server, url];
   for (const h of headers) argv.push("--header", `${h.name}: ${h.value}`);
   return { plan: { name: server, url, transport, headers, envVars, argv, command: argv.map(shellQuote).join(" ") } };
+};
+var hostOf = (url) => {
+  try {
+    return new URL(url.replace(/\$\{[A-Z0-9_]+\}/g, "x")).host;
+  } catch {
+    return "";
+  }
 };
 var previewUrl = (card, remoteIndex, fromLocal = false) => {
   const r = planAdd(card, remoteIndex, {}, void 0, "local", fromLocal);
@@ -1067,7 +1087,7 @@ var publisherOf = (identifier) => {
   return host2;
 };
 var sameRemotes = (a, b) => JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
-var hostOf = (u) => {
+var hostOf2 = (u) => {
   try {
     return new URL(u).hostname;
   } catch {
@@ -1093,9 +1113,13 @@ var readOffered = async (deps, entries, sources = {}) => {
       problems.push('an entry whose "listedIn" holds `, <, > or a square bracket was skipped');
       continue;
     }
+    if (hasUserinfo(r.listedIn)) {
+      problems.push('an entry whose "listedIn" names a user before its host (an "@") was skipped');
+      continue;
+    }
     if (seen.has(r.identifier)) continue;
     seen.add(r.identifier);
-    const fromLocal = isPrivateHost(hostOf(r.listedIn) || "x");
+    const fromLocal = isPrivateHost(hostOf2(r.listedIn) || "x");
     const o = {
       identifier: r.identifier,
       displayName: typeof r.displayName === "string" ? r.displayName : void 0,
@@ -1123,6 +1147,7 @@ var readOffered = async (deps, entries, sources = {}) => {
       else if (!isAllowedUrl(u)) o.errors = [`${u.href}: Server Cards must be served over HTTPS`];
       else if (!mayFollow(u, fromLocal)) o.errors = [`${u.href}: a public source may not point at a local or private address`];
       else if (hasMarkup(u.href)) o.errors = ["the card URL holds `, <, > or a square bracket outside an IPv6 host, which could show as something else"];
+      else if (hasUserinfo(u.href)) o.errors = ['the card URL names a user before its host (an "@"), so it would show one host and connect to another'];
       else {
         o.cardUrl = u.href;
         o.isLocal = fromLocal && isPrivateHost(u.hostname);
@@ -1227,6 +1252,8 @@ var planForCodex = (card, remoteIndex, values, name, fromLocal) => {
       return {
         error: `The header ${h.name} mixes a secret with other text (${h.value}). Codex takes a header's whole value from one environment variable, or a bearer token; this card's header can be added only by hand.`
       };
+    else if (hasMarkup(h.value))
+      return { error: `The header ${h.name} holds \`, <, > or a square bracket (${h.value}), which could show as something else in the form.` };
     else httpHeaders[h.name] = h.value;
   }
   const base = { name: p.name, url: p.url, bearerEnvVar, httpHeaders, envHttpHeaders, envVars: p.envVars };
@@ -1688,7 +1715,9 @@ function askText(plan, card, provenance, file) {
   return shownText(
     [
       `Add the MCP server "${plan.name}" to Codex?`,
-      `It connects to ${plan.url}`,
+      // The host on its own line: what the URL connects to (security review C3).
+      `It connects to the host ${hostOf(plan.url) || "(unknown)"}`,
+      `URL: ${plan.url}`,
       headers.length ? `Headers: ${headers.join("; ")}` : "Headers: none",
       `From the Server Card ${card.name}, ${provenance}.`,
       `Written to ${file} (all your projects).`,
@@ -1967,6 +1996,9 @@ function tools(session, defaultRegistry) {
         endpoints = [ep];
       }
       endpoints = [...new Set(endpoints)].slice(0, 3);
+      const unclear = endpoints.find((ep) => hasMarkup(ep) || hasUserinfo(ep));
+      if (unclear)
+        return refuse2(`The registry ${unclear} holds markup or names a user before its host, so the form could show one host while the query goes to another. Nothing was sent.`);
       const ok = await askPerson(
         ctx,
         shownText(
@@ -2059,8 +2091,10 @@ export {
   formatOffered,
   formatServer,
   hasMarkup,
+  hasUserinfo,
   hex,
   host,
+  hostOf,
   isAllowedUrl,
   isCompatible,
   isLoopback,

@@ -51,7 +51,8 @@ For one that needs a sign-in, ask about buildkite.com and add Buildkite; then ru
 
    ```
    Add the MCP server "neon-docs" to Codex?
-   It connects to https://neon.com/docs/mcp
+   It connects to the host neon.com
+   URL: https://neon.com/docs/mcp
    Headers: none
    From the Server Card com.neon/docs-mcp, listed in https://neon.com's catalog.
    Written to /Users/you/.codex/config.toml (all your projects).
@@ -135,7 +136,7 @@ The discovery, validation, input and transport rules are those of the Claude Cod
 | S-1 | HTTPS for cards; plain HTTP only for local development | discovery.md | F-1, F-3 | met, for every redirect hop too |
 | N-1 | No step from a public origin to a local or private address | the polyfills' own | F-1 | met for documents and, here, for redirects |
 | N-2 | Bounded answers | the polyfills' own | F-4, F-6 | 512 KiB per answer, read no further; five redirects |
-| V-3 | No text that displays as something else | the polyfills' own (security reviews SC1 and, for these forms, C1) | X-4, A-24, P-6, O-9, E-9 | met: besides control and invisible characters, a URL from a card or a finder may hold no `` ` ``, `<`, `>` or square bracket outside an IPv6 host, so a host that renders the form as Markdown can't show a link text in place of the URL. In the shared core, so the Claude Code form has it too |
+| V-3 | No text that displays as something else | the polyfills' own (security reviews SC1 and, for these forms, C1) | X-4, X-5, A-24, A-25, P-6, P-7, O-9, O-10, C-7, E-3, E-9, E-10 | met: besides control and invisible characters, a URL from a card or a finder may hold no `` ` ``, `<`, `>` or square bracket outside an IPv6 host, so a host that renders the form as Markdown can't show a link text in place of the URL. In the shared core, so the Claude Code form has it too. A URL may not name a user before its host (`https://good.example@evil.example/`) or hold a backslash (`https://evil.example\@good.example/`), either of which shows one host and connects to another (C3), and the form names the host on its own line. A card's fixed header value holds no markup either (C4). |
 
 ## Stand-down
 
@@ -143,7 +144,7 @@ Codex has no Server Card support to detect yet. When it ships, remove or disable
 
 ## Proof
 
-- **Per rule:** 107 tests, run with `npm test`. 84 are the Claude Code form's rule tests (card, configure, discover, format, offer), run against the committed bundle. 21 are this form's: the fetch guard (F-), the Codex plan (C-), and the server as Codex runs it (E-), over stdio, with a stand-in `codex` command and a web on 127.0.0.1. 2 check the bundle: it is byte-identical to a fresh build, and a copy of `plugin/` alone starts and lists its tools.
+- **Per rule:** 113 tests, run with `npm test`. 88 are the Claude Code form's rule tests (card, configure, discover, format, offer), run against the committed bundle. 23 are this form's: the fetch guard (F-), the Codex plan (C-), and the server as Codex runs it (E-), over stdio, with a stand-in `codex` command and a web on 127.0.0.1. 2 check the bundle: it is byte-identical to a fresh build, and a copy of `plugin/` alone starts and lists its tools.
 - **The real host**, 24 November 2026, with the user's own Codex login and the plugin's server, and every add going to a throwaway `CODEX_HOME`:
   - `codex exec` (0.170.0): `discover_mcp_servers` returned Neon and Neon Docs for neon.com, and Buildkite for buildkite.com, all valid.
   - Through app-server (0.172.0), as the TUI runs: the add of Neon Docs (`https://neon.com/docs/mcp`) put the form to the client, which accepted after two seconds; `codex mcp get neon-docs` then showed it, and `codex mcp remove neon-docs` removed it.

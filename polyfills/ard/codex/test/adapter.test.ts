@@ -31,6 +31,7 @@ const web = await localWeb({
       ],
     },
   },
+  '/at-registry/search': { body: { results: [{ identifier: 'urn:air:localhost:at', type: TYPE, url: 'https://good.example@cards.example/at.json' }] } },
   '/md.json': { body: card('com.example/md', 'Markdown', '/x/[https://good.example/mcp](https://evil.example/)') },
   '/search': {
     body: {
@@ -137,4 +138,15 @@ test('A-9 a query with `, <, > or square brackets is refused before anyone is as
   }
   assert.equal(s.asked.length, 0)
   assert.equal(searches().length, before)
+})
+
+test('A-10 a registry or a result URL that names a user before its host is refused: the form would show one host while the query goes to another (security review C3)', async () => {
+  const before = searches().length
+  const s = server({ answer: human })
+  const named = await s.call('ard_search', { query: QUERY, registry: `http://good.example@${new URL(web.origin).host}` })
+  assert.match(named.text, /names a user before its host/)
+  assert.equal(s.asked.length, 0)
+  assert.equal(searches().length, before)
+  const r = await s.call('ard_search', { query: QUERY, registry: `${web.origin}/at-registry` })
+  assert.match(r.text, /REFUSED: [^\n]*names a user before its host/)
 })
