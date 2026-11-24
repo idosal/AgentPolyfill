@@ -1,0 +1,76 @@
+# The Skills polyfill (polyfills/claude-code/skills, plugin mcp-skills), on
+# any change in its folder or in the marketplace file its tests read:
+# - the client rules, discovery and the bundled helper (and that it is what
+#   src/ builds), with a typecheck and the run against the official
+#   TypeScript SDK's Skills server and client, on Linux, macOS and Windows;
+# - claude plugin validate and the hooks module's tests (claude plugin test).
+
+name: "mcp-skills: tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/claude-code/skills/**"
+      - ".claude-plugin/marketplace.json"
+      - ".github/workflows/mcp-skills-test.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see each job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/claude-code/skills/**"
+      - ".claude-plugin/marketplace.json"
+      - ".github/workflows/mcp-skills-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-skills-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The Claude Code release these tests are known to pass with.
+  CLAUDE_CODE_VERSION: 2.1.329
+  DISABLE_TELEMETRY: "1"
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+
+defaults:
+  run:
+    working-directory: polyfills/claude-code/skills
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      # The official TypeScript SDK's Skills server and client, over stdio and HTTP.
+      - run: npm run interop
+
+  claude:
+    name: claude plugin validate and test
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: Claude Code
+        run: npm install -g --no-audit --no-fund "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+      - name: claude plugin validate
+        run: claude plugin validate mod
+      - name: The hooks module's tests (claude plugin test)
+        run: claude plugin test mod
