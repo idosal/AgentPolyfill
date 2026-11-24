@@ -17,8 +17,8 @@ servers in two ways:
 
 <Recording
   cut="ard"
-  alt="In Claude Code, the question What does buildkite.com list via ARD? reads buildkite.com's own listing, and a picker shows the Buildkite MCP server with an Add button. Claude says buildkite.com lists one MCP server and has not added it."
-  caption="A real session (15 s, ard-discovery 0.1.3): buildkite.com's own listing, found from its domain. A domain lookup sends no query to a registry."
+  alt="In Claude Code, What does buildkite.com list via ARD? shows Buildkite's MCP server with an Add button. Then a search of an ARD registry for a server that checks CI builds: Claude Code first asks whether to send the query to the registry and up to three it refers to, and after Yes the result says where the query went."
+  caption="A real session (21 s): buildkite.com's own listing, found from its domain, then a registry search, asked about first. The default registry returned no MCP servers for this query."
 />
 
 It only finds. Each Server Card it finds goes to
