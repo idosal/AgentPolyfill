@@ -19,24 +19,64 @@ real `claude` session.
 
 ## Install
 
-In a terminal:
+At the prompt of a `claude` session:
 
-```bash
-claude plugin marketplace add idosal/MCPolyfill
+```
+/plugin install mcp-apps-cli --marketplace idosal/MCPolyfill
 ```
 
+Or in a terminal:
+
 ```bash
-claude plugin install mcp-apps-cli@mcpolyfill
+claude plugin install mcp-apps-cli --marketplace idosal/MCPolyfill
 ```
 
-Or, at the prompt of a `claude` session, `/plugin marketplace add idosal/MCPolyfill`
-and then `/plugin install mcp-apps-cli@mcpolyfill`.
+Either adds the [MCPolyfill](../../../README.md) marketplace and installs
+the plugin in one step. Start a new `claude` session for it to load. With
+the marketplace already added, `/plugin install mcp-apps-cli@mcpolyfill`
+does the same; `/plugin install mcpolyfill --marketplace idosal/MCPolyfill`
+installs every polyfill in the marketplace, this one included.
 
 The plugin is one zip, attached to a release of this repository and checked
 against the SHA-256 in the repository's marketplace file
 ([`.claude-plugin/marketplace.json`](../../../.claude-plugin/marketplace.json))
 before Claude Code unpacks it. It carries a small helper
 program for each platform and needs nothing else installed, not even Node.
+
+## From install to the first app
+
+1. **Install** (above). Nothing is asked. The four settings below start at
+   their defaults; the install's note that they are "not yet set" needs no
+   action.
+2. **Add an MCP server that has apps**, as you add any server. To try one:
+   `claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp`.
+3. **Start `claude` and ask** for something the server's app shows ("Load
+   the game msdos_DOOM_1993 with the arcade tool"). Claude Code asks whether
+   to allow the tool, as it does for any MCP tool, unless your permission
+   rules already allow it. The app appears under the call.
+
+What else can come up, once each:
+
+- **No Chromium browser installed.** The view says so, and the plugin offers
+  to download Chrome for Testing's headless shell (about 100 MB, from
+  Google). Say no and views stay closed: install Chrome, Edge, Chromium or
+  Brave, or point `MCP_APPS_CLI_CHROME` at one, and the next view opens. The
+  offer is not repeated.
+- **Not in fullscreen.** After the first view appears, the plugin offers to
+  switch Claude Code to its fullscreen layout, the only one that passes
+  clicks and keys to a view (Claude Code restarts and resumes the
+  conversation). Say no and views stay view-only: you see them update but
+  cannot click into them; `/tui fullscreen` switches later. Not offered in
+  tmux, or if you chose the main screen yourself (`CLAUDE_CODE_NO_FLICKER=0`).
+- **Mouse reporting off in your terminal.** Clicks don't reach the view.
+  Most terminals have it on; check iTerm2's Settings → Profiles → Terminal
+  → Enable mouse reporting, and in tmux, `set -g mouse on`. A plugin cannot
+  change a terminal's settings.
+- **An app asks to send Claude a message, open a link or save a file.** You
+  are asked, with a choice to allow that app's messages or links for the
+  rest of the session. Say no and nothing is sent, opened or saved. An app
+  calling its own server's tools is allowed by default, as in Claude
+  Desktop; your deny rules still apply.
 
 ## Requirements
 
