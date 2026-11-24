@@ -49,7 +49,6 @@ function play() {
         <span class="len" aria-hidden="true">{{ seconds }} s</span>
       </button>
     </div>
-    <figcaption>{{ launch.caption }}</figcaption>
   </figure>
 </template>
 
@@ -63,10 +62,12 @@ function play() {
   border-radius: 12px;
   border: 1px solid var(--vp-c-divider);
   background: var(--ap-screen);
-  box-shadow: 0 1px 2px rgba(10, 20, 15, 0.06), 0 16px 40px -20px rgba(10, 20, 15, 0.3);
+  box-shadow: 0 1px 2px rgba(10, 20, 15, 0.06), 0 12px 24px -16px rgba(10, 20, 15, 0.28);
 }
-:global(.dark) .frame {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 20px 48px -24px rgba(0, 0, 0, 0.8);
+/* Scoped to this frame: a bare :global(.dark) compiled to ".dark { ... }" and
+   put a shadow on every dark-mode image, the logos included. */
+:global(.dark .ap-launch .frame) {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 24px -16px rgba(0, 0, 0, 0.7);
 }
 video {
   display: block;
@@ -113,13 +114,5 @@ video {
   .play .long {
     display: none;
   }
-}
-figcaption {
-  margin-top: 12px;
-  max-width: 48em;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--vp-c-text-2);
-  text-wrap: pretty;
 }
 </style>

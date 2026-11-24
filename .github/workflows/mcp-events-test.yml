@@ -17,6 +17,7 @@ on:
     branches: ["**"]
     paths:
       - "polyfills/events/claude-code/**"
+      - "polyfills/events/core/**"
       - "tools/bundle-notices.mjs"
       - ".claude-plugin/marketplace.json"
       - ".github/workflows/mcp-events-test.yml"
@@ -25,6 +26,7 @@ on:
   pull_request:
     paths:
       - "polyfills/events/claude-code/**"
+      - "polyfills/events/core/**"
       - "tools/bundle-notices.mjs"
       - ".claude-plugin/marketplace.json"
       - ".github/workflows/mcp-events-test.yml"
@@ -61,6 +63,9 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      # The Events client the helper bundles, shared with the Codex form.
+      - run: npm ci
+        working-directory: polyfills/events/core
       # test/relay.e2e-test.ts runs the relay in the local Workers runtime.
       - run: npm ci
         working-directory: polyfills/events/claude-code/mod/relay
@@ -99,6 +104,8 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      - run: npm ci
+        working-directory: polyfills/events/core
       - if: matrix.runtime == 'node20'
         run: |
           curl -fsSL https://nodejs.org/dist/v20.18.0/node-v20.18.0-linux-x64.tar.xz | tar -xJ -C "$RUNNER_TEMP"

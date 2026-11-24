@@ -9,6 +9,17 @@
   },
   "plugins": [
     {
+      "name": "mcp-events",
+      "source": {
+        "source": "local",
+        "path": "./polyfills/events/codex/plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE"
+      },
+      "category": "Developer Tools"
+    },
+    {
       "name": "mcp-server-cards",
       "source": {
         "source": "local",

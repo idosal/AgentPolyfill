@@ -1,0 +1,116 @@
+# The Events polyfill for Codex (polyfills/events/codex, plugin mcp-events in the
+# Codex marketplace, .agents/plugins/marketplace.json), on any change in its
+# folder, in the shared Events client it bundles, in the fixture server its
+# tests use, or in the Codex marketplace file:
+# - the helper's tests (the MCP server Codex starts, config.toml, sessions,
+#   waking with a stand-in codex, the SEP's client rules end to end against
+#   the fixture server, the committed bundle and a copied plugin folder),
+#   with a typecheck, on Linux and macOS;
+# - the bundled helper started on Node 20, the oldest it supports;
+# - Codex itself installing the plugin from this repository's marketplace,
+#   into a throwaway CODEX_HOME, and seeing its MCP server.
+# The shared client's clause-by-clause tests run in mcp-events-test.yml.
+
+name: "mcp-events for Codex: tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/events/codex/**"
+      - "polyfills/events/core/**"
+      - "polyfills/events/claude-code/test/fixture-events-server.ts"
+      - "polyfills/events/claude-code/mod/relay/src/protocol.ts"
+      - "tools/bundle-notices.mjs"
+      - ".agents/plugins/marketplace.json"
+      - ".github/workflows/codex-events-test.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see each job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/events/codex/**"
+      - "polyfills/events/core/**"
+      - "polyfills/events/claude-code/test/fixture-events-server.ts"
+      - "polyfills/events/claude-code/mod/relay/src/protocol.ts"
+      - "tools/bundle-notices.mjs"
+      - ".agents/plugins/marketplace.json"
+      - ".github/workflows/codex-events-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codex-events-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The Codex release the plugin was tested live with.
+  CODEX_VERSION: 0.172.0
+
+defaults:
+  run:
+    working-directory: polyfills/events/codex
+
+jobs:
+  helper:
+    name: helper (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      # The shared Events client the helper bundles.
+      - run: npm ci
+        working-directory: polyfills/events/core
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Third-party notices for the bundle are up to date
+        run: node ../../../tools/bundle-notices.mjs . --plugin plugin --check
+      - run: npm test
+
+  node20:
+    name: the bundle on Node 20
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Start plugin/dist/helper.js on Node 20 and list its tools
+        run: |
+          curl -fsSL https://nodejs.org/dist/v20.18.0/node-v20.18.0-linux-x64.tar.xz | tar -xJ -C "$RUNNER_TEMP"
+          printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            | CODEX_HOME="$RUNNER_TEMP/codex-home" MCP_EVENTS_STATE="$RUNNER_TEMP/state" "$RUNNER_TEMP/node-v20.18.0-linux-x64/bin/node" plugin/dist/helper.js > "$RUNNER_TEMP/out.jsonl"
+          cat "$RUNNER_TEMP/out.jsonl"
+          grep -q '"protocolVersion":"2025-06-18"' "$RUNNER_TEMP/out.jsonl"
+          grep -q '"name":"watch_event"' "$RUNNER_TEMP/out.jsonl"
+
+  codex:
+    name: codex plugin add, from this repository
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: Codex
+        run: npm install -g --no-audit --no-fund "@openai/codex@$CODEX_VERSION"
+      - name: Install the plugin into a throwaway CODEX_HOME, and see its server
+        env:
+          CODEX_HOME: ${{ runner.temp }}/codex-home
+        run: |
+          mkdir -p "$CODEX_HOME"
+          codex plugin marketplace add "$GITHUB_WORKSPACE"
+          codex plugin list | tee "$RUNNER_TEMP/list.txt"
+          grep -q 'mcp-events@agent-polyfill' "$RUNNER_TEMP/list.txt"
+          codex plugin add mcp-events@agent-polyfill
+          codex mcp list | tee "$RUNNER_TEMP/mcp.txt"
+          grep -q 'mcp-events' "$RUNNER_TEMP/mcp.txt"
+          grep -q 'dist/helper.js' "$RUNNER_TEMP/mcp.txt"
