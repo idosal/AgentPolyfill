@@ -1,0 +1,122 @@
+# The Events polyfill (polyfills/claude-code/events, plugin mcp-events), on
+# any change in its folder or in the marketplace file its tests read:
+# - the helper's and the Events client's tests, with a typecheck, on Linux,
+#   macOS and Windows;
+# - the relay's own tests, in the local Workers runtime;
+# - the bundled helper started on Node 20 and on Bun, the runtimes an
+#   installed copy may find;
+# - claude plugin validate and the hooks module's tests (claude plugin test).
+
+name: "mcp-events: tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/claude-code/events/**"
+      - ".claude-plugin/marketplace.json"
+      - ".github/workflows/mcp-events-test.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see each job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/claude-code/events/**"
+      - ".claude-plugin/marketplace.json"
+      - ".github/workflows/mcp-events-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-events-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The Claude Code release these tests are known to pass with.
+  CLAUDE_CODE_VERSION: 2.1.329
+  DISABLE_TELEMETRY: "1"
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+
+defaults:
+  run:
+    working-directory: polyfills/claude-code/events
+
+jobs:
+  mod:
+    name: mod (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - run: npm ci
+      # test/relay.e2e-test.ts runs the relay in the local Workers runtime.
+      - run: npm ci
+        working-directory: polyfills/claude-code/events/mod/relay
+      - run: npm run typecheck
+      - run: npm test
+
+  relay:
+    name: relay (local Workers runtime)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm ci
+        working-directory: polyfills/claude-code/events/mod/relay
+      - run: npm test
+        working-directory: polyfills/claude-code/events/mod/relay
+
+  runtimes:
+    name: the bundle on ${{ matrix.runtime }}
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [node20, bun]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      # The tests are TypeScript run by Node 22; the bundle they start runs on the runtime under test.
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - run: npm ci
+      - if: matrix.runtime == 'node20'
+        run: |
+          curl -fsSL https://nodejs.org/dist/v20.18.0/node-v20.18.0-linux-x64.tar.xz | tar -xJ -C "$RUNNER_TEMP"
+          echo "PERF_RUNTIME=$RUNNER_TEMP/node-v20.18.0-linux-x64/bin/node --no-warnings" >> "$GITHUB_ENV"
+      - if: matrix.runtime == 'bun'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - if: matrix.runtime == 'bun'
+        run: echo "PERF_RUNTIME=bun" >> "$GITHUB_ENV"
+      - name: Start the bundled helper against the fixture server
+        run: node --no-warnings test/perf.ts
+        env:
+          PERF_ONLY: start
+
+  claude:
+    name: claude plugin validate and test
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: Claude Code
+        run: npm install -g --no-audit --no-fund "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+      - name: claude plugin validate
+        run: claude plugin validate mod
+      - name: The hooks module's tests (claude plugin test)
+        run: claude plugin test mod
