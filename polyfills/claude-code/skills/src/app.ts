@@ -403,9 +403,12 @@ export class App {
         return this.host.held().find((h) => h.label === server && h.entry.uri === skillUri)?.entry.frontmatter.name ?? 'skill';
     }
 
-    /** The session's conversation was cleared: nothing of a loaded skill is in context any more. */
-    release(): void {
-        this.host.release();
+    /**
+     * The session's conversation was cleared: nothing of a loaded skill is in context any more. Or,
+     * given one skill, the hooks module did not hand its load to Claude (it was disabled meanwhile).
+     */
+    release(server?: string, uri?: string): void {
+        this.host.release(server, uri);
     }
 
     async stop(): Promise<void> {

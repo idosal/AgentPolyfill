@@ -46,6 +46,11 @@ type World = {
   logs: string[]
   /** Every program the mod ran, as its argument list. */
   ran: string[][]
+  /** Each list of disabled skills the helper was sent, and how many it has been sent (the helper's rev). */
+  told: { server: string; uri: string }[][]
+  rev: number
+  /** Runs while the helper answers a tool call: a test changes the world there, as another session would. */
+  duringTool?: () => void
   /** The files and folders of the machine, as far as the mod's own runtime is concerned. */
   disk: Record<string, { kind: 'file' | 'dir'; bytes?: Uint8Array; isLink?: boolean; mtimeMs?: number }>
 }
@@ -159,11 +164,11 @@ function machineOf(m: Machine, runtimesGiven?: Record<string, string>, shellFind
   return { ran, disk, run, exists, stat, list, read, engine }
 }
 
-function world(on: On, o: { /** What the person answers to a question in Claude Code's dialog; absent, they dismiss it. */ answer?: string; machine?: Machine; tools?: string[]; env?: Record<string, string>; /** What each command answers to --version; a missing one is not installed. Default: node on the PATH. */ runtimes?: Record<string, string>; shellFinds?: string; names?: string[]; commands?: string[]; /** The helper's first listing is not yet complete: a server is still being looked at. */ partial?: true; /** Claude Code refuses to keep more in the mod's store (it holds at most 4 MiB). */ storeFull?: true; /** The conversation so far; an Error stands for one that cannot be read. */ rows?: unknown[] | Error; verdict?: Record<string, unknown>; connect?: Record<string, unknown>; servers?: string[]; catalog?: string | null; expects?: number; store?: Record<string, unknown>; facts?: Facts; found?: unknown[] } = {}): World {
+function world(on: On, o: { /** What the person answers to a question in Claude Code's dialog; absent, they dismiss it. */ answer?: string; machine?: Machine; tools?: string[]; env?: Record<string, string>; /** What each command answers to --version; a missing one is not installed. Default: node on the PATH. */ runtimes?: Record<string, string>; shellFinds?: string; names?: string[]; commands?: string[]; /** The helper's first listing is not yet complete: a server is still being looked at. */ partial?: true; /** Claude Code refuses to keep more in the mod's store (it holds at most 4 MiB). */ storeFull?: true; /** The conversation so far; an Error stands for one that cannot be read. */ rows?: unknown[] | Error; verdict?: Record<string, unknown>; connect?: Record<string, unknown>; servers?: string[]; catalog?: string | null; expects?: number; store?: Record<string, unknown>; facts?: Facts; found?: unknown[]; /** The helper's first listing was made before it was told which skills are disabled. */ staleCatalog?: true; /** The mod's store cannot be read (its list of disabled skills). */ storeBroken?: true } = {}): World {
   // A wait ends only when a test moves the clock: nothing here times out by itself.
-  const w: World = { posts: [], spawns: 0, registered: [], spawned: [], toasts: [], submitted: [], facts: o.facts ?? FACTS, store: { ...(o.store ?? {}) }, clock: mock.clock(on), exit: () => {}, ran: [], disk: {}, asked: [], logs: [] }
+  const w: World = { posts: [], spawns: 0, registered: [], spawned: [], toasts: [], submitted: [], facts: o.facts ?? FACTS, store: { ...(o.store ?? {}) }, clock: mock.clock(on), exit: () => {}, ran: [], disk: {}, asked: [], logs: [], told: [], rev: 0 }
   const ready = JSON.stringify({ t: 'ready', url: 'http://127.0.0.1:9', token: 'secret', expects: o.expects ?? 1 })
-  const lines = [ready, ...(o.servers ? [JSON.stringify({ t: 'servers', names: o.servers })] : []), ...(o.catalog === null ? [] : [JSON.stringify({ t: 'catalog', text: o.catalog ?? CATALOG, skills: 1, servers: 1, ...(o.partial ? { complete: false } : {}) })])]
+  const lines = [ready, ...(o.servers ? [JSON.stringify({ t: 'servers', names: o.servers })] : []), ...(o.catalog === null ? [] : [JSON.stringify({ t: 'catalog', text: o.catalog ?? CATALOG, skills: 1, servers: 1, rev: o.staleCatalog ? 0 : 1, ...(o.partial ? { complete: false } : {}) })])]
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('session.end', (_, e) => ({ sessionId: e.sessionId }) as never)
   on('session.messages', () => {
@@ -192,11 +197,18 @@ function world(on: On, o: { /** What the person answers to a question in Claude 
     const body = JSON.parse(String(e.init?.body ?? '{}')) as Record<string, unknown>
     w.posts.push({ route, body })
     const answers: Record<string, () => unknown> = {
-      '/tool': () => (body.name === 'load_skill' ? { text: LOADED, acting: { ...SKILL, server: String((body.input as { server?: unknown } | undefined)?.server ?? SKILL.server), hash: w.facts.hash, fingerprint: w.facts.fingerprint } } : { text: 'ok' }),
+      '/tool': () => (w.duringTool?.(), body.name === 'load_skill' ? { text: LOADED, acting: { ...SKILL, server: String((body.input as { server?: unknown } | undefined)?.server ?? SKILL.server), hash: w.facts.hash, fingerprint: w.facts.fingerprint } } : { text: 'ok' }),
       '/entry': () => w.facts,
+      // As the helper does: the listing without the skills it was told are disabled, and the count of lists it was sent.
+      '/disabled': () => {
+        const skills = (body.skills ?? []) as { server: string; uri: string }[]
+        w.told.push(skills)
+        const isOff = skills.some((s) => s.server === SKILL.server && s.uri === SKILL.uri)
+        return { rev: ++w.rev, text: o.catalog === null || isOff ? '' : (o.catalog ?? CATALOG), skills: o.catalog === null || isOff ? 0 : 1, servers: o.catalog === null ? 0 : 1, complete: !o.partial }
+      },
       '/status': () => ({ text: 'MCP server "acme": 1 skill.', names: o.names ?? ['release-notes'], servers: ['acme', 'my.docs'] }),
       '/find': () => ({ found: o.found ?? [SKILL] }),
-      '/preview': () => (o.found ? { candidates: o.found } : { ...SKILL, description: 'Write release notes.', body: '# Release notes\n\nRead `references/codenames.md`.\n', isVerified: true, files: ['references/codenames.md'] }),
+      '/preview': () => (o.found ? { candidates: o.found } : { ...SKILL, description: 'Write release notes.', body: '# Release notes\n\nRead `references/codenames.md`.\n', isVerified: true, isDisabled: w.told.at(-1)?.some((s) => s.uri === SKILL.uri) ?? false, files: ['references/codenames.md'] }),
     }
     return { value: { ok: true, status: 200, headers: {}, text: JSON.stringify(answers[route]?.() ?? {}) } as never }
   })
@@ -211,7 +223,10 @@ function world(on: On, o: { /** What the person answers to a question in Claude 
     w.submitted.push(e.text)
     return { text: e.text } as never
   })
-  on('store.get', (_, e) => ({ value: w.store[e.key] }))
+  on('store.get', (_, e) => {
+    if (o.storeBroken && e.key === 'disabled') throw new Error('the store could not be read')
+    return { value: w.store[e.key] }
+  })
   on('store.set', (_, e) => {
     if (o.storeFull) throw new Error('the store would hold more than 4 MiB')
     w.store[e.key] = JSON.parse(JSON.stringify(e.value))
@@ -1050,4 +1065,159 @@ test('stand-down does not end a window: a skill this mod loaded unapproved earli
   await $.skill.prompt({ skill: 'acme:other', text: 'x', frontmatter: {}, source: 'mcp' })
   expect((await $.tool.check(present(bash))).decision).toBe('ask')
   expect((await $.tool.check(bash)).decision).toBe('deny')
+})
+
+// ---- H1: per-skill enable and disable (SEP-2640's host guidance: the model's context holds each
+// enabled skill; the person's list offers per-skill enable/disable, with provenance).
+
+const KEY = `${SKILL.server}\n${SKILL.uri}`
+const disabledIn = (w: World) => (w.store.disabled ?? {}) as Record<string, { name: string; at: number }>
+const OFF = { disabled: { [KEY]: { name: SKILL.name, at: 1 } } }
+const loadsAsked = (w: World) => w.posts.filter((p) => (p.route === '/tool' && (p.body as { name?: unknown }).name === 'load_skill') || p.route === '/entry').length
+
+test('H1: /mcp-skills disable keeps the skill by its identity, and from then on it is refused at the permission check and when it runs, whatever a rule says', async ($, on) => {
+  const w = world(on, { verdict: { decision: 'allow', rule: 'mcp__mcp-skills__load_skill' } })
+  await $.session.start(START)
+  const { text } = await $.command.run(typed('disable release-notes'))
+  expect(text).toContain('Disabled "release-notes" from the MCP server "acme" (skill://release-notes/SKILL.md). Claude is not offered it from now on')
+  expect(Object.keys(disabledIn(w))).toEqual([KEY])
+  // The helper is told, by identity.
+  expect(w.told.at(-1)).toEqual([{ server: SKILL.server, uri: SKILL.uri }])
+  const before = loadsAsked(w)
+  const { verdict, ran } = await load($)
+  expect(verdict.decision).toBe('deny')
+  expect(verdict.reason).toContain('You disabled the skill "release-notes" from the MCP server "acme"')
+  expect(ran.deny).toContain('You disabled the skill "release-notes"')
+  // A call that reached the tool with no permission check (another mod's) is refused too.
+  const unchecked = (await $.tool.run({ tool: LOAD, tool_use_id: 'u1', server: SKILL.server, uri: SKILL.uri } as never)) as { deny?: string }
+  expect(unchecked.deny).toContain('You disabled the skill')
+  expect(loadsAsked(w)).toBe(before)
+  // The same URI on another server is another skill.
+  expect((await load($, { server: 'other' })).ran.result).toContain(LOADED)
+})
+
+test('H1: a disabled skill is not in the listing Claude reads: the listing is composed again without it', async ($, on) => {
+  world(on)
+  await $.session.start(START)
+  expect((await $.prompt.attachment(listing)).text).toBe(`${listing.text}\n\n${CATALOG}`)
+  await $.command.run(typed('disable release-notes'))
+  expect((await $.prompt.attachment(listing)).text).toBe(listing.text)
+})
+
+test('H1: a listing the helper made before it was told which skills are disabled is not used', async ($, on) => {
+  world(on, { staleCatalog: true, store: OFF })
+  await $.session.start(START)
+  expect((await $.prompt.attachment(listing)).text).toBe(listing.text)
+})
+
+test('H1: a skill disabled in another session is refused here, and the helper is told before its listing is used again', async ($, on) => {
+  const w = world(on)
+  await $.session.start(START)
+  expect((await $.prompt.attachment(listing)).text).toContain(CATALOG)
+  // Another session on this machine writes the store.
+  w.store.disabled = OFF.disabled
+  expect((await $.prompt.attachment(listing)).text).toBe(listing.text)
+  expect(w.told.at(-1)).toEqual([{ server: SKILL.server, uri: SKILL.uri }])
+  expect((await load($)).ran.deny).toContain('You disabled the skill')
+})
+
+test('H1: a skill disabled while its load waits for the person, or while the helper fetches it, is not handed to Claude', async ($, on) => {
+  const w = world(on)
+  await $.session.start(START)
+  const id = 'late-1'
+  const input = { server: SKILL.server, uri: SKILL.uri }
+  expect((await $.tool.check({ tool: LOAD, input, tool_use_id: id, approver: 'person' } as never)).decision).toBe('ask')
+  await $.command.run(typed('disable release-notes'))
+  expect(((await $.tool.run({ tool: LOAD, tool_use_id: id, ...input } as never)) as { deny?: string }).deny).toContain('You disabled the skill')
+  await $.command.run(typed('enable release-notes'))
+  // Disabled in another session while the helper fetched the skill: the text it fetched is dropped, and the helper lets go of it.
+  w.duringTool = () => (w.store.disabled = OFF.disabled)
+  const { ran } = await load($)
+  expect(ran.deny).toContain('You disabled the skill')
+  expect(ran.result).toBeUndefined()
+  await settle(() => w.posts.some((p) => p.route === '/release'))
+  expect(w.posts.find((p) => p.route === '/release')?.body).toEqual({ server: SKILL.server, uri: SKILL.uri })
+})
+
+test('H1: disabling a loaded skill takes nothing back: its files are not read, and the gate of an unapproved one stays until the conversation is cleared', async ($, on) => {
+  world(on, { verdict: { decision: 'allow', rule: 'allowed' } })
+  await $.session.start(START)
+  await load($, { approver: null })
+  const { text } = await $.command.run(typed('disable release-notes'))
+  expect(text).toContain('It was loaded in this conversation already')
+  for (const tool of ['read_skill_file', 'list_skill_directory']) {
+    const ran = (await $.tool.run({ tool: `mcp__mcp-skills__${tool}`, tool_use_id: `r-${tool}`, server: SKILL.server, skill: SKILL.uri, path: 'references/codenames.md' } as never)) as { deny?: string }
+    expect(ran.deny).toContain('You disabled the skill')
+  }
+  expect((await $.tool.check(bash)).decision).toBe('deny')
+})
+
+test('H1: only the person enables a skill again, and enabling approves nothing: a yes given before stands as it did', async ($, on) => {
+  const w = world(on, { store: { ...OFF, approvals: { [KEY]: { hash: FACTS.hash, fingerprint: FACTS.fingerprint, name: SKILL.name, at: 1 } } } })
+  await $.session.start(START)
+  for (const origin of [undefined, { kind: 'sdk' }, { kind: 'plugin', name: 'other' }, { kind: 'peer' }]) {
+    const { text } = await $.command.run({ command: 'mcp-skills', args: 'enable release-notes', ...(origin ? { origin } : {}) } as never)
+    expect(text).toContain('Only you can enable a skill you disabled')
+  }
+  expect(Object.keys(disabledIn(w))).toEqual([KEY])
+  expect((await $.command.run(typed('enable release-notes'))).text).toContain('Enabled "release-notes" from the MCP server "acme".')
+  expect(disabledIn(w)).toEqual({})
+  expect(w.told.at(-1)).toEqual([])
+  const again = await load($)
+  expect(again.verdict.decision).toBe('allow')
+  expect(again.ran.result).toBe(`${APPROVED}\n${LOADED}`)
+  // Enabled once with no approval kept: the load is put to the person.
+  delete w.store.approvals
+  expect((await load($)).verdict.decision).toBe('ask')
+})
+
+test('H1: a skill its server no longer lists can still be enabled, by name, server:name or URI', async ($, on) => {
+  const w = world(on, { store: OFF, found: [] })
+  await $.session.start(START)
+  for (const what of ['release-notes', 'acme:release-notes', SKILL.uri, `acme:${SKILL.uri}`]) {
+    w.store.disabled = OFF.disabled
+    expect([what, (await $.command.run(typed(`enable ${what}`))).text]).toEqual([what, expect.stringContaining('Enabled "release-notes"')])
+  }
+  expect((await $.command.run(typed('enable nothing-here'))).text).toContain('No skill you disabled is named "nothing-here"')
+})
+
+test('H1: at most 2,000 skills are kept disabled: past that a disable is refused, and none is dropped to make room', async ($, on) => {
+  const many = Object.fromEntries(Array.from({ length: 2000 }, (_, i) => [`acme\nskill://s${i}/SKILL.md`, { name: `s${i}`, at: i }]))
+  const w = world(on, { store: { disabled: many } })
+  await $.session.start(START)
+  expect((await $.command.run(typed('disable release-notes'))).text).toContain('2000 skills are disabled, the most this mod keeps')
+  expect(Object.keys(disabledIn(w)).length).toBe(2000)
+  expect(disabledIn(w)[KEY]).toBeUndefined()
+  expect(disabledIn(w)['acme\nskill://s0/SKILL.md']).toBeDefined()
+})
+
+test('H1: a disable the store cannot keep holds in this session all the same, and says so', async ($, on) => {
+  world(on, { storeFull: true })
+  await $.session.start(START)
+  expect((await $.command.run(typed('disable release-notes'))).text).toContain('in this session only, until Claude Code is restarted')
+  expect((await load($)).ran.deny).toContain('You disabled the skill')
+  expect((await $.prompt.attachment(listing)).text).toBe(listing.text)
+})
+
+test('H1: where the store of disabled skills cannot be read, nothing served is listed or loaded', async ($, on) => {
+  world(on, { storeBroken: true })
+  await $.session.start(START)
+  expect((await $.prompt.attachment(listing)).text).toBe(listing.text)
+  const { verdict, ran } = await load($)
+  expect(verdict.decision).toBe('ask')
+  expect(ran.deny).toContain('could not read which skills you disabled')
+})
+
+test('H1: /mcp-skills names the skills you disabled, with their servers; use refuses one; show still lets you read it', async ($, on) => {
+  const w = world(on, { store: OFF })
+  await $.session.start(START)
+  const { text } = await $.command.run(typed(''))
+  expect(text).toContain('Disabled by you, so Claude is not offered them and cannot load or read them: "release-notes" from the MCP server "acme". /mcp-skills enable <skill> turns one back on.')
+  expect((await $.command.run(typed('use release-notes'))).text).toContain('You disabled "release-notes" from the MCP server "acme", so Claude cannot load it.')
+  await w.clock.advance(100)
+  expect(w.submitted).toEqual([])
+  expect((await $.command.run(typed('show release-notes'))).text).toContain('is open in a panel for you to read')
+  const ui = await $.ui.mount({ plugin: 'mcp-skills', surface: 'terminal', component: 'Pane', requestId: 'mcp-skills-preview', props: { title: 'release-notes', isFocused: true, bodyColumns: 80, placement: 'dock', scroll: { offset: 0, bodyRows: 30 }, view: {} } } as never)
+  expect((await ui.find({ type: 'Text', text: /Served by the MCP server "acme"/ }))?.text).toContain('You disabled it: Claude is not offered it.')
+  await ui.unmount()
 })
