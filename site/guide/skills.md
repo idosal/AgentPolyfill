@@ -43,10 +43,22 @@ server. You need:
 
 The mod downloads nothing unless you type that command.
 
-Skills also works in OpenAI Codex, as a plugin:
-`codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-skills@agent-polyfill`
-([Codex](./getting-started#codex); its README is
-[`polyfills/skills/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex)).
+### In Codex
+
+Skills also works in OpenAI Codex, as a plugin, and is early there: served
+skills appear in Codex's skill list (from the session after a server first
+serves them), are loaded after a per-skill yes in Codex's own form, and are
+verified against the server's digests. Servers behind OAuth are out of reach,
+and a cross-server resource read (X8) is not gated. Install it in a terminal:
+
+```bash
+codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-skills@agent-polyfill
+```
+
+The rest of this page is about the Claude Code form. The Codex form's
+requirements, limits and tests are in its README,
+[`polyfills/skills/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex), and
+[Getting started](./getting-started#codex) has a first run.
 
 ## Try it
 
@@ -186,6 +198,10 @@ The full account:
 [`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/SECURITY.md).
 
 ## How it is tested
+
+These results are for the Claude Code form. The Codex form's are in
+[its README](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex);
+it does not gate a cross-server resource read (X8).
 
 | What | Result |
 |---|---|

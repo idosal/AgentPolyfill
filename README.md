@@ -13,7 +13,8 @@ The aim is an open community around open specs, where anyone can use these
 capabilities in the host they have, build the next polyfill, or propose a new
 extension, and support does not depend on one host's roadmap. Today that is
 Claude Code with four MCP extensions and one open draft beyond MCP (Agentic
-Resource Discovery), and Codex with Events and Skills ([Other hosts](#other-hosts)).
+Resource Discovery), and Codex with Events, Skills, Server Cards and ARD
+([Other hosts](#other-hosts)).
 More hosts are where it is meant to go.
 
 - **For users:** one line to install, one line to try. See below.
@@ -280,8 +281,12 @@ Events works there as a plugin:
 [`polyfills/events/codex`](polyfills/events/codex). Codex also lists the
 skills a plugin's folder holds with its own, so Skills works there as a plugin
 too: [`polyfills/skills/codex`](polyfills/skills/codex). Both share their
-logic with the Claude Code forms, in `polyfills/<extension>/core/`; their
-states are in the [table above](#polyfills).
+logic with the Claude Code forms, in `polyfills/<extension>/core/`. Server
+Cards and ARD run in Codex as plugins too
+([`polyfills/server-cards/codex`](polyfills/server-cards/codex),
+[`polyfills/ard/codex`](polyfills/ard/codex)), on the same card, discovery and
+registry code as the Claude Code forms. Their states are in the
+[table above](#polyfills).
 
 Codex has no documented way for third-party code to send requests over its
 own MCP connection, so as in Claude Code, servers behind OAuth are out of
@@ -348,9 +353,9 @@ against; [`SECURITY.md`](SECURITY.md) says how to report a problem privately.
 Each polyfill is a folder, `polyfills/<extension>/`, with one subfolder for
 each host it runs in, and a `core/` beside them when hosts share its logic:
 [`events`](polyfills/events) and [`skills`](polyfills/skills) (core, Claude
-Code and Codex), [`apps`](polyfills/apps/claude-code),
-[`server-cards`](polyfills/server-cards/claude-code) and
-[`ard`](polyfills/ard/claude-code) (Claude Code).
+Code and Codex), [`server-cards`](polyfills/server-cards) and
+[`ard`](polyfills/ard) (Claude Code and Codex), and
+[`apps`](polyfills/apps/claude-code) (Claude Code).
 Each host has its marketplace file:
 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) for Claude
 Code lists them all, with two plugins in [`plugins/`](plugins): `agent-polyfill`,
