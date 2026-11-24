@@ -58,6 +58,14 @@ jobs:
         run: |
           sh -n package/package.sh
           sh -n helper-rs/build-into-plugin.sh
+      # The version is written in three places: the manifest (what a release
+      # tag must match), the helper's MCP client info and the user agent.
+      - name: One version
+        run: |
+          version=$(jq -r .version mod/.claude-plugin/plugin.json)
+          echo "plugin.json: $version"
+          grep -q "Implementation::new(\"mcp-apps-cli\", \"$version\")" helper-rs/src/mcp.rs || { echo "::error file=polyfills/claude-code/apps/helper-rs/src/mcp.rs::the helper's client info isn't $version"; exit 1; }
+          [ "$(grep -o 'mcp-apps-cli/[0-9.]*' mod/hooks/settings.ts | sort -u)" = "mcp-apps-cli/$version" ] || { echo "::error file=polyfills/claude-code/apps/mod/hooks/settings.ts::the user agent isn't mcp-apps-cli/$version"; exit 1; }
 
   # The TLA+ models (polyfills/claude-code/apps/model): TLC checks each
   # configuration against what it should give (node model/check.mjs). TLC is
