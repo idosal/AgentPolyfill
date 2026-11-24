@@ -187,4 +187,46 @@ describe('waking, end to end (the helper, a server that pushes)', () => {
             await plugin.stop();
         }
     });
+
+    // Found by TLC on the model of 0.5.0 (model/README.md, OneNotice): the next helper handed the
+    // notice over again, so the session was told twice, and woken once more past the limit.
+    test('the notice the helper before this one handed over, and never heard acknowledged, is acknowledged to this one, stops waking, and is not handed over again', async () => {
+        const w = world();
+        const limits = { ...WAKE_DEFAULTS, MCP_EVENTS_WAKE_GAP_S: '0', MCP_EVENTS_WAKES_PER_HOUR: '1' };
+        let plugin = await startPlugin(w, 'sess-a', limits);
+        try {
+            await watch(plugin, w);
+            // The hour's one wake.
+            w.emit('ticket.created', { ticketId: 'T-1' });
+            await waitFor(() => plugin.helper.messages.some((m) => m.t === 'pending'), 8000, 'events to wait');
+            const { json: batch } = await plugin.helper.post('/take');
+            await plugin.helper.post('/ack', { upto: batch.upto, spool: batch.spool });
+            // The next event finds the hour spent: the notice is handed over, the position unchanged.
+            w.emit('ticket.created', { ticketId: 'T-2' });
+            const notice = await waitFor(async () => {
+                const { json } = await plugin.helper.post('/take');
+                return (json.lines as string[] | undefined)?.some((l) => l.includes('stopped waking')) ? json : undefined;
+            }, 8000, 'the notice');
+            assert.equal(notice.upto, batch.upto, 'the notice moves nothing');
+            // Claude Code submits it; the helper dies before the ack reaches it.
+            plugin.helper.child.kill('SIGKILL');
+            await plugin.helper.exited;
+            plugin = await startPlugin(w, 'sess-a', limits);
+            // The hooks module acknowledges what it submitted before it takes again.
+            await plugin.helper.post('/ack', { upto: notice.upto, spool: notice.spool });
+            const { json: after } = await plugin.helper.post('/take');
+            assert.equal(after.upto, undefined, 'the notice is not handed over again');
+            const saved = JSON.parse(readFileSync(join(w.state, 'sessions', 'sess-a', 'wakes.json'), 'utf8')) as { paused?: boolean };
+            assert.equal(saved.paused, true, 'waking stays stopped until the person speaks');
+            // The person speaks: what waited is handed over.
+            await plugin.helper.post('/spoke');
+            const resumed = await waitFor(async () => {
+                const { json } = await plugin.helper.post('/take');
+                return typeof json.upto === 'number' ? json : undefined;
+            }, 8000, 'the event that waited');
+            assert.match((resumed.lines as string[]).join('\n'), /1 new event/);
+        } finally {
+            await plugin.stop();
+        }
+    });
 });

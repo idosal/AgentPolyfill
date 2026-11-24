@@ -160,8 +160,11 @@ export class WatchManager {
      *     wake waited) is appended to this session's spool, in one write, unless it was handed over
      *     somewhere or is here already; then that session counts it as handed over and is taken off
      *     the list. A session whose helper still runs is left alone.
-     * A crash between the append and the marking can show such an event twice; it cannot lose it.
-     * (model/delivery.qnt: recovery, Carry and Settle.)
+     * Everything is read, and the carry worked out, before anything is written; the seen ids are
+     * saved before any session is taken off the list, since after that nothing else would say the
+     * events in its spool were seen. If they cannot be saved, nothing is taken off: the next helper
+     * reads it all again. A crash between the append and the marking can show such an event twice;
+     * it cannot lose it. (model/delivery.qnt: recovery, Carry, SaveSeen and Settle.)
      */
     #recover(): void {
         const base = dirname(dirname(this.spool.dir));
@@ -212,6 +215,12 @@ export class WatchManager {
             this.spool.appendMany(carry.map(({ id: _id, ...r }) => r));
             this.#log(`${carry.length} event(s) an earlier session stored and never showed are shown in this one`);
         }
+        // Saved first: taken off the list before the ids were saved, an event in an earlier spool
+        // could be stored and shown again (the model found this in 0.5.0).
+        if (changed && !this.#saveNow()) {
+            this.#log('the watches could not be saved; what earlier sessions left behind stays listed, to be read again');
+            return;
+        }
         for (const s of settle) {
             try {
                 saveDeliveredPosition(s.dir, s.size);
@@ -220,7 +229,6 @@ export class WatchManager {
             }
         }
         this.project.unlist(settle.map((s) => s.session));
-        if (changed) this.#saveNow();
     }
 
     async stop(): Promise<void> {

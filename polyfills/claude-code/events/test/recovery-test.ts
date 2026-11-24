@@ -1,7 +1,7 @@
 // What a helper does with what earlier ones left behind, when it starts: an event written to a
 // spool before the watch was saved after it is not written again, and an event a session stored
-// and closed before showing reaches the next session, once. (model/delivery.qnt: storedTwice,
-// stranded.)
+// and closed before showing reaches the next session, once; what it read there is saved before
+// that session is taken off the list. (model/delivery.qnt: storedTwice, stranded, seenForgotten.)
 
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -123,6 +123,44 @@ describe('what an earlier helper left behind', () => {
             assert.deepEqual(b.events(), []);
         } finally {
             await b.m.stop();
+        }
+    });
+
+    // Found by TLC on the model of 0.5.0 (model/README.md, "seen forgotten"): the next session took
+    // the earlier one off the list before it had saved the seen ids it read in its spool, so a stop
+    // or a failed save in between forgot them, and the event was stored and shown again.
+    test('seen ids read in an earlier session\'s spool are saved before it is taken off the list; if they cannot be, it stays listed', async () => {
+        const dir = temp();
+        oneWatch(dir);
+        // Session a wrote the event down and showed it; its helper stopped before it saved the
+        // watch after it, so the saved cursor is from before the event.
+        const spoolA = new Spool(dir, 'sess-a');
+        spoolA.append({ kind: 'event', watch: 'w-rec', server: 's', event: 'x', eventId: 'a', data: {} });
+        writeFileSync(join(spoolA.dir, 'delivered.pos'), JSON.stringify({ bytes: Buffer.byteLength(readFileSync(spoolA.file, 'utf8')) }));
+        new ProjectState(dir, '/project/recovery').list('sess-a');
+        // The next session's helper cannot save the watches (the disk is full, say), and stops.
+        const b = session(dir, 'sess-b');
+        b.project.save = () => {
+            throw new Error('ENOSPC');
+        };
+        b.m.start();
+        await until(() => b.streams.length === 1);
+        await b.m.stop();
+        assert.ok(b.project.listed().some((x) => x.session === 'sess-a'), 'session a is still listed');
+        // Its next helper can save. The server sends the event again, from the saved cursor.
+        const b2 = session(dir, 'sess-b');
+        try {
+            b2.m.start();
+            await until(() => b2.streams.length === 1);
+            assert.equal(b2.streams[0]!.cursor, 'c0');
+            b2.streams[0]!.on.active({ cursor: 'c0', heartbeatMs: 60000 });
+            b2.streams[0]!.on.event({ eventId: 'a', name: 'x', timestamp: '2026-11-24T00:00:00Z', data: {}, cursor: 'c1' });
+            b2.streams[0]!.on.event({ eventId: 'b', name: 'x', timestamp: '2026-11-24T00:00:01Z', data: {}, cursor: 'c2' });
+            await until(() => b2.events().includes('b'));
+            assert.deepEqual(b2.events(), ['b'], 'event a, seen in session a, is not stored again');
+            assert.ok(!b2.project.listed().some((x) => x.session === 'sess-a'), 'and session a is off the list now that its ids are saved');
+        } finally {
+            await b2.m.stop();
         }
     });
 });
