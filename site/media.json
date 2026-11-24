@@ -1,0 +1,68 @@
+{
+  "launch": {
+    "file": "launch.mp4",
+    "poster": "launch-poster.jpg",
+    "posterAt": 14,
+    "caption": "Real Claude Code sessions, no sound. A game from the hosted arcade server runs under a tool call and takes mouse and keys; a press on a demo page wakes an idle session; a skill from Hugging Face's MCP server is approved once and used; and the MCP servers neon.com publishes are found from its domain and one is added with a press of Add.",
+    "width": 1920,
+    "height": 1080,
+    "seconds": 68.3,
+    "bytes": 9079326,
+    "sha256": "fa57855e88795ad3837d24fb73d169ee629170ed9271c4892c2b4b938ef802b7",
+    "release": "https://github.com/idosal/AgentPolyfill/releases/download/site-media/launch.mp4",
+    "clips": [
+      {
+        "file": "server-cards.mp4",
+        "poster": "server-cards.jpg",
+        "start": 55,
+        "end": 64,
+        "posterAt": 7.4
+      }
+    ]
+  },
+  "copy": [
+    {
+      "file": "events-button.mp4",
+      "from": "polyfills/claude-code/events/docs/media/button-demo.mp4"
+    },
+    {
+      "file": "events-deploys.mp4",
+      "from": "polyfills/claude-code/events/docs/media/demo.mp4"
+    },
+    {
+      "file": "skills.mp4",
+      "from": "polyfills/claude-code/skills/docs/media/demo.mp4"
+    }
+  ],
+  "derived": [
+    {
+      "file": "apps.mp4",
+      "from": "docs/media/mcp-apps-cli.gif",
+      "kind": "gif-to-mp4"
+    },
+    {
+      "file": "apps.jpg",
+      "from": "docs/media/mcp-apps-cli.gif",
+      "kind": "poster",
+      "at": 14
+    },
+    {
+      "file": "events-button.jpg",
+      "from": "polyfills/claude-code/events/docs/media/button-demo.mp4",
+      "kind": "poster",
+      "at": 21
+    },
+    {
+      "file": "events-deploys.jpg",
+      "from": "polyfills/claude-code/events/docs/media/demo.mp4",
+      "kind": "poster",
+      "at": 19
+    },
+    {
+      "file": "skills.jpg",
+      "from": "polyfills/claude-code/skills/docs/media/demo.mp4",
+      "kind": "poster",
+      "at": 18
+    }
+  ]
+}
