@@ -63,7 +63,9 @@ function checked(url: unknown, accessKey: unknown, source: string, log: (s: stri
     // The public relay is the public relay however it was named: by MCP_EVENTS_RELAY=public, or by
     // its address in MCP_EVENTS_RELAY_URL or the settings file. Its bound on held deliveries, and the
     // notice of who runs it, go with its address.
-    return { url: u.origin, ...(accessKey ? { accessKey: accessKey as string } : {}), source, ...(u.origin === PUBLIC_RELAY.url ? { isPublic: true as const } : {}) };
+    // A host written with a trailing dot (fully qualified) is the same host.
+    const isPublic = u.protocol === 'https:' && u.port === '' && u.hostname.replace(/\.$/, '') === new URL(PUBLIC_RELAY.url).hostname;
+    return { url: u.origin, ...(accessKey ? { accessKey: accessKey as string } : {}), source, ...(isPublic ? { isPublic: true as const } : {}) };
 }
 
 /**
