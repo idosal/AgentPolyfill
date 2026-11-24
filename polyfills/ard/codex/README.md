@@ -9,7 +9,7 @@ A Codex plugin that adds the consumer side of [Agentic Resource Discovery](https
 
 Each Server Card it finds is checked against the schema, and a search result counts as **confirmed** only when the publisher's own domain lists it. To add one, Codex shows you a form; only on your accept does the server go into Codex's MCP configuration.
 
-**Search sends your query to a third party.** `ard_search` posts the words of your request to an ARD registry, a service someone else runs, which ranks other people's servers. The default is a Hugging Face Space at `https://huggingface-hf-discover.hf.space`, which huggingface.co's own catalog lists as its "Hugging Face Discover Registry". Codex shows you a form before every search, naming the registry and the exact query; nothing is sent unless you accept. Discovery by domain sends nothing but plain `GET`s to that domain.
+**Search sends your query to a third party.** `ard_search` posts the words of your request to an ARD registry, a service someone else runs, which ranks other people's servers. The plugin ships with no registry, so you choose which one sees your words: name it in the request (a registry base URL, or a domain whose catalog lists one), or set it with `ARD_DISCOVERY_REGISTRY`. With neither, a search is refused and nothing is sent. Codex shows you a form before every search, naming the registry and the exact query; nothing is sent unless you accept. Discovery by domain sends nothing but plain `GET`s to that domain.
 
 It implements:
 
@@ -44,10 +44,10 @@ To try search without sending anything to a third party, start the [demo registr
 
 1. **Ask.** For example "find an MCP server that can check why my CI build failed", or "what does buildkite.com list in its ard.json?".
 2. **By domain (`ard_discover`):** it reads the domain's `/.well-known/ai-catalog.json` and `/.well-known/ard.json`, and follows `rel="ai-catalog"` and `rel="ard"` links on the page. It fetches each Server Card listed and checks it. Read-only.
-3. **By task (`ard_search`):** first, if the registry is named by domain (`huggingface.co`), it reads that domain's catalogs for the registries they list (a `GET`, no query). Then Codex shows you the form:
+3. **By task (`ard_search`):** if no registry is set and you named none, Codex asks you which one to search. If the registry is named by domain, the plugin first reads that domain's catalogs for the registries they list (a `GET`, no query). Then Codex shows you the form, here for a registry named as `https://registry.example`:
 
    ```
-   huggingface-hf-discover.hf.space: send this search to https://huggingface-hf-discover.hf.space/search, and to up to three registries it refers to?
+   registry.example: send this search to https://registry.example/search, and to up to three registries it refers to?
    Query: "check why my CI build failed"
    A registry is a service someone else runs, and it sees the query.
    ```
@@ -55,6 +55,7 @@ To try search without sending anything to a third party, start the [demo registr
    - **Accept**, and the query is posted, then sent on to at most three registries the first one refers to, one hop.
    - **Decline** or close it, and nothing is sent.
    - The query sent is the one shown: at most 300 characters, on one line, with no invisible characters or direction marks, and no `` ` ``, `<`, `>` or square brackets, which a host could render as Markdown or HTML. Any other query is refused before you are asked.
+   - The registry is the one named: at most 200 characters, with no spaces, control characters or direction marks, whether you named it or set it. Any other is refused before you are asked.
    - Each result's card is fetched and checked, and each publisher's own catalogs (`ai-catalog.json` and `ard.json` on the domain in the result's `urn:air:<publisher>:…` identifier) are read. A server is **confirmed** only if its publisher lists it there with a valid card, and then the publisher's card is the one shown and added. Otherwise it is marked **NOT confirmed by its publisher**. The registry's order is its relevance ranking, not a judgement of trust.
 4. **Add.** Ask Codex to add one. It calls this plugin's `add_mcp_server`, which works as in [`mcp-server-cards`](../../server-cards/codex/README.md#using-it-step-by-step): a form naming the server, its URL, its headers, the file written and the undo, and `codex mcp add` on your accept. For a search result, the form also says whether its publisher confirms it.
 
@@ -66,7 +67,7 @@ Read from the environment Codex starts in; the plugin's `.mcp.json` passes them 
 
 | Variable | Default | What it does |
 |---|---|---|
-| `ARD_DISCOVERY_REGISTRY` | `https://huggingface-hf-discover.hf.space` | The base URL (or a domain whose catalog lists one) of the registry `ard_search` asks when the request names none. Set it to empty to search only a registry named in the request. |
+| `ARD_DISCOVERY_REGISTRY` | unset | The base URL (or a domain whose catalog lists one) of an ARD registry for `ard_search` to ask when the request names none. Unset by default: no registry is chosen for you, so each search names its own. Your query text is sent to the registry, once you accept. |
 | `ARD_DISCOVERY_DISABLED` | unset | `1` turns the plugin off: no tools, nothing fetched or sent. |
 | `CODEX_HOME`, `CODEX_CLI_PATH` | | As in [`mcp-server-cards`](../../server-cards/codex/README.md#settings). |
 
@@ -75,7 +76,7 @@ Read from the environment Codex starts in; the plugin's `.mcp.json` passes them 
 | Tool | What it does |
 |---|---|
 | `ard_discover(domain)` | Reads the domain's ARD and AI Catalog sources, and reports each card. Read-only. |
-| `ard_search(query, registry?)` | After your accept, posts `query` to an ARD registry, then reports the Server Cards it returns, each checked against its publisher. |
+| `ard_search(query, registry?)` | After your accept, posts `query` to an ARD registry, then reports the Server Cards it returns, each checked against its publisher. `registry` is a registry base URL, or a domain whose catalog lists a registry (an entry of type `application/ai-registry+json`). Required unless `ARD_DISCOVERY_REGISTRY` is set. |
 | `add_mcp_server(identifier, url, domain?, remote?, name?, values?)` | Adds a server one of the two showed in this session, after your accept. |
 
 ## What differs from the Claude Code form
@@ -100,9 +101,9 @@ The ARD rules (W-1 to W-6, R-1 to R-8, P-1, B-1) and the Server Cards rules are 
 | # | Rule | Source | Test | State |
 |---|---|---|---|---|
 | Q-1 | Say where the query went | this plugin's own | A-1, A-5 | met: the tool's description names the registry, and every result names each one asked |
-| Q-2 | The registry is a setting | this plugin's own | A-8 | met: `ARD_DISCOVERY_REGISTRY`, which can be empty |
+| Q-2 | The person chooses the registry | this plugin's own | A-5, A-7 | met: none is set by default; a registry named in the request is used, or the one in `ARD_DISCOVERY_REGISTRY`; with neither, the search is refused before any form and nothing is sent |
 | Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own (security review M2) | A-3, A-4, A-11 | met: a form naming the exact endpoints and the query, with a required choice; only **Send the search** sends. Codex 0.172 does not answer such a form by itself, even under `--dangerously-bypass-approvals-and-sandbox` |
-| Q-4 | What is sent is what was shown | this plugin's own (security review R1, and C1 for markup) | A-6, A-9 | met: at most 300 characters, one line, no invisible characters or direction marks, and no `` ` ``, `<`, `>` or square brackets |
+| Q-4 | What is sent is what was shown | this plugin's own (security review R1, and C1 for markup) | A-6, A-9, A-12 | met: at most 300 characters, one line, no invisible characters or direction marks, and no `` ` ``, `<`, `>` or square brackets; the registry, named or set, at most 200 characters with no spaces, control characters or direction marks |
 | Q-5 | The query goes only where the form said | this plugin's own | mcp-server-cards F-5 | met: a redirect to another origin, or one that would turn the `POST` into a `GET`, is not followed |
 | V-3 | No URL that displays as something else | the polyfills' own (security review C1) | A-8, A-10; mcp-server-cards X-4, X-5, P-6, P-7, O-9, O-10 (run here) | met: a result's card URL, its card's remote URL, a registry URL a catalog names, and where a result was found may hold no `` ` ``, `<`, `>` or square bracket outside an IPv6 host; such a result is refused and never put in a form. Nor may they, or a registry the request names, name a user before the host (C3): a search to such a registry is refused before the form |
 | D-1 | Domain discovery reads `ard.json`, which needs no `specVersion` | §5.1 | A-2 | met |
@@ -114,7 +115,7 @@ ARD is a draft; no host supports it natively yet. Remove or disable the plugin (
 
 ## Proof
 
-- **Per rule:** 109 tests, run with `npm test`: ARD's 8 registry rule tests and the Server Cards core's 88 rule tests, all from the Claude Code forms and run against the committed bundle; 11 of this form's (A-), over stdio, with a stand-in `codex` command and a local registry on 127.0.0.1; and 2 bundle checks (byte-identical to a fresh build; a copy of `plugin/` alone starts and lists its tools).
+- **Per rule:** 110 tests, run with `npm test`: ARD's 8 registry rule tests and the Server Cards core's 88 rule tests, all from the Claude Code forms and run against the committed bundle; 12 of this form's (A-), over stdio, with a stand-in `codex` command and a local registry on 127.0.0.1; and 2 bundle checks (byte-identical to a fresh build; a copy of `plugin/` alone starts and lists its tools).
 - **The real host:** below.
 - **Upstream conformance:** the MCP conformance suite has no Server Card or ARD scenarios.
 
@@ -127,7 +128,7 @@ ARD is a draft; no host supports it natively yet. Remove or disable the plugin (
   - `ard_search` put the form to the client, naming `http://127.0.0.1:9031/search` and the query; on the accept (after two seconds), it returned Buildkite and Netlify, both confirmed by their publishers.
   - `add_mcp_server` for Buildkite, by identifier, put its own form ("confirmed by buildkite.com's own catalog"); on the accept, `codex mcp add` wrote the entry and was stopped at its sign-in, and the result said to run `codex mcp login buildkite`. `codex mcp remove buildkite` removed it.
 - Installed from this repository's marketplace into a throwaway `CODEX_HOME`: the server started and listed `ard_discover`, `ard_search` and `add_mcp_server`.
-- Not run: a search of the default Hugging Face registry from Codex (the Claude Code form's run found that every result it returns is refused as not a Server Card).
+- Not run: a search of Hugging Face Discover from Codex (the Claude Code form's run found that every result it returns is refused as not a Server Card).
 
 ## Limits
 

@@ -25,6 +25,15 @@ const SHOWN_QUERY = 300
  * set as mcp-server-cards' UNSAFE_TEXT, plus U+2028 and U+2029. */
 const UNSEEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/
 const shown = (v: string, max: number) => v.replace(new RegExp(UNSEEN.source, 'g'), ' ').replace(/\s+/g, ' ').trim().slice(0, max)
+/** The longest registry the ask names, and so the longest searched. */
+const SHOWN_REGISTRY = 200
+/** Why a registry could not be named in the ask exactly as it is searched, or undefined: shown() would change it. */
+const unshowable = (registry: string, from: string) =>
+  registry.length > SHOWN_REGISTRY || UNSEEN.test(registry) || /\s/.test(registry)
+    ? `${from} must be at most ${SHOWN_REGISTRY} characters, with no spaces, control characters or direction marks, so the person sees exactly where the search goes.`
+    : undefined
+/** Where a search's registry came from, for a refusal. */
+const registryFrom = (input: Record<string, unknown>) => (str(input.registry) !== undefined ? 'The `registry` in this search' : 'The `registry` setting')
 
 type Presented = { text: string; servers: number; registries: { identifier: string; url?: string; displayName?: string }[] }
 
@@ -155,10 +164,13 @@ export const register: Register = (on, options) => {
     const verdict = await next(e)
     if (verdict.decision === 'deny') return verdict
     const input = (e.input ?? {}) as Record<string, unknown>
-    const named = shown(str(input.registry) ?? defaultRegistry, 200)
+    const named = (str(input.registry) ?? defaultRegistry).trim()
     // No registry is chosen for the person: with none set and none named,
     // there is nothing to ask about, and nothing is sent.
     if (!named) return { decision: 'deny' as const, reason: NO_REGISTRY }
+    // The ask names the registry as it is searched, as it shows the query.
+    const unnamed = unshowable(named, registryFrom(input))
+    if (unnamed) return { decision: 'deny' as const, reason: unnamed }
     if (e.approver === undefined)
       return { decision: 'deny' as const, reason: 'A search sends your words to a registry someone else runs, and nobody can be asked in this session.' }
     const query = shown(str(input.query) ?? '', SHOWN_QUERY)
@@ -183,6 +195,8 @@ export const register: Register = (on, options) => {
       return { deny: 'Write the search on one line, without control characters or direction marks, so the person sees exactly what is sent.' }
     const asked = (str(input.registry) ?? defaultRegistry).trim()
     if (!asked) return { deny: NO_REGISTRY }
+    const unnamed = unshowable(asked, registryFrom(input))
+    if (unnamed) return { deny: unnamed }
 
     // A domain whose catalogs list registries (application/ai-registry+json) is
     // used through those entries, read by mcp-server-cards under its address

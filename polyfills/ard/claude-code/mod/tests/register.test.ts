@@ -206,3 +206,38 @@ test('A-10 with no registry set and none named, the search is refused before any
   }
   expect(posted).toEqual([])
 })
+
+// The ask names the registry as it is searched, as it shows the query (A-9):
+// shown() would blank hidden characters, collapse spaces and cut at 200, so a
+// registry it would change is refused, whether named or set.
+test('A-11 a registry over 200 characters, or with spaces, control characters or direction marks, named or set, is refused and nothing is sent', { options: { registry: 'https://registry.example/api\u200b' } }, async ($, on) => {
+  const handed = cards(on)
+  const posted: string[] = []
+  on('http.fetch', (_, e) => {
+    posted.push(e.url)
+    return { value: { status: 200, ok: true, headers: {}, text: '{"results":[]}' } }
+  })
+  on('tool.check', { tool: SEARCH }, () => ({ decision: 'allow' }))
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const query = 'check why my CI build failed'
+  for (const registry of [`https://registry.example/${'x'.repeat(200)}`, 'https://registry.example/a\u202Eb', 'https://registry.example/a  b', 'publisher.example\u200b']) {
+    const checked = await $.tool.check({ tool: SEARCH, input: { query, registry }, tool_use_id: 'a11', approver: 'person' } as never)
+    expect(checked.decision).toBe('deny')
+    expect(String((checked as { reason?: string }).reason)).toContain('The `registry` in this search must be at most 200 characters')
+    const ran = await $.tool.run({ tool: SEARCH, tool_use_id: 'a11b', query, registry } as never)
+    expect(String((ran as { deny?: string }).deny)).toContain('so the person sees exactly where the search goes')
+  }
+  // The setting is held to the same rule.
+  const set = await $.tool.check({ tool: SEARCH, input: { query }, tool_use_id: 'a11c', approver: 'person' } as never)
+  expect(set.decision).toBe('deny')
+  expect(String((set as { reason?: string }).reason)).toContain('The `registry` setting must be at most 200 characters')
+  const setRun = await $.tool.run({ tool: SEARCH, tool_use_id: 'a11d', query } as never)
+  expect(String((setRun as { deny?: string }).deny)).toContain('The `registry` setting must be')
+  expect(posted).toEqual([])
+  expect(handed).toEqual([])
+  // One the ask can name exactly is asked about, and searched, as before.
+  const fine = await $.tool.check({ tool: SEARCH, input: { query, registry: 'https://registry.example/api' }, tool_use_id: 'a11e', approver: 'person' } as never)
+  expect(String((fine as { reason?: string }).reason)).toBe(`Send this search to https://registry.example/api, and to up to three registries it refers to? "${query}"`)
+  await $.tool.run({ tool: SEARCH, tool_use_id: 'a11f', query, registry: 'https://registry.example/api' } as never)
+  expect(posted).toEqual(['https://registry.example/api/search'])
+})
