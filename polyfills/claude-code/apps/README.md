@@ -50,8 +50,8 @@ program for each platform and needs nothing else installed, not even Node.
    action.
 2. **Add an MCP server that has apps**, as you add any server. To try one:
    `claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp`.
-3. **Start `claude` and ask** for something the server's app shows ("Load
-   the game msdos_DOOM_1993 with the arcade tool"). Claude Code asks whether
+3. **Start `claude` and ask** for something the server's app shows ("Find a
+   shareware game in the arcade and load it"). Claude Code asks whether
    to allow the tool, as it does for any MCP tool, unless your permission
    rules already allow it. The app appears under the call.
 
