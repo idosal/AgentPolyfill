@@ -147,30 +147,85 @@ export const handlerFor = (name: string, handlers: Record<string, Handler>) => {
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 
+/** Antigravity's built-in tool for an MCP tool that isn't loaded eagerly (the default). */
+export const CALL_MCP_TOOL = 'call_mcp_tool'
+
+/**
+ * Which call of this plugin's server a PreToolUse input is, however
+ * Antigravity named it (seen live in CLI 1.5.16, 2026-11-25; mcp.md, "Tool
+ * loading"):
+ *
+ * - lazy (the default): `call_mcp_tool` with `{ServerName, ToolName,
+ *   Arguments}`; `ServerName` is `<plugin>_<key>`;
+ * - eager (`"eager": true`): `mcp_<plugin>_<key>_<tool>`, the tool's own
+ *   arguments.
+ *
+ * `server` is this plugin's server as Antigravity names it. A call of any
+ * other server is not this plugin's. Without `server` (unit tests), a name
+ * that ends in a handler's name is taken.
+ */
+export type McpCall = { tool: string; args: Record<string, unknown>; lazy?: { asText: boolean } }
+
+export function callOf(call: Record<string, unknown>, handlers: Record<string, Handler>, server?: string): McpCall | undefined {
+  const name = typeof call.name === 'string' ? call.name : ''
+  const args = isObject(call.args) ? call.args : {}
+  if (name === CALL_MCP_TOOL) {
+    if (!server || args.ServerName !== server || typeof args.ToolName !== 'string' || !Object.hasOwn(handlers, args.ToolName)) return undefined
+    let inner: unknown = args.Arguments ?? {}
+    const asText = typeof inner === 'string'
+    if (asText)
+      try {
+        inner = JSON.parse(inner as string)
+      } catch {
+        inner = undefined
+      }
+    if (!isObject(inner)) return { tool: args.ToolName, args: {}, lazy: { asText } }
+    return { tool: args.ToolName, args: inner, lazy: { asText } }
+  }
+  if (server) {
+    const prefix = `mcp_${server}_`
+    const tool = name.startsWith(prefix) ? name.slice(prefix.length) : ''
+    return Object.hasOwn(handlers, tool) ? { tool, args } : undefined
+  }
+  const found = handlerFor(name, handlers)
+  return found ? { tool: found.short, args } : undefined
+}
+
 /** Antigravity's PreToolUse answer for one hook input. Never throws: anything wrong is a deny. */
-export async function answerHook(input: unknown, handlers: Record<string, Handler>, dir: string, now = Date.now()): Promise<Record<string, unknown>> {
+export async function answerHook(input: unknown, handlers: Record<string, Handler>, dir: string, now = Date.now(), server?: string): Promise<Record<string, unknown>> {
   try {
     if (!isObject(input)) return { decision: 'deny', reason: 'The plugin could not read the call it was asked about.' }
     const call = isObject(input.toolCall) ? input.toolCall : {}
-    const name = typeof call.name === 'string' ? call.name : ''
-    const found = handlerFor(name, handlers)
+    const found = callOf(call, handlers, server)
     // Not one of this plugin's tools: nothing to say about it.
     if (!found) return { decision: 'allow' }
     const conversationId = typeof input.conversationId === 'string' ? input.conversationId : ''
-    const args = ownArgs(isObject(call.args) ? call.args : {})
-    const v = await found.handler(args, input as HookInput)
+    const args = ownArgs(found.args)
+    // The handler sees the call under its eager name, whichever way it came.
+    const named = server ? { ...input, toolCall: { name: `mcp_${server}_${found.tool}`, args } } : input
+    const v = await handlers[found.tool]!(args, named as HookInput)
     if ('deny' in v) return { decision: 'deny', reason: v.deny }
-    const ticket = issueTicket(dir, { tool: found.short, digest: v.digest, conversationId }, now)
-    return 'ask' in v
-      ? { decision: 'force_ask', reason: v.ask, overwrite: { [TICKET_ARG]: ticket } }
-      : { decision: 'allow', reason: v.pass, overwrite: { [TICKET_ARG]: ticket } }
+    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId }, now)
+    // `overwrite` is a shallow merge into the call's own arguments: for
+    // call_mcp_tool, that is `Arguments` as a whole.
+    const withTicket = { ...args, [TICKET_ARG]: ticket }
+    const overwrite = found.lazy ? { Arguments: found.lazy.asText ? JSON.stringify(withTicket) : withTicket } : { [TICKET_ARG]: ticket }
+    return 'ask' in v ? { decision: 'force_ask', reason: v.ask, overwrite } : { decision: 'allow', reason: v.pass, overwrite }
   } catch (err) {
     return { decision: 'deny', reason: `The plugin's check of this call failed (${err instanceof Error ? err.message : String(err)}), so it was stopped.` }
   }
 }
 
+/**
+ * The matcher a plugin's hooks.json gives its PreToolUse gate: Antigravity's
+ * call_mcp_tool, and the eager names of `tools` on `server`. Antigravity
+ * matches the whole tool name.
+ */
+export const gateMatcher = (server: string, tools: readonly string[]) =>
+  `${CALL_MCP_TOOL}|mcp_${server.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}_(${tools.join('|')})`
+
 /** Reads the hook's stdin, answers on stdout, and exits 0. */
-export async function runHook(handlers: Record<string, Handler>, dir: string) {
+export async function runHook(handlers: Record<string, Handler>, dir: string, server?: string) {
   let text = ''
   process.stdin.setEncoding('utf8')
   for await (const chunk of process.stdin) text += chunk
@@ -180,7 +235,7 @@ export async function runHook(handlers: Record<string, Handler>, dir: string) {
   } catch {
     input = undefined
   }
-  const out = await answerHook(input, handlers, dir)
+  const out = await answerHook(input, handlers, dir, Date.now(), server)
   process.stdout.write(`${JSON.stringify(out)}\n`)
   process.exitCode = 0
 }

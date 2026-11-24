@@ -9,6 +9,9 @@ import { runHook, stateDir, TICKET_ARG } from '../../../server-cards/antigravity
 import { App } from './app.ts';
 import { handlers } from './approval.ts';
 import { homeOf, isOff, NAME, VERSION } from './config.ts';
+
+/** The plugin's MCP server as Antigravity names it: `<plugin>_<key in mcp_config.json>`. */
+export const SERVER = 'mcp-skills_skills';
 import { stubRootOf } from './stubs.ts';
 
 export const INSTRUCTIONS = 'MCP-served skills for Antigravity. list_skills shows origins and metadata; load_skill requires the plugin approval hook and returns verified server content. Stubs in the personal skills folder only say how to load a skill. Read supporting files with read_skill_file and list_skill_directory, never as local files. The approval card offers yes/no, with no private content preview.';
@@ -24,7 +27,7 @@ export function tools(app: App): Tool[] {
 
 export async function start(env: NodeJS.ProcessEnv = process.env, argv = process.argv.slice(2)) {
     const dir = stateDir(NAME, env), store = new Store(dir);
-    if (argv.includes('--hook')) return runHook(handlers(env, store), dir);
+    if (argv.includes('--hook')) return runHook(handlers(env, store), dir, SERVER);
     const logFile = join(dir, 'mcp-skills.log');
     try {
         if (existsSync(logFile) && statSync(logFile).size > 2 * 1024 * 1024) renameSync(logFile, `${logFile}.1`);

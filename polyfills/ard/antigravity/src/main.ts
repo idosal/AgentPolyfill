@@ -26,6 +26,8 @@ export const NAME = 'ard-discovery'
 export const VERSION = '0.1.0'
 export const DISCOVER = 'ard_discover'
 export const SEARCH = 'ard_search'
+/** The plugin's MCP server as Antigravity names it: `<plugin>_<key in mcp_config.json>`. */
+export const SERVER = 'ard-discovery_ard'
 
 /** The Codex form's words for "no registry", with Antigravity's place to set one. */
 const noRegistry = (text: string) =>
@@ -125,7 +127,7 @@ export async function start(env: NodeJS.ProcessEnv = process.env, argv = process
   useAntigravityHost()
   const session = new SharedSession(antigravityDeps(env, `${NAME}/${VERSION} (Antigravity polyfill)`), stateDir(NAME, env))
   const registry = registrySetting(env)
-  if (argv.includes('--hook')) return runHook(handlers(session, registry), session.dir)
+  if (argv.includes('--hook')) return runHook(handlers(session, registry), session.dir, SERVER)
   const off = isOff(env)
   serve({
     name: NAME,

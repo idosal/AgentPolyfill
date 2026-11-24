@@ -42,7 +42,16 @@ export function invocation(home: string, input: unknown, extra: Record<string, s
     assert.equal(r.status, 0, r.stderr);
     return JSON.parse(r.stdout);
 }
+/**
+ * Each call here starts the PreToolUse hook as a process first, as Antigravity
+ * does, so a call takes longer than in the other forms. The shared tests' one
+ * clock that a call races (a type the fixture adds after a delay) is
+ * stretched by the same factor, under load as well.
+ */
+export const HOOK_SLOWDOWN = 5;
 export function world(fixtureEnv: Record<string, string> = {}) {
+    const added = Number(fixtureEnv.FIXTURE_ADD_TYPE_AFTER_MS);
+    if (Number.isFinite(added) && added < 10_000) fixtureEnv = { ...fixtureEnv, FIXTURE_ADD_TYPE_AFTER_MS: String(added * HOOK_SLOWDOWN) };
     const dir = tempHome();
     const upstream = join(dir, 'upstream.jsonl'); writeFileSync(upstream, '');
     const fixtureLog = join(dir, 'fixture.jsonl');
@@ -67,9 +76,10 @@ export class Adapter extends Helper {
         return this.request('initialize', { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'antigravity-test', version: '1.5.16' } });
     }
     override async call(name: string, args: Record<string, unknown>, id: string) {
-        const h = runHook(this.entry, this.env.HOME!, preToolUse(`mcp_mcp-events_events_${name}`, args, id), this.env);
+        // As Antigravity calls a lazily loaded MCP tool (its default; seen live in CLI 1.5.16).
+        const h = runHook(this.entry, this.env.HOME!, preToolUse('call_mcp_tool', { ServerName: 'mcp-events_events', ToolName: name, Arguments: args }, id), this.env);
         assert.equal(h.status, 0); assert.equal(h.out.decision, 'allow', JSON.stringify(h.out));
-        return this.rawCall(name, { ...args, ...h.out.overwrite });
+        return this.rawCall(name, h.out.overwrite.Arguments);
     }
     async rawCall(name: string, args: Record<string, unknown>, meta: Record<string, unknown> = {}) {
         const r = await this.request('tools/call', { name, arguments: args, _meta: meta });

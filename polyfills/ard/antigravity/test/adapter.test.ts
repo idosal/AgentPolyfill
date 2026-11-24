@@ -121,8 +121,21 @@ test('R-7 ard_discover reads ard.json, and what it showed is added after the app
 
 test('R-8 the hook matcher takes this plugin\'s ard_search and add_mcp_server, and not its discover or another plugin\'s tools', () => {
   const m = JSON.parse(readFileSync(join(ROOT, 'plugin', 'hooks.json'), 'utf8'))['ard-discovery-approval'].PreToolUse[0].matcher
-  for (const n of [SEARCH, ADD, 'mcp_ard_discovery_ard_ard_search']) assert.ok(matches(m, n), n)
+  for (const n of ['call_mcp_tool', SEARCH, ADD]) assert.ok(matches(m, n), n)
   for (const n of ['mcp_ard-discovery_ard_ard_discover', 'mcp_mcp-server-cards_cards_add_mcp_server', 'mcp_other_ard_search']) assert.ok(!matches(m, n), n)
+})
+
+test('R-10 the lazy form: a search through call_mcp_tool is asked about and sent with the ticket from Arguments', async () => {
+  const home = tempHome()
+  const s = antigravityServer(SERVER, home, env)
+  const before = searches().length
+  const other = runHook(SERVER, home, preToolUse('call_mcp_tool', { ServerName: 'someone-else_ard', ToolName: 'ard_search', Arguments: { query: QUERY } }), env)
+  assert.deepEqual(other.out, { decision: 'allow' })
+  const h = runHook(SERVER, home, preToolUse('call_mcp_tool', { ServerName: 'ard-discovery_ard', ToolName: 'ard_search', Arguments: { query: QUERY } }), env)
+  assert.equal(h.out.decision, 'force_ask')
+  const r = await s.call('ard_search', h.out.overwrite.Arguments)
+  assert.equal(r.isError, false, r.text)
+  assert.equal(searches().length, before + 1)
 })
 
 test('R-9 stand-down: ARD_DISCOVERY_DISABLED=1 serves no tools', async () => {

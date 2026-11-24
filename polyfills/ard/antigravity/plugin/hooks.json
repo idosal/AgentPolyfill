@@ -2,7 +2,7 @@
   "ard-discovery-approval": {
     "PreToolUse": [
       {
-        "matcher": "mcp_.*ard.discovery.*(ard_search|add_mcp_server)",
+        "matcher": "call_mcp_tool|mcp_ard-discovery_ard_(ard_search|add_mcp_server)",
         "hooks": [
           {
             "type": "command",

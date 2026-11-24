@@ -2,7 +2,7 @@
   "mcp-server-cards-approval": {
     "PreToolUse": [
       {
-        "matcher": "mcp_.*server.cards.*add_mcp_server",
+        "matcher": "call_mcp_tool|mcp_mcp-server-cards_cards_(add_mcp_server)",
         "hooks": [
           {
             "type": "command",

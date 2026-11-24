@@ -628,24 +628,51 @@ var handlerFor = (name, handlers2) => {
   return short ? { short, handler: handlers2[short] } : void 0;
 };
 var isObject = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
-async function answerHook(input, handlers2, dir, now = Date.now()) {
+var CALL_MCP_TOOL = "call_mcp_tool";
+function callOf(call, handlers2, server) {
+  const name = typeof call.name === "string" ? call.name : "";
+  const args = isObject(call.args) ? call.args : {};
+  if (name === CALL_MCP_TOOL) {
+    if (!server || args.ServerName !== server || typeof args.ToolName !== "string" || !Object.hasOwn(handlers2, args.ToolName)) return void 0;
+    let inner = args.Arguments ?? {};
+    const asText2 = typeof inner === "string";
+    if (asText2)
+      try {
+        inner = JSON.parse(inner);
+      } catch {
+        inner = void 0;
+      }
+    if (!isObject(inner)) return { tool: args.ToolName, args: {}, lazy: { asText: asText2 } };
+    return { tool: args.ToolName, args: inner, lazy: { asText: asText2 } };
+  }
+  if (server) {
+    const prefix = `mcp_${server}_`;
+    const tool = name.startsWith(prefix) ? name.slice(prefix.length) : "";
+    return Object.hasOwn(handlers2, tool) ? { tool, args } : void 0;
+  }
+  const found = handlerFor(name, handlers2);
+  return found ? { tool: found.short, args } : void 0;
+}
+async function answerHook(input, handlers2, dir, now = Date.now(), server) {
   try {
     if (!isObject(input)) return { decision: "deny", reason: "The plugin could not read the call it was asked about." };
     const call = isObject(input.toolCall) ? input.toolCall : {};
-    const name = typeof call.name === "string" ? call.name : "";
-    const found = handlerFor(name, handlers2);
+    const found = callOf(call, handlers2, server);
     if (!found) return { decision: "allow" };
     const conversationId2 = typeof input.conversationId === "string" ? input.conversationId : "";
-    const args = ownArgs(isObject(call.args) ? call.args : {});
-    const v = await found.handler(args, input);
+    const args = ownArgs(found.args);
+    const named = server ? { ...input, toolCall: { name: `mcp_${server}_${found.tool}`, args } } : input;
+    const v = await handlers2[found.tool](args, named);
     if ("deny" in v) return { decision: "deny", reason: v.deny };
-    const ticket = issueTicket(dir, { tool: found.short, digest: v.digest, conversationId: conversationId2 }, now);
-    return "ask" in v ? { decision: "force_ask", reason: v.ask, overwrite: { [TICKET_ARG]: ticket } } : { decision: "allow", reason: v.pass, overwrite: { [TICKET_ARG]: ticket } };
+    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId: conversationId2 }, now);
+    const withTicket = { ...args, [TICKET_ARG]: ticket };
+    const overwrite = found.lazy ? { Arguments: found.lazy.asText ? JSON.stringify(withTicket) : withTicket } : { [TICKET_ARG]: ticket };
+    return "ask" in v ? { decision: "force_ask", reason: v.ask, overwrite } : { decision: "allow", reason: v.pass, overwrite };
   } catch (err) {
     return { decision: "deny", reason: `The plugin's check of this call failed (${err instanceof Error ? err.message : String(err)}), so it was stopped.` };
   }
 }
-async function runHook(handlers2, dir) {
+async function runHook(handlers2, dir, server) {
   let text = "";
   process.stdin.setEncoding("utf8");
   for await (const chunk of process.stdin) text += chunk;
@@ -655,7 +682,7 @@ async function runHook(handlers2, dir) {
   } catch {
     input = void 0;
   }
-  const out = await answerHook(input, handlers2, dir);
+  const out = await answerHook(input, handlers2, dir, Date.now(), server);
   process.stdout.write(`${JSON.stringify(out)}
 `);
   process.exitCode = 0;
@@ -758,6 +785,7 @@ var TOOLS2 = TOOLS.map((tool) => {
     description: tool.description.replaceAll("Codex", "Antigravity").replace("(even when idle)", "(on the next model call, or when the enabled App sidecar wakes it)")
   };
 });
+var SERVER = "mcp-events_events";
 
 // polyfills/events/antigravity/src/conversation.ts
 var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -28540,7 +28568,7 @@ try {
     } catch {
     }
     await preInvocation(input, base, emit, env.MCP_EVENTS_OFF === "1");
-  } else if (hook) await runHook(handlers(env.MCP_EVENTS_OFF === "1"), base);
+  } else if (hook) await runHook(handlers(env.MCP_EVENTS_OFF === "1"), base, SERVER);
   else if (process.argv.includes("--sidecar")) await runSidecar(base, process.env, logger(base));
   else runServer(base, env, logger(base));
 } catch {

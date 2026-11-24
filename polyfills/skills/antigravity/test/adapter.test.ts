@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { after, test } from 'node:test';
 import { Store } from '../../codex/src/store.ts';
 import { checkEntry, LIMITS, type Listed } from '../../core/src/skills.ts';
-import { answerHook, digestOf, issueTicket, redeemTicket, stateDir, TICKET_TTL_MS } from '../../../server-cards/antigravity/src/gate.ts';
+import { answerHook, digestOf, gateMatcher, issueTicket, redeemTicket, stateDir, TICKET_TTL_MS } from '../../../server-cards/antigravity/src/gate.ts';
 import { handlers, MATCHER } from '../src/approval.ts';
 import { configPath, readConfig } from '../src/config.ts';
 import { MAX_STUBS, SHAPE, stubName, stubPath, stubRootOf, syncStubs } from '../src/stubs.ts';
@@ -147,9 +147,12 @@ test('S-4 cap includes retained stubs; omitted skills remain listable/loadable',
 test('H-1 matcher takes only this plugin and MCP key; reads use allow tickets; list_skills has no hook', () => {
     const hooks = JSON.parse(readFileSync(join(ROOT, 'plugin/hooks.json'), 'utf8'));
     const entry = hooks['mcp-skills-approval'].PreToolUse[0];
-    assert.equal(entry.matcher, MATCHER); assert.equal(entry.hooks[0].command, 'node ./dist/server.mjs --hook');
-    for (const n of [TOOL, 'mcp_mcp_skills_skills_load_skill', 'mcp__mcp-skills_skills/load_skill', 'mcp_mcp-skills_skills.load_skill', 'mcp_mcp-skills_skills_read_skill_file']) assert.ok(matches(entry.matcher, n), n);
+    // Antigravity names a lazily loaded MCP tool call_mcp_tool (the default), an eager one mcp_<server>_<tool>.
+    assert.equal(entry.matcher, gateMatcher('mcp-skills_skills', ['load_skill', 'read_skill_file', 'list_skill_directory'])); assert.equal(entry.hooks[0].command, 'node ./dist/server.mjs --hook');
+    for (const n of ['call_mcp_tool', TOOL, 'mcp_mcp-skills_skills_read_skill_file', 'mcp_mcp-skills_skills_list_skill_directory']) assert.ok(matches(entry.matcher, n), n);
     for (const n of ['load_skill', 'mcp_other_load_skill', 'mcp_other_mcp-skills_skills_load_skill', 'mcp_mcp-skills-other_skills_load_skill', 'mcp_mcp-skills_other_load_skill', 'mcp_mcp-skills_skills_list_skills', `${TOOL}_other`]) assert.ok(!matches(entry.matcher, n), n);
+    // The handler's own check takes the eager name the gate gives every call of this server.
+    assert.ok(new RegExp(`^(?:${MATCHER})$`).test(TOOL));
 });
 
 test('G-1 tickets are one-use, tool/digest bound and expire; private state honors the override', () => {

@@ -1,7 +1,7 @@
 {
   "mcp-skills-approval": {
     "PreToolUse": [{
-      "matcher": "mcp_+mcp[-_]skills_skills[_/.](load_skill|read_skill_file|list_skill_directory)",
+      "matcher": "call_mcp_tool|mcp_mcp-skills_skills_(load_skill|read_skill_file|list_skill_directory)",
       "hooks": [{ "type": "command", "command": "node ./dist/server.mjs --hook", "timeout": 30 }]
     }]
   }

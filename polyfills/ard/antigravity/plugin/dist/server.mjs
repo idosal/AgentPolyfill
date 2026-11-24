@@ -1507,24 +1507,52 @@ var handlerFor = (name, handlers2) => {
   return short ? { short, handler: handlers2[short] } : void 0;
 };
 var isObject4 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
-async function answerHook(input, handlers2, dir, now = Date.now()) {
+var CALL_MCP_TOOL = "call_mcp_tool";
+function callOf(call, handlers2, server) {
+  const name = typeof call.name === "string" ? call.name : "";
+  const args = isObject4(call.args) ? call.args : {};
+  if (name === CALL_MCP_TOOL) {
+    if (!server || args.ServerName !== server || typeof args.ToolName !== "string" || !Object.hasOwn(handlers2, args.ToolName)) return void 0;
+    let inner = args.Arguments ?? {};
+    const asText = typeof inner === "string";
+    if (asText)
+      try {
+        inner = JSON.parse(inner);
+      } catch {
+        inner = void 0;
+      }
+    if (!isObject4(inner)) return { tool: args.ToolName, args: {}, lazy: { asText } };
+    return { tool: args.ToolName, args: inner, lazy: { asText } };
+  }
+  if (server) {
+    const prefix = `mcp_${server}_`;
+    const tool = name.startsWith(prefix) ? name.slice(prefix.length) : "";
+    return Object.hasOwn(handlers2, tool) ? { tool, args } : void 0;
+  }
+  const found = handlerFor(name, handlers2);
+  return found ? { tool: found.short, args } : void 0;
+}
+async function answerHook(input, handlers2, dir, now = Date.now(), server) {
   try {
     if (!isObject4(input)) return { decision: "deny", reason: "The plugin could not read the call it was asked about." };
     const call = isObject4(input.toolCall) ? input.toolCall : {};
-    const name = typeof call.name === "string" ? call.name : "";
-    const found = handlerFor(name, handlers2);
+    const found = callOf(call, handlers2, server);
     if (!found) return { decision: "allow" };
     const conversationId = typeof input.conversationId === "string" ? input.conversationId : "";
-    const args = ownArgs(isObject4(call.args) ? call.args : {});
-    const v = await found.handler(args, input);
+    const args = ownArgs(found.args);
+    const named = server ? { ...input, toolCall: { name: `mcp_${server}_${found.tool}`, args } } : input;
+    const v = await handlers2[found.tool](args, named);
     if ("deny" in v) return { decision: "deny", reason: v.deny };
-    const ticket = issueTicket(dir, { tool: found.short, digest: v.digest, conversationId }, now);
-    return "ask" in v ? { decision: "force_ask", reason: v.ask, overwrite: { [TICKET_ARG]: ticket } } : { decision: "allow", reason: v.pass, overwrite: { [TICKET_ARG]: ticket } };
+    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId }, now);
+    const withTicket = { ...args, [TICKET_ARG]: ticket };
+    const overwrite = found.lazy ? { Arguments: found.lazy.asText ? JSON.stringify(withTicket) : withTicket } : { [TICKET_ARG]: ticket };
+    return "ask" in v ? { decision: "force_ask", reason: v.ask, overwrite } : { decision: "allow", reason: v.pass, overwrite };
   } catch (err) {
     return { decision: "deny", reason: `The plugin's check of this call failed (${err instanceof Error ? err.message : String(err)}), so it was stopped.` };
   }
 }
-async function runHook(handlers2, dir) {
+var gateMatcher = (server, tools2) => `${CALL_MCP_TOOL}|mcp_${server.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}_(${tools2.join("|")})`;
+async function runHook(handlers2, dir, server) {
   let text = "";
   process.stdin.setEncoding("utf8");
   for await (const chunk of process.stdin) text += chunk;
@@ -1534,7 +1562,7 @@ async function runHook(handlers2, dir) {
   } catch {
     input = void 0;
   }
-  const out = await answerHook(input, handlers2, dir);
+  const out = await answerHook(input, handlers2, dir, Date.now(), server);
   process.stdout.write(`${JSON.stringify(out)}
 `);
   process.exitCode = 0;
@@ -2103,6 +2131,7 @@ var NAME2 = "ard-discovery";
 var VERSION = "0.1.0";
 var DISCOVER = "ard_discover";
 var SEARCH = "ard_search";
+var SERVER = "ard-discovery_ard";
 var noRegistry = (text) => text === NO_REGISTRY ? "No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as `registry`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment Antigravity starts in. Nothing was sent." : text;
 var str3 = (v) => typeof v === "string" ? v : void 0;
 var refuse2 = (text) => ({ text: shownText(text), isError: true });
@@ -2169,7 +2198,7 @@ async function start(env = process.env, argv = process.argv.slice(2)) {
   useAntigravityHost();
   const session = new SharedSession(antigravityDeps(env, `${NAME2}/${VERSION} (Antigravity polyfill)`), stateDir(NAME2, env));
   const registry = registrySetting(env);
-  if (argv.includes("--hook")) return runHook(handlers(session, registry), session.dir);
+  if (argv.includes("--hook")) return runHook(handlers(session, registry), session.dir, SERVER);
   const off = isOff(env);
   serve({
     name: NAME2,
@@ -2182,17 +2211,21 @@ async function start(env = process.env, argv = process.argv.slice(2)) {
 if (isMain(import.meta.url)) void start();
 export {
   ARD_SOURCES,
+  CALL_MCP_TOOL,
   DISCOVER,
   INSTRUCTIONS,
   NAME2 as NAME,
   SEARCH,
+  SERVER,
   TICKET_ARG,
   TICKET_TTL_MS,
   VERSION,
   answerHook,
+  callOf,
   canonical,
   configPath2 as configPath,
   digestOf,
+  gateMatcher,
   handlerFor,
   handlers,
   isNameTaken2 as isNameTaken,

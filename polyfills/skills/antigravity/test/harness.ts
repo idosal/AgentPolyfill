@@ -38,7 +38,8 @@ export async function startApp(servers: Record<string, Fixture>, o: { answers?: 
     let answers = o.answers ?? [];
     return { app, store, env, stubRoot, questions, call: async (name, args, c = {}) => {
         if (name === 'list_skills') return app.call(name, args);
-        const hook = await answerHook(preToolUse(`mcp_mcp-skills_skills_${name}`, args, c.thread ?? 'test-conversation'), handlers(env, store), store.dir);
+        // As Antigravity calls a lazily loaded MCP tool (its default; seen live in CLI 1.5.16).
+        const hook = await answerHook(preToolUse('call_mcp_tool', { ServerName: 'mcp-skills_skills', ToolName: name, Arguments: args }, c.thread ?? 'test-conversation'), handlers(env, store), store.dir, Date.now(), 'mcp-skills_skills');
         if (hook.decision === 'deny') return { text: String(hook.reason), isError: true };
         if (c.answers) answers = c.answers;
         if (hook.decision === 'force_ask') {
@@ -47,7 +48,7 @@ export async function startApp(servers: Record<string, Fixture>, o: { answers?: 
             const answer = typeof answers === 'function' ? answers(message, choices) : answers.shift();
             if (!(answer === 'load' || (typeof answer === 'object' && 'decision' in answer && answer.decision === 'load'))) return { text: 'The user did not approve the skill, so it is not loaded.', isError: true };
         }
-        return app.call(name, { ...args, ...hook.overwrite as object });
+        return app.call(name, (hook.overwrite as { Arguments: Record<string, unknown> }).Arguments);
     } };
 }
 export async function closeAll() { await Promise.all(open.splice(0).map(a => a.stop())); }

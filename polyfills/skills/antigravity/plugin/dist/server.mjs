@@ -8729,24 +8729,51 @@ var handlerFor = (name, handlers2) => {
   return short ? { short, handler: handlers2[short] } : void 0;
 };
 var isObject3 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
-async function answerHook(input, handlers2, dir, now = Date.now()) {
+var CALL_MCP_TOOL = "call_mcp_tool";
+function callOf(call, handlers2, server) {
+  const name = typeof call.name === "string" ? call.name : "";
+  const args = isObject3(call.args) ? call.args : {};
+  if (name === CALL_MCP_TOOL) {
+    if (!server || args.ServerName !== server || typeof args.ToolName !== "string" || !Object.hasOwn(handlers2, args.ToolName)) return void 0;
+    let inner = args.Arguments ?? {};
+    const asText = typeof inner === "string";
+    if (asText)
+      try {
+        inner = JSON.parse(inner);
+      } catch {
+        inner = void 0;
+      }
+    if (!isObject3(inner)) return { tool: args.ToolName, args: {}, lazy: { asText } };
+    return { tool: args.ToolName, args: inner, lazy: { asText } };
+  }
+  if (server) {
+    const prefix2 = `mcp_${server}_`;
+    const tool = name.startsWith(prefix2) ? name.slice(prefix2.length) : "";
+    return Object.hasOwn(handlers2, tool) ? { tool, args } : void 0;
+  }
+  const found = handlerFor(name, handlers2);
+  return found ? { tool: found.short, args } : void 0;
+}
+async function answerHook(input, handlers2, dir, now = Date.now(), server) {
   try {
     if (!isObject3(input)) return { decision: "deny", reason: "The plugin could not read the call it was asked about." };
     const call = isObject3(input.toolCall) ? input.toolCall : {};
-    const name = typeof call.name === "string" ? call.name : "";
-    const found = handlerFor(name, handlers2);
+    const found = callOf(call, handlers2, server);
     if (!found) return { decision: "allow" };
     const conversationId = typeof input.conversationId === "string" ? input.conversationId : "";
-    const args = ownArgs(isObject3(call.args) ? call.args : {});
-    const v = await found.handler(args, input);
+    const args = ownArgs(found.args);
+    const named = server ? { ...input, toolCall: { name: `mcp_${server}_${found.tool}`, args } } : input;
+    const v = await handlers2[found.tool](args, named);
     if ("deny" in v) return { decision: "deny", reason: v.deny };
-    const ticket = issueTicket(dir, { tool: found.short, digest: v.digest, conversationId }, now);
-    return "ask" in v ? { decision: "force_ask", reason: v.ask, overwrite: { [TICKET_ARG]: ticket } } : { decision: "allow", reason: v.pass, overwrite: { [TICKET_ARG]: ticket } };
+    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId }, now);
+    const withTicket = { ...args, [TICKET_ARG]: ticket };
+    const overwrite = found.lazy ? { Arguments: found.lazy.asText ? JSON.stringify(withTicket) : withTicket } : { [TICKET_ARG]: ticket };
+    return "ask" in v ? { decision: "force_ask", reason: v.ask, overwrite } : { decision: "allow", reason: v.pass, overwrite };
   } catch (err) {
     return { decision: "deny", reason: `The plugin's check of this call failed (${err instanceof Error ? err.message : String(err)}), so it was stopped.` };
   }
 }
-async function runHook(handlers2, dir) {
+async function runHook(handlers2, dir, server) {
   let text = "";
   process.stdin.setEncoding("utf8");
   for await (const chunk of process.stdin) text += chunk;
@@ -8756,7 +8783,7 @@ async function runHook(handlers2, dir) {
   } catch {
     input = void 0;
   }
-  const out = await answerHook(input, handlers2, dir);
+  const out = await answerHook(input, handlers2, dir, Date.now(), server);
   process.stdout.write(`${JSON.stringify(out)}
 `);
   process.exitCode = 0;
@@ -33862,6 +33889,7 @@ var App = class {
 };
 
 // polyfills/skills/antigravity/src/main.ts
+var SERVER = "mcp-skills_skills";
 var INSTRUCTIONS2 = "MCP-served skills for Antigravity. list_skills shows origins and metadata; load_skill requires the plugin approval hook and returns verified server content. Stubs in the personal skills folder only say how to load a skill. Read supporting files with read_skill_file and list_skill_directory, never as local files. The approval card offers yes/no, with no private content preview.";
 function tools(app) {
   return TOOLS.map((def) => {
@@ -33873,7 +33901,7 @@ function tools(app) {
 }
 async function start(env = process.env, argv = process.argv.slice(2)) {
   const dir = stateDir(NAME, env), store = new Store(dir);
-  if (argv.includes("--hook")) return runHook(handlers(env, store), dir);
+  if (argv.includes("--hook")) return runHook(handlers(env, store), dir, SERVER);
   const logFile = join7(dir, "mcp-skills.log");
   try {
     if (existsSync2(logFile) && statSync3(logFile).size > 2 * 1024 * 1024) renameSync4(logFile, `${logFile}.1`);
@@ -33906,6 +33934,7 @@ if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpath
 }
 export {
   INSTRUCTIONS2 as INSTRUCTIONS,
+  SERVER,
   start,
   tools
 };

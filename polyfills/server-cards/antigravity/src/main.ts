@@ -24,6 +24,8 @@ export * from './tools'
 export const NAME = 'mcp-server-cards'
 export const VERSION = '0.1.0'
 export const DISCOVER = 'discover_mcp_servers'
+/** The plugin's MCP server as Antigravity names it: `<plugin>_<key in mcp_config.json>`. */
+export const SERVER = 'mcp-server-cards_cards'
 
 export const DISCOVER_DESCRIPTION =
   'Find the MCP servers a domain publishes, using the MCP Server Cards extension (SEP-2127): reads https://<domain>/.well-known/ai-catalog.json (the AI Catalog SEP-2127 names) and any rel="ai-catalog" link on the page, fetches each MCP Server Card the catalog lists, and checks it against the Server Card schema. ' +
@@ -50,7 +52,7 @@ export const isOff = (env: NodeJS.ProcessEnv) => /^(1|true|on|yes)$/i.test(env.M
 export async function start(env: NodeJS.ProcessEnv = process.env, argv = process.argv.slice(2)) {
   useAntigravityHost()
   const s = session(env)
-  if (argv.includes('--hook')) return runHook(handlers(s), s.dir)
+  if (argv.includes('--hook')) return runHook(handlers(s), s.dir, SERVER)
   const off = isOff(env)
   serve({
     name: NAME,

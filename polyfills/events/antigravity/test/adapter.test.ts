@@ -4,7 +4,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, wri
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { issueTicket, stateDir, TICKET_ARG, TICKET_TTL_MS, answerHook } from '../../../server-cards/antigravity/src/gate.ts';
+import { issueTicket, stateDir, TICKET_ARG, TICKET_TTL_MS, answerHook, gateMatcher } from '../../../server-cards/antigravity/src/gate.ts';
 import { deliveredPosition, Spool } from '../../core/src/store.ts';
 import { callDigest, handlers } from '../src/conversation.ts';
 import { readServers } from '../src/config.ts';
@@ -149,9 +149,19 @@ test('H-1 matchers cover six own tools under candidate host spellings and exclud
     const matcher = hooks.PreToolUse[0].matcher;
     assert.equal(hooks.PreToolUse[0].hooks[0].command, 'node ./dist/server.mjs --hook');
     assert.equal(hooks.PreInvocation[0].command, 'node ./dist/server.mjs --hook pre-invocation');
-    for (const tool of TOOLS) for (const prefix of ['mcp_mcp-events_events_', 'mcp_mcp_events_events_', 'mcp_mcp-events_events/', 'mcp_mcp-events_events.']) assert.ok(matches(matcher, prefix + tool.name));
-    for (const name of ['run_command', 'mcp_other_watch_event', 'mcp_mcp-events_events_not_a_tool', 'mcp_evil_mcp-events_events_watch_event']) assert.ok(!matches(matcher, name));
-    assert.deepEqual(await answerHook(preToolUse('run_command', {}), handlers(false), tempHome()), { decision: 'allow' });
+    // Antigravity names a lazily loaded MCP tool call_mcp_tool (the default), an eager one mcp_<server>_<tool>.
+    assert.equal(matcher, gateMatcher('mcp-events_events', TOOLS.map(t => t.name)));
+    assert.ok(matches(matcher, 'call_mcp_tool'));
+    for (const tool of TOOLS) assert.ok(matches(matcher, `mcp_mcp-events_events_${tool.name}`));
+    for (const name of ['run_command', 'mcp_other_watch_event', 'mcp_mcp-events_events_not_a_tool', 'mcp_evil_mcp-events_events_watch_event', 'mcp_mcp_events_events_watch_event']) assert.ok(!matches(matcher, name), name);
+    const dir = tempHome();
+    assert.deepEqual(await answerHook(preToolUse('run_command', {}), handlers(false), dir, Date.now(), 'mcp-events_events'), { decision: 'allow' });
+    // Another server's call_mcp_tool is left alone: no ticket, no change to its arguments.
+    assert.deepEqual(await answerHook(preToolUse('call_mcp_tool', { ServerName: 'other_events', ToolName: 'watch_event', Arguments: {} }), handlers(false), dir, Date.now(), 'mcp-events_events'), { decision: 'allow' });
+    // The eager form still works, with the ticket in the tool's own arguments.
+    const eager = await answerHook(preToolUse('mcp_mcp-events_events_list_watches', {}), handlers(false), dir, Date.now(), 'mcp-events_events');
+    assert.equal(eager.decision, 'allow');
+    assert.match(String((eager.overwrite as Record<string, string>)[TICKET_ARG]), /^[0-9a-f]{32}$/);
 });
 
 test('B-1 committed bundle is byte-identical to a fresh build', () => {

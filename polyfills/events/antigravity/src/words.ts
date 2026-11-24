@@ -29,3 +29,6 @@ export const TOOLS = CODEX_TOOLS.map(tool => {
     return { ...tool, inputSchema: schema,
         description: tool.description.replaceAll('Codex', 'Antigravity').replace('(even when idle)', '(on the next model call, or when the enabled App sidecar wakes it)') };
 });
+
+/** The plugin's MCP server as Antigravity names it: `<plugin>_<key in mcp_config.json>`. */
+export const SERVER = 'mcp-events_events';

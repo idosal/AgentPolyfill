@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { answerHook, digestOf, issueTicket, redeemTicket, TICKET_ARG, TICKET_TTL_MS } from '../src/gate'
+import { answerHook, callOf, digestOf, gateMatcher, issueTicket, redeemTicket, TICKET_ARG, TICKET_TTL_MS } from '../src/gate'
 import { isNameTaken, planForAntigravity, readConfig, writeEntry } from '../src/antigravity'
 import { antigravityServer, localWeb, matches, preToolUse, runHook, tempHome } from './harness'
 
@@ -157,13 +157,36 @@ test('G-4 the hook: an ask is force_ask with the question, and the ticket goes i
 
 // ---- the plugin's hook matcher ----
 
-test('H-1 the hook matcher takes this plugin\'s add_mcp_server under the names Antigravity may give it, and not another plugin\'s', () => {
+test('H-1 the hook matcher takes call_mcp_tool (lazy tools, Antigravity\'s default) and this server\'s eager add_mcp_server, nothing else', () => {
   const hooks = JSON.parse(readFileSync(join(ROOT, 'plugin', 'hooks.json'), 'utf8'))
   const entry = hooks['mcp-server-cards-approval'].PreToolUse[0]
   assert.equal(entry.hooks[0].command, 'node ./dist/server.mjs --hook')
-  for (const name of ['mcp_mcp-server-cards_cards_add_mcp_server', 'mcp_mcp_server_cards_cards_add_mcp_server', 'mcp_mcp-server-cards_cards/add_mcp_server'])
-    assert.ok(matches(entry.matcher, name), name)
-  for (const name of ['mcp_other_add_mcp_server', 'run_command', 'mcp_mcp-server-cards_cards_discover_mcp_servers']) assert.ok(!matches(entry.matcher, name), name)
+  assert.equal(entry.matcher, gateMatcher('mcp-server-cards_cards', ['add_mcp_server']))
+  for (const name of ['call_mcp_tool', 'mcp_mcp-server-cards_cards_add_mcp_server']) assert.ok(matches(entry.matcher, name), name)
+  for (const name of ['mcp_other_add_mcp_server', 'run_command', 'mcp_mcp-server-cards_cards_discover_mcp_servers', 'mcp_evil_mcp-server-cards_cards_add_mcp_server'])
+    assert.ok(!matches(entry.matcher, name), name)
+})
+
+test('G-5 the lazy form: a call_mcp_tool of this server is gated with the ticket inside Arguments; another server\'s is left alone', async () => {
+  const dir = gateDir()
+  const S = 'mcp-server-cards_cards'
+  const handlers = { add_mcp_server: (args: Record<string, unknown>) => ({ ask: `Q ${JSON.stringify(args)}`, digest: 'd' }) }
+  const lazy = (server: string, tool: string, Arguments: unknown) => preToolUse('call_mcp_tool', { ServerName: server, ToolName: tool, Arguments })
+  const out = await answerHook(lazy(S, 'add_mcp_server', { x: 1, [TICKET_ARG]: 'f'.repeat(32) }), handlers, dir, Date.now(), S)
+  assert.equal(out.decision, 'force_ask')
+  assert.equal(out.reason, 'Q {"x":1}')
+  const args = (out.overwrite as { Arguments: Record<string, unknown> }).Arguments
+  assert.equal(args.x, 1)
+  assert.deepEqual(redeemTicket(dir, args[TICKET_ARG], 'add_mcp_server', 'd').ok, true)
+  // Arguments sent as JSON text come back as JSON text.
+  const text = await answerHook(lazy(S, 'add_mcp_server', '{"x":2}'), handlers, dir, Date.now(), S)
+  assert.equal(typeof (text.overwrite as { Arguments: unknown }).Arguments, 'string')
+  assert.equal(JSON.parse((text.overwrite as { Arguments: string }).Arguments).x, 2)
+  // Another server, another tool of this server, or no server named: not this plugin's call.
+  for (const input of [lazy('other_cards', 'add_mcp_server', {}), lazy(S, 'discover_mcp_servers', {}), lazy(S, 'constructor', {}), preToolUse('call_mcp_tool', { ToolName: 'add_mcp_server' })])
+    assert.deepEqual(await answerHook(input, handlers, dir, Date.now(), S), { decision: 'allow' })
+  assert.equal(callOf({ name: 'mcp_other_add_mcp_server', args: {} }, handlers, S), undefined)
+  assert.equal(callOf({ name: 'call_mcp_tool', args: { ServerName: S, ToolName: 'add_mcp_server' } }, handlers), undefined, 'without the server name, a lazy call is never taken')
 })
 
 // ---- the server and the hook together, as Antigravity runs them ----
@@ -263,6 +286,18 @@ test('E-6 stand-down: MCP_SERVER_CARDS_DISABLED=1 serves no tools', async () => 
   const s = antigravityServer(SERVER, tempHome(), { MCP_SERVER_CARDS_DISABLED: '1' })
   await s.ready
   assert.deepEqual((await s.request('tools/list', {})).result.tools, [])
+})
+
+test('E-8 the lazy form end to end: the hook gates call_mcp_tool, and its Arguments carry the ticket to the server', async () => {
+  const home = tempHome()
+  const s = antigravityServer(SERVER, home)
+  await s.call('discover_mcp_servers', { domain: web.origin })
+  const h = runHook(SERVER, home, preToolUse('call_mcp_tool', { ServerName: 'mcp-server-cards_cards', ToolName: 'add_mcp_server', Arguments: addDocs() }))
+  assert.equal(h.out.decision, 'force_ask', JSON.stringify(h.out))
+  assert.match(h.out.reason, /add the MCP server "example-docs" to Antigravity\?/)
+  const r = await s.call('add_mcp_server', h.out.overwrite.Arguments)
+  assert.equal(r.isError, false, r.text)
+  assert.deepEqual(JSON.parse(readFileSync(configOf(home), 'utf8')).mcpServers, { 'example-docs': { serverUrl: `${web.origin}/mcp` } })
 })
 
 test('E-7 what one server process showed can be added through another (Antigravity may run more than one)', async () => {
