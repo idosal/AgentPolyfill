@@ -1,9 +1,12 @@
 import { expect, test } from 'claude-code/testing'
 import { discover as discoverWith, findCatalogLinks, isPrivateHost, parseTarget, type Deps } from '../hooks/discover'
 
-// Most tests here exercise the ARD paths too (ard.json, rel="ard"), so they
-// run with ARD on; DEF-1 and DEF-2 hold the default, which is off.
-const discover = (deps: Deps, input: string) => discoverWith(deps, input, { ard: true })
+// Most tests here also read the further sources another plugin can name, as the
+// ARD plugin does (a manifest at /.well-known/ard.json that need not carry
+// specVersion, and rel="ard" links); DEF-1 and DEF-2 hold the default, which
+// reads only what SEP-2127 and its AI Catalog name.
+const ARD_LIKE = { catalogs: [{ url: '/.well-known/ard.json', requireVersion: false }], rels: ['ard'], by: 'a test' }
+const discover = (deps: Deps, input: string) => discoverWith(deps, input, ARD_LIKE)
 import type { Fetch } from '../hooks/http'
 import { fixtures } from './fixtures'
 
@@ -58,7 +61,7 @@ test('T-1 target: a domain, a page URL, HTTPS only except localhost', async () =
   expect('error' in parseTarget('intranet')).toBe(true)
 })
 
-test('D-1 D-2 reads ard.json (ARD MUST) and ai-catalog.json (MCP discovery SHOULD)', async () => {
+test('D-1 D-2 reads ai-catalog.json (MCP discovery SHOULD) and a further catalog a caller names (ard.json, as ard-discovery does)', async () => {
   const { deps, calls } = web({})
   const d = await discover(deps, 'example.com')
   const urls = calls.map(c => c.url)
@@ -124,10 +127,10 @@ test('D-6 the same identifier in ard.json and ai-catalog.json is one server', as
 
 test('D-7 rel="ard" in a <link> tag and in a Link header are followed', async () => {
   expect(
-    findCatalogLinks('https://example.com/docs', {}, '<head><link rel="ard" href="/agents.json"></head>'),
+    findCatalogLinks('https://example.com/docs', {}, '<head><link rel="ard" href="/agents.json"></head>', ['ard', 'ai-catalog']),
   ).toEqual([{ url: 'https://example.com/agents.json', rel: 'ard' }])
   expect(
-    findCatalogLinks('https://example.com/', { link: '</x.json>; rel="ai-catalog", </y>; rel=preload' }, ''),
+    findCatalogLinks('https://example.com/', { link: '</x.json>; rel="ai-catalog", </y>; rel=preload' }, '', ['ard', 'ai-catalog']),
   ).toEqual([{ url: 'https://example.com/x.json', rel: 'ai-catalog' }])
 
   const { deps } = web({
@@ -353,12 +356,12 @@ test('D-12 at most three catalog links from a page; the same resource once', asy
 })
 
 test('D-13 link parsing: quoted params, comments, data- attributes, <base>, entities', async () => {
-  expect(findCatalogLinks('https://e.example/', { link: '</wrong>; title="x; rel=ard"; rel=alternate' }, '')).toEqual([])
-  expect(findCatalogLinks('https://e.example/', {}, '<!-- <link rel="ard" href="/comment"> --><link data-rel="ard" data-href="/data">')).toEqual([])
-  expect(findCatalogLinks('https://e.example/p', {}, '<base href="https://cdn.example/"><link rel="ard" href="catalog.json">')).toEqual([
+  expect(findCatalogLinks('https://e.example/', { link: '</wrong>; title="x; rel=ard"; rel=alternate' }, '', ['ard', 'ai-catalog'])).toEqual([])
+  expect(findCatalogLinks('https://e.example/', {}, '<!-- <link rel="ard" href="/comment"> --><link data-rel="ard" data-href="/data">', ['ard', 'ai-catalog'])).toEqual([])
+  expect(findCatalogLinks('https://e.example/p', {}, '<base href="https://cdn.example/"><link rel="ard" href="catalog.json">', ['ard', 'ai-catalog'])).toEqual([
     { url: 'https://cdn.example/catalog.json', rel: 'ard' },
   ])
-  expect(findCatalogLinks('https://e.example/', {}, '<link rel="ard" href="/catalog&#46;json">')).toEqual([
+  expect(findCatalogLinks('https://e.example/', {}, '<link rel="ard" href="/catalog&#46;json">', ['ard', 'ai-catalog'])).toEqual([
     { url: 'https://e.example/catalog.json', rel: 'ard' },
   ])
 })
@@ -430,8 +433,8 @@ test('D-14 an inline card is measured in bytes', async () => {
 })
 
 test('D-15 an HTML tokenizer reads <link>: quoted values hold spaces, "=" and ">"', async () => {
-  expect(findCatalogLinks('https://e.example/', {}, '<link title=" rel=ard href=/fake " rel="alternate" href="/real">')).toEqual([])
-  expect(findCatalogLinks('https://e.example/', {}, '<link title="a>b" rel="ard" href="/real">')).toEqual([{ url: 'https://e.example/real', rel: 'ard' }])
+  expect(findCatalogLinks('https://e.example/', {}, '<link title=" rel=ard href=/fake " rel="alternate" href="/real">', ['ard', 'ai-catalog'])).toEqual([])
+  expect(findCatalogLinks('https://e.example/', {}, '<link title="a>b" rel="ard" href="/real">', ['ard', 'ai-catalog'])).toEqual([{ url: 'https://e.example/real', rel: 'ard' }])
 })
 
 test('C-9 the cache cap holds under concurrent writes, and sizes are bytes', async () => {
@@ -447,7 +450,7 @@ test('C-9 the cache cap holds under concurrent writes, and sizes are bytes', asy
   expect(keys.some(k => k.includes('euro.example/.well-known/ard.json'))).toBe(false)
 })
 
-// The default (ard off): exactly what SEP-2127 and the AI Catalog it relies on name.
+// The default: exactly what SEP-2127 and the AI Catalog it relies on name.
 test('DEF-1 by default only /.well-known/ai-catalog.json is read, not ard.json', async () => {
   const { deps, calls } = web({
     'https://example.com/.well-known/ai-catalog.json': { body: catalog([entry('x', 'https://example.com/card')]) },

@@ -1,11 +1,11 @@
-// What the model and the person read. Everything taken from a card or a
-// catalog is the publisher's claim, fetched before any connection, and is
-// labelled that way (discovery.md: cards are advisory, never authoritative).
+// What the model and the person read. Cards and catalogs are fetched before any
+// connection, and Server Cards are advisory (discovery.md): each field is
+// cleaned of control characters and capped, with the URL it came from.
 
 import { plainText, type ServerCard } from './card'
 import { defaultName, isCompatible, previewUrl } from './configure'
 import type { Discovery, FoundServer } from './discover'
-import type { Search, SearchHit } from './search'
+import type { Offered } from './offer'
 
 const clean = (s: unknown, max = 300) => plainText(String(s ?? '').replace(/[\r\n\t]+/g, ' ')).slice(0, max)
 
@@ -65,7 +65,7 @@ export const formatServer = (s: FoundServer, n: number) => {
 export const formatDiscovery = (d: Discovery) => {
   const found = d.sources.filter(s => s.state === 'found')
   const lines: string[] = []
-  lines.push(`Discovery for ${d.origin} (MCP Server Cards, SEP-2127; AI Catalog v0.9${d.ard ? '; ARD v0.91 draft' : ''})`)
+  lines.push(`Discovery for ${d.origin} (MCP Server Cards, SEP-2127; AI Catalog v0.9${d.extra ? `; further sources from ${clean(d.extra, 100)}` : ''})`)
   lines.push('Sources read:')
   for (const s of d.sources)
     lines.push(`  - ${s.url} [${s.kind}]: ${s.state}${s.note ? ` (${clean(s.note, 200)})` : ''}`)
@@ -82,7 +82,7 @@ export const formatDiscovery = (d: Discovery) => {
   if (d.registries.length)
     lines.push(
       '',
-      `Also listed: ${d.registries.length} ARD registr${d.registries.length === 1 ? 'y' : 'ies'} (${d.registries.map(r => clean(r.displayName ?? r.identifier, 100)).join(', ')}). Registry search is not part of this polyfill.`,
+      `Also listed: ${d.registries.length} search registr${d.registries.length === 1 ? 'y' : 'ies'} (${d.registries.map(r => clean(r.displayName ?? r.identifier, 100)).join(', ')}). Searching one is not part of this polyfill.`,
     )
   const others = Object.entries(d.otherEntries)
   if (others.length)
@@ -98,64 +98,54 @@ export const formatDiscovery = (d: Discovery) => {
   return lines.join('\n')
 }
 
-export const describePublisher = (hit: SearchHit): string => {
-  const p = hit.publisher
-  const who = hit.publisherDomain
+export const describePublisher = (o: Offered): string => {
+  const p = o.publisher
+  const who = o.publisherDomain
   if (!p) return 'not checked (the card was refused)'
   if (p.state === 'confirmed')
-    return `CONFIRMED: ${who}'s own catalog (${clean(p.catalog, 200)}) lists this server${p.sameCard ? '' : '. The registry pointed to a card with different endpoints; the publisher\'s card is the one shown here and the one that would be added'}`
+    return `CONFIRMED: ${who}'s own catalog (${clean(p.catalog, 200)}) lists this server${p.sameCard ? '' : '. The finder pointed to a card with different endpoints; the publisher\'s card is the one shown here and the one that would be added'}`
   if (p.state === 'card-refused')
-    return `NOT CONFIRMED: ${who}'s catalog lists this identifier, but its card is refused (${p.errors.map(e => clean(e, 200)).join('; ')}); the registry's card below is unconfirmed`
-  if (p.state === 'not-checked') return 'NOT CHECKED: too many results to check against their publishers'
-  if (p.state === 'not-listed')
-    return `NOT CONFIRMED: ${who} publishes a catalog, and it does not list this server`
+    return `NOT CONFIRMED: ${who}'s catalog lists this identifier, but its card is refused (${p.errors.map(e => clean(e, 200)).join('; ')}); the card below is the finder's, unconfirmed`
+  if (p.state === 'not-listed') return `NOT CONFIRMED: ${who} publishes a catalog, and it does not list this server`
   if (p.state === 'no-catalog') return `NOT CONFIRMED: ${who} publishes no catalog to check against`
+  if (p.state === 'not-checked') return 'NOT CHECKED: too many servers to check against their publishers'
   return 'NOT CONFIRMED: the identifier names no publisher domain'
 }
 
-export const formatSearch = (s: Search) => {
+/** Servers another plugin found (`foundBy`) and handed over. */
+export const formatOffered = (r: { offered: Offered[]; skipped: number; problems: string[] }, foundBy: string) => {
   const lines: string[] = []
-  lines.push(`Registry search for "${clean(s.query, 200)}" (Agentic Resource Discovery v0.91 §5.3; not part of SEP-2127)`)
-  lines.push('Registries asked:')
-  for (const r of s.registries)
-    lines.push(`  - ${clean(r.endpoint, 300)}: ${r.state === 'ok' ? `${r.results} results` : `failed (${clean(r.note, 200)})`}`)
-  if (!s.hits.length) {
-    lines.push('No MCP Server Cards matched.')
-    if (s.skipped) lines.push(`(${s.skipped} results of other types were ignored.)`)
-    return lines.join('\n')
-  }
-  const valid = s.hits.filter(h => h.installCard)
+  const valid = r.offered.filter(o => o.installCard)
   lines.push(
-    '',
-    `MCP servers found: ${s.hits.length} (${valid.length} with a valid Server Card, ${valid.filter(h => h.publisher?.state === 'confirmed').length} confirmed by their publisher). A registry's ranking is relevance, not trust: what says who stands behind a server is whether the publisher's own domain lists it.`,
+    `MCP servers found by ${clean(foundBy, 120)}: ${r.offered.length} (${valid.length} with a valid Server Card, ${valid.filter(o => o.publisher?.state === 'confirmed').length} confirmed by their publisher). What says who stands behind a server is whether the publisher's own domain lists it, not the finder's order.`,
   )
-  s.hits.forEach((h, i) => {
-    lines.push(`${i + 1}. ${clean(h.displayName ?? h.identifier, 120)}`)
-    lines.push(`   identifier: ${clean(h.identifier, 200)}`)
-    lines.push(`   from registry: ${clean(h.registry, 300)}${h.score !== undefined ? ` (relevance ${h.score})` : ''}`)
-    if (h.description) lines.push(`   registry's description: ${clean(h.description, 200)}`)
-    lines.push(`   card: ${clean(h.cardUrl ?? 'inline', 300)}`)
-    if (!h.installCard) {
-      lines.push(`   REFUSED: ${h.errors.map(e => clean(e, 300)).join('; ')}`)
+  r.offered.forEach((o, i) => {
+    lines.push(`${i + 1}. ${clean(o.displayName ?? o.identifier, 120)}`)
+    lines.push(`   identifier: ${clean(o.identifier, 200)}`)
+    lines.push(`   found in: ${clean(o.listedIn, 300)}${o.score !== undefined ? ` (the finder's relevance ${o.score})` : ''}`)
+    if (o.description) lines.push(`   the finder's description: ${clean(o.description, 200)}`)
+    lines.push(`   card: ${clean(o.cardUrl ?? 'inline', 300)}`)
+    if (!o.installCard) {
+      lines.push(`   REFUSED: ${o.errors.map(e => clean(e, 300)).join('; ')}`)
       return
     }
-    const c = h.installCard
-    lines.push(`   publisher: ${describePublisher(h)}`)
+    const c = o.installCard
+    lines.push(`   publisher: ${describePublisher(o)}`)
     lines.push(`   name: ${clean(c.name, 200)}  version: ${clean(c.version, 60)}${c.title ? `  title: ${clean(c.title, 100)}` : ''}`)
     lines.push(`   description: ${clean(c.description, 100)}`)
     lines.push(`   suggested server name: ${defaultName(c)}`)
-    c.remotes?.forEach((r, j) => {
-      lines.push(`   remote #${j}: ${r.type} ${clean(r.url, 2048)}${isCompatible(r) ? '' : ' (NOT usable: Claude Code speaks none of its protocol versions)'}`)
-      const connects = previewUrl(c, j)
-      if (connects !== r.url) lines.push(`      connects to: ${clean(connects, 2048)} (with its defaults)`)
+    c.remotes?.forEach((rm, j) => {
+      lines.push(`   remote #${j}: ${rm.type} ${clean(rm.url, 2048)}${isCompatible(rm) ? '' : ' (NOT usable: Claude Code speaks none of its protocol versions)'}`)
+      const connects = previewUrl(c, j, o.isLocal)
+      if (connects !== rm.url) lines.push(`      connects to: ${clean(connects, 2048)} (with its defaults)`)
     })
   })
-  if (s.skipped) lines.push('', `${s.skipped} results of other types (skills, agents) were ignored.`)
-  if (s.problems.length) lines.push('', 'Problems:', ...s.problems.map(p => `  - ${clean(p, 300)}`))
+  if (r.skipped) lines.push('', `${r.skipped} entries of other types (skills, agents) were ignored.`)
+  if (r.problems.length) lines.push('', 'Problems:', ...r.problems.map(p => `  - ${clean(p, 300)}`))
   if (valid.length)
     lines.push(
       '',
-      'To add one, tell the person which server it is, the URL it connects to, and whether its publisher confirms it; ask them; then call add_mcp_server with its identifier and that URL as `url` (the "connects to" URL where one is shown, else the remote\'s URL; no domain for a search result).',
+      'To add one, tell the person which server it is, the URL it connects to, and whether its publisher confirms it; ask them; then call add_mcp_server with its identifier and that URL as `url` (the "connects to" URL where one is shown, else the remote\'s URL; no domain).',
     )
   return lines.join('\n')
 }

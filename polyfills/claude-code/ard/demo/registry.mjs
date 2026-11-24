@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 // A demo ARD registry (Agentic Resource Discovery v0.91 §5.2, §5.3.2), for
-// showing search_mcp_servers before a public registry serves valid Server Cards.
+// showing ard_search before a public registry serves valid Server Cards.
 //
 // It is not a real registry. At start it reads (web ingestion, §5.2) the live
 // catalogs of the publisher domains below, keeps their MCP Server Card entries
 // as the publishers wrote them, and answers POST /search with a plain word-match
-// score. Every result's `url` is the publisher's own card, so the polyfill can
-// confirm each one against the publisher's catalog.
+// score. Every result's `url` is the publisher's own card, so mcp-server-cards
+// can confirm each one against the publisher's catalog.
 //
 //   node demo/registry.mjs [port]        (default 9011, binds 127.0.0.1)
-//   then: search_mcp_servers({ query, registry: "http://127.0.0.1:9011" })
+//   then: ard_search({ query, registry: "http://127.0.0.1:9011" })
 
 import { createServer } from 'node:http'
 

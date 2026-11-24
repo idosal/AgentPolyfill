@@ -5,11 +5,12 @@
 //   https://{domain}/.well-known/ai-catalog.json, select entries of type
 //   application/mcp-server-card+json, follow `url` with
 //   Accept: application/mcp-server-card+json or read `data` inline.
-// - ARD v0.91 §5.1: a consumer resolving a domain MUST fetch
-//   /.well-known/ard.json and MUST honour rel="ard"; it MAY consult the
-//   predecessor names (ai-catalog.json, rel="ai-catalog") as equivalent sources.
-// - AI Catalog v0.9 @ 19208af2f8: exactly one of url/data per entry; nested
-//   catalogs limited to depth 4; reject an unsupported major specVersion.
+// - AI Catalog v0.9 @ 19208af2f8 (the catalog SEP-2127 hands discovery to):
+//   rel="ai-catalog" links; exactly one of url/data per entry; nested catalogs
+//   limited to depth 4; reject an unsupported major specVersion.
+// Another plugin may name further catalog URLs and link types to read for a
+// domain (DiscoverOptions, through present_server_cards): the ARD plugin names
+// /.well-known/ard.json and rel="ard". Nothing here knows those names.
 
 import { CARD_TYPE, type ServerCard, validateCard } from './card'
 import { byteLength, cachedGet, type Fetch, type Store } from './http'
@@ -25,7 +26,7 @@ export const MAX_INLINE_CARD = 64 * 1024
 
 export type Deps = { fetch: Fetch; store: Store; now: () => number }
 
-export type SourceKind = 'ard' | 'ai-catalog' | 'link' | 'nested' | 'page'
+export type SourceKind = 'ai-catalog' | 'link' | 'nested' | 'page' | 'extra'
 
 export type Source = {
   url: string
@@ -59,8 +60,8 @@ export type Discovery = {
   origin: string
   /** the domain is this machine or its own network (local development) */
   isLocal: boolean
-  /** the ARD draft's parts were used (the `ard` setting) */
-  ard: boolean
+  /** who added further sources (DiscoverOptions.by), if anyone */
+  extra?: string
   sources: Source[]
   servers: FoundServer[]
   registries: Registry[]
@@ -228,16 +229,17 @@ const startTags = (html: string, name: string): Record<string, string>[] => {
   return out
 }
 
-/** Link header values and <link> tags whose rel names "ard" or "ai-catalog". */
+/** Link header values and <link> tags whose rel is one of `rels` (by default the AI Catalog's "ai-catalog"). */
 export const findCatalogLinks = (
   page: string,
   headers: Record<string, string>,
   html: string,
+  rels: readonly string[] = ['ai-catalog'],
 ): { url: string; rel: string }[] => {
   const out: { url: string; rel: string }[] = []
-  const add = (href: string, rels: string, base: string) => {
-    for (const rel of rels.toLowerCase().split(/\s+/))
-      if (rel === 'ard' || rel === 'ai-catalog') {
+  const add = (href: string, relList: string, base: string) => {
+    for (const rel of relList.toLowerCase().split(/\s+/))
+      if (rels.includes(rel)) {
         const u = resolve(href, base)
         if (u && !out.some(o => o.url === u.href)) out.push({ url: u.href, rel })
       }
@@ -297,12 +299,14 @@ export const readCard = (card: unknown): { card: ServerCard } | { errors: string
 
 export type DiscoverOptions = {
   /**
-   * The parts that come from the Agentic Resource Discovery draft rather than
-   * from SEP-2127: /.well-known/ard.json and rel="ard". Off, discovery reads
-   * only what the Server Cards discovery doc names (/.well-known/ai-catalog.json)
-   * and the AI Catalog it delegates to (rel="ai-catalog").
+   * Further catalogs to read for the domain, beside /.well-known/ai-catalog.json.
+   * `requireVersion: false` for a manifest that need not carry specVersion.
    */
-  ard?: boolean
+  catalogs?: readonly { url: string; requireVersion?: boolean }[]
+  /** Further link relations to follow on the page, beside "ai-catalog". */
+  rels?: readonly string[]
+  /** Who asked for them, shown with the result. */
+  by?: string
 }
 
 export const discover = async (
@@ -310,15 +314,14 @@ export const discover = async (
   input: string,
   options: DiscoverOptions = {},
 ): Promise<Discovery | { error: string }> => {
-  // Off unless asked for: the polyfill is SEP-2127 and what it references.
-  const ard = options.ard === true
+  const rels = ['ai-catalog', ...(options.rels ?? []).map(r => r.toLowerCase()).filter(r => /^[a-z][a-z0-9.-]*$/.test(r) && r !== 'ai-catalog')]
   const target = parseTarget(input)
   if ('error' in target) return target
   const { origin, page, isLocal } = target
   const result: Discovery = {
     origin,
     isLocal,
-    ard,
+    extra: options.catalogs?.length || options.rels?.length ? (options.by ?? 'another plugin') : undefined,
     sources: [],
     servers: [],
     registries: [],
@@ -329,8 +332,8 @@ export const discover = async (
   const seenCatalogs = new Set<string>()
   let entryCount = 0
 
-  const get = (url: string, accept: string, transform?: (t: string, h: Record<string, string>) => string) =>
-    cachedGet(deps.fetch, deps.store, url, accept, deps.now(), transform)
+  const get = (url: string, accept: string, transform?: (t: string, h: Record<string, string>) => string, variant?: string) =>
+    cachedGet(deps.fetch, deps.store, url, accept, deps.now(), transform, variant)
 
   const readEntries = async (entries: Record<string, unknown>[], catalogUrl: string, depth: number) => {
     // What a catalog names is judged by where that catalog came from: a public
@@ -415,7 +418,7 @@ export const discover = async (
     }
   }
 
-  const readCatalog = async (url: string, kind: SourceKind, depth: number) => {
+  const readCatalog = async (url: string, kind: SourceKind, depth: number, needsVersion = true) => {
     if (seenCatalogs.has(url)) return
     seenCatalogs.add(url)
     const source: Source = { url, kind, state: 'absent' }
@@ -427,7 +430,7 @@ export const discover = async (
         source.note = `HTTP ${res.status}`
         return
       }
-      const parsed = parseCatalog(res.text, kind !== 'ard')
+      const parsed = parseCatalog(res.text, needsVersion)
       if ('invalid' in parsed) {
         // A host that answers every path with an HTML page is not publishing a catalog.
         const looksHtml = /^\s*</.test(res.text)
@@ -444,13 +447,16 @@ export const discover = async (
     }
   }
 
-  // The page itself, for rel="ard" / rel="ai-catalog" (Link header or <link>).
+  // The page itself, for rel="ai-catalog" and any relation another plugin named (Link header or <link>).
   // Only the links are kept in the cache, never the page.
   const readLinks = async (): Promise<{ url: string; rel: string }[]> => {
     const source: Source = { url: page, kind: 'page', state: 'absent' }
     try {
-      const res = await get(page, 'text/html, application/xhtml+xml;q=0.9', (text, headers) =>
-        JSON.stringify(findCatalogLinks(page, headers, text)),
+      const res = await get(
+        page,
+        'text/html, application/xhtml+xml;q=0.9',
+        (text, headers) => JSON.stringify(findCatalogLinks(page, headers, text, rels)),
+        rels.join(','),
       )
       if (!res.ok) {
         source.note = `HTTP ${res.status}`
@@ -460,11 +466,10 @@ export const discover = async (
       try {
         links = JSON.parse(res.text)
       } catch {}
-      const usable = ard ? links : links.filter(l => l.rel !== 'ard')
-      const names = ard ? 'rel="ard" or rel="ai-catalog"' : 'rel="ai-catalog"'
-      source.state = usable.length ? 'found' : 'absent'
-      source.note = usable.length
-        ? `${usable.length} ${names} link${usable.length === 1 ? '' : 's'}`
+      const names = rels.map(r => `rel="${r}"`).join(' or ')
+      source.state = links.length ? 'found' : 'absent'
+      source.note = links.length
+        ? `${links.length} ${names} link${links.length === 1 ? '' : 's'}`
         : `no ${names} link`
       return links
     } catch (err) {
@@ -476,18 +481,27 @@ export const discover = async (
     }
   }
 
-  const [, , found] = await Promise.all([
-    ard ? readCatalog(`${origin}/.well-known/ard.json`, 'ard', 1) : undefined,
-    readCatalog(`${origin}/.well-known/ai-catalog.json`, 'ai-catalog', 1),
+  const extras: { url: string; requireVersion: boolean }[] = []
+  for (const c of options.catalogs ?? []) {
+    const u = resolve(c.url, `${origin}/`)
+    if (u && mayFollow(u, isLocal)) extras.push({ url: u.href, requireVersion: c.requireVersion !== false })
+    else result.problems.push(`${c.url}: not an HTTPS URL on a public host; not read`)
+  }
+  const [, links] = await Promise.all([
+    Promise.all([
+      readCatalog(`${origin}/.well-known/ai-catalog.json`, 'ai-catalog', 1),
+      ...extras.slice(0, MAX_LINKS).map(c => readCatalog(c.url, 'extra', 1, c.requireVersion)),
+    ]),
     readLinks(),
   ])
-  const links = (found ?? []).filter(l => ard || l.rel !== 'ard')
   const follow = links.filter(l => !seenCatalogs.has(l.url))
   if (follow.length > MAX_LINKS)
     result.problems.push(`the page has ${follow.length} catalog links; only the first ${MAX_LINKS} were read`)
   for (const link of follow.slice(0, MAX_LINKS)) {
     const u = new URL(link.url)
-    if (mayFollow(u, isLocal)) await readCatalog(u.href, link.rel === 'ard' ? 'ard' : 'link', 1)
+    // A link of a relation another plugin named reads like its catalogs: a
+    // manifest that need not carry specVersion.
+    if (mayFollow(u, isLocal)) await readCatalog(u.href, link.rel === 'ai-catalog' ? 'link' : 'extra', 1, link.rel === 'ai-catalog')
     else result.problems.push(`rel="${link.rel}" points at ${u.href}, which is not HTTPS on a public host; not read`)
   }
 
