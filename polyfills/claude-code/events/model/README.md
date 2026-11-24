@@ -129,8 +129,8 @@ Two devices keep the runs finite and within reach, both in `MCDelivery.tla` and 
   taken as 2. Two states with the same view have the same invariants, and their steps lead to
   states with the same view.
 - three **state constraints**, each in one configuration that must find a violation, which
-  keep TLC to the part of the model a defect is in: past a shorter one it would find first, or
-  within the state folder's limit. A run under a constraint shows that the defect is reachable,
+  keep TLC to the part of the model a defect is in: past another, as short, that it would find
+  first, or within the state folder's limit. A run under a constraint shows that the defect is reachable,
   and says nothing about what holds.
 
 The bounds are where the runs stay under 300 MB of TLC's state files (the limit `check.mjs`
