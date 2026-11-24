@@ -51,15 +51,18 @@ jobs:
             [ -f "$path/.claude-plugin/plugin.json" ] || { echo "::error file=.claude-plugin/marketplace.json::$path has no .claude-plugin/plugin.json"; status=1; }
           done
           exit $status
-      # The agent-polyfill plugin installs every polyfill: its dependencies are
-      # each marketplace entry except itself and the authoring skills.
-      - name: The agent-polyfill bundle depends on every polyfill
+      # The agent-polyfill plugin installs every MCP polyfill: its dependencies
+      # are each marketplace entry except itself, the authoring skills, and
+      # ard-discovery. ard-discovery is left out on purpose: it implements a
+      # draft outside MCP, and its search sends the words of a request to a
+      # third-party registry, so it is installed only by name.
+      - name: The agent-polyfill bundle depends on every MCP polyfill
         run: |
-          listed=$(jq -c '[.plugins[].name | select(. != "agent-polyfill" and . != "polyfill-author")] | sort' .claude-plugin/marketplace.json)
+          listed=$(jq -c '[.plugins[].name | select(. != "agent-polyfill" and . != "polyfill-author" and . != "ard-discovery")] | sort' .claude-plugin/marketplace.json)
           bundled=$(jq -c '.dependencies | sort' plugins/agent-polyfill/.claude-plugin/plugin.json)
           echo "marketplace: $listed"
           echo "bundle:      $bundled"
-          [ "$listed" = "$bundled" ] || { echo "::error file=plugins/agent-polyfill/.claude-plugin/plugin.json::its dependencies must be every polyfill in the marketplace: $listed"; exit 1; }
+          [ "$listed" = "$bundled" ] || { echo "::error file=plugins/agent-polyfill/.claude-plugin/plugin.json::its dependencies must be every MCP polyfill in the marketplace: $listed"; exit 1; }
       - name: Claude Code
         run: npm install -g --no-audit --no-fund "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
       - name: claude plugin validate (the marketplace)
