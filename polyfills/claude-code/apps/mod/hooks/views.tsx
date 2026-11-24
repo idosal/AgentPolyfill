@@ -675,7 +675,7 @@ async function sleepLater($: EngineInterface, view: View, pausedAt: number) {
   view.status = 'closed'
   view.asleep = true
   view.paused = false
-  void helper($, '/close', { viewId: view.id }).catch(() => {})
+  void helper($, '/close', { viewId: view.id, gen: view.gen }).catch(() => {})
   trimClosed()
   saveViews($)
   $.ui.invalidate('ui.render')
@@ -754,7 +754,7 @@ async function restWhenStill($: EngineInterface, view: View) {
   view.resting = true
   view.paused = false
   // Its model context stays: it still describes the picture on screen.
-  void helper($, '/close', { viewId: view.id }).catch(() => {})
+  void helper($, '/close', { viewId: view.id, gen: view.gen }).catch(() => {})
   trimClosed()
   saveViews($)
   $.ui.invalidate('ui.render')
@@ -762,7 +762,7 @@ async function restWhenStill($: EngineInterface, view: View) {
 
 /** Whether the helper says the view's network is quiet (see restWhenStill); not when it can't say. */
 async function networkQuiet($: EngineInterface, view: View) {
-  const answer = (await helper($, '/activity', { viewId: view.id }).catch(() => undefined)) as
+  const answer = (await helper($, '/activity', { viewId: view.id, gen: view.gen }).catch(() => undefined)) as
     | { ok?: unknown; sockets?: unknown; inflight?: unknown; quietMs?: unknown }
     | undefined
   return answer?.ok === true && answer.sockets === 0 && answer.inflight === 0 && Number(answer.quietMs) >= APP_POLL_MS
@@ -816,6 +816,8 @@ async function openViewNow($: EngineInterface, call: ViewCall, early: boolean, p
     early: early && call.input === undefined,
     withheld: early && call.input === undefined && withheldCalls.has(call.id),
     id: call.id,
+    // This open's own: a reopen is a new View, with a new one.
+    gen: crypto.randomUUID(),
     epoch,
     server: call.server,
     tool: call.tool,
@@ -852,7 +854,7 @@ async function openViewNow($: EngineInterface, call: ViewCall, early: boolean, p
     old.display = 'inline'
     old.status = 'closed'
     modelContext.delete(old.id)
-    void helper($, '/close', { viewId: old.id }).catch(() => {})
+    void helper($, '/close', { viewId: old.id, gen: old.gen }).catch(() => {})
   }
   trimClosed()
   saveViews($)
@@ -867,6 +869,7 @@ async function openViewNow($: EngineInterface, call: ViewCall, early: boolean, p
     }
     const opened = await helper($, '/open', {
       viewId: view.id,
+      gen: view.gen,
       server: call.server,
       toolName: call.tool,
       toolInput: call.input,
@@ -886,7 +889,7 @@ async function openViewNow($: EngineInterface, call: ViewCall, early: boolean, p
       // Unless another view of the id is on its way (reopened meanwhile):
       // the helper's view is that one's now, not this one's.
       const successor = views.has(view.id) ? views.get(view.id) !== view : openings.has(view.id)
-      if (opened.ok && !successor) void helper($, '/close', { viewId: view.id }).catch(() => {})
+      if (opened.ok && !successor) void helper($, '/close', { viewId: view.id, gen: view.gen }).catch(() => {})
       return
     }
     if (opened.ok) {
@@ -942,7 +945,7 @@ export function dropView($: EngineInterface, view: View, discard = false) {
   openings.delete(view.id)
   if (state.activeId === view.id) state.activeId = [...views.values()].filter((v) => v.status === 'live').pop()?.id ?? ''
   withheldCalls.delete(view.id)
-  void helper($, '/close', { viewId: view.id, discard }).catch(() => {})
+  void helper($, '/close', { viewId: view.id, gen: view.gen, discard }).catch(() => {})
   saveViews($)
   $.ui.invalidate('ui.render')
 }
@@ -1083,6 +1086,7 @@ export async function restoreViews($: EngineInterface) {
       approve: () => {},
       approved: allowed,
       id: saved.id,
+      gen: crypto.randomUUID(),
       epoch: state.epoch,
       server: saved.server,
       tool: saved.tool,

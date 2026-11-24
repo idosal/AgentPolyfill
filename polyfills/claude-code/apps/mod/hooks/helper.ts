@@ -35,7 +35,6 @@ export function registerHelperHooks(on: On) {
     // What the person allowed for the session ends with it (and with /clear),
     // and so does an answer still to come (see askPerson).
     state.epoch++
-    verdicts.clear()
     allowedForSession.clear()
     messagesAllowed.clear()
     linksAllowed.clear()
@@ -49,7 +48,7 @@ export function registerHelperHooks(on: On) {
     for (const view of open) view.status = 'closed'
     saveViews($)
     await Promise.race([
-      Promise.all(open.map((view) => helper($, '/close', { viewId: view.id }).catch(() => {}))),
+      Promise.all(open.map((view) => helper($, '/close', { viewId: view.id, gen: view.gen }).catch(() => {}))),
       $.clock.sleep(1500).catch(() => {}),
     ])
     return next(e)
@@ -59,25 +58,23 @@ export function registerHelperHooks(on: On) {
 /** A view's app calls in flight to read-only tools, by view, tool and arguments (see case 'request'). */
 const appCalls = new Map<string, Promise<Awaited<ReturnType<EngineInterface['mcp']['call']>>>>()
 
-/** Claude Code's verdicts on servers, each kept a moment (several hooks ask in a row). */
-const verdicts = new Map<string, { epoch: number; at: number; answer: Promise<boolean> }>()
-const VERDICT_MS = 5000
-
 /**
- * Whether Claude Code itself uses `server` in this session, under exactly
- * that name: `$.mcp.connect` says it is connected and lists it so. Asked
- * before the helper hears the name at all: it is never asked to start,
- * connect to or read from a server that Claude Code has not approved, has
- * switched off, refuses by policy or doesn't know. A server Claude Code runs
- * under another name (a claude.ai connector, a plugin's server) is not one
- * the helper could find in a config file, so it gets no app either. The
- * helper checks the config files on its own as well (see helper-rs/src/config.rs).
+ * Claude Code's verdicts on servers. None is kept: each request that names a
+ * server, and each request the helper writes to one, asks afresh (0.1.2 reused
+ * a yes for 5 s for discovery and opening). `revocations` counts, per server,
+ * the noes heard; a yes carries the count as it was when it was asked (its
+ * epoch), and the helper refuses one older than the last /revoke it was sent,
+ * so a yes that crossed a no on the way never sends anything. `admitted`: the
+ * servers given a yes since the helper was last told no, the ones it may hold
+ * a connection to (model/AppsViews.tla, FixAtSend and FixRevoke).
  */
-export function usedByClaudeCode($: EngineInterface, server: string, fresh = false): Promise<boolean> {
-  const now = Date.now()
-  const kept = verdicts.get(server)
-  if (!fresh && kept && kept.epoch === state.epoch && now - kept.at < VERDICT_MS) return kept.answer
-  const answer = $.mcp.connect(server).then(
+const revocations = new Map<string, number>()
+const admitted = new Set<string>()
+
+/** Claude Code's verdict on `server`, asked now; a no tells the helper (/revoke). */
+export async function verdict($: EngineInterface, server: string): Promise<{ used: boolean; epoch: number }> {
+  const epoch = revocations.get(server) ?? 0
+  const used = await $.mcp.connect(server).then(
     (found) => {
       const used = found.isConnected && found.server === server
       if (!used) {
@@ -91,8 +88,67 @@ export function usedByClaudeCode($: EngineInterface, server: string, fresh = fal
       return false
     },
   )
-  verdicts.set(server, { epoch: state.epoch, at: now, answer })
-  return answer
+  if (!used) {
+    revoke($, server)
+    return { used: false, epoch }
+  }
+  // A no heard while this was asked outranks it.
+  if ((revocations.get(server) ?? 0) !== epoch) return { used: false, epoch }
+  admitted.add(server)
+  return { used: true, epoch }
+}
+
+/**
+ * Whether Claude Code itself uses `server` in this session, under exactly
+ * that name: `$.mcp.connect` says it is connected and lists it so. Asked
+ * before the helper hears the name at all: it is never asked to start,
+ * connect to or read from a server that Claude Code has not approved, has
+ * switched off, refuses by policy or doesn't know. A server Claude Code runs
+ * under another name (a claude.ai connector, a plugin's server) is not one
+ * the helper could find in a config file, so it gets no app either. The
+ * helper checks the config files on its own as well (see helper-rs/src/config.rs).
+ */
+export function usedByClaudeCode($: EngineInterface, server: string): Promise<boolean> {
+  return verdict($, server).then((found) => found.used)
+}
+
+/**
+ * Claude Code stopped using `server`: the helper cancels what it has in
+ * flight to it, closes its connection (a stdio server it started stops) and
+ * sends it nothing on a yes given before this. Not sent to a helper that
+ * holds nothing of the server's, nor does it start one.
+ */
+function revoke($: EngineInterface, server: string) {
+  const epoch = (revocations.get(server) ?? 0) + 1
+  revocations.set(server, epoch)
+  if (!admitted.delete(server) || !state.helperSocket) return
+  void request($, '/revoke', { server, epoch }).catch((error) =>
+    $.ui.log(`mcp-apps-cli: /revoke failed: ${String(error)}`, { to: 'debug' }),
+  )
+}
+
+/**
+ * While the helper waits on a server (it says so: 'busy'), Claude Code is
+ * asked again every WATCH_MS, so a server switched off meanwhile has what is
+ * in flight to it cancelled within about that long, not at the next request.
+ */
+const WATCH_MS = 500
+const waitingOn = new Map<string, boolean>()
+const watching = new Set<string>()
+
+async function watchServer($: EngineInterface, server: string) {
+  if (watching.has(server)) return
+  watching.add(server)
+  try {
+    while (waitingOn.get(server)) {
+      // A timer that failed (a reload of the code mid-wait) ends the watch.
+      if (!(await $.clock.sleep(WATCH_MS).then(() => true, () => false))) return
+      if (!waitingOn.get(server)) return
+      if (!(await verdict($, server)).used) return
+    }
+  } finally {
+    watching.delete(server)
+  }
 }
 
 /** The routes that name a server, and so wait for Claude Code's verdict on it. */
@@ -119,12 +175,16 @@ export function discover($: EngineInterface, server: string) {
   return found
 }
 
-/** Queue a request per view so pointer and key events keep their order. */
+/**
+ * Queue a request per view so pointer and key events keep their order. Each
+ * carries the view's generation: the helper does it only for that open's page.
+ */
 export function send($: EngineInterface, view: View, route: string, body: unknown) {
   // Input from the person: what the view shows now is theirs (see sleepLater).
   if (route === '/input') view.touched = true
+  const sent = body && typeof body === 'object' ? { ...body, gen: view.gen } : body
   view.chain = view.chain
-    .then(() => helper($, route, body))
+    .then(() => helper($, route, sent))
     .catch((error) => $.ui.log(`mcp-apps-cli: ${route} failed: ${String(error)}`, { to: 'debug' }))
 }
 
@@ -280,6 +340,9 @@ function startHelper($: EngineInterface): Promise<HelperEndpoint> {
       }
       state.helperSocket = undefined
       discovered.clear()
+      // A new helper holds no connection, and waits on nothing.
+      admitted.clear()
+      waitingOn.clear()
       for (const view of views.values()) {
         if (view.status === 'live' || view.status === 'opening') view.status = 'closed'
       }
@@ -353,10 +416,36 @@ async function runHelper(
   return ready ? undefined : failure
 }
 
+/**
+ * The view an id names now, if what the helper says is of that view's own
+ * open: a message from the page of an earlier open of the id (closed, or
+ * replaced by a reopen) is none of this one's.
+ */
+function viewOf(message: { viewId: string; gen?: string }): View | undefined {
+  const view = views.get(message.viewId)
+  return view && view.gen === message.gen ? view : undefined
+}
+
 async function onHelperMessage($: EngineInterface, message: HelperMessage) {
   switch (message.type) {
+    case 'check': {
+      // The helper is about to write a request to this server: Claude Code's
+      // verdict, asked for that request, with the epoch it was given in.
+      const server = String(message.server ?? '')
+      const found = await verdict($, server)
+      const result = found.used
+        ? { allow: true, epoch: found.epoch }
+        : { allow: false, reason: `Claude Code is not using the ${plainText(server)} server now` }
+      await request($, '/reply', { id: message.id, result }).catch(() => {})
+      return
+    }
+    case 'busy': {
+      waitingOn.set(message.server, message.busy === true)
+      if (message.busy === true) void watchServer($, message.server)
+      return
+    }
     case 'frame': {
-      const view = views.get(message.viewId)
+      const view = viewOf(message)
       if (!view) return
       view.v = message.v
       if (message.frame) return showPicture($, view, { frame: message.frame })
@@ -364,7 +453,16 @@ async function onHelperMessage($: EngineInterface, message: HelperMessage) {
       return
     }
     case 'request': {
-      const view = views.get(message.viewId)
+      const current = views.get(message.viewId)
+      // Asked by the page of an earlier open of this id: refused, whatever it
+      // is, and nothing of it is done for the view that stands now.
+      if (current && current.gen !== message.gen) {
+        await helper($, '/reply', { id: message.id, gen: message.gen, error: 'this view was opened again' }).catch(() => {})
+        return
+      }
+      const view = current
+      // Every answer names the open it is for.
+      const answer = (body: Record<string, unknown>) => helper($, '/reply', { id: message.id, gen: message.gen, ...body }).catch(() => {})
       // Asked and not yet answered (a long tool call, a question to the
       // person): such a view isn't still (see restWhenStill).
       if (view) view.asked = (view.asked ?? 0) + 1
@@ -382,46 +480,54 @@ async function onHelperMessage($: EngineInterface, message: HelperMessage) {
         // its resources) goes only while Claude Code still uses that server
         // under that name, asked afresh each time: one switched off or
         // disconnected after the view opened gets nothing more from its app
-        // (found by the model, model/AppsViews.tla).
+        // (found by the model, model/AppsViews.tla). Asked again right before
+        // a yes goes back, so the yes is as new as it can be: a question to the
+        // person may have taken minutes. The yes carries its epoch (see verdict).
+        const notUsed = { allow: false, reason: `Claude Code is not using the ${view?.server} server now` }
         if (view && (message.method === 'ui/allow-tool' || message.method === 'ui/allow-read')) {
-          if (!(await usedByClaudeCode($, view.server, true))) {
-            reply = { id: message.id, result: { allow: false, reason: `Claude Code is not using the ${view.server} server now` } }
-            await helper($, '/reply', reply).catch(() => {})
+          if (!(await usedByClaudeCode($, view.server))) {
+            await answer({ result: notUsed })
             return
           }
         }
         if (view && message.method === 'ui/allow-read') {
-          reply = { id: message.id, result: isLive(view) ? { allow: true } : { allow: false, reason: `the ${view.server} app closed` } }
-          await helper($, '/reply', reply).catch(() => {})
+          const found = isLive(view) ? await verdict($, view.server) : undefined
+          await answer({
+            result: !found ? { allow: false, reason: `the ${view.server} app closed` } : found.used ? { allow: true, epoch: found.epoch } : notUsed,
+          })
           return
         }
         if (view && message.method === 'ui/allow-tool') {
           const name = String(message.params.name ?? '')
           const args = (message.params.arguments ?? {}) as Record<string, unknown>
-          const verdict = await allowTool($, view, name, args, message.params.appOnly === true)
+          const consent = await allowTool($, view, name, args, message.params.appOnly === true)
           // Closed while it was decided (the rules, the question, its turn): refused.
-          reply = { id: message.id, result: verdict.allow && !isLive(view) ? { allow: false, reason: `the ${view.server} app closed` } : verdict }
-          await helper($, '/reply', reply).catch(() => {})
+          if (consent.allow && !isLive(view)) {
+            await answer({ result: { allow: false, reason: `the ${view.server} app closed` } })
+            return
+          }
+          if (!consent.allow) {
+            await answer({ result: consent })
+            return
+          }
+          const found = await verdict($, view.server)
+          await answer({ result: found.used && isLive(view) ? { ...consent, epoch: found.epoch } : notUsed })
           return
         }
         if (view && message.method === 'ui/message') {
-          reply = { id: message.id, result: await appMessage($, view, message.params) }
-          await helper($, '/reply', reply).catch(() => {})
+          await answer({ result: await appMessage($, view, message.params) })
           return
         }
         if (view && message.method === 'ui/open-link') {
-          reply = { id: message.id, result: await openLink($, view, String(message.params.url ?? '')) }
-          await helper($, '/reply', reply).catch(() => {})
+          await answer({ result: await openLink($, view, String(message.params.url ?? '')) })
           return
         }
         if (view && message.method === 'ui/allow-download') {
-          reply = { id: message.id, result: await allowDownload($, view, message.params.files) }
-          await helper($, '/reply', reply).catch(() => {})
+          await answer({ result: await allowDownload($, view, message.params.files) })
           return
         }
         if (view && message.method === 'ui/request-display-mode') {
-          reply = { id: message.id, result: { mode: await setDisplay($, view, String(message.params.mode ?? '')) } }
-          await helper($, '/reply', reply).catch(() => {})
+          await answer({ result: { mode: await setDisplay($, view, String(message.params.mode ?? '')) } })
           return
         }
         if (!view || message.method !== 'tools/call') throw new Error(`unsupported ${message.method}`)
@@ -441,11 +547,11 @@ async function onHelperMessage($: EngineInterface, message: HelperMessage) {
           }
         }
         const result = await call
-        reply = { id: message.id, result }
+        reply = { result }
       } catch (error) {
-        reply = { id: message.id, error: String(error) }
+        reply = { error: String(error) }
       }
-      await helper($, '/reply', reply).catch(() => {})
+      await answer(reply)
       return
       } finally {
         if (view) {
@@ -456,10 +562,13 @@ async function onHelperMessage($: EngineInterface, message: HelperMessage) {
       }
     }
     case 'notify':
+      // What an earlier open's page says (its context for the model, a copy)
+      // is none of the view that stands now.
+      if (views.has(message.viewId) && !viewOf(message)) return
       return onNotify($, message.viewId, message.method, message.params)
     case 'closed': {
       // Chrome stopped, or the app's page crashed: the view can be opened again.
-      const view = views.get(message.viewId)
+      const view = viewOf(message)
       if (!view || view.status === 'closed') return
       if (view.display === 'pip') void $.ui.close({ id: paneId(view) }).catch(() => undefined)
       view.display = 'inline'
@@ -474,7 +583,7 @@ async function onHelperMessage($: EngineInterface, message: HelperMessage) {
     case 'describe': {
       // What the app shows, as text: a picture's alt (see pictureBlock), and
       // its page's title, which names it in its header.
-      const view = views.get(message.viewId)
+      const view = viewOf(message)
       if (!view) return
       let redraw = false
       if (message.text !== undefined) {
