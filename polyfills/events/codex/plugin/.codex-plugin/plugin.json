@@ -1,6 +1,6 @@
 {
   "name": "mcp-events",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "MCP Events (SEP-3415) for Codex: Codex can watch events on your MCP servers (poll, push or webhook), and an event wakes the idle session that asked for it.",
   "author": {
     "name": "Ido Salomon",
