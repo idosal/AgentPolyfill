@@ -641,7 +641,12 @@ impl View {
             let mut n = 0;
             loop {
                 match std::fs::OpenOptions::new().write(true).create_new(true).open(&target) {
-                    Ok(mut file) => { file.write_all(&bytes)?; break; }
+                    Ok(mut file) => {
+                        file.write_all(&bytes)?;
+                        drop(file);
+                        if let Err(e) = store::mark_downloaded(&target) { log(format!("{}: not marked as downloaded: {e}",target.display())); }
+                        break;
+                    }
                     Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => { n += 1; target = folder.join(format!("{stem} ({n}){ext}")); }
                     Err(e) => return Err(e.into()),
                 }
@@ -935,6 +940,7 @@ impl View {
         s.stamps += 1;
         let mut placed = image.placed;
         if terminal::image_files() && s.files {
+            crate::tmp::own_private_dir()?;
             store::private_folder(&helper.views.image_root)?;
             let file = helper.views.image_root.join(format!("{}-{}-tty-graphics-protocol.png",self.file_stem,s.stamps%3));
             // Written whole under another name, then renamed over the file:
