@@ -276,24 +276,33 @@ Environment variables, for the rare case:
 The mod's helper is JavaScript, so it needs Node or Bun, and Claude Code comes
 with neither. For a machine that has none, `/mcp-skills setup` fetches one:
 
-- **Only when you ask, and only after you say yes.** The command is refused
-  from the model, from a script, from another session and in an unattended run
-  (`claude -p`). When you run it, Claude Code's own dialog asks whether to
+- **Only when you ask, and only after you say yes.** The command counts only
+  when you type it at the prompt, or send it from your own Remote Control. It
+  is refused from the model, from a script, from another session and in an
+  unattended run (`claude -p`). When you run it, Claude Code's own dialog asks whether to
   download; "Not now" is the first answer.
 - **What is fetched:** one fixed Bun release (the version is in
   [`mod/hooks/runtime.ts`](mod/hooks/runtime.ts)), for macOS or Linux, arm64 or
-  x64, from that release's page on GitHub, over HTTPS only.
-- **Checked before anything runs:** the download's SHA-256 must equal the one
-  written in the mod's source, copied from the release's own checksum file. A
-  download that does not match is deleted.
-- **Where it goes:** the `runtime` folder inside the plugin's data folder.
-  It is used for this mod's helper and for nothing else, and
-  `/mcp-skills setup remove` deletes it.
+  x64, from that release's page on GitHub, over HTTPS only. GitHub redirects
+  the download to its file storage; the checksum below is what makes it safe,
+  not the host.
+- **Checked before it is installed:** the download's SHA-256 must equal the
+  one written in the mod's source, copied from the release's own checksum
+  file. A download that does not match is deleted. The check happens when it
+  is fetched, not each time it runs; only the copy of the pinned version is
+  ever run.
+- **Where it goes:** the `runtime` folder inside the plugin's data folder
+  (`~/.claude/plugins/data/` followed by the plugin's folder, or the same under
+  `CLAUDE_CONFIG_DIR`). It is used for this mod's helper and for nothing else.
+  `/mcp-skills setup remove` deletes it; uninstalling the plugin leaves the
+  data folder, so run that command first, or delete the folder.
 - **It needs** `curl` and `unzip`, as Bun's own installer does. On Windows, or
   without them, install Node or Bun yourself.
 
 A Node or Bun of your own is always used first. To run the helper on a
-particular one, name it in `MCP_SKILLS_RUNTIME`.
+particular one, name it in `MCP_SKILLS_RUNTIME`. A project's settings can set
+that variable too, so a folder you trust can choose the program that runs the
+helper, as it can already run code through its own hooks.
 
 ## Going deeper
 
@@ -313,7 +322,7 @@ particular one, name it in `MCP_SKILLS_RUNTIME`.
 | Two real public servers, Hugging Face (25 skills, 135 files) and TogoMCP (5 skills, 8 files): every skill loaded, every file verified | `npm run interop:real` | all verified |
 | The official MCP conformance suite's client scenarios for SEP-2640 | [`test/conformance/run.sh`](test/conformance/run.sh) | 4 of 4 pass |
 | The client rules, one test per rule, against a hand-written server | `npm test` | 93 pass |
-| Approval, the permission questions, first-run behaviour and the runtime setup, in Claude Code's own test kit | `npm run test:mod` | 72 pass |
+| Approval, the permission questions, first-run behaviour and the runtime setup, in Claude Code's own test kit | `npm run test:mod` | 74 pass |
 | The official TypeScript SDK's Skills server and client, over stdio and HTTP | `npm run interop` | 15 checks pass |
 | The bundled helper on Bun instead of Node | `npm run test:bun` | 4 pass |
 | Real Claude Code sessions, recorded | [`live/`](live/) | [screens](live/runs/) |

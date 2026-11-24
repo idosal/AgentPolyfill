@@ -904,6 +904,21 @@ test('MCP_SKILLS_RUNTIME=private with a copy fetched: the helper runs on it thou
   expect(w.spawned[0]![0]).toBe(`${OWN}/bun`)
 })
 
+test('MCP_SKILLS_RUNTIME=private runs only the pinned version: a newer-looking copy put beside it is never run', async ($, on) => {
+  const planted = `${DATA}/runtime/bun-99.0.0`
+  const w = world(on, { env: { MCP_SKILLS_RUNTIME: 'private' }, runtimes: { node: 'v22.18.0' }, machine: { disk: { ...OWN_DISK, [planted]: { kind: 'dir' }, [`${planted}/bun`]: { kind: 'file' } } } })
+  await $.session.start(START)
+  expect(w.spawned[0]![0]).toBe(`${OWN}/bun`)
+  expect(w.spawned.some(([program]) => program === `${planted}/bun`)).toBe(false)
+})
+
+test('MCP_SKILLS_RUNTIME=private with only a copy of another version: nothing is run', async ($, on) => {
+  const other = `${DATA}/runtime/bun-1.0.0`
+  const w = world(on, { env: { MCP_SKILLS_RUNTIME: 'private' }, runtimes: { node: 'v22.18.0' }, machine: { disk: { [other]: { kind: 'dir' }, [`${other}/bun`]: { kind: 'file' } } } })
+  await $.session.start(START)
+  expect(w.spawns).toBe(0)
+})
+
 test('/mcp-skills setup on a machine whose own Node already runs the helper fetches nothing', async ($, on) => {
   const w = world(on)
   await $.session.start(START)
