@@ -24,10 +24,13 @@ record back from the conversation; and the rules that decide which servers are
 used at all.
 
 **Where it is.** [`verification/skillGate.qnt`](../verification/skillGate.qnt)
-(Quint) and [`verification/model.ts`](../verification/model.ts) (the same
-machine in TypeScript, with a checker that explores every reachable state).
-The two are written to match, action for action and invariant for invariant,
-and are kept in step by hand.
+(Quint); [`verification/SkillGate.tla`](../verification/SkillGate.tla), the
+same in TLA+ for the TLC model checker, written by hand from the Quint file
+(Quint's own translation to TLA+ needs Apalache, which was not installed); and
+[`verification/model.ts`](../verification/model.ts), the same machine in
+TypeScript, with a checker of its own that explores every reachable state.
+The three are written to match, action for action and invariant for
+invariant, and are kept in step by hand; two checks below tie them together.
 
 **What stands for what in the code:**
 
@@ -74,7 +77,7 @@ and are kept in step by hand.
 **The bound.** One server serving one skill, each part of which can be in 3
 versions (4 in a second run); two locations for that server; a second server to
 read resources from; a skill with a manifest, and a dynamic one; any number of
-steps (the explorer runs until no new state appears). Every combination of the
+steps (each checker runs until no new state appears). Every combination of the
 7 facts behind `ServerRule` (192). The two servers are interchangeable in the
 code (approvals and the gate are keyed by server), which is why one skill
 server is enough for these invariants; the same URI on two servers is checked
@@ -91,12 +94,22 @@ by the example tests (U1, U2).
 | each of 8 protections taken out of the model, one at a time (`test/model-test.ts`) | every one is caught: no `expect` at the run, no location in the approval, no verification, no hash check on the retry, no gate, no cross-server gate, a yes kept for a dynamic skill, a repository approving itself under inherited trust |
 | `quint typecheck verification/skillGate.qnt` | passes |
 | `quint run` (Quint's simulator, TypeScript backend), 20,000 random traces of up to 25 steps, per instance | `manifest`, `dynamic`: no violation. `rule030`: Gate violated. `lossy`: Safety violated |
-| TLC on the Quint model (`quint verify --backend=tlc`) | **not run.** The download of `tla2tools.jar` was refused on this machine. The CI job `model` in `.github/workflows/mcp-skills-test.yml` runs it, and CI cannot run today |
+| TLC 1.7.4 on `SkillGate.tla` (`node verification/check.mjs`): every reachable state, breadth first, every invariant in every state. A state here is the gate's state with what the last step did (`ev`, `kept`), so there are more of them than the explorer counts | manifest, 3 versions: 649,404 states, depth 18; 4 versions: 3,838,592, depth 18. Dynamic, 3 versions: 33,696, depth 11; 4 versions: 126,720, depth 11. Every invariant holds, `ServerRule` included |
+| TLC on 0.3.0's rule (`Rule030.cfg`) and on the lossy read-back (`Lossy.cfg`), 3 versions | **Gate fails** in both, with the same shortest traces as the explorer's: `Unchecked`, `Check` (the person says yes), `Run`, `Tool`; and `Unchecked`, `Resume` (the read-back misses the load), `Tool` |
+| TLC counting the gate's states alone (`VIEW st`, the `*States.cfg` configurations), against the explorer's count | 145,152 and 884,480 (manifest, 3 and 4 versions), 6,480 and 24,064 (dynamic): the same as `model.ts`, at both bounds |
+| `node verification/conform.mjs`: 300 random Quint traces of up to 25 steps per instance, each replayed in `SkillGate.tla` with TLC | all 1,200 traces (30,000 steps) are behaviours of the TLA+ model |
+
+TLC's runs: an Apple M1 Max (32 GB, macOS 15.4.1), TLC 1.7.4 on Temurin 21,
+one worker, 24 November 2026. TLC counts the initial state as depth 1, the
+explorer counts steps.
 
 **What this shows.** In the model, within that bound, the invariants hold in
 every reachable state and on every step, and they are not vacuous (each
-mutant breaks one). The explorer's result is exhaustive for the model at that
-bound; Quint's simulation is a sample, not a proof.
+mutant breaks one, and 0.3.0's rule and the lossy read-back break `Gate`).
+Two checkers that share no code, the explorer and TLC, each explored every
+state to that bound, and they agree on the result and on the number of the
+gate's states. Both results are exhaustive for the model at that bound and
+say nothing past it; Quint's simulation is a sample.
 
 **What it does not show.**
 
@@ -113,8 +126,11 @@ bound; Quint's simulation is a sample, not a proof.
 - More than one skill per server, nested skills, or parallel tool calls. Each
   skill has its own approval, keyed by its own URI, and the gate takes any
   unapproved skill: these are checked by the example tests, not the model.
-- The Quint model and the TypeScript model are the same machine only as far
-  as reading them shows. TLC has not yet checked the Quint one.
+- That the three files are one machine, beyond what is checked: TLC on
+  `SkillGate.tla` reaches as many states of the gate as `model.ts` does, at
+  both bounds (the number, not the states one by one, is compared), and every
+  sampled Quint trace is a behaviour of `SkillGate.tla`; the rest is by
+  reading. TLC checked the TLA+ file, not `skillGate.qnt` itself.
 
 ## Properties of what untrusted input reaches
 
