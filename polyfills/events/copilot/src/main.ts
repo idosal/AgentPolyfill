@@ -75,10 +75,14 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
         }
     };
     process.on('unhandledRejection', (e) => log(`unexpected failure (${describeError(e)})`));
-    // A failure in one connection's callback must not end the extension, and with it every watch:
-    // it is logged, and the rest carries on. Events are on disk before they are acknowledged, so
-    // nothing is lost by going on.
-    process.on('uncaughtException', (e) => log(`unexpected error (${describeError(e)})`));
+    // An error nobody caught leaves the process in a state nobody planned for (its channel to Copilot
+    // may be gone): it is logged, the watches are stopped within a bound, and the process ends.
+    // Events are on disk before they are acknowledged, and pick up from their cursors next time.
+    process.on('uncaughtException', (e) => {
+        log(`unexpected error (${describeError(e)}); stopping`);
+        process.exitCode = 1;
+        void stop().finally(() => process.exit(1));
+    });
     // Standard output is the extension's JSON-RPC channel to Copilot: a stray line there (Node's
     // console.log, info and debug write to it, and a bundled library may call them) would corrupt
     // it. They go to the log instead.
@@ -193,10 +197,13 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
                     }
                 })
             );
+            discovered = true;
+            // What Copilot allows may have changed while the servers were being looked at (a server
+            // switched off meanwhile): checked afresh before any saved watch starts.
+            await revoke();
             // Watches loaded before their server's connection was there (a session resumed while the
             // servers were still being looked at) start now.
             for (const name of connections.keys()) s?.manager.resume(name);
-            discovered = true;
         })());
 
     /**
@@ -206,27 +213,31 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
      * changed, every half minute, and before each tool call. A server Copilot takes back up is used
      * again from the next session.
      */
+    // Lets go of every server Copilot no longer lists as enabled: its watches stop (their webhook
+    // subscriptions ended, over the connection, which is kept until then), and only then is the
+    // connection removed and closed.
+    const revoke = async (): Promise<void> => {
+        if (env.MCP_EVENTS_CONFIG || !connections.size) return;
+        let listed: Configured[] | undefined;
+        try {
+            listed = (await session?.rpc?.mcp?.listConfigured?.())?.servers;
+        } catch {
+            return; // Copilot could not say: nothing is changed on a guess
+        }
+        if (!listed) return;
+        const enabled = new Set(listed.filter((c) => c.enabled).map((c) => c.name));
+        for (const [name, c] of [...connections]) {
+            if (enabled.has(name)) continue;
+            log(`${name}: Copilot no longer uses it in this session; its watches stop and wait until a session has it again`);
+            await s?.manager.suspend(name).catch(() => {});
+            connections.delete(name);
+            await c.close().catch(() => {});
+            unavailable.push({ name, why: 'Copilot stopped using it in this session (switched off or removed); its watches wait, saved, until a session has it again' });
+        }
+    };
     let reconciling: Promise<void> | undefined;
-    const reconcile = (): Promise<void> =>
-        (reconciling ??= (async () => {
-            if (!discovered || env.MCP_EVENTS_CONFIG || !connections.size) return;
-            let listed: Configured[] | undefined;
-            try {
-                listed = (await session?.rpc?.mcp?.listConfigured?.())?.servers;
-            } catch {
-                return; // Copilot could not say: nothing is changed on a guess
-            }
-            if (!listed) return;
-            const enabled = new Set(listed.filter((c) => c.enabled).map((c) => c.name));
-            for (const [name, c] of [...connections]) {
-                if (enabled.has(name)) continue;
-                connections.delete(name);
-                log(`${name}: Copilot no longer uses it in this session; its watches stop and wait until a session has it again`);
-                await s?.manager.suspend(name).catch(() => {});
-                await c.close().catch(() => {});
-                unavailable.push({ name, why: 'Copilot stopped using it in this session (switched off or removed); its watches wait, saved, until a session has it again' });
-            }
-        })().finally(() => (reconciling = undefined)));
+    // After discovery only: during discovery, discovery itself checks afresh before any watch starts.
+    const reconcile = (): Promise<void> => (discovered ? (reconciling ??= revoke().finally(() => (reconciling = undefined))) : Promise.resolve());
 
     const sessionFor = (id: string): ThreadSession => {
         if (!s) {

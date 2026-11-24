@@ -60,25 +60,36 @@ function readJson(path: string): Json | undefined {
 const VAR = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}|\$([A-Za-z_][A-Za-z0-9_]*)/g;
 
 /**
- * Expands variables from `env` as Copilot does: `${NAME:-default}` takes the default when NAME is
- * unset or empty. An unset variable with no default is left as written and named in `missing`.
+ * Expands variables from `env` as Copilot does (seen with 1.0.115):
+ *   - `${NAME:-default}` takes the default when NAME is unset or empty;
+ *   - `${NAME}` unset is left as written, and named in `missing`: a reference this extension can't
+ *     fill is usually a token Copilot strips from extensions, so the server is left out;
+ *   - `$NAME` unset is left as written, as Copilot leaves it (a URL may hold `$select`);
+ *   - a default that itself holds a variable (`${A:-${B}}`) is not supported, and is named in
+ *     `missing`, so the server is left out rather than reached with a half-expanded value.
+ * Every value put in (a variable's or a default) goes in `used`, to be kept out of logs and tool results.
  */
 export function expand(s: string, env: NodeJS.ProcessEnv, missing: Set<string>, used?: Set<string>): string {
+    if (/\$\{[A-Za-z_][A-Za-z0-9_]*:-[^}]*\$/.test(s)) {
+        missing.add(`${/\$\{([A-Za-z_][A-Za-z0-9_]*):-/.exec(s)![1]} (a default that holds another variable)`);
+        return s;
+    }
     return s.replace(VAR, (whole, braced: string | undefined, fallback: string | undefined, bare: string | undefined) => {
         const name = (braced ?? bare)!;
         const v = env[name];
-        if (fallback !== undefined && !v) return fallback;
+        if (fallback !== undefined && !v) {
+            if (fallback) used?.add(fallback);
+            return fallback;
+        }
         if (v === undefined) {
-            missing.add(name);
+            if (braced !== undefined) missing.add(name);
             return whole;
         }
-        // Whatever a variable held may be a secret, wherever it lands (a URL's path, an argument):
-        // it is taken out of logs and tool results like a header's value.
+        // Whatever a variable held may be a secret, wherever it lands (a URL's path, an argument).
         used?.add(v);
         return v;
     });
 }
-
 
 const stringMap = (v: unknown): Record<string, string> | undefined => (isTable(v) ? Object.fromEntries(Object.entries(v).filter((e): e is [string, string] => typeof e[1] === 'string')) : undefined);
 

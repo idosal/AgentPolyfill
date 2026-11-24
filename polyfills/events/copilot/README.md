@@ -133,8 +133,9 @@ Copilot ── tool calls (joinSession tools) ───────────�
   connects to none, rather than guess at trust and policy.
 - **When Copilot stops using a server** during the session (`/mcp disable`,
   or it's gone after `/mcp reload`), the extension lets it go too: its watches
-  stop and wait, saved, and its connection closes. A server Copilot takes back
-  up is used again from the next session.
+  stop and wait, saved, their webhook subscriptions are ended on the server,
+  nothing more from it is stored, and its connection closes. A server Copilot
+  takes back up is used again from the next session.
 - **Watching.** A watch is one subscription. The delivery mode follows the
   SEP's guidance: webhook where a relay is set up, then push
   (`events/stream`), then poll (`events/poll`).
@@ -167,8 +168,12 @@ Copilot ── tool calls (joinSession tools) ───────────�
 
 The extension expands variables in a server's URL, headers, command,
 arguments, environment and folder the way Copilot 1.0.115 does (seen live):
-`$VAR`, `${VAR}`, and `${VAR:-default}`. Whatever a variable held is taken
-out of the log and of every tool result, wherever it landed. But Copilot strips sensitive variables
+`$VAR`, `${VAR}`, and `${VAR:-default}`; an unset `$VAR` stays as written.
+Whatever a variable or a default put in is taken out of the log and of every
+tool result, wherever it landed (values shorter than eight characters
+excepted, which would scrub ordinary words too). A default that holds another
+variable (`${A:-${B}}`) isn't supported: that server is left out, with the
+reason. But Copilot strips sensitive variables
 (`GITHUB_TOKEN`, for one) from every extension it starts, so a server whose
 header names one of those is left out, with the reason. Put such a token in
 the header itself, or in a variable Copilot doesn't strip.

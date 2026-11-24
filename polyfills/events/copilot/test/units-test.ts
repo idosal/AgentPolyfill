@@ -41,8 +41,18 @@ describe('a server entry', () => {
         const missing = new Set<string>();
         assert.equal(expand('a $Q b ${Q} ${NOPE:-dflt} ${EMPTY:-e} ${Q:-x}', { Q: 'qv', EMPTY: '' }, missing), 'a qv b qv dflt e qv');
         assert.deepEqual([...missing], []);
-        assert.equal(expand('[${UNSET}] $ALSO_UNSET', {}, missing), '[${UNSET}] $ALSO_UNSET');
-        assert.deepEqual([...missing].sort(), ['ALSO_UNSET', 'UNSET']);
+        // An unset ${NAME} is a reference that can't be filled (the server is left out); an unset bare
+        // $NAME is text, as Copilot leaves it ($select in an OData URL).
+        assert.equal(expand('[${UNSET}] $ALSO_UNSET /odata?$select=a', {}, missing), '[${UNSET}] $ALSO_UNSET /odata?$select=a');
+        assert.deepEqual([...missing], ['UNSET']);
+        // A default that holds another variable is not guessed at.
+        const nested = new Set<string>();
+        assert.equal(expand('${A:-${B}}', { A: 'value', B: 'b' }, nested), '${A:-${B}}');
+        assert.deepEqual([...nested], ['A (a default that holds another variable)']);
+        // Defaults are values put in too: kept out of logs and tool results.
+        const used = new Set<string>();
+        expand('https://x.example/${TOKEN:-fallback-secret-123}/mcp', {}, new Set(), used);
+        assert.deepEqual([...used], ['fallback-secret-123']);
         // A "$" not followed by a name is text.
         assert.equal(expand('cost: $5, $ and ${', {}, new Set()), 'cost: $5, $ and ${');
     });

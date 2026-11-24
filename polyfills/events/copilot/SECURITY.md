@@ -87,20 +87,27 @@ so Copilot's stripping of sensitive variables from extensions holds.
     a server from one (it reads them only in a trusted folder). So a
     repository you clone can't put its own command under your server's name.
   - A server Copilot stops using during the session is let go: its watches
-    stop, and its connection closes.
+    stop, their webhook subscriptions are ended on the server (lasting ones
+    too), nothing more from it is stored (not even a delivery or an answer
+    already on its way), and its connection closes. Before a resumed
+    session's saved watches start, the extension asks Copilot afresh.
   - Credentials come only from the server's own entry (`headers`, with
     `$VAR`, `${VAR}` and `${VAR:-default}` expanded from the extension's
-    environment, as Copilot does). Every value a variable expanded to is
-    removed from the log and from tool results, wherever it landed (a URL's
-    path, an argument).
+    environment, as Copilot does). Every value a variable or a default put in
+    is removed from the log and from tool results, wherever it landed (a URL's
+    path, an argument), except values shorter than eight characters. A
+    `${VAR}` the extension can't fill leaves that server out, and so does a
+    default that holds another variable.
   - A server that signs in through Copilot is left alone.
   - **It never reads Copilot's stored credentials** (the keychain,
     `~/.copilot/mcp-oauth-config/`, signed-in accounts in `config.json`).
 - **Nothing goes to stdout.** That's the extension's JSON-RPC channel to
   Copilot. The plugin logs to its own file, and sends anything a bundled
   library prints with `console.log`, `info`, `debug` or `trace` (which Node
-  writes to stdout) to that file too. An error in one connection is logged and
-  doesn't end the extension.
+  writes to stdout) to that file too. An error nobody caught is logged, the
+  watches are stopped within a bound, and the process ends: its state, and
+  its channel to Copilot, can't be trusted after that. Events are on disk
+  before they are acknowledged, and pick up from their cursors next time.
 - **An event type's name reaches the wake only if it reads as a name**
   (`ticket.created`): it's the server's text, and the wake starts a turn. Any
   other is left out of the wake and the notices; `list_watches` gives it, as a

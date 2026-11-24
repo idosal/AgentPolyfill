@@ -184,6 +184,64 @@ describe('which servers', () => {
         }
     });
 
+    test('a webhook watch on a server Copilot stops using has its subscription ended on the server, and its watch kept', async () => {
+        const w = world({ FIXTURE_ALLOW_HTTP: '1' });
+        const list = join(w.dir, 'configured.json');
+        writeFileSync(list, JSON.stringify([{ name: 'tickets', enabled: true, source: 'user' }]));
+        const net = await import('node:net');
+        const port = await new Promise<number>((done) => {
+            const srv = net.createServer().listen(0, '127.0.0.1', () => {
+                const p = (srv.address() as { port: number }).port;
+                srv.close(() => done(p));
+            });
+        });
+        const e = await startExtension(w, newSession(), { FAKE_COPILOT_CONFIGURED_FILE: list, MCP_EVENTS_WAKE_GAP_S: '0', MCP_EVENTS_PUBLIC_URL: `http://127.0.0.1:${port}`, MCP_EVENTS_RECEIVER_PORT: String(port) });
+        try {
+            assert.match((await e.call('watch_event', { server: 'tickets', event: 'deploy.finished' })).text, /by webhook/);
+            await waitFor(() => w.fixtureMethods().includes('events/subscribe'), 10000, 'the subscription');
+            writeFileSync(list, JSON.stringify([{ name: 'tickets', enabled: false, source: 'user' }]));
+            e.event('session.mcp_server_status_changed', { serverName: 'tickets', status: 'disabled' });
+            await waitFor(() => w.fixtureMethods().includes('events/unsubscribe'), 15000, 'the subscription to be ended');
+            assert.match((await e.call('list_watches')).text, /deploy\.finished/);
+        } finally {
+            await e.stop();
+        }
+    });
+
+    test('a server switched off while a resumed session is still connecting is checked afresh: its saved watch does not start', async () => {
+        const w = world();
+        const list = join(w.dir, 'configured.json');
+        writeFileSync(list, JSON.stringify([{ name: 'tickets', enabled: true, source: 'user' }]));
+        const session = newSession();
+        let e = await startExtension(w, session, { FAKE_COPILOT_CONFIGURED_FILE: list, MCP_EVENTS_WAKE_GAP_S: '0' });
+        try {
+            await e.call('watch_event', { server: 'tickets', event: 'ticket.created' });
+            await untilActive(e);
+        } finally {
+            await e.stop();
+        }
+        const slow = join(w.dir, 'slow-fixture.mjs');
+        writeFileSync(slow, `setTimeout(() => import(${JSON.stringify(pathToFileURL(FIXTURE).href)}), 1500);\n`);
+        const cfg = JSON.parse(readFileSync(join(w.copilotHome, 'mcp-config.json'), 'utf8'));
+        cfg.mcpServers.tickets.args = ['--no-warnings', slow];
+        writeFileSync(join(w.copilotHome, 'mcp-config.json'), JSON.stringify(cfg));
+        const before = w.fixtureMethods().filter((m) => m === 'events/stream').length;
+        e = await startExtension(w, session, { FAKE_COPILOT_CONFIGURED_FILE: list, MCP_EVENTS_WAKE_GAP_S: '0' });
+        try {
+            // Switched off while discovery is still waiting for the slow server.
+            await sleep(300);
+            writeFileSync(list, JSON.stringify([{ name: 'tickets', enabled: false, source: 'user' }]));
+            e.event('session.mcp_server_status_changed', { serverName: 'tickets', status: 'disabled' });
+            await sleep(4000);
+            assert.equal(w.fixtureMethods().filter((m) => m === 'events/stream').length, before, 'no new subscription');
+            w.emit('ticket.created', { title: 'after the switch-off' });
+            await sleep(1500);
+            assert.equal(e.sent.length, 0);
+        } finally {
+            await e.stop();
+        }
+    });
+
     test('a tool called on a resumed session while its servers are still being looked at does not strand its saved watches', async () => {
         const w = world();
         // The server takes a moment to start, as a real one may: the resumed session's discovery is
