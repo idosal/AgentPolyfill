@@ -56,7 +56,8 @@ why the mod says so each time. What keeps it from being more than that:
 - A delivery is deleted once collected, and after 23 hours if it never is
   (the clear-out runs hourly, so within a day).
 - One mailbox holds at most 100 deliveries (4 MiB) for at most 16 webhook
-  addresses; an address nobody collected from for a week is retired.
+  addresses; an address that has had no delivery, and no plugin connected
+  for it, for a week is retired.
 - Rate limits: about 120 deliveries a minute to one mailbox, 1,200 a minute
   from one sender, 60 connections a minute from one address. Past any of
   them the answer is `429` with `Retry-After`. Cloudflare's rate limiter is
@@ -73,9 +74,10 @@ Nothing it could misuse to make an event up.
   checks what needs no secret (size, encoding, the Standard Webhooks headers,
   the timestamp's freshness), stores the delivery byte for byte, and the plugin
   verifies it on collection.
-- **No credential of yours.** A mailbox's public name is the SHA-256 of a key
-  the plugin makes and keeps. Presenting a key whose hash is the name in the
-  address is what opens the mailbox; the relay stores no key.
+- **It does not keep your mailbox key.** A mailbox's public name is the
+  SHA-256 of a key the plugin makes and keeps. The plugin presents that key to
+  open the mailbox; the relay checks it against the name and does not store
+  it.
 - **It can read payloads.** Webhooks are signed, not encrypted, so whoever runs
   the relay can read the events that pass through it. Run your own.
 - **It can delay or drop.** It cannot replay: the plugin refuses a delivery it
@@ -98,9 +100,11 @@ Nothing it could misuse to make an event up.
 - Anyone who knows a webhook address can POST to it. What they send is stored
   (within the limits below) and then dropped by the plugin, because it does not
   verify. It cannot displace a genuine delivery already stored. It can crowd
-  out new ones: while Claude Code is closed nothing clears the mailbox, so
-  enough junk fills it, and genuine deliveries are answered `503` until the
-  plugin next connects. Whether an event sent meanwhile is retried is up to
+  out new ones. Junk counts against the mailbox's rate limit before anything
+  is checked, so a steady stream of it gets genuine deliveries answered `429`
+  even while the plugin is connected. While Claude Code is closed only expiry
+  clears the mailbox, so enough junk fills it, and genuine deliveries are
+  answered `503` until the plugin next connects or the junk expires. Whether an event sent meanwhile is retried is up to
   the server. A webhook address is known only to the MCP server you gave it
   to; treat it as a secret.
 
