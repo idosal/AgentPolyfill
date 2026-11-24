@@ -11,7 +11,7 @@
 // `$`, a secret reference is named for this card alone, and a secret may not
 // stand where it could change which host is reached.
 
-import { PLAIN_URL, UNSAFE_TEXT, type Input, type Remote, type ServerCard } from './card'
+import { hasUserinfo, PLAIN_URL, UNSAFE_TEXT, type Input, type Remote, type ServerCard } from './card'
 import { isAllowedUrl, isPrivateHost } from './discover'
 import { base32, sha256 } from './sha256'
 
@@ -231,8 +231,10 @@ export const planAdd = (
   // What is shown is what is added: printable ASCII, and no markup that a
   // host could render as a link text in place of the URL (card.ts hasMarkup).
   if (!/^[\x21-\x7e]+$/.test(url)) return { error: 'The URL holds a space, a control character or a non-ASCII character.' }
-  if (!PLAIN_URL.test(url)) return { error: 'The URL holds `, <, > or a square bracket outside an IPv6 host, which could show as something else.' }
+  if (!PLAIN_URL.test(url)) return { error: 'The URL holds `, <, >, a backslash or a square bracket outside an IPv6 host, which could show as something else.' }
   const probe = url.replace(/\$\{[A-Z0-9_]+\}/g, 'x')
+  // A user before the host shows one host and connects to another (security review C3).
+  if (hasUserinfo(probe)) return { error: `${url}: the URL names a user before its host (an "@"), so it would show one host and connect to another.` }
   let parsed: URL
   try {
     parsed = new URL(probe)
@@ -254,6 +256,15 @@ export const planAdd = (
   const argv = ['claude', 'mcp', 'add', '--transport', transport, '--scope', scope, server, url]
   for (const h of headers) argv.push('--header', `${h.name}: ${h.value}`)
   return { plan: { name: server, url, transport, headers, envVars, argv, command: argv.map(shellQuote).join(' ') } }
+}
+
+/** The host a URL connects to (as Node's URL parser reads it), for display on its own; empty if it can't be read. */
+export const hostOf = (url: string) => {
+  try {
+    return new URL(url.replace(/\$\{[A-Z0-9_]+\}/g, 'x')).host
+  } catch {
+    return ''
+  }
 }
 
 /** The URL a remote connects to with its defaults, for display; the template if inputs are missing. */

@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 import type { ServerCard } from '../hooks/card'
-import { defaultName, planAdd, previewUrl, tag } from '../hooks/configure'
+import { defaultName, hostOf, planAdd, previewUrl, tag } from '../hooks/configure'
 import { hex, sha256 } from '../hooks/sha256'
 import { fixtures } from './fixtures'
 
@@ -233,4 +233,17 @@ test('A-24 a base URL a variable fills in holds no markup either (security revie
   expect('error' in bad && bad.error.includes('square brackets')).toBe(true)
   const good = planAdd(card, 0, { base: 'https://[::1]:8080' }, 'x', 'local', true)
   expect('plan' in good && good.plan.url).toBe('https://[::1]:8080/mcp')
+})
+
+test('A-25 a filled-in URL that names a user before its host is refused, and the host is read as a client reads it (security review C3)', async () => {
+  const card = {
+    ...fixtures.official.valid.minimal,
+    remotes: [{ type: 'streamable-http', url: '{base}/mcp', variables: { base: { isRequired: true } } }],
+  } as unknown as ServerCard
+  const bad = planAdd(card, 0, { base: 'https://good.example@evil.example' }, 'x', 'local')
+  expect('error' in bad && bad.error.includes('names a user before its host')).toBe(true)
+  const slash = planAdd(card, 0, { base: 'https://evil.example\\@good.example' }, 'x', 'local')
+  expect('error' in slash).toBe(true)
+  expect(hostOf('https://good.example@evil.example/mcp')).toBe('evil.example')
+  expect(hostOf('https://mcp.example.com/${MCP_X__TOKEN_ABC}/mcp')).toBe('mcp.example.com')
 })

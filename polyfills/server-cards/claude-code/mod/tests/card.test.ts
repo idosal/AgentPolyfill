@@ -128,3 +128,16 @@ test('X-4 a URL with `, <, > or square brackets outside an IPv6 host is refused;
   expect(validateCard({ ...base, websiteUrl: MARKDOWN_URL }).some(e => e.startsWith('websiteUrl'))).toBe(true)
   expect(validateCard({ ...base, repository: { url: MARKDOWN_URL, source: 'github' } }).some(e => e.startsWith('repository.url'))).toBe(true)
 })
+
+// Security review C3: a URL that names a user before its host, or holds a
+// backslash, shows one host and connects to another.
+test('X-5 a URL with a user before its host, or a backslash, is refused; an "@" in the path is not', async () => {
+  const base = fixtures.official.valid.minimal
+  const remote = (url: string) => ({ ...base, remotes: [{ type: 'streamable-http', url }] })
+  for (const url of ['https://good.example@evil.example/mcp', 'https://evil.example\\@good.example/mcp', 'https://user:pw@evil.example/', 'https://{who}@evil.example/mcp'])
+    expect([url, validateCard(remote(url)).length > 0]).toEqual([url, true])
+  expect(validateCard(remote('https://good.example@evil.example/mcp')).some(e => e.includes('names a user before its host'))).toBe(true)
+  expect(validateCard(remote('https://evil.example\\@good.example/mcp')).some(e => e.includes('a backslash'))).toBe(true)
+  expect(validateCard(remote('https://mcp.example.com/u/@team/mcp'))).toEqual([])
+  expect(validateCard({ ...base, websiteUrl: 'https://good.example@evil.example/' }).some(e => e.startsWith('websiteUrl'))).toBe(true)
+})

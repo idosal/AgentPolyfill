@@ -114,3 +114,13 @@ test('U-4 the picker shows the name it adds, and a press never replaces a server
   expect((await after.find({ type: 'Text', text: /as "buildkite-2": "buildkite" already exists/ })) !== undefined).toBe(true)
   await after.unmount()
 })
+
+test('U-5 the picker names the host on its own line (security review C3)', async ($, on) => {
+  engine(on)
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const id = 'toolu_picker_5'
+  await $.tool.call({ tool: DISCOVER, tool_use_id: id, domain: 'buildkite.com' })
+  const ui = await $.ui.mount({ ...row(id), surface: 'terminal' })
+  expect((await ui.find({ type: 'Text', text: /^host mcp\.buildkite\.com$/ })) !== undefined).toBe(true)
+  await ui.unmount()
+})
