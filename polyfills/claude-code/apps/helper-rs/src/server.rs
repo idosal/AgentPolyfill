@@ -1,8 +1,10 @@
 //! Requests from the mod: HTTP/1.1 POSTs with a JSON body, over a Unix
 //! socket only the person can open, or (Windows, `MCP_APPS_CLI_TRANSPORT=tcp`)
 //! loopback TCP. Every request carries the token the mod got on stdout
-//! (`x-mcp-apps-cli-token`); one without it gets 403. One request per
-//! connection: the answer, then the connection closes.
+//! (`x-mcp-apps-cli-token`); one without it gets 403, before its body is
+//! read. One request per connection: the answer, then the connection closes.
+//! A request must arrive whole within `READ_DEADLINE`, and at most
+//! `MAX_CONNECTIONS` are open at once (security review, A7).
 
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
@@ -18,6 +20,14 @@ const TOKEN_HEADER: &str = "x-mcp-apps-cli-token";
 /// A request's head, and its body, at most (a tool result can be large).
 const MAX_HEAD: usize = 64 * 1024;
 const MAX_BODY: usize = 64 * 1024 * 1024;
+/// How long a request may take to arrive, head and body (a tool result of
+/// tens of megabytes takes well under a second over a local socket).
+#[cfg(not(test))]
+const READ_DEADLINE: std::time::Duration = std::time::Duration::from_secs(30);
+#[cfg(test)]
+const READ_DEADLINE: std::time::Duration = std::time::Duration::from_millis(500);
+/// Connections open at once, at most; one past it is closed unanswered.
+const MAX_CONNECTIONS: usize = 128;
 
 static SOCKET: OnceLock<PathBuf> = OnceLock::new();
 
@@ -31,9 +41,15 @@ pub async fn listen(helper: Arc<Helper>) -> Result<(&'static str, String)> {
     if tcp {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
         let url = format!("http://{}", listener.local_addr()?);
+        let open = Arc::new(tokio::sync::Semaphore::new(MAX_CONNECTIONS));
         tokio::spawn(async move {
             while let Ok((stream, _)) = listener.accept().await {
-                tokio::spawn(serve(helper.clone(), stream));
+                let Ok(permit) = open.clone().try_acquire_owned() else { continue };
+                let helper = helper.clone();
+                tokio::spawn(async move {
+                    serve(helper, stream).await;
+                    drop(permit);
+                });
             }
         });
         return Ok(("url", url));
@@ -52,9 +68,15 @@ pub async fn listen(helper: Arc<Helper>) -> Result<(&'static str, String)> {
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
         }
         let _ = SOCKET.set(path.clone());
+        let open = Arc::new(tokio::sync::Semaphore::new(MAX_CONNECTIONS));
         tokio::spawn(async move {
             while let Ok((stream, _)) = listener.accept().await {
-                tokio::spawn(serve(helper.clone(), stream));
+                let Ok(permit) = open.clone().try_acquire_owned() else { continue };
+                let helper = helper.clone();
+                tokio::spawn(async move {
+                    serve(helper, stream).await;
+                    drop(permit);
+                });
             }
         });
         return Ok(("socket", path.to_string_lossy().to_string()));
@@ -72,22 +94,41 @@ pub fn remove_socket() {
 }
 
 /// One request: read, checked, answered.
-async fn serve<S: AsyncRead + AsyncWrite + Unpin>(helper: Arc<Helper>, mut stream: S) {
-    let (status, body) = match read_request(&mut stream).await {
-        Ok((path, headers, body)) => {
-            let given = headers.iter().find(|(k, _)| k == TOKEN_HEADER).map(|(_, v)| v.as_str()).unwrap_or("");
-            if !same(given.as_bytes(), helper.token.as_bytes()) {
-                (403, json!({ "ok": false, "error": "not authorized" }))
-            } else {
-                let input: Value = if body.is_empty() { json!({}) } else { serde_json::from_slice(&body).unwrap_or(json!({})) };
-                match route(&helper, &path, input).await {
-                    Some(Ok(answer)) => (200, answer),
-                    Some(Err(error)) => (500, json!({ "ok": false, "error": format!("{error:#}") })),
-                    None => (404, json!({ "ok": false, "error": "not found" })),
-                }
+async fn serve<S: AsyncRead + AsyncWrite + Unpin>(helper: Arc<Helper>, stream: S) {
+    let token = helper.token.clone();
+    answer(stream, &token, |path, input| async move { route(&helper, &path, input).await }).await
+}
+
+/// Reads one request within `READ_DEADLINE`, refuses it before its body if
+/// it lacks `token`, and writes what `route` answers.
+async fn answer<S, F, Fut>(mut stream: S, token: &str, route: F)
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+    F: FnOnce(String, Value) -> Fut,
+    Fut: std::future::Future<Output = Option<Result<Value>>>,
+{
+    let read = tokio::time::timeout(READ_DEADLINE, async {
+        let (path, headers, buffered, length) = read_head(&mut stream).await?;
+        let given = headers.iter().find(|(k, _)| k == TOKEN_HEADER).map(|(_, v)| v.as_str()).unwrap_or("");
+        if !same(given.as_bytes(), token.as_bytes()) {
+            return Ok(None);
+        }
+        Ok::<_, anyhow::Error>(Some((path, read_body(&mut stream, buffered, length).await?)))
+    })
+    .await;
+    let (status, body) = match read {
+        // Too slow to arrive: closed, unanswered.
+        Err(_) => return,
+        Ok(Ok(None)) => (403, json!({ "ok": false, "error": "not authorized" })),
+        Ok(Ok(Some((path, body)))) => {
+            let input: Value = if body.is_empty() { json!({}) } else { serde_json::from_slice(&body).unwrap_or(json!({})) };
+            match route(path, input).await {
+                Some(Ok(answer)) => (200, answer),
+                Some(Err(error)) => (500, json!({ "ok": false, "error": format!("{error:#}") })),
+                None => (404, json!({ "ok": false, "error": "not found" })),
             }
         }
-        Err(error) => (400, json!({ "ok": false, "error": error.to_string() })),
+        Ok(Err(error)) => (400, json!({ "ok": false, "error": error.to_string() })),
     };
     let text = body.to_string();
     let reason = match status { 200 => "OK", 403 => "Forbidden", 404 => "Not Found", 400 => "Bad Request", _ => "Error" };
@@ -113,6 +154,7 @@ fn same(a: &[u8], b: &[u8]) -> bool {
     a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
+#[cfg(test)]
 type Request = (String, Vec<(String, String)>, Vec<u8>);
 
 // Vec's automatic geometric growth can exceed a byte limit even when its
@@ -126,7 +168,16 @@ fn append_bounded(buf: &mut Vec<u8>, bytes: &[u8], limit: usize) {
     buf.extend_from_slice(bytes);
 }
 
+#[cfg(test)]
 async fn read_request<S: AsyncRead + Unpin>(stream: &mut S) -> Result<Request> {
+    let (path, headers, buffered, length) = read_head(stream).await?;
+    let body = read_body(stream, buffered, length).await?;
+    Ok((path, headers, body))
+}
+
+/// A request's head: its path, its headers, the body bytes read with it,
+/// and the body's declared length.
+async fn read_head<S: AsyncRead + Unpin>(stream: &mut S) -> Result<(String, Vec<(String, String)>, Vec<u8>, usize)> {
     let mut buf = Vec::with_capacity(4096);
     let mut searched = 0;
     let head_end = loop {
@@ -165,7 +216,11 @@ async fn read_request<S: AsyncRead + Unpin>(stream: &mut S) -> Result<Request> {
     }
     let length = length.unwrap_or(0);
     let buffered = &buf[head_end + 4..];
-    let mut body = buffered[..buffered.len().min(length)].to_vec();
+    Ok((path, headers, buffered[..buffered.len().min(length)].to_vec(), length))
+}
+
+/// The rest of a body of `length` bytes, `body` already read with the head.
+async fn read_body<S: AsyncRead + Unpin>(stream: &mut S, mut body: Vec<u8>, length: usize) -> Result<Vec<u8>> {
     while body.len() < length {
         let mut chunk = vec![0u8; (length - body.len()).min(1 << 20)];
         let n = stream.read(&mut chunk).await?;
@@ -175,7 +230,7 @@ async fn read_request<S: AsyncRead + Unpin>(stream: &mut S) -> Result<Request> {
         append_bounded(&mut body, &chunk[..n], length);
     }
     body.truncate(length);
-    Ok((path, headers, body))
+    Ok(body)
 }
 
 /// Transport-independent routes, with page wakeups handled by views.
@@ -380,6 +435,56 @@ mod tests {
         assert!(rt.block_on(read_request(&mut Broken)).is_err());
         let mut stream = b"POST / HTTP/1.1\r\nContent-Length: 1\r\n\r\n".as_slice().chain(Broken);
         assert!(rt.block_on(read_request(&mut stream)).is_err());
+    }
+
+    // The security review's A7: a request without the token is answered 403
+    // as soon as its head is read, without waiting for (or holding) the body
+    // it announces; one that never arrives whole is dropped at the deadline.
+    #[tokio::test]
+    async fn a_request_without_the_token_is_refused_before_its_body() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let (mut client, server) = tokio::io::duplex(1 << 16);
+        let routed = Arc::new(AtomicBool::new(false));
+        let seen = routed.clone();
+        let task = tokio::spawn(answer(server, "right-token", move |_, _| async move {
+            seen.store(true, Ordering::SeqCst);
+            Some(Ok::<_, anyhow::Error>(json!({ "ok": true })))
+        }));
+        // A megabyte announced, none of it sent.
+        let head = format!("POST /ping HTTP/1.1\r\n{TOKEN_HEADER}: wrong-token\r\ncontent-length: 1000000\r\n\r\n");
+        client.write_all(head.as_bytes()).await.unwrap();
+        let mut reply = vec![0u8; 512];
+        let n = tokio::time::timeout(std::time::Duration::from_millis(400), client.read(&mut reply))
+            .await
+            .expect("no answer until the body came")
+            .unwrap();
+        assert!(String::from_utf8_lossy(&reply[..n]).starts_with("HTTP/1.1 403"), "{}", String::from_utf8_lossy(&reply[..n]));
+        assert!(!routed.load(Ordering::SeqCst));
+        drop(client);
+        let _ = task.await;
+
+        // With the token, the same request is read and routed.
+        let (mut client, server) = tokio::io::duplex(1 << 16);
+        let task = tokio::spawn(answer(server, "right-token", |path, input| async move { Some(Ok::<_, anyhow::Error>(json!({ "path": path, "input": input }))) }));
+        let body = r#"{"a":1}"#;
+        let head = format!("POST /ping HTTP/1.1\r\n{TOKEN_HEADER}: right-token\r\ncontent-length: {}\r\n\r\n{body}", body.len());
+        client.write_all(head.as_bytes()).await.unwrap();
+        let mut reply = Vec::new();
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(2), client.read_to_end(&mut reply)).await;
+        let reply = String::from_utf8_lossy(&reply).to_string();
+        assert!(reply.starts_with("HTTP/1.1 200") && reply.contains(r#""input":{"a":1}"#) && reply.contains(r#""path":"/ping""#), "{reply}");
+        let _ = task.await;
+    }
+
+    #[tokio::test]
+    async fn a_request_that_never_arrives_whole_is_dropped_at_the_deadline() {
+        let (mut client, server) = tokio::io::duplex(1 << 16);
+        let task = tokio::spawn(answer(server, "right-token", |_, _| async { Some(Ok::<_, anyhow::Error>(json!({}))) }));
+        client.write_all(b"POST /ping HTTP/1.1\r\nx-pad: ").await.unwrap();
+        // The deadline is 500 ms under test; the stream stays open meanwhile.
+        let done = tokio::time::timeout(std::time::Duration::from_secs(3), task).await;
+        assert!(done.is_ok(), "still waiting after the deadline");
+        drop(client);
     }
 
     #[test]

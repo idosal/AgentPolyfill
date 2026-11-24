@@ -9,7 +9,8 @@
 # musl-gcc: Debian's and Ubuntu's musl-tools), so one binary runs on any
 # distribution, whatever its C library. CARGO_TARGET_DIR is honored.
 # Paths here are inside this polyfill's folder (polyfills/claude-code/apps);
-# the script runs from any folder.
+# the script runs from any folder. The build uses the versions in Cargo.lock
+# (--locked), as CI's tests do.
 set -eu
 cd "$(dirname "$0")"
 PATH="$HOME/.cargo/bin:$PATH"
@@ -29,7 +30,7 @@ if [ -n "$target" ]; then
     # aws-lc (rustls' crypto) is C: built with musl's own compiler wrapper.
     *-linux-musl) export "CC_$(echo "$target" | tr '-' '_')=${MUSL_CC:-musl-gcc}" ;;
   esac
-  cargo build --release --target "$target"
+  cargo build --release --locked --target "$target"
   binary="$built/$target/release/mcp-apps-cli-helper"
   case "$target" in
     aarch64-apple-darwin) key=darwin-arm64 ;;
@@ -40,7 +41,7 @@ if [ -n "$target" ]; then
     *) echo "unknown target $target" >&2; exit 1 ;;
   esac
 else
-  cargo build --release
+  cargo build --release --locked
   binary="$built/release/mcp-apps-cli-helper"
   os=$(uname -s); machine=$(uname -m)
   case "$machine" in arm64|aarch64) arch=arm64 ;; *) arch=x64 ;; esac
