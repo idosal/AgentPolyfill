@@ -17,8 +17,8 @@ Apps (`io.modelcontextprotocol/ui`) as published in `specification/2026-01-26`
 
 <Recording
   cut="apps"
-  alt="In Claude Code, a classic shareware game from the hosted arcade server runs under the tool call and is played with keys and clicks. Then a cohort retention heatmap from another MCP server opens inline, shows a tooltip wherever the pointer goes, and a control switches its period. Last, a 3D scene opens and turns when dragged."
-  caption="A real session (33 s): a classic shareware game from the hosted arcade server, played with keys and clicks; a cohort heatmap from an MCP server that opens under the tool call and answers the pointer; and a 3D scene Claude writes, turned by dragging."
+  alt="In Claude Code, Play DOOM opens the game from the hosted arcade server under the tool call, and it is played with clicks and keys. Then a system monitor app draws a live CPU chart; a 3D torus knot Claude writes renders and turns when dragged; and in a terminal without pictures, the same scene is drawn in character cells."
+  caption="A real session (24 s; waits sped up, with a badge saying how fast): DOOM from the hosted arcade server, played with clicks and keys; a system monitor whose chart updates live; a 3D scene Claude writes, turned by dragging; and the same scene in character cells."
 />
 
 ## Install

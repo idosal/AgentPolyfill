@@ -25,7 +25,7 @@
       "stateNote": "App UIs render inline in the terminal, with mouse and keyboard. No OAuth servers.",
       "line": "MCP App interfaces open inline in the terminal, and work with mouse and keys.",
       "cut": "apps",
-      "alt": "In Claude Code, a classic shareware game from the hosted arcade server runs under the tool call and is played with keys and clicks. Then a cohort retention heatmap from another MCP server opens inline, shows a tooltip wherever the pointer goes, and a control switches its period. Last, a 3D scene opens and turns when dragged.",
+      "alt": "In Claude Code, Play DOOM opens the game from the hosted arcade server under the tool call, and it is played with clicks and keys. Then a system monitor app draws a live CPU chart; a 3D torus knot Claude writes renders and turns when dragged; and in a terminal without pictures, the same scene is drawn in character cells.",
       "addStep": "Try it with the hosted demo server:",
       "add": "claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp",
       "ask": "Find a shareware game in the arcade and load it",
