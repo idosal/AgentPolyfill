@@ -102,11 +102,36 @@ pub fn local_server(url: &str) -> bool {
     url::Url::parse(url).ok().and_then(|u| u.host_str().map(str::to_ascii_lowercase)).is_some_and(|h| private_host(&h))
 }
 
+/// Suffixes under which anyone can have a name of their own: hosting
+/// services' shared domains (from the public suffix list's private section)
+/// and the second levels of country domains (its ICANN section). Not the
+/// whole list: the most used of each, so a wildcard over one of these names
+/// no one site.
+const SHARED_SUFFIXES: &[&str] = &[
+    // Hosting and tunnels anyone can sign up to.
+    "workers.dev", "pages.dev", "r2.dev", "trycloudflare.com", "github.io", "githubusercontent.com", "gitlab.io", "vercel.app",
+    "now.sh", "netlify.app", "netlify.com", "herokuapp.com", "herokudns.com", "appspot.com", "web.app", "firebaseapp.com",
+    "run.app", "cloudfunctions.net", "azurewebsites.net", "azurestaticapps.net", "azureedge.net", "cloudapp.net",
+    "blob.core.windows.net", "cloudfront.net", "amazonaws.com", "s3.amazonaws.com", "elasticbeanstalk.com", "onrender.com",
+    "fly.dev", "deno.dev", "glitch.me", "repl.co", "replit.dev", "replit.app", "ngrok.io", "ngrok.app", "ngrok-free.app",
+    "ngrok.dev", "loca.lt", "surge.sh", "bitbucket.io", "blogspot.com", "wordpress.com", "wixsite.com", "myshopify.com",
+    "readthedocs.io", "codesandbox.io", "csb.app", "stackblitz.io", "webcontainer.io", "railway.app", "up.railway.app",
+    "supabase.co", "pythonanywhere.com", "ondigitalocean.app", "hf.space", "streamlit.app", "gradio.live", "duckdns.org",
+    "ddns.net", "no-ip.org", "nip.io", "sslip.io", "xip.io", "lvh.me", "localtest.me",
+    // Country domains' second levels.
+    "co.uk", "org.uk", "ac.uk", "gov.uk", "me.uk", "ltd.uk", "plc.uk", "net.uk", "com.au", "net.au", "org.au", "edu.au",
+    "gov.au", "id.au", "co.nz", "net.nz", "org.nz", "co.jp", "ne.jp", "or.jp", "ac.jp", "go.jp", "com.br", "net.br",
+    "org.br", "com.cn", "net.cn", "org.cn", "com.hk", "com.tw", "co.kr", "or.kr", "co.in", "net.in", "org.in", "com.mx",
+    "com.ar", "com.tr", "com.sg", "com.my", "com.ph", "com.vn", "co.id", "co.th", "co.za", "co.il", "com.ua", "com.pl",
+    "com.ru", "com.es", "com.pt", "co.at", "com.eg", "com.sa", "com.pk", "com.ng", "co.ke", "com.co", "com.pe",
+];
+
 /// A source that names no one site, and so isn't applied (security review,
-/// A4): `*`; a scheme alone (`https:`); a wildcard host (`*`, or `*.` over
-/// fewer than two labels, such as `*.com`); a wildcard port (`:*`). Without
-/// the public suffix list, a wildcard over a two-label suffix such as
-/// `*.co.uk` still passes.
+/// A4, and its 0.1.1 re-test): `*`; a scheme alone (`https:`); a wildcard
+/// host (`*`, or `*.` over fewer than two labels, such as `*.com`, or over a
+/// suffix in `SHARED_SUFFIXES`, such as `*.workers.dev` or `*.co.uk`); a
+/// wildcard port (`:*`). Without the whole public suffix list, a wildcard over
+/// a shared suffix not in that list still passes.
 fn too_broad(source: &str) -> bool {
     let lower = source.to_ascii_lowercase();
     if lower == "*" || ["http:", "https:", "ws:", "wss:"].contains(&lower.as_str()) {
@@ -126,7 +151,10 @@ fn too_broad(source: &str) -> bool {
         return false;
     }
     match host.strip_prefix("*.") {
-        Some(rest) => rest.contains('*') || rest.split('.').filter(|label| !label.is_empty()).count() < 2,
+        Some(rest) => {
+            let rest = rest.trim_end_matches('.');
+            rest.contains('*') || rest.split('.').filter(|label| !label.is_empty()).count() < 2 || SHARED_SUFFIXES.contains(&rest)
+        }
         None => true,
     }
 }
@@ -339,6 +367,22 @@ mod tests {
         }
         let all: Vec<&str> = broad.iter().chain(named.iter()).copied().collect();
         assert_eq!(allowed_csp(&json!({"connectDomains": all}), Some("https://example.com/mcp")), json!({"connectDomains": named}));
+    }
+
+    // The 0.1.1 re-test's A4 residual: a wildcard over a suffix anyone can
+    // host under (*.workers.dev, *.github.io) or a country's second level
+    // (*.co.uk) named no one site and still passed.
+    #[test]
+    fn wildcards_over_shared_suffixes_are_not_applied() {
+        for source in ["https://*.workers.dev", "*.workers.dev", "wss://*.pages.dev", "https://*.github.io", "https://*.vercel.app",
+            "https://*.netlify.app", "https://*.herokuapp.com", "https://*.co.uk", "https://*.com.au", "https://*.s3.amazonaws.com",
+            "https://*.WORKERS.dev", "https://*.workers.dev.", "https://*.workers.dev:443", "https://*.ngrok-free.app", "https://*.nip.io"] {
+            assert!(too_broad(source), "{source} was taken as one site");
+        }
+        // One site under such a suffix is one site; so is a wildcard under it.
+        for source in ["https://mine.workers.dev", "https://*.mine.workers.dev", "https://me.github.io", "https://*.example.co.uk", "https://*.example.com"] {
+            assert!(!too_broad(source), "{source} was refused");
+        }
     }
 
     #[test]
