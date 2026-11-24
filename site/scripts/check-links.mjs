@@ -21,7 +21,8 @@ const linkPattern = /\s(?:href|src|poster)="([^"]+)"/g
 const external = new Set()
 const problems = []
 const media = JSON.parse(readFileSync(join(site, 'media.json'), 'utf8'))
-const rendered = new Set([media.launch, ...media.cuts].map((video) => `/media/${video.file}`))
+// Every rendered video, the launch video's phone-size copy included.
+const rendered = new Set([media.launch, media.launch.small, ...media.cuts].filter(Boolean).map((video) => `/media/${video.file}`))
 const optionalMedia = process.env.SITE_MEDIA === 'optional'
 const skippedMedia = new Set()
 

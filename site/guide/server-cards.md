@@ -1,5 +1,5 @@
 ---
-description: mcp-server-cards adds the client side of MCP Server Cards (SEP-2127) to Claude Code. Claude finds the MCP servers a domain publishes, checks each card, and adds one to Claude Code's own config with a click.
+description: mcp-server-cards adds the client side of MCP Server Cards (SEP-2127) to Claude Code and Codex. The agent finds the MCP servers a domain publishes, checks each card, and adds the one you pick to the host's own config.
 ---
 
 # Server Cards
@@ -15,8 +15,8 @@ if you had typed `claude mcp add`. Claude Code then connects it with its own
 sign-in, so servers behind OAuth work. Nothing is installed besides that
 configuration entry, and the polyfill never sees a token.
 
-It adds the client side of the MCP **Server Cards** extension, which Claude Code
-does not support by itself yet:
+It adds the client side of the MCP **Server Cards** extension, which neither
+Claude Code nor Codex supports by itself yet:
 
 - [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md),
   Final. The extension's stage is Beta, so it can still change.
@@ -34,12 +34,23 @@ does not support by itself yet:
 
 ## Install
 
-```
+::: code-group
+
+```txt [Claude Code]
 /plugin install mcp-server-cards --marketplace idosal/AgentPolyfill
 ```
 
-Or in a terminal, `claude plugin install mcp-server-cards --marketplace idosal/AgentPolyfill`.
-It is also part of the `agent-polyfill` bundle. You need:
+```bash [Codex]
+codex plugin marketplace add idosal/AgentPolyfill
+codex plugin add mcp-server-cards@agent-polyfill
+```
+
+:::
+
+### In Claude Code
+
+The terminal form is `claude plugin install mcp-server-cards --marketplace idosal/AgentPolyfill`.
+It's also part of the `agent-polyfill` bundle. You need:
 
 - **Claude Code 2.1.329 or newer**, with mods.
 - Nothing else: no helper process, no Node, no account.
@@ -49,28 +60,25 @@ It is also part of the `agent-polyfill` bundle. You need:
 
 ### In Codex
 
-Server Cards also runs in OpenAI Codex, as a plugin, and is early there: the
-same discovery and checks, and a server is added to Codex's config only after
-you choose "Add it" in Codex's own form. It needs Codex 0.170 or newer and
-Node 20 or newer. In a terminal:
+Codex 0.170 or newer, with Node 20 or newer. The same discovery and checks,
+and a server is added to Codex's config only after you choose "Add it" in
+Codex's own form.
 
-```bash
-codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-server-cards@agent-polyfill
-```
-
-The rest of this page is about the Claude Code form. The Codex form's
-requirements, limits and tests are in its README,
+The sections below describe the Claude Code plugin. Where the Codex plugin
+differs, its README says so:
 [`polyfills/server-cards/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex).
 
 ## Try it
 
-Nothing to set up. Start `claude` and ask:
+Nothing to set up. Start `claude` or `codex` and ask:
 
 > What MCP servers does neon.com publish?
 
-Then press **Add** on **Neon Docs** (no sign-in). `claude mcp remove neon-docs -s local`
-removes it again. For one behind a sign-in, ask about buildkite.com; after
-**Add**, Claude Code asks you to sign in through `/mcp`.
+Then add **Neon Docs** (no sign-in): press **Add** in Claude Code, or choose
+"Add it" in Codex's own form. For one behind a sign-in, ask about
+buildkite.com; once it's added, the host asks you to sign in (in Claude Code,
+through `/mcp`). In Claude Code, `claude mcp remove neon-docs -s local`
+removes it again.
 
 ## Using it, step by step
 
@@ -139,7 +147,7 @@ In `/config`, under the plugin:
 
 - **The card is not compared with the live server.** SEP-2127 says a client
   SHOULD check a card's claims against the live connection; this rule is not
-  met. With changes 1 and 2 of [the host changes](./how-it-works#four-host-changes),
+  met. With changes 1 and 2 of [the host changes](./how-it-works#the-four-changes),
   the polyfill would send `server/discover` over Claude Code's connection and
   compare the name, version and protocol revisions.
 - **Claude Code's protocol revisions are listed by hand**, from its docs. Change 2

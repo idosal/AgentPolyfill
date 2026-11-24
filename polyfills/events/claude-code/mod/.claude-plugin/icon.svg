@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>mcp-events</title>
+  <rect x="2" y="6" width="60" height="52" rx="9" fill="#1f2328"/>
+  <rect x="2" y="6" width="60" height="52" rx="9" fill="none" stroke="#3d444d" stroke-width="2"/>
+  <path d="M12 20 l7 6 -7 6" fill="none" stroke="#d97757" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M30 40 v-9 a9 9 0 0 1 18 0 v9 l3 4 h-24 z" fill="#2d333b" stroke="#e3b341" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M35.5 47.5 a3.5 3.5 0 0 0 7 0" fill="none" stroke="#e3b341" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="48" cy="20" r="4" fill="#56d364"/>
+  <path d="M53 13.5 a9 9 0 0 1 2.5 6.5" fill="none" stroke="#6cb6ff" stroke-width="2.2" stroke-linecap="round"/>
+</svg>

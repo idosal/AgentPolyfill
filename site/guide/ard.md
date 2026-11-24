@@ -1,5 +1,5 @@
 ---
-description: ard-discovery adds the consumer side of Agentic Resource Discovery (ARD v0.91, a draft outside MCP) to Claude Code, for MCP servers. It is installed by name, not with the bundle.
+description: ard-discovery adds the consumer side of Agentic Resource Discovery (ARD v0.91, a draft outside MCP) to Claude Code and Codex, for MCP servers. It's installed by name, not with the bundle.
 ---
 
 # ARD discovery
@@ -43,38 +43,44 @@ It implements ARD v0.91 at commit `f073b1ea9b`: §5.1 (domain discovery), §5.3
 
 ## Install
 
-```
+::: code-group
+
+```txt [Claude Code]
 /plugin install ard-discovery --marketplace idosal/AgentPolyfill
 ```
 
-Or in a terminal, `claude plugin install ard-discovery --marketplace idosal/AgentPolyfill`.
+```bash [Codex]
+codex plugin marketplace add idosal/AgentPolyfill
+codex plugin add ard-discovery@agent-polyfill
+```
+
+:::
+
+### In Claude Code
+
+The terminal form is `claude plugin install ard-discovery --marketplace idosal/AgentPolyfill`.
 It lists `mcp-server-cards` as a dependency, and Claude Code installs that from
 the same marketplace. You need Claude Code 2.1.329 or newer, with mods, and
 nothing else: no helper process, no Node, no account.
 
 ### In Codex
 
-ARD discovery also runs in OpenAI Codex, as a plugin, installed by name for the
-same reason: its search sends your words to a third party, and asks you first
-every time. It needs Codex 0.170 or newer and Node 20 or newer. In a terminal:
+Codex 0.170 or newer, with Node 20 or newer. As in Claude Code, no registry is
+set: name one in the request, or set `ARD_DISCOVERY_REGISTRY`. To add a server
+it finds, Codex shows you a form, and the server is added only if you accept.
 
-```bash
-codex plugin marketplace add idosal/AgentPolyfill && codex plugin add ard-discovery@agent-polyfill
-```
-
-As in Claude Code, no registry is set: name one in the request, or set
-`ARD_DISCOVERY_REGISTRY`. To add a server it finds, Codex shows you a form, and
-only on your accept is the server added. Its README is
-[`polyfills/ard/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex); the rest
-of this page is about the Claude Code form.
+The sections below describe the Claude Code plugin. Where the Codex plugin
+differs, its README says so:
+[`polyfills/ard/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex).
 
 ## Try it
 
-Ask Claude:
+Ask the agent:
 
 > What MCP servers does buildkite.com list through ARD?
 
-Then press **Add** under the answer.
+Then add it: press **Add** under the answer in Claude Code, or accept Codex's
+form.
 
 To try search, start the demo registry from a clone of the repository (it is a
 demo, not a real registry: it reads the live catalogs of ten publishers and

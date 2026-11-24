@@ -3,11 +3,11 @@ layout: home
 markdownStyles: false
 titleTemplate: false
 title: AgentPolyfill
-description: "Polyfills for agent protocols: run new MCP extensions (Events, Apps, Skills, Server Cards) in the agent you already use, before its host supports them. Today in Claude Code and Codex."
+description: "Polyfills for agent protocols: run protocol extensions in the clients you already use, before they support them. Works in Claude Code and Codex."
 hero:
   name: AgentPolyfill
   text: Polyfills for agent protocols
-  tagline: Run new MCP extensions in the agent you already use, before its host supports them. No server changes. Today in Claude Code and Codex.
+  tagline: Run protocol extensions in the clients you already use, before they support them. Works in Claude Code and Codex.
   image:
     light: /mark-light.svg
     dark: /mark-dark.svg
@@ -32,7 +32,7 @@ hero:
 
 <section>
   <h2>The polyfills</h2>
-  <p class="lede">Each implements one MCP extension's client side, to spec, until the host ships its own.</p>
+  <p class="lede">Each one implements an MCP extension's client side, to spec, and steps aside once the host ships its own. Servers don't change. All of them are early, and Events, Skills and Apps can't reach servers behind OAuth yet (<a href="/guide/how-it-works#how-it-works-in-each-host-and-where-it-stops">why</a>).</p>
   <PolyfillCards />
   <h3 class="beyond">Beyond MCP</h3>
   <PolyfillCards group="beyond" />

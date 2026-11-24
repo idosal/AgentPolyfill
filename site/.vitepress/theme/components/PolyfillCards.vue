@@ -14,10 +14,7 @@ const polyfills = props.group === 'beyond' ? home.beyond : home.polyfills
     <article v-for="p in polyfills" :key="p.name" class="card">
       <Recording :cut="p.cut" :alt="p.alt" :autoplay="false" />
       <div class="body">
-        <header>
-          <h3><a :href="p.link">{{ p.name }}</a></h3>
-          <span v-if="p.state" class="state" :data-state="p.state.toLowerCase()" :title="p.stateNote">{{ p.state }}</span>
-        </header>
+        <h3><a :href="p.link">{{ p.name }}</a></h3>
         <p class="spec"><span class="whole">{{ p.spec }}</span> · <span class="whole">{{ p.hosts.join(', ') }}</span></p>
         <p class="line">{{ p.line }}</p>
         <p v-if="p.note" class="note">{{ p.note }}</p>
@@ -65,12 +62,6 @@ const polyfills = props.group === 'beyond' ? home.beyond : home.polyfills
   flex: 1;
   padding-top: 20px;
 }
-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
 h3 {
   font-size: 22px;
   line-height: 1.25;
@@ -83,21 +74,6 @@ h3 a {
 }
 h3 a:hover {
   color: var(--vp-c-brand-1);
-}
-.state {
-  flex: none;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 20px;
-  padding: 0 8px;
-  border-radius: 999px;
-  border: 1px solid var(--vp-c-border);
-  color: var(--vp-c-text-2);
-}
-.state[data-state='works'] {
-  border-color: transparent;
-  background: var(--vp-c-default-soft);
-  color: var(--vp-c-text-1);
 }
 .spec {
   margin-top: 6px;

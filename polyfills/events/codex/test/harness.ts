@@ -171,6 +171,14 @@ export class Helper {
     }
 }
 
+/**
+ * The event ids recent_events lists, in order: each line reads `[event e12, watch w-…; …]`. Matched
+ * exactly, never as a bare /e12/: a watch id is random hex and can hold "e12" too.
+ */
+export function eventIdsIn(recentEventsText: string): string[] {
+    return [...recentEventsText.matchAll(/\[event (e\d+), watch /g)].map((m) => m[1]!);
+}
+
 /** Until the session's watches are all active: the server has confirmed the subscription, so an event from now on is seen. */
 export async function untilActive(h: Helper, thread: string, timeoutMs = 15000): Promise<void> {
     await waitFor(

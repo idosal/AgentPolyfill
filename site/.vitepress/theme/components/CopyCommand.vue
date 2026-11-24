@@ -3,7 +3,10 @@ import { computed, ref } from 'vue'
 
 // wrap: false keeps the command on one line, scrolling sideways if it must
 // (Chrome breaks at <wbr> even under white-space: nowrap, so none are added).
+// A command of several lines shows each on its own line; where one is too
+// long for the box, it wraps between words, indented under its first word.
 const props = withDefaults(defineProps<{ command: string; label?: string; wrap?: boolean }>(), { wrap: true })
+const lines = computed(() => props.command.split('\n').map((line) => line.split(' ')))
 const copied = ref(false)
 // Where a wrapped command may break: after a space, after a dot, after "//",
 // and after a slash that ends a path segment. Each piece between those is kept
@@ -25,7 +28,8 @@ async function copy() {
 
 <template>
   <div class="ap-cmd">
-    <code v-if="wrap" :aria-label="label"><template v-for="(part, i) in parts" :key="i"><wbr v-if="i" /><span class="piece">{{ part }}</span></template></code>
+    <code v-if="lines.length > 1" class="lines" :aria-label="label"><span v-for="(words, i) in lines" :key="i" class="line"><template v-for="(word, j) in words" :key="j">{{ j ? ' ' : '' }}<span class="piece">{{ word }}</span></template></span></code>
+    <code v-else-if="wrap" :aria-label="label"><template v-for="(part, i) in parts" :key="i"><wbr v-if="i" /><span class="piece">{{ part }}</span></template></code>
     <code v-else :aria-label="label">{{ command }}</code>
     <button type="button" :data-copied="copied" :aria-label="copied ? 'Copied' : 'Copy command'" @click="copy">
       <svg v-if="!copied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -43,5 +47,13 @@ async function copy() {
 <style scoped>
 .piece {
   white-space: nowrap;
+}
+code.lines {
+  white-space: normal;
+}
+.line {
+  display: block;
+  padding-left: 2ch;
+  text-indent: -2ch;
 }
 </style>

@@ -31,7 +31,7 @@ const community = JSON.parse(readFileSync(join(site, '..', 'community', 'polyfil
 // line in llms.txt.
 const SECTIONS = [
   ['Start', ['guide/introduction', 'guide/getting-started']],
-  ['Polyfills for MCP extensions', ['guide/events', 'guide/apps', 'guide/skills', 'guide/server-cards']],
+  ['Polyfills for MCP extensions', ['guide/events', 'guide/skills', 'guide/server-cards', 'guide/apps']],
   ['Beyond MCP', ['guide/ard']],
   ['Build', ['guide/build-a-polyfill', 'guide/spec-authors', 'guide/contributing', 'guide/community']],
   ['Reference', ['guide/how-it-works', 'guide/security']],
@@ -40,8 +40,12 @@ const SECTIONS = [
 
 const INSTALL = '/plugin install agent-polyfill --marketplace idosal/AgentPolyfill'
 const INSTALL_CLI = 'claude plugin install agent-polyfill --marketplace idosal/AgentPolyfill'
-const INSTALL_CODEX =
-  'codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-events@agent-polyfill && codex plugin add mcp-skills@agent-polyfill && codex plugin add mcp-server-cards@agent-polyfill'
+const INSTALL_CODEX = [
+  'codex plugin marketplace add idosal/AgentPolyfill',
+  'codex plugin add mcp-events@agent-polyfill',
+  'codex plugin add mcp-skills@agent-polyfill',
+  'codex plugin add mcp-server-cards@agent-polyfill',
+]
 
 if (!existsSync(dist)) fail('.vitepress/dist is missing: run vitepress build first')
 
@@ -216,13 +220,16 @@ function homeMarkdown() {
     const lines = [
       `### ${p.name} (\`${p.plugin}\`)`,
       '',
-      `${p.id ? `\`${p.id}\`, ` : ''}${p.spec}. Runs in ${p.hosts.join(' and ')}.${p.state ? ` State: ${p.state}. ${p.stateNote}` : ''}`,
+      `${p.id ? `\`${p.id}\`, ` : ''}${p.spec}. Runs in ${p.hosts.join(' and ')}. Early.`,
       '',
       p.line,
       '',
     ]
-    if (p.add) lines.push(p.addStep, '', p.add.startsWith('/') ? '```' : '```bash', p.add, '```', '', `Then ask Claude: "${p.ask}"`)
-    else lines.push(`Nothing to set up. Ask Claude: "${p.ask}"`)
+    const block = (command) => [command.startsWith('/') ? '```' : '```bash', command, '```']
+    const agents = p.hosts.length > 1 ? '`claude` or `codex`' : '`claude`'
+    if (p.add && p.addCodex) lines.push(p.addStep, '', 'In Claude Code:', '', ...block(p.add), '', 'In Codex:', '', ...block(p.addCodex), '', `Then start ${agents} and ask: "${p.ask}"`)
+    else if (p.add) lines.push(p.addStep, '', ...block(p.add), '', `Then start ${agents} and ask: "${p.ask}"`)
+    else lines.push(`Nothing to set up. Start ${agents} and ask: "${p.ask}"`)
     if (p.then) lines.push('', p.then)
     if (p.note) lines.push('', p.note)
     lines.push('', videoLine({ file: cut.file, seconds: cut.seconds, description: p.alt }), '', `The ${p.name} guide: ${resolveLink(p.link, 'index')}`)
@@ -234,9 +241,11 @@ function homeMarkdown() {
 
   return `# ${data.title ?? 'AgentPolyfill'}
 
-> ${text} ${tagline}
+> ${/[.!?]$/.test(text) ? text : `${text}.`} ${tagline}
 
-Install every polyfill, in Claude Code 2.1.329 or newer, then start a new session:
+## Install
+
+**Claude Code** (2.1.329 or newer). At the prompt of a \`claude\` session, install every polyfill at once, then start a new session:
 
 \`\`\`
 ${INSTALL}
@@ -244,7 +253,15 @@ ${INSTALL}
 
 The same works in a terminal: \`${INSTALL_CLI}\`.
 
-In Codex, Events, Skills and Server Cards: \`${INSTALL_CODEX}\`.
+**Codex** (0.170 or newer; Skills was tested on 0.172; Node 20 or newer). In a terminal:
+
+\`\`\`bash
+${INSTALL_CODEX.join('\n')}
+\`\`\`
+
+Apps isn't in Codex yet, and Codex has no bundle.
+
+Beyond MCP, ARD (a draft; every search asks you first and goes to a registry you choose) isn't in the bundle, so install it by name: \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\` in Claude Code, \`codex plugin add ard-discovery@agent-polyfill\` in Codex.
 
 ${videoLine({ file: media.launch.file, seconds: media.launch.seconds, description: media.launch.description })}
 
@@ -296,17 +313,17 @@ function llmsTxt() {
 
 > ${data.description}
 
-AgentPolyfill makes polyfills for agent protocols: it runs new MCP extensions in agent hosts that have not shipped them yet. Each polyfill implements the client side of one published MCP extension (Events, SEP-3415; Apps, MCP Apps 2026-01-26; Skills, SEP-2640; Server Cards, SEP-2127), follows that extension's spec, and steps aside when the host ships its own. MCP servers need no changes. Today the hosts are Claude Code and Codex: all four run in Claude Code; Events, Skills and Server Cards also run in Codex, and so does ARD discovery, installed by name. A fifth plugin, \`ard-discovery\`, adds Agentic Resource Discovery v0.91 (a draft, outside MCP); its registry search sends the words of a request to a third-party registry and asks first every time, so it is not in the bundle and is installed by name.
+AgentPolyfill makes polyfills for agent protocols: it lets you run protocol extensions in the clients you already use, before they support them. Each polyfill implements the client side of one published MCP extension as a plugin, follows that extension's spec (any exception is listed and can be switched off), and steps aside once the host ships its own. Servers don't change. Today the hosts are Claude Code and Codex. Events (SEP-3415), Skills (SEP-2640) and Server Cards (SEP-2127) run in both; Apps (MCP Apps 2026-01-26) runs in Claude Code and isn't in Codex yet. All of them are early. Events, Skills and Apps can't reach servers behind OAuth yet, in either host. Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft) in both hosts; a search sends the words of your request to the ARD registry you choose and asks you first every time, so it isn't in the bundle and is installed by name.
 
-Install the four MCP polyfills in Claude Code (the \`agent-polyfill\` bundle), from a terminal: \`${INSTALL_CLI}\`. At the prompt of a \`claude\` session it is \`${INSTALL}\`. Needs Claude Code 2.1.329 or newer; start a new session for the plugins to load. In Codex (Events and Server Cards need 0.170 or newer; Node 20 or newer), from a terminal: \`${INSTALL_CODEX}\`.
+Install in Claude Code 2.1.329 or newer (every MCP polyfill, the \`agent-polyfill\` bundle), from a terminal: \`${INSTALL_CLI}\`. At the prompt of a \`claude\` session it is \`${INSTALL}\`. Start a new session for the plugins to load. Install in Codex 0.170 or newer (Node 20 or newer), from a terminal: \`${INSTALL_CODEX.join(' && ')}\`.
 
 Anyone can build a polyfill to the contract, bring an existing one to another host, or list one they keep in their own repository in the community directory (${origin}/guide/community.md).
 
-A community project, not affiliated with or endorsed by the MCP project, the Agentic AI Foundation, the Linux Foundation, Anthropic, any host vendor, or the authors of Agentic Resource Discovery. Source: https://github.com/idosal/AgentPolyfill (Apache-2.0).
+By Ido Salomon (https://x.com/idosal1). Not affiliated with Anthropic, OpenAI, MCP, Agentic Resource Discovery or the Agentic AI Foundation (AAIF). Source: https://github.com/idosal/AgentPolyfill (Apache-2.0).
 
 Every page of this site is also plain Markdown at its address plus \`.md\`, and all of them together are at ${origin}/llms-full.txt.
 
-- [Home](${markdownUrl('index')}): what a polyfill does, the four polyfills with a demo server and a first question for each, and the launch video.
+- [Home](${markdownUrl('index')}): what a polyfill does, the install for each host, the polyfills with a demo server and a first question for each, and the launch video.
 
 ${sections.join('\n\n')}
 `

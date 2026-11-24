@@ -4,10 +4,11 @@ description: How the AgentPolyfill polyfills treat server content, what each one
 
 # Security
 
-These are third-party plugins that run inside Claude Code with your
-permissions, as every Claude Code mod does. None of them reads Claude Code's
-stored credentials. They have been reviewed by an AI reviewer that did not
-build them, and not audited by a person.
+These are third-party plugins that run in Claude Code or Codex with your
+permissions, like every Claude Code mod and Codex plugin. None of them reads
+the host's stored credentials: not Claude Code's, and not Codex's sign-ins or
+tokens. They have been reviewed by an AI reviewer that did not build them, and
+not audited by a person.
 
 ## Reporting a problem
 
@@ -16,8 +17,9 @@ on the repository's
 [Security tab](https://github.com/idosal/AgentPolyfill/security/advisories/new),
 not in a public issue. If that button is not there, open an issue that says only
 that you have a security report, with no details, and you will be given a
-private way to send it. Say which polyfill, your Claude Code version and
-operating system, what you did and what happened.
+private way to send it. Say which polyfill and which host (Claude Code or
+Codex), the host's version and your operating system, what you did and what
+happened.
 
 ## The common rule
 
@@ -33,12 +35,18 @@ documents and adds a server to Claude Code's own config, only when you press
 
 ## Each polyfill
 
-The sections below are the Claude Code forms. The Codex forms have their own
-`SECURITY.md`:
-[Events](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md),
-[Skills](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md),
-[Server Cards](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) and
-[ARD discovery](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md).
+Each polyfill's own `SECURITY.md` describes what it checks and what it does
+not protect against, in each host:
+
+| Polyfill | Claude Code | Codex |
+|---|---|---|
+| Events | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) |
+| Skills | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md) |
+| Server Cards | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) |
+| Apps | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md) | not available |
+| ARD | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md) |
+
+The sections below summarize the Claude Code forms.
 
 ### Events
 
