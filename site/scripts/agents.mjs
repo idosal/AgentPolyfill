@@ -8,6 +8,7 @@
 //   /llms-full.txt    every page's Markdown, one after another
 //   /<page>.md        each page as plain Markdown, next to its HTML
 //                     (/guide/events -> /guide/events.md, / -> /index.md)
+//   _headers          gains each of those files' type, with its charset
 //
 // The Markdown comes from the pages' own sources. Components become text: a
 // recording becomes a line with what it shows and a link to its MP4; the home
@@ -58,6 +59,16 @@ for (const [page, markdown] of pages) {
 }
 writeFileSync(join(dist, 'llms.txt'), llmsTxt())
 writeFileSync(join(dist, 'llms-full.txt'), llmsFull())
+
+// Their type, with the charset (the text is UTF-8: quotes, arrows, section
+// signs), and open to pages on other sites, for agents that run in a browser.
+const headers = [
+  ...['/llms.txt', '/llms-full.txt'].map((path) => [path, 'text/plain; charset=utf-8']),
+  ...[...pages.keys()].map((page) => [`/${page}.md`, 'text/markdown; charset=utf-8']),
+]
+  .map(([path, type]) => `${path}\n  Content-Type: ${type}\n  Access-Control-Allow-Origin: *\n`)
+  .join('\n')
+writeFileSync(join(dist, '_headers'), `${readFileSync(join(dist, '_headers'), 'utf8').trimEnd()}\n\n${headers}`)
 console.log(`agents: llms.txt, llms-full.txt and ${pages.size} Markdown pages`)
 
 function sources(dir) {
