@@ -14,6 +14,8 @@ const BY = 'ard-discovery (ARD v0.91 draft)'
 const ARD_SOURCES = { catalogs: [{ url: '/.well-known/ard.json', requireVersion: false }], rels: ['ard'] }
 
 const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
+/** Text for the person's prompt: control characters out, one line, capped. */
+const shown = (v: string, max: number) => v.replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max)
 
 type Presented = { text: string; servers: number; registries: { identifier: string; url?: string; displayName?: string }[] }
 
@@ -106,7 +108,8 @@ export const register: Register = (on, options) => {
         'The query text is sent to a third party: the registry ' +
         (defaultRegistry ? `(${defaultRegistry} unless \`registry\` names another)` : '(none is configured: pass `registry`)') +
         ', which ranks other people\'s servers. Its referrals are followed one hop. The results are shown through mcp-server-cards, which checks each card and whether the publisher\'s own domain lists the server. ' +
-        'Use when a task needs a capability no tool in this session has and the person has not named a service. Say which registry answered, that its order is relevance, not trust, and which results their publisher confirms.',
+        'Use when the person asks to find a server for a task, or a task needs a capability no tool in this session has and the person has not named a service. Claude Code asks the person before every search, showing the query and where it goes; with nobody to ask, the search is refused. ' +
+        'Say which registry answered, that its order is relevance, not trust, and which results their publisher confirms.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -130,6 +133,25 @@ export const register: Register = (on, options) => {
     if ('deny' in r) return { deny: r.deny }
     return { result: r.text }
   }).catch(($, e, next) => ({ deny: `${PLUGIN}: discovery failed.` }))
+
+  // Every search is put to the person first, with the words and where they go
+  // (security review M2): a search sends what Claude wrote to a registry
+  // someone else runs, so no allow rule or auto mode answers it, and with
+  // nobody to ask it is refused.
+  on('tool.check', { tool: `mcp__${PLUGIN}__${SEARCH}` }, async ($, e, next) => {
+    const verdict = await next(e)
+    if (verdict.decision === 'deny') return verdict
+    if (e.approver === undefined)
+      return { decision: 'deny' as const, reason: 'A search sends your words to a registry someone else runs, and nobody can be asked in this session.' }
+    const input = (e.input ?? {}) as Record<string, unknown>
+    const named = shown(str(input.registry) ?? defaultRegistry, 200)
+    const where = !named ? '(no registry)' : /^https?:\/\//i.test(named) ? named : `the registry that ${named} lists`
+    const query = shown(str(input.query) ?? '', 300)
+    return { decision: 'ask' as const, reason: `Send this search to ${where}, and to up to three registries it refers to? "${query}"` }
+  }).catch(($, e, next) => ({
+    decision: 'ask' as const,
+    reason: 'ard-discovery could not describe this search. It sends the query in the call to an ARD registry someone else runs; check both before you allow it.',
+  }))
 
   on('tool.run', { tool: `mcp__${PLUGIN}__${SEARCH}` }, async ($, e) => {
     const input = e as Record<string, unknown>

@@ -362,12 +362,18 @@ export const register: Register = (on, options) => {
   // The person decides every addition Claude asks for: an ask made by this
   // hook goes to a person, whatever the rules, allow-lists or auto mode say
   // (security review SC4), and names what would be written. Where nobody can
-  // be asked, the addition is refused. The calls asked about are recorded, and
-  // the run below adds only for one of them: a call that never met this check
-  // (another plugin's $.tool.call) is refused, and so is one whose check came
-  // before its card was shown (the re-check's two paths around the ask).
-  const asked = new Set<string>()
+  // be asked, the addition is refused. Only Claude's own call is taken: another
+  // plugin's $.tool.call is refused here and again at the run, whatever Claude
+  // Code tells this check about who can be asked (security review M1). The
+  // calls asked about are recorded with what the person was shown (URL, scope,
+  // name), and the run adds only for one of them, unchanged: a call that never
+  // met this check is refused, and so is one whose check came before its card
+  // was shown (the re-check's two paths around the ask).
+  const asked = new Map<string, string>()
+  const approvedAs = (plan: Plan, scope: Scope) => `${plan.url}\n${scope}\n${plan.name}`
+  const notClaudes = `${ADD} adds a server only for Claude's own call, once a person approved it. Another plugin can show cards with ${PRESENT}; adding one is the person's.`
   on('tool.check', { tool: `mcp__${PLUGIN}__${ADD}` }, async ($, e, next) => {
+    if (next.origin.plugin !== 'engine') return { decision: 'deny' as const, reason: notClaudes }
     const verdict = await next(e)
     if (verdict.decision === 'deny') return verdict
     const r = resolveAdd(e.input)
@@ -383,7 +389,7 @@ export const register: Register = (on, options) => {
         : scope === 'user'
           ? ' The user scope adds it to all your projects.'
           : ' The local scope adds it for you, in this project only.'
-    if (e.tool_use_id) asked.add(e.tool_use_id)
+    if (e.tool_use_id) asked.set(e.tool_use_id, approvedAs(plan, scope))
     return {
       decision: 'ask' as const,
       reason: plainText(
@@ -392,12 +398,17 @@ export const register: Register = (on, options) => {
     }
   }).catch(($, e, next) => ({ decision: 'ask' as const, reason: 'MCP Server Cards could not describe this addition. Check the server and URL in the call before you allow it.' }))
 
-  on('tool.run', { tool: `mcp__${PLUGIN}__${ADD}` }, async ($, e) => {
-    if (!e.tool_use_id || !asked.delete(e.tool_use_id))
+  on('tool.run', { tool: `mcp__${PLUGIN}__${ADD}` }, async ($, e, next) => {
+    if (next.origin.plugin !== 'engine') return { deny: notClaudes }
+    const approved = e.tool_use_id ? asked.get(e.tool_use_id) : undefined
+    if (e.tool_use_id) asked.delete(e.tool_use_id)
+    if (approved === undefined)
       return { deny: `${ADD} adds a server only after a person approved it in Claude Code's prompt, and this call was not put to one. Ask the person to press Add under the result, or call ${ADD} again.` }
     const r = resolveAdd(e)
     if ('deny' in r) return { deny: r.deny }
     const { card, provenance, plan, scope } = r
+    if (approvedAs(plan, scope) !== approved)
+      return { deny: `This would add "${plan.name}" (${scope} scope) at ${plan.url}, which is not what the person approved. Ask them again with ${ADD}.` }
     // A local-scope add over a server of the same name in another scope
     // would replace it for this project (security review SC2).
     if (await isNameTaken($, plan.name))

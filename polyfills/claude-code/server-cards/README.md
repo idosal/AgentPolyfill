@@ -119,7 +119,7 @@ There is one row for each rule the specs put on a client, and the test that cove
 | V-1 | A card conforms to the schema: the v1 `$schema` URL, a reverse-DNS `name`, `version`, a `description` of 100 characters or fewer, remotes, inputs | schema.ts and schema.json | V-1 to V-5 | met: an invalid card is refused, never repaired |
 | V-2 | `version` is one version, not a range | schema.ts, `ServerCard.version` | V-3 | met (see Findings) |
 | P-1 | Never replace a server the person has | the polyfill's own, from the security review (SC2) | B-8, U-4 | met. A name taken in any scope is refused for Claude's add; the picker uses the next free name and says so |
-| P-2 | A person approves every addition Claude asks for | the polyfill's own, from the security review (SC4 and its re-check) | B-9, B-13, B-14 | met. A hook-made ask names the server, URL, headers, scope and undo. No rule or auto mode answers it, and it is refused with nobody to ask. The add runs only for a call that was put to a person: a call that skipped the check (another plugin's own `$.tool.call`) is refused, and so is a check made before its card was shown |
+| P-2 | A person approves every addition Claude asks for | the polyfill's own, from the security review (SC4, its re-check, and M1) | B-9, B-13, B-14, B-15 | met. A hook-made ask names the server, URL, headers, scope and undo. No rule or auto mode answers it, and it is refused with nobody to ask. Only Claude's own call is taken: a call from another plugin is refused, at the check and at the run. The add runs only for a call that was put to a person, and only as it was put (the same URL, scope and name); a check made before its card was shown is refused |
 | V-3 | No text that displays as something else | the polyfill's own, from the security review: SEP-2127 says cards are untrusted ("Clients MUST NOT treat Server Card contents as authoritative") | X-1, X-2, X-3, A-21 | A card is refused if any string in it, key or value, holds a C0 or C1 control, DEL, or an invisible format or bidirectional mark. A remote URL must be printable ASCII. The same holds for every value Claude gives. Everything shown passes a plain-text filter. A card carries no command or environment (remotes only), so none can reach `claude mcp add` that way |
 | C-1 | Respect `Cache-Control` | discovery.md, Caching and Denial of Service (SHOULD) | C-1, C-3 | met |
 | C-2 | Send the `ETag` back as `If-None-Match`; accept `304` | discovery.md (SHOULD) | C-1, C-2, C-4 | met |
@@ -165,11 +165,11 @@ Claude Code has no Server Card support to detect yet. When it ships, turn on the
 
 ## Proof
 
-- **Per rule:** 98 tests, run with `claude plugin test mod`.
+- **Per rule:** 99 tests, run with `claude plugin test mod`.
   - They cover the official example cards (`examples/ServerCard`, valid and invalid) and fixtures of my own for edge cases.
-  - Eighteen of them (B-1 to B-14, U-1 to U-4) run through the plugin as Claude Code loads it, with the engine's network, `claude mcp add` and connect stood in for.
+  - Nineteen of them (B-1 to B-15, U-1 to U-4) run through the plugin as Claude Code loads it, with the engine's network, `claude mcp add` and connect stood in for.
   - The picker is drawn on the terminal, desktop, VS Code and mobile surfaces, and a press of **Add** is followed to the exact `claude mcp add` it runs.
-- **Independent security review** for the launch (24 November 2026), by an AI session, not a human audit. Its findings SC1 to SC7 are fixed and tested (V-3, P-1, P-2, A-21 to A-23, X-1 to X-3), and so are the two narrow paths around the SC4 ask that its re-check found (B-13, B-14).
+- **Independent security review** for the launch (24 November 2026), by an AI session, not a human audit. Its findings SC1 to SC7 are fixed and tested (V-3, P-1, P-2, A-21 to A-23, X-1 to X-3). So are the narrow paths around the SC4 ask that its re-checks found: a check made before the card was shown (B-14), a call from another plugin (B-13), and a run that differs from what was approved (B-15). B-13 tests that such a call is refused for coming from another plugin. The test kit gives such a call nobody to ask, so it can't show whether a real host would.
 - **Earlier reviews:** two read-only review rounds by a second agent (Codex), on 2026-11-24. The first found 18 issues; the second checked the fixes and found 9 incomplete and 7 more issues. All of them are fixed, and each has a test: those marked "Review findings" and "Second review pass".
 - **Documents someone else wrote:** the catalogs and cards live on 2026-11-24 from Buildkite, GitHub, Hugging Face, Neon, Netlify, Notion, Context7, Exa, Supabase and Zapier.
   - Ten of the eleven cards are valid; Zapier's is refused.

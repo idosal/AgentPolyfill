@@ -1,7 +1,7 @@
 {
   "name": "ard-discovery",
-  "version": "0.1.0",
-  "description": "Agentic Resource Discovery (ARD v0.91 draft) for Claude Code: find MCP servers through a domain's /.well-known/ard.json and rel=\"ard\" links, or by searching an ARD registry; mcp-server-cards checks, shows and adds them",
+  "version": "0.1.1",
+  "description": "Agentic Resource Discovery (ARD v0.91 draft) for Claude Code: find MCP servers through a domain's /.well-known/ard.json and rel=\"ard\" links, or by searching an ARD registry, which receives your query once you approve each search; mcp-server-cards checks, shows and adds them",
   "author": {
     "name": "Ido Salomon",
     "url": "https://github.com/idosal"
@@ -20,7 +20,7 @@
     "registry": {
       "type": "string",
       "title": "ARD registry for search",
-      "description": "Base URL of the ARD registry that ard_search asks when none is named (it appends /search). Your query text is sent there. Empty: search only a registry named in the request.",
+      "description": "Base URL of the ARD registry that ard_search asks when none is named (it appends /search). Default: a Hugging Face Space. Your query text is sent there, after you approve each search. Empty: search only a registry named in the request.",
       "default": "https://huggingface-hf-discover.hf.space"
     }
   }
