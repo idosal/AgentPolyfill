@@ -1,6 +1,6 @@
 {
   "name": "mcp-skills",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "MCP Skills (SEP-2640) for Codex: skills served by your MCP servers are listed among Codex's skills, loaded when a task needs one after you approve them, and checked against the server's manifest.",
   "author": {
     "name": "Ido Salomon",

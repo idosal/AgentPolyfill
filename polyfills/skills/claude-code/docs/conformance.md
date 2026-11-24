@@ -13,7 +13,7 @@ calls recommendations, not part of the normative specification (marked
 *guideline*). Rules that bind only a server, an SDK or an intermediary are left
 out. The extension's Beta page in `modelcontextprotocol/ext-skills` states the
 same client rules; where it adds one, that is said at the end. This page
-describes version 0.3.5 of the mod.
+describes version 0.3.6 of the mod.
 
 **Status** is one of: **met**; **exception** (met, with a limit stated in the
 row, caused by the host or chosen and documented); **not met**; **n/a** (the
