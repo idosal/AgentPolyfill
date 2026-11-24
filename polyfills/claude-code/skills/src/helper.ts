@@ -224,8 +224,9 @@ const routes: Record<string, (p: Record<string, unknown>) => Promise<unknown> | 
         await app.refresh();
         return {};
     },
-    '/release'() {
-        app.release();
+    '/release'(p) {
+        if (typeof p.server === 'string' && typeof p.uri === 'string') app.release(p.server, p.uri);
+        else app.release();
         return {};
     },
     '/stop'() {

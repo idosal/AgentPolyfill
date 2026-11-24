@@ -94,6 +94,15 @@ describe('Per-skill enable and disable', () => {
         assert.deepEqual(app.named('docs:skill://hidden/notes.md'), []);
     });
 
+    test('H1: a load the hooks module did not hand to Claude (the skill was disabled meanwhile) is let go of, alone', async () => {
+        const [a, b] = [skill('release-notes', { 'x.md': 'X\n' }), skill('incident-review', { 'y.md': 'Y\n' })];
+        const app = await startApp({ docs: new Fixture(scenarioOf([a, b])) });
+        for (const s of [a, b]) assert.equal((await app.call('load_skill', { server: 'docs', uri: s.uri })).isError, undefined);
+        app.release('docs', a.uri);
+        assert.match((await app.call('read_skill_file', { server: 'docs', skill: a.uri, path: 'x.md' })).text, /No skill at that URI on "docs" is loaded/);
+        assert.match((await app.call('read_skill_file', { server: 'docs', skill: b.uri, path: 'y.md' })).text, /Y/);
+    });
+
     test('H1: what the hooks module sends is checked and bounded: anything but pairs of text is left out', async () => {
         const s = skill('release-notes');
         const app = await startApp({ docs: new Fixture(scenarioOf([s])) });
