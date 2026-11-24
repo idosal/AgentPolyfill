@@ -48,7 +48,7 @@ function themeOf(value: unknown): Theme {
 export function userAgent($: EngineInterface) {
   state.agent ??= $.session
     .version()
-    .then(({ version }) => `Claude Code/${version} mcp-apps-cli/0.1.0`)
-    .catch(() => 'Claude Code mcp-apps-cli/0.1.0')
+    .then(({ version }) => `Claude Code/${version} mcp-apps-cli/0.1.1`)
+    .catch(() => 'Claude Code mcp-apps-cli/0.1.1')
   return state.agent
 }

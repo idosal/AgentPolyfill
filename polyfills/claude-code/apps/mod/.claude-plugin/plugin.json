@@ -1,6 +1,6 @@
 {
   "name": "mcp-apps-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Unofficial MCP Apps client for the Claude Code terminal: app UIs render inline, with clicks and keys forwarded to the app",
   "author": {
     "name": "Ido Salomon",
