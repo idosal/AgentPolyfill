@@ -108,6 +108,31 @@ describe('tools/scrub-run.py', { skip }, () => {
         assert.deepEqual(twice, once);
     });
 
+    test('writes \\n line endings wherever it runs, and reads a file with \\r\\n as one with \\n', () => {
+        // Python writes text files with the platform's line ending unless told otherwise: on Windows,
+        // \r\n. Run the scrubber with that default forced, as Windows has it, wherever this test runs.
+        const windowsText = [
+            'import builtins, runpy, sys',
+            '_open = builtins.open',
+            'def _windows_open(file, mode="r", *args, **kwargs):',
+            '    if ("w" in mode or "a" in mode) and "b" not in mode and "newline" not in kwargs and len(args) < 4:',
+            '        kwargs["newline"] = "\\r\\n"',
+            '    return _open(file, mode, *args, **kwargs)',
+            'builtins.open = _windows_open',
+            'sys.argv = sys.argv[1:]',
+            'runpy.run_path(sys.argv[0], run_name="__main__")'
+        ].join('\n');
+        const run = mkdtempSync(join(tmpdir(), 'mcp-skills-scrub-'));
+        writeFileSync(join(run, 'lf.txt'), screen);
+        writeFileSync(join(run, 'crlf.txt'), screen.replace(/\n/g, '\r\n'));
+        const done = spawnSync(python!, ['-c', windowsText, SCRUB, run, ROOT], { encoding: 'utf8' });
+        assert.equal(done.status, 0, done.stderr);
+        const [lf, crlf] = ['lf.txt', 'crlf.txt'].map((n) => readFileSync(join(run, n), 'utf8'));
+        assert.ok(!lf.includes('\r'), 'no \\r written');
+        assert.equal(crlf, lf, 'a file with \\r\\n is scrubbed as the same file with \\n');
+        assert.equal(lf, scrub({ 'a.txt': screen })['a.txt']);
+    });
+
     test('the committed runs show none of it, and are as the scrubber leaves them', () => {
         const runs = join(ROOT, 'live', 'runs');
         for (const run of readdirSync(runs)) {
