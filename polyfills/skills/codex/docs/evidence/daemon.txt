@@ -1,0 +1,49 @@
+# live/take-daemon.sh (Codex 0.172.0, macOS, mcp-skills 0.1.5), in a throwaway HOME and CODEX_HOME
+# with only the Codex sign-in copied in. A running app-server daemon; the plugin installed from this
+# repository's marketplace and Hugging Face's public server added to config.toml. Each session is a
+# client of the daemon's control socket (live/daemon-client.mjs) that answers the plugin's question
+# "Load it". "Codex lists N served skill(s)" is Codex's own skills/list for the project, asked before
+# each turn. Local paths are replaced by <tmp>; long lines are cut.
+
+== session 1 (the first after install, on a running daemon)
+session 01a20ec4-12a9-7390-883f-73ce3ce4984f
+turn 1: Codex lists 0 served skill(s)
+  [prompt] Which GGUF quantization should I use to run a 7B model on a 16 GB Mac? Answer in two sentences.
+  [answer] I’ll check the GGUF quantization guidance and memory estimates.
+  [answer] Start with **Q4_K_M** for a 7B model on a 16 GB Mac: the weights take about 4–4.5 GB, leaving room for macOS, other apps, and the context cache. Choose **Q5_K_M** if you want slightly better output quality and can spare roughly another 0.8 GB for the weights. [Example 7B GGUF sizes](https://huggingface.co/TheBloke/MythoMist-7B-GGUF)
+turn 2: Codex lists 25 served skill(s), e.g. mcp-skills:huggingface:hf-cli, mcp-skills:huggingface:hf-cloud-aws-context-discovery
+  [prompt] And which one for a 14B model on a 24 GB Mac? Answer in two sentences.
+  [answer] I’ll use Hugging Face’s memory estimation and local model skills to check the recommendation.
+  [command] /bin/zsh -lc "cat '<tmp>/h/.agents/skills/mcp-skills-served/huggingface-d203a2/c483b0880c0e2ba
+  [command] /bin/zsh -lc "cat '<tmp>/h/.agents/skills/mcp-skills-served/huggingface-d203a2/74d8640e89f964d
+  [the plugin's question] Load the skill "hf-mem" from the MCP server "huggingface"? -> "Load it"
+  [the plugin's question] Load the skill "huggingface-local-models" from the MCP server "huggingface"? -> "Load it"
+  [tool] mcp-skills.load_skill {"server":"huggingface","uri":"skill://huggingface-local-models/SKILL.md"} -> completed
+  [tool] mcp-skills.load_skill {"server":"huggingface","uri":"skill://hf-mem/SKILL.md"} -> completed
+  [answer] Start with **Q5_K_M** for a 14B model on a 24 GB Mac, assuming a moderate context window and about 10–11 GB for the weights. Choose **Q4_K_M** if you want more memory headroom for longer contexts or other apps. [Example 14B GGUF sizes](https://huggingface.co/second-state/Qwen2.5-14B-Instruct-GGUF)
+-- the plugin's server has started 1 time(s); stubs in ~/.agents/skills/mcp-skills-served: 25
+== a marketplace update: the plugin's folder is copied afresh
+Removed plugin `mcp-skills` from marketplace `agent-polyfill`.
+Added plugin `mcp-skills` from marketplace `agent-polyfill`.
+Installed plugin root: <tmp>/c/plugins/cache/agent-polyfill/mcp-skills/0.1.5
+-- stubs in ~/.agents/skills/mcp-skills-served after it: 25
+== session 2 (same daemon, no restart)
+session 01a20ec4-8157-7e51-bb03-de637a60c9f6
+turn 1: Codex lists 25 served skill(s), e.g. mcp-skills:huggingface:hf-cli, mcp-skills:huggingface:hf-cloud-aws-context-discovery
+  [prompt] How much memory does a 7B model in Q4_K_M need? Answer in two sentences.
+  [answer] I’ll use the Hugging Face memory skill to check the estimate.
+  [command] /bin/zsh -lc 'cat <tmp>/h/.agents/skills/mcp-skills-served/huggingface-d203a2/c483b0880c0e2bac
+  [tool] mcp-skills.load_skill {"server":"huggingface","uri":"skill://hf-mem/SKILL.md"} -> completed
+  [answer] A 7B model in Q4_K_M typically uses about **4 GiB for the weights**, with Mistral 7B weighing in at 4.37 GB (4.07 GiB). [Mistral 7B GGUF](https://huggingface.co/SanctumAI/Mistral-7B-Instruct-v0.3-GGUF/blob/main/mistral-7b-instruct-v0.3.Q4_K_M.gguf) For inference, budget roughly **5–6 GiB of VRAM** for a single session with a modest context, and allow more for longer contexts or concurrent sessions
+-- the plugin's server has started 2 time(s); stubs: 25
+== the plugin's log
+2026-11-24T18:14:21.319Z [80570] mcp-skills 0.1.5: 1 server(s) to look at in <tmp>/c/config.toml; stubs in <tmp>/h/.agents/skills/mcp-skills-served
+2026-11-24T18:14:21.366Z [80570] client codex-mcp-client 0.172.0
+2026-11-24T18:14:21.751Z [80570] huggingface: 25 skill(s), 0 left out (protocol revision 2026-07-28, lists directories)
+2026-11-24T18:14:21.760Z [80570] stubs: 25 written, 0 removed
+2026-11-24T18:14:41.404Z [80570] huggingface: loaded skill://huggingface-local-models/SKILL.md
+2026-11-24T18:14:41.455Z [80570] huggingface: loaded skill://hf-mem/SKILL.md
+2026-11-24T18:14:49.154Z [81125] mcp-skills 0.1.5: 1 server(s) to look at in <tmp>/c/config.toml; stubs in <tmp>/h/.agents/skills/mcp-skills-served
+2026-11-24T18:14:49.217Z [81125] client codex-mcp-client 0.172.0
+2026-11-24T18:14:50.765Z [81125] huggingface: 25 skill(s), 0 left out (protocol revision 2026-07-28, lists directories)
+2026-11-24T18:14:59.270Z [81125] huggingface: loaded skill://hf-mem/SKILL.md (approved earlier)

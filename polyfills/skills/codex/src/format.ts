@@ -44,7 +44,7 @@ export function statusText(o: { skills: Listed[]; refused: Refused[]; loaded: { 
         for (const l of mine) counts.set(l.entry.frontmatter.name, (counts.get(l.entry.frontmatter.name) ?? 0) + 1);
         for (const l of mine.slice(0, 300)) {
             const notes = [
-                o.names.has(l) ? `in Codex's skill list as ${PLUGIN}:${o.names.get(l)}` : '',
+                o.names.has(l) ? `in Codex's skill list as ${o.names.get(l)}` : '',
                 o.loaded.some((h) => h.label === l.label && h.uri === l.entry.uri) ? 'loaded in this conversation' : '',
                 l.entry.resources === 'dynamic' ? 'generated content: cannot be verified' : '',
                 (counts.get(l.entry.frontmatter.name) ?? 0) > 1 ? 'another skill of this server has the same name: tell them apart by uri' : '',

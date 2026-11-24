@@ -51,12 +51,18 @@ it came from, and its host part is never resolved.
 
 ### What it writes into Codex's skill folders
 
-For each served skill, the plugin writes one short `SKILL.md`, a stub, into its
-own folder (`<plugin>/skills/served/`), so that Codex lists the skill with its
-others. The stub holds:
+For each served skill, the plugin writes one short `SKILL.md`, a stub, so that
+Codex lists the skill with its others. From 0.1.5 the stubs are **outside the
+plugin's folder**, in a folder of the plugin's own in your user skills folder:
 
-- a name, `<server>:<name>`, which Codex shows as `mcp-skills:<server>:<name>`,
-  so a served skill never takes the name of a local one;
+    ~/.agents/skills/mcp-skills-served/<server>-<6 hex>/<16 hex of the skill's URI>/SKILL.md
+
+(`~` is your `HOME`.) Up to 0.1.4 they were in the plugin's folder, which Codex
+replaces on every marketplace update, so they vanished; the plugin now removes
+any it finds there. The stub holds:
+
+- a name, `mcp-skills:<server>:<name>`, so a served skill never takes the name
+  of a local one;
 - the server's one-line description, with control, zero-width and
   direction-changing characters removed (see the full list under
   [What reaches the model](#what-reaches-the-model)), written as a quoted YAML
@@ -70,10 +76,28 @@ content is written to disk. The skill's frontmatter (`allowed-tools` and the
 rest) never reaches the stub. The stub's path names the server and a hash of
 the skill's URI.
 
-The plugin touches nothing outside `served/`. It removes only folders it would
-have made, and it removes a symbolic link it finds there instead of following
-it. When a server stops serving a skill, or you remove the server from your
-config, its stubs go at the next start.
+The plugin creates `mcp-skills-served` and touches nothing outside it: not your
+own skills in `~/.agents/skills`, not anything else there. Inside it, it
+writes and removes only folders of the stubs' shape, and it removes a symbolic
+link it finds there instead of following it. When a server stops serving a
+skill, or you remove the server from your config, its stubs go at the next
+start. Two things follow from the folder's place:
+
+- **Other programs** that read `~/.agents/skills` see the stubs too. Each stub
+  is the plugin's own text plus the server's one-line description, and says it
+  can be loaded only through Codex's `mcp-skills` tool; it holds nothing of the
+  skill's content.
+- **Removing the plugin leaves the folder.** Delete
+  `~/.agents/skills/mcp-skills-served` yourself; Codex would otherwise go on
+  listing the stubs, and a load would fail for want of the tool.
+
+The plugin's MCP server tells Codex, when it starts, not to keep its tool list
+between sessions (the experimental `codex/tool-catalog-cache` capability, with
+`cacheable: false`). Without that, a running app-server daemon puts off
+starting it until one of its tools is called, and no stubs are written. It
+changes nothing about what the server may do, and Codex asks it for its tools
+again in each session. The server isn't marked required, so a session still
+starts when the server can't (for instance without Node).
 
 ### What reaches the model
 
@@ -184,7 +208,8 @@ On disk, in `~/.codex/mcp-skills/`:
 - a log, private to you, with your config's secrets scrubbed;
 - a `settings.json`, only if you write one.
 
-In the plugin's folder: the stubs. No skill content, and no tokens.
+In `~/.agents/skills/mcp-skills-served`: the stubs. No skill content, and no
+tokens.
 
 ## What it does not protect against
 

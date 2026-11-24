@@ -22,7 +22,8 @@ after(() => running.forEach((c) => c.kill()));
 
 /** A stand-in for Codex: starts the bundle, sends requests, and answers its questions with `answer`. */
 function codex(env: Record<string, string>, answer: (params: Json) => Json | undefined = () => ({ action: 'decline' })) {
-    const child = spawn(RUNTIME, [BUNDLE], { cwd: join(ROOT, 'mod'), env: { PATH: process.env.PATH ?? '', HOME: env.HOME ?? temp(), ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
+    const home = env.HOME ?? temp();
+    const child = spawn(RUNTIME, [BUNDLE], { cwd: join(ROOT, 'mod'), env: { PATH: process.env.PATH ?? '', HOME: home, USERPROFILE: home, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
     running.push(child);
     let buf = '';
     let id = 0;
