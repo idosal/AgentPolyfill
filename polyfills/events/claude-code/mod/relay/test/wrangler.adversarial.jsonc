@@ -1,0 +1,70 @@
+// For test/adversarial-test.ts only: the public relay's configuration (wrangler.public.jsonc),
+// with one change so a test can spend a limit quickly: the bucket shared by every MCP server on
+// Cloudflare Workers (DELIVERIES_FROM_WORKERS) is 20 a minute here instead of 3,000.
+// Never deployed.
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  // A relay anyone may use: the same Worker as wrangler.jsonc, with no access key and tighter
+  // limits. People who use it are trusting whoever deploys this with their event payloads in
+  // transit; a relay of their own (wrangler.jsonc, `npm run setup`) avoids that.
+  //
+  //   npx wrangler deploy -c wrangler.public.jsonc
+  "name": "mcp-events-adversarial-test-relay",
+  "main": "../src/index.ts",
+  "compatibility_date": "2026-11-19",
+  "durable_objects": {
+    "bindings": [
+      { "name": "MAILBOXES", "class_name": "Mailbox" },
+      // Counts the new mailboxes opened in an hour, when a ceiling is set (NEW_MAILBOXES_PER_HOUR).
+      { "name": "REGISTRY", "class_name": "Registry" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Mailbox"] },
+    { "tag": "v2", "new_sqlite_classes": ["Registry"] }
+  ],
+  "vars": {
+    // Anyone who can reach this relay may open a mailbox on it. A mailbox still opens only with its own key.
+    "OPEN_RELAY": "1",
+    // Said at the relay's front page.
+    "OPERATOR": "Ido Salomon (https://github.com/idosal)",
+    // An uncollected delivery is dropped after 23 hours; with the hourly clear-out, within 24.
+    "DELIVERY_TTL_S": "82800",
+    // A webhook address nobody collected from for a week is retired.
+    "HOOK_IDLE_TTL_S": "604800",
+    // One mailbox holds at most 100 deliveries, 4 MiB in all, for at most 16 webhook addresses.
+    "MAX_QUEUED": "100",
+    "MAX_QUEUED_BYTES": "4194304",
+    "MAX_HOOKS": "16",
+    // A request whose limit cannot be checked is refused: with its limits off, this relay is free storage.
+    "REQUIRE_LIMITS": "1",
+    // A connection that sends more than 600 messages in a minute is closed.
+    "SOCKET_MESSAGES_PER_MINUTE": "600",
+    // New mailboxes opened in an hour: by everyone together, and from one sender (an IPv4 address,
+    // or an IPv6 /64). Past either, a new mailbox is refused until the hour is over; mailboxes that
+    // already exist are not affected. The ceiling for everyone is set well above the sign-ups
+    // expected in an hour, so that spending it takes many senders: what it guards against is cost,
+    // and an empty mailbox gives its storage back while a full one holds at most 4 MiB.
+    "NEW_MAILBOXES_PER_HOUR": "2000",
+    "NEW_MAILBOXES_PER_SENDER_PER_HOUR": "60"
+  },
+  // Approximate, and counted per Cloudflare location. A refused request gets 429 and Retry-After.
+  "ratelimits": [
+    // Deliveries to one webhook address: 2 a second, sustained. Spent only by a well-formed
+    // delivery to an address that exists, so junk sent elsewhere in the mailbox does not use it up.
+    { "name": "DELIVERIES_PER_HOOK", "namespace_id": "34151", "simple": { "limit": 120, "period": 60 } },
+    // Requests to deliver from one sender (an IPv4 address, or an IPv6 /64), to any mailbox, whether or not they are kept.
+    { "name": "DELIVERIES_PER_SENDER", "namespace_id": "34152", "simple": { "limit": 300, "period": 60 } },
+    // The same, for every MCP server hosted on Cloudflare Workers together: Cloudflare gives all of
+    // them one address when they call another Cloudflare site. Larger, so they are not held to one machine's share.
+    { "name": "DELIVERIES_FROM_WORKERS", "namespace_id": "34154", "simple": { "limit": 20, "period": 60 } },
+    // Connections from one address: opening and re-opening mailboxes.
+    { "name": "SOCKETS_PER_SENDER", "namespace_id": "34153", "simple": { "limit": 30, "period": 60 } }
+  ],
+  // Webhook addresses are capabilities: keep request logs off.
+  "observability": { "enabled": false },
+  "send_metrics": false,
+  "workers_dev": true,
+  "preview_urls": false,
+  "dev": { "ip": "127.0.0.1", "port": 8797 }
+}
