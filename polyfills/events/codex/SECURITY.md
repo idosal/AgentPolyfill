@@ -58,10 +58,9 @@ instructions to the model, are what tell it apart from what you typed.
   - **Across restarts.** The count is kept on disk. Each wake is recorded
     before `codex queue` runs. So a wake the plugin never heard back about,
     because it stopped or `codex queue` didn't answer, still counts, and its
-    events aren't handed over again. That holds for a session open in one
-    window. With the same session open in two, if the window that runs the
-    watches ends while `codex queue` runs, its events can be handed over a
-    second time, and that wake can go uncounted.
+    events aren't handed over again. That holds with the same session open in
+    two windows too: only the window that runs the watches writes the count,
+    and a window that takes them over reads it again first.
   - **How it knows you wrote.** From the turn metadata Codex 0.172 sends with
     each call (`x-codex-turn-metadata.turn_trigger`). It never reads what you
     wrote.

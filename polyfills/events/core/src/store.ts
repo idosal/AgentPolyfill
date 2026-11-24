@@ -24,24 +24,44 @@ export function projectKey(projectDir: string): string {
     return createHash('sha256').update(resolve(projectDir)).digest('hex').slice(0, 16);
 }
 
+/** Writes all of `data`: a write may take less than it was given, and what is left is written until all of it is. */
+function writeAll(fd: number, data: string): void {
+    const bytes = Buffer.from(data, 'utf8');
+    for (let at = 0; at < bytes.length; ) {
+        const n = writeSync(fd, bytes, at, bytes.length - at);
+        if (n <= 0) throw new Error('a write took none of what it was given');
+        at += n;
+    }
+}
+
 /**
  * Replaces a state file whole. The new content is flushed before it takes the old one's place, so
  * that a crash or a power cut leaves the old file or the new one: never an empty one, which would
  * read as no watches at all. (The folder is not flushed after the rename: if the rename is what is
  * lost, the old file is what comes back, and a starting helper recovers what it lacks from the
  * spools. Flushing the folder too cost a third of the event rate, measured: docs/performance.md.)
+ * It throws if any of that fails, and leaves no `<file>.<pid>.tmp` behind.
  */
-function writeAtomic(file: string, data: string): void {
+export function writeAtomic(file: string, data: string): void {
     const tmp = `${file}.${process.pid}.tmp`;
-    const fd = openSync(tmp, 'w', 0o600);
     try {
-        writeSync(fd, data);
-        fsyncSync(fd);
-    } finally {
-        closeSync(fd);
+        const fd = openSync(tmp, 'w', 0o600);
+        try {
+            writeAll(fd, data);
+            fsyncSync(fd);
+        } finally {
+            closeSync(fd);
+        }
+        chmodSync(tmp, 0o600);
+        renameSync(tmp, file);
+    } catch (e) {
+        try {
+            unlinkSync(tmp);
+        } catch {
+            // not there
+        }
+        throw e;
     }
-    chmodSync(tmp, 0o600);
-    renameSync(tmp, file);
 }
 
 /** How many sessions a project keeps listed as possibly holding events not yet handed over. */
@@ -303,7 +323,8 @@ export function pruneSessions(base: string, keep: string, maxAgeMs = 14 * 24 * 6
         try {
             const newest = Math.max(...SESSION_FILES.map((f) => statSync(join(dir, f), { throwIfNoEntry: false })?.mtimeMs ?? 0), statSync(dir).mtimeMs);
             if (now - newest < maxAgeMs) continue;
-            for (const f of SESSION_FILES) {
+            // A wakes.json save cut short (writeAtomic's <file>.<pid>.tmp) goes too: left, it would keep the folder.
+            for (const f of [...SESSION_FILES, ...readdirSync(dir).filter((n) => /^wakes\.json\.\d+\.tmp$/.test(n))]) {
                 try {
                     unlinkSync(join(dir, f));
                 } catch {
@@ -353,9 +374,14 @@ export class Spool {
         // Opened for appending: this creates the file if it is not there and never empties one that is
         // (the monitor and the server both do this at startup, in either order).
         appendFileSync(this.file, '', { mode: 0o600 });
-        const text = readFileSync(this.file, 'utf8');
-        this.#seq = text.split('\n').filter(Boolean).length;
-        this.#bytes = Buffer.byteLength(text);
+        this.#count();
+    }
+
+    /** How many records the file holds, and how many bytes: what the next id and the size cap go by. */
+    #count(): void {
+        const raw = readFileSync(this.file);
+        this.#seq = raw.toString('utf8').split('\n').filter(Boolean).length;
+        this.#bytes = raw.length;
     }
 
     /** Appends synchronously, so a webhook is acknowledged only once its event is on disk. */
@@ -365,17 +391,22 @@ export class Spool {
 
     /** Appends several records in one write and one flush: all of them are on disk, or none was taken. */
     appendMany(recs: (Omit<SpoolRecord, 'id' | 'receivedAt'> & { receivedAt?: string })[]): SpoolRecord[] {
-        const full: SpoolRecord[] = recs.map((rec, i) => ({ id: `e${this.#seq + 1 + i}`, receivedAt: new Date().toISOString(), ...rec }));
-        const text = full.map((r) => JSON.stringify(r) + '\n').join('');
-        const bytes = Buffer.byteLength(text);
-        // One session's events take at most this much disk. Past it nothing more is taken (so nothing
-        // more is acknowledged), until a new session starts.
-        // A notice (a watch stopping, say) still fits in a small reserve, so the reason can be told.
-        if (this.#bytes + bytes > MAX_SPOOL_BYTES + (full.every((r) => r.kind === 'notice') ? NOTICE_RESERVE_BYTES : 0)) throw new LocalError('this session\'s event store is full; events wait at their source until a new session starts');
-        // Written and flushed: an event is acknowledged to its sender only after this.
         const fd = openSync(this.file, 'a', 0o600);
+        let full: SpoolRecord[];
+        let bytes: number;
         try {
-            writeSync(fd, text);
+            // Another process appended since this one counted (a Codex session open in two windows, this
+            // one taking over the watches from the other): counted again, so that no id is given twice.
+            if (fstatSync(fd).size !== this.#bytes) this.#count();
+            full = recs.map((rec, i) => ({ id: `e${this.#seq + 1 + i}`, receivedAt: new Date().toISOString(), ...rec }));
+            const text = full.map((r) => JSON.stringify(r) + '\n').join('');
+            bytes = Buffer.byteLength(text);
+            // One session's events take at most this much disk. Past it nothing more is taken (so nothing
+            // more is acknowledged), until a new session starts.
+            // A notice (a watch stopping, say) still fits in a small reserve, so the reason can be told.
+            if (this.#bytes + bytes > MAX_SPOOL_BYTES + (full.every((r) => r.kind === 'notice') ? NOTICE_RESERVE_BYTES : 0)) throw new LocalError('this session\'s event store is full; events wait at their source until a new session starts');
+            // Written and flushed: an event is acknowledged to its sender only after this.
+            writeAll(fd, text);
             fsyncSync(fd);
         } finally {
             closeSync(fd);
