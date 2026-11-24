@@ -83,7 +83,8 @@ why the mod says so each time. What keeps it from being more than that:
 - MCP servers hosted on Cloudflare Workers all reach the relay from one
   address (Cloudflare sets `CF-Connecting-IP` to `2a06:98c0:3600::103` for a
   Worker's request to another Cloudflare site), so their delivery requests are
-  counted per mailbox instead, 3,000 a minute to one mailbox. Junk a Worker
+  counted per mailbox instead, 2,000 a minute to one mailbox (a little more
+  than its 16 addresses can take at 120 a minute each). Junk a Worker
   sends to made-up addresses spends only the buckets of the mailboxes it names,
   never another's. Each webhook address's own allowance still applies. This
   comes from Cloudflare's documentation; it was not tested here.
