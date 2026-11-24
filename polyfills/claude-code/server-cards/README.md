@@ -2,7 +2,7 @@
 
 A Claude Code mod that lets Claude find the MCP servers a domain publishes, and connect Claude Code to one. Name a company, and Claude reads that domain's catalog, fetches each Server Card it lists, checks the card against the schema, and shows you what it found. Under the result there is a list of the servers you can add, each with an **Add** button.
 
-> What MCP servers does neon.tech publish?
+> What MCP servers does neon.com publish?
 
 Press **Add**, and the server goes into Claude Code's own MCP configuration, as if you had typed `claude mcp add`. Claude Code then connects it with its own sign-in. Nothing is installed besides that configuration entry, and the polyfill never sees a token.
 
@@ -57,11 +57,11 @@ claude --plugin-dir MCPolyfill/polyfills/claude-code/server-cards/mod
 
 ## Try it
 
-Ask Claude "What MCP servers does neon.tech publish?", then press **Add** on **Neon Docs**: it needs no account. To remove it again: `claude mcp remove neon-docs -s local`.
+Ask Claude "What MCP servers does neon.com publish?", then press **Add** on **Neon Docs**: it needs no account. To remove it again: `claude mcp remove neon-docs -s local`.
 
 ## Using it, step by step
 
-1. **Ask.** For example "connect Claude Code to Buildkite", "what MCP servers does neon.tech publish?", or, with ARD on, "find an MCP server that can check why my CI build failed".
+1. **Ask.** For example "connect Claude Code to Buildkite", "what MCP servers does neon.com publish?", or, with ARD on, "find an MCP server that can check why my CI build failed".
 2. **Claude Code asks before the first lookup.** The first call to `discover_mcp_servers` or `search_mcp_servers` gets Claude Code's usual permission prompt, as any new tool does. If you say no, nothing is fetched.
 3. **Claude shows what it found:** each server's card, whether the card is valid, and, for a search result, whether the publisher's own domain confirms the server. A refused card says why; nothing refused can be added.
 4. **Pick one.** Under the result, a box lists the servers you can add. Each shows its name, the URL it connects to, and who stands behind it, with an **Add** button.
@@ -72,6 +72,18 @@ Ask Claude "What MCP servers does neon.tech publish?", then press **Add** on **N
 7. **If the card asks for a secret** (an API key, say), the polyfill never asks you for it and never shows it to Claude.
    - The configuration holds a reference such as `${MCP_EXAMPLE__TOKEN_16WJ1KP}`, and Claude tells you its name. Set that environment variable and restart Claude Code.
    - The tag at the end ties the name to this one card, so no other card can be given a reference to it.
+
+### A domain that redirects
+
+Some domains answer with a redirect to another domain: `neon.tech` sends `/.well-known/ai-catalog.json`, and every other path, to `neon.com`.
+- Claude Code's fetch follows redirects without saying where they led. So the polyfill can't tell, and it shows the catalog under the domain you asked for: for `neon.tech`, "listed in https://neon.tech/.well-known/ai-catalog.json" and "published by neon.tech", though `neon.com` served it.
+- The card URLs inside are shown as the catalog wrote them (here, on `neon.com`).
+- To see the origin that really serves a catalog, ask for the domain the company uses itself (`neon.com`).
+
+This is within the spec:
+- SEP-2127 and its discovery doc say nothing about following redirects for a catalog or a card, and a catalog "MAY reference Server Cards on different domains".
+- Their one same-origin rule is for `extensionsInfo` used in a security decision: such information must come from a card fetched from the remote's own origin, with no cross-origin redirect (rule S-4). The polyfill never uses `extensionsInfo`, so no redirect can feed a decision.
+- A redirect to a local or private address is a different matter: it is not caught (see [Limits](#limits-and-the-host-changes-that-would-remove-them)).
 
 ### Settings
 
@@ -119,8 +131,8 @@ There is one row for each rule the specs put on a client, and the test that cove
 | S-1 | HTTPS for cards; plain HTTP only for local development | discovery.md, Transport Security | S-1, T-1, A-7 | met |
 | S-2 | Never treat a card as authoritative for security or access-control decisions | discovery.md (MUST NOT) | by design: a card only fills in `claude mcp add`; every permission and sign-in decision stays with Claude Code | met |
 | S-3 | Check the card's claims against the live connection, preferring the runtime values | discovery.md (SHOULD) | none | **not met**: see [Limits](#limits-and-the-host-changes-that-would-remove-them) |
-| S-4 | Use `extensionsInfo` for a security decision only from a same-origin HTTPS card with no cross-origin redirect | discovery.md (MUST) | n/a | not applicable: `extensionsInfo` is never used |
-| S-5 | Don't infer extension support from `extensionsInfo` | discovery.md (MUST NOT) | n/a | not applicable: never read |
+| S-4 | "Extension information that a client relies on for a security decision … MUST only be used when the Server Card was retrieved over HTTPS from the same origin as that remote's `url` …, without following a redirect to another origin" | discovery.md, Consistency with Runtime Behavior (MUST) | S-4 | met by never using it: `extensionsInfo` is not read, shown or acted on. This is the only same-origin or redirect rule in SEP-2127 and its discovery doc; see [A domain that redirects](#a-domain-that-redirects) |
+| S-5 | Don't infer extension support from `extensionsInfo` | discovery.md (MUST NOT) | S-4 | met: never read |
 | S-6 | Cards and catalogs MUST NOT carry credentials or private endpoints | discovery.md, Information Disclosure (a MUST on publishers) | A-12, A-13, P-1, P-4 | met on the client side: a card that pre-sets a secret, or a public card or catalog that names a local or private address, is refused |
 | I-1 | Inputs: a pre-set `value` can't be changed; `choices` limit the value; `default` fills an unset one; required inputs are asked for | schema.ts, `Input` | A-2, A-4, A-6 | met |
 | I-2 | Handle `isSecret` values securely | schema.ts, `Input` | A-3, A-10, A-15, A-17, A-18, F-2 | met. A secret is never taken from Claude or printed. The configuration holds a `${ENV_VAR}` reference named for this card alone. A secret may not stand in the URL's host |
@@ -163,7 +175,7 @@ Claude Code has no Server Card support to detect yet. When it ships, turn on the
 
 ## Proof
 
-- **Per rule:** 85 tests, run with `claude plugin test mod`.
+- **Per rule:** 86 tests, run with `claude plugin test mod`.
   - They cover the official example cards (`examples/ServerCard`, valid and invalid) and fixtures of my own for edge cases.
   - Eight of them (B-1 to B-5, U-1 to U-3) run through the plugin as Claude Code loads it, with the engine's network, `claude mcp add` and connect stood in for.
   - The picker is drawn on the terminal, desktop, VS Code and mobile surfaces, and a press of **Add** is followed to the exact `claude mcp add` it runs.
@@ -174,7 +186,7 @@ Claude Code has no Server Card support to detect yet. When it ships, turn on the
   - Snapshots are in [`mod/tests/fixtures.ts`](mod/tests/fixtures.ts).
 - **A registry someone else runs:** Hugging Face Discover, including its referral.
 - **The real host (Claude Code 2.1.329 CLI, 2.1.330 engine):**
-  - `discover_mcp_servers` returned the cards for buildkite.com, huggingface.co and neon.tech.
+  - `discover_mcp_servers` returned the cards for buildkite.com, huggingface.co, neon.com, and neon.tech (which redirects to neon.com).
   - `search_mcp_servers` against the demo registry returned Buildkite, confirmed by `buildkite.com/.well-known/ard.json`.
   - A subagent's WebFetch of a Buildkite docs page set off discovery of buildkite.com.
 - **Not yet run in the real host:** adding a server end to end, by `add_mcp_server` or by the picker's **Add**. Claude Code's auto-mode permission check stopped the tool call, as it should for a configuration change. A person pressing **Add**, or approving the call, is the run still to record.
@@ -184,7 +196,7 @@ Claude Code has no Server Card support to detect yet. When it ships, turn on the
 
 - **The card is not compared with the live server** (rule S-3). With changes 1 and 2 of [What a host needs to expose](../../../docs/host-changes.md), the polyfill would send `server/discover` over Claude Code's connection and compare the name, version and protocol revisions.
 - **Claude Code's protocol revisions are listed by hand:** 2026-07-28 back to 2024-11-05, from its docs. Change 2 would let the polyfill read the negotiated revision instead.
-- **Redirects and DNS aren't visible.** Claude Code's `$.http.fetch` follows redirects without saying where they led, and resolves names itself. A private address named directly is refused. But a public URL that redirects to one, or a public name that resolves to one, is not caught. A host API that reports redirects and the resolved address, or refuses private ones, would close this.
+- **Redirects and DNS aren't visible.** Claude Code's `$.http.fetch` follows redirects without saying where they led, and resolves names itself. A catalog reached through a redirect is therefore shown under the domain asked for ([A domain that redirects](#a-domain-that-redirects)). A private address named directly is refused. But a public URL that redirects to one, or a public name that resolves to one, is not caught. A host API that reports redirects and the resolved address, or refuses private ones, would close this.
 - **A secret needs a restart:** you set the environment variable, then restart. No host change is needed; this is how Claude Code reads `${VAR}`.
 - **Whether a server added mid-session connects without a restart** depends on Claude Code picking up `claude mcp add`. If it doesn't, Claude says so; `/mcp` or a restart connects it.
 

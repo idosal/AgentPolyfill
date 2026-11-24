@@ -51,6 +51,7 @@ Query text is not stored. Search results and the picker's list are kept for the 
 ## What it does not protect against
 
 - **A public name that resolves to a private address, or a redirect to one.** Claude Code's `$.http.fetch` resolves names and follows redirects without reporting either, so only addresses named directly are refused.
+- **Knowing where a redirect led.** A catalog fetched through a redirect is shown under the domain asked for (`neon.tech` for what `neon.com` served). SEP-2127 permits following it. Its one same-origin rule is for `extensionsInfo` used in a security decision, and this mod never reads `extensionsInfo`, so no redirect feeds a decision. See [A domain that redirects](README.md#a-domain-that-redirects).
 - **A publisher's own bad server.** A valid card from the real publisher can still point at a server that misbehaves once connected. What that server can then do is up to Claude Code's permissions for MCP tools, as for any server you add.
 - **An unconfirmed search result you add anyway.** The mod says plainly when a server's publisher does not confirm it. Adding it is your call.
 - **The card's claims about the live server.** They are not checked against the connection (SEP-2127's SHOULD), because a mod can't send `server/discover` over Claude Code's connection.
