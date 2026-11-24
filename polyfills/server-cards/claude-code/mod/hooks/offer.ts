@@ -12,7 +12,7 @@
 //   with a valid card, and then the publisher's card is the one shown and
 //   added. A finder's ranking or description is shown as the finder's.
 
-import { CARD_TYPE, hasMarkup, type Remote, type ServerCard } from './card'
+import { CARD_TYPE, hasMarkup, hasUserinfo, type Remote, type ServerCard } from './card'
 import { discover, isAllowedUrl, isPrivateHost, mayFollow, readCard, type Deps, type DiscoverOptions } from './discover'
 import { cachedGet } from './http'
 
@@ -128,6 +128,10 @@ export const readOffered = async (
       problems.push('an entry whose "listedIn" holds `, <, > or a square bracket was skipped')
       continue
     }
+    if (hasUserinfo(r.listedIn)) {
+      problems.push('an entry whose "listedIn" names a user before its host (an "@") was skipped')
+      continue
+    }
     if (seen.has(r.identifier)) continue
     seen.add(r.identifier)
     const fromLocal = isPrivateHost(hostOf(r.listedIn) || 'x')
@@ -157,6 +161,7 @@ export const readOffered = async (
       else if (!isAllowedUrl(u)) o.errors = [`${u.href}: Server Cards must be served over HTTPS`]
       else if (!mayFollow(u, fromLocal)) o.errors = [`${u.href}: a public source may not point at a local or private address`]
       else if (hasMarkup(u.href)) o.errors = ['the card URL holds `, <, > or a square bracket outside an IPv6 host, which could show as something else']
+      else if (hasUserinfo(u.href)) o.errors = ['the card URL names a user before its host (an "@"), so it would show one host and connect to another']
       else {
         o.cardUrl = u.href
         o.isLocal = fromLocal && isPrivateHost(u.hostname)

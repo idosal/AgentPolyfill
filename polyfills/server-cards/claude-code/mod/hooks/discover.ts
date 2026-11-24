@@ -12,7 +12,7 @@
 // domain (DiscoverOptions, through present_server_cards): the ARD plugin names
 // /.well-known/ard.json and rel="ard". Nothing here knows those names.
 
-import { CARD_TYPE, hasMarkup, type ServerCard, validateCard } from './card'
+import { CARD_TYPE, hasMarkup, hasUserinfo, type ServerCard, validateCard } from './card'
 import { byteLength, cachedGet, type Fetch, type Store } from './http'
 
 export const CATALOG_TYPE = 'application/ai-catalog+json'
@@ -381,6 +381,7 @@ export const discover = async (
           else if (!isAllowedUrl(u)) found.errors = [`${u.href}: Server Cards must be served over HTTPS`]
           else if (!mayFollow(u, catalogIsLocal)) found.errors = [`${u.href}: a public catalog may not point at a local or private address`]
           else if (hasMarkup(u.href)) found.errors = ['the card URL holds `, <, > or a square bracket outside an IPv6 host, which could show as something else']
+          else if (hasUserinfo(u.href)) found.errors = ['the card URL names a user before its host (an "@"), so it would show one host and connect to another']
           else {
             found.cardUrl = found.cardFrom = u.href
             found.isLocal = catalogIsLocal && isPrivateHost(u.hostname)
@@ -406,7 +407,7 @@ export const discover = async (
         // §5.3: the entry's url is the registry's base URL, resolved here
         // against the catalog that lists it.
         const u = typeof entry.url === 'string' ? resolve(entry.url, catalogUrl.split('#')[0]!) : undefined
-        const usable = !!u && mayFollow(u, catalogIsLocal) && !hasMarkup(u.href)
+        const usable = !!u && mayFollow(u, catalogIsLocal) && !hasMarkup(u.href) && !hasUserinfo(u.href)
         if (typeof entry.url === 'string' && !usable)
           result.problems.push(`${catalogUrl}: registry ${id} has no plain HTTPS URL on a public host`)
         result.registries.push({

@@ -148,3 +148,15 @@ test('O-9 a finder\'s card URL or "listedIn" with markup is not used (security r
   expect(r.problems.some(p => p.includes('"listedIn"'))).toBe(true)
   expect(calls.length).toBe(0)
 })
+
+test('O-10 a finder\'s card URL or "listedIn" that names a user before its host is not used (security review C3)', async () => {
+  const { deps, calls } = web({})
+  const r = await readOffered(deps, [
+    entry('urn:air:a.example:mcp:a', 'https://good.example@cards.example/a'),
+    entry('urn:air:b.example:mcp:b', 'https://cards.example/b', { listedIn: 'https://good.example@r.example/search' }),
+  ])
+  expect(r.offered.length).toBe(1)
+  expect(r.offered[0]!.errors[0]!.includes('names a user before its host')).toBe(true)
+  expect(r.problems.some(p => p.includes('"listedIn" names a user'))).toBe(true)
+  expect(calls.length).toBe(0)
+})

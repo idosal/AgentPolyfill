@@ -490,3 +490,19 @@ test('P-6 a catalog\'s card or registry URL with markup is not used (security re
   expect(d.registries[0]!.url).toBe(undefined)
   expect(calls.some(c => c.url.startsWith('https://cards.example/'))).toBe(false)
 })
+
+test('P-7 a catalog\'s card or registry URL that names a user before its host is not used (security review C3)', async () => {
+  const { deps, calls } = web({
+    'https://example.com/.well-known/ai-catalog.json': {
+      body: catalog([
+        entry('at', 'https://good.example@cards.example/card'),
+        { identifier: 'reg', type: 'application/ai-registry+json', url: 'https://good.example@reg.example/' },
+      ]),
+    },
+  })
+  const d = await discover(deps, 'example.com')
+  if ('error' in d) throw new Error(d.error)
+  expect(d.servers[0]!.errors[0]!.includes('names a user before its host')).toBe(true)
+  expect(d.registries[0]!.url).toBe(undefined)
+  expect(calls.some(c => c.url.includes('cards.example'))).toBe(false)
+})
