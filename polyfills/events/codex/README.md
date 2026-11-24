@@ -344,12 +344,15 @@ The changes both hosts would need are in
   `.codex/config.toml`, and those other plugins bring, aren't read.
 - **A second connection.** The helper opens its own connection to each server
   that offers events, so a local (stdio) server runs twice.
-- **After a crash, an event can be announced twice, or not at all.** From a
-  server, an event stored just before a crash can come again and be stored
-  twice. To Codex, stored events are handed over at most once: if the plugin
-  stops while `codex queue` runs, or `codex queue` doesn't answer within a
-  minute, they count as announced, and may not have been. Either way they're
-  stored, and `recent_events` lists them.
+- **After a crash or a hung `codex queue`, an event can be announced twice,
+  or not at all.** From a server, an event stored just before a crash can come
+  again and be stored twice. To Codex, stored events are handed over at most
+  once: if the plugin stops while `codex queue` runs, or `codex queue` doesn't
+  answer within a minute, they count as announced, and may not have been. The
+  exception is a session open in two windows: if the window that runs the
+  watches ends while `codex queue` runs, the other window, or the next helper,
+  can hand those events over again. Either way they're stored, and
+  `recent_events` lists them.
 - **Sizes.** One event is at most 256 KiB, one answer from a remote server
   4 MiB, and one session's stored events 64 MiB.
 - **Managed machines.** Where your organisation manages Codex's MCP servers,
@@ -413,7 +416,10 @@ servers that advertise events in the form from before the standard
   Then the same session is resumed and woken again.
 - **Formal model.** The wake rules (only the person's own turn lifts the
   pause, the pause lifting after its hour, a chat `codex queue` can't reach)
-  are model-checked with TLC and Quint, by reading this code:
+  are model-checked with TLC, and simulated with Quint, by reading this code.
+  From 0.1.3 that includes the hand-over rule: each hand-over is recorded
+  before `codex queue` runs, and counted once. The model covers one session,
+  one watch and one helper process at a time:
   [`../claude-code/model/README.md`](../claude-code/model/README.md#wakecodexqnt-how-often-events-wake-a-codex-session).
 
 ## Development
