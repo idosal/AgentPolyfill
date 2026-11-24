@@ -141,6 +141,24 @@ base revision 2026-07-28 and adds one client rule:
 |---|---|---|---|
 | C3 | Every request MUST include the required request metadata in `params._meta`. | met | On a 2026-07-28 connection the MCP SDK adds it; `rules` C3 reads it off the wire for all four methods. It is a rule of that base revision, so it is not counted in the summary above |
 
+## Features a client can have, and which this one has
+
+| Feature (SEP-2640) | Here | If not, why |
+|---|---|---|
+| Listing with `skills/list`, every page | yes | |
+| Loading a skill by its URI alone, through `skills/get` (listed or not, from server instructions, the user, another skill) | yes | |
+| Verified reads of `SKILL.md` and supporting files (size, digest, frontmatter) | yes | |
+| Directory listing with `resources/directory/read` where declared | yes | |
+| `"dynamic"` skills | yes, asked about at every load | |
+| Nested skills, each activated on its own approval | yes | |
+| Freshness hints (`ttlMs`, `cacheScope`) | yes | |
+| Origin shown to the model and the person; inspection before loading | yes | |
+| Per-skill approval bound to content | yes | |
+| A cache of verified files | in memory, for the session | A disk cache brings X15's duties; not built (V8) |
+| Per-skill enable and disable in the host's list (*guideline*) | no | Feasible as a mod; not built |
+| Skills of servers behind an OAuth sign-in, claude.ai connectors and plugins' servers | no | Claude Code gives a mod no way to send `skills/*` over its own connection, nor the server's capabilities ([host-changes.md](host-changes.md), changes 1 and 2) |
+| A served skill as a `/name` command | no | Left out so that no served skill can stand in for a local one by name (N4); `/mcp-skills use <name>` instead |
+
 ## Where the stricter reading was taken
 
 1. **`resources` capability.** A declaring server "MUST also declare the
