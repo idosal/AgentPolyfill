@@ -13,6 +13,7 @@
 
 import { UNSAFE_TEXT, type Input, type Remote, type ServerCard } from './card'
 import { isAllowedUrl, isPrivateHost } from './discover'
+import { base32, sha256 } from './sha256'
 
 /**
  * Protocol revisions Claude Code 2.1.329 can negotiate: 2026-07-28 on its v2
@@ -73,17 +74,18 @@ const BAD_VALUE = UNSAFE_TEXT
 const URL_VALUE = /^[A-Za-z0-9._~-]+$/
 const VAR = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g
 
-/** FNV-1a, 32 bits, base 36: a short tag that ties a secret's name to one card. */
-const tag = (s: string) => {
-  let h = 0x811c9dc5
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193)
-  return (h >>> 0).toString(36).toUpperCase().padStart(7, '0')
-}
+/**
+ * 80 bits of SHA-256 over the card's name and the remote's URL, in base32: a tag
+ * that ties a secret's name to one card. Both inputs are the card author's to
+ * choose, so the tag has to resist a second preimage (security review SC3: a
+ * 32-bit FNV tag was matched in a minute).
+ */
+export const tag = (s: string) => base32(sha256(s), 80)
 
 /**
- * MCP_<SERVER>__<INPUT>_<TAG>: the tag is drawn from the card's name and the
- * remote's URL, so another card, even one added under the same server name,
- * never gets a reference to this one's secret.
+ * MCP_<SERVER>__<INPUT>_<TAG>: another card, even one added under the same
+ * server name, never gets a reference to this one's secret; only a card with
+ * the same name and the same URL, which sends it to the same server, does.
  */
 const envName = (server: string, input: string, card: ServerCard, remote: Remote) =>
   `MCP_${server.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}__${input.toUpperCase().replace(/[^A-Z0-9]+/g, '_')}_${tag(`${card.name}\n${remote.url}`)}`
@@ -174,7 +176,7 @@ export const planAdd = (
     if (v === undefined) return whole
     if (!input.isSecret) {
       if (at === 0) {
-        if (!/^https?:\/\/[^\s]+$/.test(v)) problems.push(`{${key}} must be a URL`)
+        if (!/^https?:\/\/[\x21-\x7e]+$/.test(v)) problems.push(`{${key}} must be a URL`)
       } else if (!URL_VALUE.test(v) || /^\.+$/.test(v))
         problems.push(`{${key}} may hold only letters, digits and . _ ~ - (and not be "." or "..")`)
     }

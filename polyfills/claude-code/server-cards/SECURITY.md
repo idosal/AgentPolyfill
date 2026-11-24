@@ -31,9 +31,11 @@ Every fetch is bounded: at most 512 KiB per answer, 20 cards, 3 page links, 3 re
 - Values Claude gives are held to the same rule.
 - Everything shown (the picker, tool results, notices, toasts) also passes a plain-text filter.
 
-**What reaches the model.** A card's fields, and a registry's names and descriptions. Each is labelled with whose claim it is, with control characters removed and lengths capped. A refused card shows only why it was refused. A secret's default value is never shown.
+**What reaches the model.** A card's fields, and a registry's names and descriptions, as tool results: with the URL each came from, control characters and invisible marks removed, and each field capped in length. A refused card shows only why it was refused. A secret's default value is never shown.
 
 **What it writes.** Only your MCP configuration, through `claude mcp add`, for one server at a time.
+- **Who decides:** you. Either you press **Add**, or Claude asks and Claude Code puts the question to you. The polyfill makes that question itself, so no allow rule or auto mode answers it. It names the server, URL, headers, scope and how to undo it. With nobody to ask, the addition is refused.
+- **Never over a server you have:** a name taken in any scope is not reused. Claude's add is refused; the picker uses the next free name (`github-2`) and says so.
 - **Which server:** only a card a tool showed in this session.
 - **Which URL:** when Claude adds it, only if the URL in Claude Code's approval prompt is the one the card gives. When you press **Add**, it is the URL shown beside the button.
 - **Remotes:** a card from a public source may not name a private address.
@@ -41,7 +43,7 @@ Every fetch is bounded: at most 512 KiB per answer, 20 cards, 3 page links, 3 re
 - **Headers:** header names and values are checked for line breaks.
 
 **Secrets.** A secret the card asks for never passes through Claude, the command line or the mod's store.
-- The configuration holds a reference, `${MCP_<SERVER>__<INPUT>_<TAG>}`, for you to set. The tag is drawn from the card's name and endpoint, so no other card can be given a reference to it.
+- The configuration holds a reference, `${MCP_<SERVER>__<INPUT>_<TAG>}`, for you to set. The tag is 80 bits of SHA-256 over the card's name and endpoint. So no other card can be given a reference to it: only the same card, which sends it to the same server. (An earlier 32-bit tag could be matched in about a minute; that is fixed.)
 - Claude Code expands `${VAR}` in a server's URL and headers. So no text from a card or from Claude may contain `$`, and only the mod's own references carry one. Otherwise a card could aim that expansion at another secret in your environment.
 - A secret may not stand in the host part of a URL.
 - A card that sets a secret's value itself is refused: cards MUST NOT carry credentials.
@@ -61,6 +63,10 @@ Query text is not stored. Search results and the picker's list are kept for the 
 - **A publisher's own bad server.** A valid card from the real publisher can still point at a server that misbehaves once connected. What that server can then do is up to Claude Code's permissions for MCP tools, as for any server you add.
 - **An unconfirmed search result you add anyway.** The mod says plainly when a server's publisher does not confirm it. Adding it is your call.
 - **The card's claims about the live server.** They are not checked against the connection (SEP-2127's SHOULD), because a mod can't send `server/discover` over Claude Code's connection.
+
+## Undoing an addition
+
+`claude mcp remove <name> -s local` (or `-s project`, `-s user`); every addition's result gives the exact line. The `project` scope writes `.mcp.json`, which is shared with everyone who uses the repository.
 
 ## Reporting
 

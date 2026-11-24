@@ -76,7 +76,7 @@ export const formatDiscovery = (d: Discovery) => {
   const valid = d.servers.filter(s => s.card)
   lines.push('')
   lines.push(
-    `MCP servers listed: ${d.servers.length} (${valid.length} with a valid Server Card). The fields below are the publisher's claims, read before connecting; Claude Code checks the real server when it connects.`,
+    `MCP servers listed: ${d.servers.length} (${valid.length} with a valid Server Card). Server Cards are advisory (SEP-2127): Claude Code checks the real server when it connects.`,
   )
   d.servers.forEach((s, i) => lines.push(formatServer(s, i + 1)))
   if (d.registries.length)
