@@ -218,7 +218,7 @@ async fn route(helper: &Arc<Helper>, path: &str, input: Value) -> Option<Result<
                 // made ready for it (see Views::keep_spare).
                 if let Some(theme) = input["theme"].as_str() {
                     let server = input["server"].as_str().unwrap_or("");
-                    let local_network = helper.mcp.server_url(server).as_deref().is_none_or(crate::policy::local_server);
+                    let local_network = helper.mcp.local_network(server);
                     crate::views::Views::keep_spare(helper, crate::policy::theme_name(theme), crate::terminal::image_capable(), local_network);
                 }
                 // Given the tool, its UI resource is read ahead (and kept, as
