@@ -179,7 +179,11 @@ async fn connect(config: &Value, cwd: &PathBuf) -> Result<RunningService<RoleCli
             let url = url.ok_or_else(|| anyhow!("an http server needs a url"))?;
             let mut transport_config = StreamableHttpClientTransportConfig::with_uri(url);
             transport_config.custom_headers = headers(config).into_iter().filter_map(|(k, v)| Some((k?, v))).collect();
-            let transport = StreamableHttpClientTransport::with_client(reqwest::Client::new(), transport_config);
+            // rmcp's own client follows a redirect only within the server's
+            // origin, and only a 307 or 308: one to another host would carry
+            // the server's headers there, outside the browser's protections
+            // (security review, A3).
+            let transport = StreamableHttpClientTransport::from_config(transport_config);
             Ok(client_info().serve(transport).await?)
         }
         "sse" => {
@@ -211,5 +215,127 @@ async fn connect(config: &Value, cwd: &PathBuf) -> Result<RunningService<RoleCli
             let (transport, _stderr) = TokioChildProcess::builder(command).stderr(std::process::Stdio::null()).spawn()?;
             Ok(client_info().serve(transport).await?)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::sync::Mutex as StdMutex;
+    use std::time::Duration;
+    use tokio::io::AsyncWriteExt;
+
+    type Heads = Arc<StdMutex<Vec<String>>>;
+
+    /// A local server: each request's head is kept (its body read and
+    /// dropped), and `answer` gives the response to its request line.
+    fn serve(answer: impl Fn(&str) -> String + Send + 'static) -> (String, Heads) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        let heads: Heads = Arc::new(StdMutex::new(Vec::new()));
+        let seen = heads.clone();
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let mut stream = stream;
+                let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+                let mut head = Vec::new();
+                let mut byte = [0u8; 1];
+                while !head.ends_with(b"\r\n\r\n") && stream.read(&mut byte).is_ok_and(|n| n == 1) {
+                    head.push(byte[0]);
+                }
+                let head = String::from_utf8_lossy(&head).to_string();
+                let length = head
+                    .lines()
+                    .find_map(|l| l.to_ascii_lowercase().strip_prefix("content-length:").map(|v| v.trim().parse::<usize>().unwrap_or(0)))
+                    .unwrap_or(0);
+                let mut body = vec![0u8; length];
+                let _ = stream.read_exact(&mut body);
+                seen.lock().unwrap().push(head.clone());
+                let _ = stream.write_all(answer(head.lines().next().unwrap_or("")).as_bytes());
+            }
+        });
+        (origin, heads)
+    }
+
+    fn redirect(status: u16, to: &str) -> String {
+        format!("HTTP/1.1 {status} Redirect\r\nlocation: {to}\r\ncontent-length: 0\r\nconnection: close\r\n\r\n")
+    }
+
+    const FAIL: &str = "HTTP/1.1 500 Internal Server Error\r\ncontent-length: 0\r\nconnection: close\r\n\r\n";
+    const KEY: &str = "synthetic-key-3e1";
+
+    fn key_header() -> http::HeaderMap {
+        let mut headers = http::HeaderMap::new();
+        headers.insert("x-api-key", http::HeaderValue::from_static(KEY));
+        headers
+    }
+
+    fn sent(heads: &Heads) -> Vec<String> {
+        heads.lock().unwrap().clone()
+    }
+
+    // The security review's A3: a server that answers with a redirect to
+    // another origin (127.0.0.1 here, a LAN address or another site there)
+    // gets nothing sent there, its headers least of all.
+    #[tokio::test]
+    async fn streamable_http_follows_no_redirect_to_another_origin() {
+        let cwd = std::env::temp_dir();
+        for status in [307u16, 308] {
+            let (other, elsewhere) = serve(|_| FAIL.to_string());
+            let target = format!("{other}/mcp");
+            let (origin, _) = serve(move |_| redirect(status, &target));
+            let config = json!({"type": "http", "url": format!("{origin}/mcp"), "headers": {"x-api-key": KEY}});
+            let connected = tokio::time::timeout(Duration::from_secs(20), connect(&config, &cwd)).await;
+            assert!(!matches!(connected, Ok(Ok(_))), "{status}: connected through a redirect");
+            assert!(sent(&elsewhere).is_empty(), "{status}: the other origin was sent {:?}", sent(&elsewhere));
+        }
+        // Within the server's own origin a 307 is followed, its headers with it.
+        let (origin, heads) = serve(|line| if line.contains("/mcp2") { FAIL.to_string() } else { redirect(307, "/mcp2") });
+        let config = json!({"type": "http", "url": format!("{origin}/mcp"), "headers": {"x-api-key": KEY}});
+        let _ = tokio::time::timeout(Duration::from_secs(20), connect(&config, &cwd)).await;
+        assert!(
+            sent(&heads).iter().any(|h| h.starts_with("POST /mcp2") && h.to_ascii_lowercase().contains(&format!("x-api-key: {KEY}"))),
+            "the same-origin redirect wasn't followed: {:?}",
+            sent(&heads)
+        );
+    }
+
+    #[tokio::test]
+    async fn sse_follows_no_redirect_for_its_stream_or_its_posts() {
+        for status in [307u16, 308] {
+            let (other, elsewhere) = serve(|_| FAIL.to_string());
+            let target = format!("{other}/sse");
+            let (origin, _) = serve(move |_| redirect(status, &target));
+            let opened = tokio::time::timeout(Duration::from_secs(20), crate::sse::connect(&format!("{origin}/sse"), key_header())).await;
+            assert!(!matches!(opened, Ok(Ok(_))), "{status}: the event stream opened through a redirect");
+            assert!(sent(&elsewhere).is_empty(), "{status}: the other origin was sent {:?}", sent(&elsewhere));
+        }
+        // The stream opens and names its endpoint; a message POSTed there is
+        // answered with a redirect elsewhere, which isn't followed.
+        let (other, elsewhere) = serve(|_| FAIL.to_string());
+        let target = format!("{other}/messages");
+        let (origin, heads) = serve(move |line| {
+            if line.starts_with("GET") {
+                "HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\nconnection: close\r\n\r\nevent: endpoint\ndata: /messages\n\n".to_string()
+            } else {
+                redirect(307, &target)
+            }
+        });
+        let mut stream = tokio::time::timeout(Duration::from_secs(20), crate::sse::connect(&format!("{origin}/sse"), key_header()))
+            .await
+            .expect("the event stream timed out")
+            .expect("the event stream didn't open");
+        stream.write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}\n").await.unwrap();
+        for _ in 0..200 {
+            if sent(&heads).iter().any(|h| h.starts_with("POST /messages")) {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+        assert!(sent(&heads).iter().any(|h| h.starts_with("POST /messages")), "the message was never posted: {:?}", sent(&heads));
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        assert!(sent(&elsewhere).is_empty(), "the other origin was sent {:?}", sent(&elsewhere));
     }
 }

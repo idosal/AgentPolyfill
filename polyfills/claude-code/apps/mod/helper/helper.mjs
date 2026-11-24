@@ -646,11 +646,17 @@ function sideClient(name) {
       serverScopes.set(name, scope);
       const type = kindOf(config);
       const requestInit = { headers: config.headers ?? {} };
+      // A redirect is followed only within the server's own origin (and only
+      // one that keeps the request as it is): one to another host would carry
+      // the server's headers there, outside the browser's protections
+      // (security review, A3). The default of the SDK in package-lock.json
+      // (1.32.2); said here so another version can't quietly change it.
+      const redirectPolicy = "same-origin";
       const transport =
         type === "http"
-          ? new StreamableHTTPClientTransport(new URL(config.url), { requestInit })
+          ? new StreamableHTTPClientTransport(new URL(config.url), { requestInit, redirectPolicy })
           : type === "sse"
-            ? new SSEClientTransport(new URL(config.url), { requestInit })
+            ? new SSEClientTransport(new URL(config.url), { requestInit, redirectPolicy })
             : new StdioClientTransport({
                 command: config.command,
                 args: config.args ?? [],
