@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { basename, join, sep } from 'node:path';
+import { basename, join, relative, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, test } from 'node:test';
 import { Helper, newThread, PLUGIN, ROOT, temp, world } from './harness.ts';
@@ -94,5 +94,25 @@ registerHooks({ resolve(specifier, context, next) {
     test('the third-party notices name every package the bundle holds', () => {
         const r = spawnSync(process.execPath, [join(REPO, 'tools', 'bundle-notices.mjs'), ROOT, '--plugin', 'plugin', '--check'], { encoding: 'utf8', timeout: 30000 });
         assert.equal(r.status, 0, r.stderr);
+        // cross-spawn is not a dependency of this form, but the MCP client's stdio transport, which starts
+        // the user's local servers, bundles it: its notice belongs here.
+        assert.match(readFileSync(join(PLUGIN, 'THIRD_PARTY_LICENSES.txt'), 'utf8'), /^cross-spawn@7\.0\.6 \(MIT\)$/m);
+    });
+
+    test('--check fails on a notice for a package the bundle does not hold, and on one that is missing', () => {
+        const dir = temp('mcp-events-codex-notices-');
+        try {
+            // The file's first line names the folder it is for: the copy names the copy's.
+            const current = readFileSync(join(PLUGIN, 'THIRD_PARTY_LICENSES.txt'), 'utf8').replace('bundled into plugin/dist/helper.js', `bundled into ${relative(ROOT, dir)}/dist/helper.js`);
+            const check = () => spawnSync(process.execPath, [join(REPO, 'tools', 'bundle-notices.mjs'), ROOT, '--plugin', relative(ROOT, dir), '--check'], { encoding: 'utf8', timeout: 30000 });
+            writeFileSync(join(dir, 'THIRD_PARTY_LICENSES.txt'), current);
+            assert.equal(check().status, 0, 'a copy of the committed file passes');
+            writeFileSync(join(dir, 'THIRD_PARTY_LICENSES.txt'), current.trimEnd() + '\n' + '-'.repeat(72) + '\nleft-pad@1.3.0 (WTFPL)\n\n(The package ships no licence file; its package.json names the licence above.)\n');
+            assert.equal(check().status, 1, 'a stale entry fails');
+            writeFileSync(join(dir, 'THIRD_PARTY_LICENSES.txt'), current.replace(/^-{72}\ncross-spawn@7\.0\.6 \(MIT\)\n[\s\S]*?(?=^-{72}\n)/m, ''));
+            assert.equal(check().status, 1, 'a missing entry fails');
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
     });
 });
