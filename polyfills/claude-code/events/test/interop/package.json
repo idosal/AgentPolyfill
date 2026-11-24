@@ -1,0 +1,11 @@
+{
+  "name": "mcp-events-plugin-interop",
+  "private": true,
+  "type": "module",
+  "description": "Interop check: the plugin against Mastra's MCPServer events (an independent SEP-3415 implementation).",
+  "dependencies": {
+    "@mastra/mcp": "2.10.0",
+    "@mastra/core": "^1.83.0",
+    "zod": "^4.2.0"
+  }
+}

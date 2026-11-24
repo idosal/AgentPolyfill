@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The relay: one Worker, and one SQLite Durable Object per mailbox.
+  // `npm run deploy` creates or updates all of it; `npm run setup` sets the access key.
+  "name": "mcp-events-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-19",
+  "durable_objects": {
+    "bindings": [{ "name": "MAILBOXES", "class_name": "Mailbox" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Mailbox"] }],
+  "vars": {
+    // Leave empty. "1" lets anyone who can reach this relay open a mailbox on it, with no access key.
+    "OPEN_RELAY": ""
+  },
+  // Webhook addresses are capabilities: keep request logs off.
+  "observability": { "enabled": false },
+  "send_metrics": false,
+  "workers_dev": true,
+  "preview_urls": false,
+  "dev": { "ip": "127.0.0.1", "port": 8799 }
+
+  // Secret, set with `npm run setup` (or `wrangler secret put ACCESS_KEY`), never in this file:
+  //   ACCESS_KEY   what a plugin must present to open a mailbox here
+}

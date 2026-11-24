@@ -1,0 +1,44 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // A relay anyone may use: the same Worker as wrangler.jsonc, with no access key and tighter
+  // limits. People who use it are trusting whoever deploys this with their event payloads in
+  // transit; a relay of their own (wrangler.jsonc, `npm run setup`) avoids that.
+  //
+  //   npx wrangler deploy -c wrangler.public.jsonc
+  "name": "mcp-events-public-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-19",
+  "durable_objects": {
+    "bindings": [{ "name": "MAILBOXES", "class_name": "Mailbox" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Mailbox"] }],
+  "vars": {
+    // Anyone who can reach this relay may open a mailbox on it. A mailbox still opens only with its own key.
+    "OPEN_RELAY": "1",
+    // Said at the relay's front page.
+    "OPERATOR": "Ido Salomon (https://github.com/idosal)",
+    // An uncollected delivery is dropped after 23 hours; with the hourly clear-out, within 24.
+    "DELIVERY_TTL_S": "82800",
+    // A webhook address nobody collected from for a week is retired.
+    "HOOK_IDLE_TTL_S": "604800",
+    // One mailbox holds at most 100 deliveries, 4 MiB in all, for at most 16 webhook addresses.
+    "MAX_QUEUED": "100",
+    "MAX_QUEUED_BYTES": "4194304",
+    "MAX_HOOKS": "16"
+  },
+  // Approximate, and counted per Cloudflare location. A refused request gets 429 and Retry-After.
+  "ratelimits": [
+    // Deliveries to one mailbox: 2 a second, sustained.
+    { "name": "DELIVERIES_PER_MAILBOX", "namespace_id": "34151", "simple": { "limit": 120, "period": 60 } },
+    // Deliveries from one address, to any mailbox (an MCP server delivers for many people).
+    { "name": "DELIVERIES_PER_SENDER", "namespace_id": "34152", "simple": { "limit": 1200, "period": 60 } },
+    // Connections from one address: opening and re-opening mailboxes.
+    { "name": "SOCKETS_PER_SENDER", "namespace_id": "34153", "simple": { "limit": 60, "period": 60 } }
+  ],
+  // Webhook addresses are capabilities: keep request logs off.
+  "observability": { "enabled": false },
+  "send_metrics": false,
+  "workers_dev": true,
+  "preview_urls": false,
+  "dev": { "ip": "127.0.0.1", "port": 8798 }
+}
