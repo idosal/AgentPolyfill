@@ -1,0 +1,53 @@
+# The Server Cards polyfill (polyfills/claude-code/server-cards, plugin
+# mcp-server-cards): its hooks module's tests (claude plugin test), on any
+# change in its folder. The tests use recorded catalogs and cards and reach no
+# network; they take a few seconds.
+
+name: "mcp-server-cards: tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/claude-code/server-cards/**"
+      - ".github/workflows/mcp-server-cards-test.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see the job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/claude-code/server-cards/**"
+      - ".github/workflows/mcp-server-cards-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-server-cards-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The Claude Code release these tests are known to pass with.
+  CLAUDE_CODE_VERSION: 2.1.329
+  DISABLE_TELEMETRY: "1"
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+
+jobs:
+  test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: polyfills/claude-code/server-cards
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: Claude Code
+        run: npm install -g --no-audit --no-fund "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+      - name: claude plugin validate
+        run: claude plugin validate mod
+      - name: The hooks module's tests (claude plugin test)
+        run: claude plugin test mod
+      - name: The demo registry parses
+        run: node --check demo/registry.mjs
