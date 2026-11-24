@@ -24,7 +24,7 @@ In a terminal:
 codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-server-cards@agent-polyfill
 ```
 
-The first command adds the [AgentPolyfill](../../../README.md) marketplace (Codex reads its `.agents/plugins/marketplace.json`), and the second installs the plugin. With the marketplace added, `codex plugin list` shows both of its Codex plugins. Start a new Codex session afterwards.
+The first command adds the [AgentPolyfill](../../../README.md) marketplace (Codex reads its `.agents/plugins/marketplace.json`), and the second installs the plugin. With the marketplace added, `codex plugin list` shows its Codex plugins, `mcp-server-cards` and `ard-discovery` among them. Start a new Codex session afterwards.
 
 You need:
 
