@@ -1,0 +1,55 @@
+# live/take-daemon.sh (Codex 0.172.0, macOS, mcp-skills 0.1.5), in a throwaway HOME and CODEX_HOME
+# with only the Codex sign-in copied in. A running app-server daemon and the plugin installed from
+# this repository's marketplace. An earlier session on the daemon (no turn) ran the plugin's server
+# before Hugging Face's public server was added to config.toml, so the daemon keeps the plugin's
+# tool list and starts its server only at its first tool call. Each session is a client of the
+# daemon's control socket (live/daemon-client.mjs) that answers the plugin's question "Load it".
+# "Codex lists N served skill(s)" is Codex's own skills/list for the project, asked before each
+# turn; the start count is from the plugin's log. Local paths are replaced by <tmp>; long lines
+# are cut.
+
+== an earlier session on the daemon, no turn, before Hugging Face's server is in the config
+session 01a20ed2-5bb3-7c00-83e2-4c8330a74e55
+-- the plugin's server has started 1 time(s)
+== session 1 (Hugging Face's server now in the config; same daemon)
+session 01a20ed2-6a19-7fe1-b93a-105392e0125c
+turn 1: Codex lists 0 served skill(s); the plugin's server has started 1 time(s) on this daemon so far
+  [prompt] List the skills my MCP servers serve.
+  [answer] I’ll use the MCP Skills extension to list what your connected servers offer.
+  [command] /bin/zsh -lc 'cat <tmp>/c/plugins/cache/agent-polyfill/mcp-skills/0.1.5/skills/mcp-skills/SKIL
+  [tool] mcp-skills.list_skills {} -> completed
+  [answer] The MCP Skills extension reported **25 skills**, all served by `huggingface`. Use `mcp-skills:huggingface:<name>` to refer to a skill in Codex. | Skill | What it helps with | |---|---| | `hf-cli` | Manage Hugging Face Hub resources, authentication, cache, and jobs | | `hf-cloud-aws-context-discovery` | Identify the active AWS profile, region, account, and caller | | `hf-cloud-python-env-setup` | S
+turn 2: Codex lists 25 served skill(s), e.g. mcp-skills:huggingface:hf-cli, mcp-skills:huggingface:hf-cloud-aws-context-discovery; the plugin's server has started 2 time(s) on this daemon so far
+  [prompt] Which GGUF quantization should I use to run a 7B model on a 16 GB Mac? Answer in two sentences.
+  [answer] I’ll check the Hugging Face `hf-mem` skill and verify the memory estimate.
+  [command] /bin/zsh -lc 'cat <tmp>/h/.agents/skills/mcp-skills-served/huggingface-d203a2/c483b0880c0e2bac
+  [the plugin's question] Load the skill "hf-mem" from the MCP server "huggingface"? -> "Load it"
+  [tool] mcp-skills.load_skill {"server":"huggingface","uri":"skill://hf-mem/SKILL.md"} -> completed
+  [answer] Start with **`Q4_K_M`** for a 7B model on a 16 GB Mac. For example, Mistral 7B Instruct’s `Q4_K_M` weights take about 4.4 GB, leaving room for macOS and the KV cache at a modest context length. [Hugging Face model card](https://huggingface.co/bartowski/Mistral-7B-Instruct-v0.3-GGUF/blob/main/README.md)
+-- the plugin's server has started 2 time(s); stubs in ~/.agents/skills/mcp-skills-served: 25
+== a marketplace update: the plugin's folder is copied afresh
+Removed plugin `mcp-skills` from marketplace `agent-polyfill`.
+Added plugin `mcp-skills` from marketplace `agent-polyfill`.
+Installed plugin root: <tmp>/c/plugins/cache/agent-polyfill/mcp-skills/0.1.5
+-- stubs in ~/.agents/skills/mcp-skills-served after it: 25
+== session 2 (same daemon, no restart)
+session 01a20ed2-f661-78e1-8e75-2d63c718ec78
+turn 1: Codex lists 25 served skill(s), e.g. mcp-skills:huggingface:hf-cli, mcp-skills:huggingface:hf-cloud-aws-context-discovery; the plugin's server has started 2 time(s) on this daemon so far
+  [prompt] How much memory does a 7B model in Q4_K_M need? Answer in two sentences.
+  [answer] I’m using the Hugging Face memory skill to check the estimate.
+  [command] /bin/zsh -lc 'cat <tmp>/h/.agents/skills/mcp-skills-served/huggingface-d203a2/c483b0880c0e2bac
+  [tool] mcp-skills.load_skill {"server":"huggingface","uri":"skill://hf-mem/SKILL.md"} -> completed
+  [answer] A 7B model in Q4_K_M typically needs about **4–4.5 GB for the weights**. For inference, budget roughly **5–7 GB of RAM for CPU inference or VRAM for full GPU offload**, with longer contexts and larger batches requiring more memory for the KV cache and runtime buffers. [Mistral 7B GGUF size and memory estimate](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF)
+-- the plugin's server has started 3 time(s); stubs: 25
+== the plugin's log
+2026-11-24T18:29:57.481Z [90001] mcp-skills 0.1.5: 0 server(s) to look at in <tmp>/c/config.toml; stubs in <tmp>/h/.agents/skills/mcp-skills-served
+2026-11-24T18:29:57.484Z [90001] client codex-mcp-client 0.172.0
+2026-11-24T18:30:09.606Z [90364] mcp-skills 0.1.5: 1 server(s) to look at in <tmp>/c/config.toml; stubs in <tmp>/h/.agents/skills/mcp-skills-served
+2026-11-24T18:30:09.649Z [90364] client codex-mcp-client 0.172.0
+2026-11-24T18:30:10.034Z [90364] huggingface: 25 skill(s), 0 left out (protocol revision 2026-07-28, lists directories)
+2026-11-24T18:30:10.047Z [90364] stubs: 25 written, 0 removed
+2026-11-24T18:30:31.273Z [90364] huggingface: loaded skill://hf-mem/SKILL.md
+2026-11-24T18:30:44.438Z [90802] mcp-skills 0.1.5: 1 server(s) to look at in <tmp>/c/config.toml; stubs in <tmp>/h/.agents/skills/mcp-skills-served
+2026-11-24T18:30:44.484Z [90802] client codex-mcp-client 0.172.0
+2026-11-24T18:30:48.165Z [90802] huggingface: 25 skill(s), 0 left out (protocol revision 2026-07-28, lists directories)
+2026-11-24T18:30:48.494Z [90802] huggingface: loaded skill://hf-mem/SKILL.md (approved earlier)

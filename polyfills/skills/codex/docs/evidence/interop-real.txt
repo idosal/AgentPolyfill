@@ -1,8 +1,8 @@
-$ npm run interop:real    # 2026-11-24T14:56Z, public server, no credentials
+$ npm run interop:real    # 2026-11-24T18:19Z, 0.1.5, public server, no credentials
 stubs written for Codex to list: 25
-  name: "huggingface:huggingface-datasets"
-  name: "huggingface:huggingface-papers"
-  name: "huggingface:huggingface-spaces"
+  name: "mcp-skills:huggingface:huggingface-datasets"
+  name: "mcp-skills:huggingface:huggingface-papers"
+  name: "mcp-skills:huggingface:huggingface-spaces"
 huggingface: protocol revision 2026-07-28; 25 skills listed, 0 entries refused; lists directories
   ok  hf-cli: SKILL.md and 0 file(s) verified
   ok  hf-cloud-aws-context-discovery: SKILL.md and 0 file(s) verified

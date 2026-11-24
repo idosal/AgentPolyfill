@@ -4,11 +4,11 @@ description: What AgentPolyfill is, which MCP extensions it adds to Claude Code 
 
 # Introduction
 
-AgentPolyfill makes polyfills for agent protocols. Run protocol extensions in
-the clients you already use, before they support them. Works in Claude Code
-and Codex: Events, Skills and Server Cards run in both, Apps runs
-in Claude Code, and Agentic Resource Discovery, an open draft beyond MCP, runs
-in both.
+AgentPolyfill makes polyfills for agent protocols. Bring more of MCP to the
+clients you already use. Plugins add Apps, Skills, Events, Server Cards and
+ARD to Claude Code and Codex: Events, Skills and Server Cards run in both,
+Apps runs in Claude Code, and Agentic Resource Discovery, an open draft beyond
+MCP, runs in both.
 
 ## Why polyfills
 
@@ -44,8 +44,8 @@ All of them are early. Here is what each one does, and where it stops:
   tool call.
 - **Skills.** Skills an MCP server serves show up next to your own, load only
   after you say yes to each one, and are checked against the server's
-  digests. In Codex they appear in Codex's own skill list from the session
-  after a server first serves them. One rule of the spec can't be met in Codex
+  digests. In Codex they appear in Codex's own `$` skill list after you ask
+  once to list the served skills, from the next turn. One rule of the spec can't be met in Codex
   yet: a skill from one server reading another server's resources isn't put
   to you first (rule X8), because Codex doesn't let a plugin ask.
 - **Server Cards.** Name a company and the agent finds the MCP servers its

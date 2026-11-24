@@ -8,9 +8,9 @@
 #   3. "Show me its SKILL.md first", then "Load it";
 #   4. the answer, from the skill and a reference file it reads.
 #
-# It runs in a throwaway CODEX_HOME, made here and deleted at the end, with only your
-# Codex sign-in copied into it (auth.json from CODEX_AUTH_FROM, default ~/.codex). Your
-# own Codex config is not read or changed. A first, short `codex exec` lets the plugin
+# It runs in a throwaway HOME and CODEX_HOME, made here and deleted at the end, with only
+# your Codex sign-in copied in (auth.json from CODEX_AUTH_FROM, default ~/.codex). Your own
+# ~/.codex and ~/.agents are not read or changed. A first, short `codex exec` lets the plugin
 # write its stubs, which Codex lists from the next session on.
 #
 # Usage: live/take-proof.sh <out-dir>
@@ -20,9 +20,17 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REPO="$(cd "$ROOT/../../.." && pwd)"
 mkdir -p "$1"; OUT="$(cd "$1" && pwd)"
 PY="${PTY_PYTHON:-python3}"
-HOME_DIR="$(mktemp -d)"; trap 'rm -rf "$HOME_DIR"' EXIT
-cp "${CODEX_AUTH_FROM:-$HOME/.codex}/auth.json" "$HOME_DIR/auth.json"; chmod 600 "$HOME_DIR/auth.json"
-export CODEX_HOME="$HOME_DIR"
+# A throwaway HOME too: the plugin writes its stubs into ~/.agents/skills/mcp-skills-served.
+BASE="$(cd "$(mktemp -d)" && pwd -P)"
+cleanup() {
+    CODEX_HOME="$BASE/c" HOME="$BASE/h" codex app-server daemon stop < /dev/null > /dev/null 2>&1 || true
+    pkill -f "$BASE/" 2>/dev/null || true # anything Codex started from the throwaway home
+    rm -rf "$BASE"
+}
+trap cleanup EXIT
+mkdir -p "$BASE/h" "$BASE/c"
+cp "${CODEX_AUTH_FROM:-$HOME/.codex}/auth.json" "$BASE/c/auth.json"; chmod 600 "$BASE/c/auth.json"
+export HOME="$BASE/h" CODEX_HOME="$BASE/c"
 PROJECT="$OUT/project"; mkdir -p "$PROJECT"; (cd "$PROJECT" && git init -q . 2>/dev/null || true)
 
 codex plugin marketplace add "$REPO" < /dev/null

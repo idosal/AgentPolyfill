@@ -148,7 +148,7 @@ plugin, and where they stand:
 | A7 | The helper read a request's body before checking the token (Windows, or `MCP_APPS_CLI_TRANSPORT=tcp`) | Fixed: the token is checked first. There is a 30-second read deadline, and at most 128 connections |
 | A8 | An app could put terminal control sequences into Claude Code's dialogs through a link or a tool name | Fixed |
 | A4, re-test | A CSP wildcard over a shared suffix (`*.workers.dev`, `*.co.uk`) still passed | Fixed in 0.1.2 for a list of the most used such suffixes (`helper-rs/src/policy.rs`). One not on the list still passes |
-| A7, re-test | Over TCP, 128 connections that sent nothing locked the plugin out of its helper for 30 seconds at a time | Fixed in 0.1.2: a request's head must arrive within 2 seconds |
+| A7, re-test | Over TCP, 128 connections that sent nothing locked the plugin out of its helper for 30 seconds at a time | Mitigated in 0.1.2: a connection that sends no request head within 2 seconds is closed. A local process that keeps re-opening connections can still keep the plugin from its helper over TCP (Windows, or `MCP_APPS_CLI_TRANSPORT=tcp`) while it does so; it can't get past the token |
 
 The TLA+ model in `model/` found two more (see
 [docs/COMPLIANCE.md](docs/COMPLIANCE.md)), and both were fixed in 0.1.2:

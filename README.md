@@ -1,7 +1,8 @@
 # AgentPolyfill
 
-Polyfills for agent protocols. Run protocol extensions in the clients you
-already use, before they support them. Works in Claude Code and Codex.
+Polyfills for agent protocols. Bring more of MCP to the clients you already
+use. Plugins add Apps, Skills, Events, Server Cards and ARD to Claude Code and
+Codex.
 
 MCP grows through extensions now: Apps, Skills, Events, Server Cards. A server
 can adopt one in a day, but every host has to build each one itself, on its
@@ -79,8 +80,8 @@ All of them are early. Here is what each one does, and where it stops:
   tool call.
 - **Skills.** Skills an MCP server serves show up next to your own, load only
   after you say yes to each one, and are checked against the server's
-  digests. In Codex they appear in Codex's own skill list from the session
-  after a server first serves them. One rule of the spec can't be met in Codex
+  digests. In Codex they appear in Codex's own skill list after you ask once
+  to list the served skills, from the next turn. One rule of the spec can't be met in Codex
   yet: a skill from one server reading another server's resources isn't put
   to you first (rule X8), because Codex doesn't let a plugin ask.
 - **Server Cards.** Name a company and the agent finds the MCP servers its domain
@@ -140,7 +141,8 @@ GitHub releases, and earthquakes. Its source is in
 
 Add Hugging Face's public MCP server (no sign-in) and ask a question one of
 its skills covers. In Claude Code, `/mcp-skills` lists what it serves. In
-Codex, the served skills appear in the `$` list from your next session.
+Codex, the served skills appear in the `$` list after you ask once to list the
+served skills, from the next turn.
 
 ```
 claude mcp add --transport http huggingface https://huggingface.co/mcp

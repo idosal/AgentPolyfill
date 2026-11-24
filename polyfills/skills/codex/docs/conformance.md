@@ -8,7 +8,7 @@ where that is tested.
 [`seps/2640-skills-extension.md`](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md)
 at commit `2eb3a8e` (12 November 2026), the same revision the Claude Code
 adapter implements ([its table](../../claude-code/docs/conformance.md)). The
-rule ids are the same in both tables. This page describes version 0.1.4 of the
+rule ids are the same in both tables. This page describes version 0.1.5 of the
 Codex plugin.
 
 **Status** is one of: **met**; **exception** (met, with a limit stated in the
@@ -73,7 +73,7 @@ the Codex adapter adds.
 | Id | Rule | Status | How, and where checked |
 |---|---|---|---|
 | U1, U2 | Keep both halves of a skill's identity (server, `uri`) everywhere; never key on the `uri` alone. | met | The registry, the per-thread held entries, the cache, the stored approvals, the stub's path and every tool take the pair. `rules` U1/U2/U3, U1 |
-| U3 | A path where skill content is materialised encodes the server identity and the `uri`. | met | No skill content is written. The stubs' paths are `served/<server>-<hash of its exact name>/<hash of the uri>/SKILL.md`: same-URI skills of two servers land apart, and the server is readable from the path. `rules` U1/U2/U3, `stubs` |
+| U3 | A path where skill content is materialised encodes the server identity and the `uri`. | met | No skill content is written. The stubs' paths are `~/.agents/skills/mcp-skills-served/<server>-<hash of its exact name>/<hash of the uri>/SKILL.md`: same-URI skills of two servers land apart, and the server is readable from the path. `rules` U1/U2/U3, `stubs` |
 | N1, N2 | Do not assume unique names; disambiguate a collision within a listing. | met | Both are listed; each gets a name with part of its URI's hash (`docs:refunds-1a2b3c`). `rules` N1/N2, `stubs` |
 | N3 | Resolve names in a per-origin namespace, by a host-assigned label. | met | Codex lists a served skill as `mcp-skills:<server>:<name>`, with the server's name in your config. `rules` N3/N4/X7 |
 | N4 | A served skill never shadows a same-named skill from another origin. | met | Its name always carries the plugin and the server, so it never equals a local skill's name; Codex lists both. `rules` N3/N4/X7 |
