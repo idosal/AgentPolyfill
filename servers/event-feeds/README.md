@@ -242,7 +242,7 @@ npm test                                   # unit tests, against recorded upstre
 node --no-warnings test/smoke.ts <base>    # drives a running server over HTTP (reads the real upstreams)
 node --no-warnings test/interop/run.ts     # the mcp-events client against the deployed server (see the file)
 # the interop run and live/take.sh use the mcp-events polyfill's source: MCP_EVENTS_PLUGIN (default:
-# ../../polyfills/claude-code/events in this repository, else ~/mcp-events-plugin)
+# ../../polyfills/events/claude-code in this repository, else ~/mcp-events-plugin)
 ```
 
 - `test/sources.test.ts`: each event type's cursor logic on responses recorded on 24 November 2026

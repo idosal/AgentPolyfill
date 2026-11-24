@@ -1,6 +1,6 @@
 # Actions are pinned by commit: this workflow publishes binaries people run.
 #
-# The Apps polyfill (polyfills/claude-code/apps, plugin mcp-apps-cli): builds
+# The Apps polyfill (polyfills/apps/claude-code, plugin mcp-apps-cli): builds
 # and checks its Rust helper on each platform the plugin ships for, on that
 # platform, then packs the plugin with all five helpers
 # (package/package.sh) and keeps the zip as a run artifact. On a tag
@@ -24,19 +24,19 @@ on:
     # parity tests compare against, the packing script and the bench checks.
     # (Path filters do not apply to tags.)
     paths:
-      - "polyfills/claude-code/apps/helper-rs/**"
-      - "polyfills/claude-code/apps/mod/helper/**"
-      - "polyfills/claude-code/apps/package/**"
-      - "polyfills/claude-code/apps/bench/*-check.mjs"
+      - "polyfills/apps/claude-code/helper-rs/**"
+      - "polyfills/apps/claude-code/mod/helper/**"
+      - "polyfills/apps/claude-code/package/**"
+      - "polyfills/apps/claude-code/bench/*-check.mjs"
       - ".github/workflows/mcp-apps-cli-release.yml"
   # Pull requests from forks; a branch of this repository is checked by its
   # pushes (see the build job's `if`), so each change runs once.
   pull_request:
     paths:
-      - "polyfills/claude-code/apps/helper-rs/**"
-      - "polyfills/claude-code/apps/mod/helper/**"
-      - "polyfills/claude-code/apps/package/**"
-      - "polyfills/claude-code/apps/bench/*-check.mjs"
+      - "polyfills/apps/claude-code/helper-rs/**"
+      - "polyfills/apps/claude-code/mod/helper/**"
+      - "polyfills/apps/claude-code/package/**"
+      - "polyfills/apps/claude-code/bench/*-check.mjs"
       - ".github/workflows/mcp-apps-cli-release.yml"
   workflow_dispatch:
     inputs:
@@ -88,7 +88,7 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: polyfills/claude-code/apps
+        working-directory: polyfills/apps/claude-code
     env:
       EXE: ${{ startsWith(matrix.key, 'win32') && '.exe' || '' }}
       # Chrome's sandbox stays on, as on a person's machine (Ubuntu 22.04
@@ -114,21 +114,21 @@ jobs:
       # The checks' own MCP servers use the MCP SDK from here; the plugin
       # runs nothing from it.
       - name: The checks' packages
-        working-directory: polyfills/claude-code/apps/mod/helper
+        working-directory: polyfills/apps/claude-code/mod/helper
         run: npm ci --omit=dev --no-audit --no-fund
       - name: Chromium (Linux on Arm has no Google Chrome)
         if: matrix.key == 'linux-arm64'
-        working-directory: polyfills/claude-code/apps/mod/helper
+        working-directory: polyfills/apps/claude-code/mod/helper
         run: |
           npx playwright-core install --with-deps chromium
           echo "MCP_APPS_CLI_CHROME=$(node -e 'console.log(require("playwright-core").chromium.executablePath())')" >> "$GITHUB_ENV"
       - name: Unit tests
-        working-directory: polyfills/claude-code/apps/helper-rs
+        working-directory: polyfills/apps/claude-code/helper-rs
         run: |
           node crates/render/tests/make-fixtures.mjs
           cargo test --release --locked --workspace --target ${{ matrix.target }}
       - name: Build
-        working-directory: polyfills/claude-code/apps/helper-rs
+        working-directory: polyfills/apps/claude-code/helper-rs
         run: ./build-into-plugin.sh --target ${{ matrix.target }}
       - name: Static, as shipped
         if: contains(matrix.target, 'musl')
@@ -187,7 +187,7 @@ jobs:
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: helper-${{ matrix.key }}
-          path: polyfills/claude-code/apps/mod/helper/bin/${{ matrix.key }}/mcp-apps-cli-helper${{ env.EXE }}
+          path: polyfills/apps/claude-code/mod/helper/bin/${{ matrix.key }}/mcp-apps-cli-helper${{ env.EXE }}
           if-no-files-found: error
 
   # Packs the zip on every run that built all five, tag or not, so a branch
@@ -198,7 +198,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: polyfills/claude-code/apps
+        working-directory: polyfills/apps/claude-code
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: The plugin's version
@@ -225,7 +225,7 @@ jobs:
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: mcp-apps-cli-package
-          path: polyfills/claude-code/apps/package/dist/
+          path: polyfills/apps/claude-code/package/dist/
           if-no-files-found: error
 
   release:
@@ -242,7 +242,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: The tag is the plugin's version
         run: |
-          version=$(sed -n 's/^  "version": *"\([^"]*\)".*/\1/p' polyfills/claude-code/apps/mod/.claude-plugin/plugin.json | head -1)
+          version=$(sed -n 's/^  "version": *"\([^"]*\)".*/\1/p' polyfills/apps/claude-code/mod/.claude-plugin/plugin.json | head -1)
           [ "mcp-apps-cli-v$version" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME, but plugin.json says $version" >&2; exit 1; }
           echo "VERSION=$version" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6

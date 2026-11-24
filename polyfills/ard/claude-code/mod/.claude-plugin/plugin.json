@@ -1,0 +1,27 @@
+{
+  "name": "ard-discovery",
+  "version": "0.1.3",
+  "description": "Agentic Resource Discovery (ARD v0.91 draft) for Claude Code: find MCP servers through a domain's /.well-known/ard.json and rel=\"ard\" links, or by searching an ARD registry, which receives your query once you approve each search; mcp-server-cards checks, shows and adds them",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "homepage": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/claude-code",
+  "repository": "https://github.com/idosal/AgentPolyfill",
+  "license": "Apache-2.0",
+  "dependencies": ["mcp-server-cards"],
+  "userConfig": {
+    "disabled": {
+      "type": "boolean",
+      "title": "Turn the plugin off",
+      "description": "Registers nothing and fetches nothing.",
+      "default": false
+    },
+    "registry": {
+      "type": "string",
+      "title": "ARD registry for search",
+      "description": "Base URL of the ARD registry that ard_search asks when none is named (it appends /search). Default: a Hugging Face Space. Your query text is sent there, after you approve each search. Empty: search only a registry named in the request.",
+      "default": "https://huggingface-hf-discover.hf.space"
+    }
+  }
+}

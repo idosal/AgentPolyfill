@@ -41,12 +41,12 @@ are [further down](#more-ways-to-install).
 
 | Extension | Spec | Claude Code | Polyfill | State |
 |---|---|---|---|---|
-| Events (`io.modelcontextprotocol/events`) | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | not supported | [`mcp-events`](polyfills/claude-code/events) | Works: poll, push and webhook delivery; an event wakes an idle session. No OAuth servers. |
-| Apps (`io.modelcontextprotocol/ui`) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | not supported | [`mcp-apps-cli`](polyfills/claude-code/apps) | Early: app UIs render inline in the terminal, with mouse and keyboard. No OAuth servers. |
-| Skills (`io.modelcontextprotocol/skills`) | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | not supported | [`mcp-skills`](polyfills/claude-code/skills) | Early: skills served by an MCP server are listed, loaded and read in Claude Code, with the checks the spec asks of a client. No OAuth servers. |
-| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (extension Beta) | not supported | [`mcp-server-cards`](polyfills/claude-code/server-cards) | Early: finds the servers a domain publishes, checks each card against the schema, and adds one to Claude Code's own config with a click, so servers behind OAuth work. |
+| Events (`io.modelcontextprotocol/events`) | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | not supported | [`mcp-events`](polyfills/events/claude-code) | Works: poll, push and webhook delivery; an event wakes an idle session. No OAuth servers. |
+| Apps (`io.modelcontextprotocol/ui`) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | not supported | [`mcp-apps-cli`](polyfills/apps/claude-code) | Early: app UIs render inline in the terminal, with mouse and keyboard. No OAuth servers. |
+| Skills (`io.modelcontextprotocol/skills`) | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | not supported | [`mcp-skills`](polyfills/skills/claude-code) | Early: skills served by an MCP server are listed, loaded and read in Claude Code, with the checks the spec asks of a client. No OAuth servers. |
+| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (extension Beta) | not supported | [`mcp-server-cards`](polyfills/server-cards/claude-code) | Early: finds the servers a domain publishes, checks each card against the schema, and adds one to Claude Code's own config with a click, so servers behind OAuth work. |
 
-Beyond MCP, [`ard-discovery`](polyfills/claude-code/ard) adds
+Beyond MCP, [`ard-discovery`](polyfills/ard/claude-code) adds
 [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a
 draft: it finds MCP servers through a domain's `ard.json` or by searching an
 ARD registry, and hands the cards to `mcp-server-cards`. Its search sends the
@@ -62,7 +62,7 @@ SEP notes that Claude Code support has been prototyped at Anthropic.
 
 ### Events: Claude is woken when something happens
 
-![One sentence to Claude Code gives a private button page and a watch, and the session goes idle. Someone types "ship it" on the page and presses the button; the idle session wakes by itself and says what was typed.](polyfills/claude-code/events/docs/media/button-demo.gif)
+![One sentence to Claude Code gives a private button page and a watch, and the session goes idle. Someone types "ship it" on the page and presses the button; the idle session wakes by itself and says what was typed.](polyfills/events/claude-code/docs/media/button-demo.gif)
 
 Try it against the same hosted demo server (no sign-in). Add it, start
 `claude`, and ask "Give me a demo button and tell me what I type when I press
@@ -74,7 +74,7 @@ claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev
 
 The same server offers new comments in a Hacker News thread, new npm and
 GitHub releases, and earthquakes; its source is in
-[`servers/event-feeds`](servers/event-feeds). [More in the Events README](polyfills/claude-code/events).
+[`servers/event-feeds`](servers/event-feeds). [More in the Events README](polyfills/events/claude-code).
 
 ### Apps: an MCP App's interface, in the terminal
 
@@ -92,11 +92,11 @@ a shareware game in the arcade and load it"):
 claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp
 ```
 
-[More in the Apps README](polyfills/claude-code/apps).
+[More in the Apps README](polyfills/apps/claude-code).
 
 ### Skills: skills served by an MCP server
 
-![In Claude Code, the skills a server offers are listed. A question is asked, Claude asks to load one skill from the server, reads the files it points to, and answers from them.](polyfills/claude-code/skills/docs/media/demo.gif)
+![In Claude Code, the skills a server offers are listed. A question is asked, Claude asks to load one skill from the server, reads the files it points to, and answers from them.](polyfills/skills/claude-code/docs/media/demo.gif)
 
 Try it against Hugging Face's public MCP server (no sign-in). Add it, start
 `claude`, and type `/mcp-skills` to see what it serves, or just ask a question
@@ -106,7 +106,7 @@ one of its skills covers:
 claude mcp add --transport http huggingface https://huggingface.co/mcp
 ```
 
-[More in the Skills README](polyfills/claude-code/skills).
+[More in the Skills README](polyfills/skills/claude-code).
 
 ### Server Cards: add a company's MCP server by its domain
 
@@ -115,7 +115,7 @@ publish?", then press **Add** on **Neon Docs** (no sign-in). For one behind a
 sign-in, ask about buildkite.com; after **Add**, Claude Code asks you to sign
 in through `/mcp`. `claude mcp remove neon-docs -s local` removes it again.
 
-[More in the Server Cards README](polyfills/claude-code/server-cards).
+[More in the Server Cards README](polyfills/server-cards/claude-code).
 
 ## What makes something a polyfill
 
@@ -281,11 +281,12 @@ against; [`SECURITY.md`](SECURITY.md) says how to report a problem privately.
 
 ## Repository layout
 
-Each polyfill is a folder, `polyfills/<host>/<extension>/`: for Claude Code,
-[`events`](polyfills/claude-code/events), [`apps`](polyfills/claude-code/apps),
-[`skills`](polyfills/claude-code/skills),
-[`server-cards`](polyfills/claude-code/server-cards) and
-[`ard`](polyfills/claude-code/ard).
+Each polyfill is a folder, `polyfills/<extension>/`, with one subfolder for
+each host it runs in: for Claude Code,
+[`events`](polyfills/events/claude-code), [`apps`](polyfills/apps/claude-code),
+[`skills`](polyfills/skills/claude-code),
+[`server-cards`](polyfills/server-cards/claude-code) and
+[`ard`](polyfills/ard/claude-code).
 One marketplace file ([`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json))
 lists them all, with two plugins in [`plugins/`](plugins): `agent-polyfill`, which
 installs every MCP polyfill, and `polyfill-author`, the skills for building one.

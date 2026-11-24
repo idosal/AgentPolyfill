@@ -1,4 +1,4 @@
-# The Apps polyfill (polyfills/claude-code/apps, plugin mcp-apps-cli): its
+# The Apps polyfill (polyfills/apps/claude-code, plugin mcp-apps-cli): its
 # hooks module's tests (claude plugin test) and the Node helper's tests, on
 # any change in its folder. They take a minute on one Linux machine. The Rust
 # helper is built and checked on every platform by mcp-apps-cli-release.yml,
@@ -10,13 +10,13 @@ on:
   push:
     branches: ["**"]
     paths:
-      - "polyfills/claude-code/apps/**"
+      - "polyfills/apps/claude-code/**"
       - ".github/workflows/mcp-apps-cli-test.yml"
   # Pull requests from forks; a branch of this repository is checked by its
   # pushes (see the job's `if`), so each change runs once.
   pull_request:
     paths:
-      - "polyfills/claude-code/apps/**"
+      - "polyfills/apps/claude-code/**"
       - ".github/workflows/mcp-apps-cli-test.yml"
 
 permissions:
@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: polyfills/claude-code/apps
+        working-directory: polyfills/apps/claude-code
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -52,7 +52,7 @@ jobs:
         run: claude plugin test mod
       # Node's own test runner; these tests import nothing from npm.
       - name: The Node helper's tests
-        working-directory: polyfills/claude-code/apps/mod/helper
+        working-directory: polyfills/apps/claude-code/mod/helper
         run: node --test "test/*.test.mjs"
       - name: Shell scripts parse
         run: |
@@ -64,10 +64,10 @@ jobs:
         run: |
           version=$(jq -r .version mod/.claude-plugin/plugin.json)
           echo "plugin.json: $version"
-          grep -q "Implementation::new(\"mcp-apps-cli\", \"$version\")" helper-rs/src/mcp.rs || { echo "::error file=polyfills/claude-code/apps/helper-rs/src/mcp.rs::the helper's client info isn't $version"; exit 1; }
-          [ "$(grep -o 'mcp-apps-cli/[0-9.]*' mod/hooks/settings.ts | sort -u)" = "mcp-apps-cli/$version" ] || { echo "::error file=polyfills/claude-code/apps/mod/hooks/settings.ts::the user agent isn't mcp-apps-cli/$version"; exit 1; }
+          grep -q "Implementation::new(\"mcp-apps-cli\", \"$version\")" helper-rs/src/mcp.rs || { echo "::error file=polyfills/apps/claude-code/helper-rs/src/mcp.rs::the helper's client info isn't $version"; exit 1; }
+          [ "$(grep -o 'mcp-apps-cli/[0-9.]*' mod/hooks/settings.ts | sort -u)" = "mcp-apps-cli/$version" ] || { echo "::error file=polyfills/apps/claude-code/mod/hooks/settings.ts::the user agent isn't mcp-apps-cli/$version"; exit 1; }
 
-  # The TLA+ models (polyfills/claude-code/apps/model): TLC checks each
+  # The TLA+ models (polyfills/apps/claude-code/model): TLC checks each
   # configuration against what it should give (node model/check.mjs). TLC is
   # fetched from its release, pinned by SHA-256; the runner's own Java runs it.
   model:
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: polyfills/claude-code/apps
+        working-directory: polyfills/apps/claude-code
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6

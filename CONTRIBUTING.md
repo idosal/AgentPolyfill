@@ -31,26 +31,42 @@ adds behaviour of its own.
 
 ### 2. Put it in its folder
 
+Each extension has one folder, and one plugin that serves every host it
+supports:
+
 ```
-polyfills/<host>/<extension>/
+polyfills/<extension>/
+  core/          the host-neutral logic and its tests of the spec's rules
+  claude-code/   the Claude Code adapter
+  codex/         the Codex adapter
 ```
 
-- `<host>` is the host it runs in, in lower case with hyphens:
-  `claude-code`.
 - `<extension>` is the extension's short name: `apps`, `events`, `skills`,
-  `server-cards`.
+  `server-cards`, `ard`.
+- `core/` holds what does not depend on the host: the protocol, the spec's
+  client rules and the tests for each rule. A polyfill for a single host can
+  start without it.
+- `claude-code/` and `codex/` each hold a host adapter: the code that wires
+  `core/` into that host, with the host's own tests. A host's folder is named
+  after it, in lower case with hyphens.
 
-The Apps polyfill, [`polyfills/claude-code/apps`](polyfills/claude-code/apps),
-is a complete example.
-
-Inside the folder:
+The Apps polyfill, [`polyfills/apps/claude-code`](polyfills/apps/claude-code),
+is a complete example of one adapter. Inside an adapter's folder:
 
 - **The installable plugin goes in a subfolder** (`mod/` in the Apps
-  polyfill), holding `.claude-plugin/plugin.json` and only what the plugin
-  runs. Tests, build scripts, benchmarks and design notes go beside it, not
-  in it. If the plugin's own top folder holds a `package.json`, Claude Code
-  runs `npm install` there when someone installs it, so keep any
-  `package.json` out of that top folder.
+  polyfill), holding the host's manifest and only what the plugin runs.
+  Tests, build scripts, benchmarks and design notes go beside it, not in it.
+  If the plugin's own top folder holds a `package.json`, Claude Code runs
+  `npm install` there when someone installs it, so keep any `package.json`
+  out of that top folder.
+- **The plugin folder is self-contained.** Claude Code and Codex copy only
+  that folder when someone installs the plugin, so nothing in it may import
+  from outside it. Code from `core/` reaches it by bundling (a build step
+  that writes the bundle into the plugin folder), never by an import that
+  reaches out of it.
+- **One plugin folder can serve both hosts.** It can carry
+  `.claude-plugin/plugin.json` for Claude Code and `.codex-plugin/plugin.json`
+  for Codex side by side, with the same plugin name.
 - **The plugin's name** is unique in this repository, and the same name is
   used in the marketplace entry, in release tags and in the workflow files.
   Existing names: `mcp-apps-cli`, `mcp-events`, `mcp-skills`,
@@ -102,7 +118,7 @@ Add an entry to [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.j
 {
   "name": "<plugin>",
   "description": "<Extension>: what it does, in one sentence",
-  "source": "./polyfills/<host>/<extension>/<plugin subfolder>"
+  "source": "./polyfills/<extension>/<host>/<plugin subfolder>"
 }
 ```
 
@@ -150,7 +166,7 @@ claude plugin validate .
 ```
 
 ```bash
-claude plugin validate polyfills/<host>/<extension>/<plugin subfolder>
+claude plugin validate polyfills/<extension>/<host>/<plugin subfolder>
 ```
 
 Run the polyfill's tests, and do one recorded run in the real host against a

@@ -65,7 +65,7 @@ demo, not a real registry: it reads the live catalogs of ten publishers and
 answers by word match):
 
 ```bash
-node polyfills/claude-code/ard/demo/registry.mjs
+node polyfills/ard/claude-code/demo/registry.mjs
 ```
 
 It listens on `http://127.0.0.1:9011`. Then, in Claude Code:
@@ -133,11 +133,11 @@ audit) checked that a search result can't impersonate a publisher, and its
 re-check found that searches were not each put to you; every search now is.
 
 The full account:
-[`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/ard/SECURITY.md).
+[`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md).
 
 ## More
 
-On GitHub, in [`polyfills/claude-code/ard`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/claude-code/ard):
-the full [`README.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/ard/README.md),
+On GitHub, in [`polyfills/ard/claude-code`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/claude-code):
+the full [`README.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/README.md),
 with one row for each rule ARD v0.91 puts on a consumer of MCP Server Cards and
 the test that covers it, the proof, and the findings to report upstream.

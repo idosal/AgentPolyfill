@@ -1,4 +1,4 @@
-# The Events polyfill (polyfills/claude-code/events, plugin mcp-events), on
+# The Events polyfill (polyfills/events/claude-code, plugin mcp-events), on
 # any change in its folder or in the marketplace file its tests read:
 # - the helper's and the Events client's tests, with a typecheck, on Linux,
 #   macOS and Windows;
@@ -16,7 +16,7 @@ on:
   push:
     branches: ["**"]
     paths:
-      - "polyfills/claude-code/events/**"
+      - "polyfills/events/claude-code/**"
       - "tools/bundle-notices.mjs"
       - ".claude-plugin/marketplace.json"
       - ".github/workflows/mcp-events-test.yml"
@@ -24,7 +24,7 @@ on:
   # pushes (see each job's `if`), so each change runs once.
   pull_request:
     paths:
-      - "polyfills/claude-code/events/**"
+      - "polyfills/events/claude-code/**"
       - "tools/bundle-notices.mjs"
       - ".claude-plugin/marketplace.json"
       - ".github/workflows/mcp-events-test.yml"
@@ -44,7 +44,7 @@ env:
 
 defaults:
   run:
-    working-directory: polyfills/claude-code/events
+    working-directory: polyfills/events/claude-code
 
 jobs:
   mod:
@@ -63,7 +63,7 @@ jobs:
       - run: npm ci
       # test/relay.e2e-test.ts runs the relay in the local Workers runtime.
       - run: npm ci
-        working-directory: polyfills/claude-code/events/mod/relay
+        working-directory: polyfills/events/claude-code/mod/relay
       - run: npm run typecheck
       - name: Third-party notices for the bundle are up to date
         run: node ../../../tools/bundle-notices.mjs . --check
@@ -80,9 +80,9 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm ci
-        working-directory: polyfills/claude-code/events/mod/relay
+        working-directory: polyfills/events/claude-code/mod/relay
       - run: npm test
-        working-directory: polyfills/claude-code/events/mod/relay
+        working-directory: polyfills/events/claude-code/mod/relay
 
   runtimes:
     name: the bundle on ${{ matrix.runtime }}

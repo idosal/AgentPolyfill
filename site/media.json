@@ -78,13 +78,13 @@
   "copy": [
     {
       "file": "events-deploys.mp4",
-      "from": "polyfills/claude-code/events/docs/media/demo.mp4"
+      "from": "polyfills/events/claude-code/docs/media/demo.mp4"
     }
   ],
   "derived": [
     {
       "file": "events-deploys.jpg",
-      "from": "polyfills/claude-code/events/docs/media/demo.mp4",
+      "from": "polyfills/events/claude-code/docs/media/demo.mp4",
       "kind": "poster",
       "at": 19
     }

@@ -180,7 +180,7 @@ security review for the launch (24 November 2026), by an AI session, not a human
 audit: its findings SC1 to SC7 are fixed and tested.
 
 The full account:
-[`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/server-cards/SECURITY.md).
+[`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md).
 
 ## When Claude Code supports Server Cards itself
 
@@ -189,7 +189,7 @@ Claude Code has no Server Card support to detect yet. When it ships, turn on the
 
 ## More
 
-On GitHub, in [`polyfills/claude-code/server-cards`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/claude-code/server-cards):
-the full [`README.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/server-cards/README.md),
+On GitHub, in [`polyfills/server-cards/claude-code`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/claude-code):
+the full [`README.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/README.md),
 with one row for each client rule and the test that covers it, and the findings
 to report upstream.

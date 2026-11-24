@@ -131,7 +131,7 @@ from an app always asks.
 - **Cells** are one character each: wide characters show as `?`.
 
 The design notes list the rest, with what Claude Code could add to remove each:
-[`docs/DESIGN.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/apps/docs/DESIGN.md).
+[`docs/DESIGN.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/docs/DESIGN.md).
 
 ## Spec
 
@@ -145,7 +145,7 @@ Where it departs from MCP Apps 2026-01-26:
   tall as the terminal, and picture-in-picture is a pane beside the chat.
 - **`platform`** is sent as `"desktop"`; the spec has no value for a terminal.
 
-[`docs/COMPLIANCE.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/apps/docs/COMPLIANCE.md)
+[`docs/COMPLIANCE.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/docs/COMPLIANCE.md)
 goes through the spec clause by clause (each MUST, SHOULD and MAY, with its
 test), and says how the plugin is checked: a TLA+ model of which server a view's
 app comes from and what it may make happen, checked with TLC within stated
@@ -178,7 +178,7 @@ bounds, the server gate checked over every case, and property-based tests.
 It has had no audit by a person. On 24 November 2026 an AI reviewer, outside the
 sessions that wrote the code, read it and ran reproductions; its findings, and
 where each stands, are listed in
-[`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/apps/SECURITY.md),
+[`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md),
 with what isn't protected.
 
 ## When Claude Code supports MCP Apps itself
@@ -197,6 +197,6 @@ or remove it with `claude plugin uninstall mcp-apps-cli@agent-polyfill`.
 
 ## More
 
-On GitHub, in [`polyfills/claude-code/apps`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/claude-code/apps):
-the full [`README.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/apps/README.md),
+On GitHub, in [`polyfills/apps/claude-code`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/apps/claude-code):
+the full [`README.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/README.md),
 how it works and how to build it from source.

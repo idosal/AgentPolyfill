@@ -178,7 +178,7 @@ do not know before approving it (`/mcp-skills show <skill>`). Bypass-permissions
 mode has not been tested; do not use it with a server you do not trust.
 
 The full account:
-[`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/skills/SECURITY.md).
+[`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/SECURITY.md).
 
 ## How it is tested
 
@@ -191,12 +191,12 @@ The full account:
 | A model of approval, loading, disabling and the gate, every reachable state to its bound (it checks the model, not the code) | every invariant holds |
 | The same model in TLA+, every reachable state to the same bound, by TLC 1.7.4 | every invariant holds |
 | The official TypeScript SDK's Skills server and client, over stdio and HTTP | 15 checks pass |
-| Real Claude Code sessions, recorded | screens in [`live/`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/claude-code/skills/live) |
+| Real Claude Code sessions, recorded | screens in [`live/`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/claude-code/live) |
 
-[`docs/conformance.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/skills/docs/conformance.md)
+[`docs/conformance.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/docs/conformance.md)
 goes through every rule the Skills extension sets for a client (60 rules: 54
 met, 3 met with a stated limit, 3 that do not apply), and
-[`docs/verification.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/skills/docs/verification.md)
+[`docs/verification.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/docs/verification.md)
 says what the model shows and what it does not.
 
 ## Settings
@@ -239,9 +239,9 @@ stand-ins.
 
 ## More
 
-On GitHub, in [`polyfills/claude-code/skills`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/claude-code/skills):
-the full [`README.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/skills/README.md),
-[`docs/host-changes.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/skills/docs/host-changes.md)
+On GitHub, in [`polyfills/skills/claude-code`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/claude-code):
+the full [`README.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/README.md),
+[`docs/host-changes.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/docs/host-changes.md)
 (what Claude Code would need to offer for this mod to work with every server),
 and the evidence of each test run in
-[`docs/evidence/`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/claude-code/skills/docs/evidence).
+[`docs/evidence/`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/claude-code/docs/evidence).

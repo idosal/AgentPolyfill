@@ -4,7 +4,7 @@
 // each package's own licence and notice files. Run it after `npm ci` in the
 // polyfill's folder, and again whenever its dependencies change.
 //
-//   node tools/bundle-notices.mjs polyfills/claude-code/events [--check]
+//   node tools/bundle-notices.mjs polyfills/events/claude-code [--check]
 //
 // --check fails if the file on disk differs from what it would write.
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';

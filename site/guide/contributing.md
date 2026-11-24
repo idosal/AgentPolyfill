@@ -33,18 +33,28 @@ plugin covers that case: a polyfill never adds behaviour of its own.
 
 ### 2. Put it in its folder
 
+Each extension has one folder, and one plugin that serves every host it
+supports:
+
 ```
-polyfills/<host>/<extension>/
+polyfills/<extension>/
+  core/          the host-neutral logic and its tests of the spec's rules
+  claude-code/   the Claude Code adapter
+  codex/         the Codex adapter
 ```
 
-- `<host>` is the host it runs in, in lower case with hyphens: `claude-code`.
 - `<extension>` is the extension's short name: `apps`, `events`, `skills`,
-  `server-cards`.
+  `server-cards`, `ard`.
+- `core/` holds what does not depend on the host; `claude-code/` and `codex/`
+  each hold the adapter for that host.
 
-Inside the folder, the installable plugin goes in a subfolder (`mod/` in the
-Apps polyfill), holding `.claude-plugin/plugin.json` and only what the plugin
+Inside an adapter's folder, the installable plugin goes in a subfolder (`mod/`
+in the Apps polyfill), holding the host's manifest and only what the plugin
 runs; tests, build scripts, benchmarks and design notes go beside it. The
-plugin's name is unique in the repository. No large files in git: nothing over
+plugin folder is self-contained: Claude Code and Codex copy only that folder,
+so code from `core/` reaches it by bundling, never by an import from outside
+it. One plugin folder can carry both `.claude-plugin/plugin.json` and
+`.codex-plugin/plugin.json`. The plugin's name is unique in the repository. No large files in git: nothing over
 about 1 MB unless the plugin or its tests cannot work without it. The repository
 is Apache-2.0, and so is every contribution; keep the notices of third-party
 code the polyfill ships in a `THIRD_PARTY_LICENSES.txt` in its folder.
@@ -85,7 +95,7 @@ ships built files also gets a release workflow, run on its own tags,
 
 ```bash
 claude plugin validate .
-claude plugin validate polyfills/<host>/<extension>/<plugin subfolder>
+claude plugin validate polyfills/<extension>/<host>/<plugin subfolder>
 ```
 
 Run the polyfill's tests, and do one recorded run in the real host against a
