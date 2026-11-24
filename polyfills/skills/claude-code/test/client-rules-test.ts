@@ -106,7 +106,7 @@ describe('Resource Mapping', () => {
         await ok(app, 'load_skill', { server: 'docs', uri: s.uri });
         assert.deepEqual(f.requests('resources/read').map((r) => r.params.uri), [s.uri]);
         // The extension's logic has no way to reach a network: it imports no I/O and is handed a Wire.
-        const source = readFileSync(new URL('../src/skills.ts', import.meta.url), 'utf8');
+        const source = readFileSync(new URL('../../core/src/skills.ts', import.meta.url), 'utf8');
         assert.deepEqual([...source.matchAll(/^import .* from '([^']+)'/gm)].map((m) => m[1]), ['yaml', './wire.ts', './untrusted.ts']);
         assert.match(source, /^import type \{ Wire \} from '\.\/wire\.ts'/m);
         assert.doesNotMatch(source, /\bfetch\(|node:|\bdns\b|new URL\(/);

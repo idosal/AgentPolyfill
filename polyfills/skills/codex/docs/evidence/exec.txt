@@ -1,0 +1,18 @@
+# codex exec (Codex 0.172.0), in a throwaway CODEX_HOME with the plugin installed from the
+# marketplace and Hugging Face's server in its config.toml. The approval of huggingface-local-models
+# from the recorded interactive session (live/runs/proof) was copied into the plugin's store;
+# hf-mem was never approved.
+$ codex exec -s read-only --json 'Load the skills $mcp-skills:huggingface:huggingface-local-models and $mcp-skills:huggingface:hf-mem, each with the load_skill tool of the mcp-skills MCP server. Then write one line for each: its name, and whether it loaded, quoting the first sentence of the tool result. Do nothing else.'
+agent: I’ll load both Hugging Face skills through the MCP Skills server.
+tool mcp-skills.load_skill {"server": "huggingface", "uri": "skill://huggingface-local-models/SKILL.md"} -> Loaded the skill "huggingface-local-models" from the MCP server "huggingface" (skill://huggingface-local-models/SKILL.md), which the user approved earlier, as it is now.
+tool mcp-skills.load_skill {"server": "huggingface", "uri": "skill://hf-mem/SKILL.md"} -> The user did not approve loading the skill "hf-mem" from the MCP server "huggingface", so it is not loaded and nothing of it is used (in codex exec, and with the approval policy "never", Codex declines every such question: a skill approved once in an interactive session loads without asking afterwards).
+agent: - **huggingface-local-models** — loaded. “Loaded the skill "huggingface-local-models" from the MCP server "huggingface" (skill://huggingface-local-models/SKILL.md), which the user approved earlier, as it is now.”
+- **hf-mem** — not loaded. “The user did not approve loading the skill "hf-mem" from the MCP server "huggingface", so it is not loaded and nothing of it is used (in codex exec, and with the approval policy "never", Codex declines every such question: a skill approved once in an interactive session loads without asking afterwards).”
+
+# the plugin's log (mcp-skills.log), paths scrubbed:
+2026-11-24T15:28:00.131Z [26392] mcp-skills 0.1.0: 1 server(s) to look at in <codex-home>/config.toml; stubs in <codex-home>/plugins/cache/agent-polyfill/mcp-skills/0.1.0/skills/served
+2026-11-24T15:28:00.177Z [26392] client codex-mcp-client 0.172.0
+2026-11-24T15:28:00.539Z [26392] huggingface: 25 skill(s), 0 left out (protocol revision 2026-07-28, lists directories)
+2026-11-24T15:28:08.747Z [26392] huggingface: loaded skill://huggingface-local-models/SKILL.md (approved earlier)
+2026-11-24T15:28:08.758Z [26392] huggingface: skill://hf-mem/SKILL.md not approved
+2026-11-24T15:28:08.758Z [26392] load_skill failed: the user did not approve loading the skill "hf-mem" from the MCP server "huggingface", so it is not loaded and nothing of it is used (in codex exec, and with the approval policy "never", Codex declines every such question: a skill approved once in an interactive session loads without asking afterwards)
