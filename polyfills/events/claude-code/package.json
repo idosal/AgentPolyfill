@@ -1,7 +1,7 @@
 {
   "name": "mcp-events",
   "private": true,
-  "version": "0.7.0",
+  "version": "0.7.1",
   "type": "module",
   "description": "A Claude Code mod that adds MCP Events (SEP-3415) support: Claude can watch events on your MCP servers and react when they happen.",
   "engines": {

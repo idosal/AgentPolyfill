@@ -9,9 +9,12 @@
 //
 // Every event is on disk before it is acknowledged to its server. Then, at most as
 // often as the wake gate allows (wake.ts), the new events are handed to the thread
-// with `codex queue` (waker.ts). Where the hand-over stands is saved only once
-// `codex queue` has taken the message, so a failed or interrupted wake is tried
-// again, and an event can at worst be announced twice, never not at all.
+// with `codex queue` (waker.ts). The hand-over is recorded before `codex queue` runs,
+// and a wake Codex said it did not take is tried again. One this process never heard
+// back about (it ended, or `codex queue` timed out) counts as handed over and as a
+// wake: a stored event is handed over at most once, and the hourly cap holds across restarts
+// (for a session open in one window; with two, see the README's Limits).
+// Such an event may go unannounced; it is still stored, for recent_events.
 
 import { join } from 'node:path';
 import type { EventsConnection } from '../../core/src/events-client.ts';
@@ -103,6 +106,15 @@ export class ThreadSession {
         if (owner && !was) {
             // Where the hand-over stands, as the process that ran them before left it.
             this.#delivery = new Delivery(this.spool, { values: this.#values });
+            // A batch that process handed to `codex queue` and ended before it heard back about: it may
+            // have woken the session, so it counts as handed over and as a wake (at most once), and is
+            // never handed over again.
+            const handed = this.budget.handed;
+            if (handed) {
+                this.#delivery.ack(handed.upto);
+                this.budget.woke(handed.watches);
+                this.#log('a batch handed to codex queue by a helper that ended before it heard back counts as handed over');
+            }
             if (this.manager.watches.length) this.#log(`runs ${this.manager.watches.length} watch(es)`);
             if (this.#delivery.pending) this.announce();
         }
@@ -142,6 +154,11 @@ export class ThreadSession {
             this.lastWakeError = undefined;
             this.#retryMs = 0;
             if (!r.resumed) this.#log('codex queue took the message but could not resume the session; it runs when the session is next opened');
+        } else if (r.maybe) {
+            // It may have queued the message: counted as handed over, never handed over again.
+            this.lastWakeError = undefined;
+            this.#retryMs = 0;
+            this.#log(`${r.why}; it may have queued the message, so it counts as handed over`);
         } else if (r.unreachable) {
             // No later try can reach it: stop trying. Events go on being stored, for recent_events and get_event.
             this.unwakeable = r.why;
@@ -185,18 +202,38 @@ export class ThreadSession {
                 // The events stay where they are; the session is told, once, that waking has stopped.
                 this.budget.handNotice();
                 const r = await this.#queue([WAKE_HEADER, this.budget.notice(batch.events)].join('\n'));
-                if (r.ok) this.budget.pause();
-                else if (!r.unreachable) again = this.#retryMs;
-                return;
-            }
-            const r = await this.#queue([WAKE_HEADER, ...batch.lines].join('\n'));
-            if (!r.ok) {
-                // Tried again later, unless no try can ever reach this session.
+                if (r.ok || r.maybe) {
+                    this.budget.pause();
+                    return;
+                }
+                // Codex said it did not take it: the session was not told, so a helper that starts
+                // later must not start paused by it; the notice is tried again. Only this answer
+                // clears it: a notice still in `codex queue` when the person writes may be shown after
+                // their call, and a helper that starts before the answer counts it as given.
+                this.budget.dropNotice();
                 if (!r.unreachable) again = this.#retryMs;
                 return;
             }
-            this.budget.woke(batch.watches);
+            // Write-ahead: the batch is recorded as handed over before `codex queue` runs. If this process
+            // ends before it hears back, the next one finds the record and counts the batch, instead of
+            // handing it over a second time (a wake no budget knew of). Not recorded, not handed over.
+            if (!this.budget.handBatch(batch.watches, batch.upto)) {
+                this.#log('the hand-over could not be recorded; the session is not woken until it can be');
+                again = Math.max(MIN_RETRY_MS, this.#retryMs);
+                return;
+            }
+            const r = await this.#queue([WAKE_HEADER, ...batch.lines].join('\n'));
+            if (!r.ok && !r.maybe) {
+                // Codex said it did not take it: nothing was handed over. Tried again later, unless no
+                // try can ever reach this session.
+                this.budget.dropHanded();
+                if (!r.unreachable) again = this.#retryMs;
+                return;
+            }
+            // Marked handed over first, then counted (which clears the record, in the same write): a
+            // process ending between the two leaves the record, and the next counts it once.
             delivery.ack(batch.upto);
+            this.budget.woke(batch.watches);
             if (delivery.pending) again = this.#batchMs;
         } finally {
             this.#waking = false;

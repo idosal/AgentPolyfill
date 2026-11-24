@@ -64,13 +64,13 @@ export function world(fixtureEnv: Record<string, string> = {}, o: { serverName?:
             return eventId;
         },
         /** What `codex queue` was asked to do, in order. */
-        queued(): { thread: string; message: string; args: string[]; leaked: string[]; remote?: string }[] {
+        queued(): { thread: string; message: string; args: string[]; leaked: string[]; remote?: string; pid: number }[] {
             if (!existsSync(queueLog)) return [];
             return readFileSync(queueLog, 'utf8')
                 .split('\n')
                 .filter(Boolean)
-                .map((l) => JSON.parse(l) as { args: string[]; leaked: string[] })
-                .map((r) => ({ args: r.args, leaked: r.leaked, thread: r.args[r.args.indexOf('--thread') + 1]!, message: (r.args.find((a) => a.startsWith('--message=')) ?? '').slice('--message='.length), remote: r.args.find((a) => a.startsWith('--remote='))?.slice('--remote='.length) }));
+                .map((l) => JSON.parse(l) as { args: string[]; leaked: string[]; pid: number })
+                .map((r) => ({ args: r.args, leaked: r.leaked, pid: r.pid, thread: r.args[r.args.indexOf('--thread') + 1]!, message: (r.args.find((a) => a.startsWith('--message=')) ?? '').slice('--message='.length), remote: r.args.find((a) => a.startsWith('--remote='))?.slice('--remote='.length) }));
         },
         fixtureMethods(): string[] {
             if (!existsSync(fixtureLog)) return [];
