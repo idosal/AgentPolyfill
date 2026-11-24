@@ -49,8 +49,8 @@ export function oneLine(text: unknown, max: number): string {
  */
 // eslint-disable-next-line no-control-regex, no-misleading-character-class
 export const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/;
-// eslint-disable-next-line no-control-regex, no-misleading-character-class
-const UNSAFE_BUT_LINES = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g;
+// eslint-disable-next-line no-control-regex
+const CONTROLS_BUT_LINES = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g;
 
 /**
  * What a URI cannot hold: anything but printable ASCII. RFC 3986 writes every other character
@@ -61,16 +61,36 @@ const UNSAFE_BUT_LINES = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200B-\u200F\
 export const NOT_URI_TEXT = /[^\x21-\x7e]/;
 
 /**
- * Characters that show nothing, or change how the text around them reads: zero-width and format
- * marks, direction marks (U+061C among them), the soft hyphen, the Hangul fillers and the tag
- * characters. Taken out of a server's text before it is shown in a listing; controls are
+ * Characters that show nothing, or change how the text around them reads: Unicode's
+ * Default_Ignorable_Code_Point. That is the zero-width and format marks, the direction marks
+ * (U+061C among them), the soft hyphen, the combining grapheme joiner, the Hangul fillers, the
+ * variation selectors (each can hide a byte) and the tag characters (which can spell hidden ASCII
+ * to a model). Taken out of a server's text before it is shown in a listing; controls are
  * oneLine's to remove.
  */
-export const INVISIBLE_TEXT = /[\u00AD\u061C\u115F\u1160\u180E\u200B-\u200F\u202A-\u202E\u2060-\u206F\u3164\uFEFF\uFFA0\u{E0000}-\u{E007F}]/u;
+export const INVISIBLE_TEXT = /\p{Default_Ignorable_Code_Point}/u;
+const HIDDEN_RUN = /\p{Default_Ignorable_Code_Point}+/gu;
 
-/** A server's text for a person to read: every UNSAFE_TEXT character removed but line breaks and tabs. */
+/** How many INVISIBLE_TEXT characters a server's text holds. */
+export function countHidden(text: string): number {
+    let n = 0;
+    for (const run of text.matchAll(HIDDEN_RUN)) n += [...run[0]].length;
+    return n;
+}
+
+/**
+ * A server's text for a person to read: controls removed (line breaks and tabs kept), and each
+ * run of INVISIBLE_TEXT characters shown as a marker with its count, `\u27E63 hidden characters\u27E7`, so
+ * the person sees that text is there which a model would read and they would not.
+ */
 export function shownText(text: string): string {
-    return text.replace(UNSAFE_BUT_LINES, '');
+    // The line and paragraph separators (U+2028, U+2029) end a line, as \n does, so each piece is a
+    // line of its own wherever lines are marked. (oneLine turns them into spaces.)
+    const separators = new RegExp(`[${String.fromCodePoint(0x2028, 0x2029)}]`, 'g');
+    return text.replace(separators, '\n').replace(CONTROLS_BUT_LINES, '').replace(HIDDEN_RUN, (run) => {
+        const n = [...run].length;
+        return `${String.fromCodePoint(0x27e6)}${n} hidden character${n === 1 ? '' : 's'}${String.fromCodePoint(0x27e7)}`;
+    });
 }
 
 /** Removes known secrets (tokens from the user's config) from text that will be shown or logged. */

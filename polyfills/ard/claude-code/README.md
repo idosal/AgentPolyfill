@@ -52,7 +52,7 @@ Ask Claude "What MCP servers does buildkite.com list through ARD?", then press *
 ## Using it, step by step
 
 1. **Ask.** For example "find an MCP server that can check why my CI build failed", or "what does buildkite.com list in its ard.json?".
-2. **Claude Code asks first.** Before the first `ard_discover`, as for any new tool. And before **every** `ard_search`: the plugin puts each search to you itself, with the query and the registry it goes to, so no allow rule or auto mode answers it. The query sent is the one shown: at most 300 characters, on one line, with no invisible characters or direction marks. If you say no, nothing is fetched or sent. With nobody to ask (`claude -p`, a background loop), every search is refused: such a session can't search.
+2. **Claude Code asks first.** Before the first `ard_discover`, as for any new tool. And before **every** `ard_search`: the plugin puts each search to you itself, with the query and the registry it goes to, so no allow rule or auto mode answers it. The query sent is the one shown: at most 300 characters, on one line, with no invisible characters or direction marks. The registry searched is the one named: at most 200 characters, with no spaces, control characters or direction marks, whether named in the request or set. If you say no, nothing is fetched or sent. With nobody to ask (`claude -p`, a background loop), every search is refused: such a session can't search.
 3. **By domain (`ard_discover`):** `mcp-server-cards` reads the domain's `/.well-known/ai-catalog.json` and `/.well-known/ard.json`, and follows `rel="ai-catalog"` and `rel="ard"` links on the page. It fetches each Server Card listed and checks it. The result and the **Add** picker appear under the `ard_discover` call.
 4. **By task (`ard_search`):** if no registry is set and you named none, Claude asks you which one to search. The plugin posts your query to that registry and follows the referrals it gives, one hop. It hands the Server Card results to `mcp-server-cards`, which fetches and checks each card. Then it reads each publisher's own catalogs (`ai-catalog.json` and `ard.json` on the domain in the result's `urn:air:<publisher>:…` identifier).
    - A server is **confirmed** only if its publisher lists it there with a valid card, and then the publisher's card is the one shown and added.
@@ -105,7 +105,7 @@ There is one row for each rule ARD v0.91 puts on a consumer of MCP Server Cards,
 | R-8 | A claim to a publisher's name needs that publisher's attestation | §4.5.1 | mcp-server-cards O-2 to O-4, O-8, B-12; A-2 | partly: trust manifests are not verified. Instead the publisher's own catalogs (`ai-catalog.json` and `ard.json`) are read, and a result is **confirmed** only if they list the server; the publisher's card is then the one used |
 | Q-1 | Say where the query went | this plugin's own | A-2 | met: the tool's description says it, and every result names each registry asked |
 | Q-2 | The person chooses the registry | this plugin's own | A-5, A-10 | met: none is set by default; a registry named in the request is used, or the one in the `registry` setting; with neither, the search is refused before any ask and nothing is sent |
-| Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own, from the security review (M2) | A-7, A-8 | met: a hook-made ask that no allow rule or auto mode answers; refused with nobody to ask, so nothing is sent |
+| Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own, from the security review (M2) | A-7, A-8, A-9, A-11 | met: a hook-made ask that no allow rule or auto mode answers; refused with nobody to ask, so nothing is sent. A query or a registry the ask could not show exactly is refused |
 | P-1 | A public registry can't refer the client to a local or private address | this plugin's own | P-1 | met |
 | B-1 | Bounds | this plugin's own | R-7 | three registries, three referrals, 50 results read per answer, 10 handed on, 512 KiB per answer |
 
@@ -136,8 +136,8 @@ Claude finds Buildkite, and says buildkite.com's own catalog confirms it. Press 
 
 ## Proof
 
-- **Per rule:** 18 tests in this plugin, run with `claude plugin test mod`, and the `mcp-server-cards` tests named above.
-  - A-1 to A-10 run through the plugin as Claude Code loads it, with `mcp-server-cards` and the network stood in for.
+- **Per rule:** 19 tests in this plugin, run with `claude plugin test mod`, and the `mcp-server-cards` tests named above.
+  - A-1 to A-11 run through the plugin as Claude Code loads it, with `mcp-server-cards` and the network stood in for.
   - R-1 to R-7 and P-1 test the registry client.
 - **A registry someone else runs:** Hugging Face Discover, including its referral (24 November 2026).
 - **The real host (Claude Code 2.1.329), with both plugins loaded:**

@@ -8,7 +8,7 @@ where that is tested.
 [`seps/2640-skills-extension.md`](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md)
 at commit `2eb3a8e` (12 November 2026), the same revision the Claude Code
 adapter implements ([its table](../../claude-code/docs/conformance.md)). The
-rule ids are the same in both tables. This page describes version 0.1.2 of the
+rule ids are the same in both tables. This page describes version 0.1.4 of the
 Codex plugin.
 
 **Status** is one of: **met**; **exception** (met, with a limit stated in the
@@ -103,7 +103,7 @@ the Codex adapter adds.
 
 | Id | Rule | Status | How, and where checked |
 |---|---|---|---|
-| X1 | Treat served skill content as untrusted input. | met | Fenced with a marker made per answer. A skill or file URI holding anything but printable ASCII is refused (control characters from 0.1.1, the rest from 0.1.2; security review SK1, SK4); descriptions lose invisible characters too; the SKILL.md shown to you before a load has control and invisible characters removed, between marker lines with a per-preview id, each of its lines marked (SK5). `rules` X1/X3/X4, `unsafe` |
+| X1 | Treat served skill content as untrusted input. | met | Fenced with a marker made per answer. A skill or file URI holding anything but printable ASCII is refused (control characters from 0.1.1, the rest from 0.1.2; security review SK1, SK4); descriptions lose every default-ignorable code point; the SKILL.md shown to you before a load has control characters removed and each run of hidden (default-ignorable) characters shown with its count (SK6), between marker lines with a per-preview id, each of its lines marked (SK5); a loaded skill or file that holds hidden characters tells the model how many (SK6). `rules` X1/X3/X4, `unsafe` |
 | X2 | Treat served skills as a higher-risk surface than tools. | met | A skill needs your own yes before anything of it is fetched |
 | X3, X4 | Tag content with its server; never present it as a local skill. | met | The stub's description and body, the question, the loaded text and every file say which server. `rules` X1/X3/X4 |
 | X5 | No host-side code execution from a served skill without explicit per-skill approval: (a) declarative fields ignored; (b) the gate applies to code execution while acting on the skill. | exception | (a) No frontmatter field has any effect, and none reaches a stub. (b) A skill is loaded only after you choose "Load it" in Codex's form (or approved it before, unchanged); with nobody to ask, it is not loaded. After the yes, commands go through Codex's approvals as for any skill. **Limit:** the plugin cannot gate Codex's tools itself, so a skill loaded with your yes is not held to more than your Codex approvals. `rules` X5, `helper` |
