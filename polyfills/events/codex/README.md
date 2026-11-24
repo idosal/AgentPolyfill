@@ -119,9 +119,9 @@ Codex  ── tools/call (_meta.threadId = this session) ───────�
   (`events/stream`), then poll (`events/poll`).
 - **Waking Codex.** Each event is written to disk, then the session is handed
   a message with `codex queue`. Its first line says it is from the plugin,
-  not typed by you; the rest names the server and event type and gives the
-  new events' ids, and nothing the server wrote. Codex reads what happened
-  with `get_event`.
+  not typed by you; the rest names the server and event type, gives the new
+  events' ids, and repeats the note Codex saved with the watch, and carries
+  nothing the server wrote. Codex reads what happened with `get_event`.
 - **One process per session** runs its watches. If the same session is open
   twice, the second lists them, and takes over if the first goes.
 - **Lifetime.** Codex starts the helper with the session, as a child of the
@@ -188,7 +188,9 @@ documentation: [`../claude-code/mod/relay/README.md`](../claude-code/mod/relay/R
 | The Codex desktop app, the IDE extension | Not tested | Not tested |
 
 Tested live in the Codex TUI 0.172.0 on macOS. The tests also run on Linux in
-CI; Windows has not been tried.
+CI; Windows has not been tried. On Windows the plugin runs only `codex.exe`,
+or Node with an npm install's `codex.js`, never npm's `codex.cmd`
+([`SECURITY.md`](SECURITY.md)); without either it cannot wake a session.
 
 ## Limits
 
@@ -210,9 +212,13 @@ CI; Windows has not been tried.
   event.)
 - **Events wake a session only so often.** A watch can start a wake at most
   once a minute; a session is woken at most 30 times in an hour, then told
-  once that events are waiting, and woken again only after you write to it
-  and Codex calls one of the plugin's tools. Nothing is dropped:
-  `recent_events` lists what waited. Two settings below change the numbers.
+  once that events are waiting, and not woken again for an hour, or until,
+  sooner, you write to it and Codex calls one of the plugin's tools in that
+  turn. Telling that you wrote depends on the turn metadata Codex 0.172 sends
+  with each call (`turn_trigger`: `user`, `exec`, or voice); with an older
+  Codex, or a turn it marks otherwise, the pause ends only after its hour.
+  Nothing is dropped: `recent_events` lists what waited. Two settings below
+  change the numbers.
 - **The wake is an input message.** Codex has no separate channel for a
   plugin's message, so it appears in the conversation like something typed,
   with a first line saying it is from the plugin. The change in Codex: a
@@ -233,7 +239,14 @@ CI; Windows has not been tried.
 - **Sizes.** One event is at most 256 KiB, one answer from a remote server
   4 MiB, one session's stored events 64 MiB.
 - **Managed machines.** Where your organisation manages Codex's MCP servers,
-  it connects to nothing.
+  it connects to nothing: on macOS and Linux it looks at `/etc/codex`
+  (and, on macOS, managed-preferences profiles), on Windows at
+  `%ProgramData%\OpenAI\Codex\requirements.toml`. A Windows policy set only in
+  the registry or by MDM is not detected.
+- **One forwarder port.** With `MCP_EVENTS_PUBLIC_URL` and a fixed
+  `MCP_EVENTS_RECEIVER_PORT`, only the first session to open the receiver gets
+  the port; webhook watches in a second session fail until it is free. A relay
+  has no such limit.
 - **Experimental parts of Codex.** The app server is marked experimental in
   Codex's CLI; `codex queue` and `daemon_auto_start` are not. Nothing needs to
   be turned on.

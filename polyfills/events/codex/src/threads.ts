@@ -35,8 +35,11 @@ export type ThreadOptions = {
     log: (s: string) => void;
     env?: NodeJS.ProcessEnv;
     connectTimeoutMs?: number;
+    /** How long the pause past the hour's wakes lasts when the person never writes. Default an hour. */
+    liftAfterMs?: number;
 };
 
+const PAUSE_LIFTS_AFTER_MS = 3600 * 1000;
 const MIN_RETRY_MS = 5000;
 const MAX_RETRY_MS = 5 * 60000;
 
@@ -70,7 +73,9 @@ export class ThreadSession {
         this.project = new ProjectState(o.base, `codex thread ${id}`, { dir: join(o.base, 'threads', id) });
         this.spool = new Spool(o.base, id);
         // How often events may wake this session. Kept with its events, so a helper that restarts carries on counting.
-        this.budget = new WakeBudget(wakeLimits(env), join(this.spool.dir, 'wakes.json'));
+        // Past the hour's wakes the pause lifts when the person's own turn calls a tool, or by itself
+        // after an hour: Codex shows the plugin the person only through a call's turn metadata.
+        this.budget = new WakeBudget(wakeLimits(env), join(this.spool.dir, 'wakes.json'), { liftAfterMs: o.liftAfterMs ?? PAUSE_LIFTS_AFTER_MS });
         // A notice handed to `codex queue` by a helper that stopped before it heard back counts as given.
         if (this.budget.noticeHanded) this.budget.pause();
         this.manager = new WatchManager({ connections: o.connections, project: this.project, spool: this.spool, session: id, log: this.#log, env, connectTimeoutMs: o.connectTimeoutMs, redact: secrets });
@@ -78,7 +83,10 @@ export class ThreadSession {
         this.spool.onAppend = (rec) => {
             // An event of a watch that may not wake the session yet waits for its time.
             const gate = this.budget.gate([String(rec.watch ?? '')]);
-            if (gate.kind === 'paused') return;
+            if (gate.kind === 'paused') {
+                if (gate.ms !== undefined) this.announce(gate.ms + 50);
+                return;
+            }
             this.announce(gate.kind === 'wait' ? gate.ms + 50 : this.#batchMs);
         };
     }
@@ -153,7 +161,11 @@ export class ThreadSession {
                 return;
             }
             const gate = this.budget.gate(batch.watches);
-            if (gate.kind === 'paused') return;
+            if (gate.kind === 'paused') {
+                // Looked at again when the pause lifts by itself, if nobody speaks first.
+                if (gate.ms !== undefined) again = gate.ms + 50;
+                return;
+            }
             if (gate.kind === 'wait') {
                 again = gate.ms + 50;
                 return;

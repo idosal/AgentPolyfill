@@ -56,7 +56,7 @@ describe('the plugin folder', () => {
 
     test('a copied plugin, with no node_modules and nothing outside it, starts and serves its tools as Codex starts it', async () => {
         const dir = temp('mcp-events-codex-install-');
-        const installed = join(dir, 'plugins cache', 'mcp-events', '0.1.0'); // a space in the path, as a cache may have
+        const installed = join(dir, 'plugins cache', 'mcp-events', VERSION); // a space in the path, as a cache may have
         mkdirSync(installed, { recursive: true });
         cpSync(PLUGIN, installed, { recursive: true, filter: (p) => !['node_modules', '.DS_Store'].includes(basename(p)) });
         assert.deepEqual(readdirSync(installed).sort(), ['.codex-plugin', '.mcp.json', 'THIRD_PARTY_LICENSES.txt', 'dist', 'skills']);
