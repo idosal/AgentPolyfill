@@ -51,6 +51,15 @@ describe('codex queue', () => {
         assert.deepEqual(await queueMessage(FAKE_CODEX, newThread(), 'm', w.env()), { ok: false, why: 'codex queue failed (exit 1)' });
     });
 
+    test('"no rollout found" (a ChatGPT desktop-app chat) is a session codex queue can never reach', async () => {
+        const w = world();
+        writeFileSync(w.mode, 'norollout');
+        const r = await queueMessage(FAKE_CODEX, newThread(), 'm', w.env());
+        assert.equal(r.ok, false);
+        assert.equal(!r.ok && r.unreachable, true);
+        assert.match(!r.ok ? r.why : '', /isn't a local Codex session/);
+    });
+
     test('nothing that is not a session id reaches the command line', async () => {
         const r = await queueMessage(FAKE_CODEX, '--remote=ws://evil', 'm');
         assert.equal(r.ok, false);
