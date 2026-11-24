@@ -69,7 +69,10 @@ describe('installed by Codex', () => {
         running.push(helper);
         helper.stdin!.write(`${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: { elicitation: { form: {} } }, clientInfo: { name: 'codex-mcp-client', version: '0.172.0' } } })}\n`);
         await until(() => servedStubs(home, codexHome).length === 1);
+        // Gone before the folder is replaced: Windows refuses to remove a running process's folder.
+        const exited = new Promise((r) => helper.once('exit', r));
         helper.kill();
+        await exited;
         install();
         const left = servedStubs(home, codexHome);
         assert.equal(left.length, 1, 'the served skill is still in a skill root Codex reads');
