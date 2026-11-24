@@ -17,8 +17,8 @@ Apps (`io.modelcontextprotocol/ui`) as published in `specification/2026-01-26`
 
 <Recording
   cut="apps"
-  alt="In Claude Code, Play DOOM opens the game from the hosted arcade server under the tool call, and it is played with clicks and keys. Then a system monitor app draws a live CPU chart; a 3D torus knot Claude writes renders and turns when dragged; and in a terminal without pictures, the same scene is drawn in character cells."
-  caption="A real session (24 s; waits sped up, with a badge saying how fast): DOOM from the hosted arcade server, played with clicks and keys; a system monitor whose chart updates live; a 3D scene Claude writes, turned by dragging; and the same scene in character cells."
+  alt="In Claude Code, Play DOOM opens the game from the hosted arcade server under the tool call, and it is played with clicks and keys. A system monitor app draws a live CPU chart, and in a terminal with no image support it draws the chart in text. Then a 3D torus knot renders inline and turns when dragged."
+  caption="A real session (25 s; waits sped up): DOOM from the hosted arcade server, played with clicks and keys; a system monitor, drawn as a picture and, where the terminal shows none, in text; and a 3D scene, turned by dragging."
 />
 
 ## Install

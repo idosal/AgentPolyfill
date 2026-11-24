@@ -25,8 +25,13 @@
 //   node scripts/media.mjs cut <name> <master.mp4>
 //                                       the same for one polyfill's cut (720p,
 //                                       30 fps), e.g. cut events events.mp4
+//   node scripts/media.mjs small <master.mp4>
+//                                       encodes the launch video's 720p version,
+//                                       which phones get (media.json launch.small)
 //   node scripts/media.mjs posters      makes the posters again, after posterAt
-//                                       is changed in media.json
+//                                       is changed in media.json: a JPEG (for
+//                                       link previews) and WebP at each width in
+//                                       "webp" (public/media/p/, what pages show)
 //   node scripts/media.mjs release      prints the commands that upload the
 //                                       launch video and the cuts as release
 //                                       assets, for builds on other machines
@@ -35,7 +40,7 @@
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -54,11 +59,14 @@ const probe = (file) =>
     }),
   )
 
-// The launch video and the cuts, each with the encoding it gets.
+// The launch video (and its 720p version) and the cuts.
 const rendered = () => [
   { video: manifest.launch, label: 'the launch video' },
+  ...(manifest.launch.small ? [{ video: manifest.launch.small, label: 'the launch video, 720p' }] : []),
   ...manifest.cuts.map((cut) => ({ video: cut, label: `the ${cut.name} cut` })),
 ]
+// The videos that have posters.
+const posted = () => [manifest.launch, ...manifest.cuts]
 
 mkdirSync(out, { recursive: true })
 
@@ -69,7 +77,8 @@ else if (command === 'cut') {
   const cut = manifest.cuts.find((c) => c.name === rest[0])
   if (!cut) fail(`usage: node scripts/media.mjs cut <${manifest.cuts.map((c) => c.name).join('|')}> <master.mp4>`)
   encodeVideo(cut, rest[1], 'cut')
-} else if (command === 'posters') for (const { video } of rendered()) poster(video)
+} else if (command === 'small') encodeSmall(manifest.launch, rest[0])
+else if (command === 'posters') for (const video of posted()) poster(video)
 else if (command === 'release') printRelease()
 else if (command === 'derive') for (const item of manifest.derived) deriveOne(item)
 else await prepare({ optional: command === '--optional' || process.env.SITE_MEDIA === 'optional' })
@@ -93,7 +102,10 @@ async function prepare({ optional }) {
 // SHA-256 in media.json.
 async function ensure(video, label, optional) {
   const target = join(out, video.file)
-  if (!existsSync(join(out, video.poster))) fail(`public/media/${video.poster}, the poster of ${label}, is missing`)
+  if (video.poster && !existsSync(join(out, video.poster))) fail(`public/media/${video.poster}, the poster of ${label}, is missing`)
+  for (const width of video.webp ?? []) {
+    if (!existsSync(webpPath(video, width))) fail(`${relative(site, webpPath(video, width))}, a poster of ${label}, is missing; run node scripts/media.mjs posters`)
+  }
   if (existsSync(target)) {
     if (sha256(target) !== video.sha256) {
       console.warn(`media: public/media/${video.file} does not match the SHA-256 in media.json; using the local file`)
@@ -161,11 +173,47 @@ function encodeVideo(video, input, kind) {
   console.log('media: media.json updated. For builds on other machines: node scripts/media.mjs release')
 }
 
-// A frame of the video, at the video's own size, as its poster.
+// The launch video at 720p for small screens: the same cut, about a third of
+// the bytes, so a phone on a slow network starts and keeps playing sooner.
+function encodeSmall(launch, input) {
+  if (!input || !existsSync(input)) fail('usage: node scripts/media.mjs small <master.mp4>')
+  const small = (launch.small ??= { file: 'launch-720.mp4' })
+  const target = join(out, small.file)
+  ffmpeg([
+    '-i', input, '-an',
+    '-vf', 'scale=w=1280:h=720:force_original_aspect_ratio=decrease:flags=lanczos,fps=30,format=yuv420p',
+    '-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'high', '-crf', '25', '-movflags', '+faststart', `${target}.part.mp4`,
+  ])
+  renameSync(`${target}.part.mp4`, target)
+  const info = probe(target)
+  small.width = info.streams[0].width
+  small.height = info.streams[0].height
+  small.seconds = Math.round(Number(info.format.duration) * 100) / 100
+  small.bytes = statSync(target).size
+  small.sha256 = sha256(target)
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+  console.log(`media: ${small.file}, ${small.width}x${small.height}, ${mb(small.bytes)}`)
+}
+
+function webpPath(video, width) {
+  return join(out, 'p', `${video.poster.replace(/\.jpg$/, '')}-${width}.webp`)
+}
+
+// A frame of the video as its poster: a JPEG at the video's own size (for link
+// previews), and WebP at each width in video.webp, which the pages show with
+// srcset. The frame is taken losslessly, then encoded once.
 function poster(video) {
   const source = join(out, video.file)
   if (!existsSync(source)) fail(`public/media/${video.file} is missing, so its poster cannot be made`)
   ffmpeg(['-ss', String(video.posterAt), '-i', source, '-frames:v', '1', '-q:v', '3', join(out, video.poster)])
+  if (!video.webp?.length) return
+  mkdirSync(join(out, 'p'), { recursive: true })
+  const frame = join(out, 'p', '.frame.png')
+  ffmpeg(['-ss', String(video.posterAt), '-i', source, '-frames:v', '1', frame])
+  for (const width of video.webp) {
+    execFileSync('cwebp', ['-quiet', '-q', '78', '-resize', String(width), '0', frame, '-o', webpPath(video, width)])
+  }
+  rmSync(frame, { force: true })
 }
 
 function printRelease() {

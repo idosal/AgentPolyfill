@@ -3,52 +3,80 @@
   "launch": {
     "file": "launch.mp4",
     "poster": "launch-poster.jpg",
-    "posterAt": 5.6,
+    "posterAt": 4.5,
     "caption": "Apps, Events, Skills, Server Cards and ARD in real Claude Code sessions. No sound.",
-    "description": "Real Claude Code sessions, no sound. DOOM from the hosted arcade server runs under a tool call and is played with clicks and keys; a press on a demo page wakes an idle session; a skill from Hugging Face's MCP server is approved once and used; the MCP servers neon.com publishes are found from its domain and Add is pressed on one; and buildkite.com's ARD listing shows its server.",
+    "description": "Real Claude Code sessions, no sound. DOOM from the hosted arcade server runs under a tool call and is played with clicks and keys, and in a terminal with no image support an app draws its chart in text; a watched Cloudflare Worker throws an error and the idle session wakes and says what broke; a skill from Hugging Face's MCP server is approved once and used; the MCP servers neon.com publishes are found from its domain and Add is pressed on one; and ARD lists buildkite.com's server, then asks before it sends a search to a registry.",
     "master": "master-16x9.mp4",
     "width": 1920,
     "height": 1080,
-    "seconds": 37.9,
-    "bytes": 8552125,
-    "sha256": "c59d9707c093ff8f297a50b9b77c7648f3fd1a62b0386cce2abd75996ec10658"
+    "seconds": 45.17,
+    "bytes": 8586826,
+    "sha256": "bf331f9993238fae787a632cb8d4db3f1026ed61bb21bd7d51a2d3e727bd7aa0",
+    "webp": [
+      960,
+      1600,
+      1920
+    ],
+    "small": {
+      "file": "launch-720.mp4",
+      "width": 1280,
+      "height": 720,
+      "seconds": 45.17,
+      "bytes": 4798444,
+      "sha256": "a7b0599bc02440750e417311dbfe60f4fa8fb23daeccd0d2449d18f005acd5ce"
+    }
   },
   "cuts": [
     {
       "name": "events",
       "file": "events.mp4",
       "poster": "events.jpg",
-      "posterAt": 10.2,
+      "posterAt": 20,
       "master": "events.mp4",
       "width": 1280,
       "height": 720,
-      "seconds": 21.23,
-      "bytes": 896951,
-      "sha256": "bdb47d672468b4d870f9bdfc78ee79628de0cfe683015fef4affa7743cb237ef"
+      "seconds": 23.1,
+      "bytes": 1689333,
+      "sha256": "da4375832fdcdbc207df4a8cb1651f406ac8871700668b62eaa2a96f3740ce76",
+      "webp": [
+        640,
+        960,
+        1280
+      ]
     },
     {
       "name": "apps",
       "file": "apps.mp4",
       "poster": "apps.jpg",
-      "posterAt": 17,
+      "posterAt": 18.8,
       "master": "apps.mp4",
       "width": 1280,
       "height": 720,
-      "seconds": 24.17,
-      "bytes": 1347747,
-      "sha256": "e889b1d23a6f53d2630115344330190ed4fc87e252ea25144a31123328b48b44"
+      "seconds": 25.03,
+      "bytes": 1159603,
+      "sha256": "2e4f3e70d3f56a47cb36ff30e625ba3e0f3c72d106dd36424a719a7f39771b97",
+      "webp": [
+        640,
+        960,
+        1280
+      ]
     },
     {
       "name": "skills",
       "file": "skills.mp4",
       "poster": "skills.jpg",
-      "posterAt": 10.5,
+      "posterAt": 9.5,
       "master": "skills.mp4",
       "width": 1280,
       "height": 720,
-      "seconds": 20.17,
-      "bytes": 1940452,
-      "sha256": "8c93c85c515d51b6ed6d009247a72ffd860936748ac81eb27be27f5e2d6baf57"
+      "seconds": 20.5,
+      "bytes": 1997669,
+      "sha256": "cf6e61eba6f3a9d44431004b584d891dfc67e18565b81aff7ed9fc8a0526ee04",
+      "webp": [
+        640,
+        960,
+        1280
+      ]
     },
     {
       "name": "server-cards",
@@ -58,21 +86,31 @@
       "master": "server-cards.mp4",
       "width": 1280,
       "height": 720,
-      "seconds": 16.2,
-      "bytes": 357217,
-      "sha256": "6a1a452ec045abace247a78073a4d4fc14864405c6b1764fcf9456437a85b59e"
+      "seconds": 15.67,
+      "bytes": 511850,
+      "sha256": "a1ef5df7f75deb1c6a5045e7f0651991914119eb8adc2ac29782c7ad7a0fdc4e",
+      "webp": [
+        640,
+        960,
+        1280
+      ]
     },
     {
       "name": "ard",
       "file": "ard.mp4",
       "poster": "ard.jpg",
-      "posterAt": 11,
+      "posterAt": 10.3,
       "master": "ard.mp4",
       "width": 1280,
       "height": 720,
-      "seconds": 15.3,
-      "bytes": 263923,
-      "sha256": "bbf1cd5400b9c53ef87d5c199b270cbb645098e6812aa8091e3b6e07a505cea1"
+      "seconds": 20.73,
+      "bytes": 1674208,
+      "sha256": "f22b5336e0b722b8e78f8cb1359536c8c530481b7399ce6a9587fac4fdb5b13c",
+      "webp": [
+        640,
+        960,
+        1280
+      ]
     }
   ],
   "copy": [

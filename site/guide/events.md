@@ -13,8 +13,8 @@ Final), which Claude Code does not support by itself yet.
 
 <Recording
   cut="events"
-  alt="One sentence to Claude Code, Give me a demo button, starts a watch and gives a private button page, and the session goes idle. On the page, ship it is typed and Press is pressed; the idle session wakes by itself, reads the event and says the message was ship it."
-  caption="A real session against the hosted demo server (21 s; waits sped up, with a badge saying how fast). One sentence gives a private button page and a watch, and the session goes idle. A press on the page wakes it."
+  alt="In Claude Code, asked to watch a Worker on Cloudflare and say what breaks, Claude starts a watch through Cloudflare's MCP server, and the session goes idle. When the Worker throws an error, the idle session wakes by itself, reads the event and says what broke: a SyntaxError in the Worker."
+  caption="A real session (23 s; waits sped up, with a badge saying how fast). Cloudflare's MCP server was run locally, with a fix its hosted server does not have yet (cloudflare/mcp#438); the Worker's error was set off from outside."
 />
 
 ## Install
