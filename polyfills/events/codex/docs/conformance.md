@@ -1,6 +1,6 @@
 # SEP-3415 client conformance, in Codex
 
-How this client (the Codex form of mcp-events, 0.1.3) stands against the
+How this client (the Codex form of mcp-events, 0.1.4) stands against the
 **Final** text of SEP-3415 (`seps/3415-events-extension.md` in
 `modelcontextprotocol/modelcontextprotocol`, as fetched on 24 November 2026),
 the same revision as the Claude Code form.

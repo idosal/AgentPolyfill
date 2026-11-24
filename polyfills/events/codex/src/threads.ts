@@ -5,16 +5,17 @@
 // Its state is the thread's: <state>/threads/<id>/ (watches, and which process runs
 // them) and <state>/sessions/<id>/ (the thread's events, how far they were handed
 // over, and the wake count). One process runs a thread's watches; a second one (the
-// same session open twice) only lists them, and takes over if the first goes.
+// same session open twice) only lists them, and takes over if the first goes. Only the
+// one running them writes the wake count; one taking over reads it again first.
 //
 // Every event is on disk before it is acknowledged to its server. Then, at most as
 // often as the wake gate allows (wake.ts), the new events are handed to the thread
 // with `codex queue` (waker.ts). The hand-over is recorded before `codex queue` runs,
 // and a wake Codex said it did not take is tried again. One this process never heard
 // back about (it ended, or `codex queue` timed out) counts as handed over and as a
-// wake: a stored event is handed over at most once, and the hourly cap holds across restarts
-// (for a session open in one window; with two, see the README's Limits).
-// Such an event may go unannounced; it is still stored, for recent_events.
+// wake: a stored event is handed over at most once, and the hourly cap holds across
+// restarts and takeovers. Such an event may go unannounced; it is still stored, for
+// recent_events.
 
 import { join } from 'node:path';
 import type { EventsConnection } from '../../core/src/events-client.ts';
@@ -65,6 +66,8 @@ export class ThreadSession {
     #stopped = false;
     /** Why the last wake failed, until one succeeds: list_watches says so. */
     lastWakeError?: string;
+    /** The last wake's `codex queue` did not answer (it timed out): counted as handed over, not tried again. */
+    #unanswered = false;
     /**
      * Why this session can never be woken, once `codex queue` has said so (a ChatGPT desktop-app chat,
      * which is not a local Codex session). Its events are still stored and readable; it is not tried again.
@@ -83,9 +86,8 @@ export class ThreadSession {
         // How often events may wake this session. Kept with its events, so a helper that restarts carries on counting.
         // Past the hour's wakes the pause lifts when the person's own turn calls a tool, or by itself
         // after an hour: Codex shows the plugin the person only through a call's turn metadata.
+        // Only the process that runs the watches writes it: start() reads it again when this one does.
         this.budget = new WakeBudget(wakeLimits(env), join(this.spool.dir, 'wakes.json'), { liftAfterMs: o.liftAfterMs ?? PAUSE_LIFTS_AFTER_MS });
-        // A notice handed to `codex queue` by a helper that stopped before it heard back counts as given.
-        if (this.budget.noticeHanded) this.budget.pause();
         this.manager = new WatchManager({ connections: o.connections, project: this.project, spool: this.spool, session: id, log: this.#log, env, connectTimeoutMs: o.connectTimeoutMs, redact: secrets });
         this.#tools = createTools(() => [...o.connections.values()], o.unavailable, this.manager);
         this.spool.onAppend = (rec) => {
@@ -104,7 +106,12 @@ export class ThreadSession {
         const was = this.manager.owner;
         const owner = this.manager.start();
         if (owner && !was) {
-            // Where the hand-over stands, as the process that ran them before left it.
+            // The wake count as the process that ran them before left it: what this process read when it
+            // first saw the session (a second window, say) may be out of date by now.
+            this.budget.reload();
+            // A notice handed to `codex queue` by a helper that stopped before it heard back counts as given.
+            if (this.budget.noticeHanded) this.budget.pause();
+            // Where the hand-over stands, as that process left it.
             this.#delivery = new Delivery(this.spool, { values: this.#values });
             // A batch that process handed to `codex queue` and ended before it heard back about: it may
             // have woken the session, so it counts as handed over and as a wake (at most once), and is
@@ -124,12 +131,23 @@ export class ThreadSession {
     async call(name: string, input: Record<string, unknown>): Promise<ToolAnswer> {
         const answer = await this.#tools.call(name, input);
         if (name === 'list_watches' && this.unwakeable) return { ...answer, text: `${answer.text}\n\nThis chat can't be woken: it isn't a local Codex session, which is all codex queue reaches (a ChatGPT desktop-app chat, say). Its watches still store every event: recent_events and get_event read them. Waking works in the Codex TUI.` };
+        if (name === 'list_watches' && this.lastWakeError && this.#unanswered)
+            return { ...answer, text: `${answer.text}\n\nThe last wake's codex queue did not answer (${this.lastWakeError}), so it may not have woken this session. Its events count as handed over and are not handed over again; recent_events lists them.` };
         if (name === 'list_watches' && this.lastWakeError) return { ...answer, text: `${answer.text}\n\nWaking this session failed the last time it was tried (${this.lastWakeError}); it is tried again.` };
         return answer;
     }
 
-    /** The person wrote to the session: if waking had stopped at its hourly limit, it starts again. */
+    /**
+     * The person wrote to the session: if waking had stopped at its hourly limit, it starts again. Only
+     * in the process that runs the watches: another (the same session open in a second window) holds
+     * a count it read earlier, and saving that would undo what the one running them has saved since,
+     * a hand-over's record among it.
+     */
     spoke(): void {
+        if (!this.manager.owner) {
+            this.#log("the user wrote in a window that doesn't run this session's watches; the pause, if any, is left to the one that does");
+            return;
+        }
         if (this.budget.spoke()) this.#log('the user is back: waking starts again');
         if (this.#delivery?.pending) this.announce();
     }
@@ -150,13 +168,16 @@ export class ThreadSession {
 
     async #queue(text: string): Promise<QueueResult> {
         const r = await this.#wake(this.id, text);
+        this.#unanswered = false;
         if (r.ok) {
             this.lastWakeError = undefined;
             this.#retryMs = 0;
             if (!r.resumed) this.#log('codex queue took the message but could not resume the session; it runs when the session is next opened');
         } else if (r.maybe) {
             // It may have queued the message: counted as handed over, never handed over again.
-            this.lastWakeError = undefined;
+            // list_watches says so, as it may not have woken the session.
+            this.lastWakeError = r.why;
+            this.#unanswered = true;
             this.#retryMs = 0;
             this.#log(`${r.why}; it may have queued the message, so it counts as handed over`);
         } else if (r.unreachable) {
@@ -218,7 +239,9 @@ export class ThreadSession {
             // ends before it hears back, the next one finds the record and counts the batch, instead of
             // handing it over a second time (a wake no budget knew of). Not recorded, not handed over.
             if (!this.budget.handBatch(batch.watches, batch.upto)) {
-                this.#log('the hand-over could not be recorded; the session is not woken until it can be');
+                this.lastWakeError = 'the hand-over could not be recorded: wakes.json could not be saved';
+                this.#unanswered = false;
+                this.#log(`${this.lastWakeError}; the session is not woken until it can be`);
                 again = Math.max(MIN_RETRY_MS, this.#retryMs);
                 return;
             }
