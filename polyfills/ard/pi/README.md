@@ -98,7 +98,8 @@ apply their own gates.
 The query is trimmed, then shown and sent in full: one line, at most 300
 characters, with no invisible characters, direction marks, backticks, angle
 brackets or square brackets. A registry setting or argument is at most 200
-characters and contains no whitespace, control characters or direction marks.
+characters and contains no whitespace, control characters, invisible
+characters or direction marks.
 The question shows the normalized endpoint URL that will actually be used.
 
 The POST filters for Server Cards and requests `federation: "referrals"`.

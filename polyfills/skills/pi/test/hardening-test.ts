@@ -1,5 +1,6 @@
 // What the security review of the Pi form found, each held by a test: a
-// generated skill that changes between the preview and the load, a call that
+// generated skill that changes between the preview and the load (the core
+// loads the read that was shown), a call that
 // is cancelled while the person is asked, a server's media type made to read
 // as a sentence, and a configured secret that a server echoes back.
 
@@ -12,7 +13,7 @@ import { closeAll, Fixture, scenarioOf, skill, skillMd, startApp } from './harne
 
 after(closeAll);
 
-test('a generated skill that changes after the person read it is not loaded, and nothing of it is kept', async () => {
+test('a generated skill is loaded as the person read it, not as the server serves it afterwards', async () => {
     const s = skill('live-notes', {}, { dynamic: true });
     const f = new Fixture(scenarioOf([s]));
     const st = await startApp({ docs: f }, {
@@ -24,10 +25,55 @@ test('a generated skill that changes after the person read it is not loaded, and
         }
     });
     const r = await st.call('load_skill', { server: 'docs', uri: s.uri });
-    assert.ok(r.isError, r.text);
-    assert.match(r.text, /changed on the server after the user was shown it/);
+    assert.ok(!r.isError, r.text);
+    assert.match(r.text, /Body of live-notes\./);
     assert.doesNotMatch(r.text, /rm -rf/);
-    assert.deepEqual(st.app.host.held(), [], 'nothing is held');
+    assert.equal(st.app.host.held().length, 1);
+});
+
+test('two loads asked at once (codemode runs calls in parallel), each shown first: both load as shown, one skill after the other', async () => {
+    const [a, b] = [skill('live-notes', {}, { dynamic: true }), skill('side-notes', {}, { dynamic: true })];
+    const f = new Fixture(scenarioOf([a, b]));
+    const asked: string[] = [];
+    const st = await startApp({ docs: f }, {
+        answers: (message) => {
+            const which = message.includes('live-notes') ? 'live-notes' : 'side-notes';
+            if (message.startsWith('Load the skill')) {
+                asked.push(`${which}: asked`);
+                return { decision: 'show' };
+            }
+            asked.push(`${which}: shown`);
+            return { decision: 'load' };
+        }
+    });
+    const [ra, rb] = await Promise.all([st.call('load_skill', { server: 'docs', uri: a.uri }), st.call('load_skill', { server: 'docs', uri: b.uri })]);
+    assert.ok(!ra.isError, ra.text);
+    assert.ok(!rb.isError, rb.text);
+    assert.match(ra.text, /Body of live-notes\./);
+    assert.match(rb.text, /Body of side-notes\./);
+    // Each skill's two questions together: the second showing doesn't take the first one's place.
+    assert.deepEqual(asked, ['live-notes: asked', 'live-notes: shown', 'side-notes: asked', 'side-notes: shown']);
+    assert.equal(st.app.host.held().length, 2);
+});
+
+test('a load cancelled while it waits for another to finish asks nothing and loads nothing', async () => {
+    const [a, b] = [skill('live-notes'), skill('side-notes')];
+    const f = new Fixture(scenarioOf([a, b]));
+    const st = await startApp({ docs: f });
+    let answerFirst!: () => void;
+    const first = st.app.call('load_skill', { server: 'docs', uri: a.uri }, { ask: () => new Promise((r) => (answerFirst = () => r({ decision: 'load' }))) });
+    const ac = new AbortController();
+    let askedSecond = false;
+    const second = st.app.call('load_skill', { server: 'docs', uri: b.uri }, { signal: ac.signal, ask: async () => ((askedSecond = true), { decision: 'load' }) });
+    while (!answerFirst) await new Promise((r) => setTimeout(r, 5));
+    ac.abort();
+    answerFirst();
+    assert.ok(!(await first).isError);
+    const r = await second;
+    assert.ok(r.isError);
+    assert.match(r.text, /cancelled/);
+    assert.equal(askedSecond, false);
+    assert.deepEqual(st.app.host.held().map((h) => h.entry.frontmatter.name), ['live-notes']);
 });
 
 test('a call cancelled while the person is asked loads nothing and keeps no approval', async () => {

@@ -71,10 +71,15 @@ Pi lists the stubs only while the extension is loaded.
 - **"Show me its SKILL.md first"** shows you the text, checked against its
   digest, with every line marked so the server's text can't pass for the
   question's; the model sees none of it. A skill whose server generates its
-  content has no digest to hold it to, so what's loaded is compared with the
-  text you were shown: if the server changed it in between, nothing is loaded.
+  content has no digest to hold it to, so what's loaded is the text you were
+  shown, from the same read: the server isn't asked for it a second time.
+- **One skill at a time.** Loads asked for together (a codemode script runs
+  its calls in parallel) are taken one after another, so each skill's
+  questions come together and a skill you were shown is loaded from that
+  showing.
 - **A cancelled call does nothing.** If Pi cancels the tool call while you're
-  being asked, nothing is loaded and no yes is kept.
+  being asked, or while it waits for another load, nothing is loaded and no
+  yes is kept.
 - **Your yes is kept** for that skill from that place with exactly those files
   (every file's URI and digest). A change is asked about again.
 - **Verified before use.** Every file is checked against the size and SHA-256
@@ -85,6 +90,11 @@ Pi lists the stubs only while the extension is loaded.
 - **Marked as the server's.** The text arrives as a tool result, inside a
   fence the server can't close, saying it's that server's content and not a
   local skill. Its frontmatter grants nothing (`allowed-tools` is ignored).
+- **Shown as text only when it is text.** A file with control characters a
+  terminal acts on (ESC, the C1 set, DEL and the like; not tabs or line
+  breaks) is treated as a binary file and not shown, and nothing is stripped
+  to make it showable. A binary file's media type is printed only when the
+  server's whole value is one (`image/png`).
 
 ### While a skill is loaded
 

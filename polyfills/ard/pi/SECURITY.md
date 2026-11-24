@@ -43,10 +43,13 @@ before every tool call; annotations also support permission extensions.
 Queries over 300 characters or containing control characters, invisible
 marks (default-ignorable code points such as tag characters and variation
 selectors included), direction marks, backticks, angle brackets or square
-brackets are refused. What a registry says in an error, or in a problem with
-its answer, goes into the result as one quoted line, so it can't pass for the
-extension's own text. Registry arguments and settings are limited to 200 characters,
-without spaces, controls or direction marks. Endpoints containing misleading
+brackets are refused. A registry's own words (its error messages, the
+referrals it names, and each result's name and description) are shown on one
+line, capped, with control and invisible characters taken out, so a registry
+can't add lines of its own to the answer or carry text you don't see. A
+result whose identifier holds such a character is skipped. Registry arguments
+and settings are limited to 200 characters, without spaces, controls,
+invisible characters or direction marks. Endpoints containing misleading
 markup or userinfo are refused. The question shows the endpoint actually
 used, after URL normalization.
 

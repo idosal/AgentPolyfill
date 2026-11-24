@@ -95,3 +95,39 @@ The server's description: Use to select models to run locally with llama.cpp and
 
 File size isn’t total RAM usage: the context cache grows with context length. Start at **4,096 tokens** and increase it if macOS memory pressure stays green.
 ```
+
+## Shown first, then loaded
+
+Recorded on 25 November 2026 (UTC), the same way, after the core began holding
+a load to the read it showed (`preview` with `keep`, `load` with `shown`). The
+script was run with `PI_LIVE_SHOW=1`, so the user answers each question with
+"Show me its SKILL.md first" and then "Load it". For both skills Pi loaded
+(`huggingface-local-models` and `hf-mem`), the user was shown the `SKILL.md`,
+checked against its digest, and the load that followed was held to it and
+went through. Pi then read the same two reference files and gave the same
+answer. In an earlier run the same day the model loaded three skills from one
+codemode script at once. That's why the extension now takes loads one after
+another: the core keeps one showing for the load that follows it.
+
+```bash
+PI_LIVE_SHOW=1 PI_LIVE_AGENT_DIR=… PI_LIVE_PROVIDER=openai-codex PI_LIVE_MODEL=gpt-6.2-sol node live/run.ts
+```
+
+```text
+[Pi asks the user] Load the skill "huggingface-local-models" from the MCP server "huggingface"?
+  options: Don't load it | Show me its SKILL.md first | Load it
+[user answers] Show me its SKILL.md first
+[Pi asks the user] The SKILL.md of "huggingface-local-models", from the MCP server "huggingface", checked against its digest. This is shown to you only; the model has not seen it. …
+  options: Don't load it | Load it
+[user answers] Load it
+[Pi asks the user] Load the skill "hf-mem" from the MCP server "huggingface"?
+  options: Don't load it | Show me its SKILL.md first | Load it
+[user answers] Show me its SKILL.md first
+[Pi asks the user] The SKILL.md of "hf-mem", from the MCP server "huggingface", checked against its digest. This is shown to you only; the model has not seen it. …
+  options: Don't load it | Load it
+[user answers] Load it
+[tool call] load_skill {"server":"huggingface","uri":"skill://huggingface-local-models/SKILL.md"}
+[tool result] Loaded the skill "huggingface-local-models" from the MCP server "huggingface" (skill://huggingface-local-models/SKILL.md), which the user approved just now. Its SKILL.md matched the size, SHA-256 digest and frontmatter in the server's entry for it. …
+[tool call] load_skill {"server":"huggingface","uri":"skill://hf-mem/SKILL.md"}
+[tool result] Loaded the skill "hf-mem" from the MCP server "huggingface" (skill://hf-mem/SKILL.md), which the user approved just now. Its SKILL.md matched the size, SHA-256 digest and frontmatter in the server's entry for it. …
+```

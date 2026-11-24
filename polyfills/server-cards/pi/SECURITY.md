@@ -71,8 +71,12 @@ not edit JSON itself or use project-local add flags.
 ### Text and secrets
 
 Shared validation refuses invisible characters, direction marks, userinfo,
-misleading URL markup and unsafe variable substitutions. Output passes a
-plain-text filter. The host is named first and again on its own line.
+misleading URL markup and unsafe variable substitutions. Other characters
+that show as nothing (a soft hyphen, variation selectors, tag characters)
+don't get a card refused, but they're taken out of everything shown, and a
+header value that would be written holding one is refused, so the value
+written is the one you were asked about. Output passes a plain-text filter.
+The host is named first and again on its own line.
 
 The adapter refuses duplicate header names, header markup and any header
 value beginning with `!`: Pi interprets that prefix as a shell command.

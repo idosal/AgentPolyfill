@@ -6,6 +6,8 @@
 // writes its mcp.json, and never reads its credentials) and the model to use:
 //
 //   PI_LIVE_AGENT_DIR=… PI_LIVE_PROVIDER=openai-codex PI_LIVE_MODEL=gpt-6.2-sol node live/run.ts [question]
+//
+// PI_LIVE_SHOW=1 answers "Show me its SKILL.md first", then "Load it".
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -18,6 +20,7 @@ const provider = process.env.PI_LIVE_PROVIDER;
 const model = process.env.PI_LIVE_MODEL;
 if (!agentDir || !provider || !model) throw new Error('set PI_LIVE_AGENT_DIR, PI_LIVE_PROVIDER and PI_LIVE_MODEL');
 const question = process.argv[2] ?? 'Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?';
+const show = process.env.PI_LIVE_SHOW === '1';
 
 const dir = temp('mcp-skills-live-');
 writeFileSync(join(agentDir, 'mcp.json'), JSON.stringify({ mcpServers: { huggingface: { url: 'https://huggingface.co/mcp' } } }, null, 2));
@@ -35,7 +38,9 @@ const pi = new Pi({
     env: { HOME: home, MCP_SKILLS_STATE: join(dir, 'state'), MCP_SKILLS_STARTUP_WAIT_MS: '20000' },
     answer: (r) => {
         say('Pi asks the user', `${(r.title ?? '').slice(0, 900)}\n  options: ${(r.options ?? []).join(' | ')}`);
-        const pick = r.method === 'select' ? r.options?.find((o) => o === 'Load it') : r.method === 'confirm' ? true : undefined;
+        // With PI_LIVE_SHOW=1 the user reads a skill's SKILL.md before saying yes, which the load is then held to.
+        const wanted = show && r.options?.includes('Show me its SKILL.md first') ? 'Show me its SKILL.md first' : 'Load it';
+        const pick = r.method === 'select' ? r.options?.find((o) => o === wanted) : r.method === 'confirm' ? true : undefined;
         say('user answers', String(pick));
         return pick;
     }
