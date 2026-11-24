@@ -1,15 +1,16 @@
 ---
-description: mcp-events adds the client side of the MCP Events extension (SEP-3415) to Claude Code. Claude watches events on your MCP servers and acts when one fires, even while the session is idle.
+description: mcp-events adds the client side of the MCP Events extension (SEP-3415) to Claude Code and Codex. The agent watches events on your MCP servers and acts when one fires, even while the session is idle.
 ---
 
 # Events
 
-`mcp-events` lets Claude watch events on your MCP servers ("tell me when a
-deploy fails") and act when one fires, even while the session sits idle with
+`mcp-events` lets your agent watch events on your MCP servers ("tell me when
+a deploy fails") and act when one fires, even while the session sits idle with
 nobody typing. It adds the client side of the MCP **Events** extension,
 `io.modelcontextprotocol/events`
 ([SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md),
-Final), which Claude Code does not support by itself yet.
+Final), which Claude Code doesn't support by itself yet, and Codex doesn't for
+your own servers.
 
 <Recording
   cut="events"
@@ -19,36 +20,58 @@ Final), which Claude Code does not support by itself yet.
 
 ## Install
 
-```
+::: code-group
+
+```txt [Claude Code]
 /plugin install mcp-events --marketplace idosal/AgentPolyfill
 ```
 
-Or in a terminal, `claude plugin install mcp-events --marketplace idosal/AgentPolyfill`.
-The install is one small folder (about 0.8 MB), and nothing else is downloaded
-unless you ask for it with `/mcp-events setup`. It needs Claude Code 2.1.326 or
-newer, and Node 20 or newer or Bun.
+```bash [Codex]
+codex plugin marketplace add idosal/AgentPolyfill
+codex plugin add mcp-events@agent-polyfill
+```
 
-Events also works in OpenAI Codex, as a plugin:
-`codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-events@agent-polyfill`
-([Codex](./getting-started#codex); its README is
-[`polyfills/events/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex)).
+:::
+
+**In Claude Code** (2.1.326 or newer, with Node 20 or newer or Bun), the
+terminal form is `claude plugin install mcp-events --marketplace idosal/AgentPolyfill`.
+The install is one small folder (about 0.8 MB), and nothing else is downloaded
+unless you ask for it with `/mcp-events setup`.
+
+**In Codex** (0.170 or newer, with Node 20 or newer), a watch wakes a Codex
+CLI session (the terminal app or `codex exec`). A chat in the ChatGPT desktop
+app keeps its events but can't be woken, so ask it for `recent_events`. A
+resumed Codex session starts watching at its first Events tool call.
+
+The sections below describe the Claude Code plugin. Where the Codex plugin
+differs, its README says so:
+[`polyfills/events/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex).
 
 ## Try it
 
 A demo server with events is hosted for anyone to try, with no sign-in:
 
-```bash
+::: code-group
+
+```bash [Claude Code]
 claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
-Start `claude` in the same folder (one you trust) and ask:
+```bash [Codex]
+codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
+```
+
+:::
+
+Start `claude` or `codex` in the same folder (in Claude Code, one you trust)
+and ask:
 
 > Give me a demo button and tell me what I type when I press it.
 
-Claude makes a private button page with the server's `new_demo_button` tool,
-gives you its link, and watches it. Open the link and press the button: a few
-seconds later the idle session wakes by itself, shows a "Prompt from the
-mcp-events plugin" line, and answers. The same server also offers `hn.comment`
+The agent makes a private button page with the server's `new_demo_button`
+tool, gives you its link, and watches it. Open the link and press the button:
+a few seconds later the idle session wakes by itself and answers (in Claude
+Code, under a "Prompt from the mcp-events plugin" line). The same server also offers `hn.comment`
 (new comments in a Hacker News thread), `hn.story`, `npm.release`,
 `github.release` and `usgs.earthquake`, all delivered by poll. Its source is in
 [`servers/event-feeds`](https://github.com/idosal/AgentPolyfill/tree/main/servers/event-feeds).

@@ -1,5 +1,5 @@
 ---
-description: How a polyfill can serve as a client-side implementation of an MCP extension, and what each AgentPolyfill polyfill has been checked against.
+description: How a polyfill can serve as a client-side implementation of an MCP extension, in Claude Code and Codex, and what each AgentPolyfill polyfill has been checked against.
 ---
 
 # For spec authors
@@ -10,10 +10,19 @@ client-side and one server-side, that interoperate", carry a conformance
 scenario, and show that the extension has been in real use
 ([SEP-3392](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3392-extension-lifecycle.md)).
 
-A polyfill can be a client-side implementation in a host that has not shipped
-the extension yet, used by real people against real servers. Each one here
-names the spec revision it implements. Whether one counts as an independent
-implementation for a given SEP is for that extension's maintainers to decide.
+A polyfill can be that client-side implementation, in hosts that haven't
+shipped the extension yet, used by real people against real servers. Each one
+here names the spec revision it implements. Events and Skills have a test for
+every client rule and run against servers their authors didn't write. Skills
+passes the official conformance suite's Skills client scenarios in both hosts,
+and Events passes the Events client scenarios proposed upstream (still an open
+pull request in the conformance suite). Apps checks the spec requirement by
+requirement in its design notes. Whether a polyfill counts as an independent
+implementation for a given SEP is up to that extension's maintainers.
+
+The table below is for the Claude Code forms. The Codex forms of Events and
+Skills share the protocol code and its tests with them (in each extension's
+`core/`), and each Codex README gives its own results.
 
 ## What each one has been checked against
 
@@ -35,11 +44,14 @@ the Server Cards discovery doc.
 
 ## What a polyfill can tell you about a spec
 
-Building a client to the letter, in a host that was not designed for the
-extension, shows which parts of the spec a client can and cannot meet from the
-outside. Each polyfill's README lists its limits on Claude Code and the host
+Building a client to the letter, in a host that wasn't designed for the
+extension, shows which parts of the spec a client can and can't meet from the
+outside. Each polyfill's README lists its limits in each host and the host
 change that would remove each; [How it works](./how-it-works) collects them into
-four generic changes, none of which names an extension.
+four generic changes, none of which names an extension. One example: SEP-2640's
+rule X8 (a skill from one server reading another server's resources is put to
+you first) is met in Claude Code, with one stated limit, and can't be met in
+Codex yet, because Codex doesn't let a plugin ask.
 
 ## If your extension needs a client
 
