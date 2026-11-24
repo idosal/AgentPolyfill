@@ -125,20 +125,23 @@ describe('E4: what a relay hands over is bounded here, not on its word', () => {
         await client.close();
     });
 
-    test('a frame larger than any delivery can be is not read', async () => {
+    test('a frame larger than any delivery can be is not read, and the relay that sent it loses the connection', async () => {
         const secret = newSecret();
         const got: string[] = [];
         const logged: string[] = [];
         const relay = fakeRelay((m, send) => {
             if (m.t !== 'add') return;
-            send(JSON.stringify({ t: 'delivery', seq: 1, hook: HOOK, headers: {}, body: 'x'.repeat(900 * 1024), receivedAt: now() }));
             send({ t: 'ok', n: m.n, queued: 0 });
+            send(JSON.stringify({ t: 'delivery', seq: 1, hook: HOOK, headers: {}, body: 'x'.repeat(900 * 1024), receivedAt: now() }));
         });
-        const client = new RelayClient({ settings, key: 'k'.repeat(43), socket: relay.socket, log: (s) => logged.push(s) });
+        const client = new RelayClient({ settings, key: 'k'.repeat(43), socket: relay.socket, log: (s) => logged.push(s), backoffMs: 60000 });
         await client.add(HOOK, { secret, onEvent: (o) => void got.push(o.eventId) });
         await sleep(100);
         assert.deepEqual(logged.filter((l) => l.includes('oversized')).length, 1);
+        assert.ok(logged.some((l) => /dropped the connection/.test(l)), 'it cannot go on sending them on that connection');
+        assert.ok(logged.some((l) => /reconnecting in 60000 ms/.test(l)), 'and the next connection waits');
         assert.deepEqual(relay.sent.filter((m) => m.t === 'ack'), [], 'it was not parsed, so not even acknowledged');
+        assert.deepEqual(got, []);
         await client.close();
     });
 });

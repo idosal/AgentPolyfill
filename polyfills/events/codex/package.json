@@ -1,7 +1,7 @@
 {
   "name": "mcp-events-codex",
   "private": true,
-  "version": "0.1.3",
+  "version": "0.1.4",
   "type": "module",
   "description": "A Codex plugin that adds MCP Events (SEP-3415): Codex can watch events on your MCP servers, and an event wakes the idle session that asked for it.",
   "engines": {
