@@ -62,6 +62,16 @@ next start.
   (for `SKILL.md`) frontmatter matched the server's entry; under a line naming
   the server; inside a marker made per answer that the content cannot close.
 - A server's error text: never. Errors are in the plugin's own words.
+- A skill whose URI, or the URI of one of its files, holds a control character
+  (C0, DEL, C1), a direction-changing mark or an invisible character: never.
+  A terminal could act on one (erase a line of the question, move the cursor,
+  set the clipboard), or it could make a URI read other than it is, so such an
+  entry is refused, and its URI is not repeated even in the note that says so.
+  (From 0.1.1; the same rule holds in the Claude Code form from 0.3.3.)
+
+The SKILL.md you can read before deciding ("Show me its SKILL.md first") is
+shown with the same characters removed, line breaks and tabs kept, between
+two marker lines that say where the server's text begins and ends.
 
 **What you are asked, and when.** Before a skill is loaded, Codex shows you the
 plugin's question: the skill's name, its server (by its name in your config),
@@ -71,10 +81,12 @@ approved it, and whether it is nested inside another skill. You choose
 the skill's `SKILL.md`, verifies it, and shows it to you only; the model sees
 nothing of it until you choose "Load it".
 
-The question is a form with a required choice. Codex accepts a form by itself
-only when it has no fields, so it never answers this one in your place: not
-under full access, not by its automatic reviewer. Only "Load it", chosen by
-you, loads the skill. A decline, a cancelled or dismissed form, an answer
+The question is a form with a required choice. In Codex 0.172's source
+(`codex-mcp/src/elicitation.rs`), Codex accepts a form by itself only when it
+has no fields, so it does not answer this one in your place: not under full
+access, not by its automatic reviewer. That is a reading of the source; full
+access was not tried live (below). Only "Load it", chosen by you, loads the
+skill. A decline, a cancelled or dismissed form, an answer
 without that choice, an error, or a Codex that cannot ask at all, is a no.
 
 Your yes is kept in the plugin's store (`~/.codex/mcp-skills/approvals.json`):

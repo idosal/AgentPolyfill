@@ -41,6 +41,22 @@ export function oneLine(text: unknown, max: number): string {
     return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
 }
 
+/**
+ * Control characters (C0, DEL, C1), direction-changing marks and invisible characters. A terminal
+ * may act on them (erase a line, move the cursor, set the clipboard) and they can make text read
+ * other than it is, so no URI a server sends may hold one. The same set as the Server Cards
+ * core's UNSAFE_TEXT.
+ */
+// eslint-disable-next-line no-control-regex, no-misleading-character-class
+export const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/;
+// eslint-disable-next-line no-control-regex, no-misleading-character-class
+const UNSAFE_BUT_LINES = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g;
+
+/** A server's text for a person to read: every UNSAFE_TEXT character removed but line breaks and tabs. */
+export function shownText(text: string): string {
+    return text.replace(UNSAFE_BUT_LINES, '');
+}
+
 /** Removes known secrets (tokens from the user's config) from text that will be shown or logged. */
 export class Redactor {
     #secrets = new Set<string>();

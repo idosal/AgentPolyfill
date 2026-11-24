@@ -190,8 +190,12 @@ the model to run things on your machine. The plugin treats it as untrusted
 data from that server, never as instructions from you.
 
 - A skill is loaded only after you chose "Load it" in Codex's form, and your
-  approval is bound to its content. The form has a required choice, so Codex
-  never answers it in your place, and anything but "Load it" is a no.
+  approval is bound to its content. The form has a required choice, which,
+  in Codex 0.172's source (`codex-mcp/src/elicitation.rs`), Codex does not
+  answer in your place; anything but "Load it" is a no.
+- A skill or file URI holding control, direction-changing or invisible
+  characters is refused, and the SKILL.md shown before a load has them
+  removed, so a server cannot rewrite the question you are asked.
 - Everything from a server is shown under the server's name as you configured
   it, never what the server calls itself.
 - A skill's frontmatter grants nothing: `allowed-tools` and the rest never
@@ -260,7 +264,7 @@ question, and one never approved is refused
 
 | What | How to run it | Result |
 |---|---|---|
-| The client rules, one test per rule, against a hand-written server; the stubs; the config reader; the bundled plugin server spoken to as Codex speaks to it, its questions answered as Codex answers them | `npm test` | 57 pass |
+| The client rules, one test per rule, against a hand-written server; the stubs; the config reader; the bundled plugin server spoken to as Codex speaks to it, its questions answered as Codex answers them; control and invisible characters from a server | `npm test` | 61 pass |
 | The official MCP conformance suite's client scenarios for SEP-2640 (it has four) | [`test/conformance/run.sh`](test/conformance/run.sh) | 4 of 4 pass ([output](docs/evidence/conformance.txt)) |
 | Hugging Face's public server: 25 skills listed and written as stubs, every skill loaded, all 135 files verified | `npm run interop:real` | all verified ([output](docs/evidence/interop-real.txt)) |
 | Installing from the marketplace into a fresh `CODEX_HOME` (Codex lists only the Codex plugins there: mcp-events and mcp-skills), and the installed copy running from its own folder | `codex plugin marketplace add`, `codex plugin add` | installs, runs, writes 25 stubs ([output](docs/evidence/install.txt)) |
