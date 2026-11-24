@@ -334,6 +334,10 @@ function startHelper(term = "Apple_Terminal", extraEnv = {}) {
   const said = new Map();
   const alts = new Map();
   const firstFrame = new Map();
+  // Each view's scroll as its latest frame says it, in rows from the top.
+  const tops = new Map();
+  // When each view's latest frame came (ms).
+  const lastFrame = new Map();
   if (process.env.V) helper.stderr.on("data", (d) => process.stderr.write(d));
   let buf = "";
   const ready = new Promise((resolve) =>
@@ -349,10 +353,14 @@ function startHelper(term = "Apple_Terminal", extraEnv = {}) {
         if (m.type === "notify" && m.method === "ui/update-model-context") said.set(m.viewId, m.params.content[0].text);
         if (m.type === "describe") alts.set(m.viewId, m.text);
         if (m.type === "frame" && !firstFrame.has(m.viewId)) firstFrame.set(m.viewId, Date.now());
+        if (m.type === "frame") {
+          tops.set(m.viewId, (m.frame ?? m.image)?.scroll?.top ?? 0);
+          lastFrame.set(m.viewId, Date.now());
+        }
       }
     }),
   );
-  return { helper, said, alts, firstFrame, ready };
+  return { helper, said, alts, firstFrame, tops, lastFrame, ready };
 }
 
 // The helper's socket, or on Windows (MCP_APPS_CLI_TRANSPORT=tcp) its URL; and its token.
@@ -526,19 +534,28 @@ await post(socket, "/open", { viewId: "nested", server: "echo", toolName: "neste
 // seconds on a slow machine), and the view has drawn it.
 await until(() => h.said.get("nested") === "frame ready", 15000);
 await sleep(500);
-for (let n = 0; n < 2; n++) {
+// Two pages down (16 rows), each sent once the one before shows in a frame,
+// and again if the helper didn't scroll (it scrolls a view only once it
+// knows the page is taller: before that, the key goes to the page).
+for (let n = 0, want = 8; want <= 16 && n < 12; n++) {
   await post(socket, "/input", { viewId: "nested", event: { kind: "key", key: "pagedown" } });
-  await sleep(300);
+  await until(() => (h.tops.get("nested") ?? 0) >= want, 1500);
+  if ((h.tops.get("nested") ?? 0) >= want) want += 8;
 }
+// Clicked once the view is still: a scrolled view is captured again just
+// after, and a click while a capture has the viewport fitted to its shot
+// can land elsewhere (on a slow machine, 300 ms was not always enough).
+await until(() => Date.now() - (h.lastFrame.get("nested") ?? 0) > 400, 5000);
 h.said.delete("nested");
 // 300 px down the page is the frame: rows of the scrolled window inside it.
 const rows = await post(socket, "/ping", {});
 const cellH = rows.rowHeights?.[0] ?? 16;
-const row = Math.floor((350 - 2 * 8 * cellH) / cellH);
+const top = h.tops.get("nested") ?? 0;
+const row = Math.floor((350 - top * cellH) / cellH);
 await post(socket, "/input", { viewId: "nested", event: { kind: "pointer", type: "down", x: 20, y: row, button: "left" } });
 await post(socket, "/input", { viewId: "nested", event: { kind: "pointer", type: "up", x: 20, y: row, button: "left" } });
 await until(() => h.said.has("nested"), 3000);
-check("in a tall view scrolled down, a click lands in a frame from another site", h.said.get("nested") === "frame clicked", `row ${row}: ${h.said.get("nested") ?? "nothing"}`);
+check("in a tall view scrolled down, a click lands in a frame from another site", h.said.get("nested") === "frame clicked", `row ${row} (scrolled ${top} rows): ${h.said.get("nested") ?? "nothing"}`);
 await post(socket, "/close", { viewId: "nested" });
 check("in a tall view scrolled down, a click lands on what's under it", clicked.every((c) => /^Button (\d+) → Button \1$/.test(c)), clicked.join("; "));
 // Out of sight, a view's page is paused, a frame from another site in it
