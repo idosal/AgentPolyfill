@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, Weak};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Result, anyhow, bail};
@@ -77,14 +77,36 @@ fn ok() -> Value { json!({"ok":true}) }
 fn no_view() -> Value { json!({"ok":false,"error":"no such view"}) }
 fn contains(v: &Value, s: &str) -> bool { v.as_array().is_some_and(|a| a.iter().any(|v| v == s)) }
 
-struct Pending { view: Weak<View>, sender: oneshot::Sender<Result<Value>> }
+/// A view's request to the mod, waiting for its answer: of that view's page,
+/// and of the open (generation) the page is for.
+struct Pending { view: Weak<View>, open_gen: String, sender: oneshot::Sender<Result<Value>> }
+
+/// What an /open of an id does when the helper already holds a page for it:
+/// the same open asked again gets that page; a page of another open (an
+/// earlier generation, one the mod no longer has) is closed, and this open
+/// makes its own (model/AppsViews.tla, FixGen).
+#[derive(Debug, PartialEq)]
+enum PageHeld { Same, Other, None }
+fn page_held(page_gen: Option<&str>, open_gen: &str) -> PageHeld {
+    match page_gen { Some(g) if g == open_gen => PageHeld::Same, Some(_) => PageHeld::Other, None => PageHeld::None }
+}
+
+/// The generation a request about a view names ("" where none is given: a
+/// driver of the helper that predates them, whose opens name none either).
+fn gen_of(input: &Value) -> &str { input["gen"].as_str().unwrap_or("") }
+
+/// Whether a request about a view is for the open its page is of: anything
+/// for another generation is refused.
+fn same_open(page_gen: &str, input: &Value) -> bool { page_gen == gen_of(input) }
 
 pub struct Views {
     list: AsyncMutex<Vec<Arc<View>>>,
     opening: AsyncMutex<HashMap<String, Arc<AsyncMutex<()>>>>,
     /// Views closed while still opening: closed as soon as they have opened.
     closed_early: AsyncMutex<std::collections::HashSet<String>>,
-    next_request: AtomicU64,
+    /// The generation of each open under way, by id: a close kept for one
+    /// must be of that open.
+    under_way: AsyncMutex<HashMap<String, String>>,
     pending: AsyncMutex<HashMap<u64, Pending>>,
     /// UI resources read, by server and URI: the read (its text left out)
     /// and the page's HTML once, shared by every view of the app (the
@@ -128,7 +150,7 @@ impl Views {
         }
         Self {
             list: AsyncMutex::new(Vec::new()), opening: AsyncMutex::new(HashMap::new()), closed_early: AsyncMutex::new(Default::default()),
-            next_request: AtomicU64::new(1), pending: AsyncMutex::new(HashMap::new()), resources: AsyncMutex::new(HashMap::new()), host_pages: Mutex::new(HashMap::new()),
+            under_way: AsyncMutex::new(HashMap::new()), pending: AsyncMutex::new(HashMap::new()), resources: AsyncMutex::new(HashMap::new()), host_pages: Mutex::new(HashMap::new()),
             store_root, image_root: crate::tmp::own_dir().join("images"), render_session: Mutex::new(Default::default()),
             spare: AsyncMutex::new(None), spare_making: AtomicBool::new(false),
         }
@@ -206,14 +228,14 @@ impl Views {
         if let Some((read, html)) = cached {
             let (helper, server, uri) = (helper.clone(), server.to_string(), uri.to_string());
             tokio::spawn(async move {
-                if let Ok(read) = helper.mcp.read_resource(&server, json!({"uri":uri})).await {
+                if let Ok(read) = helper.mcp.read_resource(&server, json!({"uri":uri}), None).await {
                     let (read, html) = split_html(read);
                     if let Some(html) = html { helper.views.resources.lock().await.insert(key, (read, html)); }
                 }
             });
             return Ok((read, Some(html)));
         }
-        let (read, html) = split_html(helper.mcp.read_resource(server, json!({"uri":uri})).await?);
+        let (read, html) = split_html(helper.mcp.read_resource(server, json!({"uri":uri}), None).await?);
         if let (true, Some(html)) = (cache, html.as_ref()) {
             helper.views.resources.lock().await.insert(key, (read.clone(), html.clone()));
         }
@@ -335,6 +357,9 @@ pub struct State {
 
 pub struct View {
     pub id: String,
+    /// The open this page is for (the mod's nonce, from /open): carried by
+    /// everything said of it, and asked of everything asked of it.
+    pub open_gen: String,
     server: String,
     tool: String,
     helper: Weak<Helper>,
@@ -484,7 +509,7 @@ impl View {
 
     async fn drop_view(self: &Arc<Self>, reason: &str) {
         if self.forget().await {
-            emit(&json!({"type":"closed","viewId":self.id,"reason":reason}));
+            emit(&json!({"type":"closed","viewId":self.id,"gen":self.open_gen,"reason":reason}));
             self.page.close().await;
         }
     }
@@ -520,14 +545,14 @@ impl View {
 
     async fn request(self: &Arc<Self>, method: &str, params: Value, timeout: u64) -> Result<Value> {
         let helper = self.helper.upgrade().ok_or_else(|| anyhow!("the view closed"))?;
-        let id = helper.views.next_request.fetch_add(1,Ordering::Relaxed);
+        let id = crate::verdict::next_id();
         let (sender, receiver) = oneshot::channel();
         {
             let mut pending = helper.views.pending.lock().await;
             if !self.alive.load(Ordering::SeqCst) { bail!("the view closed"); }
-            pending.insert(id, Pending { view:Arc::downgrade(self),sender });
+            pending.insert(id, Pending { view:Arc::downgrade(self),open_gen:self.open_gen.clone(),sender });
         }
-        emit(&json!({"type":"request","id":id,"viewId":self.id,"method":method,"params":params}));
+        emit(&json!({"type":"request","id":id,"viewId":self.id,"gen":self.open_gen,"method":method,"params":params}));
         let result = tokio::time::timeout(Duration::from_millis(timeout), receiver).await;
         helper.views.pending.lock().await.remove(&id);
         match result { Ok(Ok(r)) => r, Ok(Err(_)) => bail!("the view closed"), Err(_) => bail!("{method} timed out") }
@@ -550,7 +575,7 @@ impl View {
             }
             "initialized" => {
                 self.capture_soon(60);
-                emit(&json!({"type":"notify","viewId":self.id,"method":"ui/app-modes","params":{"modes":payload["modes"]}}));
+                emit(&json!({"type":"notify","viewId":self.id,"gen":self.open_gen,"method":"ui/app-modes","params":{"modes":payload["modes"]}}));
             }
             "ui/request-display-mode" => {
                 let answer = self.request(kind,payload,REQUEST_TIMEOUT_MS).await.unwrap_or(Value::Null);
@@ -566,15 +591,18 @@ impl View {
                 let app_only = contains(&discovered["appOnly"],name);
                 let consent = self.request("ui/allow-tool",json!({"name":name,"arguments":payload.get("arguments").cloned().unwrap_or(json!({})),"appOnly":app_only}),CONSENT_TIMEOUT_MS)
                     .await.unwrap_or_else(|e| json!({"allow":false,"reason":e.to_string()}));
-                if consent["allow"] != true { bail!("{}",consent["reason"].as_str().map(str::to_string).unwrap_or_else(||format!("the user declined {name}"))); }
+                let Some(epoch) = crate::verdict::yes(&consent) else {
+                    bail!("{}",consent["reason"].as_str().map(str::to_string).unwrap_or_else(||format!("the user declined {name}")));
+                };
                 if !self.alive.load(Ordering::SeqCst) { bail!("the view closed"); }
-                if app_only { return helper.mcp.call_tool(&self.server,payload).await; }
+                // On the mod's yes, asked of Claude Code right before it came.
+                if app_only { return helper.mcp.call_tool(&self.server,payload,Some(epoch)).await; }
                 let structured = contains(&discovered["structured"],name);
                 return Ok(policy::normalize_result(&self.request(kind,payload,REQUEST_TIMEOUT_MS).await?,structured));
             }
-            "resources/read" => { self.server_in_use(kind).await?; return helper.mcp.read_resource(&self.server,payload).await }
-            "resources/list" => { self.server_in_use(kind).await?; return helper.mcp.list_resources(&self.server,payload).await }
-            "resources/templates/list" => { self.server_in_use(kind).await?; return helper.mcp.list_resource_templates(&self.server,payload).await }
+            "resources/read" => { let epoch = self.server_in_use(kind).await?; return helper.mcp.read_resource(&self.server,payload,Some(epoch)).await }
+            "resources/list" => { let epoch = self.server_in_use(kind).await?; return helper.mcp.list_resources(&self.server,payload,Some(epoch)).await }
+            "resources/templates/list" => { let epoch = self.server_in_use(kind).await?; return helper.mcp.list_resource_templates(&self.server,payload,Some(epoch)).await }
             "copy" => {
                 let text = payload["text"].as_str().map(str::to_string).unwrap_or_default();
                 {
@@ -582,12 +610,12 @@ impl View {
                     if text.is_empty() || text.encode_utf16().count() > 100_000 || now().saturating_sub(s.activated_at) > 2000 { return Ok(json!({})); }
                     s.activated_at = 0;
                 }
-                emit(&json!({"type":"notify","viewId":self.id,"method":"ui/copy","params":{"text":text}}));
+                emit(&json!({"type":"notify","viewId":self.id,"gen":self.open_gen,"method":"ui/copy","params":{"text":text}}));
             }
             "ui/message" => return self.request(kind,payload,REQUEST_TIMEOUT_MS).await,
             "ui/open-link" => return self.request(kind,payload,CONSENT_TIMEOUT_MS).await,
             "ui/download-file" => return self.download_files(&payload["contents"]).await,
-            "ui/update-model-context" | "log" => emit(&json!({"type":"notify","viewId":self.id,"method":kind,"params":payload})),
+            "ui/update-model-context" | "log" => emit(&json!({"type":"notify","viewId":self.id,"gen":self.open_gen,"method":kind,"params":payload})),
             _ => bail!("unsupported host call {kind}"),
         }
         Ok(json!({}))
@@ -595,12 +623,15 @@ impl View {
 
     /// The mod's yes, asked afresh, that Claude Code still uses this view's
     /// server under its name, before the app's own read goes to it (a call of
-    /// its tools is asked about with its consent, ui/allow-tool).
-    async fn server_in_use(self: &Arc<Self>, method: &str) -> Result<()> {
+    /// its tools is asked about with its consent, ui/allow-tool): the epoch
+    /// the read then goes on (see mcp.rs).
+    async fn server_in_use(self: &Arc<Self>, method: &str) -> Result<u64> {
         let answer = self.request("ui/allow-read",json!({"method":method}),REQUEST_TIMEOUT_MS).await.unwrap_or(Value::Null);
-        if answer["allow"] != true { bail!("{}",answer["reason"].as_str().unwrap_or("Claude Code is not using this server now")); }
+        let Some(epoch) = crate::verdict::yes(&answer) else {
+            bail!("{}",answer["reason"].as_str().unwrap_or("Claude Code is not using this server now"));
+        };
         if !self.alive.load(Ordering::SeqCst) { bail!("the view closed"); }
-        Ok(())
+        Ok(epoch)
     }
 
     async fn download_files(self: &Arc<Self>, contents: &Value) -> Result<Value> {
@@ -623,7 +654,7 @@ impl View {
         for item in contents {
             let resource = match string(item,"type") {
                 "resource" => item["resource"].clone(),
-                "resource_link" => { self.server_in_use("resources/read").await?; helper.mcp.read_resource(&self.server,json!({"uri":item["uri"]})).await?["contents"][0].clone() }
+                "resource_link" => { let epoch = self.server_in_use("resources/read").await?; helper.mcp.read_resource(&self.server,json!({"uri":item["uri"]}),Some(epoch)).await?["contents"][0].clone() }
                 _ => continue,
             };
             if resource.is_null() { continue; }
@@ -663,7 +694,7 @@ impl View {
             }
             saved.push(target);
         }
-        emit(&json!({"type":"notify","viewId":self.id,"method":"ui/downloaded","params":{"files":saved}}));
+        emit(&json!({"type":"notify","viewId":self.id,"gen":self.open_gen,"method":"ui/downloaded","params":{"files":saved}}));
         Ok(json!({}))
     }
 
@@ -934,7 +965,7 @@ impl View {
             }
             let total = (height/cell_h).ceil() as u32;
             if total > rows { frame["scroll"] = json!({"top":(top/cell_h).round() as u32,"rows":rows,"total":total}); }
-            emit(&json!({"type":"frame","viewId":self.id,"v":s.version,"frame":frame}));
+            emit(&json!({"type":"frame","viewId":self.id,"gen":self.open_gen,"v":s.version,"frame":frame}));
             drop(s);
             self.time(shot, now() - after_shot);
             return Ok(true);
@@ -976,7 +1007,7 @@ impl View {
             }
             placed["png"] = json!(B64.encode(seams::stamp_png(&image.png,s.stamps)));
         }
-        emit(&json!({"type":"frame","viewId":self.id,"v":s.version,"image":placed}));
+        emit(&json!({"type":"frame","viewId":self.id,"gen":self.open_gen,"v":s.version,"image":placed}));
         Ok(true)
     }
 
@@ -1057,7 +1088,7 @@ impl View {
                                 let mut placed = image.placed.clone();
                                 placed["strips"] = json!(r.strips);
                                 placed["stripCount"] = json!(r.strip_count);
-                                emit(&json!({"type":"frame","viewId":view.id,"v":version,"image":placed}));
+                                emit(&json!({"type":"frame","viewId":view.id,"gen":view.open_gen,"v":version,"image":placed}));
                             }
                         }
                         Ok(_) => {}
@@ -1094,10 +1125,10 @@ impl View {
         } else { String::new() };
         let mut s = self.state.lock().unwrap();
         if !self.alive.load(Ordering::SeqCst) { return; }
-        let mut message = json!({"type":"describe","viewId":self.id});
+        let mut message = json!({"type":"describe","viewId":self.id,"gen":self.open_gen});
         if !text.is_empty() && text != s.alt { s.alt = text.clone(); message["text"] = json!(text); }
         if title != s.title { s.title = title.clone(); message["title"] = json!(title); }
-        if message.as_object().is_some_and(|m| m.len() > 2) { emit(&message); }
+        if message.as_object().is_some_and(|m| m.len() > 3) { emit(&message); }
     }
 }
 
@@ -1159,20 +1190,31 @@ async fn events(view: Weak<View>, mut rx: mpsc::UnboundedReceiver<Event>) {
 }
 
 pub async fn open(helper: &Arc<Helper>, options: &Value) -> Result<Value> {
-    let id = string(options,"viewId");
+    let (id,open_gen,server) = (string(options,"viewId"),gen_of(options),string(options,"server"));
     let guard = helper.views.opening.lock().await.entry(id.into()).or_insert_with(|| Arc::new(AsyncMutex::new(()))).clone();
     let opening = guard.lock().await;
     // A close kept from an earlier open of this id is that one's, not this one's.
     helper.views.closed_early.lock().await.remove(id);
-    if helper.views.get(id).await.is_some() { return Ok(json!({"ok":true,"existing":true})); }
+    if let Some(page) = helper.views.get(id).await {
+        match page_held(Some(&page.open_gen),open_gen) {
+            PageHeld::Same => return Ok(json!({"ok":true,"existing":true})),
+            _ => { let _ = page.close(false).await; }
+        }
+    }
+    helper.views.under_way.lock().await.insert(id.into(),open_gen.into());
+    // A no on its server while it opens (/revoke) closes it: its UI resource
+    // read on an earlier yes is shown to no one (model/AppsViews.tla, cut).
+    let revoked_before = helper.mcp.revocation(server);
     helper.chrome.views.fetch_add(1,Ordering::SeqCst); // openings also keep Chrome alive
     helper.chrome.note_views().await;
     let result = open_now(helper,options).await;
     helper.chrome.views.fetch_sub(1,Ordering::SeqCst);
     helper.chrome.note_views().await;
+    helper.views.under_way.lock().await.remove(id);
     // Closed while it opened: closed now, and not reported as open.
     let closed = helper.views.closed_early.lock().await.remove(id);
-    if closed {
+    let cut = helper.mcp.revocation(server) > revoked_before;
+    if closed || cut {
         if let Some(view) = helper.views.get(id).await { let _ = view.close(false).await; }
     }
     // Done with the id's lock: dropped from the map unless another open waits on it.
@@ -1182,6 +1224,7 @@ pub async fn open(helper: &Arc<Helper>, options: &Value) -> Result<Value> {
         if Arc::strong_count(&guard) <= 2 { map.remove(id); }
     }
     if closed { return Ok(json!({"ok":false,"error":"closed while it opened"})); }
+    if cut && result.as_ref().is_ok_and(|r| r["ok"] == true) { return Ok(json!({"ok":false,"error":format!("Claude Code stopped using {server} while the view opened")})); }
     result
 }
 
@@ -1251,7 +1294,7 @@ async fn open_now(helper: &Arc<Helper>, options: &Value) -> Result<Value> {
     let (input_tx,mut input_rx) = mpsc::unbounded_channel();
     let view = Arc::new_cyclic(|me| View {
         me:me.clone(),
-        id:id.into(),server:server.into(),tool:tool.into(),helper:Arc::downgrade(helper),page,
+        id:id.into(),open_gen:gen_of(options).into(),server:server.into(),tool:tool.into(),helper:Arc::downgrade(helper),page,
         turn:AsyncMutex::new(()),inputs:AsyncMutex::new(()),shown_turn:AsyncMutex::new(()),store_saving:AsyncMutex::new(()),
         alive:AtomicBool::new(true),timers:Notify::new(),store_file:file,file_stem:policy::image_file_stem(id),input_tx,
         state:Mutex::new(State {
@@ -1327,9 +1370,18 @@ async fn open_now(helper: &Arc<Helper>, options: &Value) -> Result<Value> {
 pub async fn route(helper: &Arc<Helper>, path: &str, input: Value) -> Result<Value> {
     if path == "/open" { return open(helper,&input).await; }
     if path == "/reply" {
-        let waiting = helper.views.pending.lock().await.remove(&input["id"].as_u64().unwrap_or(0));
-        let Some(waiting) = waiting else { return Ok(json!({"ok":false,"error":"unknown request"})) };
-        let result = if input["error"].is_null() || input["error"] == false || input["error"] == "" { Ok(input["result"].clone()) }
+        let id = input["id"].as_u64().unwrap_or(0);
+        let failed = !(input["error"].is_null() || input["error"] == false || input["error"] == "");
+        let waiting = helper.views.pending.lock().await.remove(&id);
+        let Some(waiting) = waiting else {
+            // The mod's verdict on a server, for a check (see verdict.rs).
+            if crate::verdict::answer(id, if failed { Value::Null } else { input["result"].clone() }) { return Ok(ok()); }
+            return Ok(json!({"ok":false,"error":"unknown request"}));
+        };
+        // An answer meant for another open of the view than the page that
+        // asked: what it says is none of this page's.
+        let result = if !same_open(&waiting.open_gen,&input) { Err(anyhow!("the answer was for another open of this view")) }
+            else if !failed { Ok(input["result"].clone()) }
             else { Err(anyhow!("{}",input["error"].as_str().map(str::to_string).unwrap_or_else(||input["error"].to_string()))) };
         let _ = waiting.sender.send(result);
         return Ok(ok());
@@ -1341,9 +1393,10 @@ pub async fn route(helper: &Arc<Helper>, path: &str, input: Value) -> Result<Val
         // (see open), rather than lost before the page existed.
         if path == "/close" {
             let id = string(&input,"viewId");
-            // Only an open under way (its lock held): an old entry is a view
-            // already closed, whose next open must not be closed by this.
-            let opening = helper.views.opening.lock().await.get(id).is_some_and(|lock| lock.try_lock().is_err());
+            // Only an open under way, and of this close's generation: an old
+            // entry is a view already closed, whose next open must not be
+            // closed by this.
+            let opening = helper.views.under_way.lock().await.get(id).is_some_and(|open_gen| same_open(open_gen,&input));
             if opening {
                 let mut early = helper.views.closed_early.lock().await;
                 if early.len() < 256 { early.insert(id.to_string()); }
@@ -1352,6 +1405,11 @@ pub async fn route(helper: &Arc<Helper>, path: &str, input: Value) -> Result<Val
         }
         return Ok(if path == "/refresh" {json!({"ok":false})} else {no_view()});
     };
+    // Anything for another open of the id than this page's is refused: a
+    // close of an earlier one closes nothing of this one.
+    if !same_open(&view.open_gen,&input) {
+        return Ok(if path == "/close" { ok() } else { json!({"ok":false,"error":"another open of this view"}) });
+    }
     // Closing forgets the view first (none of its host calls is answered from
     // then on), and only then wakes its page for the teardown: woken first, a
     // paused page held the close while a consent reply went through.
@@ -1502,4 +1560,31 @@ fn split_html(mut read: Value) -> (Value, Option<Arc<str>>) {
         object.remove("blob");
     }
     (read, html)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Each open of a view has its own generation (model/AppsViews.tla,
+    // FixGen; before 0.1.3 the helper matched everything by view id alone).
+
+    #[test]
+    fn an_open_takes_only_a_page_of_its_own_generation() {
+        assert_eq!(page_held(Some("a"), "a"), PageHeld::Same);
+        // A page of an earlier open is closed, and this open makes its own.
+        assert_eq!(page_held(Some("a"), "b"), PageHeld::Other);
+        assert_eq!(page_held(None, "b"), PageHeld::None);
+    }
+
+    #[test]
+    fn a_request_is_for_its_page_only_if_it_names_that_pages_generation() {
+        assert!(same_open("a", &json!({"viewId": "v", "gen": "a"})));
+        assert!(!same_open("a", &json!({"viewId": "v", "gen": "b"})));
+        // A request that names none is of no generation: refused by a page that has one.
+        assert!(!same_open("a", &json!({"viewId": "v"})));
+        assert!(!same_open("a", &json!({"viewId": "v", "gen": 7})));
+        // A driver that names none anywhere (its opens neither) is answered as before.
+        assert!(same_open("", &json!({"viewId": "v"})));
+    }
 }

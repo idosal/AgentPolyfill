@@ -12,7 +12,8 @@
 // after warm-up (2 minutes in) to the last, and every view drew in each
 // window; FAIL (exit 1) otherwise.
 
-import { execFileSync, execSync, spawn } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
+import { spawn } from "./answer-checks.mjs";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";

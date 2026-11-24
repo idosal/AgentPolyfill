@@ -1,6 +1,6 @@
 // Runs the helper alone (no Claude Code) with one view and logs every
 // picture it emits: fps, sizes, CPU, hover latency, drags, pausing. See README.md.
-import { spawn } from "node:child_process";
+import { spawn } from "./answer-checks.mjs";
 import http from "node:http";
 import crypto from "node:crypto";
 import fsMod from "node:fs";

@@ -10,7 +10,8 @@
 // Needs Chrome and the helper's packages (npm install in ../mod/helper); the
 // timings need the cohort example server (see README.md), skipped without it.
 
-import { execSync, spawn } from "node:child_process";
+import { execSync } from "node:child_process";
+import { spawn } from "./answer-checks.mjs";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";

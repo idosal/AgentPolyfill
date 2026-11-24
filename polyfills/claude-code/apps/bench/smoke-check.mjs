@@ -12,7 +12,8 @@
 // MCP_APPS_CLI_CHROME) and the helper's packages (npm ci in ../mod/helper)
 // for the MCP SDK this file's server uses.
 
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync } from "node:child_process";
+import { spawn } from "./answer-checks.mjs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";

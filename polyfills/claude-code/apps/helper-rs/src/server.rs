@@ -278,6 +278,12 @@ async fn route(helper: &Arc<Helper>, path: &str, input: Value) -> Option<Result<
                 Err(error) => Ok(json!({ "ok": false, "error": format!("{error:#}") })),
             }
         }
+        // The mod heard Claude Code no longer uses a server (mcp.rs, revoke).
+        "/revoke" => {
+            let server = input.get("server").and_then(Value::as_str).unwrap_or_default();
+            let epoch = input.get("epoch").and_then(Value::as_u64).unwrap_or(0);
+            Ok(json!({ "ok": true, "revoked": helper.mcp.revoke(server, epoch).await }))
+        }
         "/prewarm" => match helper.chrome.browser().await {
             Ok(_) => {
                 helper.chrome.note_views().await;
