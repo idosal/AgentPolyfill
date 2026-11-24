@@ -2,9 +2,11 @@
 // mcp-server-cards' Codex form (../../server-cards/codex/build.mjs), whose
 // build code this uses.
 //
-//   node build.mjs           build plugin/dist/server.mjs
-//   node build.mjs --check   fail if plugin/dist/server.mjs is not what the sources build
-//   node build.mjs --tests   build the tests into test/.build, run by `npm test`
+//   node build.mjs             build plugin/dist/server.mjs
+//   node build.mjs --check     fail if plugin/dist/server.mjs is not what the sources build
+//   node build.mjs --out DIR   build server.mjs into DIR instead (test/bundle.test.ts)
+//   node build.mjs --tests     build the tests into test/.build, run by `npm test`; the
+//                              tests run against the committed plugin/dist/server.mjs
 
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'

@@ -1,9 +1,10 @@
 # The Server Cards polyfill for Codex (polyfills/server-cards/codex, plugin
-# mcp-server-cards): its typecheck, a check that the committed bundle is what
-# the sources build, and its tests (the Claude Code form's rule tests, run
-# against the bundle, and the Codex adapter's). On any change in its folder or
-# in the shared modules it bundles. The tests reach no network beyond
-# 127.0.0.1 and run no real `codex`; they take a few seconds.
+# mcp-server-cards): its typecheck, a rebuild of the bundle that must equal the
+# committed one, and its tests: a byte-for-byte check of the bundle and a run of
+# a copy of plugin/; the Claude Code form's rule tests, run against the bundle;
+# and the Codex adapter's. On any change in its folder or in the shared modules
+# it bundles. The tests reach no network beyond 127.0.0.1 and run no real
+# `codex`; they take a few seconds.
 
 name: "mcp-server-cards (Codex): tests"
 
@@ -47,8 +48,17 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm run typecheck
-      - name: plugin/dist/server.mjs is what the sources build
-        run: npm run check
+      # The plugin folder is installed as committed, so its bundle must be what
+      # the sources build: rebuild it, and fail if that changed plugin/dist.
+      # (npm test checks the same byte for byte, as Events' bundle test does.)
+      - name: Rebuild plugin/dist; it must equal the committed one
+        run: |
+          npm run build
+          if [ -n "$(git status --porcelain -- plugin/dist)" ]; then
+            git status --porcelain -- plugin/dist
+            echo "::error file=polyfills/server-cards/codex/plugin/dist/server.mjs::plugin/dist is not what the sources build: run npm run build and commit it"
+            exit 1
+          fi
       - name: The plugin's manifests and the Codex marketplace are valid JSON
         run: |
           for f in plugin/.codex-plugin/plugin.json plugin/.mcp.json ../../../.agents/plugins/marketplace.json; do
