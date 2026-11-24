@@ -29,8 +29,13 @@ if (args[0] === 'mcp' && args[1] === 'get') {
 if (args[0] === 'mcp' && args[1] === 'add') {
   const rest = args.slice(2); const entry = { tools: ['*'] }; const pos = []
   for (let i = 0; i < rest.length; i++) {
-    if (rest[i] === '--transport') entry.type = rest[++i]
-    else if (rest[i] === '--header') { const h = rest[++i]; const at = h.indexOf(':'); (entry.headers ??= {})[h.slice(0, at).trim()] = h.slice(at + 1).trim() }
+    // As clap parses them: --opt value and --opt=value; a separate value that starts with "-" is refused.
+    const eq = /^(--[a-z]+)=(.*)$/s.exec(rest[i])
+    const opt = eq ? eq[1] : rest[i]
+    const val = () => { if (eq) return eq[2]; const v = rest[++i]; if (v === undefined || v.startsWith('-')) { console.error("error: unexpected argument '" + v + "' found"); process.exit(2) } return v }
+    if (opt === '--transport') entry.type = val()
+    else if (opt === '--header') { const h = val(); const at = h.indexOf(':'); (entry.headers ??= {})[h.slice(0, at).trim()] = h.slice(at + 1).trim() }
+    else if (opt.startsWith('-')) { console.error("error: unexpected argument '" + opt + "' found"); process.exit(2) }
     else pos.push(rest[i])
   }
   const [name, url] = pos; const s = read()

@@ -123,11 +123,18 @@ Copilot ── tool calls (joinSession tools) ───────────�
   the foreground and tells it the session's id. A watch belongs to that
   session.
 - **Finding servers.** Copilot tells the extension which MCP servers the
-  session uses and whether each is on (after folder trust, your settings and
-  your organisation's policy), but not how to reach them. So the first time a
-  tool is called, the extension reads how from the files Copilot reads,
-  connects to each of those servers once, and keeps the ones that offer
-  events. A server found without events isn't asked again for a day.
+  session uses, whether each is on (after folder trust, your settings and
+  your organisation's policy) and where each comes from, but not how to reach
+  them. So the first time a tool is called, the extension reads how from the
+  file Copilot names for that server (your `mcp-config.json`, or the trusted
+  project's file), connects to each of those servers once, and keeps the ones
+  that offer events. A server found without events isn't asked again for a
+  day. If Copilot can't say which servers the session uses, the extension
+  connects to none, rather than guess at trust and policy.
+- **When Copilot stops using a server** during the session (`/mcp disable`,
+  or it's gone after `/mcp reload`), the extension lets it go too: its watches
+  stop and wait, saved, and its connection closes. A server Copilot takes back
+  up is used again from the next session.
 - **Watching.** A watch is one subscription. The delivery mode follows the
   SEP's guidance: webhook where a relay is set up, then push
   (`events/stream`), then poll (`events/poll`).
@@ -158,8 +165,10 @@ Copilot ── tool calls (joinSession tools) ───────────�
 
 ### Servers that need credentials
 
-The extension expands `${VAR}` in a server's URL, headers, command, arguments
-and environment the way Copilot does. But Copilot strips sensitive variables
+The extension expands variables in a server's URL, headers, command,
+arguments, environment and folder the way Copilot 1.0.115 does (seen live):
+`$VAR`, `${VAR}`, and `${VAR:-default}`. Whatever a variable held is taken
+out of the log and of every tool result, wherever it landed. But Copilot strips sensitive variables
 (`GITHUB_TOKEN`, for one) from every extension it starts, so a server whose
 header names one of those is left out, with the reason. Put such a token in
 the header itself, or in a variable Copilot doesn't strip.
@@ -311,6 +320,9 @@ The changes a host would need are in
 - **No push over Copilot's connection.** Copilot passes an extension only the
   `list_changed` notifications. The change in Copilot: a
   `session.on("mcp.notification")` for a server's other notifications.
+- **A server switched back on mid-session** is used again only from the next
+  session: the extension lets a server go when Copilot stops using it, but
+  doesn't connect anew while a session runs.
 - **Some servers aren't read:** ones a plugin brings, ones given for one run
   (`--additional-mcp-config`), the built-in GitHub server, and ones whose
   token is in a variable Copilot strips from extensions. Each is listed under
@@ -329,6 +341,10 @@ The changes a host would need are in
   once a minute. A session is woken at most 30 times in an hour. Then it's
   told once that events are waiting, and isn't woken again until you send a
   message. Nothing is dropped: `recent_events` lists what waited.
+- **An event type whose name isn't a plain name** (letters, digits and
+  `._:/-`, as `ticket.created`) is named in the wake only as "an event type
+  whose name is not a plain name": the name is the server's text, and the wake
+  starts a turn. `list_watches` gives it, as a tool result.
 - **After a crash, or a `session.send` that Copilot never answers, an event
   can be announced twice, or not at all.** Stored events are handed over at
   most once: if the plugin stops while `session.send` runs, or Copilot doesn't

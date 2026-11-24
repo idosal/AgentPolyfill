@@ -76,7 +76,7 @@ test('A-2 ard_discover reads ard.json, and a server it showed is added after the
   assert.match(d.text, /title: Example CI/)
   const r = await s.call('add_mcp_server', { domain: web.origin, identifier: 'urn:air:localhost:ci', url: `${web.origin}/ci/mcp` })
   assert.equal(r.isError, false, r.text)
-  assert.deepEqual(s.fake.calls().filter(c => c.args[1] === 'add').map(c => c.args), [['mcp', 'add', '--transport', 'http', 'example-ci', `${web.origin}/ci/mcp`]])
+  assert.deepEqual(s.fake.calls().filter(c => c.args[1] === 'add').map(c => c.args), [['mcp', 'add', '--transport=http', 'example-ci', `${web.origin}/ci/mcp`]])
 })
 
 test('A-3 a search with no form, or declined, sends nothing', async () => {

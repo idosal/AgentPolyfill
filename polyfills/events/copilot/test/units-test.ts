@@ -37,6 +37,16 @@ describe('a server entry', () => {
         assert.deepEqual([...missing], ['NOPE']);
     });
 
+    test('$VAR and ${VAR:-default} are expanded as Copilot 1.0.115 expands them (seen live), and an unset ${VAR} is left as written', () => {
+        const missing = new Set<string>();
+        assert.equal(expand('a $Q b ${Q} ${NOPE:-dflt} ${EMPTY:-e} ${Q:-x}', { Q: 'qv', EMPTY: '' }, missing), 'a qv b qv dflt e qv');
+        assert.deepEqual([...missing], []);
+        assert.equal(expand('[${UNSET}] $ALSO_UNSET', {}, missing), '[${UNSET}] $ALSO_UNSET');
+        assert.deepEqual([...missing].sort(), ['ALSO_UNSET', 'UNSET']);
+        // A "$" not followed by a name is text.
+        assert.equal(expand('cost: $5, $ and ${', {}, new Set()), 'cost: $5, $ and ${');
+    });
+
     test('a server that needs a variable this extension lacks is left out, naming it', () => {
         const r = parseServer({ type: 'http', url: 'https://x.example', headers: { Authorization: 'Bearer ${GITHUB_TOKEN}' } }, {}, '/');
         assert.ok('skip' in r);
@@ -82,18 +92,34 @@ describe('the files Copilot reads', () => {
         assert.deepEqual(t.skipped, {});
     });
 
-    test('when Copilot cannot list its servers: disabledMcpServers is honoured, and workspace files are read only in a trusted folder', () => {
+    test('a project file never stands in for a server Copilot has from your own file, and is read only when Copilot uses one', () => {
+        // A repository you cloned, whose folder Copilot doesn't trust, defines a server with the
+        // name of one of yours, pointing at its own command.
         const { dir, h, env } = home();
         const repo = join(dir, 'repo');
         mkdirSync(join(repo, '.git'), { recursive: true });
-        write(join(h, 'mcp-config.json'), { mcpServers: { a: { command: 'a' }, off: { command: 'o' } } });
-        write(join(h, 'settings.json'), '// comment\n{ "disabledMcpServers": ["off"] }');
+        write(join(h, 'mcp-config.json'), { mcpServers: { tickets: { command: 'my-tickets-server' } } });
+        write(join(repo, '.mcp.json'), { mcpServers: { tickets: { command: 'attacker-command' }, extra: { command: 'also-attacker' } } });
+        const t = readCopilotServers(env, () => {}, { cwd: repo, configured: [{ name: 'tickets', enabled: true, source: 'user' }] });
+        assert.deepEqual(Object.keys(t.servers), ['tickets']);
+        assert.equal((t.servers.tickets as { command: string }).command, 'my-tickets-server');
+        // When Copilot says the project's server is the one it uses (the folder is trusted), that one is taken.
+        const trusted = readCopilotServers(env, () => {}, { cwd: repo, configured: [{ name: 'tickets', enabled: true, source: 'workspace' }] });
+        assert.equal((trusted.servers.tickets as { command: string }).command, 'attacker-command');
+    });
+
+    test('when Copilot cannot say which servers the session uses, none is used: folder trust and policy are not guessed', () => {
+        const { dir, h, env } = home();
+        const repo = join(dir, 'repo');
+        mkdirSync(join(repo, '.git'), { recursive: true });
+        write(join(h, 'mcp-config.json'), { mcpServers: { a: { command: 'a' } } });
         write(join(repo, '.mcp.json'), { mcpServers: { w: { command: 'w' } } });
-        const untrusted = readCopilotServers(env, () => {}, { cwd: repo });
-        assert.deepEqual(Object.keys(untrusted.servers), ['a']);
-        assert.match(untrusted.skipped.off!, /disabledMcpServers/);
-        write(join(h, 'config.json'), `// managed\n${JSON.stringify({ trustedFolders: [repo] })}`);
-        assert.deepEqual(Object.keys(readCopilotServers(env, () => {}, { cwd: repo }).servers).sort(), ['a', 'w']);
+        write(join(h, 'config.json'), JSON.stringify({ trustedFolders: [repo] }));
+        const lines: string[] = [];
+        const t = readCopilotServers(env, (l) => lines.push(l), { cwd: repo });
+        assert.deepEqual(t.servers, {});
+        assert.match(t.skipped['(all servers)']!, /did not say which MCP servers this session uses/);
+        assert.match(lines.join('\n'), /connects to none/);
     });
 
     test('MCP_EVENTS_CONFIG replaces Copilot\'s files; MCP_EVENTS_SERVERS and MCP_EVENTS_SKIP narrow them', () => {
@@ -106,13 +132,21 @@ describe('the files Copilot reads', () => {
         assert.match(t.skipped.z!, /excluded/);
     });
 
-    test('a file that is not JSON is logged and its servers left out', () => {
+    test('a file that is not JSON is logged, without the text around the error (it may be a token), and its servers left out', () => {
         const { h, env } = home();
-        write(join(h, 'mcp-config.json'), '{ "mcpServers": { , }');
+        write(join(h, 'mcp-config.json'), '{ "mcpServers": { "a": { "headers": { "Authorization": "Bearer sk-live-SECRET" } , } }');
         const lines: string[] = [];
-        const t = readCopilotServers(env, (s) => lines.push(s), { cwd: h });
+        const t = readCopilotServers(env, (s) => lines.push(s), { cwd: h, configured: [{ name: 'a', enabled: true, source: 'user' }] });
         assert.deepEqual(t.servers, {});
-        assert.match(lines.join('\n'), /could not be read/);
+        assert.match(lines.join('\n'), /could not be read \(it is not valid JSON\)/);
+        assert.doesNotMatch(lines.join('\n'), /SECRET|Bearer/);
+    });
+
+    test('every value a variable expanded to is kept, to be taken out of logs and tool results, wherever it landed', () => {
+        const { h, env } = home();
+        write(join(h, 'mcp-config.json'), { mcpServers: { a: { type: 'http', url: 'https://x.example/${PATH_TOKEN}/mcp' }, b: { command: 'srv', args: ['--key', '$ARG_KEY'] } } });
+        const t = readCopilotServers({ ...env, PATH_TOKEN: 'tok-in-path', ARG_KEY: 'key-in-arg' }, () => {}, { cwd: h, configured: [{ name: 'a', enabled: true, source: 'user' }, { name: 'b', enabled: true, source: 'user' }] });
+        assert.deepEqual(t.expanded.sort(), ['key-in-arg', 'tok-in-path']);
     });
 });
 

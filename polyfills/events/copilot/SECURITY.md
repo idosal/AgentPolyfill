@@ -80,15 +80,33 @@ so Copilot's stripping of sensitive variables from extensions holds.
   - It uses only the servers Copilot lists as enabled for the session
     (`session.rpc.mcp.listConfigured`), which already reflects folder trust,
     `disabledMcpServers` and your organisation's policy. When Copilot can't
-    say, it reads `~/.copilot/mcp-config.json`, honours `disabledMcpServers`,
-    and reads a project's `.mcp.json` only in a folder in `trustedFolders`.
+    say, it connects to none: it doesn't guess at trust or policy.
+  - Each server is read from the source Copilot names for it. A server
+    Copilot has from your `mcp-config.json` is never taken from a project's
+    file of the same name, and project files are read only when Copilot uses
+    a server from one (it reads them only in a trusted folder). So a
+    repository you clone can't put its own command under your server's name.
+  - A server Copilot stops using during the session is let go: its watches
+    stop, and its connection closes.
   - Credentials come only from the server's own entry (`headers`, with
-    `${VAR}` expanded from the extension's environment, as Copilot does).
+    `$VAR`, `${VAR}` and `${VAR:-default}` expanded from the extension's
+    environment, as Copilot does). Every value a variable expanded to is
+    removed from the log and from tool results, wherever it landed (a URL's
+    path, an argument).
   - A server that signs in through Copilot is left alone.
   - **It never reads Copilot's stored credentials** (the keychain,
     `~/.copilot/mcp-oauth-config/`, signed-in accounts in `config.json`).
-- **Nothing goes to stdout.** That's the extension's channel to Copilot; the
-  plugin logs to its own file.
+- **Nothing goes to stdout.** That's the extension's JSON-RPC channel to
+  Copilot. The plugin logs to its own file, and sends anything a bundled
+  library prints with `console.log`, `info`, `debug` or `trace` (which Node
+  writes to stdout) to that file too. An error in one connection is logged and
+  doesn't end the extension.
+- **An event type's name reaches the wake only if it reads as a name**
+  (`ticket.created`): it's the server's text, and the wake starts a turn. Any
+  other is left out of the wake and the notices; `list_watches` gives it, as a
+  tool result. (This is in the shared client, so every form has it.)
+- **A configuration file that isn't valid JSON** is logged as such, never with
+  the parser's message, which quotes the text around the error.
 - **Everything else is in the plugin's own words.** A server's or the relay's
   error text is never repeated. Tokens from your configuration, webhook
   secrets and addresses, and the relay's keys are removed from every tool

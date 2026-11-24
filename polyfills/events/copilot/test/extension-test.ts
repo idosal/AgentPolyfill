@@ -2,10 +2,11 @@
 // session.send, which messages count as the person's, and which servers it may reach.
 
 import assert from 'node:assert/strict';
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
-import { Extension, newSession, sleep, startExtension, untilActive, waitFor, world } from './harness.ts';
+import { Extension, FIXTURE, newSession, sleep, startExtension, untilActive, waitFor, world } from './harness.ts';
 import { INSTRUCTIONS } from '../src/words.ts';
 
 describe('joining the session', () => {
@@ -17,6 +18,8 @@ describe('joining the session', () => {
             assert.deepEqual(j.tools.map((t) => t.name), ['list_event_types', 'watch_event', 'unwatch_event', 'list_watches', 'get_event', 'recent_events']);
             assert.deepEqual(j.tools.filter((t) => t.skipPermission).map((t) => t.name), ['list_event_types', 'list_watches', 'get_event', 'recent_events']);
             assert.deepEqual(j.hooks, ['onSessionStart']);
+            // The tools array and hooks by name: the forms older Copilot releases know too (newer SDKs migrate them).
+            assert.equal((j as { toolsForm?: string }).toolsForm, 'array');
             assert.deepEqual(await e.hook('onSessionStart', { source: 'new' }), { additionalContext: INSTRUCTIONS });
             // Nothing is connected until a tool is called: a session that never watches starts no server twice.
             await sleep(500);
@@ -48,6 +51,25 @@ describe('joining the session', () => {
         const code = await e.stop('SIGTERM');
         assert.equal(code, 0);
         assert.match(w.log(), /stopped/);
+    });
+});
+
+describe('robustness', () => {
+    test('nothing reaches standard output, Copilot\'s channel: console output goes to the log, and arguments that are not an object are read as none', async () => {
+        const w = world();
+        const e = await startExtension(w);
+        try {
+            // The harness fails the run on any stdout line that is not the stand-in's JSON.
+            for (const args of [null, 'a string', [1, 2], 7] as unknown[]) {
+                const r = await e.call('list_watches', args as never);
+                assert.equal(r.isError, false, JSON.stringify(args));
+                assert.equal(r.text, '[]');
+            }
+            const r = await e.call('get_event', { id: 42 } as never);
+            assert.equal(r.isError, true);
+        } finally {
+            await e.stop();
+        }
     });
 });
 
@@ -138,6 +160,60 @@ describe('waking', () => {
 });
 
 describe('which servers', () => {
+    test('a server Copilot stops using mid-session is let go: its watch stops listening and waits, saved, and new events from it wake nothing', async () => {
+        const w = world();
+        const list = join(w.dir, 'configured.json');
+        writeFileSync(list, JSON.stringify([{ name: 'tickets', enabled: true, source: 'user' }]));
+        const e = await startExtension(w, newSession(), { FAKE_COPILOT_CONFIGURED_FILE: list, MCP_EVENTS_WAKE_GAP_S: '0' });
+        try {
+            await e.call('watch_event', { server: 'tickets', event: 'ticket.created' });
+            await untilActive(e);
+            // `/mcp disable tickets`: Copilot lists it as off, and says a server's state changed.
+            writeFileSync(list, JSON.stringify([{ name: 'tickets', enabled: false, source: 'user' }]));
+            e.event('session.mcp_server_status_changed', { serverName: 'tickets', status: 'disabled' });
+            await waitFor(async () => /"status": "error"/.test((await e.call('list_watches')).text), 15000, 'the watch to stop');
+            const watches = (await e.call('list_watches')).text;
+            assert.match(watches, /its server is not available in this session/);
+            assert.match(watches, /ticket\.created/, 'kept, not removed');
+            w.emit('ticket.created', { title: 'after the server was switched off' });
+            await sleep(2500);
+            assert.equal(e.sent.length, 0, 'no wake from a server Copilot no longer uses');
+            assert.match(w.log(), /Copilot no longer uses it in this session/);
+        } finally {
+            await e.stop();
+        }
+    });
+
+    test('a tool called on a resumed session while its servers are still being looked at does not strand its saved watches', async () => {
+        const w = world();
+        // The server takes a moment to start, as a real one may: the resumed session's discovery is
+        // still running when its first tool call comes in.
+        const slow = join(w.dir, 'slow-fixture.mjs');
+        writeFileSync(slow, `setTimeout(() => import(${JSON.stringify(pathToFileURL(FIXTURE).href)}), 1500);\n`);
+        const cfg = JSON.parse(readFileSync(join(w.copilotHome, 'mcp-config.json'), 'utf8'));
+        cfg.mcpServers.tickets.args = ['--no-warnings', slow];
+        writeFileSync(join(w.copilotHome, 'mcp-config.json'), JSON.stringify(cfg));
+        const session = newSession();
+        let e = await startExtension(w, session, { MCP_EVENTS_WAKE_GAP_S: '0' });
+        try {
+            await e.call('watch_event', { server: 'tickets', event: 'ticket.created' });
+            await untilActive(e);
+        } finally {
+            await e.stop();
+        }
+        e = await startExtension(w, session, { MCP_EVENTS_WAKE_GAP_S: '0' });
+        try {
+            // Straight away, before discovery is through.
+            const first = await e.call('list_watches');
+            assert.match(first.text, /ticket\.created/);
+            await untilActive(e);
+            w.emit('ticket.created', { title: 'after the resume' });
+            await waitFor(() => e.sent.length === 1, 20000, 'a wake');
+        } finally {
+            await e.stop();
+        }
+    });
+
     test('only servers Copilot lists as enabled are used; the others are listed as unavailable with the reason', async () => {
         const w = world({}, { extra: { secretive: { type: 'http', url: 'https://example.invalid/mcp', headers: { Authorization: 'Bearer ${NOT_GIVEN_TO_EXTENSIONS}' } } } });
         const configured = [

@@ -232,14 +232,16 @@ against the built [`plugin/dist/server.mjs`](plugin/dist/server.mjs), with
 | I-3 | Choose a remote by its `supportedProtocolVersions` | C-6 | met, with Copilot's revisions |
 | I-4 | Transport `streamable-http` or `sse` | C-3 | both met |
 | V-3 | No text that displays as something else | C-5, plus the shared tests | met. A header's value is shown in the form as it is, so it may hold no markup |
+| P-4 | Nothing from a card is read as an option of `copilot mcp add` | C-7 | met: every option is written `--option=value` (a header name may legally start with `-`; Copilot 1.0.115 refuses `--header -x: v` and takes `--header=-x: v` whole), and the name (a slug) and the URL (http or https) are checked again before the command runs, with no shell |
+| P-5 | One value per header | C-8 | met: a card that sets one header twice, in any letter case, is refused, so the form, the command and the file can't disagree |
 
 ### Proof
 
-- **Per rule:** 105 tests, run with `npm test`: 88 shared rule tests from
-  `../claude-code/mod/tests`, run against the committed bundle; 15 of this
+- **Per rule:** 107 tests, run with `npm test`: 88 shared rule tests from
+  `../claude-code/mod/tests`, run against the committed bundle; 17 of this
   form's own (the Copilot plan, C-, and the server as Copilot runs it, E-, with
-  a stand-in `copilot` and a web on 127.0.0.1); 2 that check the installed
-  folder.
+  a stand-in `copilot` that parses options as Copilot's does, and a web on
+  127.0.0.1); 2 that check the installed folder.
 - **The real host,** 25 November 2026, Copilot CLI 1.0.115 on macOS, with an
   isolated `COPILOT_HOME`, no GitHub sign-in, and a scripted model on this
   machine (as in [mcp-events' live run](../../events/copilot/docs/live-run.md)):

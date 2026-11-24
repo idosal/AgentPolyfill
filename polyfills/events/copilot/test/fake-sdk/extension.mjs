@@ -11,7 +11,8 @@
 //                  {t:'sendReply', id, ok | error | hang}        how Copilot answers a send
 //                  {t:'sendMode', mode: 'ok'|'error'|'hang'|'manual'}  how later sends are answered
 //
-// listConfigured() answers FAKE_COPILOT_CONFIGURED (JSON), or fails when it is "error" or unset.
+// listConfigured() answers FAKE_COPILOT_CONFIGURED_FILE's contents, or FAKE_COPILOT_CONFIGURED (JSON),
+// or fails when it is "error" or unset.
 import { createInterface } from 'node:readline';
 
 const out = (m) => process.stdout.write(JSON.stringify(m) + '\n');
@@ -21,8 +22,10 @@ const waitingSends = new Map();
 
 export async function joinSession(config = {}) {
     if (!process.env.SESSION_ID) throw new Error('joinSession() is intended for extensions running as child processes of the Copilot CLI.');
-    const defs = config.tools?.definitions ?? [];
-    const hooks = config.hooks ?? {};
+    // As the SDK's normalizeSessionOptions: a tools array is the older form of tools.definitions,
+    // and hooks named directly the older form of hooks.handlers.
+    const defs = Array.isArray(config.tools) ? config.tools : config.tools?.definitions ?? [];
+    const hooks = config.hooks?.handlers ?? config.hooks ?? {};
     const listeners = [];
     const session = {
         sessionId: process.env.SESSION_ID,
@@ -46,7 +49,9 @@ export async function joinSession(config = {}) {
         rpc: {
             mcp: {
                 async listConfigured() {
-                    const c = process.env.FAKE_COPILOT_CONFIGURED;
+                    // A file, re-read on each call, lets a test change what Copilot uses mid-session.
+                    const f = process.env.FAKE_COPILOT_CONFIGURED_FILE;
+                    const c = f ? (await import('node:fs')).readFileSync(f, 'utf8') : process.env.FAKE_COPILOT_CONFIGURED;
                     if (!c || c === 'error') throw new Error('Unhandled method session.mcp.listConfigured');
                     return { servers: JSON.parse(c) };
                 }
@@ -81,6 +86,6 @@ export async function joinSession(config = {}) {
             else w?.resolve(`msg-${m.id}`);
         }
     });
-    out({ t: 'joined', tools: defs.map((d) => ({ name: d.name, skipPermission: d.skipPermission === true, description: d.description, parameters: d.parameters })), hooks: Object.keys(hooks) });
+    out({ t: 'joined', tools: defs.map((d) => ({ name: d.name, skipPermission: d.skipPermission === true, description: d.description, parameters: d.parameters })), hooks: Object.keys(hooks), toolsForm: Array.isArray(config.tools) ? 'array' : config.tools ? 'definitions' : 'none' });
     return session;
 }

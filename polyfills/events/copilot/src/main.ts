@@ -38,8 +38,11 @@ export type JoinedSession = Sender & {
     rpc?: { mcp?: { listConfigured?: () => Promise<{ servers: Configured[] }> } };
 };
 export type ToolResult = string | { textResultForLlm: string; resultType: 'success' | 'failure' };
+// The forms every Copilot release with extensions takes: a `tools` array and the hooks by name.
+// Newer SDKs migrate both to their grouped forms (`tools.definitions`, `hooks.handlers`); an
+// older one knows only these.
 export type JoinSession = (config: {
-    tools?: { definitions: { name: string; description: string; parameters: Json; skipPermission?: boolean; handler: (args: Json) => Promise<ToolResult> }[] };
+    tools?: { name: string; description: string; parameters: Json; skipPermission?: boolean; handler: (args: Json) => Promise<ToolResult> }[];
     hooks?: { onSessionStart?: (input: Json) => Promise<{ additionalContext?: string } | void> };
 }) => Promise<JoinedSession>;
 
@@ -72,6 +75,14 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
         }
     };
     process.on('unhandledRejection', (e) => log(`unexpected failure (${describeError(e)})`));
+    // A failure in one connection's callback must not end the extension, and with it every watch:
+    // it is logged, and the rest carries on. Events are on disk before they are acknowledged, so
+    // nothing is lost by going on.
+    process.on('uncaughtException', (e) => log(`unexpected error (${describeError(e)})`));
+    // Standard output is the extension's JSON-RPC channel to Copilot: a stray line there (Node's
+    // console.log, info and debug write to it, and a bundled library may call them) would corrupt
+    // it. They go to the log instead.
+    for (const k of ['log', 'info', 'debug', 'trace'] as const) console[k] = (...a: unknown[]) => log(`console.${k}: ${a.map((x) => (typeof x === 'string' ? x : describeError(x))).join(' ')}`);
     log(`mcp-events ${VERSION} for Copilot started${off ? ' (MCP_EVENTS_OFF=1: doing nothing)' : ''}`);
 
     // Stand-down (contract rule 4): Copilot gives an extension no way to see what its own MCP client
@@ -125,6 +136,7 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
     };
 
     let discovery: Promise<void> | undefined;
+    let discovered = false;
     /** Connects to each server Copilot uses once, and keeps those that offer events. */
     const discover = (id: string): Promise<void> =>
         (discovery ??= (async () => {
@@ -136,7 +148,7 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
             }
             const table = readCopilotServers(env, log, { cwd: process.cwd(), configured });
             for (const [name, why] of Object.entries(table.skipped)) unavailable.push({ name, why });
-            secrets.add(env.MCP_EVENTS_RELAY_ACCESS_KEY, readRelaySettings(env)?.accessKey);
+            secrets.add(env.MCP_EVENTS_RELAY_ACCESS_KEY, readRelaySettings(env)?.accessKey, ...table.expanded);
             for (const cfg of Object.values(table.servers)) {
                 if (isHttp(cfg)) {
                     secrets.add(...Object.values(cfg.headers ?? {}));
@@ -181,7 +193,40 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
                     }
                 })
             );
+            // Watches loaded before their server's connection was there (a session resumed while the
+            // servers were still being looked at) start now.
+            for (const name of connections.keys()) s?.manager.resume(name);
+            discovered = true;
         })());
+
+    /**
+     * Copilot is the judge of which servers this session may use. A server it stops using while the
+     * session runs (`/mcp disable`, or gone after `/mcp reload`) is let go here too: its watches stop
+     * and wait, saved, and its connection is closed. Checked when Copilot says a server's state
+     * changed, every half minute, and before each tool call. A server Copilot takes back up is used
+     * again from the next session.
+     */
+    let reconciling: Promise<void> | undefined;
+    const reconcile = (): Promise<void> =>
+        (reconciling ??= (async () => {
+            if (!discovered || env.MCP_EVENTS_CONFIG || !connections.size) return;
+            let listed: Configured[] | undefined;
+            try {
+                listed = (await session?.rpc?.mcp?.listConfigured?.())?.servers;
+            } catch {
+                return; // Copilot could not say: nothing is changed on a guess
+            }
+            if (!listed) return;
+            const enabled = new Set(listed.filter((c) => c.enabled).map((c) => c.name));
+            for (const [name, c] of [...connections]) {
+                if (enabled.has(name)) continue;
+                connections.delete(name);
+                log(`${name}: Copilot no longer uses it in this session; its watches stop and wait until a session has it again`);
+                await s?.manager.suspend(name).catch(() => {});
+                await c.close().catch(() => {});
+                unavailable.push({ name, why: 'Copilot stopped using it in this session (switched off or removed); its watches wait, saved, until a session has it again' });
+            }
+        })().finally(() => (reconciling = undefined)));
 
     const sessionFor = (id: string): ThreadSession => {
         if (!s) {
@@ -204,8 +249,7 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
     const toResult = (a: { text: string; isError?: true }): ToolResult => (a.isError ? { textResultForLlm: a.text, resultType: 'failure' } : a.text);
 
     session = await joinSession({
-        tools: {
-            definitions: TOOLS.map((t) => ({
+        tools: TOOLS.map((t) => ({
                 name: t.name,
                 description: t.description,
                 parameters: t.parameters,
@@ -215,14 +259,23 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
                     const id = sessionId();
                     if (!names.has(t.name) || !id) return toResult({ text: 'mcp-events could not tell which Copilot session this is.', isError: true });
                     log(`${t.name} from session ${id.slice(0, 8)}`);
-                    // A tool called while the servers are still being looked at waits for them, within reason.
-                    await Promise.race([discover(id), new Promise((r) => setTimeout(r, timeout + 5000).unref())]);
+                    // A tool called while the servers are still being looked at waits for them: each
+                    // connection has its own time limit, so this ends. The session's watches start
+                    // only once every connection there will be is there.
+                    await discover(id);
+                    await reconcile();
                     const ts = sessionFor(id);
                     if (!ts.manager.owner) ts.start();
-                    return toResult(await ts.call(t.name, (args ?? {}) as Json));
+                    // The model's arguments: only a plain object is read; the tools check each field.
+                    const input = typeof args === 'object' && args !== null && !Array.isArray(args) ? args : {};
+                    try {
+                        return toResult(await ts.call(t.name, input));
+                    } catch (e) {
+                        log(`${t.name} failed (${describeError(e)})`);
+                        return toResult({ text: `${t.name} failed (${describeError(e)}).`, isError: true });
+                    }
                 }
-            }))
-        },
+            })),
         hooks: {
             onSessionStart: async () => ({ additionalContext: INSTRUCTIONS })
         }
@@ -238,6 +291,7 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
     session.on('user.message', (e) => {
         if (isThePersons(e.data, e.agentId)) s?.spoke();
     });
+    session.on('session.mcp_server_status_changed', () => void reconcile().catch(() => {}));
 
     // A session resumed with saved watches picks them up at once, from their cursors.
     const id = sessionId();
@@ -259,10 +313,17 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
     // A second process with the same session open (the session resumed in a second terminal) leaves
     // the watches to the first; if the first goes, this one takes them over.
     const parent = Number(env.COPILOT_EXTENSION_PARENT_PID) || process.ppid;
+    let ticks = 0;
     const tick = setInterval(() => {
-        // Orphaned: the Copilot that started this is gone, and nobody will send SIGTERM.
-        if (!alive(parent)) return void stop().then(() => process.exit(0));
-        if (s && !s.manager.owner && s.start()) log(`[${s.id.slice(0, 8)}] the process that ran this session's watches has gone; this one runs them now`);
+        try {
+            // Orphaned: the Copilot that started this is gone, and nobody will send SIGTERM.
+            if (!alive(parent)) return void stop().then(() => process.exit(0));
+            if (s && !s.manager.owner && s.start()) log(`[${s.id.slice(0, 8)}] the process that ran this session's watches has gone; this one runs them now`);
+            if (++ticks % 6 === 0) void reconcile().catch(() => {});
+        } catch (e) {
+            // A file the claim needs could not be read or written: tried again at the next tick.
+            log(`the watches' claim could not be checked (${describeError(e)}); trying again`);
+        }
     }, 5000);
     tick.unref();
 

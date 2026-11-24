@@ -1578,18 +1578,27 @@ ${plan.toml}`);
 import { spawn } from "node:child_process";
 import { homedir as homedir2 } from "node:os";
 import { join as join2 } from "node:path";
+var SAFE_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
 var planForCopilot = (card, remoteIndex, values, name, fromLocal) => {
   const planned = planAdd(card, remoteIndex, values, name, "user", fromLocal);
   if (!("plan" in planned)) return planned;
   const p = planned.plan;
+  const seen = /* @__PURE__ */ new Set();
+  for (const h of p.headers) {
+    if (seen.has(h.name.toLowerCase())) return { error: `The card sets the header ${h.name} twice.` };
+    seen.add(h.name.toLowerCase());
+  }
   for (const h of p.headers)
     if (hasMarkup(h.value.replace(/\$\{[A-Z0-9_]+\}/g, "")))
       return { error: `The header ${h.name} holds \`, <, > or a square bracket (${h.value}), which could show as something else in the form.` };
+  if (!SAFE_NAME.test(p.name)) return { error: `The server name "${p.name}" is not a plain name (letters, digits and dashes).` };
+  if (!/^https?:\/\//.test(p.url)) return { error: `The URL ${p.url} is not an http(s) address.` };
+  if (p.transport !== "http" && p.transport !== "sse") return { error: `The transport ${p.transport} is not one Copilot adds for a remote.` };
   const headers = Object.fromEntries(p.headers.map((h) => [h.name, h.value]));
   return {
     plan: {
       ...p,
-      addArgs: ["mcp", "add", "--transport", p.transport, ...p.headers.flatMap((h) => ["--header", `${h.name}: ${h.value}`]), p.name, p.url],
+      addArgs: ["mcp", "add", `--transport=${p.transport}`, ...p.headers.map((h) => `--header=${h.name}: ${h.value}`), p.name, p.url],
       json: JSON.stringify({ [p.name]: { type: p.transport, url: p.url, ...p.headers.length ? { headers } : {}, tools: ["*"] } }, null, 2)
     }
   };
@@ -2223,6 +2232,7 @@ export {
   PLAIN_URL,
   PREFIX,
   PROTOCOL_VERSIONS,
+  SAFE_NAME,
   SEARCH,
   SEARCH_CHOICES,
   SHOWN_QUERY,

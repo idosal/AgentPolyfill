@@ -158,6 +158,11 @@ export class Extension {
         this.child.stdin!.write(JSON.stringify({ t: 'event', type: 'user.message', data: { content, ...(source ? { source } : {}) } }) + '\n');
     }
 
+    /** Any other session event, as Copilot emits it. */
+    event(type: string, data: Json = {}): void {
+        this.child.stdin!.write(JSON.stringify({ t: 'event', type, data }) + '\n');
+    }
+
     sendMode(mode: 'ok' | 'error' | 'hang'): void {
         this.child.stdin!.write(JSON.stringify({ t: 'sendMode', mode }) + '\n');
     }

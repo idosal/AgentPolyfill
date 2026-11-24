@@ -15,6 +15,9 @@ import { hasMarkup, type ServerCard } from '../../claude-code/mod/hooks/card'
 import { planAdd, type Plan } from '../../claude-code/mod/hooks/configure'
 import type { Ran, Run } from '../../codex/src/codex'
 
+/** The names planAdd makes (a slug of the card's title or name, or of the one the model gives): never a leading "-". */
+export const SAFE_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/
+
 export type CopilotPlan = Plan & {
   /** `copilot mcp add` arguments */
   addArgs: string[]
@@ -29,16 +32,31 @@ export const planForCopilot = (card: ServerCard, remoteIndex: number, values: Re
   const planned = planAdd(card, remoteIndex, values, name, 'user', fromLocal)
   if (!('plan' in planned)) return planned
   const p = planned.plan
+  // One value per header: a card that sets one twice (in any letter case) would show one value in
+  // the form and have Copilot keep another (as the Codex form refuses it).
+  const seen = new Set<string>()
+  for (const h of p.headers) {
+    if (seen.has(h.name.toLowerCase())) return { error: `The card sets the header ${h.name} twice.` }
+    seen.add(h.name.toLowerCase())
+  }
   // A header is shown in the form as it is: no markup a host could render as something else
   // (security review C4, as in the Codex form).
   for (const h of p.headers)
     if (hasMarkup(h.value.replace(/\$\{[A-Z0-9_]+\}/g, '')))
       return { error: `The header ${h.name} holds \`, <, > or a square bracket (${h.value}), which could show as something else in the form.` }
+  // What reaches the command line, checked again here whatever planAdd guarantees: the name is a
+  // slug and the URL an http(s) address, so neither can be read as an option, and every option
+  // is written `--option=value`, so a header (whose name may legally start with "-") is always
+  // that option's value (seen with Copilot 1.0.115: `--header -x: v` is refused as an unknown
+  // argument, `--header=-x: v` is taken whole). The command runs with no shell.
+  if (!SAFE_NAME.test(p.name)) return { error: `The server name "${p.name}" is not a plain name (letters, digits and dashes).` }
+  if (!/^https?:\/\//.test(p.url)) return { error: `The URL ${p.url} is not an http(s) address.` }
+  if (p.transport !== 'http' && p.transport !== 'sse') return { error: `The transport ${p.transport} is not one Copilot adds for a remote.` }
   const headers = Object.fromEntries(p.headers.map(h => [h.name, h.value]))
   return {
     plan: {
       ...p,
-      addArgs: ['mcp', 'add', '--transport', p.transport, ...p.headers.flatMap(h => ['--header', `${h.name}: ${h.value}`]), p.name, p.url],
+      addArgs: ['mcp', 'add', `--transport=${p.transport}`, ...p.headers.map(h => `--header=${h.name}: ${h.value}`), p.name, p.url],
       json: JSON.stringify({ [p.name]: { type: p.transport, url: p.url, ...(p.headers.length ? { headers } : {}), tools: ['*'] } }, null, 2),
     },
   }

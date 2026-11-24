@@ -33,6 +33,7 @@ the fixture events server, and the upstream suite's run through it.
 | WH-1, WH-12, RX-1, RX-7 | a fresh `whsec_` secret per subscription; only signed deliveries taken; https except on loopback for tests | `test/spec-test.ts` "WH-1, WH-12 (dev), RX-1, RX-7" |
 | WH (no address) | a webhook-only type with no public address is refused, with the choices | `test/spec-test.ts` "a webhook-only event type with no public address" |
 | SEC-1, SEC-2 | payloads reach the model only as tool results; the wake carries no server text | `test/spec-test.ts` "SEC-1, SEC-2" |
+| SEC-2 | an event type named with a sentence is watched, but its name stays out of the wake | `test/spec-test.ts` "SEC-2: an event type whose name is a sentence" |
 | PUSH-14 | a subscription the server ends is removed, and the session told | interop: hookbench "termination" ([`interop.md`](interop.md)) |
 | RH-1, RH-4 | `Mcp-Name` and `Mcp-Param-*` on Streamable HTTP | interop: hookbench "routing headers" |
 
@@ -41,9 +42,14 @@ the fixture events server, and the upstream suite's run through it.
 These aren't SEP rules: they're how this form meets the contract in Copilot.
 Tests are in `test/extension-test.ts` and `test/units-test.ts`.
 
-- **Which servers.** Only those Copilot lists as enabled for the session;
-  plugin, one-run and built-in servers, and servers needing a variable Copilot
-  strips from extensions, are listed as unavailable with the reason.
+- **Which servers.** Only those Copilot lists as enabled for the session,
+  each read from the source Copilot names (a project file never stands in for
+  your own); none at all when Copilot can't say. Plugin, one-run and built-in
+  servers, and servers needing a variable Copilot strips from extensions, are
+  listed as unavailable with the reason. A server Copilot stops using
+  mid-session is let go, its watches kept.
+- **A resumed session** whose first tool call comes while its servers are
+  still being connected doesn't strand its saved watches.
 - **Who counts as you.** A `user.message` with no source; the plugin's own
   automation turns and other sources don't lift the wake pause.
 - **The wake's answer.** Refused by Copilot: tried again, once taken handed

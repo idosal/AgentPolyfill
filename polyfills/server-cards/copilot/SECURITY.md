@@ -35,6 +35,11 @@ and the plugin adds no policy of its own beyond asking you.
   `$COPILOT_HOME/mcp-config.json` (`~/.copilot/mcp-config.json`), one server
   at a time, and only after your accept, through `copilot mcp add`, run with
   its arguments as a list (no shell), in your session's folder.
+  - **Nothing a card says is read as an option.** Every option is written
+    `--transport=…` and `--header=…`, so a header (whose name may legally
+    start with `-`) is always that option's value. The name is a slug and the
+    URL an http(s) address, checked again before the command runs. A card that
+    sets one header twice is refused.
   - **Who decides:** you, in the form, which names the server, the URL, the
     headers, the file and the undo command, with a required choice whose first
     option is **Don't add it**.

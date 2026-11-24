@@ -20,7 +20,7 @@ const remote = (r: Record<string, unknown>) => card({ remotes: [{ type: 'streama
 test('C-1 a plain remote is `copilot mcp add --transport http NAME URL`', () => {
   const r = planForCopilot(remote({}) as never, 0, {}, undefined, false)
   assert.ok('plan' in r)
-  assert.deepEqual(r.plan.addArgs, ['mcp', 'add', '--transport', 'http', 'example-docs', 'https://mcp.example.com/mcp'])
+  assert.deepEqual(r.plan.addArgs, ['mcp', 'add', '--transport=http', 'example-docs', 'https://mcp.example.com/mcp'])
   assert.deepEqual(JSON.parse(r.plan.json), { 'example-docs': { type: 'http', url: 'https://mcp.example.com/mcp', tools: ['*'] } })
 })
 
@@ -29,23 +29,40 @@ test('C-2 a secret is a ${VAR} reference named for this card alone, never a valu
   assert.ok('plan' in r)
   const v = r.plan.envVars[0]!.name
   assert.match(v, /^MCP_EXAMPLE_DOCS__TOKEN_[A-Z2-7]{16}$/)
-  assert.deepEqual(r.plan.addArgs, ['mcp', 'add', '--transport', 'http', '--header', `Authorization: Bearer \${${v}}`, 'example-docs', 'https://mcp.example.com/mcp'])
+  assert.deepEqual(r.plan.addArgs, ['mcp', 'add', '--transport=http', `--header=Authorization: Bearer \${${v}}`, 'example-docs', 'https://mcp.example.com/mcp'])
 })
 
 test('C-3 what Codex could not take, Copilot can: SSE, a fixed header beside a secret one, a secret mixed into a header or in the path', () => {
   const sse = planForCopilot(remote({ type: 'sse' }) as never, 0, {}, undefined, false)
   assert.ok('plan' in sse)
-  assert.deepEqual(sse.plan.addArgs.slice(0, 4), ['mcp', 'add', '--transport', 'sse'])
+  assert.deepEqual(sse.plan.addArgs.slice(0, 3), ['mcp', 'add', '--transport=sse'])
   const both = planForCopilot(remote({ headers: [{ name: 'X-API-Key', isSecret: true }, { name: 'X-Region', value: 'eu' }] }) as never, 0, {}, undefined, false)
   assert.ok('plan' in both)
-  const h = both.plan.addArgs.filter((_, i, a) => a[i - 1] === '--header')
-  assert.match(h[0]!, /^X-API-Key: \$\{MCP_EXAMPLE_DOCS__X_API_KEY_[A-Z2-7]{16}\}$/)
-  assert.equal(h[1], 'X-Region: eu')
+  const h = both.plan.addArgs.filter(a => a.startsWith('--header='))
+  assert.match(h[0]!, /^--header=X-API-Key: \$\{MCP_EXAMPLE_DOCS__X_API_KEY_[A-Z2-7]{16}\}$/)
+  assert.equal(h[1], '--header=X-Region: eu')
   const mixed = planForCopilot(remote({ headers: [{ name: 'Authorization', value: 'Token {k}', isSecret: true, variables: { k: { isSecret: true } } }] }) as never, 0, {}, undefined, false)
   assert.ok('plan' in mixed)
   const inPath = planForCopilot(remote({ url: 'https://mcp.example.com/{key}/mcp', variables: { key: { isSecret: true } } }) as never, 0, {}, undefined, false)
   assert.ok('plan' in inPath)
   assert.match(inPath.plan.url, /^https:\/\/mcp\.example\.com\/\$\{MCP_EXAMPLE_DOCS__KEY_[A-Z2-7]{16}\}\/mcp$/)
+})
+
+test('C-7 nothing from a card can be read as an option: a header whose name starts with "-" is the value of its --header=, and the name and URL are checked again', () => {
+  const r = planForCopilot(remote({ headers: [{ name: '-x', value: 'v' }, { name: '--tools', value: 'none' }] }) as never, 0, {}, undefined, false)
+  assert.ok('plan' in r, JSON.stringify(r))
+  assert.deepEqual(r.plan.addArgs, ['mcp', 'add', '--transport=http', '--header=-x: v', '--header=--tools: none', 'example-docs', 'https://mcp.example.com/mcp'])
+  // Every argument before the two positionals is one of ours, each one whole.
+  assert.ok(r.plan.addArgs.slice(2, -2).every(a => /^--(transport|header)=/.test(a)))
+  for (const name of ['--transport', '-x', 'Has Space', 'a'.repeat(80)]) {
+    const n = planForCopilot(remote({}) as never, 0, {}, name, false)
+    if ('plan' in n) assert.match(n.plan.name, /^[a-z0-9][a-z0-9-]*$/, name)
+  }
+})
+
+test('C-8 a card that sets one header twice, in any letter case, is refused', () => {
+  const r = planForCopilot(remote({ headers: [{ name: 'X-Region', value: 'eu' }, { name: 'x-region', value: 'us' }] }) as never, 0, {}, undefined, false)
+  assert.match('error' in r ? r.error : JSON.stringify(r), /sets the header x-region twice/)
 })
 
 test('C-4 the shared rules hold: no "$" from a card, no private remote from a public card, no secret in the host part', () => {
@@ -138,7 +155,7 @@ test('E-3 an add with a form: the question names the server, URL, headers, file 
   const h = new URL(web.origin).host
   assert.ok(q.message.startsWith(`${h}: add the MCP server "example-docs" to Copilot?\nIt connects to the host ${h}\nURL: ${web.origin}/mcp (streamable HTTP)\nHeaders: none\n`), q.message)
   assert.ok(q.message.endsWith(`Written to ${join(s.fake.dir, 'home', 'mcp-config.json')} (all your projects).\nTo undo: copilot mcp remove example-docs`), q.message)
-  assert.deepEqual(adds(s.fake).map(c => c.args), [['mcp', 'add', '--transport', 'http', 'example-docs', `${web.origin}/mcp`]])
+  assert.deepEqual(adds(s.fake).map(c => c.args), [['mcp', 'add', '--transport=http', 'example-docs', `${web.origin}/mcp`]])
   assert.ok(s.fake.calls().every(c => c.cwd.endsWith(s.fake.dir.split('/').pop()!)), 'run in COPILOT_SESSION_CWD')
   assert.deepEqual(s.fake.entries()['example-docs'], { tools: ['*'], type: 'http', url: `${web.origin}/mcp` })
   assert.match(r.text, /To remove it: copilot mcp remove example-docs/)

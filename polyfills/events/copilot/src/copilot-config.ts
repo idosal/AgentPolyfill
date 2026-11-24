@@ -5,16 +5,19 @@
 // organisation's policy), but not how to reach them. This extension opens its own connection
 // to each, so it reads that from the files Copilot reads, and never reaches further:
 //
-//   - only a server the session lists as enabled is used; when Copilot cannot say (an older
-//     CLI), `disabledMcpServers` in settings.json is honoured and workspace files are read only
-//     for a folder in `trustedFolders`;
+//   - only a server the session lists as enabled is used, and it is read from the source Copilot
+//     names for it: a server Copilot has from your user file is never taken from a project's
+//     file of the same name, and project files are read only when Copilot itself uses one (it
+//     reads them only in a trusted folder). When Copilot cannot say, this extension connects to
+//     none: it can't judge folder trust or your organisation's policy by itself;
 //   - files, later winning as in Copilot: $COPILOT_HOME/mcp-config.json (default ~/.copilot),
 //     then `.mcp.json` / `.github/mcp.json` from the repository root down to the working folder
 //     (a nearer file wins; a folder's `.github/mcp.json` is ignored when it has a `.mcp.json`);
-//   - `${VAR}` in a server's command, args, env, cwd, url and headers is expanded from this
-//     extension's environment, as Copilot expands it (seen live in 1.0.115). Copilot strips
-//     sensitive variables (GITHUB_TOKEN, say) from an extension, so a server that needs one is
-//     left out with the reason;
+//   - `$VAR`, `${VAR}` and `${VAR:-default}` in a server's command, args, env, cwd, url and
+//     headers are expanded from this extension's environment, as Copilot expands them (seen live
+//     in 1.0.115). Copilot strips sensitive variables (GITHUB_TOKEN, say) from an extension, so a
+//     server that needs one this extension lacks is left out with the reason (Copilot itself
+//     would pass the reference on unexpanded);
 //   - a server that signs in through Copilot (OAuth, `/mcp auth`) is left alone: Copilot keeps
 //     that sign-in to itself, and this extension never reads Copilot's stored credentials;
 //   - servers a plugin brings, servers given for one run (`--additional-mcp-config`) and the
@@ -22,6 +25,7 @@
 //
 // Narrow it with:
 //   MCP_EVENTS_CONFIG   a file of your own ({"mcpServers": {...}}), used instead of Copilot's files
+//                       and its list: every server in it is yours to have chosen
 //   MCP_EVENTS_SERVERS  only these server names (comma-separated)
 //   MCP_EVENTS_SKIP     never these server names
 
@@ -52,26 +56,36 @@ function readJson(path: string): Json | undefined {
     return isTable(j) ? j : undefined;
 }
 
-const VAR = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+// `${NAME:-default}`, `${NAME}` and `$NAME`, the forms Copilot 1.0.115 expands.
+const VAR = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}|\$([A-Za-z_][A-Za-z0-9_]*)/g;
 
-/** Expands `${VAR}` from `env`. Unset variables are left as written and named in `missing`. */
-export function expand(s: string, env: NodeJS.ProcessEnv, missing: Set<string>): string {
-    return s.replace(VAR, (whole, name: string) => {
+/**
+ * Expands variables from `env` as Copilot does: `${NAME:-default}` takes the default when NAME is
+ * unset or empty. An unset variable with no default is left as written and named in `missing`.
+ */
+export function expand(s: string, env: NodeJS.ProcessEnv, missing: Set<string>, used?: Set<string>): string {
+    return s.replace(VAR, (whole, braced: string | undefined, fallback: string | undefined, bare: string | undefined) => {
+        const name = (braced ?? bare)!;
         const v = env[name];
+        if (fallback !== undefined && !v) return fallback;
         if (v === undefined) {
             missing.add(name);
             return whole;
         }
+        // Whatever a variable held may be a secret, wherever it lands (a URL's path, an argument):
+        // it is taken out of logs and tool results like a header's value.
+        used?.add(v);
         return v;
     });
 }
 
+
 const stringMap = (v: unknown): Record<string, string> | undefined => (isTable(v) ? Object.fromEntries(Object.entries(v).filter((e): e is [string, string] => typeof e[1] === 'string')) : undefined);
 
 /** One server's entry, as the Events client takes it, or why it is left out. Relative `cwd` is the file's folder. */
-export function parseServer(v: Json, env: NodeJS.ProcessEnv, base: string): UpstreamConfig | { skip: string } {
+export function parseServer(v: Json, env: NodeJS.ProcessEnv, base: string, used?: Set<string>): UpstreamConfig | { skip: string } {
     const missing = new Set<string>();
-    const x = (s: string) => expand(s, env, missing);
+    const x = (s: string) => expand(s, env, missing, used);
     const leave = () => ({ skip: `it needs the environment variable${missing.size > 1 ? 's' : ''} ${[...missing].join(', ')}, which this extension does not have (Copilot strips sensitive variables from extensions)` });
     const type = typeof v.type === 'string' ? v.type : undefined;
     if (isTable(v.oauth) || v.auth === 'oauth') return { skip: "it signs in through Copilot, and this extension has no access to Copilot's sign-in" };
@@ -125,49 +139,49 @@ export type ReadOptions = {
     configured?: Configured[];
 };
 
-const settingsList = (home: string, key: string): string[] => {
-    for (const f of ['settings.json', 'config.json']) {
-        try {
-            const j = readJson(join(home, f));
-            const v = j?.[key];
-            if (Array.isArray(v)) return v.filter((s): s is string => typeof s === 'string');
-        } catch {
-            // not there, or not JSON
-        }
-    }
-    return [];
+export type CopilotServers = ServerTable & {
+    /** The values variables expanded to: secrets to keep out of logs and tool results. */
+    expanded: string[];
 };
 
 /** The servers this extension may connect to, and the ones left out with their reasons. */
-export function readCopilotServers(env: NodeJS.ProcessEnv = process.env, log: (s: string) => void = () => {}, o: ReadOptions = {}): ServerTable {
-    const out: ServerTable = { servers: {}, skipped: {} };
+export function readCopilotServers(env: NodeJS.ProcessEnv = process.env, log: (s: string) => void = () => {}, o: ReadOptions = {}): CopilotServers {
+    const used = new Set<string>();
+    const out: CopilotServers = { servers: {}, skipped: {}, expanded: [] };
     const home = copilotHome(env);
     const cwd = o.cwd ?? process.cwd();
-    // name -> [entry, the folder it is relative to]
-    const found = new Map<string, [Json, string]>();
-    const take = (path: string) => {
+    if (!o.configured && !env.MCP_EVENTS_CONFIG) {
+        const why = "Copilot did not say which MCP servers this session uses (session.rpc.mcp.listConfigured, in Copilot 1.0.115 and newer), so this extension connects to none: it can't judge folder trust or your organisation's policy by itself. MCP_EVENTS_CONFIG can name a servers file of your own instead";
+        out.skipped['(all servers)'] = why;
+        log(why);
+        return out;
+    }
+    // name -> [entry, the folder it is relative to], by where it was read
+    const user = new Map<string, [Json, string]>();
+    const workspace = new Map<string, [Json, string]>();
+    const take = (path: string, into: Map<string, [Json, string]>) => {
         let j: Json | undefined;
         try {
             j = existsSync(path) ? readJson(path) : undefined;
         } catch (e) {
-            log(`${path} could not be read (${e instanceof Error ? e.message.split('\n')[0] : 'not JSON'}); its servers are left out`);
+            // Never the parser's own message: it quotes the text around the error, which may be a token.
+            log(`${path} could not be read (${e instanceof SyntaxError ? 'it is not valid JSON' : 'it could not be opened'}); its servers are left out`);
             return;
         }
         const table = j?.mcpServers;
         if (!isTable(table)) return;
-        for (const [name, value] of Object.entries(table)) if (SERVER_NAME.test(name) && isTable(value)) found.set(name, [value, dirname(path)]);
+        for (const [name, value] of Object.entries(table)) if (SERVER_NAME.test(name) && isTable(value)) into.set(name, [value, dirname(path)]);
     };
-    if (env.MCP_EVENTS_CONFIG) take(resolve(env.MCP_EVENTS_CONFIG));
+    if (env.MCP_EVENTS_CONFIG) take(resolve(env.MCP_EVENTS_CONFIG), user);
     else {
-        take(join(home, 'mcp-config.json'));
-        // Workspace files count only where Copilot reads them: when it lists their servers, or, if it
-        // cannot say, in a folder you trusted.
-        const trusted = o.configured !== undefined || settingsList(home, 'trustedFolders').some((t) => resolve(cwd).startsWith(resolve(t)));
-        if (trusted) for (const f of workspaceFiles(cwd)) take(f);
+        take(join(home, 'mcp-config.json'), user);
+        // Project files count only when Copilot says it uses a server from one: it reads them only
+        // once the folder is trusted.
+        if (o.configured!.some((c) => c.enabled && c.source === 'workspace')) for (const f of workspaceFiles(cwd)) take(f, workspace);
     }
 
     const add = (name: string, entry: Json, base: string) => {
-        const r = parseServer(entry, env, base);
+        const r = parseServer(entry, env, base, used);
         if ('skip' in r) out.skipped[name] = r.skip;
         else out.servers[name] = r;
     };
@@ -180,7 +194,8 @@ export function readCopilotServers(env: NodeJS.ProcessEnv = process.env, log: (s
                 out.skipped[c.name] = `it comes from the plugin ${c.sourcePlugin ?? '(unnamed)'}, whose configuration this extension does not read`;
                 continue;
             }
-            const f = found.get(c.name);
+            // From where Copilot has it, and nowhere else: a project file can't stand in for your own.
+            const f = c.source === 'workspace' ? workspace.get(c.name) : c.source === 'user' || c.source === undefined ? user.get(c.name) : undefined;
             if (!f) {
                 out.skipped[c.name] = c.source === 'managed' ? 'your organisation provides it, and this extension cannot read its configuration' : 'Copilot uses it, but it is not in mcp-config.json or a workspace file (given for one run with --additional-mcp-config?), so this extension cannot see how to reach it';
                 continue;
@@ -188,11 +203,8 @@ export function readCopilotServers(env: NodeJS.ProcessEnv = process.env, log: (s
             add(c.name, f[0], f[1]);
         }
     } else {
-        const disabled = new Set(settingsList(home, 'disabledMcpServers'));
-        for (const [name, [entry, base]] of found) {
-            if (disabled.has(name)) out.skipped[name] = 'it is switched off in Copilot (disabledMcpServers)';
-            else add(name, entry, base);
-        }
+        // MCP_EVENTS_CONFIG: a file of your own, every server in it.
+        for (const [name, [entry, base]] of user) add(name, entry, base);
     }
 
     const only = env.MCP_EVENTS_SERVERS?.split(',').map((s) => s.trim()).filter(Boolean);
@@ -203,5 +215,6 @@ export function readCopilotServers(env: NodeJS.ProcessEnv = process.env, log: (s
             out.skipped[name] = 'excluded by MCP_EVENTS_SERVERS / MCP_EVENTS_SKIP';
         }
     }
+    out.expanded = [...used];
     return out;
 }
