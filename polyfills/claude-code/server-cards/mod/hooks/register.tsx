@@ -123,6 +123,10 @@ export const register: Register = (on, options) => {
   const shownKey = (origin: string, identifier: string) => `${origin}\n${identifier}`
   const defaultRegistry = typeof options.registry === 'string' ? options.registry.trim() : ''
   const showPicker = options.picker !== false
+  // The Agentic Resource Discovery draft's parts: /.well-known/ard.json,
+  // rel="ard", and registry search. Outside SEP-2127; the `ard` setting turns
+  // them all off.
+  const ard = options.ard !== false
   const pickerLine = '\n\nThe person can also add one of these by pressing its Add button, shown under this result.'
 
   on('session.start', async ($, e, next) => {
@@ -145,7 +149,7 @@ export const register: Register = (on, options) => {
         required: ['domain'],
       },
     })
-    await $.tool.register({
+    if (ard) await $.tool.register({
       name: SEARCH,
       isDeferred: false,
       description:
@@ -202,7 +206,7 @@ export const register: Register = (on, options) => {
 
   on('tool.run', { tool: `mcp__${PLUGIN}__${DISCOVER}` }, async ($, e) => {
     const domain = str((e as Record<string, unknown>).domain) ?? ''
-    const d = await discover(deps($), domain)
+    const d = await discover(deps($), domain, { ard })
     if ('error' in d) return { deny: d.error }
     const offered: Pick[] = []
     for (const s of d.servers) {
@@ -214,7 +218,7 @@ export const register: Register = (on, options) => {
     return { result: formatDiscovery(d) + (showPicker && offered.length ? pickerLine : '') }
   }).catch(($, e, next) => ({ deny: `${PLUGIN}: discovery failed.` }))
 
-  on('tool.run', { tool: `mcp__${PLUGIN}__${SEARCH}` }, async ($, e) => {
+  if (ard) on('tool.run', { tool: `mcp__${PLUGIN}__${SEARCH}` }, async ($, e) => {
     const input = e as Record<string, unknown>
     const query = (str(input.query) ?? '').trim()
     if (!query) return { deny: 'Give `query`: what the person needs, in plain words.' }
@@ -371,7 +375,7 @@ export const register: Register = (on, options) => {
     const target = parseTarget(e.url)
     if ('error' in target || checked.has(target.origin)) return ran
     checked.add(target.origin)
-    void discover(deps($), target.origin)
+    void discover(deps($), target.origin, { ard })
       .then(d => {
         if ('error' in d) return
         const valid = d.servers.filter(s => s.card)

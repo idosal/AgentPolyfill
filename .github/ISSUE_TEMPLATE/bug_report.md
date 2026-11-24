@@ -6,7 +6,7 @@ labels: bug
 
 **Which polyfill**
 
-mcp-events, mcp-apps-cli, mcp-skills, or polyfill-author.
+mcp-events, mcp-apps-cli, mcp-skills, mcp-server-cards, or polyfill-author.
 
 **What happened, and what you expected**
 

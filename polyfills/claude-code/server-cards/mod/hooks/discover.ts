@@ -293,7 +293,22 @@ export const readCard = (card: unknown): { card: ServerCard } | { errors: string
   return errors.length ? { errors } : { card: card as ServerCard }
 }
 
-export const discover = async (deps: Deps, input: string): Promise<Discovery | { error: string }> => {
+export type DiscoverOptions = {
+  /**
+   * The parts that come from the Agentic Resource Discovery draft rather than
+   * from SEP-2127: /.well-known/ard.json and rel="ard". Off, discovery reads
+   * only what the Server Cards discovery doc names (/.well-known/ai-catalog.json)
+   * and the AI Catalog it delegates to (rel="ai-catalog").
+   */
+  ard?: boolean
+}
+
+export const discover = async (
+  deps: Deps,
+  input: string,
+  options: DiscoverOptions = {},
+): Promise<Discovery | { error: string }> => {
+  const ard = options.ard !== false
   const target = parseTarget(input)
   if ('error' in target) return target
   const { origin, page, isLocal } = target
@@ -455,11 +470,12 @@ export const discover = async (deps: Deps, input: string): Promise<Discovery | {
     }
   }
 
-  const [, , links] = await Promise.all([
-    readCatalog(`${origin}/.well-known/ard.json`, 'ard', 1),
+  const [, , found] = await Promise.all([
+    ard ? readCatalog(`${origin}/.well-known/ard.json`, 'ard', 1) : undefined,
     readCatalog(`${origin}/.well-known/ai-catalog.json`, 'ai-catalog', 1),
     readLinks(),
   ])
+  const links = (found ?? []).filter(l => ard || l.rel !== 'ard')
   const follow = links.filter(l => !seenCatalogs.has(l.url))
   if (follow.length > MAX_LINKS)
     result.problems.push(`the page has ${follow.length} catalog links; only the first ${MAX_LINKS} were read`)

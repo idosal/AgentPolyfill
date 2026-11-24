@@ -19,17 +19,38 @@ export async function install(
   cardName: string,
   provenance: string,
 ): Promise<Installed> {
-  let ran: { exitCode: number; stdout: string; stderr: string }
+  // `claude` is usually on PATH; where Claude Code runs without it (the desktop
+  // app, a GUI launch), its usual install places are tried in turn.
+  let ran: { exitCode: number; stdout: string; stderr: string } | undefined
+  let failure = ''
   try {
     ran = await $.process.run(plan.argv, { timeoutMs: 60_000 })
   } catch (err) {
-    // No `claude` on PATH (some desktop installs), or it did not finish.
-    return {
-      ok: false,
-      text: `Could not run \`claude mcp add\` (${err instanceof Error ? err.message : String(err)}). The person can run it in a terminal instead: ${plan.command}`,
-      short: `Couldn't run claude mcp add. Run it in a terminal: ${plan.command}`,
+    failure = err instanceof Error ? err.message : String(err)
+    let home = ''
+    try {
+      home = (await $.env.get('HOME')) ?? ''
+    } catch {}
+    const places = [
+      ...(home ? [`${home}/.local/bin/claude`, `${home}/.claude/local/claude`] : []),
+      '/opt/homebrew/bin/claude',
+      '/usr/local/bin/claude',
+    ]
+    for (const bin of places) {
+      try {
+        ran = await $.process.run([bin, ...plan.argv.slice(1)], { timeoutMs: 60_000 })
+        break
+      } catch (again) {
+        failure = again instanceof Error ? again.message : String(again)
+      }
     }
   }
+  if (!ran)
+    return {
+      ok: false,
+      text: `Could not run \`claude mcp add\` (${failure}). The person can run it in a terminal instead: ${plan.command}`,
+      short: `Couldn't run claude mcp add. Run it in a terminal: ${plan.command}`,
+    }
   if (ran.exitCode !== 0) {
     const why = (ran.stderr || ran.stdout).trim().slice(0, 600)
     const taken = /already exists/i.test(ran.stderr + ran.stdout)
