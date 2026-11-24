@@ -104,10 +104,24 @@ export function discoverTool(session: Session, spec: { name: string; description
   }
 }
 
-type Resolved = { card: ServerCard; provenance: string; plan: CodexPlan } | { deny: string }
+type Resolved<P extends { url: string } = CodexPlan> = { card: ServerCard; provenance: string; plan: P } | { deny: string }
+
+/** What turns a shown card into a host's entry: planForCodex here, another host's planner in its form. */
+export type Planner<P extends { url: string }> = (
+  card: ServerCard,
+  remoteIndex: number,
+  values: Record<string, string>,
+  name: string | undefined,
+  fromLocal: boolean,
+) => { plan: P } | { missing: { input: string; description?: string; choices?: string[] }[] } | { error: string }
 
 /** One reading of an add_mcp_server call: the card shown, the plan it gives, and the URL check. */
-export function resolveAdd(session: Session, args: Record<string, unknown>, discoverName: string): Resolved {
+export function resolveAdd<P extends { url: string } = CodexPlan>(
+  session: Session,
+  args: Record<string, unknown>,
+  discoverName: string,
+  planner: Planner<P> = planForCodex as unknown as Planner<P>,
+): Resolved<P> {
   const domain = str(args.domain) ?? ''
   const identifier = str(args.identifier) ?? ''
   const remote = typeof args.remote === 'number' && Number.isInteger(args.remote) ? args.remote : 0
@@ -137,7 +151,7 @@ export function resolveAdd(session: Session, args: Record<string, unknown>, disc
         ? `found in ${o.listedIn} and confirmed by ${o.publisherDomain}'s own catalog`
         : `found in ${o.listedIn}; NOT confirmed by its publisher's own catalog`
   }
-  const planned = planForCodex(card, remote, values, str(args.name), fromLocal)
+  const planned = planner(card, remote, values, str(args.name), fromLocal)
   if ('error' in planned) return { deny: planned.error }
   if ('missing' in planned)
     return {

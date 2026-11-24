@@ -1534,7 +1534,7 @@ function discoverTool(session, spec) {
     }
   };
 }
-function resolveAdd(session, args, discoverName) {
+function resolveAdd(session, args, discoverName, planner = planForCodex) {
   const domain = str(args.domain) ?? "";
   const identifier = str(args.identifier) ?? "";
   const remote = typeof args.remote === "number" && Number.isInteger(args.remote) ? args.remote : 0;
@@ -1563,7 +1563,7 @@ ${identifier}`);
     fromLocal = o.isLocal;
     provenance = o.publisher?.state === "confirmed" ? `found in ${o.listedIn} and confirmed by ${o.publisherDomain}'s own catalog` : `found in ${o.listedIn}; NOT confirmed by its publisher's own catalog`;
   }
-  const planned = planForCodex(card, remote, values, str(args.name), fromLocal);
+  const planned = planner(card, remote, values, str(args.name), fromLocal);
   if ("error" in planned) return { deny: planned.error };
   if ("missing" in planned)
     return {
