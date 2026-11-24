@@ -8,7 +8,7 @@ import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import type { Occurrence } from '../src/events-client.ts';
-import { mailboxKey, RelayClient } from '../src/relay.ts';
+import { dropLegacyMailboxKey, legacyMailboxKey, RelayClient, serverMailboxKey } from '../src/relay.ts';
 import { handleDelivery, MAX_CURSOR, newSecret, sign, type Hook } from '../src/webhooks.ts';
 import { sleep, startMonitor, startPlugin, temp, waitFor, world } from './harness.ts';
 
@@ -149,12 +149,34 @@ describe('E5: a mailbox key is for the relay it was made for', () => {
         const file = join(dir, 'relay-mailbox.json');
         const old = 'k'.repeat(43);
         writeFileSync(file, JSON.stringify({ key: old }), { mode: 0o644 });
-        const made = mailboxKey(dir, 'https://relay-one.example');
-        assert.notEqual(made, old, 'a key with no relay named is not reused');
-        assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { key: made, relay: 'https://relay-one.example' });
-        assert.equal(mailboxKey(dir, 'https://relay-one.example'), made, 'the same relay gets the same key');
+        assert.equal(legacyMailboxKey(dir, 'https://relay-one.example'), undefined, 'a key with no relay named is not reused');
+        const made = serverMailboxKey(dir, 'https://relay-one.example', 'tickets');
+        assert.notEqual(made, old);
+        assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { relay: 'https://relay-one.example', servers: { tickets: made } });
+        assert.equal(serverMailboxKey(dir, 'https://relay-one.example', 'tickets'), made, 'the same relay gets the same key');
         if (process.platform !== 'win32') assert.equal(statSync(file).mode & 0o077, 0, 'and the file is readable only by its owner');
-        assert.notEqual(mailboxKey(dir, 'https://relay-two.example'), made, 'another relay gets another');
+        assert.notEqual(serverMailboxKey(dir, 'https://relay-two.example', 'tickets'), made, 'another relay gets another');
+    });
+});
+
+describe('P3: one mailbox per MCP server', () => {
+    test("each server has a mailbox key of its own; the project's key from before 0.7.0 is kept, for its relay, until it is dropped", () => {
+        const dir = temp();
+        const file = join(dir, 'relay-mailbox.json');
+        const relay = 'https://relay-one.example';
+        const legacy = 'L'.repeat(43);
+        // What 0.6.0 left: one key for the project's watches.
+        writeFileSync(file, JSON.stringify({ key: legacy, relay }), { mode: 0o600 });
+        assert.equal(legacyMailboxKey(dir, relay), legacy);
+        assert.equal(legacyMailboxKey(dir, 'https://relay-two.example'), undefined, 'not for another relay');
+        const tickets = serverMailboxKey(dir, relay, 'tickets');
+        const deploys = serverMailboxKey(dir, relay, 'deploys');
+        assert.notEqual(tickets, deploys, 'two servers, two mailboxes');
+        assert.ok(![tickets, deploys].includes(legacy), "and neither is the project's old one");
+        assert.equal(legacyMailboxKey(dir, relay), legacy, 'which is kept while a watch may still be there');
+        dropLegacyMailboxKey(dir, relay);
+        assert.equal(legacyMailboxKey(dir, relay), undefined);
+        assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { relay, servers: { tickets, deploys } }, 'the servers\' keys stay');
     });
 });
 

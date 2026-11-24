@@ -280,9 +280,10 @@ in `~/.claude/settings.json`. Know what that means before you do:
   machine, and the mod checks every delivery. Your mailbox opens only with a
   key that the mod makes and keeps.
 - It is a courtesy with limits (100 waiting deliveries and 16 webhook
-  addresses per project, about two deliveries a second to one address, and
-  a ceiling of 2,000 new mailboxes an hour, past which new users are turned
-  away until the hour is over) and no promise of
+  addresses per mailbox, and each MCP server you watch by webhook has a
+  mailbox of its own in each project; about two deliveries a second to one
+  address; and a ceiling of 2,000 new mailboxes an hour, past which new
+  users are turned away until the hour is over) and no promise of
   availability. Its source is the same [`mod/relay/`](mod/relay/), deployed
   from `wrangler.public.jsonc`.
 - A relay of your own always takes precedence over it.
