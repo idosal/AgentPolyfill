@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "ard": {
+      "command": "node",
+      "args": ["${PLUGIN_ROOT}/dist/server.mjs"],
+      "timeoutSeconds": 600
+    }
+  }
+}

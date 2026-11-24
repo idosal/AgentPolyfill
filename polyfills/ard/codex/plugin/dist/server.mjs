@@ -1068,145 +1068,6 @@ var formatOffered = (r, foundBy) => {
   return lines.join("\n");
 };
 
-// polyfills/server-cards/claude-code/mod/hooks/offer.ts
-var MAX_READ = 50;
-var MAX_OFFERED = 10;
-var MAX_PUBLISHER_CHECKS = 5;
-var isObject3 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
-var publisherOf = (identifier) => {
-  const m = /^urn:air:([^:]+):/i.exec(identifier);
-  const raw = m?.[1]?.toLowerCase();
-  if (!raw || !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(raw)) return void 0;
-  let host2;
-  try {
-    host2 = new URL(`https://${raw}/`).hostname;
-  } catch {
-    return void 0;
-  }
-  if (host2 !== raw || !/[a-z]/.test(host2.split(".").pop()) || isPrivateHost(host2)) return void 0;
-  return host2;
-};
-var sameRemotes = (a, b) => JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
-var hostOf2 = (u) => {
-  try {
-    return new URL(u).hostname;
-  } catch {
-    return "";
-  }
-};
-var readOffered = async (deps, entries, sources = {}) => {
-  const offered = [];
-  const problems = [];
-  const seen = /* @__PURE__ */ new Set();
-  let skipped = 0;
-  if (entries.length > MAX_READ) problems.push(`${entries.length} entries handed over; only the first ${MAX_READ} were read`);
-  for (const r of entries.slice(0, MAX_READ)) {
-    if (!isObject3(r) || typeof r.identifier !== "string" || typeof r.listedIn !== "string") {
-      problems.push('an entry without an "identifier" or "listedIn" was skipped');
-      continue;
-    }
-    if (r.type !== void 0 && r.type !== CARD_TYPE) {
-      skipped++;
-      continue;
-    }
-    if (hasMarkup(r.listedIn)) {
-      problems.push('an entry whose "listedIn" holds `, <, > or a square bracket was skipped');
-      continue;
-    }
-    if (hasUserinfo(r.listedIn)) {
-      problems.push('an entry whose "listedIn" names a user before its host (an "@") was skipped');
-      continue;
-    }
-    if (seen.has(r.identifier)) continue;
-    seen.add(r.identifier);
-    const fromLocal = isPrivateHost(hostOf2(r.listedIn) || "x");
-    const o = {
-      identifier: r.identifier,
-      displayName: typeof r.displayName === "string" ? r.displayName : void 0,
-      description: typeof r.description === "string" ? r.description : void 0,
-      score: typeof r.score === "number" ? r.score : void 0,
-      listedIn: r.listedIn,
-      errors: [],
-      publisherDomain: publisherOf(r.identifier),
-      isLocal: fromLocal
-    };
-    if (r.url !== void 0 === (r.data !== void 0)) o.errors = ['the entry must have exactly one of "url" or "data"'];
-    else if (r.data !== void 0) {
-      const read = readCard(r.data);
-      if ("card" in read) o.card = read.card;
-      else o.errors = read.errors;
-    } else if (typeof r.url !== "string") o.errors = ['"url" is not a string'];
-    else {
-      let u;
-      try {
-        u = new URL(r.url);
-        u.hash = "";
-      } catch {
-      }
-      if (!u) o.errors = [`"${r.url}" is not a URL`];
-      else if (!isAllowedUrl(u)) o.errors = [`${u.href}: Server Cards must be served over HTTPS`];
-      else if (!mayFollow(u, fromLocal)) o.errors = [`${u.href}: a public source may not point at a local or private address`];
-      else if (hasMarkup(u.href)) o.errors = ["the card URL holds `, <, > or a square bracket outside an IPv6 host, which could show as something else"];
-      else if (hasUserinfo(u.href)) o.errors = ['the card URL names a user before its host (an "@"), so it would show one host and connect to another'];
-      else {
-        o.cardUrl = u.href;
-        o.isLocal = fromLocal && isPrivateHost(u.hostname);
-      }
-    }
-    offered.push(o);
-  }
-  const shown = offered.slice(0, MAX_OFFERED);
-  if (offered.length > MAX_OFFERED) problems.push(`${offered.length} servers handed over; only the first ${MAX_OFFERED} are shown`);
-  await Promise.all(
-    shown.map(async (o) => {
-      if (!o.cardUrl || o.card || o.errors.length) return;
-      try {
-        const res = await cachedGet(deps.fetch, deps.store, o.cardUrl, CARD_TYPE, deps.now());
-        if (!res.ok) return void (o.errors = [`fetching the card answered HTTP ${res.status}`]);
-        let card;
-        try {
-          card = JSON.parse(res.text);
-        } catch {
-          return void (o.errors = ["the card is not JSON"]);
-        }
-        const read = readCard(card);
-        if ("card" in read) o.card = read.card;
-        else o.errors = read.errors;
-      } catch (err) {
-        o.errors = [`fetching the card failed: ${err instanceof Error ? err.message : String(err)}`];
-      }
-    })
-  );
-  let checks = 0;
-  for (const o of shown) {
-    if (!o.card) continue;
-    o.installCard = o.card;
-    if (!o.publisherDomain) {
-      o.publisher = { state: "no-publisher" };
-      continue;
-    }
-    if (++checks > MAX_PUBLISHER_CHECKS) {
-      o.publisher = { state: "not-checked" };
-      continue;
-    }
-    const d = await discover(deps, o.publisherDomain, sources);
-    if ("error" in d) {
-      o.publisher = { state: "no-catalog" };
-      continue;
-    }
-    const listed = d.servers.find((s) => s.identifier === o.identifier);
-    const catalogs = d.sources.filter((s) => s.state === "found" && s.kind !== "page").length;
-    if (listed?.card) {
-      o.publisher = { state: "confirmed", catalog: listed.listedIn[0], sameCard: sameRemotes(listed.card.remotes, o.card.remotes) };
-      o.installCard = listed.card;
-      o.isLocal = false;
-    } else if (listed) o.publisher = { state: "card-refused", catalog: listed.listedIn[0], errors: listed.errors };
-    else o.publisher = catalogs ? { state: "not-listed", catalogs } : { state: "no-catalog" };
-  }
-  if (checks > MAX_PUBLISHER_CHECKS) problems.push(`only the first ${MAX_PUBLISHER_CHECKS} valid servers were checked against their publisher`);
-  return { offered: shown, skipped, problems };
-};
-
 // polyfills/server-cards/codex/src/host.ts
 import { appendFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -1493,11 +1354,11 @@ var logger = (name, env, file = env.MCP_SERVER_CARDS_LOG) => (line) => {
 
 // polyfills/server-cards/codex/src/mcp.ts
 var PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
-var isObject4 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+var isObject3 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
 var offersForm = (caps) => {
-  if (!isObject4(caps) || !isObject4(caps.elicitation)) return false;
+  if (!isObject3(caps) || !isObject3(caps.elicitation)) return false;
   const e = caps.elicitation;
-  return Object.keys(e).length === 0 || isObject4(e.form) || e.form === void 0 && e.url === void 0;
+  return Object.keys(e).length === 0 || isObject3(e.form) || e.form === void 0 && e.url === void 0;
 };
 function serve(opts) {
   const input = opts.input ?? process.stdin;
@@ -1528,8 +1389,8 @@ function serve(opts) {
     log(`elicitation answered: ${m.error ? "error" : String(m.result?.action)}`);
     if (m.error) throw new Error(`the client could not ask: ${String(m.error.message ?? m.error.code)}`);
     const r = m.result;
-    const action = isObject4(r) && (r.action === "accept" || r.action === "decline" || r.action === "cancel") ? r.action : "cancel";
-    return { action, content: isObject4(r) && isObject4(r.content) ? r.content : void 0 };
+    const action = isObject3(r) && (r.action === "accept" || r.action === "decline" || r.action === "cancel") ? r.action : "cancel";
+    return { action, content: isObject3(r) && isObject3(r.content) ? r.content : void 0 };
   };
   const handle = async (m) => {
     if (m.method === void 0 && m.id !== void 0 && m.id !== null) {
@@ -1547,7 +1408,7 @@ function serve(opts) {
         clientCaps = m.params?.capabilities;
         const asked = String(m.params?.protocolVersion ?? "");
         protocol = PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0];
-        log(`initialize: client ${JSON.stringify(m.params?.clientInfo ?? {})} protocol ${asked}; elicitation ${JSON.stringify(isObject4(clientCaps) ? clientCaps.elicitation : void 0)}`);
+        log(`initialize: client ${JSON.stringify(m.params?.clientInfo ?? {})} protocol ${asked}; elicitation ${JSON.stringify(isObject3(clientCaps) ? clientCaps.elicitation : void 0)}`);
         return reply(m.id, {
           protocolVersion: protocol,
           capabilities: { tools: {} },
@@ -1570,8 +1431,8 @@ function serve(opts) {
       case "tools/call": {
         const tool = tools2.get(String(m.params?.name ?? ""));
         if (!tool) return fail(m.id, -32602, `Unknown tool: ${String(m.params?.name ?? "")}`);
-        const args = isObject4(m.params?.arguments) ? m.params.arguments : {};
-        const meta = isObject4(m.params?._meta) ? m.params._meta : {};
+        const args = isObject3(m.params?.arguments) ? m.params.arguments : {};
+        const meta = isObject3(m.params?._meta) ? m.params._meta : {};
         log(`tools/call ${tool.name}`);
         let result;
         try {
@@ -1818,9 +1679,9 @@ var CARD_TYPE2 = "application/mcp-server-card+json";
 var MAX_REGISTRIES = 3;
 var MAX_REFERRALS = 3;
 var MAX_RESULTS = 10;
-var MAX_READ2 = 50;
+var MAX_READ = 50;
 var MAX_BODY2 = 512 * 1024;
-var isObject5 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+var isObject4 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
 var searchEndpoint = (base) => {
   let u;
   try {
@@ -1876,16 +1737,16 @@ var search = async (post, text, endpoints) => {
         call.note = "the answer is not JSON";
         return;
       }
-      if (!isObject5(body) || !Array.isArray(body.results)) {
+      if (!isObject4(body) || !Array.isArray(body.results)) {
         call.note = 'the answer has no "results" array';
         return;
       }
       call.state = "ok";
       call.results = body.results.length;
-      if (body.results.length > MAX_READ2)
-        out.problems.push(`${endpoint} returned ${body.results.length} results; only the first ${MAX_READ2} were read`);
-      for (const r of body.results.slice(0, MAX_READ2)) {
-        if (!isObject5(r) || typeof r.identifier !== "string") {
+      if (body.results.length > MAX_READ)
+        out.problems.push(`${endpoint} returned ${body.results.length} results; only the first ${MAX_READ} were read`);
+      for (const r of body.results.slice(0, MAX_READ)) {
+        if (!isObject4(r) || typeof r.identifier !== "string") {
           out.problems.push(`${endpoint}: a result without an "identifier" was skipped`);
           continue;
         }
@@ -1908,8 +1769,8 @@ var search = async (post, text, endpoints) => {
         });
       }
       if (!isReferral && Array.isArray(body.referrals))
-        for (const ref of body.referrals.slice(0, MAX_READ2)) {
-          if (!isObject5(ref) || typeof ref.url !== "string") continue;
+        for (const ref of body.referrals.slice(0, MAX_READ)) {
+          if (!isObject4(ref) || typeof ref.url !== "string") continue;
           let u;
           try {
             u = new URL(ref.url);
@@ -1936,11 +1797,146 @@ var search = async (post, text, endpoints) => {
   return out;
 };
 
-// polyfills/ard/codex/src/main.ts
-var NAME2 = "ard-discovery";
-var VERSION = "0.1.1";
-var DISCOVER = "ard_discover";
-var SEARCH = "ard_search";
+// polyfills/server-cards/claude-code/mod/hooks/offer.ts
+var MAX_READ2 = 50;
+var MAX_OFFERED = 10;
+var MAX_PUBLISHER_CHECKS = 5;
+var isObject5 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
+var publisherOf = (identifier) => {
+  const m = /^urn:air:([^:]+):/i.exec(identifier);
+  const raw = m?.[1]?.toLowerCase();
+  if (!raw || !/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(raw)) return void 0;
+  let host2;
+  try {
+    host2 = new URL(`https://${raw}/`).hostname;
+  } catch {
+    return void 0;
+  }
+  if (host2 !== raw || !/[a-z]/.test(host2.split(".").pop()) || isPrivateHost(host2)) return void 0;
+  return host2;
+};
+var sameRemotes = (a, b) => JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
+var hostOf2 = (u) => {
+  try {
+    return new URL(u).hostname;
+  } catch {
+    return "";
+  }
+};
+var readOffered = async (deps, entries, sources = {}) => {
+  const offered = [];
+  const problems = [];
+  const seen = /* @__PURE__ */ new Set();
+  let skipped = 0;
+  if (entries.length > MAX_READ2) problems.push(`${entries.length} entries handed over; only the first ${MAX_READ2} were read`);
+  for (const r of entries.slice(0, MAX_READ2)) {
+    if (!isObject5(r) || typeof r.identifier !== "string" || typeof r.listedIn !== "string") {
+      problems.push('an entry without an "identifier" or "listedIn" was skipped');
+      continue;
+    }
+    if (r.type !== void 0 && r.type !== CARD_TYPE) {
+      skipped++;
+      continue;
+    }
+    if (hasMarkup(r.listedIn)) {
+      problems.push('an entry whose "listedIn" holds `, <, > or a square bracket was skipped');
+      continue;
+    }
+    if (hasUserinfo(r.listedIn)) {
+      problems.push('an entry whose "listedIn" names a user before its host (an "@") was skipped');
+      continue;
+    }
+    if (seen.has(r.identifier)) continue;
+    seen.add(r.identifier);
+    const fromLocal = isPrivateHost(hostOf2(r.listedIn) || "x");
+    const o = {
+      identifier: r.identifier,
+      displayName: typeof r.displayName === "string" ? r.displayName : void 0,
+      description: typeof r.description === "string" ? r.description : void 0,
+      score: typeof r.score === "number" ? r.score : void 0,
+      listedIn: r.listedIn,
+      errors: [],
+      publisherDomain: publisherOf(r.identifier),
+      isLocal: fromLocal
+    };
+    if (r.url !== void 0 === (r.data !== void 0)) o.errors = ['the entry must have exactly one of "url" or "data"'];
+    else if (r.data !== void 0) {
+      const read = readCard(r.data);
+      if ("card" in read) o.card = read.card;
+      else o.errors = read.errors;
+    } else if (typeof r.url !== "string") o.errors = ['"url" is not a string'];
+    else {
+      let u;
+      try {
+        u = new URL(r.url);
+        u.hash = "";
+      } catch {
+      }
+      if (!u) o.errors = [`"${r.url}" is not a URL`];
+      else if (!isAllowedUrl(u)) o.errors = [`${u.href}: Server Cards must be served over HTTPS`];
+      else if (!mayFollow(u, fromLocal)) o.errors = [`${u.href}: a public source may not point at a local or private address`];
+      else if (hasMarkup(u.href)) o.errors = ["the card URL holds `, <, > or a square bracket outside an IPv6 host, which could show as something else"];
+      else if (hasUserinfo(u.href)) o.errors = ['the card URL names a user before its host (an "@"), so it would show one host and connect to another'];
+      else {
+        o.cardUrl = u.href;
+        o.isLocal = fromLocal && isPrivateHost(u.hostname);
+      }
+    }
+    offered.push(o);
+  }
+  const shown = offered.slice(0, MAX_OFFERED);
+  if (offered.length > MAX_OFFERED) problems.push(`${offered.length} servers handed over; only the first ${MAX_OFFERED} are shown`);
+  await Promise.all(
+    shown.map(async (o) => {
+      if (!o.cardUrl || o.card || o.errors.length) return;
+      try {
+        const res = await cachedGet(deps.fetch, deps.store, o.cardUrl, CARD_TYPE, deps.now());
+        if (!res.ok) return void (o.errors = [`fetching the card answered HTTP ${res.status}`]);
+        let card;
+        try {
+          card = JSON.parse(res.text);
+        } catch {
+          return void (o.errors = ["the card is not JSON"]);
+        }
+        const read = readCard(card);
+        if ("card" in read) o.card = read.card;
+        else o.errors = read.errors;
+      } catch (err) {
+        o.errors = [`fetching the card failed: ${err instanceof Error ? err.message : String(err)}`];
+      }
+    })
+  );
+  let checks = 0;
+  for (const o of shown) {
+    if (!o.card) continue;
+    o.installCard = o.card;
+    if (!o.publisherDomain) {
+      o.publisher = { state: "no-publisher" };
+      continue;
+    }
+    if (++checks > MAX_PUBLISHER_CHECKS) {
+      o.publisher = { state: "not-checked" };
+      continue;
+    }
+    const d = await discover(deps, o.publisherDomain, sources);
+    if ("error" in d) {
+      o.publisher = { state: "no-catalog" };
+      continue;
+    }
+    const listed = d.servers.find((s) => s.identifier === o.identifier);
+    const catalogs = d.sources.filter((s) => s.state === "found" && s.kind !== "page").length;
+    if (listed?.card) {
+      o.publisher = { state: "confirmed", catalog: listed.listedIn[0], sameCard: sameRemotes(listed.card.remotes, o.card.remotes) };
+      o.installCard = listed.card;
+      o.isLocal = false;
+    } else if (listed) o.publisher = { state: "card-refused", catalog: listed.listedIn[0], errors: listed.errors };
+    else o.publisher = catalogs ? { state: "not-listed", catalogs } : { state: "no-catalog" };
+  }
+  if (checks > MAX_PUBLISHER_CHECKS) problems.push(`only the first ${MAX_PUBLISHER_CHECKS} valid servers were checked against their publisher`);
+  return { offered: shown, skipped, problems };
+};
+
+// polyfills/ard/codex/src/search.ts
 var BY = "ard-discovery (ARD v0.91 draft)";
 var ARD_SOURCES = { catalogs: [{ url: "/.well-known/ard.json", requireVersion: false }], rels: ["ard"], by: BY };
 var SHOWN_QUERY = 300;
@@ -1949,7 +1945,6 @@ var NO_REGISTRY = "No ARD registry is set, and this search names none. Ask the p
 var UNSEEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/;
 var MARKUP = /[`<>[\]]/;
 var str2 = (v) => typeof v === "string" ? v : void 0;
-var refuse2 = (text) => ({ text: shownText(text), isError: true });
 var unshowable = (registry, from) => registry.length > SHOWN_REGISTRY || UNSEEN.test(registry) || /\s/.test(registry) ? `${from} must be at most ${SHOWN_REGISTRY} characters, with no spaces, control characters or direction marks, so the form names exactly where the search goes. Nothing was sent.` : void 0;
 var SEARCH_CHOICES = { yes: { value: "search", title: "Send the search" }, no: { value: "no", title: "Don't send it" } };
 var registrySetting = (env) => (env.ARD_DISCOVERY_REGISTRY ?? "").trim();
@@ -2013,6 +2008,14 @@ async function runSearch(session, query, endpoints) {
 
 ${formatOffered(r, `the ARD registry at ${hosts}`)}`);
 }
+
+// polyfills/ard/codex/src/main.ts
+var NAME2 = "ard-discovery";
+var VERSION = "0.1.1";
+var DISCOVER = "ard_discover";
+var SEARCH = "ard_search";
+var str3 = (v) => typeof v === "string" ? v : void 0;
+var refuse2 = (text) => ({ text: shownText(text), isError: true });
 function tools(session, defaultRegistry) {
   const discoverTool2 = {
     name: DISCOVER,
@@ -2024,7 +2027,7 @@ function tools(session, defaultRegistry) {
     },
     annotations: { readOnlyHint: true, openWorldHint: true },
     run: async (args) => {
-      const domain = str2(args.domain) ?? "";
+      const domain = str3(args.domain) ?? "";
       const target = originOf(domain);
       if ("error" in target) return refuse2(target.error);
       const d = await discover(session.deps, domain, ARD_SOURCES);
