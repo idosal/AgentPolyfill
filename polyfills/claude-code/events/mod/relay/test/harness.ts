@@ -91,6 +91,27 @@ export function socketStatus(origin: string, mailbox: string, protocols: string[
     });
 }
 
+/** The HTTP status of a real request to open the socket: 101 if the relay would have it, or what it said instead. */
+export function upgradeStatus(origin: string, mailbox: string, protocols: string[]): Promise<{ status: number; body: string; retryAfter?: string }> {
+    return new Promise((resolve, reject) => {
+        const req = httpRequest(`${origin}/mailboxes/${mailbox}/socket`, {
+            method: 'GET',
+            headers: { connection: 'Upgrade', upgrade: 'websocket', 'sec-websocket-version': '13', 'sec-websocket-key': randomBytes(16).toString('base64'), 'sec-websocket-protocol': protocols.join(', ') }
+        });
+        req.on('upgrade', (_res, socket) => {
+            socket.destroy();
+            resolve({ status: 101, body: '' });
+        });
+        req.on('response', (res) => {
+            let body = '';
+            res.on('data', (d) => (body += d));
+            res.on('end', () => resolve({ status: res.statusCode ?? 0, body, retryAfter: res.headers['retry-after'] as string | undefined }));
+        });
+        req.on('error', reject);
+        req.end();
+    });
+}
+
 /**
  * A WebSocket client that does not take no for an answer: it ignores a close from the other
  * side and can keep sending, as a replaced connection's last messages might still arrive.
