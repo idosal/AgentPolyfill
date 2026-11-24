@@ -141,7 +141,7 @@ separate thing; see the end.
 
 | Id | Section | Quote | Code | Test | Verdict |
 | --- | --- | --- | --- | --- | --- |
-| SEC-1 | Untrusted payloads | "MUST be treated with the same caution as tool results" | `src/format.ts`; `src/untrusted.ts`; `src/tools.ts`; `src/watcher.ts` | hardening "an event's text is shown as data…"; e2e "what a watch shows is the plugin's and the user's own…" | MET |
+| SEC-1 | Untrusted payloads | "MUST be treated with the same caution as tool results" | `src/format.ts`; `src/untrusted.ts`; `src/tools.ts`; `src/watcher.ts` | wake "by default what a server wrote is not in the wake message; get_event returns it, as a tool result"; hardening "an event's text is shown as data…"; e2e "what a watch shows is the plugin's and the user's own…" | MET |
 | SEC-2 | Untrusted payloads | "Clients SHOULD sanitize or sandbox event payloads before presenting them to an LLM" | same | same | MET |
 | SEC-3 | Authorization | "Receipt of an event does NOT constitute authorization to act" | `src/tools.ts` (told to the model; Claude Code's permissions enforce) | no test | MET |
 | SEC-4 | Governance | "Clients SHOULD support policy evaluation between event receipt and action execution" | none in the mod; Claude Code's permissions and hooks | none | N/A (host) |

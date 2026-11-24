@@ -83,7 +83,7 @@ clauses with the code and test for each, is in
 | On `NotFound` / `Unsupported`, list again and resubscribe against the current descriptor | Yes, once; a second termination straight after ends the watch. | `spec`: termination |
 | Over Streamable HTTP, set `Mcp-Name` to the event name on poll, stream, subscribe, unsubscribe (Base64 form when not plain ASCII) | Yes. The SDK does this for tools only, so the mod adds it. | `spec`: routing headers |
 | Support `x-mcp-header`: send `Mcp-Param-{Name}` for annotated arguments; leave out event types whose annotations are invalid; on `HeaderMismatch`, list again and retry | Yes. | `spec`: routing headers |
-| Treat payloads with the same caution as tool results; receipt is not authorization to act | Payloads are shown as that server's data; actions go through Claude Code's permissions. | `e2e`, `hardening` |
+| Treat payloads with the same caution as tool results; receipt is not authorization to act | Payloads reach Claude only as tool results (`get_event`, `recent_events`), labelled as that server's data; the message that wakes a session carries none. Actions go through Claude Code's permissions. | `wake`, `e2e`, `hardening` |
 
 ### Optional parts not implemented
 
