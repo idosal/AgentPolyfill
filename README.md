@@ -1,6 +1,7 @@
 # AgentPolyfill
 
-Open agent extensions, in the host you already have. MCP first, in Claude Code and Codex.
+Polyfills for agent protocols. Run new MCP extensions in the agent you already
+use, before its host supports them. Today in Claude Code and Codex.
 
 MCP now grows through extensions: Apps, Skills, Events, Server Cards. A server can adopt one
 quickly. Each host has to build and ship each one, on its own schedule. A
