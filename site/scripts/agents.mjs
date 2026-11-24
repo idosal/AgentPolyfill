@@ -25,6 +25,7 @@ const dist = join(site, '.vitepress', 'dist')
 const origin = 'https://agentpolyfill.com'
 const media = JSON.parse(readFileSync(join(site, 'media.json'), 'utf8'))
 const home = JSON.parse(readFileSync(join(site, 'home.json'), 'utf8'))
+const community = JSON.parse(readFileSync(join(site, '..', 'community', 'polyfills.json'), 'utf8')).polyfills
 
 // In the order of the sidebar. The page's description (front matter) is its
 // line in llms.txt.
@@ -32,13 +33,15 @@ const SECTIONS = [
   ['Start', ['guide/introduction', 'guide/getting-started']],
   ['Polyfills for MCP extensions', ['guide/events', 'guide/apps', 'guide/skills', 'guide/server-cards']],
   ['Beyond MCP', ['guide/ard']],
-  ['Build', ['guide/build-a-polyfill', 'guide/spec-authors', 'guide/contributing']],
+  ['Build', ['guide/build-a-polyfill', 'guide/spec-authors', 'guide/contributing', 'guide/community']],
   ['Reference', ['guide/how-it-works', 'guide/security']],
   ['Optional', ['about']],
 ]
 
 const INSTALL = '/plugin install agent-polyfill --marketplace idosal/AgentPolyfill'
 const INSTALL_CLI = 'claude plugin install agent-polyfill --marketplace idosal/AgentPolyfill'
+const INSTALL_CODEX =
+  'codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-events@agent-polyfill && codex plugin add mcp-skills@agent-polyfill'
 
 if (!existsSync(dist)) fail('.vitepress/dist is missing: run vitepress build first')
 
@@ -181,6 +184,7 @@ function pageMarkdown(page) {
   }
   let markdown = lines.join('\n')
   markdown = markdown.replace(/<Recording\b[\s\S]*?\/>/g, (tag) => recording(tag))
+  markdown = markdown.replace(/<CommunityList\s*\/>/g, () => communityList())
   if (/<[A-Z][A-Za-z]+\b/.test(markdown)) fail(`${page}.md has a component scripts/agents.mjs does not turn into text`)
   markdown = markdown.replace(/(!?\[[^\]]*\])\(([^)\s]+)\)/g, (_, text, href) => `${text}(${resolveLink(href, page)})`)
   markdown = markdown.replace(/^# (.+)$/m, (heading) => (data.description ? `${heading}\n\n> ${data.description}` : heading))
@@ -212,7 +216,7 @@ function homeMarkdown() {
     const lines = [
       `### ${p.name} (\`${p.plugin}\`)`,
       '',
-      `${p.id ? `\`${p.id}\`, ` : ''}${p.spec}.${p.state ? ` State: ${p.state}. ${p.stateNote}` : ''}`,
+      `${p.id ? `\`${p.id}\`, ` : ''}${p.spec}. Runs in ${p.hosts.join(' and ')}.${p.state ? ` State: ${p.state}. ${p.stateNote}` : ''}`,
       '',
       p.line,
       '',
@@ -240,6 +244,8 @@ ${INSTALL}
 
 The same works in a terminal: \`${INSTALL_CLI}\`.
 
+In Codex, Events and Skills: \`${INSTALL_CODEX}\`.
+
 ${videoLine({ file: media.launch.file, seconds: media.launch.seconds, description: media.launch.description })}
 
 ## The polyfills
@@ -262,6 +268,17 @@ This page on the web: ${pageUrl('index')}
 `
 }
 
+// The community directory as Markdown: one item per listed polyfill.
+function communityList() {
+  if (!community.length) return 'Nothing is listed yet.'
+  return community
+    .map(
+      (p) =>
+        `- **[${p.name}](${p.repository})**: ${p.extension}, [${p.spec}](${p.specUrl}); ${p.hosts.join(', ')}; by ${p.maintainer}. ${p.summary} Install: \`${p.install}\`. As its author states: client rules ${p.contract.clientRules}; run against another's server: ${p.contract.otherServer ? 'yes' : 'no'}; stand-down: ${p.contract.standDown}; limits stated: ${p.contract.limits ? 'yes' : 'no'}.`,
+    )
+    .join('\n')
+}
+
 function description(page) {
   return frontMatter(readFileSync(join(site, `${page}.md`), 'utf8')).data.description ?? ''
 }
@@ -279,9 +296,11 @@ function llmsTxt() {
 
 > ${data.description}
 
-AgentPolyfill is a set of Claude Code plugins. Each one implements the client side of one published MCP extension (Events, SEP-3415; Apps, MCP Apps 2026-01-26; Skills, SEP-2640; Server Cards, SEP-2127), follows that extension's spec, and steps aside when Claude Code ships its own. MCP servers need no changes. A fifth plugin, \`ard-discovery\`, adds Agentic Resource Discovery v0.91 (a draft, outside MCP); its registry search sends the words of a request to a third-party registry and asks first every time, so it is not in the bundle and is installed by name.
+AgentPolyfill is a set of plugins for Claude Code and Codex. Each one implements the client side of one published MCP extension (Events, SEP-3415; Apps, MCP Apps 2026-01-26; Skills, SEP-2640; Server Cards, SEP-2127), follows that extension's spec, and steps aside when the host ships its own. MCP servers need no changes. All four run in Claude Code; Events and Skills also run in Codex. A fifth plugin, \`ard-discovery\`, adds Agentic Resource Discovery v0.91 (a draft, outside MCP); its registry search sends the words of a request to a third-party registry and asks first every time, so it is not in the bundle and is installed by name.
 
-Install the four MCP polyfills (the \`agent-polyfill\` bundle), from a terminal: \`${INSTALL_CLI}\`. At the prompt of a \`claude\` session it is \`${INSTALL}\`. Needs Claude Code 2.1.329 or newer; start a new session for the plugins to load.
+Install the four MCP polyfills in Claude Code (the \`agent-polyfill\` bundle), from a terminal: \`${INSTALL_CLI}\`. At the prompt of a \`claude\` session it is \`${INSTALL}\`. Needs Claude Code 2.1.329 or newer; start a new session for the plugins to load. In Codex (Events needs 0.170 or newer; Node 20 or newer), from a terminal: \`${INSTALL_CODEX}\`.
+
+Anyone can build a polyfill to the contract, bring an existing one to another host, or list one they keep in their own repository in the community directory (${origin}/guide/community.md).
 
 A community project, not affiliated with or endorsed by the MCP project, the Agentic AI Foundation, the Linux Foundation, Anthropic, any host vendor, or the authors of Agentic Resource Discovery. Source: https://github.com/idosal/AgentPolyfill (Apache-2.0).
 
