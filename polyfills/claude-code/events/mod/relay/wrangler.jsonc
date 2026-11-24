@@ -6,9 +6,16 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-11-19",
   "durable_objects": {
-    "bindings": [{ "name": "MAILBOXES", "class_name": "Mailbox" }]
+    "bindings": [
+      { "name": "MAILBOXES", "class_name": "Mailbox" },
+      // Counts the new mailboxes opened in an hour, when a ceiling is set (NEW_MAILBOXES_PER_HOUR).
+      { "name": "REGISTRY", "class_name": "Registry" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Mailbox"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Mailbox"] },
+    { "tag": "v2", "new_sqlite_classes": ["Registry"] }
+  ],
   "vars": {
     // Leave empty. "1" lets anyone who can reach this relay open a mailbox on it, with no access key.
     "OPEN_RELAY": ""

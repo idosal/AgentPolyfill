@@ -13,9 +13,12 @@
 // passed through to the connected plugin and answered by it.
 
 import { ACCESS_KEY_RE, ACCESS_PREFIX, HOOK_RE, HOOKS_PATH, KEY_PREFIX, KEY_RE, MAILBOX_RE, mailboxIdOf, SUBPROTOCOL, type DeliveryHeaders } from './protocol.ts';
+import { allowed, LIMITS_DOWN, SENDER_HEADER, TOO_MANY, type Verdict } from './limits.ts';
 import type { Mailbox } from './mailbox.ts';
+import type { Registry } from './registry.ts';
 
 export { Mailbox } from './mailbox.ts';
+export { Registry } from './registry.ts';
 
 export interface Env {
     MAILBOXES: DurableObjectNamespace<Mailbox>;
@@ -29,30 +32,36 @@ export interface Env {
     DELIVERY_TTL_S?: string;
     HOOK_IDLE_TTL_S?: string;
     MAX_HOOKS?: string;
+    /** Messages one connection may send in a minute; past it the connection is closed. */
+    SOCKET_MESSAGES_PER_MINUTE?: string;
+    /** How often a mailbox is cleared out, if the time worked out from DELIVERY_TTL_S does not suit. */
+    CLEANUP_EVERY_MS?: string;
     /** Who runs this relay, said at its front page. For a relay other people may use. */
     OPERATOR?: string;
     /**
      * Rate limits, for a relay anyone may use (see wrangler.public.jsonc). Each is optional: a relay
      * behind an access key has none. They are approximate, and counted per Cloudflare location.
      */
-    DELIVERIES_PER_MAILBOX?: RateLimit;
+    DELIVERIES_PER_HOOK?: RateLimit;
     DELIVERIES_PER_SENDER?: RateLimit;
     SOCKETS_PER_SENDER?: RateLimit;
+    /** "1": refuse a request whose limit cannot be checked (the limiter is missing, or does not answer). For a relay anyone may use. */
+    REQUIRE_LIMITS?: string;
+    /** New mailboxes this relay opens in an hour, in all and for one sender. Unset: as many as are asked for. */
+    NEW_MAILBOXES_PER_HOUR?: string;
+    NEW_MAILBOXES_PER_SENDER_PER_HOUR?: string;
+    REGISTRY?: DurableObjectNamespace<Registry>;
 }
 
 const DAY_S = 24 * 3600;
 /** The address a request came from, as Cloudflare reports it. */
 const sender = (request: Request) => request.headers.get('cf-connecting-ip') ?? 'unknown';
-/** Whether a limit lets this request through. With no such limit configured, it does. */
-async function allowed(limit: RateLimit | undefined, key: string): Promise<boolean> {
-    if (!limit) return true;
-    try {
-        return (await limit.limit({ key })).success;
-    } catch {
-        return true; // a limiter that cannot answer does not take the relay down with it
-    }
+/** The answer to a request a limit did not let through, or undefined if it did. */
+function refusal(v: Verdict): Response | undefined {
+    if (v === 'yes') return undefined;
+    const r = v === 'no' ? TOO_MANY : LIMITS_DOWN;
+    return json(r.status, { error: r.error }, { 'retry-after': String(r.retryAfter) });
 }
-const tooMany = () => json(429, { error: 'too many requests; try again in a minute' }, { 'retry-after': '60' });
 
 /** The SEP lets receivers refuse larger bodies with 413. */
 /** The largest delivery kept: the size the Events extension asks servers to stay under. Larger ones get 413. */
@@ -106,9 +115,13 @@ async function readCapped(request: Request, limit: number): Promise<Uint8Array |
 async function deliver(request: Request, env: Env, mailbox: string, hook: string): Promise<Response> {
     if (!MAILBOX_RE.test(mailbox) || !HOOK_RE.test(hook)) return json(404, { error: 'no such webhook address' });
     if (request.method !== 'POST') return json(405, { error: 'deliveries are POSTed' }, { allow: 'POST' });
-    // Before the body is read or a mailbox is woken: one sender cannot flood the relay, and one
-    // mailbox cannot be flooded. A refused delivery is told to come back (the SEP has senders retry).
-    if (!(await allowed(env.DELIVERIES_PER_SENDER, sender(request))) || !(await allowed(env.DELIVERIES_PER_MAILBOX, mailbox))) return tooMany();
+    // Before the body is read or a mailbox is woken: one sender cannot flood the relay. A refused
+    // delivery is told to come back (the SEP has senders retry). The allowance of the address itself
+    // is spent later, by the mailbox, and only on a delivery that is well formed and names an address
+    // that exists: anyone can POST to a mailbox, so what they send to a made-up address must not use
+    // up what its real ones may receive.
+    const flood = refusal(await allowed(env.DELIVERIES_PER_SENDER, sender(request), env.REQUIRE_LIMITS === '1'));
+    if (flood) return flood;
     const bytes = await readCapped(request, MAX_BODY);
     if (!bytes) return json(413, { error: 'the body is over 256 KiB' });
     let body: string;
@@ -132,7 +145,7 @@ async function deliver(request: Request, env: Env, mailbox: string, hook: string
     if (now - Number(timestamp) > FRESHNESS_S) return json(410, { error: 'webhook-timestamp is more than 5 minutes old' });
     if (Number(timestamp) - now > FRESHNESS_S) return json(400, { error: 'webhook-timestamp is more than 5 minutes ahead' });
     const headers: DeliveryHeaders = { 'webhook-id': id, 'webhook-timestamp': timestamp, 'webhook-signature': signature, ...(subscription !== undefined ? { 'x-mcp-subscription-id': subscription } : {}) };
-    const r = await env.MAILBOXES.getByName(mailbox).deliver({ hook, headers, body, receivedAt: now });
+    const r = await env.MAILBOXES.getByName(mailbox).deliver({ mailbox, hook, headers, body, receivedAt: now });
     return new Response(r.body ?? null, {
         status: r.status,
         headers: { 'cache-control': 'no-store', ...(r.body !== undefined ? { 'content-type': 'application/json' } : {}), ...(r.retryAfter ? { 'retry-after': String(r.retryAfter) } : {}) }
@@ -142,7 +155,8 @@ async function deliver(request: Request, env: Env, mailbox: string, hook: string
 async function socket(request: Request, env: Env, mailbox: string): Promise<Response> {
     if (!MAILBOX_RE.test(mailbox)) return json(404, { error: 'no such mailbox' });
     if (request.method !== 'GET') return json(405, { error: 'the socket is opened with GET' }, { allow: 'GET' });
-    if (!(await allowed(env.SOCKETS_PER_SENDER, sender(request)))) return tooMany();
+    const flood = refusal(await allowed(env.SOCKETS_PER_SENDER, sender(request), env.REQUIRE_LIMITS === '1'));
+    if (flood) return flood;
     const accessKey = env.ACCESS_KEY ?? '';
     if (!accessKey && env.OPEN_RELAY !== '1') {
         return json(503, { error: 'This relay has no access key, so nobody can use it yet. Set one (wrangler secret put ACCESS_KEY), or set OPEN_RELAY to "1" to let anyone open a mailbox here.' });
@@ -157,7 +171,9 @@ async function socket(request: Request, env: Env, mailbox: string): Promise<Resp
     if (!offered.includes(SUBPROTOCOL) || !KEY_RE.test(key) || !(await sameText(await mailboxIdOf(key), mailbox))) return json(401, { error: 'this mailbox opens only with its key' });
     if (accessKey && !(await sameText(access, accessKey))) return json(403, { error: "this relay's access key is required" });
     if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket') return json(426, { error: 'expected a WebSocket upgrade' }, { upgrade: 'websocket' });
-    return env.MAILBOXES.getByName(mailbox).fetch(request);
+    const headers = new Headers(request.headers);
+    headers.set(SENDER_HEADER, sender(request));
+    return env.MAILBOXES.getByName(mailbox).fetch(new Request(request, { headers }));
 }
 
 export default {
@@ -175,7 +191,7 @@ export default {
                 open: env.OPEN_RELAY === '1' && !env.ACCESS_KEY,
                 holds: 'Event payloads pass through this server and are kept until collected, or dropped after retentionHours. It holds no signing secret: it cannot create or alter an event, and the client checks every signature itself.',
                 retentionHours: (Number.isFinite(ttl) && ttl > 0 ? ttl : 7 * DAY_S) / 3600,
-                rateLimited: Boolean(env.DELIVERIES_PER_MAILBOX && env.DELIVERIES_PER_SENDER && env.SOCKETS_PER_SENDER),
+                rateLimited: Boolean(env.DELIVERIES_PER_HOOK && env.DELIVERIES_PER_SENDER && env.SOCKETS_PER_SENDER),
                 source: 'https://github.com/idosal/MCPolyfill/tree/main/polyfills/claude-code/events/mod/relay'
             });
         }
