@@ -1,0 +1,295 @@
+{
+    "exhaustive": {
+        "nbHits": true
+    },
+    "exhaustiveNbHits": true,
+    "hits": [
+        {
+            "author": "modinfo",
+            "created_at_i": 1795467329,
+            "num_comments": 0,
+            "objectID": "50619138",
+            "points": 1,
+            "title": "Native Shell \u2013 Write only TSX and ship native clients that keep pace with Rust",
+            "url": "https://nsh.dev/"
+        },
+        {
+            "author": "modinfo",
+            "created_at_i": 1795466984,
+            "num_comments": 0,
+            "objectID": "50619064",
+            "points": 2,
+            "title": "Rust GPUI-Kit with components",
+            "url": "https://gpui-kit.com/"
+        },
+        {
+            "author": "cyberhx",
+            "created_at_i": 1795465052,
+            "num_comments": 0,
+            "objectID": "50618581",
+            "points": 2,
+            "title": "Show HN: Narayanastra \u2013 agentless Linux rootkit scanner (eBPF, io_uring) in Rust",
+            "url": "https://github.com/Tekush1/narayanastra"
+        },
+        {
+            "author": "Bolwin",
+            "created_at_i": 1795459808,
+            "num_comments": 0,
+            "objectID": "50616978",
+            "points": 2,
+            "title": "Fast-nothing. Rewrite your software back from Rust",
+            "url": "https://blog.coship.fyi/blog/fast-nothing/"
+        },
+        {
+            "author": "nadis",
+            "created_at_i": 1795450631,
+            "num_comments": 3,
+            "objectID": "50614327",
+            "points": 5,
+            "title": "Show HN: A free creative suite, built in Rust, for AI collaboration",
+            "url": "https://codeyam.com/apps/cadyam"
+        },
+        {
+            "author": "5422m4n",
+            "created_at_i": 1795449070,
+            "num_comments": 0,
+            "objectID": "50613864",
+            "points": 1,
+            "title": "Show HN: Diffie - Jetbrains-ish review & merge UI without the IDE, in Rust/GPUI",
+            "url": "https://github.com/sassman/diffie-rs"
+        },
+        {
+            "author": "kylekshaft",
+            "created_at_i": 1795446392,
+            "num_comments": 0,
+            "objectID": "50613045",
+            "points": 1,
+            "title": "SalaryTrio \u2013 A 6.9 KB Rust WebAssembly salary calculator across 155 currencies",
+            "url": "https://salarytrio.com/"
+        },
+        {
+            "author": "simonakhtari",
+            "created_at_i": 1795444129,
+            "num_comments": 0,
+            "objectID": "50612199",
+            "points": 2,
+            "title": "Lightstone \u2013 Open-source optical link simulator (Rust, WASM, Python)",
+            "url": "https://lightstone-photonics.github.io/lightstone/"
+        },
+        {
+            "author": "DonAtimator",
+            "created_at_i": 1795430616,
+            "num_comments": 0,
+            "objectID": "50609962",
+            "points": 1,
+            "title": "Tiny WebGPU prototype to Rust game on eight platforms in two months",
+            "url": "https://saltedcaramelgames.com/blog/loot-hole-rust-threejs-wgpu/"
+        },
+        {
+            "author": "thunderbong",
+            "created_at_i": 1795425228,
+            "num_comments": 0,
+            "objectID": "50609240",
+            "points": 2,
+            "title": "Jcode: High performance coding agent harness written in Rust",
+            "url": "https://github.com/1jehuang/jcode"
+        },
+        {
+            "author": "eldad_fux",
+            "created_at_i": 1795424615,
+            "num_comments": 0,
+            "objectID": "50609163",
+            "points": 1,
+            "title": "Appwrite is moving from PHP to Rust",
+            "url": "https://appwrite.io/blog/post/appwrite-is-moving-from-php-to-rust"
+        },
+        {
+            "author": "Sombra33",
+            "created_at_i": 1795424253,
+            "num_comments": 0,
+            "objectID": "50609122",
+            "points": 1,
+            "title": "Broom \u2013 Zero-dependency Rust CLI to sweep stale build artifacts",
+            "url": "https://github.com/Kolgrim33/broom"
+        },
+        {
+            "author": "birdculture",
+            "created_at_i": 1795420595,
+            "num_comments": 0,
+            "objectID": "50608726",
+            "points": 1,
+            "title": "Rust: When Empty Isn't Bottom",
+            "url": "https://ettolrach.com/blog/rust_when_empty_isnt_bottom.html"
+        },
+        {
+            "author": "matsuu",
+            "created_at_i": 1795406876,
+            "num_comments": 0,
+            "objectID": "50607386",
+            "points": 1,
+            "title": "A fast, output-compatible Rust reimplementation of the AWS CLI v2",
+            "url": "https://github.com/conao3/rust-awscli"
+        },
+        {
+            "author": "adhishtanaka",
+            "created_at_i": 1795397118,
+            "num_comments": 0,
+            "objectID": "50606291",
+            "points": 3,
+            "title": "Show HN: Thir \u2013 Linux 6.12 kernel with an all-Rust userspace and framebuffer GUI",
+            "url": "https://github.com/Adhishtanaka/thir"
+        },
+        {
+            "author": "joshtronic",
+            "created_at_i": 1795392989,
+            "num_comments": 0,
+            "objectID": "50605647",
+            "points": 1,
+            "title": "I Rebuilt Eleventy in Rust with AI in One Week",
+            "url": "https://joshtronic.com/2026/11/22/eleventy-rebuilt-rust/"
+        },
+        {
+            "author": "lucamark",
+            "created_at_i": 1795374634,
+            "num_comments": 0,
+            "objectID": "50602844",
+            "points": 1,
+            "title": "A Rust simulation engine for discrete-time controllers",
+            "url": "https://www.modeloop.app/blog/porting-the-simulation-engine-into-rust"
+        },
+        {
+            "author": "vihoang",
+            "created_at_i": 1795370942,
+            "num_comments": 0,
+            "objectID": "50602218",
+            "points": 2,
+            "title": "26 AI agents rewrote a backend from Django to Rust with no human merges",
+            "url": "https://airepublic.com/blog/pi-dash-self-evolution-experiment/"
+        },
+        {
+            "author": "lr0",
+            "created_at_i": 1795367106,
+            "num_comments": 0,
+            "objectID": "50601503",
+            "points": 1,
+            "title": "Software Rendering the Mandelbrot Fractal in Rust",
+            "url": "https://antr.dev/blog/software-rendering-the-mandelbrot-fractal-in-rust/"
+        },
+        {
+            "author": "syumei",
+            "created_at_i": 1795366858,
+            "num_comments": 0,
+            "objectID": "50601460",
+            "points": 1,
+            "title": "Proving Rust Web Application Correctness with Lean 4",
+            "url": "https://www.reddit.com/r/rust/comments/1wz7q4o/proving_rust_web_application_correctness_with/"
+        },
+        {
+            "author": "maheshkonda",
+            "created_at_i": 1795366677,
+            "num_comments": 0,
+            "objectID": "50601429",
+            "points": 1,
+            "title": "Zervram \u2013 GPU VRAM Zeroization and Ear 744.24 TPP Metering in Rust"
+        },
+        {
+            "author": "maheshkonda",
+            "created_at_i": 1795366659,
+            "num_comments": 0,
+            "objectID": "50601426",
+            "points": 1,
+            "title": "Zervram \u2013 GPU VRAM Zeroization and Ear 744.24 TPP Metering in Rust"
+        },
+        {
+            "author": "Ak4shik",
+            "created_at_i": 1795360759,
+            "num_comments": 1,
+            "objectID": "50600460",
+            "points": 1,
+            "title": "Bypassing ADB: 0.32ms Android UI trees and A* routing for AI agents(Rust/Kotlin)",
+            "url": "https://github.com/V0val0x/DroidPath/blob/main/docs/benchmarks.md"
+        },
+        {
+            "author": "andrekaufmann",
+            "created_at_i": 1795357720,
+            "num_comments": 0,
+            "objectID": "50600036",
+            "points": 1,
+            "title": "NeverSharp: TypeScript compiler in C#, benchmarked against Go and Rust",
+            "url": "https://github.com/AndreKfm/NeverSharp"
+        },
+        {
+            "author": "VoxelBoy",
+            "created_at_i": 1795356118,
+            "num_comments": 0,
+            "objectID": "50599811",
+            "points": 1,
+            "title": "Tiny WebGPU prototype to Rust game on eight platforms in two months",
+            "url": "https://saltedcaramelgames.com/blog/loot-hole-rust-threejs-wgpu/"
+        },
+        {
+            "author": "VaheALEX",
+            "created_at_i": 1795356058,
+            "num_comments": 0,
+            "objectID": "50599798",
+            "points": 1,
+            "title": "Show HN: Umbera-core \u2013 hybrid X25519 and ML-KEM sealed sender in Rust",
+            "url": "https://github.com/UmberaAPP/UMBERA"
+        },
+        {
+            "author": "snowdensay",
+            "created_at_i": 1795346162,
+            "num_comments": 0,
+            "objectID": "50598552",
+            "points": 2,
+            "title": "Show HN: Building 1M+ RPS Distributed Engines in Go and Rust",
+            "url": "https://github.com/grfdsasdvef/awesome-highload-architecture"
+        },
+        {
+            "author": "flyingsky",
+            "created_at_i": 1795345960,
+            "num_comments": 0,
+            "objectID": "50598525",
+            "points": 3,
+            "title": "Building a Speech Recognizer from Scratch in Rust with No Dependencies",
+            "url": "https://github.com/Ghvstcode/speech-recognizer-from-scratch"
+        },
+        {
+            "author": "joshcsimmons",
+            "created_at_i": 1795341421,
+            "num_comments": 12,
+            "objectID": "50597959",
+            "points": 78,
+            "title": "Muru \u2013 AI-assisted Rust server for Python apps by mod_WSGI's creator",
+            "url": "https://simonwillison.net/2026/Nov/21/muru/"
+        },
+        {
+            "author": "BaselAshraf81",
+            "created_at_i": 1795320609,
+            "num_comments": 170,
+            "objectID": "50596155",
+            "points": 207,
+            "title": "Fast-Anything: Don't rewrite it in Rust. Rewrite the 5% that's slow",
+            "url": "https://github.com/EL4CTEO/fast-anything"
+        }
+    ],
+    "hitsPerPage": 30,
+    "nbHits": 22912,
+    "nbPages": 34,
+    "page": 0,
+    "params": "query=rust&tags=story&typoTolerance=false&restrictSearchableAttributes=title&hitsPerPage=30&attributesToRetrieve=author%2Ccreated_at_i%2CobjectID%2Ctitle%2Curl%2Cpoints%2Cnum_comments&attributesToHighlight=none&advancedSyntax=true&analyticsTags=backend",
+    "processingTimeMS": 9,
+    "processingTimingsMS": {
+        "_request": {
+            "queue": 22,
+            "roundTrip": 26
+        },
+        "fetch": {
+            "scanning": 7,
+            "total": 8
+        },
+        "total": 9
+    },
+    "query": "rust",
+    "serverTimeMS": 32
+}
