@@ -56,13 +56,20 @@ const RUNS = [
   ["WebhookBeforeB1Cursor.cfg", "MCDelivery.tla", "CursorSafe"],
   // 0.6.0, P3: one mailbox for a project's watches.
   ["RelayShared.cfg", "Relay.tla", "NoCrossRefusal"],
-  // wakeCodex.qnt, mcp-events for Codex 0.1.2 (README.md, "wakeCodex.qnt").
+  // wakeCodex.qnt, mcp-events for Codex 0.1.3 (README.md, "wakeCodex.qnt").
   ["WakeCodexKept.cfg", "MCWakeCodex.tla", "holds"],
+  ["WakeCodexLong.cfg", "MCWakeCodex.tla", "holds"],
+  // 0.1.2 without the one step TLC found its violations through.
   ["WakeCodexHeard.cfg", "MCWakeCodex.tla", "holds"],
-  // Found in 0.1.2: a wake codex queue took and the helper never heard of goes uncounted.
+  // Found in 0.1.2, fixed in 0.1.3: a wake codex queue took and the helper never heard of goes
+  // uncounted and is handed over again; a notice codex queue did not take pauses a new helper.
   ["WakeCodexHour.cfg", "MCWakeCodex.tla", "WithinHour"],
   ["WakeCodexGap.cfg", "MCWakeCodex.tla", "Gap"],
-  // A documented limit: a session codex queue cannot reach is tried once more by a new helper.
+  ["WakeCodexTwice.cfg", "MCWakeCodex.tla", "AtMostOnce"],
+  ["WakeCodexStale.cfg", "MCWakeCodex.tla", "NoStalePause"],
+  // Documented limits: delivery is at most once (a batch the helper never heard back about is
+  // counted as handed over); a session codex queue cannot reach is tried once more by a new helper.
+  ["WakeCodexSkipped.cfg", "MCWakeCodex.tla", "NothingLost"],
   ["WakeCodexRetried.cfg", "MCWakeCodex.tla", "NeverRetried"],
   // CX1's fix taken out, and a pause that lifts too soon: the check must see what each is for.
   ["WakeCodexBefore.cfg", "MCWakeCodex.tla", "OnlyThePerson"],
