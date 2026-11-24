@@ -18,10 +18,10 @@ View == <<cfg, now, [srv EXCEPT !.sent = {[m EXCEPT !.seq = 0] : m \in srv.sent}
            acked |-> {d.ev : d \in {x \in hist.acked : x.genuine}},
            cut |-> hist.cut]>>
 
-\* State constraints, each for one configuration that must find a violation. A constraint keeps
-\* TLC to the states that meet it, so a run under one says nothing about what holds; what it
-\* finds is still a run of the model. They keep the search to the part of the model a defect is
-\* in, past a shorter one TLC would find first, or within the state folder's limit.
+\* State constraints, each for one configuration of 0.4.1 that must find a violation. A
+\* constraint keeps TLC to the states that meet it, so a run under one says nothing about what
+\* holds; what it finds is still a run of the model. They keep the search to the part of the model
+\* a defect is in, past another as short that TLC would find first, or within the state folder's limit.
 
 \* B1 (WebhookBeforeB1*.cfg): no forger, no crash or close, the subscription kept, nothing lost,
 \* nothing handed to the session. Without it the search passes the state folder's limit first.
@@ -31,8 +31,4 @@ GuideB1 == /\ \A d \in rly.mailbox : d.genuine
 \* "Stored twice" (PushBeforeStored.cfg): the helper is not down with a batch submitted and not
 \* acknowledged, which leaves out "handed over twice" (as short, and found first otherwise).
 GuideStored == host.helper \/ host.submitted <= disk.pos[host.session]
-
-\* "Carried twice" (PollCarriedTwice.cfg, 0.5.0): after the first session, the helper fetches
-\* nothing from the server, which leaves out "seen forgotten" (as short, and found first otherwise).
-GuideCarried == host.session = 1 \/ mem.step.kind = ""
 =============================================================================

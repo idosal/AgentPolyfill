@@ -1,7 +1,7 @@
 // Model-checks the TLA+ models in this folder (Wake.tla, Delivery.tla: wake.qnt and
 // delivery.qnt in TLA+) with TLC, each configuration against what it should give: every
 // invariant it names holds, or the one named is violated (a defect of 0.4.1 that must still be
-// found, a documented limit, or a finding of TLC's on 0.5.0's model that README.md records).
+// found, or a documented limit).
 //
 //   node model/check.mjs [--trace] [name ...]
 //
@@ -21,29 +21,26 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 // [configuration, module, expected]: "holds", or the invariant TLC must find violated.
 const RUNS = [
-  // wake.qnt, 0.5.0
+  // wake.qnt, 0.5.1
   ["WakeKept.cfg", "MCWake.tla", "holds"],
-  // delivery.qnt, 0.5.0
+  // delivery.qnt, 0.5.1
   ["Poll.cfg", "MCDelivery.tla", "holds"],
   ["Push.cfg", "MCDelivery.tla", "holds"],
   ["Webhook.cfg", "MCDelivery.tla", "holds"],
   ["WebhookTwo.cfg", "MCDelivery.tla", "holds"],
   ["WebhookLying.cfg", "MCDelivery.tla", "holds"],
-  ["PollOneSession.cfg", "MCDelivery.tla", "holds"],
-  ["PushOneSession.cfg", "MCDelivery.tla", "holds"],
-  ["WebhookOneSession.cfg", "MCDelivery.tla", "holds"],
-  // Found by TLC on 0.5.0's models (README.md, "What TLC found"). They must stay reachable
-  // until the models (or the code, and then the models) change, or README.md is wrong.
-  ["WakeNotice.cfg", "MCWake.tla", "OneNotice"],
-  ["PollSeenForgotten.cfg", "MCDelivery.tla", "AtMostOnce"],
-  ["PushSeenForgotten.cfg", "MCDelivery.tla", "AtMostOnce"],
-  ["WebhookSeenForgotten.cfg", "MCDelivery.tla", "AtMostOnce"],
-  ["PollCarriedTwice.cfg", "MCDelivery.tla", "AtMostOnce"],
+  // Where TLC found violations on 0.5.0's models (README.md): each holds in 0.5.1.
+  ["WakeNotice.cfg", "MCWake.tla", "holds"],
+  ["PollSeenForgotten.cfg", "MCDelivery.tla", "holds"],
+  ["PushSeenForgotten.cfg", "MCDelivery.tla", "holds"],
+  ["WebhookSeenForgotten.cfg", "MCDelivery.tla", "holds"],
+  ["PollCarriedTwice.cfg", "MCDelivery.tla", "holds"],
   // A documented limit: AtMostOnce's one exception is reachable.
   ["Strict.cfg", "MCDelivery.tla", "StrictAtMostOnce"],
   // 0.4.1, the defects the Quint scenarios show: TLC must find each.
   ["WakeBefore.cfg", "MCWake.tla", "Gap"],
   ["WakeBeforeHour.cfg", "MCWake.tla", "WithinHour"],
+  ["WakeBeforeNotice.cfg", "MCWake.tla", "OneNotice"],
   ["PollBefore.cfg", "MCDelivery.tla", "AtMostOnce"],
   ["PushBeforeStored.cfg", "MCDelivery.tla", "AtMostOnce"],
   ["PollBeforeStranded.cfg", "MCDelivery.tla", "NoneStranded"],

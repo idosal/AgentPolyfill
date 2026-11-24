@@ -25,7 +25,7 @@ CONSTANTS
     SLACK,         \* 0.4.1's REPLAY_SLACK_S: ten minutes
     MAX_SESSIONS,  \* Claude Code sessions in one run (each open after a close is a new one)
     MAX_SEQ,       \* deliveries the relay ever stores (genuine, retried, forged or replayed)
-    FIX,           \* TRUE: the client from 0.5.0 (Quint's init); FALSE: 0.4.1 (initBefore)
+    FIX,           \* TRUE: the client in 0.5.1 (Quint's init); FALSE: 0.4.1 (initBefore)
     MODES,         \* the delivery modes a run may use: a subset of {"poll", "push", "webhook"}
     EVILS          \* whether the relay may lie: a subset of BOOLEAN (it only can for webhook)
 
@@ -366,10 +366,16 @@ Open ==
        /\ mem' = Loaded(d, s)
        /\ UNCHANGED <<cfg, now, srv, rly, hist>>
 
-\* 0.5.0: one write appends, to this session's spool, what listed earlier sessions hold past
-\* their hand-over position that was handed over in none of them and is not here already.
+\* From 0.5.0, what a starting helper does with what earlier sessions left (WatchManager.#recover),
+\* in the order the code does it. Everything is read before anything is written: the seen ids (in
+\* Loaded) and what to carry, from every listed session at once.
+\*
+\* First, one write appends, to this session's spool, what listed earlier sessions hold past their
+\* hand-over position that was handed over in none of them and is not here already.
 Handed(d) == UNION {Elems(Prefix(d.spool[t], d.pos[t])) : t \in d.listed}
 Waiting(d, s) == UNION {Elems(TailFrom(d.spool[t], d.pos[t])) : t \in d.listed \ {s}}
+\* The events in the spools of the listed earlier sessions: seen, though perhaps not saved as seen.
+Recovered(d, s) == UNION {Elems(d.spool[t]) : t \in d.listed \ {s}}
 Carry ==
     LET s == host.session
         carry == (Waiting(disk, s) \ Handed(disk)) \ Elems(disk.spool[s])
@@ -378,22 +384,33 @@ Carry ==
        /\ mem' = [mem EXCEPT !.seen = mem.seen \cup carry]
        /\ UNCHANGED <<cfg, now, srv, rly, host, hist>>
 
-\* 0.5.0: then an earlier session whose waiting events are all here (or were handed over) is
-\* marked as handed over and taken off the list.
-SettleOf(t) ==
+\* Then the watch is saved with the seen ids read there (#saveNow). 0.5.0 saved it only after the
+\* next step, which TLC found could forget them; from 0.5.1 it is saved first. A save that fails is
+\* this step not happening.
+SaveSeen ==
     LET s == host.session IN
-    /\ cfg.fix /\ Running /\ mem.step.kind = "" /\ t # s /\ t \in disk.listed
-    /\ Elems(TailFrom(disk.spool[t], disk.pos[t])) \subseteq (Elems(disk.spool[s]) \cup Handed(disk))
-    /\ disk' = [disk EXCEPT !.pos[t] = Len(disk.spool[t]), !.listed = disk.listed \ {t}]
+    /\ cfg.fix /\ Running /\ mem.step.kind = "" /\ ~(Recovered(disk, s) \subseteq disk.seen)
+    /\ disk' = [disk EXCEPT !.seen = mem.seen \cup Recovered(disk, s)]
     /\ UNCHANGED <<cfg, now, srv, rly, host, mem, hist>>
-Settle == \E t \in disk.listed \ {host.session} : SettleOf(t)
+
+\* Last, once those ids are saved and what waited there is here (or was handed over), every listed
+\* earlier session is marked as handed over and taken off the list, together.
+Settle ==
+    LET s == host.session
+        others == disk.listed \ {s}
+    IN /\ cfg.fix /\ Running /\ mem.step.kind = "" /\ others # {}
+       /\ Recovered(disk, s) \subseteq disk.seen
+       /\ \A t \in others : Elems(TailFrom(disk.spool[t], disk.pos[t])) \subseteq (Elems(disk.spool[s]) \cup Handed(disk))
+       /\ disk' = [disk EXCEPT !.pos = [t \in DOMAIN disk.pos |-> IF t \in others THEN Len(disk.spool[t]) ELSE disk.pos[t]],
+                               !.listed = disk.listed \ others]
+       /\ UNCHANGED <<cfg, now, srv, rly, host, mem, hist>>
 
 Next == \/ Tick \/ Emit \/ Expire \/ Post \/ Abandon \/ Lapse
         \/ RelayDrop \/ Forge \/ Replay
         \/ Take \/ AppendEv \/ SaveWatch \/ Commit \/ StoreFails \/ FlushAcks \/ Reconnect \/ Subscribe
         \/ Poll \/ PollDone \/ Push \/ SaveSoon
         \/ HandTake \/ HandSubmit \/ HandAck
-        \/ HelperCrash \/ HelperStart \/ Close \/ Open \/ Carry \/ Settle
+        \/ HelperCrash \/ HelperStart \/ Close \/ Open \/ Carry \/ SaveSeen \/ Settle
 
 Spec == Init /\ [][Next]_vars
 
