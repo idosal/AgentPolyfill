@@ -35,7 +35,7 @@ is bounded (see "Events wake a session only so often" below), not prevented.
   Claude saved when it set the watch. It carries no payload text.
   `get_event` returns a payload in full, and `recent_events` a few short
   fields of each event (flattened to one line, quoted, cut short); both are
-  tool results, labelled as that server's data. The mod's instructions tell
+  tool results from that server. The mod's instructions tell
   Claude that receiving an event is not permission to act.
   `MCP_EVENTS_WAKE_VALUES=1` puts those few short fields back into the wake
   message. That is yours to choose, and it puts text a server wrote into a
