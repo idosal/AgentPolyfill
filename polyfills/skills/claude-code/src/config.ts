@@ -34,26 +34,16 @@
 import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { homedir, userInfo } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import type { HeadersHelper, ServerTable, UpstreamConfig } from '../../core/src/upstream.ts';
 
-export type StdioUpstream = { command: string; args?: string[]; env?: Record<string, string>; cwd?: string };
-/**
- * A command of the user's that prints a JSON object of headers, run through a shell before each
- * connection (Claude Code's `headersHelper`). `fromRepo`: it came from the project's `.mcp.json`.
- */
-export type HeadersHelper = { command: string; cwd: string; fromRepo: boolean };
-export type HttpUpstream = { url: string; headers?: Record<string, string>; headersHelper?: HeadersHelper };
-export type UpstreamConfig = StdioUpstream | HttpUpstream;
-export type ServerTable = { servers: Record<string, UpstreamConfig>; skipped: Record<string, string> };
+// The shapes of a server's config are shared with the Codex adapter (../../core/src/upstream.ts).
+export { isHttp, type HeadersHelper, type HttpUpstream, type ServerTable, type StdioUpstream, type UpstreamConfig } from '../../core/src/upstream.ts';
 export type DiscoverOptions = {
     /** Where managed settings live (for tests; the default is the platform's own place). */
     managedDirs?: string[];
     /** macOS managed-preferences files for Claude Code (for tests). */
     managedPlists?: string[];
 };
-
-export function isHttp(cfg: UpstreamConfig): cfg is HttpUpstream {
-    return typeof (cfg as HttpUpstream).url === 'string';
-}
 
 /** This plugin's own MCP server listed in a config file: connecting to it would loop. */
 function isSelf(arg: string): boolean {
