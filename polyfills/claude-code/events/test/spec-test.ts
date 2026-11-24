@@ -1,14 +1,15 @@
 // What SEP-3415 asks of a client, checked one rule at a time. Each test names the rule.
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { boundedFetch, EventsConnection, EVENTS_EXTENSION, preStandardPolicy } from '../src/events-client.ts';
 import { encodeHeaderValue, paramHeaders, routingHeaders, scanHeaders } from '../src/routing-headers.ts';
 import { ProjectState, Spool, type Watch } from '../src/store.ts';
 import { LocalError } from '../src/untrusted.ts';
 import { WatchManager } from '../src/watcher.ts';
-import { sleep, startPlugin, temp, waitFor, world } from './harness.ts';
+import { FIXTURE, sleep, startPlugin, temp, waitFor, world } from './harness.ts';
 
 const until = async (done: () => boolean, ms = 6000) => {
     const end = Date.now() + ms;
@@ -104,6 +105,27 @@ describe('capability negotiation', () => {
         await assert.rejects(async () => c.unsubscribe({ name: 'x', arguments: {}, delivery: { url: 'https://r.invalid/h' } }), LocalError);
         assert.deepEqual(sent, []);
         assert.match(c.outsideTheSpec ?? '', /top-level "events" capability/);
+    });
+
+    test('what a server advertised is read again on each connection: a local server that no longer advertises the extension after it restarts is sent nothing', async () => {
+        const dir = temp();
+        const upstream = join(dir, 'upstream.jsonl');
+        writeFileSync(upstream, '');
+        const env: Record<string, string> = { FIXTURE_UPSTREAM: upstream, FIXTURE_CAPS: 'extensions' };
+        const c = new EventsConnection('local', { command: process.execPath, args: ['--no-warnings', FIXTURE], env });
+        try {
+            await c.connect(15000);
+            assert.equal(c.declaration, 'extensions');
+            await c.close();
+            // The server is upgraded, or its configuration changes, and it restarts without events.
+            env.FIXTURE_CAPS = 'none';
+            await c.connect(15000);
+            assert.equal(c.declaration, undefined, 'judged by this connection, not the last one');
+            assert.deepEqual(await c.list(), []);
+            await assert.rejects(async () => c.poll({ name: 'ticket.created', arguments: {}, cursor: null }), LocalError);
+        } finally {
+            await c.close();
+        }
     });
 
     test('MCP_EVENTS_PRE_STANDARD: unset allows the earlier form for every server, "off" for none, a list for the servers it names', () => {
