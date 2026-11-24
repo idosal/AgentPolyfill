@@ -31,6 +31,8 @@ import { chromium } from "playwright-core";
 
 import { decodePng } from "./png.mjs";
 import { kindOf, parentCommandWords, placesHere, resolveServer } from "./servers.mjs";
+import { tooBroad } from "./csp.mjs";
+import { markDownloaded, privateFolder as checkedFolder } from "./platform.mjs";
 import { altFromTree, plainText } from "./alt.mjs";
 import { SNAP_ON, applySnap, planSnap } from "./snap.mjs";
 import { crc32, encodeStrips } from "./strips.mjs";
@@ -453,10 +455,12 @@ function browser() {
   browserPromise ??= (async () => {
     try {
       sweepOldTmp();
-      fs.mkdirSync(OWN_TMP, { recursive: true });
     } catch (error) {
       log("temporary folder:", error.message);
     }
+    // Checked, not taken as found: its name can be guessed (A6). Chrome
+    // doesn't start in one that fails.
+    checkedFolder(OWN_TMP, fs);
     const executablePath = process.env.MCP_APPS_CLI_CHROME;
     let extra = [];
     try {
@@ -716,7 +720,6 @@ function sanitizeDomains(domains) {
 }
 
 /** Sources that name no domain: everything, or every host of a scheme. */
-const BROAD_SOURCES = /^(\*|(?:https?|wss?):(?:\/\/\*)?)$/i;
 
 /** A CSP source's host (no "*." in front) and port, if it names one. */
 function sourceHost(source) {
@@ -784,7 +787,7 @@ function allowedCsp(csp, server) {
     for (const source of sanitizeDomains(csp?.[key])) {
       const at = sourceHost(source);
       const port = at?.port ?? (/^(https|wss):/i.test(source) ? "443" : "80");
-      if (BROAD_SOURCES.test(source) || (at && privateHost(at.host) && `${at.host}:${port}` !== own)) dropped.push(source);
+      if (tooBroad(source) || (at && privateHost(at.host) && `${at.host}:${port}` !== own)) dropped.push(source);
       else kept.push(source);
     }
     if (kept.length) out[key] = kept;
@@ -1446,6 +1449,11 @@ async function downloadBounded(view, contents) {
     let target = path.join(folder, file.name);
     for (let n = 1; fs.existsSync(target); n++) target = path.join(folder, `${path.basename(file.name, ext)} (${n})${ext}`);
     fs.writeFileSync(target, file.bytes, { flag: "wx" });
+    try {
+      markDownloaded(target, { fs, execFileSync });
+    } catch (error) {
+      log(`${target}: not marked as downloaded: ${error.message}`);
+    }
     saved.push(target);
   }
   emit({ type: "notify", viewId: view.id, method: "ui/downloaded", params: { files: saved } });

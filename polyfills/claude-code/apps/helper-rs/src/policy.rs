@@ -102,6 +102,35 @@ pub fn local_server(url: &str) -> bool {
     url::Url::parse(url).ok().and_then(|u| u.host_str().map(str::to_ascii_lowercase)).is_some_and(|h| private_host(&h))
 }
 
+/// A source that names no one site, and so isn't applied (security review,
+/// A4): `*`; a scheme alone (`https:`); a wildcard host (`*`, or `*.` over
+/// fewer than two labels, such as `*.com`); a wildcard port (`:*`). Without
+/// the public suffix list, a wildcard over a two-label suffix such as
+/// `*.co.uk` still passes.
+fn too_broad(source: &str) -> bool {
+    let lower = source.to_ascii_lowercase();
+    if lower == "*" || ["http:", "https:", "ws:", "wss:"].contains(&lower.as_str()) {
+        return true;
+    }
+    let authority = lower.split_once("://").map_or(lower.as_str(), |(_, a)| a);
+    let end = if authority.starts_with('[') {
+        authority.find(']').map_or(authority.len(), |e| e + 1)
+    } else {
+        authority.find([':', '/']).unwrap_or(authority.len())
+    };
+    let host = &authority[..end];
+    if host.is_empty() || authority[end..].strip_prefix(':').is_some_and(|r| r.split('/').next() == Some("*")) {
+        return true;
+    }
+    if !host.contains('*') {
+        return false;
+    }
+    match host.strip_prefix("*.") {
+        Some(rest) => rest.contains('*') || rest.split('.').filter(|label| !label.is_empty()).count() < 2,
+        None => true,
+    }
+}
+
 pub fn allowed_csp(csp: &Value, server_url: Option<&str>) -> Value {
     let own = server_url.and_then(|s| url::Url::parse(s).ok()).and_then(|u| {
         Some((u.host_str()?.to_lowercase(), u.port_or_known_default()?.to_string()))
@@ -109,9 +138,7 @@ pub fn allowed_csp(csp: &Value, server_url: Option<&str>) -> Value {
     let mut out = json!({});
     for key in CSP_KEYS {
         let kept: Vec<_> = sources(&csp[key]).into_iter().filter(|s| {
-            let lower = s.to_ascii_lowercase();
-            let broad = lower == "*" || ["http", "https", "ws", "wss"].iter()
-                .any(|scheme| lower == format!("{scheme}:") || lower == format!("{scheme}://*"));
+            let broad = too_broad(s);
             let private = source_host(s).is_some_and(|at| private_host(&at.0) && own.as_ref() != Some(&at));
             if broad || private { crate::out::log(format!("declared CSP source not applied: {s}")); }
             !broad && !private
@@ -299,6 +326,21 @@ mod tests {
         assert_eq!(image_file_stem("abc"),"a9993e364706");
         assert_eq!(image_file_stem(&"a".repeat(1000)),"291e9a6c6699");
     }
+    #[test]
+    fn broad_sources_are_not_applied() {
+        let broad = ["*", "https:", "http://*", "https://*", "http://*:*", "https://*:443", "wss://*:*", "https://*.com", "*.com",
+            "https://example.com:*", "https://*.*.example.com", "https://*.", "https://"];
+        let named = ["https://*.example.com", "https://cdn.example.com", "https://example.com:8443", "wss://live.example.com", "blob:", "data:"];
+        for source in broad {
+            assert!(too_broad(source), "{source} was taken as one site");
+        }
+        for source in named {
+            assert!(!too_broad(source), "{source} was refused");
+        }
+        let all: Vec<&str> = broad.iter().chain(named.iter()).copied().collect();
+        assert_eq!(allowed_csp(&json!({"connectDomains": all}), Some("https://example.com/mcp")), json!({"connectDomains": named}));
+    }
+
     #[test]
     fn local_servers() {
         for url in ["http://localhost:3212/mcp", "http://127.0.0.1:8/mcp", "http://[::1]:9/mcp", "http://10.1.2.3/mcp", "http://box.local:1/mcp", "http://app.localhost/mcp"] {
