@@ -4,11 +4,11 @@ description: What AgentPolyfill is, which MCP extensions it adds to Claude Code 
 
 # Introduction
 
-AgentPolyfill makes polyfills for agent protocols. Run new MCP extensions in
-the agent you already use, before its host supports them. Today in Claude
-Code and Codex: Events, Skills and Server Cards run in both, Apps runs in
-Claude Code, and Agentic Resource Discovery, an open draft beyond MCP, runs in
-both.
+AgentPolyfill makes polyfills for agent protocols. Run new protocol
+extensions in the clients you already use, before official support. Works in
+Claude Code and Codex: Events, Skills and Server Cards run in both, Apps runs
+in Claude Code, and Agentic Resource Discovery, an open draft beyond MCP, runs
+in both.
 
 ## Why polyfills
 
