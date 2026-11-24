@@ -1,8 +1,8 @@
 # A live session
 
 Recorded on 24 November 2026: Claude Code 2.1.329 in a terminal on macOS, with
-the mod installed from this repository
-(`claude plugin install mcp-events --marketplace idosal/claude-events-mod`).
+the mod installed as a plugin from its marketplace (before it moved to this
+repository).
 
 The MCP server is the demo "deploys" server in `demo/`, built on Mastra's
 `@mastra/mcp`, reached over Streamable HTTP with a bearer token from an

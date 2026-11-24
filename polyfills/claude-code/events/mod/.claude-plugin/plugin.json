@@ -1,12 +1,12 @@
 {
   "name": "mcp-events",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "MCP Events (SEP-3415) for Claude Code: Claude can watch events on your MCP servers (poll, push or webhook) and react when they happen, even while the session is idle.",
   "author": {
     "name": "Ido Salomon",
     "url": "https://github.com/idosal"
   },
   "license": "Apache-2.0",
-  "homepage": "https://github.com/idosal/claude-events-mod",
-  "repository": "https://github.com/idosal/claude-events-mod"
+  "homepage": "https://github.com/idosal/MCPolyfill/tree/main/polyfills/claude-code/events",
+  "repository": "https://github.com/idosal/MCPolyfill"
 }
