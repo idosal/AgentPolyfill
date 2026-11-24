@@ -115,7 +115,8 @@ const POLICY_KEYS: [&str; 4] = ["allowedMcpServers", "deniedMcpServers", "allowM
 
 /// The same as `resolve`, with every input given: the files' places, the
 /// helper's own `--mcp-config` values, the words of the parent's command
-/// line, and the environment.
+/// line, and the environment. The files are read into `Facts`, `decide`
+/// says which entry those facts allow, and only that entry is expanded.
 pub fn resolve_in(
     places: &Places,
     own: &[String],
@@ -123,40 +124,179 @@ pub fn resolve_in(
     env: &dyn Fn(&str) -> Option<String>,
     name: &str,
 ) -> Result<Entry, String> {
-    if name.starts_with("claude_ai_") || name.starts_with("plugin_") {
-        return Err(format!(
-            "\"{name}\" is how Claude Code names a claude.ai connector or a plugin's server, which no config file the helper reads defines"
-        ));
-    }
-    if let Some(found) = managed_policy(places) {
-        return Err(format!(
+    let (facts, mut configs) = facts(places, own, parent, name);
+    let scope = decide(&facts).map_err(|refusal| match refusal {
+        Refusal::ManagedPolicy => format!(
             "your organisation manages which MCP servers are allowed ({}), and the helper can't judge that policy, so it connects to none",
-            found.display()
-        ));
+            managed_policy(places).map_or_else(|| "managed settings".into(), |p| p.display().to_string())
+        ),
+        other => other.message(name),
+    })?;
+    let config = configs[scope as usize].take().expect("decide picks a scope that has an entry");
+    Ok(expanded(config, scope.name(), env))
+}
+
+/// Where an entry comes from, in the order Claude Code looks (the command line first).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Scope {
+    Command = 0,
+    Local = 1,
+    Project = 2,
+    User = 3,
+}
+
+impl Scope {
+    pub fn name(self) -> &'static str {
+        match self {
+            Scope::Command => "command line",
+            Scope::Local => "local",
+            Scope::Project => "project",
+            Scope::User => "user",
+        }
     }
+}
+
+/// What one settings layer says about a `.mcp.json` server.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Layer {
+    /// `enableAllProjectMcpServers`, when it is set to a boolean.
+    pub approve_all: Option<bool>,
+    /// The name is in `enabledMcpjsonServers`.
+    pub approved: bool,
+    /// The name is in `disabledMcpjsonServers`.
+    pub rejected: bool,
+}
+
+/// Everything about a name that the decision depends on, read from the files.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Facts {
+    /// The name begins `claude_ai_` or `plugin_`.
+    pub reserved: bool,
+    /// A managed MCP policy exists (a managed file, drop-in, managed-MCP file, plist or fetched policy).
+    pub managed_policy: bool,
+    /// A project or user settings file has an allow or deny list for MCP servers.
+    pub settings_policy: bool,
+    /// The name is in this project's `disabledMcpServers`.
+    pub disabled: bool,
+    /// `--strict-mcp-config` is on the parent's command line.
+    pub strict: bool,
+    /// Which scopes have an entry for the name: command line, local, project, user (as `Scope`).
+    pub has: [bool; 4],
+    /// The folder's own trust is on record.
+    pub own_trust: bool,
+    /// A folder above it is trusted.
+    pub parent_trust: bool,
+    /// The project's `.claude/settings.local.json` and `.claude/settings.json`, the
+    /// user's settings, and the project's entry in `~/.claude.json`, highest first.
+    pub layers: [Layer; 4],
+}
+
+/// Why `decide` won't use an entry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Refusal {
+    Reserved,
+    ManagedPolicy,
+    SettingsPolicy,
+    Disabled,
+    Ambiguous,
+    NotFound,
+    Untrusted,
+    Rejected,
+    Unapproved,
+}
+
+impl Refusal {
+    pub fn message(self, name: &str) -> String {
+        match self {
+            Refusal::Reserved => format!(
+                "\"{name}\" is how Claude Code names a claude.ai connector or a plugin's server, which no config file the helper reads defines"
+            ),
+            Refusal::ManagedPolicy => {
+                "your organisation manages which MCP servers are allowed, and the helper can't judge that policy, so it connects to none".into()
+            }
+            Refusal::SettingsPolicy => "a settings file says which MCP servers are allowed or denied, and the helper can't apply such a list, so it connects to none".into(),
+            Refusal::Disabled => "it is switched off for this project in Claude Code".into(),
+            Refusal::Ambiguous => "it is named both on Claude Code's command line (--mcp-config) and in a config file, and the helper can't be sure which one Claude Code uses".into(),
+            Refusal::NotFound => format!("no config found for MCP server \"{name}\""),
+            Refusal::Untrusted => "this folder is not trusted in Claude Code, so neither its .mcp.json nor its local servers are used".into(),
+            Refusal::Rejected => "it was rejected for this project in Claude Code".into(),
+            Refusal::Unapproved => "it is in this project's .mcp.json but not approved in Claude Code".into(),
+        }
+    }
+}
+
+/// Which entry the helper may use for a name with these facts: the one
+/// Claude Code would use, or a refusal. A pure function of a finite input,
+/// checked over every case by `tests/support/gate_exhaustive.rs`.
+pub fn decide(f: &Facts) -> Result<Scope, Refusal> {
+    if f.reserved {
+        return Err(Refusal::Reserved);
+    }
+    if f.managed_policy {
+        return Err(Refusal::ManagedPolicy);
+    }
+    if f.settings_policy {
+        return Err(Refusal::SettingsPolicy);
+    }
+    if f.disabled {
+        return Err(Refusal::Disabled);
+    }
+    // Under --strict-mcp-config Claude Code reads no config file.
+    let in_files = !f.strict && (f.has[1] || f.has[2] || f.has[3]);
+    if f.has[0] {
+        return if in_files { Err(Refusal::Ambiguous) } else { Ok(Scope::Command) };
+    }
+    if !in_files {
+        return Err(Refusal::NotFound);
+    }
+    // The entry Claude Code's order picks decides: a refused one is not
+    // replaced by a lower scope's.
+    let scope = [Scope::Local, Scope::Project, Scope::User].into_iter().find(|s| f.has[*s as usize]).expect("in_files");
+    // Claude Code asks about trust once per folder and takes the answer for the folders inside it.
+    let trusted = f.own_trust || f.parent_trust;
+    match scope {
+        Scope::Local if !trusted => Err(Refusal::Untrusted),
+        Scope::Project => {
+            if !trusted {
+                return Err(Refusal::Untrusted);
+            }
+            // The folder's own settings count only when the folder's trust is its own.
+            let layers = if f.own_trust { &f.layers[..] } else { &f.layers[2..] };
+            // A yes-or-no is taken from the highest layer that sets it; lists add up.
+            if layers.iter().any(|l| l.rejected) {
+                return Err(Refusal::Rejected);
+            }
+            let approve_all = layers.iter().find_map(|l| l.approve_all) == Some(true);
+            if !approve_all && !layers.iter().any(|l| l.approved) {
+                return Err(Refusal::Unapproved);
+            }
+            Ok(scope)
+        }
+        _ => Ok(scope),
+    }
+}
+
+/// The facts about `name` in the files Claude Code reads, and each scope's
+/// entry for it (unexpanded), as `decide` takes them.
+pub fn facts(places: &Places, own: &[String], parent: &[String], name: &str) -> (Facts, [Option<Value>; 4]) {
+    let reserved = name.starts_with("claude_ai_") || name.starts_with("plugin_");
+    let managed = managed_policy(places);
     let claude = read_json(&places.claude_json);
     let projects = claude.as_ref().and_then(|c| c.get("projects")).and_then(Value::as_object);
     let real = std::fs::canonicalize(&places.project).unwrap_or_else(|_| places.project.clone());
     let lookup = |path: &Path| projects.and_then(|ps| path_keys(path).iter().find_map(|k| ps.get(k)));
     let accepted = |path: &Path| lookup(path).and_then(|e| e.get("hasTrustDialogAccepted")) == Some(&Value::Bool(true));
     let entry = lookup(&places.project).or_else(|| lookup(&real)).cloned().unwrap_or_else(|| json!({}));
-    // Claude Code asks about trust once per folder and takes the answer for
-    // the folders inside it.
     let own_trust = accepted(&places.project) || accepted(&real);
-    let trusted = own_trust || [&places.project, &real].iter().any(|start| start.ancestors().any(accepted));
+    let parent_trust = [&places.project, &real].iter().any(|start| start.ancestors().skip(1).any(accepted));
 
     let project_settings = [
         read_json(&places.project.join(".claude").join("settings.local.json")),
         read_json(&places.project.join(".claude").join("settings.json")),
     ];
     let user_settings = read_json(&places.config_dir.join("settings.json"));
-    // An allow or deny list in any settings file: the helper can't apply one.
-    if project_settings.iter().chain([&user_settings]).flatten().any(|s| POLICY_KEYS.iter().any(|k| s.get(*k).is_some())) {
-        return Err("a settings file says which MCP servers are allowed or denied, and the helper can't apply such a list, so it connects to none".into());
-    }
-    if names(&entry["disabledMcpServers"]).iter().any(|n| n == name) {
-        return Err("it is switched off for this project in Claude Code".into());
-    }
+    let settings_policy = project_settings.iter().chain([&user_settings]).flatten().any(|s| POLICY_KEYS.iter().any(|k| s.get(*k).is_some()));
+    let disabled = names(&entry["disabledMcpServers"]).iter().any(|n| n == name);
 
     // On the command line: the helper's own (a test's), then the parent's.
     let mut command = None;
@@ -176,49 +316,32 @@ pub fn resolve_in(
         }
     }
     let strict = parent.iter().any(|w| w == "--strict-mcp-config");
-    let in_files: Vec<(&'static str, Option<Value>)> = if strict {
-        Vec::new()
-    } else {
-        vec![
-            ("local", entry.get("mcpServers").and_then(|s| s.get(name)).cloned()),
-            ("project", read_json(&places.project.join(".mcp.json")).and_then(|j| j.get("mcpServers").and_then(|s| s.get(name)).cloned())),
-            ("user", claude.as_ref().and_then(|c| c.get("mcpServers")).and_then(|s| s.get(name)).cloned()),
-        ]
+    let configs = [
+        command,
+        entry.get("mcpServers").and_then(|s| s.get(name)).cloned(),
+        read_json(&places.project.join(".mcp.json")).and_then(|j| j.get("mcpServers").and_then(|s| s.get(name)).cloned()),
+        claude.as_ref().and_then(|c| c.get("mcpServers")).and_then(|s| s.get(name)).cloned(),
+    ];
+    let layer = |l: Option<&Value>| match l {
+        Some(l) => Layer {
+            approve_all: l.get("enableAllProjectMcpServers").and_then(Value::as_bool),
+            approved: names(&l["enabledMcpjsonServers"]).iter().any(|n| n == name),
+            rejected: names(&l["disabledMcpjsonServers"]).iter().any(|n| n == name),
+        },
+        None => Layer::default(),
     };
-    if let Some(config) = command {
-        if in_files.iter().any(|(_, found)| found.is_some()) {
-            return Err("it is named both on Claude Code's command line (--mcp-config) and in a config file, and the helper can't be sure which one Claude Code uses".into());
-        }
-        return Ok(expanded(config, "command line", env));
-    }
-    let Some((scope, config)) = in_files.into_iter().find_map(|(scope, found)| found.map(|f| (scope, f))) else {
-        return Err(format!("no config found for MCP server \"{name}\""));
+    let facts = Facts {
+        reserved,
+        managed_policy: managed.is_some(),
+        settings_policy,
+        disabled,
+        strict,
+        has: [configs[0].is_some(), configs[1].is_some(), configs[2].is_some(), configs[3].is_some()],
+        own_trust,
+        parent_trust,
+        layers: [layer(project_settings[0].as_ref()), layer(project_settings[1].as_ref()), layer(user_settings.as_ref()), layer(Some(&entry))],
     };
-    let untrusted = "this folder is not trusted in Claude Code, so neither its .mcp.json nor its local servers are used";
-    match scope {
-        "local" if !trusted => return Err(untrusted.into()),
-        "project" => {
-            if !trusted {
-                return Err(untrusted.into());
-            }
-            // What Claude Code decides `.mcp.json` servers by, highest first.
-            // The folder's own settings count only when the folder's trust is its own.
-            let mut layers: Vec<&Value> = if own_trust { project_settings.iter().flatten().collect() } else { Vec::new() };
-            layers.extend(user_settings.iter());
-            layers.push(&entry);
-            let listed = |key: &str| layers.iter().flat_map(|l| names(&l[key])).collect::<Vec<_>>();
-            // A yes-or-no is taken from the highest layer that sets it; lists add up.
-            let approve_all = layers.iter().find_map(|l| l.get("enableAllProjectMcpServers").and_then(Value::as_bool)) == Some(true);
-            if listed("disabledMcpjsonServers").iter().any(|n| n == name) {
-                return Err("it was rejected for this project in Claude Code".into());
-            }
-            if !approve_all && !listed("enabledMcpjsonServers").iter().any(|n| n == name) {
-                return Err("it is in this project's .mcp.json but not approved in Claude Code".into());
-            }
-        }
-        _ => {}
-    }
-    Ok(expanded(config, scope, env))
+    (facts, configs)
 }
 
 /// The ways `~/.claude.json` may spell a folder (Windows: either slash).
@@ -412,6 +535,10 @@ fn expand_str(s: &str, remote: bool, env: &dyn Fn(&str) -> Option<String>) -> St
     out.push_str(rest);
     out
 }
+
+#[cfg(test)]
+#[path = "../tests/support/gate_exhaustive.rs"]
+mod gate_exhaustive;
 
 #[cfg(test)]
 mod tests {
