@@ -169,7 +169,7 @@ fn client_info() -> ClientConfig {
     let mut ui = serde_json::Map::new();
     ui.insert("mimeTypes".into(), json!(["text/html;profile=mcp-app"]));
     capabilities.extensions = Some(BTreeMap::from([("io.modelcontextprotocol/ui".to_string(), ui)]));
-    ClientConfig::new(capabilities, Implementation::new("mcp-apps-cli", "0.1.0"))
+    ClientConfig::new(capabilities, Implementation::new("mcp-apps-cli", "0.1.1"))
 }
 
 async fn connect(config: &Value, cwd: &PathBuf) -> Result<RunningService<RoleClient, ClientConfig>> {
