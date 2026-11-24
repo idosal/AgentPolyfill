@@ -130,7 +130,27 @@ working group or interest group first; experimental work can live in an
 reference implementation in an official SDK; Stable takes a second SEP, two
 independent implementations that interoperate, and a conformance scenario.
 
+## An existing polyfill in another host
+
+A polyfill is one folder per extension: the host-neutral part (the protocol,
+the spec's client rules and their tests) in `core/`, and one adapter beside it
+for each host, which wires that core into what the host lets third-party code
+do. Events and Skills are built that way: one `core/`, a `claude-code/` mod and
+a `codex/` plugin. Bringing one to another host is a new adapter: find how the
+host lets a plugin reach the wire (a connection of its own, a tool call, a way
+to wake an idle session), meet the contract there, say what that host cannot
+do, and add the plugin to that host's marketplace.
+[Contributing](./contributing#bringing-a-polyfill-to-another-host) has the
+steps; `create-polyfill` covers it too ("polyfill MCP Apps in Codex").
+
+## Your own, listed in the community directory
+
+A polyfill you keep in your own repository can be listed in the
+[community directory](./community) by pull request. Listed polyfills are not
+reviewed or shipped by this project; one that meets the contract can move into
+the repository after review.
+
 ## Adding it to this repository
 
 [Contributing](./contributing) covers the folder layout, the README a polyfill
-needs, the marketplace entry, and CI.
+needs, the marketplace entries, and CI.

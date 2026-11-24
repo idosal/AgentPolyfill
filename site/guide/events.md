@@ -30,7 +30,8 @@ newer, and Node 20 or newer or Bun.
 
 Events also works in OpenAI Codex, as a plugin:
 `codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-events@agent-polyfill`
-([Other hosts](./how-it-works#other-hosts)).
+([Codex](./getting-started#codex); its README is
+[`polyfills/events/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex)).
 
 ## Try it
 

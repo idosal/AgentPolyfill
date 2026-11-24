@@ -43,6 +43,11 @@ server. You need:
 
 The mod downloads nothing unless you type that command.
 
+Skills also works in OpenAI Codex, as a plugin:
+`codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-skills@agent-polyfill`
+([Codex](./getting-started#codex); its README is
+[`polyfills/skills/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex)).
+
 ## Try it
 
 Add Hugging Face's public MCP server. It serves skills, and needs no account
