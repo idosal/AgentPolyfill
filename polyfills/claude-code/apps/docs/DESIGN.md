@@ -193,9 +193,11 @@ the view drops to cells on the first frame.
   take the pointer (clicks fire, moves turn); an app that never says how
   tall it is (it fills its window, like an emulator's canvas) gets all its
   room 0.4 s after it starts; and an app may call its own server on
-  localhost (Chrome's local-network checks are off; its CSP still decides
-  what it reaches, shown in its header, and names the person's machine or
-  network only where the server itself runs). Claude Code keeps Escape (it
+  localhost (a view of a server on this machine or its local network, or of
+  a stdio server, gets Chrome's local-network access; every other view
+  keeps Chrome's local-network checks; its CSP still decides what it
+  reaches, shown in its header, and names the person's machine or network
+  only where the server itself runs). Claude Code keeps Escape (it
   gives the keyboard back, and a Client never receives it), so the app gets
   one from ctrl+] or the **esc** control in the view's header: DOOM's menu.
 - **Out of sight, paused.** A view with none of its picture in the
@@ -295,19 +297,44 @@ the view drops to cells on the first frame.
   such; 300 characters at most), read once it settles after opening, after
   its result and after the person's input, not as it animates (a new alt
   draws the picture again).
+- **Which MCP servers the helper uses.** The helper's own connections (for
+  a tool's UI, and for tools only apps may call) go only to servers Claude
+  Code itself uses, as Claude Code would resolve them. The mod asks
+  `$.mcp.connect(name)` before the helper hears a server's name at all
+  (discovery, prewarming, opening a view), and goes on only when Claude
+  Code answers connected under exactly that name: in a real session,
+  `arcade` from `--mcp-config` and a user-scope server answered so, while
+  the tool-name spellings of a claude.ai connector (`claude_ai_Gmail`) and
+  of a plugin's server (`plugin_cloudflare_cloudflare-docs`) answered
+  `unlisted` (Claude Code lists them as `claude.ai Gmail` and
+  `plugin:cloudflare:cloudflare-docs`), so those get no app. The helper
+  applies the rules of the mcp-events plugin on its own, for any request
+  that reaches it (`helper-rs/src/config.rs`, `mod/helper/servers.mjs`):
+  no server under a managed MCP policy or an allow or deny list; nothing
+  switched off; local and `.mcp.json` servers only in a trusted folder,
+  `.mcp.json` ones only approved and not rejected (the project's own
+  settings don't count where the trust is inherited from a parent folder);
+  the entry Claude Code's order (local, project, user) picks decides, and a
+  refused one isn't replaced by a lower scope's; `claude_ai_*` and
+  `plugin_*` names never from a file; the parent `claude`'s `--mcp-config`
+  (read from its command line, alone under `--strict-mcp-config`), refused
+  where a config file names the same server; `${VAR}` expanded only in an
+  entry that passed, credential-named variables never into a remote entry's
+  url or headers. Its HTTP clients follow a redirect only within the
+  server's origin (streamable HTTP: rmcp's 307 and 308; SSE: none).
 - **What the person decides.** Two settings in `/config` (the plugin's
-  `userConfig`), defaulting to what Claude Desktop does:
-  - **App tool calls** (`appToolCalls`): `allow` (default) runs an app's
+  `userConfig`):
+  - **App tool calls** (`appToolCalls`): `rules` (default) follows the
+    person's permission rules for that tool, as for Claude's own calls,
+    asking where they would ask; `ask` always asks; `allow` runs an app's
     calls to its own server's tools without asking, as Claude Desktop does
-    for `app.callServerTool`; `rules` follows the person's permission rules
-    for that tool, asking where they say ask; `ask` always asks. A deny
-    rule refuses the call in every mode, and is checked first each time:
-    it outranks a "this session" allowance given before. Where the check
-    itself fails, the person is asked; but an app-only tool
-    (`visibility: ["app"]`, like the system monitor's poll) has no check
-    to make (Claude Code doesn't register it, so no rule names it), and
-    under `allow` it runs, as in Claude Desktop: a live chart was asked
-    about at every tick otherwise.
+    for `app.callServerTool`. An app may ask to run only a tool its server
+    lists. A deny rule refuses the call in every mode, and is checked first
+    each time: it outranks a "this session" allowance given before. Where
+    the check itself fails, the person is asked, in every mode: an app-only
+    tool (`visibility: ["app"]`, like the system monitor's poll) whose check
+    fails is asked about too, and "Allow … this session" keeps a polling
+    app from asking at every tick.
   - **App messages** (`appMessages`): `ask` (default) asks before an app's
     message goes to Claude, with a choice to allow that app's messages for
     the session, as Claude Desktop acts on a message only with the
@@ -316,8 +343,11 @@ the view drops to cells on the first frame.
     sends it at once. A sent message is framed as the app's, never as the
     person's own words.
 
-  Opening a link and saving files (to Downloads, under safe names) are
-  asked too. Text an app copies (it must ask for `clipboardWrite`) reaches
+  Opening a link and saving files (to Downloads, under safe names, marked
+  as downloaded: macOS's quarantine attribute, Windows' `Zone.Identifier`)
+  are asked too. A dialog shows what an app asks as plain text: a link
+  with a control character, a bidi mark or a space in it is refused before
+  anyone is asked. Text an app copies (it must ask for `clipboardWrite`) reaches
   the person's clipboard only right after a click or key in the view, once
   per click (a hover or the wheel doesn't count). What the person allows for
   the session ends with it (and with `/clear`). A view that closes while a
@@ -451,7 +481,7 @@ pseudo-terminal (or the helper alone) and read what it writes:
 | View under the tool call, React and vanilla apps | ✓ |
 | Clicks, typing, dropdowns, drags (pointer down/move/up) | ✓ |
 | Tall views: PgUp/PgDn scrolling | ✓ |
-| `tools/call` from the app, model-visible tools (Claude Code's connection) | ✓ run as in Claude Desktop, or by permission rules, or asked (a setting) |
+| `tools/call` from the app, model-visible tools (Claude Code's connection) | ✓ by the person's permission rules (default), always asked, or run as in Claude Desktop (a setting) |
 | `tools/call` for app-only tools (`visibility: ["app"]`) | ✓ via the helper's connection |
 | `ui/message` → a new turn; Claude answers the app | ✓ (an error back when it can't) |
 | `ui/update-model-context` → model context, invisible to the user | ✓ |
@@ -463,7 +493,7 @@ pseudo-terminal (or the helper alone) and read what it writes:
 | Real pixels in kitty and Ghostty | ✓ in real kitty 0.50 and Ghostty 1.4 windows (probes, pictures read from files, pixel pointer) |
 | Display modes: fullscreen, picture-in-picture (a pane), back to inline | ✓ asked by the app and from the view's header |
 | `ui/open-link` | ✓ asks, then opens the browser (tests stand in for the browser) |
-| `ui/download-file` | ✓ asks, then saves to Downloads (tests cover the asking) |
+| `ui/download-file` | ✓ asks, then saves to Downloads, marked as downloaded (tests cover the asking and the mark) |
 | Mouse wheel | ✓ in pane views; not inline (Claude Code reports none there) |
 
 ## Spec parity
@@ -483,11 +513,11 @@ Checked against `specification/2026-01-26/apps.mdx` (and the draft's
 | View→host: `tools/call`, `resources/read`, `resources/list`, `resources/templates/list`, logging, `ping` | ✓ |
 | `ui/message`, `ui/update-model-context`, `ui/open-link`, `ui/request-display-mode`, `ui/download-file`, `size-changed` | ✓ (see How it works) |
 | Host capabilities | ✓ openLinks, downloadFile, serverTools, serverResources, logging, updateModelContext, message, sandbox.csp |
-| Sandbox and CSP from `_meta.ui.csp` (connect, resource, frame, base-uri domains) | ✓; the CSP is logged and the view's header names the domains it may reach. Not applied: the person's machine or network other than where the server runs, and sources naming no domain (`*`, `https:`). The view's document can't navigate away (a form or `location` would carry data past the CSP), and WebRTC is off |
+| Sandbox and CSP from `_meta.ui.csp` (connect, resource, frame, base-uri domains) | ✓; the CSP is logged and the view's header names the domains it may reach. Not applied: the person's machine or network other than where the server runs, and sources naming no one site (`*`, `https:`, a wildcard host over fewer than two labels such as `*.com`, a wildcard port; without the public suffix list, `*.co.uk` still passes). The view's document can't navigate away (a form or `location` would carry data past the CSP), and WebRTC is off |
 | Restrictive default CSP when `ui.csp` is absent | ≈ basic-host's default (see below) |
 | Dedicated origin (`_meta.ui.domain`) | ✓ Claude's format: the app is served at `https://{first 32 hex of sha256(server URL)}.claudemcpcontent.com`, its storage first party; any other domain isn't given (logged), so a server can't take another's |
 | `prefersBorder` | ✓ `true` draws a border and background around the app; omitted or `false`, none |
-| Consent | ✓ configurable; defaults as Claude Desktop: app tool calls run (deny rules apply), messages asked; links and downloads asked |
+| Consent | ✓ configurable; by default app tool calls follow the person's permission rules (Claude Desktop runs them; `allow` does that), messages are asked, as in Claude Desktop; links and downloads asked |
 | `permissions` | ✓ `clipboardWrite` (copies after a click or key); camera, microphone, location not granted (see below) |
 
 **Deliberate departures**
@@ -575,7 +605,10 @@ newer Stable at most once a day and fetches it for the next launch.
   resource's `_meta` (an app's CSP and permissions). So the helper lists each
   server's tools and reads its UI over a connection of its own, using the
   config from the `claude` command line (`--mcp-config`), `.mcp.json` or
-  `~/.claude.json`. That connection can't do OAuth. Asks: `_meta` (and
+  `~/.claude.json`, for a server Claude Code itself uses (see Which MCP
+  servers the helper uses). That connection can't do OAuth, and claude.ai
+  connectors and plugins' servers, which no config file defines, get no
+  app. Asks: `_meta` (and
   `outputSchema`) on `$.tool.list()`, and `$.mcp.readResource()` with `_meta`.
 - **Results lose `structuredContent`.** Mods get a tool result as the model
   reads it (one JSON text block). The helper restores `structuredContent` for
@@ -684,12 +717,19 @@ newer Stable at most once a day and fetches it for the next launch.
   Chrome's own sandbox is on too (Playwright turns it off by default). The helper answers only requests that carry its token, over the
   socket too: another program of the person's can't drive it or answer
   for them. Store files are written under unguessable names, never through
-  a link. An independent security review of the plugin (given the threat
-  model and the code) found eleven issues; all are fixed but two defaults it
-  questioned, kept on purpose: app tool calls run without asking (as in
-  Claude Desktop), and Chrome's local-network checks stay off (a localhost
-  server's own app needs them off; the CSP rule above keeps the rest of the
-  network out).
+  a link, and the helper's own temporary folder is checked (a folder, not a
+  link, the person's, closed to others) before anything goes in it. A
+  request to the helper without its token is refused before its body is
+  read; a request must arrive whole within 30 seconds, and at most 128
+  connections are open at once. An earlier independent review of the
+  plugin (given the threat model and the code) found eleven issues; nine
+  were fixed then, and it questioned two defaults: app tool calls running
+  without asking, which is no longer the default, and Chrome's
+  local-network checks being off, which they no longer are (only a view of
+  a server on this machine or its network, or of a stdio server, gets
+  local-network access, and that access includes this machine). The
+  review of 24 November 2026 and where each of its findings stands are in
+  [SECURITY.md](../SECURITY.md).
 - **Platforms.** macOS and Linux, and Windows, though no Windows machine
   has run it yet. There the mod reaches the helper over loopback TCP with a
   token every request must carry (a Unix socket elsewhere), the helper

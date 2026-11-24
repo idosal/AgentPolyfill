@@ -54,11 +54,13 @@ its box scrolls with PgUp/PgDn. The view's header moves it: **fullscreen**
 fills the terminal, **pane** puts it beside the chat where it keeps running,
 **back to the chat** returns it. Apps that ask for those modes get them.
 
-Consent, in `/config`: **App tool calls** run an app's calls to its own
-server's tools by default, as Claude Desktop does (or follow your permission
-rules, or always ask); your deny rules apply either way. **App messages** are
-asked about by default, as in Claude Desktop (or put in your prompt to send,
-or sent at once). Opening a link or saving a file from an app is asked too.
+Consent, in `/config`: **App tool calls** follow your permission rules by
+default, as Claude's own calls do: you're asked where they would ask (or
+always ask, or run them without asking, as Claude Desktop does); your deny
+rules apply in every mode. **App messages** are asked about by default, as
+in Claude Desktop (or put in your prompt to send, or sent at once). Opening
+a link or saving a file from an app is asked too. The plugin reaches only
+MCP servers Claude Code itself uses in the session; see SECURITY.md.
 
 `MCP_APPS_CLI_MODE=cells|image` forces a drawing mode. Cell views are drawn
 in exact colours in 24-bit terminals by default; `MCP_APPS_CLI_TRUECOLOR=0`

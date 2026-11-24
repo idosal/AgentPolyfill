@@ -125,6 +125,10 @@ file from an app always asks.
   doesn't give plugins the UI metadata of a tool or of a resource, so the
   helper opens its own connection to each server, from your MCP config, and
   that connection can't sign in.
+- **No apps from claude.ai connectors or plugins' servers**, nor from a
+  server named both on `claude`'s command line (`--mcp-config`) and in a
+  config file, nor any at all under a managed MCP policy: the helper can't
+  find or judge those the way Claude Code does, so it leaves them alone.
 - **Clicks and keys** reach a view only in the fullscreen layout. There's no
   mouse wheel over inline views (use PgUp/PgDn), and a paste goes to the
   prompt.
@@ -138,18 +142,33 @@ could add to remove each.
 
 ## Privacy and security
 
+- **Only servers Claude Code uses.** The helper opens its own connection to a
+  tool's MCP server only when Claude Code says it is connected to that
+  server in this session under that name, and only to the config entry
+  Claude Code would use: not a project server you haven't approved, not one
+  in a folder you haven't trusted, not one that is switched off, and none
+  at all under a managed MCP policy. Credentials in your environment
+  (`ANTHROPIC_*`, `AWS_*`, `GITHUB_*` and the like) are never put into a
+  remote server's address or headers.
+- **An app's tool calls follow your permission rules** by default: what
+  they allow runs, what they deny is refused, and you're asked where they
+  would ask (see the setting above).
 - Each view runs in a sandboxed iframe inside a dedicated headless Chrome,
   under the app's Content Security Policy, one browser context per view.
-  Chrome's own sandbox stays on.
+  Chrome's own sandbox and its local-network checks stay on; a view of a
+  server on your machine or local network may reach that network.
 - A view's cookies, localStorage and IndexedDB are saved, readable only by
   you, in the plugin's data folder, so a reopened view keeps its state.
   They're deleted after 30 days unused.
 - The plugin sends nothing anywhere. Network traffic is the apps' own
-  (limited by their CSP), the MCP servers you configured, and, if you accepted
-  it, the Chrome download from Google and its update checks.
-- The helper only answers requests that carry its per-session token.
+  (limited by their CSP), the MCP servers Claude Code uses, and, if you
+  accepted it, the Chrome download from Google and its update checks.
+- The plugin never reads Claude Code's stored credentials. The helper
+  answers only requests that carry its per-session token, on a local
+  endpoint only you can open.
 
-To report a security issue, see [SECURITY.md](SECURITY.md).
+[SECURITY.md](SECURITY.md) lists what was reviewed, what is checked and
+what isn't protected, and how to report a security issue.
 
 ## How it works
 
