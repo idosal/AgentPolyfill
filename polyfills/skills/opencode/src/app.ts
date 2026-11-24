@@ -58,6 +58,8 @@ export class App {
     readonly settled = new Promise<void>((r) => (this.#settled = r));
     /** Called when the listed skills changed, so OpenCode's skill list is rebuilt. */
     onListed?: () => void;
+    /** Called when a session loaded a skill of a server, before its text is handed over (X8 keeps it). */
+    onLoaded?: (session: string, server: string) => Promise<void>;
 
     constructor(o: { log?: (line: string) => void; connectTimeoutMs?: number } = {}) {
         this.#log = o.log ?? (() => {});
@@ -285,6 +287,9 @@ export class App {
             }
         });
         const loaded = await host.load(server, uri, { expect: hash });
+        // Kept before the text is handed over: a later cross-server read in this session, a
+        // subagent of it, or after a restart, is checked against it.
+        await this.onLoaded?.(ctx.session, server);
         this.#log(`${server}: loaded ${uri}${loaded.isVerified ? '' : ' (dynamic, unverified)'}`);
         return { text: loadedText(loaded) };
     }

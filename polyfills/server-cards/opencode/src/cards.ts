@@ -21,8 +21,13 @@ export type Tool = { name: string; description: string; input: Record<string, un
 
 /** The permission actions these tools ask OpenCode about. */
 export const ACTIONS = { add: 'mcp_server_cards_add', remove: 'mcp_server_cards_remove' } as const
-/** Where the servers this plugin added are kept, in its OpenCode storage. */
-export const ADDED_KEY = 'added-servers'
+/**
+ * Where the servers this plugin added are kept, in its OpenCode storage (one store for every
+ * project): one entry per project, so a server added in one project is added to that project only.
+ * A Git project's folders and worktrees share its id; a folder outside Git is a project of its own.
+ */
+export const addedKey = (location: { directory: string; project: { id: string } }) =>
+  location.project.id && location.project.id !== 'global' ? `added-servers/project/${location.project.id}` : `added-servers/folder/${location.directory}`
 
 const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
 /** Text for the person and the model: each line passes the plain-text filter, line breaks kept. */
@@ -164,14 +169,24 @@ export class AddedServers {
     return this.#added
   }
 
-  async start(): Promise<void> {
-    const kept = await this.#ctx.storage.get(ADDED_KEY).catch(() => undefined)
-    if (kept && typeof kept === 'object' && !Array.isArray(kept)) {
+  get #key() {
+    return addedKey(this.#ctx.location)
+  }
+
+  /** What is kept for this project now, as another OpenCode server or window may have changed it. */
+  async #read(): Promise<Record<string, RemoteConfig>> {
+    const kept = await this.#ctx.storage.get(this.#key).catch(() => undefined)
+    const out: Record<string, RemoteConfig> = {}
+    if (kept && typeof kept === 'object' && !Array.isArray(kept))
       for (const [name, cfg] of Object.entries(kept as Record<string, unknown>)) {
         const c = cfg as RemoteConfig
-        if (c && c.type === 'remote' && typeof c.url === 'string') this.#added[name] = { type: 'remote', url: c.url, ...(c.headers ? { headers: { ...c.headers } } : {}) }
+        if (c && c.type === 'remote' && typeof c.url === 'string') out[name] = { type: 'remote', url: c.url, ...(c.headers ? { headers: { ...c.headers } } : {}) }
       }
-    }
+    return out
+  }
+
+  async start(): Promise<void> {
+    this.#added = await this.#read()
     this.#registered ??= this.#ctx.mcp.transform(editor => {
       // What OpenCode has before this transform: its files, and other plugins' transforms.
       this.names = new Set(editor.list().map(([n]) => n))
@@ -183,23 +198,24 @@ export class AddedServers {
   /** Whether OpenCode has a server of that name that this plugin did not add. */
   async taken(name: string): Promise<boolean> {
     await this.#ctx.mcp.list().catch(() => undefined) // rebuilds the configuration, so `names` is current
-    return this.names.has(name) || name in this.#added
+    return this.names.has(name) || name in this.#added || name in (await this.#read())
   }
 
-  async add(name: string, cfg: RemoteConfig): Promise<void> {
-    this.#added = { ...this.#added, [name]: cfg }
-    await this.#save()
-  }
-
-  async remove(name: string): Promise<void> {
-    const { [name]: _, ...rest } = this.#added
-    this.#added = rest
-    await this.#save()
-  }
-
-  async #save(): Promise<void> {
-    await this.#ctx.storage.set(ADDED_KEY, this.#added as unknown as Record<string, unknown>)
+  /** Changes one entry of what is kept, read afresh, so no stale copy undoes another change. */
+  async #change(update: (kept: Record<string, RemoteConfig>) => void): Promise<void> {
+    const kept = await this.#read()
+    update(kept)
+    await this.#ctx.storage.set(this.#key, kept as unknown as Record<string, unknown>)
+    this.#added = kept
     await this.#ctx.mcp.reload()
+  }
+
+  add(name: string, cfg: RemoteConfig): Promise<void> {
+    return this.#change(kept => void (kept[name] = cfg))
+  }
+
+  remove(name: string): Promise<void> {
+    return this.#change(kept => void delete kept[name])
   }
 }
 

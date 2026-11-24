@@ -39,7 +39,11 @@ a prompt, as a tool result from the same server could. How often is bounded
   `<server>:<event type>`, asked with `ctx.permission.assert`. OpenCode
   decides: a `deny` rule refuses, an `ask` rule prompts you, and the plugin
   never answers a prompt. OpenCode's shipped default allows both; add `ask`
-  rules to be asked (the README shows them).
+  rules to be asked (the README shows them). The names in a request are shown
+  with anything but printable ASCII escaped, so a server's event name can't
+  read as another. "Allow always" saves a rule only when both names are plain:
+  an event type a server named `*` or `?`, a wildcard in OpenCode's rules,
+  would otherwise save a rule covering every event type of that server.
 - **What a server sent is read as a tool result.** `mcp_events_get_event`
   returns a payload in full, marked as that server's data;
   `mcp_events_recent_events` a few short fields of each event. With

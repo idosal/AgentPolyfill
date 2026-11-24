@@ -90,6 +90,11 @@ export type WorldOptions = {
     permissions?: Rule[];
     /** More environment for OpenCode (and so for the plugins). */
     env?: Record<string, string>;
+    /**
+     * A real model, as `provider/model`, in place of the scripted one: for a live run, by hand. It
+     * must need no sign-in in this throwaway home (OpenCode's free models do).
+     */
+    model?: string;
 };
 
 export type Message = { id: string; type: string; text?: string; [k: string]: unknown };
@@ -119,9 +124,11 @@ export class World {
 
     /** The project's opencode.json: the scripted model, the plugins, the MCP servers and the rules. */
     writeConfig(): void {
+        const live = this.#o.model;
         const config = {
             $schema: 'https://opencode.ai/config.json',
-            providers: {
+            ...(live ? { model: live } : {}),
+            providers: live ? undefined : {
                 scripted: {
                     name: 'Scripted',
                     package: '@opencode/ai/providers/openai-compatible',
@@ -129,7 +136,7 @@ export class World {
                     models: { scripted: { name: 'Scripted' } }
                 }
             },
-            model: 'scripted/scripted',
+            ...(live ? {} : { model: 'scripted/scripted' }),
             plugins: this.#o.plugins,
             ...(this.#o.mcp ? { mcp: this.#o.mcp } : {}),
             ...(this.#o.permissions ? { permissions: this.#o.permissions } : {})
@@ -150,7 +157,7 @@ export class World {
             TMPDIR: join(this.dir, 'tmp'),
             OPENCODE_DISABLE_AUTOUPDATE: '1',
             OPENCODE_DISABLE_CLAUDE_CODE: '1',
-            OPENCODE_DISABLE_MODELS_FETCH: '1',
+            ...(this.#o.model ? {} : { OPENCODE_DISABLE_MODELS_FETCH: '1' }),
             OPENCODE_SERVER_PASSWORD: this.password,
             ...this.#o.env
         };
@@ -205,6 +212,12 @@ export class World {
 
     async permissions(sessionID: string): Promise<{ id: string; action: string; resources: string[]; metadata?: Record<string, unknown> }[]> {
         const r = await this.api<{ data: { id: string; action: string; resources: string[] }[] }>('GET', `/api/session/${sessionID}/permission`);
+        return r.data;
+    }
+
+    /** Every pending permission request in the project, whichever session (a subagent's included) made it. */
+    async allPermissions(): Promise<{ id: string; sessionID: string; action: string; resources: string[]; metadata?: Record<string, unknown> }[]> {
+        const r = await this.api<{ data: { id: string; sessionID: string; action: string; resources: string[] }[] }>('GET', `/api/permission/request?location[directory]=${encodeURIComponent(this.project)}`);
         return r.data;
     }
 

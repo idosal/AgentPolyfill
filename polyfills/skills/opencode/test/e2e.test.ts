@@ -132,6 +132,26 @@ describe('mcp-skills in OpenCode', () => {
         assert.equal(other.requests('resources/read').length, 0);
     });
 
+    test('the same read, called by its dotted name as Code Mode names it, is asked about too', async () => {
+        await turn(world, session, 'CALL opencode.read_mcp_resource {"server":"other","uri":"skill://other-skill/SKILL.md"}', 'reject', (p) => {
+            assert.equal(p.action, 'mcp_skills_cross_server');
+            assert.equal(p.resources[0], 'docs->other:skill://other-skill/SKILL.md');
+        });
+        assert.equal(other.requests('resources/read').length, 0);
+    });
+
+    test("a subagent of a session that loaded a served skill is held to the same (X8)", async () => {
+        const read = JSON.stringify({ server: 'other', uri: 'skill://other-skill/SKILL.md' });
+        const since = Date.now();
+        await world.prompt(session, `CALL subagent ${JSON.stringify({ agent: 'general', description: 'read a resource', prompt: `CALL opencode_read_mcp_resource ${read}` })}`);
+        const req = await waitFor(async () => (await world.allPermissions()).find((p) => p.action === 'mcp_skills_cross_server'), 40000, "the subagent's cross-server request");
+        assert.notEqual(req.sessionID, session);
+        assert.equal(req.resources[0], 'docs->other:skill://other-skill/SKILL.md');
+        await world.reply(req.sessionID, req.id, 'reject');
+        await world.idle(session, since).catch(() => undefined);
+        assert.equal(other.requests('resources/read').length, 0);
+    });
+
     test('"Allow always" covers the skill as it is; once the server changes it, it is asked about again (X14)', async () => {
         assert.equal((await world.permissions(session)).length, 0);
         const first = await world.createSession();
@@ -145,5 +165,28 @@ describe('mcp-skills in OpenCode', () => {
         await new Promise((r) => setTimeout(r, 300));
         const third = await world.createSession();
         await turn(world, third, `CALL mcp_skills_load_skill {"server":"docs","uri":"${guide.uri}"}`, 'reject', (p) => assert.equal(p.action, 'mcp_skills_load'));
+    });
+});
+
+describe('mcp-skills across an OpenCode restart', () => {
+    const guide = skill('haiku-guide', 'Use when the user wants answers in haiku.');
+    const docs = fixture([guide]);
+    const other = fixture([skill('other-skill', 'Something else.')]);
+    const world = new World({ plugins: [PLUGIN], mcp: { docs: docs.config, other: other.config }, permissions: [{ action: 'mcp_skills_cross_server', resource: '*', effect: 'ask' }] });
+    let session = '';
+    before(async () => {
+        await world.start();
+        session = await world.createSession();
+    });
+    after(() => world.stop());
+
+    test('a session that loaded a served skill before the restart is still held to X8 after it', async () => {
+        await waitFor(async () => (await world.api<{ data: { id: string }[] }>('GET', `/api/skill?location[directory]=${encodeURIComponent(world.project)}`)).data.some((s) => s.id === 'mcp-skills:docs:haiku-guide'), 30000, 'the served skill');
+        const out = await turn(world, session, `CALL mcp_skills_load_skill {"server":"docs","uri":"${guide.uri}"}`);
+        assert.match(out, /Loaded the skill/);
+        await world.restart();
+        await world.api('GET', `/api/mcp?location[directory]=${encodeURIComponent(world.project)}`);
+        await turn(world, session, 'CALL opencode_read_mcp_resource {"server":"other","uri":"skill://other-skill/SKILL.md"}', 'reject', (p) => assert.equal(p.action, 'mcp_skills_cross_server'));
+        assert.equal(other.requests('resources/read').length, 0);
     });
 });

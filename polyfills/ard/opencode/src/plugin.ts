@@ -124,7 +124,34 @@ export function tools(t: ToolSet, defaultRegistry: string): Tool[] {
         save: [],
         metadata: { question: shownText(`${hosts.join(', ')}: send this search to ${endpoints.join(', ')}, and to up to three registries it refers to?`), query, endpoints, note: 'A registry is a service someone else runs, and it sees the query.' },
       })
-      const s = await search(t.deps.fetch, query, endpoints)
+      // A registry's answer can refer the search on to other registries (one hop). Each one this
+      // request didn't name is put to OpenCode's rules too, before the query goes there; one that
+      // isn't allowed gets nothing, and OpenCode's refusal is passed on once the search is done.
+      const allowed = new Set(hosts)
+      let refused: unknown
+      const post: typeof t.deps.fetch = async (url, init) => {
+        const host = new URL(url).host
+        if (!allowed.has(host)) {
+          try {
+            await t.ctx.permission.assert({
+              sessionID: call.sessionID,
+              agent: call.agent,
+              source: { type: 'tool', messageID: call.messageID, id: call.id },
+              action: SEARCH_ACTION,
+              resources: [host],
+              save: [],
+              metadata: { question: shownText(`${host}: a registry this search went to refers it on to ${url}. Send the search there too?`), query, endpoint: url, note: 'A registry is a service someone else runs, and it sees the query.' },
+            })
+            allowed.add(host)
+          } catch (e) {
+            refused ??= e
+            throw new Error('not sent: OpenCode did not allow it')
+          }
+        }
+        return t.deps.fetch(url, init)
+      }
+      const s = await search(post, query, endpoints)
+      if (refused !== undefined) throw refused
       const lines = [
         `Registry search for "${query.slice(0, 200)}" (ARD v0.91 §5.3). The query text was sent to: ${[...new Set(s.registries.map(r => new URL(r.endpoint).host))].join(', ')}.`,
         'Registries asked:',

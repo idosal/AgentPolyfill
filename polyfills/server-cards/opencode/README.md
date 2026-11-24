@@ -70,9 +70,11 @@ For a server behind a sign-in, add it the same way, then run
    plugin to add an MCP server. OpenCode connects it with its own client, so
    its tools, its sign-in and its permission rules are OpenCode's, as for a
    server in your `opencode.json`.
-5. **It stays.** The plugin keeps what it added in its own OpenCode storage
-   (`ctx.storage`) and adds it again each time OpenCode loads the plugin. It
-   never writes your configuration files.
+5. **It stays, in this project.** The plugin keeps what it added in its own
+   OpenCode storage (`ctx.storage`), one entry per project, and adds it again
+   each time OpenCode loads the plugin there. A Git project's folders and
+   worktrees share the entry; a folder outside Git has its own. It never
+   writes your configuration files.
 6. **`server_cards_remove_mcp_server`** takes away a server this plugin
    added, after OpenCode's rules allow `mcp_server_cards_remove`. Servers from
    your configuration files can't be removed with it.
@@ -102,15 +104,19 @@ When OpenCode supports Server Cards itself, turn the plugin off, or remove it
 - **Only streamable HTTP.** OpenCode 2.4 connects remote servers over
   streamable HTTP; an SSE remote is refused.
 - **Cards that need a secret** are added by hand ([Secrets](#secrets)).
-- **Where an added server shows.** It's kept in the plugin's OpenCode
-  storage. It was checked to stay across a restart of OpenCode in the same
-  project; whether OpenCode's plugin storage is shared between projects wasn't
-  checked.
+- **Per project.** An added server is in the project it was added in only
+  (OpenCode's plugin storage is one store for every project; the plugin keys
+  it by project). To have it everywhere, put it in your global
+  `opencode.json`. Tested: it stays across a restart, and another folder with
+  the plugin doesn't get it.
 - **No check against the live server.** The spec recommends checking a card
   against the server it describes (`server/discover`). That needs a request
   over OpenCode's connection, which a plugin can't send.
-- **Not tried yet:** Windows and Linux (the tests are set up to run on Linux
-  and macOS), the OpenCode desktop app, live domains, and a live model.
+- **Tried live** with a real model: neon.com's two cards found, Neon Docs added
+  after OpenCode asked, and connected
+  ([`live-run.md`](../../../tools/opencode/live-run.md)). CI runs the tests on
+  Linux and macOS.
+- **Not tried yet:** Windows, and the TUI and the desktop app as clients.
 
 ## Security
 

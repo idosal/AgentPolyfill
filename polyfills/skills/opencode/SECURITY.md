@@ -53,9 +53,11 @@ skill OpenCode has from elsewhere under the same id.
   skill whose content the server generates (`"dynamic"`) has no digest: it
   saves nothing and is asked about every time.
 - **A cross-server read** is `mcp_skills_cross_server`: once a session has
-  loaded a served skill, OpenCode's own `opencode_read_mcp_resource` for a
-  different server is put to your rules first, naming both servers, for that
-  one read.
+  loaded a served skill, OpenCode's own resource read for a different server
+  is put to your rules first, naming both servers, for that one read. The
+  hook knows the read by its effective name and by the dotted name a model or
+  a Code Mode program may use, holds for the session's subagents, and holds
+  after a restart.
 - **Nothing else.** Listing skills and reading a loaded skill's own files
   raise no question.
 
@@ -78,8 +80,10 @@ and not shown.
 ### What is kept
 
 A log in `~/.local/share/opencode/mcp-skills/` (or `MCP_SKILLS_STATE`),
-readable only by you, with secrets taken out. Your approvals are OpenCode's
-own saved permission rules. No skill content is kept.
+readable only by you, with secrets taken out. In the plugin's OpenCode
+storage, for each session that loaded a served skill, the names of the
+servers it loaded skills from (for X8). Your approvals are OpenCode's own
+saved permission rules. No skill content is kept.
 
 ## What it does not protect against
 
