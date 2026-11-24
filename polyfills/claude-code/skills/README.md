@@ -18,23 +18,30 @@ of the terminal, and waits are shortened.
 
 ## Install
 
-At the prompt of a `claude` session in a terminal:
+At the prompt of a `claude` session:
 
 ```
-/plugin install mcp-skills --marketplace OWNER/REPO
+/plugin install mcp-skills --marketplace idosal/MCPolyfill
 ```
 
-Or from a checkout of this repository:
+Or in a terminal:
 
 ```bash
-claude --plugin-dir /path/to/this/repository/mod
+claude plugin install mcp-skills --marketplace idosal/MCPolyfill
 ```
+
+Either adds the [MCPolyfill](../../../README.md) marketplace and installs
+the plugin in one step. With the marketplace already added,
+`/plugin install mcp-skills@mcpolyfill` does the same; to add the marketplace
+by itself, `/plugin marketplace add idosal/MCPolyfill`.
+`/plugin install mcpolyfill --marketplace idosal/MCPolyfill` installs every
+polyfill in the marketplace, this one included.
 
 That is the whole install: no settings to fill in, nothing to configure per
 server. You need:
 
-- **Claude Code 2.1.329 or newer** (the version it was tested on), with mods,
-  an early-access feature.
+- **Claude Code 2.1.329 or newer** (the version it was tested on). Mods, the
+  kind of plugin this is, are on by default from Claude Code 2.1.287.
 - **Node 20 or newer, or Bun, somewhere on the machine.** Claude Code itself
   needs neither. The mod looks on your PATH, asks your login shell, and checks
   the usual install folders; if it finds none it says so once, with what to
@@ -44,16 +51,23 @@ Nothing else is installed or downloaded: the mod is one small folder,
 [`mod/`](mod/). To turn it off, disable or uninstall the plugin
 (`/plugin`).
 
-## Try it
+To run it from a clone of this repository instead, for one session:
 
-Add Hugging Face's MCP server to a project's `.mcp.json`. It needs no account
-for this:
-
-```json
-{ "mcpServers": { "huggingface": { "type": "http", "url": "https://huggingface.co/mcp" } } }
+```bash
+git clone https://github.com/idosal/MCPolyfill
+claude --plugin-dir MCPolyfill/polyfills/claude-code/skills/mod
 ```
 
-Start Claude Code in that project and ask something one of its skills covers:
+## Try it
+
+Add Hugging Face's public MCP server. It serves skills, and needs no account
+for this:
+
+```bash
+claude mcp add --transport http huggingface https://huggingface.co/mcp
+```
+
+Start `claude` in the same folder and ask something one of its skills covers:
 
 > Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?
 
@@ -94,14 +108,15 @@ that serves two skills (`npm install`, then point a server entry at
   again for a day. A session waits for a first listing (at most 4 seconds) only
   for servers that serve skills or that it has not looked at yet.
 
-### First run, step by step
+## From install to the first skill
 
 What a new user meets between the install line and a skill being used, and
 what happens when a step is missing or you say no:
 
 | Step | What you see | If it is missing or declined |
 |---|---|---|
-| Install | Two questions from Claude Code: "Add marketplace?" (y/n), then the plugin's page with where to install it (you, this repository, or "Not now"). Then "Installed mcp-skills. Plugin is now active." No settings, no restart. | Nothing is installed. |
+| Install | Two questions from Claude Code: "Add marketplace?" (y/n), then the plugin's page with where to install it (you, this repository, or "Not now"). Then "Installed mcp-skills. Plugin is now active." No settings, no restart. The terminal form asks nothing. | Nothing is installed. |
+| A folder you trust | Claude Code's question about trusting the folder, the first time you start `claude` in it. | Claude Code runs no plugin code in a folder you have not trusted, so the mod does nothing there. |
 | A runtime for the helper | Nothing: Node 20+ or Bun is found by itself. | One notice saying what to install. `/mcp-skills` and the mod's tools say the same. Claude Code is otherwise unchanged. |
 | A server that serves skills | Its skills are in Claude's listing and in `/mcp-skills` at once (from the next session for a server added later). | `/mcp-skills` says no server serves skills, and names each server it left alone with the reason: not approved in Claude Code yet, switched off, needs a browser sign-in, comes from a plugin or a claude.ai connector. |
 | A project's `.mcp.json` server | Claude Code's own question about trusting the folder and approving the server. | The mod leaves the server alone until Claude Code itself uses it. |
@@ -263,6 +278,8 @@ The output of each run is in [`docs/evidence/`](docs/evidence/).
 
 ### Development
 
+From this folder (`polyfills/claude-code/skills` in the repository):
+
 ```bash
 npm install
 npm test            # client rules, discovery, the bundled helper
@@ -281,7 +298,8 @@ connection the mod has to make for itself today.
 
 ## Problems and questions
 
-Open an issue on this repository. Say which Claude Code version you run
+[Open an issue](https://github.com/idosal/MCPolyfill/issues) that names
+`mcp-skills`. Say which Claude Code version you run
 (`claude --version`), how the server is configured (without its token), and
 what `/mcp-skills` prints. For a security problem, see
 [`SECURITY.md`](SECURITY.md#reporting-a-problem).
@@ -290,8 +308,8 @@ what `/mcp-skills` prints. For a security problem, see
 
 This mod is one of a set of polyfills that add MCP extensions to Claude Code
 ahead of native support, collected at
-[MCPolyfill](https://github.com/idosal/MCPolyfill).
+[MCPolyfill](../../../README.md).
 
 ## Licence
 
-[Apache-2.0](LICENSE). By Ido Salomon.
+[Apache-2.0](../../../LICENSE). By Ido Salomon.
