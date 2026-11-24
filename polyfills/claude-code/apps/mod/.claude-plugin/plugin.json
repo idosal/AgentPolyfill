@@ -1,9 +1,10 @@
 {
   "name": "mcp-apps-cli",
   "version": "0.1.0",
-  "description": "Render MCP App UIs inline in the Claude Code CLI, with clicks and keys forwarded to the app",
+  "description": "Unofficial MCP Apps client for the Claude Code terminal: app UIs render inline, with clicks and keys forwarded to the app",
   "author": {
-    "name": "MCP Apps"
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
   },
   "license": "Apache-2.0",
   "types": "./types/index.d.ts",
