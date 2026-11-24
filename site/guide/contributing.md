@@ -1,0 +1,96 @@
+---
+description: How to report a problem, and how to add a new polyfill to the AgentPolyfill repository.
+---
+
+# Contributing
+
+Bug reports, fixes and new polyfills are welcome. For a bug or a question,
+[open an issue](https://github.com/idosal/AgentPolyfill/issues) and name the
+polyfill it concerns. For anything larger than a fix, open an issue first, so
+the design can be agreed before the work. For a security problem, see
+[Security](./security) instead.
+
+## Adding a polyfill
+
+A polyfill implements the client side of one published MCP extension inside one
+host that has not shipped it, and does nothing once the host supports the
+extension itself. Each one is a folder in the repository.
+
+### 1. Meet the contract
+
+Every polyfill meets [the contract](./build-a-polyfill#the-contract): one
+published extension and nothing else, a named spec revision, a test for each
+client rule plus a run against a server someone else wrote, a stand-down, stated
+limits, and server content treated as untrusted data. The `create-polyfill`
+skill walks an agent through building one to that contract:
+
+```
+/plugin install polyfill-author --marketplace idosal/AgentPolyfill
+```
+
+If what you want is not in any spec, the `design-extension` skill in the same
+plugin covers that case: a polyfill never adds behaviour of its own.
+
+### 2. Put it in its folder
+
+```
+polyfills/<host>/<extension>/
+```
+
+- `<host>` is the host it runs in, in lower case with hyphens: `claude-code`.
+- `<extension>` is the extension's short name: `apps`, `events`, `skills`,
+  `server-cards`.
+
+Inside the folder, the installable plugin goes in a subfolder (`mod/` in the
+Apps polyfill), holding `.claude-plugin/plugin.json` and only what the plugin
+runs; tests, build scripts, benchmarks and design notes go beside it. The
+plugin's name is unique in the repository. No large files in git: nothing over
+about 1 MB unless the plugin or its tests cannot work without it. The repository
+is Apache-2.0, and so is every contribution; keep the notices of third-party
+code the polyfill ships in a `THIRD_PARTY_LICENSES.txt` in its folder.
+
+### 3. Write its README
+
+For someone who has never seen the repository:
+
+- **The extension:** its identifier, the spec's name and revision, and a link.
+- **The client rules:** a checklist with one row for each rule the spec puts on
+  a client (each MUST and SHOULD), the test that covers it, and its state.
+- **Stand-down:** how it detects native support, or, until it can, the setting
+  that turns it off.
+- **Limits:** what it cannot do on this host, and for each limit the host change
+  that would remove it (added to `docs/host-changes.md` too).
+- **Requirements, install and use:** the one-line install first, then every
+  step and question a new user meets between that line and the extension
+  working, with what happens when they say no.
+- **Privacy and security:** what it sends where, and what it stores.
+
+### 4. Add it to the marketplace
+
+Add an entry to `.claude-plugin/marketplace.json`, add the plugin's name to the
+`dependencies` of the `agent-polyfill` plugin and to the list in its README (CI
+fails until the two lists match), and add a row to the polyfills table in the
+repository's README.
+
+### 5. Add its CI
+
+Every push and pull request runs the repository checks: valid manifests,
+`claude plugin validate` for the marketplace and every plugin, and the bundle
+depending on every polyfill. Add the polyfill's own tests as
+`.github/workflows/<plugin>-test.yml`, filtered to its folder. A polyfill that
+ships built files also gets a release workflow, run on its own tags,
+`<plugin>-v<version>`.
+
+### 6. Before you open the pull request
+
+```bash
+claude plugin validate .
+claude plugin validate polyfills/<host>/<extension>/<plugin subfolder>
+```
+
+Run the polyfill's tests, and do one recorded run in the real host against a
+server you did not write. Say in the pull request what you ran and what you saw.
+
+The full text, with the marketplace entry's format and the workflow files to
+copy, is
+[`CONTRIBUTING.md`](https://github.com/idosal/AgentPolyfill/blob/main/CONTRIBUTING.md).

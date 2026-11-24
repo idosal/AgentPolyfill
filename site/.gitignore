@@ -1,0 +1,6 @@
+node_modules/
+.vitepress/cache/
+.vitepress/dist/
+.wrangler/
+# Copied, encoded or downloaded by scripts/media.mjs at build time (see media.json).
+public/media/*.mp4

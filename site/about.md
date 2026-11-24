@@ -1,0 +1,41 @@
+---
+description: Who makes AgentPolyfill, its licence, and what it is not affiliated with.
+aside: false
+---
+
+# About
+
+AgentPolyfill is a community project by
+[Ido Salomon](https://github.com/idosal): plugins that add open agent
+extensions to the host you already have, starting with four MCP extensions and
+one open draft beyond MCP in Claude Code.
+
+## Not affiliated
+
+AgentPolyfill is not part of the MCP specification and is not affiliated with or
+endorsed by the MCP project, the Agentic AI Foundation, the Linux Foundation,
+Anthropic, any host vendor, or the authors of Agentic Resource Discovery. The
+author works in the MCP Apps working group;
+this is not working-group output.
+
+Model Context Protocol and MCP are trademarks of LF Projects, LLC. Claude and
+Claude Code are trademarks of Anthropic, PBC.
+
+## Licence
+
+Apache-2.0. See
+[LICENSE](https://github.com/idosal/AgentPolyfill/blob/main/LICENSE). Each
+polyfill that ships third-party code includes its notices in its folder.
+
+## Source
+
+The plugins, their docs and this site are in one repository:
+[github.com/idosal/AgentPolyfill](https://github.com/idosal/AgentPolyfill). This
+site is built with VitePress from the `site/` folder, from the repository's own
+READMEs, with a launch video and one recording per polyfill made for the site.
+
+## Contact
+
+Problems and questions:
+[open an issue](https://github.com/idosal/AgentPolyfill/issues). Security
+problems: see [Security](/guide/security).
