@@ -1,6 +1,6 @@
 // Model-checks the TLA+ models in this folder with TLC, each configuration
 // against what it should give: every invariant holds, or (for a configuration
-// of 0.1.1's code, or of a documented limit) the one named is violated.
+// of an earlier version's code) the one named is violated.
 //
 //   node model/check.mjs [name ...]
 //
@@ -24,6 +24,8 @@ const RUNS = [
   ["Race.cfg", "MCAppsViews.tla", "holds"],
   ["Traffic.cfg", "MCAppsViews.tla", "holds"],
   ["TrafficShared.cfg", "MCAppsViews.tla", "holds"],
+  ["Instance.cfg", "MCAppsViews.tla", "holds"],
+  ["ReopenTraffic.cfg", "MCAppsViews.tla", "holds"],
   ["Token.cfg", "MCAppsViews.tla", "holds"],
   ["ConsentRules.cfg", "AppsConsent.tla", "holds"],
   ["ConsentAsk.cfg", "AppsConsent.tla", "holds"],
@@ -34,9 +36,13 @@ const RUNS = [
   ["RaceBeforeDead.cfg", "MCAppsViews.tla", "NoDeadViews"],
   ["TrafficBefore.cfg", "MCAppsViews.tla", "GatedSends"],
   ["TrafficBeforeNo.cfg", "MCAppsViews.tla", "NoSendAfterNo"],
-  // Documented limits: these must stay reachable, or the docs are wrong.
-  ["Window.cfg", "MCAppsViews.tla", "SendsOnlyWhileUsed"],
-  ["Instance.cfg", "MCAppsViews.tla", "SameInstance"],
+  // 0.1.2, before the fixes of 0.1.3 (the two windows 0.1.2 documented).
+  ["WindowBefore.cfg", "MCAppsViews.tla", "SendsOnlyWhileUsed"],
+  ["CancelBefore.cfg", "MCAppsViews.tla", "NoAnswerAfterNo"],
+  ["InstanceBefore.cfg", "MCAppsViews.tla", "SameInstance"],
+  // Generations without the one-at-a-time order of /open and /close: a late
+  // /open of an earlier generation replaces the newer page, so the order stays.
+  ["RaceGen.cfg", "MCAppsViews.tla", "NoDeadViews"],
   // Witnesses: each outcome the consent properties judge does happen.
   ["WitnessNothingRuns.cfg", "AppsConsent.tla", "NothingRuns"],
   ["WitnessNothingSent.cfg", "AppsConsent.tla", "NothingSent"],
@@ -90,7 +96,8 @@ for (const [cfg, module, expected] of RUNS) {
   const started = Date.now();
   const { text, tooBig } = await tlc(cfg, module, meta);
   fs.rmSync(meta, { recursive: true, force: true });
-  const states = /([\d,]+) distinct states found/.exec(text)?.[1] ?? "?";
+  // The last count TLC prints is the final one (progress lines come before it).
+  const states = [...text.matchAll(/([\d,]+) distinct states found/g)].at(-1)?.[1]?.replaceAll(",", "") ?? "?";
   const depth = /depth of the complete state graph search is (\d+)/.exec(text)?.[1] ?? "?";
   const violated = /Invariant (\w+) is violated/.exec(text)?.[1];
   const holds = /Model checking completed\. No error has been found/.test(text);

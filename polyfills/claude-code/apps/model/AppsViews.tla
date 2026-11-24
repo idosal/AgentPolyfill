@@ -21,6 +21,12 @@
 (*  - Requests between the mod and the helper are separate HTTP requests:  *)
 (*    they may arrive in any order. Lines on the helper's stdout reach the *)
 (*    mod in order, and are taken as handled when they are read.           *)
+(*  - A request the helper writes to a server waits, from 0.1.3, for       *)
+(*    Claude Code's verdict asked for that request (mcp.rs, admit): the    *)
+(*    mod's $.mcp.connect and the helper's write are one step here. In the *)
+(*    code they are one local round trip apart (the mod's /reply), which   *)
+(*    this model does not see. Likewise a /revoke the mod sends on a no is *)
+(*    applied in the step the mod hears the no.                           *)
 (*                                                                         *)
 (* Each violation is recorded in `seen` at the step that commits it, so an *)
 (* invariant is "this tag never appears".                                  *)
@@ -38,6 +44,12 @@ CONSTANTS
                  \* after Claude Code's verdict on that server says yes (0.1.2)
     FixOrder,    \* TRUE: the mod sends one view id's /open and /close one at a
                  \* time, each after the one before it was answered (0.1.2)
+    FixAtSend,   \* TRUE: no yes is kept: every request the helper writes to a
+                 \* server waits for a verdict asked for it (0.1.3)
+    FixRevoke,   \* TRUE: a no cancels what the helper has in flight to that
+                 \* server, and the mod asks again while the helper waits on one (0.1.3)
+    FixGen,      \* TRUE: each open of a view has its own generation, carried by
+                 \* /open, /close, the page's requests and their answers (0.1.3)
     Fickle,      \* Claude Code may stop (and start again) using a server at any time
     AppTraffic,  \* the views' apps make requests (off: the views' life alone)
     Others       \* another local program tries the helper's endpoint
@@ -47,6 +59,7 @@ ASSUME /\ LiveMax \in Nat \ {0}
        /\ Remote \subseteq Servers
        /\ CallServer \in [Calls -> Servers]
        /\ FixRecheck \in BOOLEAN /\ FixOrder \in BOOLEAN /\ Fickle \in BOOLEAN /\ AppTraffic \in BOOLEAN /\ Others \in BOOLEAN
+       /\ FixAtSend \in BOOLEAN /\ FixRevoke \in BOOLEAN /\ FixGen \in BOOLEAN
 
 None == 0
 Forged == MaxOpens + 1   \* what a request without the token would name
@@ -60,7 +73,7 @@ Expanded(s) == {v \in EnvVars : ~(s \in Remote /\ v = "cred")}
 
 Tags == {"UnverifiedSend", "SendAfterNo", "SentWhileUnused", "CredentialToRemote",
          "HeadersElsewhere", "TooManyLive", "ForeignEffect", "ResultFromOtherServer",
-         "EffectForClosedView", "EffectForOtherInstance", "OrphanPage"}
+         "EffectForClosedView", "EffectForOtherInstance", "OrphanPage", "AnsweredAfterNo"}
 
 VARIABLES
     epoch,   \* state.epoch: 0, then 1 after /clear
@@ -77,9 +90,12 @@ VARIABLES
     outq,    \* [Calls -> Seq(Msg)]: with FixOrder, the id's requests not sent yet
     busy,    \* [Calls -> BOOLEAN]: with FixOrder, the id's request sent and not yet answered
     appq,    \* [Calls -> request]: an app request the helper passed to the mod (kind "none": none)
+    infl,    \* [Calls -> 0..Forged]: the page whose app request the helper wrote to the
+             \* server and has no answer for yet (0: none)
+    cut,     \* ids whose open under way was cancelled by a no on its server (FixRevoke)
     seen     \* the tags of violations committed so far
 
-vars == <<epoch, ccUses, known, fresh, status, inst, hpage, hopen, early, net, resp, outq, busy, appq, seen>>
+vars == <<epoch, ccUses, known, fresh, status, inst, hpage, hopen, early, net, resp, outq, busy, appq, infl, cut, seen>>
 
 Kinds == {"read", "apptool", "tool"}
 \* read: resources/read (or list, templates); apptool: tools/call of a tool only
@@ -106,6 +122,8 @@ TypeOK ==
     /\ outq \in [Calls -> Seq(Msg)]
     /\ busy \in [Calls -> BOOLEAN]
     /\ appq \in [Calls -> [n : 0..Forged, kind : Kinds \cup {"none"}]]
+    /\ infl \in [Calls -> 0..Forged]
+    /\ cut \subseteq Calls
     /\ seen \subseteq Tags
 
 Init ==
@@ -123,24 +141,31 @@ Init ==
     /\ outq = [c \in Calls |-> <<>>]
     /\ busy = [c \in Calls |-> FALSE]
     /\ appq = [c \in Calls |-> NoReq]
+    /\ infl = [c \in Calls |-> None]
+    /\ cut = {}
     /\ seen = {}
 
 LiveSet == {c \in Calls : status[c] \in {"opening", "live"}}
 
 (***************************************************************************)
-(* usedByClaudeCode(server), mod/hooks/helper.ts: a kept verdict while it  *)
-(* is fresh, else $.mcp.connect, which says connected under exactly that   *)
-(* name or not. Says the answer, and what the mod keeps.                   *)
+(* usedByClaudeCode(server), mod/hooks/helper.ts: $.mcp.connect, which     *)
+(* says connected under exactly that name or not. Before 0.1.3 a yes was   *)
+(* kept 5 s (fresh) and reused for discovery and opening; from 0.1.3       *)
+(* nothing is kept. Learn says what the mod then knows; Revoked and CutBy  *)
+(* what a no cancels (FixRevoke: /revoke, the helper's in-flight requests  *)
+(* to the server and an open of its under way).                           *)
 (***************************************************************************)
-Answer(s) == IF fresh[s] THEN known[s] = "yes" ELSE ccUses[s]
+Answer(s) == IF fresh[s] /\ ~FixAtSend THEN known[s] = "yes" ELSE ccUses[s]
+Learn(s, yes) ==
+    /\ known' = [known EXCEPT ![s] = IF yes THEN "yes" ELSE "no"]
+    /\ fresh' = [fresh EXCEPT ![s] = ~FixAtSend]
+Revoked(s, yes, f) == IF FixRevoke /\ ~yes THEN [c \in Calls |-> IF CallServer[c] = s THEN None ELSE f[c]] ELSE f
+CutBy(s, yes) == IF FixRevoke /\ ~yes THEN {c \in Calls : CallServer[c] = s /\ hopen[c] # None} ELSE {}
+\* Asked, kept verdict allowed (before 0.1.3, for discovery and opening).
 Asked(s) ==
-    /\ known' = [known EXCEPT ![s] = IF Answer(s) THEN "yes" ELSE "no"]
-    /\ fresh' = [fresh EXCEPT ![s] = TRUE]
-\* usedByClaudeCode(server, true): asked afresh, the kept verdict not used (an
-\* app's own traffic, 0.1.2).
-AskedFresh(s) ==
-    /\ known' = [known EXCEPT ![s] = IF ccUses[s] THEN "yes" ELSE "no"]
-    /\ fresh' = [fresh EXCEPT ![s] = TRUE]
+    /\ Learn(s, Answer(s))
+    /\ infl' = Revoked(s, Answer(s), infl)
+    /\ cut' = cut \cup CutBy(s, Answer(s))
 
 (***************************************************************************)
 (* The helper sends something to server s: what that may break. `checked`: *)
@@ -166,13 +191,24 @@ GotTags(c, from, n) ==
 CCChange(s) ==
     /\ Fickle
     /\ ccUses' = [ccUses EXCEPT ![s] = ~@]
-    /\ UNCHANGED <<epoch, known, fresh, status, inst, hpage, hopen, early, net, resp, appq, seen, outq, busy>>
+    /\ UNCHANGED <<epoch, known, fresh, status, inst, hpage, hopen, early, net, resp, appq, infl, cut, seen, outq, busy>>
 
 \* A kept verdict ages out (5 s).
 Expire(s) ==
     /\ fresh[s]
     /\ fresh' = [fresh EXCEPT ![s] = FALSE]
-    /\ UNCHANGED <<epoch, ccUses, known, status, inst, hpage, hopen, early, net, resp, appq, seen, outq, busy>>
+    /\ UNCHANGED <<epoch, ccUses, known, status, inst, hpage, hopen, early, net, resp, appq, infl, cut, seen, outq, busy>>
+
+\* FixRevoke: while the helper waits on s (an app request in flight, an open
+\* reading its UI resource), the mod asks Claude Code again (every 0.5 s in
+\* the code, any time here), and a no cancels what is in flight.
+Watch(s) ==
+    /\ FixRevoke
+    /\ \E c \in Calls : CallServer[c] = s /\ (infl[c] # None \/ hopen[c] # None)
+    /\ Learn(s, ccUses[s])
+    /\ infl' = Revoked(s, ccUses[s], infl)
+    /\ cut' = cut \cup CutBy(s, ccUses[s])
+    /\ UNCHANGED <<epoch, ccUses, status, inst, hpage, hopen, early, net, resp, appq, seen, outq, busy>>
 
 ---------------------------------------------------------------------------
 (* The mod *)
@@ -195,11 +231,12 @@ Dispatch(c) ==
     /\ net' = net \cup {Head(outq[c])}
     /\ outq' = [outq EXCEPT ![c] = Tail(@)]
     /\ busy' = [busy EXCEPT ![c] = TRUE]
-    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hpage, hopen, early, resp, appq, seen>>
+    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hpage, hopen, early, resp, appq, infl, cut, seen>>
 
 \* Opening a view for c (status none: Claude's call runs; closed: reopen, or a
 \* sleeping view back in sight). Discovery and /open both name the server, so
-\* the mod asks usedByClaudeCode first and goes on only on a yes. Older views
+\* the mod asks usedByClaudeCode first and goes on only on a yes. The open's
+\* number (inst) is its generation, with FixGen carried by its /open. Older views
 \* past LiveMax close as the new one opens (any of them: the code takes the
 \* oldest, and every choice is covered here).
 Open(c) ==
@@ -218,7 +255,8 @@ Open(c) ==
                  /\ inst' = [inst EXCEPT ![c] = @ + 1]
                  /\ Post({[kind |-> "open", id |-> c, n |-> inst[c] + 1, tok |-> TRUE]}
                           \cup {[kind |-> "close", id |-> d, n |-> inst[d], tok |-> TRUE] : d \in victims})
-                 \* Discovery reached the server (helper /discover): sent under the yes.
+                 \* Discovery reached the server (helper /discover): sent under the
+                 \* yes (from 0.1.3, its own, asked by the helper: one step here).
                  /\ seen' = seen \cup SendTags(s, TRUE, FALSE)
                             \cup (IF Cardinality({d \in Calls : status'[d] \in {"opening", "live"}}) > LiveMax
                                   THEN {"TooManyLive"} ELSE {})
@@ -231,7 +269,7 @@ Close(c) ==
     /\ status[c] \in {"opening", "live"}
     /\ status' = [status EXCEPT ![c] = "closed"]
     /\ Post({[kind |-> "close", id |-> c, n |-> inst[c], tok |-> TRUE]})
-    /\ UNCHANGED <<epoch, ccUses, known, fresh, inst, hpage, hopen, early, resp, busy, appq, seen>>
+    /\ UNCHANGED <<epoch, ccUses, known, fresh, inst, hpage, hopen, early, resp, busy, appq, infl, cut, seen>>
 
 \* The helper answered an /open. Still the one opening: live (or failed).
 \* Closed meanwhile with no newer open of the id: the helper is told again
@@ -247,7 +285,7 @@ OpenAnswered(r) ==
             /\ IF r.ok /\ inst[r.id] = r.n
                THEN Post({[kind |-> "close", id |-> r.id, n |-> r.n, tok |-> TRUE]})
                ELSE UNCHANGED <<net, outq>>
-    /\ UNCHANGED <<epoch, ccUses, known, fresh, inst, hpage, hopen, early, appq, seen>>
+    /\ UNCHANGED <<epoch, ccUses, known, fresh, inst, hpage, hopen, early, appq, infl, cut, seen>>
 
 \* /clear or the end of the session: verdicts forgotten, every view closed
 \* (and gone with the transcript it was drawn in), /close for those open.
@@ -258,7 +296,7 @@ SessionEnd ==
     /\ fresh' = [s \in Servers |-> FALSE]
     /\ status' = [c \in Calls |-> IF status[c] = "none" THEN "none" ELSE "gone"]
     /\ Post({[kind |-> "close", id |-> c, n |-> inst[c], tok |-> TRUE] : c \in LiveSet})
-    /\ UNCHANGED <<ccUses, inst, hpage, hopen, early, resp, busy, appq, seen>>
+    /\ UNCHANGED <<ccUses, inst, hpage, hopen, early, resp, busy, appq, infl, cut, seen>>
 
 \* Claude's own call returns: its result goes to its view (/result), on the
 \* page the helper holds for the id.
@@ -266,35 +304,53 @@ ToolResult(c) ==
     /\ status[c] = "live"
     /\ hpage[c] # None
     /\ seen' = seen \cup GotTags(c, CallServer[c], hpage[c])
-    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hpage, hopen, early, net, resp, appq, outq, busy>>
+    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hpage, hopen, early, net, resp, appq, infl, cut, outq, busy>>
 
 \* The mod takes an app request from the helper's stdout (onHelperMessage,
 \* 'request'). It finds the view by id and acts only while that view is live
-\* (isLive). With the fix, the app's own traffic to its server (reads, and
-\* calls of app-only tools) also waits for Claude Code's verdict on that
-\* server; a model-visible tool goes over Claude Code's own connection
-\* ($.mcp.call), which Claude Code itself decides about.
+\* (isLive); with FixGen only on a request of that view's own open (the
+\* request carries its page's generation). With FixRecheck, the app's own
+\* traffic to its server (reads, and calls of app-only tools) also waits for
+\* Claude Code's verdict on that server, asked afresh (from 0.1.3 after the
+\* person's consent, right before the answer); a model-visible tool goes over
+\* Claude Code's own connection ($.mcp.call), which Claude Code decides about.
+\* What the helper then sends is in flight (infl) until the server answers.
 AppHandled(c) ==
     LET q == appq[c]
         s == CallServer[c]
         helperSends == q.kind \in {"read", "apptool"}
         gate == FixRecheck /\ helperSends
         liveHere == status[c] \in {"opening", "live"}
+        ours == ~FixGen \/ inst[c] = q.n
+        asked == gate /\ liveHere /\ ours
         yes == ~gate \/ ccUses[s]
-        goes == liveHere /\ yes /\ hpage[c] = q.n
-        \* What the run commits: the helper's traffic to the server, and the
-        \* answer to the page (the same page instance that asked).
-        \* Gated, the send follows this check's yes; ungated, it follows whatever
-        \* the mod last heard.
-        tags == (IF helperSends THEN SendTags(s, gate, ~gate /\ known[s] = "no") ELSE {})
-                \cup GotTags(c, s, q.n)
+        goes == liveHere /\ ours /\ yes /\ hpage[c] = q.n
+        \* What the run commits: the helper's traffic to the server (its
+        \* answer comes later, ServerAnswers), or Claude Code's call and its
+        \* answer to the page. Gated, the send follows this check's yes;
+        \* ungated, it follows whatever the mod last heard.
+        tags == (IF helperSends THEN SendTags(s, gate, ~gate /\ known[s] = "no") ELSE GotTags(c, s, q.n))
                 \cup (IF inst[c] # q.n THEN {"EffectForOtherInstance"} ELSE {})
     IN
     /\ q.kind # "none"
     /\ appq' = [appq EXCEPT ![c] = NoReq]
-    /\ IF gate /\ liveHere THEN AskedFresh(s) ELSE UNCHANGED <<known, fresh>>
+    /\ IF asked THEN Learn(s, ccUses[s]) ELSE UNCHANGED <<known, fresh>>
+    /\ infl' = IF goes /\ helperSends THEN [infl EXCEPT ![c] = q.n]
+               ELSE IF asked THEN Revoked(s, ccUses[s], infl) ELSE infl
+    /\ cut' = IF asked THEN cut \cup CutBy(s, ccUses[s]) ELSE cut
     /\ seen' = IF goes THEN seen \cup tags ELSE seen
     /\ UNCHANGED <<epoch, ccUses, status, inst, hpage, hopen, early, net, resp, outq, busy>>
+
+\* The server answers an app request the helper sent it: the answer goes to
+\* the page that asked, if it is still there.
+ServerAnswers(c) ==
+    LET s == CallServer[c] IN
+    /\ infl[c] # None
+    /\ infl' = [infl EXCEPT ![c] = None]
+    /\ seen' = IF hpage[c] = infl[c]
+               THEN seen \cup GotTags(c, s, infl[c]) \cup (IF known[s] = "no" THEN {"AnsweredAfterNo"} ELSE {})
+               ELSE seen
+    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hpage, hopen, early, net, resp, appq, cut, outq, busy>>
 
 ---------------------------------------------------------------------------
 (* The helper *)
@@ -306,57 +362,83 @@ Foreign(c) ==
     /\ Others
     /\ \E k \in {"open", "discover"} :
           net' = net \cup {[kind |-> k, id |-> c, n |-> Forged, tok |-> FALSE]}
-    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hpage, hopen, early, resp, appq, seen, outq, busy>>
+    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hpage, hopen, early, resp, appq, infl, cut, seen, outq, busy>>
 
 \* server.rs answer(): a request without the token is refused before its body.
 Refuse(m) ==
     /\ m \in net /\ ~m.tok
     /\ net' = net \ {m}
-    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hpage, hopen, early, resp, appq, seen, outq, busy>>
+    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hpage, hopen, early, resp, appq, infl, cut, seen, outq, busy>>
 
 \* views.rs open(): one open per id at a time (its lock); a close kept from an
 \* earlier open is dropped; an id it already holds a page for answers
-\* "existing"; else the page is made and the UI resource read from the server.
+\* "existing" (with FixGen only a page of this open's generation: one of an
+\* earlier open is closed, and this open makes its own); else the page is
+\* made and the UI resource read from the server, with FixAtSend only on a
+\* verdict asked for that read (else the open fails).
 HelperOpen(m) ==
+    LET c == m.id
+        s == CallServer[c]
+        existing == hpage[c] # None /\ (~FixGen \/ hpage[c] = m.n)
+        yes == ~FixAtSend \/ ccUses[s]
+    IN
     /\ m \in net /\ m.tok /\ m.kind = "open"
-    /\ hopen[m.id] = None
+    /\ hopen[c] = None
     /\ net' = net \ {m}
-    /\ early' = early \ {m.id}
-    /\ IF hpage[m.id] # None
-       THEN /\ resp' = resp \cup {[id |-> m.id, n |-> m.n, ok |-> TRUE]}
-            /\ UNCHANGED <<hopen, seen>>
-       ELSE /\ hopen' = [hopen EXCEPT ![m.id] = m.n]
-            /\ seen' = seen \cup SendTags(CallServer[m.id], TRUE, FALSE)
-            /\ UNCHANGED resp
-    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hpage, appq, outq, busy>>
+    /\ early' = early \ {c}
+    /\ IF existing
+       THEN /\ resp' = resp \cup {[id |-> c, n |-> m.n, ok |-> TRUE]}
+            /\ UNCHANGED <<hopen, hpage, seen, known, fresh, infl, cut>>
+       ELSE /\ hpage' = [hpage EXCEPT ![c] = None]
+            /\ IF FixAtSend
+               THEN /\ Learn(s, ccUses[s])
+                    /\ infl' = Revoked(s, ccUses[s], infl)
+                    /\ cut' = (cut \ {c}) \cup CutBy(s, ccUses[s])
+               ELSE /\ UNCHANGED <<known, fresh, infl>>
+                    /\ cut' = cut \ {c}
+            /\ IF yes
+               THEN /\ hopen' = [hopen EXCEPT ![c] = m.n]
+                    /\ seen' = seen \cup SendTags(s, TRUE, FALSE)
+                    /\ UNCHANGED resp
+               ELSE /\ resp' = resp \cup {[id |-> c, n |-> m.n, ok |-> FALSE]}
+                    /\ UNCHANGED <<hopen, seen>>
+    /\ UNCHANGED <<epoch, ccUses, status, inst, appq, outq, busy>>
 
-\* The open is done: closed while it opened (closed_early), or its page is up.
+\* The open is done: closed while it opened (closed_early), cancelled by a no
+\* on its server (FixRevoke), or its page is up.
 HelperOpened(c) ==
+    LET down == c \in early \/ c \in cut IN
     /\ hopen[c] # None
     /\ hopen' = [hopen EXCEPT ![c] = None]
-    /\ IF c \in early
+    /\ cut' = cut \ {c}
+    /\ IF down
        THEN /\ early' = early \ {c}
             /\ resp' = resp \cup {[id |-> c, n |-> hopen[c], ok |-> FALSE]}
             /\ UNCHANGED hpage
        ELSE /\ hpage' = [hpage EXCEPT ![c] = hopen[c]]
             /\ resp' = resp \cup {[id |-> c, n |-> hopen[c], ok |-> TRUE]}
             /\ UNCHANGED early
-    /\ seen' = IF hopen[c] = Forged THEN seen \cup {"ForeignEffect"} ELSE seen
-    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, net, appq, outq, busy>>
+    /\ seen' = seen \cup (IF hopen[c] = Forged THEN {"ForeignEffect"} ELSE {})
+                     \cup (IF ~down /\ known[CallServer[c]] = "no" THEN {"AnsweredAfterNo"} ELSE {})
+    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, net, appq, infl, outq, busy>>
 
-\* views.rs route("/close"): the page held for the id closes (whichever open it
-\* came from); for an open under way, the close is kept for when it is done;
-\* else there is nothing to close.
+\* views.rs route("/close"): the page held for the id closes (with FixGen only
+\* one of the close's own generation); for an open under way (of its
+\* generation), the close is kept for when it is done; else there is nothing
+\* to close.
 HelperClose(m) ==
+    LET c == m.id
+        mine(n) == ~FixGen \/ n = m.n
+    IN
     /\ m \in net /\ m.tok /\ m.kind = "close"
     /\ net' = net \ {m}
-    /\ busy' = [busy EXCEPT ![m.id] = FALSE]
-    /\ IF hpage[m.id] # None
-       THEN /\ hpage' = [hpage EXCEPT ![m.id] = None]
+    /\ busy' = [busy EXCEPT ![c] = FALSE]
+    /\ IF hpage[c] # None /\ mine(hpage[c])
+       THEN /\ hpage' = [hpage EXCEPT ![c] = None]
             /\ UNCHANGED early
-       ELSE /\ early' = IF hopen[m.id] # None THEN early \cup {m.id} ELSE early
+       ELSE /\ early' = IF hopen[c] # None /\ mine(hopen[c]) THEN early \cup {c} ELSE early
             /\ UNCHANGED hpage
-    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hopen, resp, outq, appq, seen>>
+    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hopen, resp, outq, appq, infl, cut, seen>>
 
 \* Discovery asked by a request (only a forged one reaches here: the mod's own
 \* discovery is part of Open, under its verdict).
@@ -364,15 +446,16 @@ HelperDiscover(m) ==
     /\ m \in net /\ m.tok /\ m.kind = "discover"
     /\ net' = net \ {m}
     /\ seen' = seen \cup SendTags(CallServer[m.id], m.tok, FALSE) \cup {"ForeignEffect"}
-    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hpage, hopen, early, resp, appq, outq, busy>>
+    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hpage, hopen, early, resp, appq, infl, cut, outq, busy>>
 
 \* Chrome stops, or the app's page crashes: the page goes, and the mod is told
-\* ('closed') and closes the view of that id.
+\* ('closed') and closes the view of that id (with FixGen only if the page
+\* was of that view's own open).
 Crash(c) ==
     /\ hpage[c] # None
     /\ hpage' = [hpage EXCEPT ![c] = None]
-    /\ status' = [status EXCEPT ![c] = IF @ \in {"opening", "live"} THEN "closed" ELSE @]
-    /\ UNCHANGED <<epoch, ccUses, known, fresh, inst, hopen, early, net, resp, appq, seen, outq, busy>>
+    /\ status' = [status EXCEPT ![c] = IF @ \in {"opening", "live"} /\ (~FixGen \/ inst[c] = hpage[c]) THEN "closed" ELSE @]
+    /\ UNCHANGED <<epoch, ccUses, known, fresh, inst, hopen, early, net, resp, appq, infl, cut, seen, outq, busy>>
 
 \* A page's app asks something of the host. Without the fix a read goes from
 \* the helper straight to the server; everything else, and with the fix a read
@@ -381,13 +464,13 @@ AppAsks(c, k) ==
     LET s == CallServer[c] IN
     /\ AppTraffic
     /\ hpage[c] # None /\ hpage[c] # Forged
-    /\ appq[c].kind = "none"
+    /\ appq[c].kind = "none" /\ infl[c] = None
     /\ IF k = "read" /\ ~FixRecheck
        THEN /\ seen' = seen \cup SendTags(s, FALSE, known[s] = "no") \cup GotTags(c, s, hpage[c])
             /\ UNCHANGED appq
        ELSE /\ appq' = [appq EXCEPT ![c] = [n |-> hpage[c], kind |-> k]]
             /\ UNCHANGED seen
-    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hpage, hopen, early, net, resp, outq, busy>>
+    /\ UNCHANGED <<epoch, ccUses, known, fresh, status, inst, hpage, hopen, early, net, resp, infl, cut, outq, busy>>
 
 \* A server answers the helper with a redirect to another origin. The helper's
 \* HTTP clients follow one only within the server's origin (streamable HTTP:
@@ -400,8 +483,8 @@ Redirect(s) ==
 ---------------------------------------------------------------------------
 
 Next ==
-    \/ \E s \in Servers : CCChange(s) \/ Expire(s) \/ Redirect(s)
-    \/ \E c \in Calls : Open(c) \/ Close(c) \/ Dispatch(c) \/ ToolResult(c) \/ AppHandled(c)
+    \/ \E s \in Servers : CCChange(s) \/ Expire(s) \/ Redirect(s) \/ Watch(s)
+    \/ \E c \in Calls : Open(c) \/ Close(c) \/ Dispatch(c) \/ ToolResult(c) \/ AppHandled(c) \/ ServerAnswers(c)
                         \/ Foreign(c) \/ HelperOpened(c) \/ Crash(c)
                         \/ \E k \in Kinds : AppAsks(c, k)
     \/ \E r \in resp : OpenAnswered(r)
@@ -433,18 +516,22 @@ OwnServerOnly == "ResultFromOtherServer" \notin seen
 Quiet == net = {} /\ resp = {} /\ \A c \in Calls : hopen[c] = None /\ outq[c] = <<>>
 NoOrphanPages == Quiet => \A c \in Calls : hpage[c] # None => status[c] \in {"opening", "live"}
 
-\* Expected to fail, documented: a /close for an earlier open of an id can reach
-\* the helper after the id's reopen found that page and took it ("existing"),
-\* and closes it; the mod's view then stays live with no page (it shows its
-\* last picture and answers nothing) until it is closed or reopened.
-NoDeadViews == Quiet => \A c \in Calls : status[c] = "live" => hpage[c] # None
-
-\* Expected to fail, documented: the mod reuses a yes for up to 5 s, and a
-\* request already on its way is not called back, so Claude Code can stop using
-\* a server shortly before the helper's last request to it.
+\* 7. Every request the helper writes to a server goes while Claude Code uses
+\*    that server under that name (0.1.3: each waits for a verdict asked for
+\*    it; 0.1.2 reused a yes for up to 5 s for discovery and opening, and the
+\*    helper read an open's UI resource on the /open's yes).
 SendsOnlyWhileUsed == "SentWhileUnused" \notin seen
-\* Expected to fail, documented: the mod finds a view by its id, so a request
-\* an earlier open of the same call made can be answered for the reopened view.
-\* Same call, same server, same app: nothing it couldn't ask as the reopened view.
+\* 8. Once the mod has heard that Claude Code stopped using a server, nothing
+\*    more from that server reaches a view (an answer to its app, the UI
+\*    resource of an open under way) until a later yes: what the helper had in
+\*    flight to it is cancelled (0.1.3).
+NoAnswerAfterNo == "AnsweredAfterNo" \notin seen
+\* 9. What a view's app asked is done only for the open that asked it, never
+\*    for a later open of the same call (0.1.3: each open has its own generation).
 SameInstance == "EffectForOtherInstance" \notin seen
+
+\* 10. Once nothing is in flight, every view the mod has live has its page
+\*    (0.1.1 could leave one live with none: a /close for an earlier open of
+\*    the id closed the page its reopen had taken, RaceBeforeDead).
+NoDeadViews == Quiet => \A c \in Calls : status[c] = "live" => hpage[c] # None
 =============================================================================
