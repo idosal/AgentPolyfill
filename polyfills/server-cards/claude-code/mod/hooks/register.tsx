@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 import type { Json, Pick } from '../types'
 import { discover, parseTarget, type Deps, type Discovery } from './discover'
-import { defaultName, isCompatible, planAdd, previewUrl, type Plan, type Scope } from './configure'
+import { defaultName, hostOf, isCompatible, planAdd, previewUrl, type Plan, type Scope } from './configure'
 import { plainText, type ServerCard } from './card'
 import { formatDiscovery, formatOffered } from './format'
 import { freeName, install, isNameTaken } from './install'
@@ -393,7 +393,7 @@ export const register: Register = (on, options) => {
     return {
       decision: 'ask' as const,
       reason: plainText(
-        `Add the MCP server "${plan.name}" to your ${scope} MCP configuration? It connects to ${plan.url}.${headers}${where} From the Server Card ${card.name}, ${provenance}. To undo: claude mcp remove ${plan.name} -s ${scope}`,
+        `Add the MCP server "${plan.name}" to your ${scope} MCP configuration? It connects to the host ${hostOf(plan.url)}, at ${plan.url}.${headers}${where} From the Server Card ${card.name}, ${provenance}. To undo: claude mcp remove ${plan.name} -s ${scope}`,
       ),
     }
   }).catch(($, e, next) => ({ decision: 'ask' as const, reason: 'MCP Server Cards could not describe this addition. Check the server and URL in the call before you allow it.' }))
@@ -440,6 +440,10 @@ export const register: Register = (on, options) => {
                 <Box flexDirection="column" flexGrow={1}>
                   <Text>
                     {plainText(pick.title)} <Text dimColor>{plainText(pick.url)}</Text>
+                  </Text>
+                  {/* The host on its own line: what the URL connects to (security review C3). */}
+                  <Text>
+                    host <Text bold>{plainText(hostOf(pick.url)) || '(unknown)'}</Text>
                   </Text>
                   <Text dimColor={pick.isConfirmed !== false} color={pick.isConfirmed === false ? 'warning' : undefined}>
                     {plainText(pick.trust)}
