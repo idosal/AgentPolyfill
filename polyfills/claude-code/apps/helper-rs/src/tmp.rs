@@ -17,6 +17,17 @@ pub fn own_dir() -> PathBuf {
     std::env::temp_dir().join(format!("mcp-apps-cli-{}.tmp", std::process::id()))
 }
 
+/// The helper's own folder, made or found private: a folder, not a link,
+/// that this user owns and only this user can open. Its name can be
+/// guessed, and on Linux the temporary folder is shared, so another user
+/// could make it first; it is checked, not taken as found (security review,
+/// A6). Chrome's profile and the pictures go inside it.
+pub fn own_private_dir() -> Result<PathBuf> {
+    let dir = own_dir();
+    crate::store::private_folder(&dir)?;
+    Ok(dir)
+}
+
 /// Starts the watcher for Chrome (`--reap`): this same binary, in a session
 /// of its own, with no stdio, so nothing of it reaches the mod. (Windows has
 /// no need: Chrome runs in a job that ends with the helper.)
@@ -281,5 +292,34 @@ impl Signals {
             _ = self.close.recv() => {},
             _ = self.shutdown.recv() => {},
         }
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    // The security review's A6: the helper's folder has a name another local
+    // user can guess, so it is checked whoever made it.
+    #[test]
+    fn the_helpers_own_folder_is_checked_not_taken_as_found() {
+        use std::os::unix::fs::{PermissionsExt, symlink};
+        let dir = own_dir();
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_file(&dir);
+        // Made first as a link to a folder elsewhere: refused, and nothing is made there.
+        let elsewhere = std::env::temp_dir().join(format!("mcp-apps-cli-elsewhere-{}", random_hex(4).unwrap()));
+        fs::create_dir_all(&elsewhere).unwrap();
+        symlink(&elsewhere, &dir).unwrap();
+        assert!(own_private_dir().is_err());
+        assert!(fs::read_dir(&elsewhere).unwrap().next().is_none());
+        fs::remove_file(&dir).unwrap();
+        // Made first, open to everyone: closed to all but this user.
+        fs::create_dir(&dir).unwrap();
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o777)).unwrap();
+        assert_eq!(own_private_dir().unwrap(), dir);
+        assert_eq!(fs::metadata(&dir).unwrap().permissions().mode() & 0o777, 0o700);
+        fs::remove_dir_all(&dir).unwrap();
+        fs::remove_dir_all(&elsewhere).unwrap();
     }
 }
