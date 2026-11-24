@@ -14,7 +14,11 @@ use crate::out::log;
 /// over (its lines out are POSTed, the server's events come back as lines).
 pub async fn connect(url: &str, headers: HeaderMap) -> Result<DuplexStream> {
     let base = url::Url::parse(url).context("the server's url")?;
-    let client = reqwest::Client::new();
+    // No redirects, for the stream or the messages: one to another host
+    // would carry the server's headers there, outside the browser's
+    // protections, and get round the endpoint's origin check below
+    // (security review, A3).
+    let client = reqwest::Client::builder().redirect(reqwest::redirect::Policy::none()).build().context("an HTTP client")?;
     let response = client
         .get(base.clone())
         .headers(headers.clone())

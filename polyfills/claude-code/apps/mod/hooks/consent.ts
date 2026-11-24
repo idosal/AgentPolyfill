@@ -17,10 +17,14 @@ export function registerContextHooks(on: On) {
 }
 
 /**
- * Whether an app may run one of its server's tools. The person's own
- * permission rules decide first, as for Claude's calls (`$.mcp.call` itself
- * skips them): allowed runs, denied is refused. Otherwise the person is
- * asked, once per tool if they allow it for the session.
+ * Whether an app may run one of its server's tools. Only a tool its server
+ * lists. The person's own permission rules decide first, as for Claude's
+ * calls (`$.mcp.call` itself skips them): denied is refused. Then the
+ * setting: `rules` (the default) runs what the rules allow and asks where
+ * they would ask; `ask` always asks; `allow` (an opt-in, as Claude Desktop
+ * does) runs anything the rules don't deny. A check that fails is no
+ * verdict, and the person is asked whatever the setting. A yes can be for
+ * the session, once per tool.
  */
 export async function allowTool(
   $: EngineInterface,
@@ -29,6 +33,11 @@ export async function allowTool(
   args: Record<string, unknown>,
   appOnly = false,
 ): Promise<{ allow: boolean; reason?: string }> {
+  // Only a tool the server lists: a made-up name (one carrying escape
+  // sequences, say) is never put to the person or the rules.
+  if (!state.toolNames.get(view.server)?.has(name)) {
+    return { allow: false, reason: `the ${view.server} server lists no such tool` }
+  }
   const key = `${view.server}/${name}`
   // The session it's asked in: a question still waiting when it ends is never asked.
   const epoch = state.epoch
@@ -39,23 +48,16 @@ export async function allowTool(
     .check({ tool: `mcp__${view.server}__${name}`, input: args })
     .catch((error: unknown) => {
       checked = false
-      $.ui.log(`mcp-apps-cli: no permission check for ${key}${appOnly ? ' (app-only)' : ''}: ${String(error)}`, { to: 'debug' })
+      $.ui.log(`mcp-apps-cli: no permission check for ${plainText(key)}${appOnly ? ' (app-only)' : ''}: ${String(error)}`, { to: 'debug' })
       return { decision: 'ask' as const, reason: undefined }
     })
   if (verdict.decision === 'deny') {
     return { allow: false, reason: verdict.reason ?? `${name} is denied by your permission rules` }
   }
   if (allowedForSession.has(key)) return { allow: true }
-  // allow (the default): Claude Desktop runs an app's calls to its own
-  // server's tools without asking. rules: as for Claude's own calls. ask:
-  // always. A check that failed is no verdict, and the person is asked;
-  // but an app-only tool has no check to make (Claude Code doesn't
-  // register it, so no rule of the person's names it), and in allow it
-  // runs, as in Claude Desktop: a polling app (a live chart) asked at every
-  // tick otherwise.
-  const mode = state.settings.appToolCalls ?? 'allow'
-  if (mode === 'allow' && (checked || appOnly)) return { allow: true }
-  if (mode === 'rules' && verdict.decision === 'allow') return { allow: true }
+  const mode = state.settings.appToolCalls ?? 'rules'
+  if (checked && mode === 'allow') return { allow: true }
+  if (checked && mode === 'rules' && verdict.decision === 'allow') return { allow: true }
   const turn = state.asking.then(() => askPerson($, view, name, args, key, epoch))
   state.asking = turn.catch(() => {})
   return turn
@@ -74,13 +76,16 @@ async function askPerson(
   if (!isLive(view)) return { allow: false, reason: `the ${view.server} app closed` }
   // Allowed for the session while this call waited its turn.
   if (allowedForSession.has(key)) return { allow: true }
-  const shown = JSON.stringify(args)
+  // Shown as text only: the name is the server's (and listed by it), the
+  // arguments the app's.
+  const shown = plainText(JSON.stringify(args))
   const detail = shown === '{}' ? '' : ` with ${shown.length > 160 ? `${shown.slice(0, 157)}...` : shown}`
-  const always = `Allow ${name} this session`
+  const tool = plainText(name)
+  const always = `Allow ${tool} this session`
   // Answered after the session ended (or after its view closed): no grant,
   // which would carry into the next conversation, and no run.
   try {
-    const answer = await $.ui.ask(`The ${view.server} app wants to run ${name}${detail}. Allow it?`, {
+    const answer = await $.ui.ask(`The ${view.server} app wants to run ${tool}${detail}. Allow it?`, {
       options: ['Allow', always, 'Deny'],
       header: 'MCP App',
     })
@@ -160,9 +165,24 @@ export async function appMessage($: EngineInterface, view: View, params: Record<
   }
 }
 
+/**
+ * Whether a link an app asks to open may be: http(s), a URL that parses, and
+ * nothing in it a terminal would act on or that would show other than it is
+ * (C0 and C1 controls, such as the escape that starts OSC 8, OSC 52 and
+ * cursor sequences; bidi overrides; invisible marks; spaces).
+ */
+export function linkOpenable(url: string): boolean {
+  if (!/^https?:\/\/\S+$/i.test(url) || plainText(url) !== url || /[\u0000-\u001f\u007f-\u009f]/.test(url)) return false
+  try {
+    return ['http:', 'https:'].includes(new URL(url).protocol)
+  } catch {
+    return false
+  }
+}
+
 /** ui/open-link: http(s) only, after the person says yes (once per app if they like). */
 export async function openLink($: EngineInterface, view: View, url: string) {
-  if (!/^https?:\/\/[^\s]+$/i.test(url)) return { isError: true }
+  if (!linkOpenable(url)) return { isError: true }
   if (!linksAllowed.has(view.server)) {
     const always = `Open ${view.server} links this session`
     const epoch = state.epoch
@@ -193,7 +213,7 @@ export async function allowDownload($: EngineInterface, view: View, files: unkno
   const list = (Array.isArray(files) ? files : []) as Array<{ name?: unknown; size?: unknown }>
   const named = list
     .slice(0, 5)
-    .map((f) => `${String(f.name)} (${Math.max(1, Math.round(Number(f.size) / 1024))} KB)`)
+    .map((f) => `${plainText(f.name)} (${Math.max(1, Math.round(Number(f.size) / 1024))} KB)`)
     .join(', ')
   const more = list.length > 5 ? ` and ${list.length - 5} more` : ''
   const answer = await $.ui

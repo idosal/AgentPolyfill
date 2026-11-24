@@ -1,6 +1,6 @@
 {
   "name": "mcp-apps-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Unofficial MCP Apps client for the Claude Code terminal: app UIs render inline, with clicks and keys forwarded to the app",
   "author": {
     "name": "Ido Salomon",
@@ -12,13 +12,13 @@
     "appToolCalls": {
       "type": "string",
       "title": "App tool calls",
-      "description": "When an MCP App calls one of its server's tools. allow: run it, as Claude Desktop does (your deny rules still apply). rules: follow your permission rules for that tool, asking where they say ask. ask: always ask.",
+      "description": "When an MCP App calls one of its server's tools. rules (the default): follow your permission rules for that tool, asking where they would ask you. ask: always ask. allow: run it without asking unless your rules deny it, as Claude Desktop does. Your deny rules apply in every mode, and where your rules can't be checked for a tool you are asked.",
       "options": [
         "allow",
         "rules",
         "ask"
       ],
-      "default": "allow"
+      "default": "rules"
     },
     "appMessages": {
       "type": "string",

@@ -7,7 +7,7 @@ the extension yet, and it is built to shrink as Claude Code gains the pieces.
 Mods that implement an MCP extension keep running into the same four gaps in
 what Claude Code offers a mod. This page says, for the Skills extension, which
 of the four it needs and what each would take out of this polyfill. Line
-counts are of the files at version 0.2.1.
+counts are of the files at version 0.2.2.
 
 Short version: **Skills needs the first and the second. It has no use for the
 third or the fourth.** The numbering is the one in the repository's
