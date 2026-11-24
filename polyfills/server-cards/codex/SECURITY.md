@@ -1,7 +1,8 @@
 # Security
 
 This covers `mcp-server-cards` for Codex. The Claude Code form has its own:
-[SECURITY.md](../claude-code/SECURITY.md).
+[SECURITY.md](../claude-code/SECURITY.md). Where this file says nothing
+different, the Claude Code form's SECURITY.md applies.
 
 This plugin reads documents that strangers publish on the web: catalogs and
 Server Cards. It turns one of those cards into an entry in your Codex MCP

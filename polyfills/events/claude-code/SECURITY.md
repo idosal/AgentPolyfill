@@ -16,9 +16,9 @@ in two parts:
 - What the server sent (the payload) reaches Claude only as a tool result,
   when Claude reads it with `get_event` or `recent_events`.
 - The message that wakes the session isn't a tool result. It's a prompt from
-  the plugin, which is the only way a mod can start a turn. So it carries
-  nothing the server wrote: only which watch has new events, how many, and
-  their ids.
+  the plugin, which is the only way a mod can start a turn. So it carries no
+  event content: it says which watch has new events, how many and their ids,
+  names the server and the event type, and repeats the watch's note.
 
 Receiving an event gives Claude no permission it didn't already have.
 Whatever Claude does about one goes through Claude Code's own permission mode,
