@@ -1,0 +1,11 @@
+{
+  "name": "mcpolyfill",
+  "version": "0.1.0",
+  "description": "Every polyfill in the MCPolyfill marketplace in one install: MCP Apps (mcp-apps-cli) and MCP Events (mcp-events). It adds nothing of its own.",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "license": "Apache-2.0",
+  "dependencies": ["mcp-apps-cli", "mcp-events"]
+}

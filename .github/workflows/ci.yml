@@ -1,8 +1,9 @@
 # Repository checks, cheap enough for every change: the marketplace file and
 # every plugin manifest are valid JSON, Claude Code's own validator accepts
-# the marketplace and each plugin in this repository, and each entry of the
+# the marketplace and each plugin in this repository, each entry of the
 # marketplace that points into this repository points at a plugin that is
-# there. Each polyfill's own tests run in its own workflow
+# there, and the mcpolyfill bundle depends on every polyfill. Each
+# polyfill's own tests run in its own workflow
 # (<plugin>-test.yml), filtered to its folder.
 
 name: repository
@@ -50,6 +51,15 @@ jobs:
             [ -f "$path/.claude-plugin/plugin.json" ] || { echo "::error file=.claude-plugin/marketplace.json::$path has no .claude-plugin/plugin.json"; status=1; }
           done
           exit $status
+      # The mcpolyfill plugin installs every polyfill: its dependencies are
+      # each marketplace entry except itself and the authoring skills.
+      - name: The mcpolyfill bundle depends on every polyfill
+        run: |
+          listed=$(jq -c '[.plugins[].name | select(. != "mcpolyfill" and . != "polyfill-author")] | sort' .claude-plugin/marketplace.json)
+          bundled=$(jq -c '.dependencies | sort' plugins/mcpolyfill/.claude-plugin/plugin.json)
+          echo "marketplace: $listed"
+          echo "bundle:      $bundled"
+          [ "$listed" = "$bundled" ] || { echo "::error file=plugins/mcpolyfill/.claude-plugin/plugin.json::its dependencies must be every polyfill in the marketplace: $listed"; exit 1; }
       - name: Claude Code
         run: npm install -g --no-audit --no-fund "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
       - name: claude plugin validate (the marketplace)

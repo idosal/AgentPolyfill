@@ -21,8 +21,7 @@ The `create-polyfill` skill walks an agent through building one to that
 contract. Install it with:
 
 ```
-/plugin marketplace add idosal/MCPolyfill
-/plugin install polyfill-author@mcpolyfill
+/plugin install polyfill-author --marketplace idosal/MCPolyfill
 ```
 
 Then ask for the extension and host you want, for example "polyfill MCP
@@ -82,10 +81,14 @@ The polyfill's `README.md`, at the top of its folder, states:
 - **Limits:** what it cannot do on this host, and for each limit the change
   in the host that would remove it. Add any such change to
   [`docs/host-changes.md`](docs/host-changes.md) too.
-- **Requirements, install and use:** install from this repository's
-  marketplace (`claude plugin marketplace add idosal/MCPolyfill`, then
-  `claude plugin install <plugin>@mcpolyfill`), what else it needs, and its
-  settings.
+- **Requirements, install and use:** the one-line install first
+  (`/plugin install <plugin> --marketplace idosal/MCPolyfill`, and in a
+  terminal `claude plugin install <plugin> --marketplace idosal/MCPolyfill`),
+  then the two-step form (`/plugin marketplace add idosal/MCPolyfill`, then
+  `/plugin install <plugin>@mcpolyfill`); what else it needs; and every
+  step and question a new user meets between that line and the extension
+  working, with what happens when they say no. Anything beyond "install,
+  add a server, ask" needs a reason.
 - **Privacy and security:** what it sends where, and what it stores.
 
 Write for someone who has never seen this repository. If a contract rule is
@@ -106,15 +109,23 @@ Add an entry to [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.j
 A relative `source` installs the plugin straight from this repository. A
 plugin that ships built files (binaries, a bundle) instead uses an `archive`
 source: a zip attached to a release of this repository, pinned by its
-SHA-256, which a release workflow produces (step 5). Add a row to the
-polyfills table in the [README](README.md) as well.
+SHA-256, which a release workflow produces (step 5). A `git-subdir` or
+`url` source takes a full `https://` git URL: the `owner/repo` shorthand
+there is cloned over SSH, which fails on a machine without GitHub SSH keys.
+
+Then add the plugin's name to the `dependencies` of the `mcpolyfill` plugin
+([`plugins/mcpolyfill/.claude-plugin/plugin.json`](plugins/mcpolyfill/.claude-plugin/plugin.json)),
+which installs every polyfill in one step, and to the list in its
+[README](plugins/mcpolyfill/README.md). CI fails until the two lists match.
+Add a row to the polyfills table in the [README](README.md) as well.
 
 ### 5. Add its CI
 
 Every push and pull request runs [`ci.yml`](.github/workflows/ci.yml): every
 manifest is valid JSON, `claude plugin validate` passes for the marketplace
 and for every plugin in the repository, and each relative marketplace entry
-points at a plugin that is there. Your plugin is included automatically.
+points at a plugin that is there, and the `mcpolyfill` bundle depends on
+every polyfill. Your plugin is included automatically.
 
 Add the polyfill's own tests as `.github/workflows/<plugin>-test.yml`,
 filtered to its folder. Copy
