@@ -193,8 +193,10 @@ The invariants, in plain words:
 | GrantsEndWithSession | A "this session" yes never carries into the next session |
 
 Results, on an Apple M1 Max (32 GB, macOS 15.4.1), TLC 1.7.4 on Temurin 21,
-`-workers auto`; state files under 150 MB (a run past it counts as failed),
-deleted after each run. The counts are TLC's final distinct-state counts
+`-workers auto`; state files under 150 MB, or 400 MB for ConsentRules and
+ConsentAsk, whose queue of states yet to visit peaks at about 130 and 160 MB
+with CI's four workers (a run past its cap counts as failed), deleted after
+each run. The counts are TLC's final distinct-state counts
 (0.1.2's table took a progress line for some). With several workers the
 reported depth can differ by one from run to run, and for a violated
 configuration the states explored up to the first violation found vary too;
