@@ -6,8 +6,9 @@
 # - the bundled helper started on Node 20 and on Bun, the runtimes an
 #   installed copy may find;
 # - claude plugin validate and the hooks module's tests (claude plugin test);
-# - the formal models in model/ (Quint): their scenarios, random simulation of
-#   their invariants, and a bounded model check with Apalache.
+# - the formal models in model/: the Quint models' scenarios and random
+#   simulation, TLC on their TLA+ versions (each configuration against what it
+#   should give), and Quint's traces replayed in the TLA+ versions.
 
 name: "mcp-events: tests"
 
@@ -127,8 +128,9 @@ jobs:
       - name: The hooks module's tests (claude plugin test)
         run: claude plugin test mod
 
+  # The formal models (model/README.md). TLC is fetched from its release, pinned by SHA-256.
   model:
-    name: the formal models (Quint)
+    name: the formal models (Quint, TLC)
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     env:
@@ -138,6 +140,10 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "21"
       - name: The counterexamples, as scenarios
         run: |
           $QUINT test model/delivery.qnt --backend typescript --max-samples 200
@@ -149,11 +155,19 @@ jobs:
           $QUINT run model/delivery.qnt --init webhookEvilRelay --invariant AtMostOnce --max-samples 5000 --max-steps 60 --backend typescript
           $QUINT run model/delivery.qnt --init webhookEvilRelay --invariant NothingForged --max-samples 5000 --max-steps 60 --backend typescript
           $QUINT run model/wake.qnt --init init --invariant Kept --max-samples 10000 --max-steps 40 --backend typescript
-      # A bounded model check (Apalache, which Quint downloads and runs on the runner's Java). It
-      # has not been run yet: it was written where neither Java nor Apalache could be installed,
-      # and CI was not running. Until a run shows it passes, a failure here does not fail the job.
-      - name: The invariants, by bounded model checking (not yet run)
-        continue-on-error: true
+      - name: TLC 1.7.4
         run: |
-          $QUINT verify model/wake.qnt --init init --invariant Kept --max-steps 12
-          for init in poll push webhook; do $QUINT verify model/delivery.qnt --init $init --invariant Safety --max-steps 10; done
+          curl -fsSL -o "$RUNNER_TEMP/tla2tools.jar" https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+          echo "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88  $RUNNER_TEMP/tla2tools.jar" | sha256sum -c -
+      # Every state within each configuration's bounds: what holds, the 0.4.1 defects found
+      # again, and what TLC found on 0.5.0's models (model/README.md).
+      - name: The invariants, by model checking (TLC)
+        run: node model/check.mjs --trace
+        env:
+          TLA2TOOLS: ${{ runner.temp }}/tla2tools.jar
+          JAVA_OPTS: -Xmx4g
+          MODEL_STATE_MB: "4000"
+      - name: Quint's traces, replayed in the TLA+ models
+        run: node model/conform.mjs
+        env:
+          TLA2TOOLS: ${{ runner.temp }}/tla2tools.jar
