@@ -207,7 +207,6 @@ function homeMarkdown() {
   }
   const paragraphs = (chunk) => [...chunk.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map((m) => html(m[1]))
   const [lede] = paragraphs(section('The polyfills'))
-  const [who] = paragraphs(section('Who it is for'))
   const card = (p) => {
     const cut = media.cuts.find((c) => c.name === p.cut)
     const lines = [
@@ -255,7 +254,7 @@ ${beyondCards.join('\n\n')}
 
 ## Who it is for
 
-${who ? `${who}\n\n` : ''}${audiences.join('\n')}
+${audiences.join('\n')}
 
 ---
 
