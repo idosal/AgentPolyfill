@@ -134,6 +134,13 @@ prevented.
   - A mailbox key is used only with the relay it was made for.
   - There is one mailbox, and one key, per MCP server in a project. Each is a
     connection of its own while Claude Code is open.
+  - The relay says when a delivery arrived, and the freshness check takes its
+    word. So a delivery from the public relay is refused if it was signed more
+    than 25 hours ago (its retention and an hour), whatever the relay says.
+    From your own relay, the bound is eight days.
+  - A relay that sends a frame larger than any delivery can be loses the
+    connection. Node's WebSocket reads that one frame whole first: it has no
+    limit on a message's size to set.
 - **The one thing it downloads.** Nothing, unless you run `/mcp-events setup`
   on a machine that has no Node and no Bun, and answer Download to the
   question it then puts in Claude Code's own dialog. "Not now" is the first
@@ -208,15 +215,28 @@ prevented.
 - **The public relay can be abused, and has a cost.**
   - It's rate-limited per sender (an IPv4 address, or an IPv6 /64), it
     refuses what it can't limit, and it opens at most 2,000 new mailboxes in
-    an hour, 60 from one sender.
-  - Someone with enough addresses can spend that ceiling and keep new users
-    out until the hour is over. Mailboxes that already exist keep working.
-  - MCP servers hosted on Cloudflare Workers reach it from one address and
-    share a rate limit, which any Worker can spend.
-  - Its operator pays for it and may switch it off.
+    an hour, 60 from one sender and 200 from one network (an IPv6 /48). It
+    holds at most 20,000 mailboxes at once.
+  - Someone with enough networks (ten /48s, or many IPv4 addresses) can spend
+    the hourly ceiling and keep new users out until the hour is over.
+    Mailboxes that already exist keep working.
+  - MCP servers hosted on Cloudflare Workers reach it from one address, so
+    their deliveries are counted per mailbox. Junk a Worker sends elsewhere
+    can't use up what your mailbox may receive.
+  - Anyone can store data in a mailbox of their own on it, as on any open
+    relay; the relay can't tell an event from anything else shaped like one.
+    Its front page names where to report abuse, and its operator can block a
+    mailbox.
+  - Its operator pays for it and may switch it off. Requests anyone sends it
+    count against its Cloudflare account's quotas and bill, whether or not
+    the relay refuses them.
 - **A challenge is echoed by the mod with the relay in
   [`mod/relay/`](mod/relay/).** A server can't tell that relay from one that
   echoes challenges itself.
+  - Every challenge the mod doesn't confirm gets the same answer (`503`), so
+    whoever posts one without the secret learns nothing from the answer
+    about whether Claude Code is open. How long the answer takes still
+    differs.
 - **Delivery is at least once.**
   - If Claude Code closes or crashes just after a batch of events was handed
     to it and before that was saved, the next session in the project is shown
@@ -287,12 +307,17 @@ prevented.
   - The third was in the model only, which now does as the code does.
   - On 0.5.1's model every invariant holds within those bounds. One of them
     allows the case described under "Delivery is at least once".
-- **One review from outside the sessions that built it, and no audit by a
+- **Two reviews from outside the sessions that built it, and no audit by a
   person.** The Events client, webhook verification and the relay were
   reviewed adversarially during development. On 24 November 2026 an AI
   reviewer that hadn't built any of it reviewed the mod and the public relay.
   What it found is fixed in versions 0.4.0 and 0.4.1, each fix with a test, or
-  listed above. No person has audited any of it.
+  listed above. Later that day another reviewed the relay alone, with
+  attacks in [`mod/relay/test/adversarial-test.ts`](mod/relay/test/adversarial-test.ts)
+  (two tenants, an outsider, a malicious MCP server, a hostile relay). It
+  found no way to read another user's mailbox or to forge an event. What it
+  found is fixed in 0.7.2 and in the relay, each fix with a test, or listed
+  above. No person has audited any of it.
 
 This software wakes an agent on outside input, and it is young. The lists
 above say what was considered, not that nothing is left.
