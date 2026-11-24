@@ -1,0 +1,65 @@
+# The ARD polyfill for Pi (polyfills/ard/pi, extension ard-discovery), on any
+# change in its folder, in the shared ARD and Server Cards modules it bundles,
+# or in the Server Cards form for Pi it builds on:
+# - its tests: the adapter's checks and wording, the network bounds, and a real
+#   Pi (the release in its devDependencies, with its own agent directory and
+#   home, and a scripted stand-in model) asking before every registry search
+#   and sending nothing after a no or where nobody can be asked; the committed
+#   bundle; with a typecheck, on Linux and macOS.
+
+name: "ard-discovery (Pi): tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/ard/pi/**"
+      - "polyfills/ard/claude-code/mod/hooks/**"
+      - "polyfills/server-cards/pi/src/**"
+      - "polyfills/server-cards/pi/test/harness.ts"
+      - "polyfills/server-cards/claude-code/mod/hooks/**"
+      - "polyfills/server-cards/codex/src/fetch.ts"
+      - ".github/workflows/pi-ard-test.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see each job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/ard/pi/**"
+      - "polyfills/ard/claude-code/mod/hooks/**"
+      - "polyfills/server-cards/pi/src/**"
+      - "polyfills/server-cards/pi/test/harness.ts"
+      - "polyfills/server-cards/claude-code/mod/hooks/**"
+      - "polyfills/server-cards/codex/src/fetch.ts"
+      - ".github/workflows/pi-ard-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pi-ard-test-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: polyfills/ard/pi
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      # The Server Cards form for Pi, which this one builds on, is typechecked with its own tools.
+      - run: npm ci
+        working-directory: polyfills/server-cards/pi
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
