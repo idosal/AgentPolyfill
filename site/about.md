@@ -7,9 +7,9 @@ aside: false
 
 AgentPolyfill is a community project by
 [Ido Salomon](https://github.com/idosal): polyfills for agent protocols. Each
-one lets you run a published protocol extension in the agent you already
-use, before its host supports it. Today that's four MCP extensions and one
-open draft beyond MCP, in Claude Code and Codex.
+one lets you run a new protocol extension in the clients you already use,
+before official support. Today that's four MCP extensions and one open draft
+beyond MCP, and it works in Claude Code and Codex.
 
 ## Not affiliated
 
