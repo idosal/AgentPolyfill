@@ -50,8 +50,8 @@ Beyond MCP, [`ard-discovery`](polyfills/claude-code/ard) adds
 [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a
 draft: it finds MCP servers through a domain's `ard.json` or by searching an
 ARD registry, and hands the cards to `mcp-server-cards`. Its search sends the
-words of your request to that registry, so it is not part of the
-`agent-polyfill` bundle; install it by name.
+words of your request to that registry, and asks you first every time; for
+that reason it is not part of the `agent-polyfill` bundle. Install it by name.
 
 "Claude Code" is what the official
 [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix)
