@@ -314,7 +314,7 @@ export function sendPartial($: EngineInterface, view: View) {
   view.inputSent = 'partial'
   view.partialBusy = true
   view.chain = view.chain
-    .then(() => helper($, '/args', { viewId: view.id, arguments: args, partial: true }))
+    .then(() => helper($, '/args', { viewId: view.id, gen: view.gen, arguments: args, partial: true }))
     .catch((error) => $.ui.log(`mcp-apps-cli: /args failed: ${String(error)}`, { to: 'debug' }))
     .finally(() => {
       view.partialBusy = false

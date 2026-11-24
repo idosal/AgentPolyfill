@@ -70,6 +70,8 @@ function standIns(
     readOnly?: boolean
     /** Claude Code's answer to `$.mcp.connect(server)`; connected under that name by default. */
     connect?: (server: string) => unknown
+    /** Runs as the person is asked a question (before they answer). */
+    onAsk?: () => void
   } = {},
 ) {
   const sent: Sent[] = []
@@ -92,6 +94,7 @@ function standIns(
     if (e.tool !== 'AskUserQuestion') return { result: RESULT }
     const questions = (e as unknown as { questions: Array<{ question: string }> }).questions
     asked.push(questions[0]!.question)
+    opts.onAsk?.()
     return { result: { questions, answers: { [questions[0]!.question]: opts.answer ?? 'Deny' } } as never }
   })
   // Commands the mod runs (opening a link) and prompts it submits.
@@ -141,7 +144,14 @@ function standIns(
   let spawns = 0
   on('process.spawn', async function* () {
     spawns++
-    const line = (message: unknown) => ({ stream: 'stdout' as const, text: `${JSON.stringify(message)}\n` })
+    // As the helper does, what it says of a view carries the generation of
+    // the view's latest /open, unless a test gives one of its own.
+    const genOf = (viewId: unknown) => sent.findLast((s) => s.route === '/open' && s.body.viewId === viewId)?.body.gen
+    const line = (message: unknown) => {
+      const m = message as Record<string, unknown>
+      const said = typeof m.viewId === 'string' && !('gen' in m) ? { ...m, gen: genOf(m.viewId) } : m
+      return { stream: 'stdout' as const, text: `${JSON.stringify(said)}\n` }
+    }
     yield line({ type: 'ready', socket: '/tmp/test.sock', images: opts.images === true, swapEveryDraw: opts.swapEveryDraw, env: opts.readyEnv ?? {} })
     await isOpened
     if (opts.holdFrame) await opts.holdFrame
@@ -775,6 +785,151 @@ test("an app's calls and reads stop once Claude Code stops using its server", { 
   finish()
 })
 
+// 0.1.2 kept a yes for 5 s and reused it for discovery and opening (the
+// model's WindowBefore): a server switched off between the two still got the
+// view's /open. No yes is kept now: the /open asks again.
+test('no yes is kept: a server switched off after its discovery gets no /open', async ($, on) => {
+  let using = true
+  let release!: () => void
+  const holdDiscover = new Promise<void>((resolve) => (release = resolve))
+  const { sent, connects, finish } = standIns(on, {
+    holdDiscover,
+    appCall: false,
+    connect: (server) => (using ? { isConnected: true, server } : { isConnected: false, reason: 'disabled', message: 'switched off' }),
+  })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const calling = $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+  await settle(() => sent.some((s) => s.route === '/discover'))
+  // Discovery reached the helper on a yes; the person switches the server off in /mcp.
+  using = false
+  const asked = connects.length
+  release()
+  await calling
+  for (let i = 0; i < 2000; i++) await Promise.resolve()
+  expect(connects.length).toBeGreaterThan(asked)
+  expect(sent.some((s) => s.route === '/open')).toBe(false)
+  // The helper, which heard of the server, is told: it drops what it has of it.
+  expect(sent.find((s) => s.route === '/revoke')?.body).toEqual({ server: 'vanilla', epoch: 1 })
+  finish()
+})
+
+// Each request the helper writes to a server asks first ('check'): Claude
+// Code's verdict then, with the epoch it was given in. A no tells the helper
+// (/revoke), and moves the epoch on, so a yes given before it counts for nothing.
+test("the helper's check before each request it writes gets Claude Code's verdict then, and its epoch", async ($, on) => {
+  let using = true
+  let sentSoFar: Sent[] = []
+  const answered = (id: number) => sentSoFar.find((s) => s.route === '/reply' && s.body.id === id)?.body.result as
+    | { allow?: boolean; epoch?: number }
+    | undefined
+  const { sent, finish } = standIns(on, {
+    appCall: false,
+    connect: (server) => (using ? { isConnected: true, server } : { isConnected: false, reason: 'disabled', message: 'switched off' }),
+    script: async function* () {
+      yield { type: 'check', id: 61, server: 'vanilla' }
+      await settle(() => answered(61) !== undefined)
+      using = false
+      yield { type: 'check', id: 62, server: 'vanilla' }
+      await settle(() => answered(62) !== undefined)
+      using = true
+      yield { type: 'check', id: 63, server: 'vanilla' }
+    },
+  })
+  sentSoFar = sent
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+  await settle(() => answered(63) !== undefined)
+  expect(answered(61)).toEqual({ allow: true, epoch: 0 })
+  expect(answered(62)?.allow).toBe(false)
+  expect(answered(63)).toEqual({ allow: true, epoch: 1 })
+  expect(sent.filter((s) => s.route === '/revoke').map((s) => s.body)).toEqual([{ server: 'vanilla', epoch: 1 }])
+  finish()
+})
+
+// The model's CancelBefore: what the helper had in flight to a server went on
+// after Claude Code stopped using it, until some later request asked. While
+// the helper waits on a server now, Claude Code is asked again, and a no
+// cancels what is in flight.
+test('while the helper waits on a server, Claude Code is asked again, and a no cancels what is in flight', { options: {} }, async ($, on) => {
+  let using = true
+  let sentSoFar: Sent[] = []
+  const { sent, finish } = standIns(on, {
+    appCall: false,
+    timers: true,
+    connect: (server) => (using ? { isConnected: true, server } : { isConnected: false, reason: 'disabled', message: 'switched off' }),
+    script: async function* () {
+      await settle(() => sentSoFar.some((s) => s.route === '/result'))
+      yield { type: 'busy', server: 'vanilla', busy: true }
+      for (let i = 0; i < 200; i++) await Promise.resolve()
+      // Nothing is cancelled while Claude Code still uses it.
+      expect(sentSoFar.some((s) => s.route === '/revoke')).toBe(false)
+      using = false
+    },
+  })
+  sentSoFar = sent
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+  await settle(() => sent.some((s) => s.route === '/revoke'))
+  expect(sent.find((s) => s.route === '/revoke')!.body.server).toBe('vanilla')
+  finish()
+})
+
+// 0.1.2 asked Claude Code before the person was asked, then sent the yes: a
+// server switched off while the question was on screen still got the call.
+test("an app-only tool's yes is asked of Claude Code after the person's yes, right before it goes", { options: { appToolCalls: 'ask' } }, async ($, on) => {
+  let using = true
+  let sentSoFar: Sent[] = []
+  const answered = (id: number) => sentSoFar.find((s) => s.route === '/reply' && s.body.id === id)?.body.result as
+    | { allow?: boolean; epoch?: number }
+    | undefined
+  const { sent, asked, finish } = standIns(on, {
+    appCall: false,
+    answer: 'Allow',
+    // The person is asked; meanwhile the server is switched off in /mcp.
+    onAsk: () => (using = false),
+    connect: (server) => (using ? { isConnected: true, server } : { isConnected: false, reason: 'disabled', message: 'switched off' }),
+    script: async function* () {
+      yield appRequest(45, 'ui/allow-tool', { name: 'poll-stats', arguments: {}, appOnly: true })
+    },
+  })
+  sentSoFar = sent
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+  await settle(() => answered(45) !== undefined)
+  expect(asked.length).toBe(1)
+  expect(answered(45)?.allow).toBe(false)
+  finish()
+})
+
+// The model's InstanceBefore: requests were matched to a view by its id alone,
+// so what the page of an earlier open of the call asked was done for the view
+// that stood then. Each open has its own generation now.
+test("what an earlier open's page asks is refused, and nothing of it is done for the view that stands now", { options: { appMessages: 'allow' } }, async ($, on) => {
+  let sentSoFar: Sent[] = []
+  const answered = (id: number) => sentSoFar.find((s) => s.route === '/reply' && s.body.id === id)
+  const { sent, submitted, finish } = standIns(on, {
+    appCall: false,
+    script: async function* () {
+      yield { ...appRequest(71, 'ui/message', { role: 'user', content: [{ type: 'text', text: 'from an earlier open' }] }), gen: 'an-earlier-open' }
+      yield { type: 'closed', viewId: TOOL_USE_ID, gen: 'an-earlier-open', reason: 'its page crashed' }
+      await settle(() => answered(71) !== undefined)
+      // The view of this open still stands: its own request is done.
+      yield appRequest(72, 'ui/message', { role: 'user', content: [{ type: 'text', text: 'from this open' }] })
+    },
+  })
+  sentSoFar = sent
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+  await settle(() => answered(72) !== undefined)
+  expect(answered(71)!.body).toMatchObject({ gen: 'an-earlier-open', error: 'this view was opened again' })
+  expect(answered(72)!.body.gen).toBe(sent.find((s) => s.route === '/open')!.body.gen)
+  expect(answered(72)!.body.error).toBeUndefined()
+  await settle(() => submitted.length > 0)
+  expect(submitted.some((text) => text.includes('from an earlier open'))).toBe(false)
+  expect(submitted.some((text) => text.includes('from this open'))).toBe(true)
+  finish()
+})
+
 test('a picture scrolled partly off the top still gets clicks at the right row', async ($, on) => {
   const { sent, finish } = standIns(on, { images: true })
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
@@ -945,9 +1100,13 @@ test('a view closed as newer ones opened can be reopened, its call and result wi
   }
   await ui.press({ key: `reopen-${ids[0]}` })
   await settle(() => sent.filter((s) => s.route === '/open' && s.body.viewId === ids[0]).length === 2)
-  const again = sent.filter((s) => s.route === '/open' && s.body.viewId === ids[0])[1]!
+  const [before, again] = sent.filter((s) => s.route === '/open' && s.body.viewId === ids[0]) as [Sent, Sent]
   // The same view (the helper gives back its store) with its tool's result.
   expect(again.body.toolResult).toEqual(RESULT)
+  // Each open its own generation; the close was for the first one's page.
+  expect(typeof before.body.gen).toBe('string')
+  expect(again.body.gen).not.toBe(before.body.gen)
+  expect(sent.find((s) => s.route === '/close' && s.body.viewId === ids[0])!.body.gen).toBe(before.body.gen)
   // Three stay live: reopening it closed the oldest of the others.
   await settle(() => sent.some((s) => s.route === '/close' && s.body.viewId === ids[1]))
   await ui.unmount()
@@ -1225,7 +1384,7 @@ test('a theme change in Claude Code reaches open views', async ($, on) => {
   await settle(() => sent.some((s) => s.route === '/open'))
   await $.config.set({ key: 'theme', value: 'light-daltonized', previous: 'dark' } as never)
   await settle(() => sent.some((s) => s.route === '/theme'))
-  expect(sent.find((s) => s.route === '/theme')!.body).toEqual({ viewId: TOOL_USE_ID, theme: 'light' })
+  expect(sent.find((s) => s.route === '/theme')!.body).toEqual({ viewId: TOOL_USE_ID, theme: 'light', gen: sent.find((s) => s.route === '/open')!.body.gen })
   // Another setting changes nothing.
   await $.config.set({ key: 'verbose', value: true, previous: false } as never)
   for (let i = 0; i < 100; i++) await Promise.resolve()
@@ -1937,7 +2096,7 @@ for (const isFullscreen of [false, true]) {
     const { sent, finish } = standIns(on, { timers: true, appCall: false })
     await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
     await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
-    await until(() => sent.some((s) => s.route === '/result'), () => Promise.resolve())
+    await settle(() => sent.some((s) => s.route === "/result"))
     const ui = await $.ui.mount({ ...ROW, surface: 'terminal', viewport: { columns: 120, rows: 40, isFullscreen } } as never)
     for (let i = 0; i < 300; i++) await Promise.resolve()
     expect(sent.some((s) => s.route === '/close')).toBe(!isFullscreen)
@@ -1970,7 +2129,7 @@ for (const [what, activity, rests] of [
     })
     await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
     await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
-    await until(() => sent.some((s) => s.route === '/result'), () => Promise.resolve())
+    await settle(() => sent.some((s) => s.route === "/result"))
     const ui = await $.ui.mount({ ...ROW, surface: 'terminal', viewport: MAIN_SCREEN } as never)
     await settle(() => sent.some((s) => s.route === '/activity'))
     for (let i = 0; i < 300; i++) await Promise.resolve()

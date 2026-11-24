@@ -28,6 +28,14 @@ export type UiTool = { resourceUri: string; visibility?: string[] }
 
 export type View = {
   id: string
+  /**
+   * This open's generation: a nonce of its own, sent with its /open and every
+   * request about it, and carried by everything the helper says of its page.
+   * A reopened view (a new View for the same id) has a new one, so what an
+   * earlier open's page asked or said is never taken as this one's
+   * (model/AppsViews.tla, SameInstance).
+   */
+  gen: string
   /** The session it opened in (state.epoch): live only while that one lasts. */
   epoch: number
   server: string
@@ -166,12 +174,16 @@ export type HelperMessage =
       /** The person's environment variables the mod reads (a hook sees only the session's own). */
       env?: Record<string, string | null | undefined>
     }
-  | { type: 'frame'; viewId: string; v: number; frame?: Frame; image?: ImageFrame }
-  | { type: 'request'; id: number; viewId: string; method: string; params: Record<string, unknown> }
-  | { type: 'notify'; viewId: string; method: string; params: Record<string, unknown> }
+  | { type: 'frame'; viewId: string; gen?: string; v: number; frame?: Frame; image?: ImageFrame }
+  | { type: 'request'; id: number; viewId: string; gen?: string; method: string; params: Record<string, unknown> }
+  | { type: 'notify'; viewId: string; gen?: string; method: string; params: Record<string, unknown> }
   | { type: 'log'; text: string }
-  | { type: 'describe'; viewId: string; text?: string; title?: string }
-  | { type: 'closed'; viewId: string; reason: string }
+  | { type: 'describe'; viewId: string; gen?: string; text?: string; title?: string }
+  | { type: 'closed'; viewId: string; gen?: string; reason: string }
+  /** The helper is about to write a request to `server`: Claude Code's verdict, asked for it. */
+  | { type: 'check'; id: number; server: string }
+  /** The helper has requests in flight to `server` (true), or none any more (false). */
+  | { type: 'busy'; server: string; busy: boolean }
   | { type: 'status'; text: string }
   | { type: 'fatal'; text: string }
 
