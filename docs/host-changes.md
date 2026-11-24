@@ -48,16 +48,21 @@ clients that declare its extension, which today only the host can do.
 
 ## What each extension needs
 
-| Change | Events (SEP-3415) | Skills (SEP-2640) | Apps |
-|---|---|---|---|
-| 1. Any method | `events/list`, `events/poll`, `events/subscribe`, `events/unsubscribe` | `skills/list`, `skills/get`, `resources/directory/read` | `resources/read` with `_meta`, `tools/list` with `_meta`, app-only tools |
-| 2. Server capabilities | needed | needed | needed |
-| 3. Notifications | push delivery (`events/stream`), `list_changed` | not needed | `tools/list_changed`, resource updates |
-| 4. Raw results, client extension | not needed (declaring is optional) | not needed | both needed |
+| Change | Events (SEP-3415) | Skills (SEP-2640) | Apps | Server Cards (SEP-2127) |
+|---|---|---|---|---|
+| 1. Any method | `events/list`, `events/poll`, `events/subscribe`, `events/unsubscribe` | `skills/list`, `skills/get`, `resources/directory/read` | `resources/read` with `_meta`, `tools/list` with `_meta`, app-only tools | `server/discover`, to check a card against the live server |
+| 2. Server capabilities | needed | needed | needed | needed: the negotiated revision and `serverInfo` |
+| 3. Notifications | push delivery (`events/stream`), `list_changed` | not needed | `tools/list_changed`, resource updates | not needed |
+| 4. Raw results, client extension | not needed (declaring is optional) | not needed | both needed | not needed |
 
 Changes 1 and 2 are enough for Events by poll and webhook, and for Skills, on
 every server the user has signed in to. With them, the second connection in
 those polyfills is deleted.
+
+Server Cards need none of the four to work: a card is a public document read
+before any connection, and the server is then added to the host's own
+configuration, so the host connects it with its own sign-in. Changes 1 and 2
+are only for the spec's SHOULD to check a card against the live server.
 
 ## Questions these changes raise
 
