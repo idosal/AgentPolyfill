@@ -1,0 +1,4 @@
+Third-party software bundled into mod/dist/helper.js
+
+The helper bundles the npm packages below. Each is listed with the licence
+its package.json names and the licence and notice files it ships.

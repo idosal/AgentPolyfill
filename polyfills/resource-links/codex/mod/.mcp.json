@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "mcp-resource-links": {
+      "command": "node",
+      "args": ["./dist/helper.js"],
+      "cwd": ".",
+      "env_vars": ["CODEX_HOME", "CODEX_CLI_PATH", "MCP_RESOURCE_LINKS_DISABLED", "MCP_RESOURCE_LINKS_STATE"],
+      "startup_timeout_sec": 20,
+      "tool_timeout_sec": 600
+    }
+  }
+}

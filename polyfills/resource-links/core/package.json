@@ -1,0 +1,17 @@
+{
+  "name": "mcp-resource-links-core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The host-neutral client side of resource links in MCP tool results (MCP 2025-11-25): which links a tool returned, whether one may be read and from which server, and how its contents are given to the model.",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.9.3"
+  }
+}

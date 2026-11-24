@@ -1,0 +1,27 @@
+{
+  "name": "mcp-resource-links",
+  "version": "0.1.0",
+  "description": "Resource links in MCP tool results (MCP 2025-11-25) for Codex: the resource behind a link a tool returned is read through Codex, from the server that returned it, and images reach the model as images.",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "homepage": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/resource-links/codex",
+  "repository": "https://github.com/idosal/AgentPolyfill",
+  "license": "Apache-2.0",
+  "keywords": ["mcp", "resource-link", "resources", "polyfill"],
+  "mcpServers": "./.mcp.json",
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "MCP Resource Links",
+    "shortDescription": "Read the resources MCP tools link to, images included",
+    "longDescription": "When an MCP tool's result links to a resource (a resource_link), Codex shows the link but gives a linked image to the model only as a base64 string. This plugin notes the links tools return, and reads one when the model needs it, through Codex and from the server that returned it, so text arrives as text and images as images. Reading a link from a different server asks you first.",
+    "developerName": "AgentPolyfill",
+    "category": "Developer Tools",
+    "capabilities": ["Read"],
+    "websiteURL": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/resource-links/codex",
+    "defaultPrompt": [
+      "Show me the chart my MCP tool linked to."
+    ]
+  }
+}

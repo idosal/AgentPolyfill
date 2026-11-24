@@ -1,0 +1,7 @@
+node_modules/
+*.log
+.DS_Store
+# Per-run state of live runs.
+/live/runs/*/raw.bin
+/live/runs/*/home/
+/live/runs/*/project/

@@ -1,0 +1,20 @@
+{
+  "name": "mcp-resource-links-codex",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A Codex plugin for resource links in MCP tool results (MCP 2025-11-25): the resource behind a link a tool returned is read through Codex, and images reach the model as images.",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "node --test --no-warnings --import ./test/temp-root.ts \"test/*-test.ts\"",
+    "typecheck": "tsc --noEmit -p .",
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "0.28.2",
+    "typescript": "^5.9.3"
+  }
+}
