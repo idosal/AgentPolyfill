@@ -388,9 +388,20 @@ body {
   max-width: 680px;
 }
 /* The install line stays on one line: a size down beside the logo, and
-   scrolling sideways on a phone rather than wrapping to three lines. */
-.ap-install .ap-cmd code {
+   scrolling sideways on a phone rather than wrapping to three lines. Codex's
+   four lines wrap between words on a phone instead (CopyCommand.vue). */
+.ap-install .ap-cmd {
+  align-items: flex-start;
+}
+.ap-install .ap-cmd code:not(.lines) {
   white-space: nowrap;
+}
+/* On a phone the copy button is its icon alone (its name is in aria-label),
+   so Codex's longest line fits beside it. */
+@media (max-width: 639px) {
+  .ap-install .ap-cmd button span {
+    display: none;
+  }
 }
 @media (min-width: 960px) {
   .ap-install .ap-cmd {

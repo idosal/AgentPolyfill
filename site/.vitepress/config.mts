@@ -12,7 +12,7 @@ const ogVersion = createHash('sha256')
   .slice(0, 12)
 const ogImage = `${site}/og.jpg?v=${ogVersion}`
 const description =
-  'Polyfills for agent protocols: run new MCP extensions (Events, Apps, Skills, Server Cards) in the agent you already use, before its host supports them. Today in Claude Code and Codex.'
+  'Polyfills for agent protocols: use new MCP extensions (Events, Skills, Server Cards, Apps) in the agent you already have, before its host supports them. Today in Claude Code and Codex.'
 
 export default defineConfig({
   lang: 'en',
@@ -32,7 +32,7 @@ export default defineConfig({
     ['meta', { property: 'og:image', content: ogImage }],
     ['meta', { property: 'og:image:width', content: '1200' }],
     ['meta', { property: 'og:image:height', content: '630' }],
-    ['meta', { property: 'og:image:alt', content: 'AgentPolyfill: polyfills for agent protocols. Run new MCP extensions in the agent you already use, before its host supports them. Today in Claude Code and Codex.' }],
+    ['meta', { property: 'og:image:alt', content: 'AgentPolyfill: polyfills for agent protocols. Use new MCP extensions in the agent you already have, before its host supports them. Today in Claude Code and Codex.' }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'AgentPolyfill' }],
     ['meta', { name: 'twitter:description', content: description }],
@@ -80,9 +80,9 @@ export default defineConfig({
             text: 'MCP extensions',
             items: [
               { text: 'Events', link: '/guide/events' },
-              { text: 'Apps', link: '/guide/apps' },
               { text: 'Skills', link: '/guide/skills' },
               { text: 'Server Cards', link: '/guide/server-cards' },
+              { text: 'Apps', link: '/guide/apps' },
             ],
           },
           {
@@ -117,9 +117,9 @@ export default defineConfig({
           text: 'Polyfills',
           items: [
             { text: 'Events', link: '/guide/events' },
-            { text: 'Apps', link: '/guide/apps' },
             { text: 'Skills', link: '/guide/skills' },
             { text: 'Server Cards', link: '/guide/server-cards' },
+            { text: 'Apps', link: '/guide/apps' },
           ],
         },
         {
@@ -160,7 +160,7 @@ export default defineConfig({
 
     footer: {
       message:
-        'A community project. Not affiliated with or endorsed by the MCP project, the Agentic AI Foundation, the Linux Foundation, Anthropic, any host vendor, or the authors of Agentic Resource Discovery. <a href="/about">About</a>',
+        'A community project. Not affiliated with or endorsed by the MCP project, the Agentic AI Foundation, the Linux Foundation, Anthropic, OpenAI, any other host vendor, or the authors of Agentic Resource Discovery. <a href="/about">About</a>',
       copyright: `Apache-2.0 · <a href="${repo}">Source on GitHub</a> · <a href="/llms.txt">llms.txt</a>`,
     },
 
