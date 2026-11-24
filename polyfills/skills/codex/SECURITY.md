@@ -119,6 +119,9 @@ instance without Node).
   verified content. A line tells the model how many there are, and that
   whatever they spell is the server's text, not the user's.
 - **A server's error text:** never. Errors are in the plugin's own words.
+- **A binary file's media type:** only when the server's whole value is a media
+  type (`image/png`); anything else is left out. Before 0.1.6 a value that only
+  began as one was printed as given.
 - **A skill whose URI, or the URI of one of its files, holds anything but
   printable ASCII:** never. That rules out:
   - control characters (C0, DEL, C1), which a terminal could act on: erase a
@@ -177,7 +180,10 @@ digest.
 - Anything else is: a file changed, added or removed; the server moved; a
   skill nested inside one you approved.
 - A skill whose content the server generates (it has no digests) is asked
-  about at every load, and nothing is kept for it.
+  about at every load, and nothing is kept for it. If you have its `SKILL.md`
+  shown to you first, what is loaded is that text, from the same read. Before
+  0.1.6 the plugin read it a second time for the load, so the text could differ
+  from the one you were shown.
 - At most 2,000 approvals are kept. Delete the file to drop them all.
 
 **After your yes,** the skill's text is in the conversation, and what Codex
