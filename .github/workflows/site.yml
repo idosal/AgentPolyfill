@@ -9,13 +9,11 @@ on:
     paths:
       - "site/**"
       - ".github/workflows/site.yml"
-      - "docs/media/**"
       - "polyfills/claude-code/*/docs/media/**"
   pull_request:
     paths:
       - "site/**"
       - ".github/workflows/site.yml"
-      - "docs/media/**"
       - "polyfills/claude-code/*/docs/media/**"
 
 permissions:
@@ -38,12 +36,14 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: site/package-lock.json
-      # The Apps recording is a GIF in the repository, encoded as an MP4 for
-      # the site, and the Server Cards clip is cut from the launch video.
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - run: npm ci
-      # The launch video is not in git: the build downloads it from the release
-      # asset named in site/media.json and checks its SHA-256.
+      # The launch video and the polyfill cuts are not in git. A build downloads
+      # them from the release named in site/media.json and checks each SHA-256;
+      # here a missing one is a warning, and the link check lists it instead of
+      # failing. Every page, poster and other link is still checked.
       - run: npm run build
+        env:
+          SITE_MEDIA: optional
       - run: npm run check:links
+        env:
+          SITE_MEDIA: optional

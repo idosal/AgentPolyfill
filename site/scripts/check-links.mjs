@@ -6,7 +6,8 @@
 //                                                page and asset must answer 200
 //
 // Links to other sites are listed, not fetched (GitHub links answer 404 while the
-// repository is private).
+// repository is private). With SITE_MEDIA=optional (CI), the launch video and the
+// cuts, which are not in git (see media.json), are listed if missing, not failed.
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
@@ -19,6 +20,10 @@ const base = process.argv[2]
 const linkPattern = /\s(?:href|src|poster)="([^"]+)"/g
 const external = new Set()
 const problems = []
+const media = JSON.parse(readFileSync(join(site, 'media.json'), 'utf8'))
+const rendered = new Set([media.launch, ...media.cuts].map((video) => `/media/${video.file}`))
+const optionalMedia = process.env.SITE_MEDIA === 'optional'
+const skippedMedia = new Set()
 
 function linksIn(html) {
   const found = []
@@ -56,7 +61,8 @@ if (!base) {
       const target = path.endsWith('/') ? `${path}index.html` : path
       const ok = has(target) || has(`${target}.html`) || has(`${target}/index.html`)
       checked++
-      if (!ok) problems.push(`${page}: ${link}`)
+      if (!ok && optionalMedia && rendered.has(path)) skippedMedia.add(path)
+      else if (!ok) problems.push(`${page}: ${link}`)
       if (ok && url.hash && (has(`${target}.html`) || has(target))) {
         const html = readFileSync(join(dist, has(`${target}.html`) ? `${target}.html` : target), 'utf8')
         const id = decodeURIComponent(url.hash.slice(1))
@@ -95,6 +101,7 @@ if (!base) {
 }
 
 console.log(`links: ${external.size} links to other sites, not fetched`)
+if (skippedMedia.size) console.log(`links: not built here (SITE_MEDIA=optional): ${[...skippedMedia].join(', ')}`)
 if (problems.length) {
   console.error(`links: ${problems.length} broken:\n  ${problems.join('\n  ')}`)
   process.exit(1)

@@ -1,38 +1,41 @@
 #!/usr/bin/env node
 // Puts every video and poster the site shows into public/media/, as listed in
-// ../media.json. Paths in media.json are relative to the repository's root.
+// ../media.json.
 //
-//   node scripts/media.mjs            before every build (npm run build does it):
-//                                      - copies the recordings already in the
-//                                        repository ("copy"), unchanged;
-//                                      - makes the files derived from them
-//                                        ("derived") if they are not there: the
-//                                        Apps GIF as an MP4 (needs ffmpeg), and a
-//                                        poster frame for each (committed);
-//                                      - makes sure the launch video is there: a
-//                                        local file whose SHA-256 matches, or a
-//                                        download from the release asset named in
-//                                        media.json, checked against that SHA-256.
-//   node scripts/media.mjs --optional  the same, but a missing launch video is a
-//                                      warning (npm run dev).
+// Two kinds of video:
+//   - "launch" and "cuts": the launch video and one cut per polyfill, rendered
+//     outside the repository (launch/video/ in the maintainer's checkout). They
+//     stay out of git. Each is recorded in media.json with its SHA-256; a build
+//     uses the local file, or downloads it from the release named in
+//     media.json ("release" + file name) and checks it. Their posters are
+//     committed.
+//   - "copy" and "derived": recordings already in the repository (paths
+//     relative to its root), copied unchanged, with a poster frame each
+//     (committed).
+//
+//   node scripts/media.mjs              before every build (npm run build does it)
+//   node scripts/media.mjs --optional   the same, but a missing launch video or
+//                                       cut is a warning (npm run dev; CI sets
+//                                       SITE_MEDIA=optional for the same effect)
 //   node scripts/media.mjs launch <master.mp4>
-//                                      encodes a new launch video for the web
-//                                      (H.264, 30 fps, faststart, no audio), its
-//                                      poster and the clips cut from it, and
-//                                      records its size, length and SHA-256 in
-//                                      media.json. Then upload it as
-//                                      the release asset (the command is printed).
-//   node scripts/media.mjs derive      rebuilds the derived files (needs ffmpeg).
-//   node scripts/media.mjs clips       cuts the clips of the launch video again,
-//                                      with their posters, after their start and
-//                                      end are changed in media.json.
-//
-// The launch video stays out of git: it is several MB and may be re-rendered.
+//                                       encodes the launch video for the web
+//                                       (1080p, 30 fps, about 9 MB, no audio),
+//                                       its poster, and records its size,
+//                                       length and SHA-256 in media.json
+//   node scripts/media.mjs cut <name> <master.mp4>
+//                                       the same for one polyfill's cut (720p,
+//                                       30 fps), e.g. cut events events.mp4
+//   node scripts/media.mjs posters      makes the posters again, after posterAt
+//                                       is changed in media.json
+//   node scripts/media.mjs release      prints the commands that upload the
+//                                       launch video and the cuts as release
+//                                       assets, for builds on other machines
+//   node scripts/media.mjs derive       rebuilds the derived files (needs ffmpeg)
 
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const site = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -51,14 +54,25 @@ const probe = (file) =>
     }),
   )
 
+// The launch video and the cuts, each with the encoding it gets.
+const rendered = () => [
+  { video: manifest.launch, label: 'the launch video' },
+  ...manifest.cuts.map((cut) => ({ video: cut, label: `the ${cut.name} cut` })),
+]
+
 mkdirSync(out, { recursive: true })
 
 const [command, ...rest] = process.argv.slice(2)
 
-if (command === 'launch') await encodeLaunch(rest[0])
-else if (command === 'derive') derive()
-else if (command === 'clips') for (const clip of manifest.launch.clips ?? []) cutClip(clip, { poster: true })
-else await prepare({ optional: command === '--optional' })
+if (command === 'launch') encodeVideo(manifest.launch, rest[0], 'launch')
+else if (command === 'cut') {
+  const cut = manifest.cuts.find((c) => c.name === rest[0])
+  if (!cut) fail(`usage: node scripts/media.mjs cut <${manifest.cuts.map((c) => c.name).join('|')}> <master.mp4>`)
+  encodeVideo(cut, rest[1], 'cut')
+} else if (command === 'posters') for (const { video } of rendered()) poster(video)
+else if (command === 'release') printRelease()
+else if (command === 'derive') for (const item of manifest.derived) deriveOne(item)
+else await prepare({ optional: command === '--optional' || process.env.SITE_MEDIA === 'optional' })
 
 async function prepare({ optional }) {
   for (const { file, from } of manifest.copy) {
@@ -72,107 +86,93 @@ async function prepare({ optional }) {
     if (!hasFfmpeg()) fail(`public/media/${item.file} is missing, and making it needs ffmpeg`)
     deriveOne(item)
   }
-
-  if (!(await ensureLaunch(optional))) return
-  for (const clip of manifest.launch.clips ?? []) {
-    if (existsSync(join(out, clip.file))) continue
-    if (!hasFfmpeg()) fail(`public/media/${clip.file} is missing, and cutting it from the launch video needs ffmpeg`)
-    cutClip(clip, { poster: false })
-  }
+  for (const { video, label } of rendered()) await ensure(video, label, optional)
 }
 
-async function ensureLaunch(optional) {
-  const launch = manifest.launch
-  const target = join(out, launch.file)
-  if (!existsSync(join(out, launch.poster))) fail(`public/media/${launch.poster} is missing; run node scripts/media.mjs launch <master.mp4>`)
+// A rendered video: the local file, or the release asset, checked against the
+// SHA-256 in media.json.
+async function ensure(video, label, optional) {
+  const target = join(out, video.file)
+  if (!existsSync(join(out, video.poster))) fail(`public/media/${video.poster}, the poster of ${label}, is missing`)
   if (existsSync(target)) {
-    const actual = sha256(target)
-    if (launch.sha256 && actual !== launch.sha256) {
-      console.warn(`media: public/media/${launch.file} does not match the SHA-256 in media.json; using the local file`)
+    if (sha256(target) !== video.sha256) {
+      console.warn(`media: public/media/${video.file} does not match the SHA-256 in media.json; using the local file`)
     }
-    return true
+    return
   }
-  if (!launch.sha256) return missing(optional, 'media.json has no SHA-256 for it yet')
+  const url = new URL(video.file, manifest.release).href
   try {
-    console.log(`media: downloading ${launch.release}`)
-    const response = await fetch(launch.release, { redirect: 'follow' })
+    console.log(`media: downloading ${url}`)
+    const response = await fetch(url, { redirect: 'follow' })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const bytes = Buffer.from(await response.arrayBuffer())
     const actual = createHash('sha256').update(bytes).digest('hex')
-    if (actual !== launch.sha256) throw new Error(`SHA-256 ${actual} is not the one in media.json`)
+    if (actual !== video.sha256) throw new Error(`SHA-256 ${actual} is not the one in media.json`)
     writeFileSync(`${target}.part`, bytes)
     renameSync(`${target}.part`, target)
-    console.log(`media: ${launch.file}, ${mb(bytes.length)}, checked`)
-    return true
+    console.log(`media: ${video.file}, ${mb(bytes.length)}, checked`)
   } catch (error) {
-    return missing(optional, `the download failed (${error.message})`)
+    const message = `${label}, public/media/${video.file}, is missing and the download failed (${error.message}). Encode it with node scripts/media.mjs (see its header), or upload the release asset.`
+    if (optional) console.warn(`media: ${message}`)
+    else fail(message)
   }
 }
 
-function missing(optional, why) {
-  const message = `the launch video public/media/${manifest.launch.file} is missing: ${why}. Encode it with "node scripts/media.mjs launch <master.mp4>", or upload the release asset named in media.json.`
-  if (optional) console.warn(`media: ${message}`)
-  else fail(message)
-  return false
-}
-
-// A part of the launch video, shown on its own (the Server Cards card). Its
-// start and end are seconds of the launch video, set in media.json; change
-// them when the launch video is re-rendered.
-function cutClip(clip, { poster }) {
-  const source = join(out, manifest.launch.file)
-  const target = join(out, clip.file)
-  ffmpeg([
-    '-ss', String(clip.start), '-to', String(clip.end), '-i', source, '-an',
-    '-vf', 'scale=1280:-2:flags=lanczos,format=yuv420p',
-    '-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'high', '-crf', '24', '-movflags', '+faststart', target,
-  ])
-  if (poster) {
-    ffmpeg(['-ss', String(clip.start + clip.posterAt), '-i', source, '-frames:v', '1', '-vf', 'scale=960:-2:flags=lanczos', '-q:v', '4', join(out, clip.poster)])
+// Screen recordings of terminals, so 30 fps is enough for typing and pointer
+// moves. The launch video is two-pass to a bitrate that lands it near 9 MB
+// whatever its length; a cut is 720p at a constant quality (about 1 to 3 MB):
+// the cards and guide pages show it at most about 700 px wide.
+function encodeVideo(video, input, kind) {
+  if (!input || !existsSync(input)) fail(`usage: node scripts/media.mjs ${kind === 'launch' ? 'launch' : `cut ${video.name}`} <master.mp4>`)
+  const target = join(out, video.file)
+  const part = `${target}.part.mp4`
+  if (kind === 'launch') {
+    const seconds = Number(probe(input).format.duration)
+    const kbps = Math.min(2500, Math.floor((9 * 8 * 1024 * 1024) / seconds / 1000))
+    const encode = [
+      '-i', input, '-an',
+      '-vf', 'scale=w=1920:h=1080:force_original_aspect_ratio=decrease:flags=lanczos,fps=30,format=yuv420p',
+      '-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'high',
+      '-b:v', `${kbps}k`, '-maxrate', `${kbps * 2}k`, '-bufsize', `${kbps * 4}k`,
+      '-passlogfile', join(out, '.launch-pass'),
+    ]
+    ffmpeg([...encode, '-pass', '1', '-f', 'mp4', '/dev/null'])
+    ffmpeg([...encode, '-pass', '2', '-movflags', '+faststart', part])
+    for (const suffix of ['-0.log', '-0.log.mbtree']) rmSync(join(out, `.launch-pass${suffix}`), { force: true })
+  } else {
+    ffmpeg([
+      '-i', input, '-an',
+      '-vf', 'scale=w=1280:h=720:force_original_aspect_ratio=decrease:flags=lanczos,fps=30,format=yuv420p',
+      '-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'high', '-crf', '24', '-movflags', '+faststart', part,
+    ])
   }
-  console.log(`media: ${clip.file}, ${mb(statSync(target).size)}`)
-}
-
-async function encodeLaunch(input) {
-  if (!input || !existsSync(input)) fail('usage: node scripts/media.mjs launch <master.mp4>')
-  const launch = manifest.launch
-  const target = join(out, launch.file)
-  const poster = join(out, launch.poster)
-  // Terminal footage at 1080p and 30 fps (enough for typing and pointer moves),
-  // two-pass to a bitrate that lands the file near 9 MB whatever the length:
-  // small enough for a home page, far under the 25 MiB a Workers asset may be.
-  const seconds = Number(probe(input).format.duration)
-  const kbps = Math.min(2500, Math.floor((9 * 8 * 1024 * 1024) / seconds / 1000))
-  const encode = [
-    '-i', input, '-an',
-    '-vf', 'scale=w=1920:h=1080:force_original_aspect_ratio=decrease:flags=lanczos,fps=30,format=yuv420p',
-    '-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'high',
-    '-b:v', `${kbps}k`, '-maxrate', `${kbps * 2}k`, '-bufsize', `${kbps * 4}k`,
-    '-passlogfile', join(out, '.launch-pass'),
-  ]
-  ffmpeg([...encode, '-pass', '1', '-f', 'mp4', '/dev/null'])
-  ffmpeg([...encode, '-pass', '2', '-movflags', '+faststart', `${target}.part.mp4`])
-  renameSync(`${target}.part.mp4`, target)
-  for (const suffix of ['-0.log', '-0.log.mbtree']) {
-    try {
-      execFileSync('rm', ['-f', join(out, `.launch-pass${suffix}`)])
-    } catch {}
-  }
-  ffmpeg(['-ss', String(launch.posterAt), '-i', target, '-frames:v', '1', '-vf', 'scale=1280:-2:flags=lanczos', '-q:v', '4', poster])
+  renameSync(part, target)
   const info = probe(target)
-  launch.width = info.streams[0].width
-  launch.height = info.streams[0].height
-  launch.seconds = Math.round(Number(info.format.duration) * 10) / 10
-  launch.bytes = statSync(target).size
-  launch.sha256 = sha256(target)
+  video.master = basename(input)
+  video.width = info.streams[0].width
+  video.height = info.streams[0].height
+  video.seconds = Math.round(Number(info.format.duration) * 100) / 100
+  video.bytes = statSync(target).size
+  video.sha256 = sha256(target)
+  poster(video)
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
-  for (const clip of launch.clips ?? []) cutClip(clip, { poster: true })
-  const tag = new URL(launch.release).pathname.split('/').at(-2)
-  console.log(`media: ${launch.file}, ${launch.width}x${launch.height}, ${launch.seconds} s, ${mb(launch.bytes)}`)
-  console.log(`media: poster ${launch.poster} at ${launch.posterAt} s (change posterAt in media.json to pick another frame)`)
-  console.log('media: media.json updated. For builds elsewhere, upload the file as the release asset:')
-  console.log(`  gh release create ${tag} --repo idosal/AgentPolyfill --title "Site media" --notes "Media for the website" || true`)
-  console.log(`  gh release upload ${tag} site/public/media/${launch.file} --repo idosal/AgentPolyfill --clobber`)
+  console.log(`media: ${video.file}, ${video.width}x${video.height}, ${video.seconds} s, ${mb(video.bytes)}, from ${video.master}`)
+  console.log(`media: poster ${video.poster} at ${video.posterAt} s (change posterAt in media.json, then node scripts/media.mjs posters)`)
+  console.log('media: media.json updated. For builds on other machines: node scripts/media.mjs release')
+}
+
+// A frame of the video, at the video's own size, as its poster.
+function poster(video) {
+  const source = join(out, video.file)
+  if (!existsSync(source)) fail(`public/media/${video.file} is missing, so its poster cannot be made`)
+  ffmpeg(['-ss', String(video.posterAt), '-i', source, '-frames:v', '1', '-q:v', '3', join(out, video.poster)])
+}
+
+function printRelease() {
+  const tag = new URL(manifest.release).pathname.split('/').filter(Boolean).at(-1)
+  const files = rendered().map(({ video }) => `site/public/media/${video.file}`)
+  console.log(`gh release create ${tag} --repo idosal/AgentPolyfill --prerelease --title "Site media" --notes "Videos for agentpolyfill.com, checked by SHA-256 in site/media.json" || true`)
+  console.log(`gh release upload ${tag} ${files.join(' ')} --repo idosal/AgentPolyfill --clobber`)
 }
 
 function hasFfmpeg() {
@@ -184,22 +184,13 @@ function hasFfmpeg() {
   }
 }
 
-function derive() {
-  for (const item of manifest.derived) deriveOne(item)
-}
-
 function deriveOne(item) {
   const source = join(root, item.from)
   const target = join(out, item.file)
-  if (item.kind === 'gif-to-mp4') {
-    ffmpeg([
-      '-i', source, '-an',
-      '-vf', 'fps=12,scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos,format=yuv420p',
-      '-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'high', '-crf', '22', '-movflags', '+faststart', target,
-    ])
-  } else if (item.kind === 'poster') {
-    ffmpeg(['-ss', String(item.at), '-i', source, '-frames:v', '1', '-vf', 'scale=960:-2:flags=lanczos', '-q:v', '4', target])
-  }
+  if (item.kind === 'poster') {
+    // At the recording's own size, so the poster is as sharp as the video.
+    ffmpeg(['-ss', String(item.at), '-i', source, '-frames:v', '1', '-q:v', '4', target])
+  } else fail(`media.json: unknown kind ${item.kind}`)
   console.log(`media: ${item.file}, ${mb(statSync(target).size)}`)
 }
 
