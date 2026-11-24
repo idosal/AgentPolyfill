@@ -250,14 +250,9 @@ export function discoverServers(env: NodeJS.ProcessEnv = process.env, log: (s: s
             if (dirname(at) === at) return false;
         }
     });
-    // Whether this folder itself was trusted, not only a folder around it. Where trust comes from a
-    // parent, Claude Code does not let the repository approve its own `.mcp.json` servers ("The
-    // repository's own approvals don't count"): it asks the person. So its settings are read here only
-    // when the folder's own trust is on record.
-    const ownTrust = [project, real(project)].some((p) => projects[p]?.hasTrustDialogAccepted === true);
     // What Claude Code reads to decide about `.mcp.json` servers, highest first. The folder's own
-    // settings count only once the folder itself is trusted.
-    const layers = [...(ownTrust ? [readJson(join(project, '.claude', 'settings.local.json')), readJson(join(project, '.claude', 'settings.json'))] : []), readJson(join(configDir, 'settings.json'))].filter((x) => x !== undefined);
+    // settings count only once it is trusted.
+    const layers = [...(trusted ? [readJson(join(project, '.claude', 'settings.local.json')), readJson(join(project, '.claude', 'settings.json'))] : []), readJson(join(configDir, 'settings.json'))].filter((x) => x !== undefined);
     // An allow or deny list for MCP servers counts from any settings file, and this plugin cannot apply one.
     if (layers.some((x) => POLICY_KEYS.some((k) => k in x))) return off('a settings file says which MCP servers are allowed or denied, and this plugin cannot apply such a list, so it connects to none');
 
