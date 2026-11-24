@@ -244,8 +244,11 @@ describe('what is left on disk', () => {
         const recent = make('recent-session', 3);
         const mine = make('this-session', 30);
         const foreign = make('someone-elses', 30, 'notes.txt');
-        assert.equal(pruneSessions(base, 'this-session', 14 * day, now), 1);
+        // Since 0.4.0 every session that was woken keeps its wake count beside its events.
+        const woken = make('woken-session', 30, 'wakes.json');
+        assert.equal(pruneSessions(base, 'this-session', 14 * day, now), 2);
         assert.equal(existsSync(old), false, 'gone');
+        assert.equal(existsSync(woken), false, 'gone too, wake count and all');
         assert.ok(existsSync(join(recent, 'events.jsonl')), 'a recent one stays');
         assert.ok(existsSync(join(mine, 'events.jsonl')), "this session's own stays, however old");
         assert.ok(existsSync(join(foreign, 'notes.txt')), 'a folder holding anything else is not removed');

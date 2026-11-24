@@ -10,7 +10,7 @@
 // <state> is MCP_EVENTS_STATE, else CLAUDE_PLUGIN_DATA, else ~/.mcp-events-plugin.
 
 import { createHash } from 'node:crypto';
-import { appendFileSync, chmodSync, closeSync, existsSync, fsyncSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmdirSync, statSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
+import { appendFileSync, chmodSync, closeSync, existsSync, fstatSync, fsyncSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmdirSync, statSync, unlinkSync, writeFileSync, writeSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import type { DeliveryMode } from './events-client.ts';
@@ -37,6 +37,9 @@ function writeAtomic(file: string, data: string): void {
     chmodSync(tmp, 0o600);
     renameSync(tmp, file);
 }
+
+/** How many sessions a project keeps listed as possibly holding events not yet handed over. */
+const LISTED_MAX = 8;
 
 export type WatchStatus = 'starting' | 'active' | 'retrying' | 'error' | 'ended' | 'elsewhere';
 
@@ -162,6 +165,30 @@ export class ProjectState {
         }
     }
 
+    /**
+     * The sessions whose spools may hold this project's events not yet handed over: each session
+     * that ran the watches lists itself, and the next one that runs them takes what is waiting there
+     * and takes it off the list (WatchManager). At most the latest LISTED_MAX are kept.
+     */
+    listed(): { session: string; pid: number }[] {
+        try {
+            const j = JSON.parse(readFileSync(join(this.dir, 'sessions.json'), 'utf8')) as { sessions?: unknown };
+            return Array.isArray(j.sessions) ? j.sessions.filter((x): x is { session: string; pid: number } => typeof x?.session === 'string' && typeof x?.pid === 'number') : [];
+        } catch {
+            return [];
+        }
+    }
+
+    list(session: string, pid = process.pid): void {
+        const rest = this.listed().filter((x) => x.session !== session);
+        writeAtomic(join(this.dir, 'sessions.json'), JSON.stringify({ sessions: [...rest, { session, pid }].slice(-LISTED_MAX) }) + '\n');
+    }
+
+    unlist(sessions: string[]): void {
+        if (!sessions.length) return;
+        writeAtomic(join(this.dir, 'sessions.json'), JSON.stringify({ sessions: this.listed().filter((x) => !sessions.includes(x.session)) }) + '\n');
+    }
+
     /** Gives the claim up, if this process holds it. */
     release(pid = process.pid): void {
         const file = join(this.dir, 'owner.json');
@@ -173,7 +200,7 @@ export class ProjectState {
     }
 }
 
-function alive(pid: number): boolean {
+export function alive(pid: number): boolean {
     try {
         process.kill(pid, 0);
         return true;
@@ -182,7 +209,72 @@ function alive(pid: number): boolean {
     }
 }
 
-const SESSION_FILES = ['events.jsonl', 'delivered.pos', 'monitor.pos'];
+const SESSION_FILES = ['events.jsonl', 'delivered.pos', 'monitor.pos', 'wakes.json'];
+
+/** Where a session's spool and its hand-over position are kept. */
+export function sessionDir(base: string, session: string): string {
+    return join(base, 'sessions', session.replace(/[^A-Za-z0-9_-]/g, '_'));
+}
+
+/** How much of the end of another session's spool is read when a helper starts: what was not handed over, and the latest events. */
+const PEEK_BYTES = 16 * 1024 * 1024;
+const RECENT_BYTES = 4 * 1024 * 1024;
+
+/** A session's hand-over position: bytes of its spool handed to Claude Code and acknowledged. */
+export function deliveredPosition(dir: string): number {
+    // A position saved by the monitor of an earlier version of this plugin counts too.
+    for (const file of [join(dir, 'delivered.pos'), join(dir, 'monitor.pos')]) {
+        try {
+            return Math.max(0, Number((JSON.parse(readFileSync(file, 'utf8')) as { bytes?: unknown }).bytes) || 0);
+        } catch {
+            // nothing handed over yet
+        }
+    }
+    return 0;
+}
+
+export function saveDeliveredPosition(dir: string, bytes: number): void {
+    writeFileSync(join(dir, 'delivered.pos'), JSON.stringify({ bytes }), { mode: 0o600 });
+}
+
+/**
+ * The end of a session's spool, as records with where each ends, and its hand-over position:
+ * everything past that position, and the latest few megabytes before it. A record cut off by
+ * where the reading starts is left out.
+ */
+export function peekSpool(base: string, session: string): { dir: string; size: number; delivered: number; records: { rec: SpoolRecord; end: number }[] } {
+    const dir = sessionDir(base, session);
+    const delivered = deliveredPosition(dir);
+    const out = { dir, size: 0, delivered, records: [] as { rec: SpoolRecord; end: number }[] };
+    let fd: number | undefined;
+    try {
+        fd = openSync(join(dir, 'events.jsonl'), 'r');
+        const size = fstatSync(fd).size;
+        out.size = size;
+        const from = Math.max(0, size - PEEK_BYTES, Math.min(delivered, size - RECENT_BYTES));
+        const buf = Buffer.alloc(size - from);
+        const got = readSync(fd, buf, 0, buf.length, from);
+        let at = from;
+        let first = true;
+        for (const line of buf.subarray(0, got).toString('utf8').split('\n')) {
+            const end = at + Buffer.byteLength(line) + 1;
+            const whole = !(first && from > 0 && from !== delivered);
+            first = false;
+            at = end;
+            if (!whole || !line.trim() || end > size) continue;
+            try {
+                out.records.push({ rec: JSON.parse(line) as SpoolRecord, end });
+            } catch {
+                // not a record
+            }
+        }
+    } catch {
+        // no spool there
+    } finally {
+        if (fd !== undefined) closeSync(fd);
+    }
+    return out;
+}
 
 /**
  * Removes the stored events of sessions that last wrote long ago. A session's events are read only
@@ -248,7 +340,7 @@ export class Spool {
     #bytes = 0;
 
     constructor(base: string, session: string) {
-        this.dir = join(base, 'sessions', session.replace(/[^A-Za-z0-9_-]/g, '_'));
+        this.dir = sessionDir(base, session);
         mkdirSync(this.dir, { recursive: true, mode: 0o700 });
         this.file = join(this.dir, 'events.jsonl');
         // Opened for appending: this creates the file if it is not there and never empties one that is
@@ -261,23 +353,29 @@ export class Spool {
 
     /** Appends synchronously, so a webhook is acknowledged only once its event is on disk. */
     append(rec: Omit<SpoolRecord, 'id' | 'receivedAt'>): SpoolRecord {
-        const full: SpoolRecord = { id: `e${this.#seq + 1}`, receivedAt: new Date().toISOString(), ...rec };
-        const line = JSON.stringify(full) + '\n';
+        return this.appendMany([rec])[0]!;
+    }
+
+    /** Appends several records in one write and one flush: all of them are on disk, or none was taken. */
+    appendMany(recs: (Omit<SpoolRecord, 'id' | 'receivedAt'> & { receivedAt?: string })[]): SpoolRecord[] {
+        const full: SpoolRecord[] = recs.map((rec, i) => ({ id: `e${this.#seq + 1 + i}`, receivedAt: new Date().toISOString(), ...rec }));
+        const text = full.map((r) => JSON.stringify(r) + '\n').join('');
+        const bytes = Buffer.byteLength(text);
         // One session's events take at most this much disk. Past it nothing more is taken (so nothing
         // more is acknowledged), until a new session starts.
         // A notice (a watch stopping, say) still fits in a small reserve, so the reason can be told.
-        if (this.#bytes + Buffer.byteLength(line) > MAX_SPOOL_BYTES + (full.kind === 'notice' ? NOTICE_RESERVE_BYTES : 0)) throw new LocalError('this session\'s event store is full; events wait at their source until a new session starts');
+        if (this.#bytes + bytes > MAX_SPOOL_BYTES + (full.every((r) => r.kind === 'notice') ? NOTICE_RESERVE_BYTES : 0)) throw new LocalError('this session\'s event store is full; events wait at their source until a new session starts');
         // Written and flushed: an event is acknowledged to its sender only after this.
         const fd = openSync(this.file, 'a', 0o600);
         try {
-            writeSync(fd, line);
+            writeSync(fd, text);
             fsyncSync(fd);
         } finally {
             closeSync(fd);
         }
-        this.#seq++;
-        this.#bytes += Buffer.byteLength(line);
-        this.onAppend?.(full);
+        this.#seq += full.length;
+        this.#bytes += bytes;
+        for (const r of full) this.onAppend?.(r);
         return full;
     }
 
