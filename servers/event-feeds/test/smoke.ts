@@ -70,8 +70,8 @@ assert.equal(ev.data.hasMessage, true);
 ok(`a press is an event on the next poll (${Date.now() - pressAt} ms after the press, poll took ${p1.ms} ms), with no text in it`);
 const txt = await rpc('tools/call', { name: 'read_event_text', arguments: { event: 'demo.button', channel: sc.channel, id: '1' } });
 assert.equal((txt.result!.structuredContent as { message: string }).message, 'smoke test');
-assert.match((txt.result!.content as { text: string }[])[0]!.text, /^Third-party text from whoever pressed the demo button/);
-ok('read_event_text returns the message, labelled as third-party text');
+assert.deepEqual(Object.keys(txt.result!.structuredContent as object).sort(), ['message', 'press', 'pressedAt']);
+ok('read_event_text returns the message as plain data');
 const p2 = await rpc('events/poll', { name: 'demo.button', arguments: { channel: sc.channel }, cursor: p1.result!.cursor });
 assert.deepEqual(p2.result!.events, []);
 ok('and only once');
@@ -107,7 +107,7 @@ assert.equal(noRepo.error?.code, -32602);
 ok(`wrong arguments are refused: "${notStory.error!.message.slice(0, 70)}…", "${noPkg.error!.message}", "${noRepo.error!.message}"`);
 
 const hn = await rpc('tools/call', { name: 'read_event_text', arguments: { event: 'hn.comment', id: '50621511' } });
-assert.match((hn.result!.content as { text: string }[])[0]!.text, /^Third-party text from Hacker News/);
+assert.equal(typeof (hn.result!.structuredContent as { text: string }).text, 'string');
 ok(`read_event_text on a real HN comment: author ${(hn.result!.structuredContent as { author: string }).author}, ${String((hn.result!.structuredContent as { text: string }).text).length} characters of text`);
 
 if (process.env.SMOKE_LIMITS === '1') {

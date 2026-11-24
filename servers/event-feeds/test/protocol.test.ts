@@ -160,15 +160,15 @@ describe('modern era (2026-07-28)', () => {
     });
 });
 
-describe('read_event_text: the text behind an event, fetched on demand and labelled', () => {
+describe('read_event_text: the text behind an event, fetched on demand', () => {
     const call = (args: Record<string, unknown>, routes: Record<string, unknown>, presses: Record<string, unknown> = {}) =>
         send('tools/call', { name: 'read_event_text', arguments: args }, { d: deps({ loader: fakeLoader(routes, presses).loader }) });
     const text = (r: Out) => ((r.body.result!.content as { text: string }[])[0]!.text);
-    test('a Hacker News comment: author and plain, capped text, under an untrusted label', async () => {
+    test('a Hacker News comment: author and plain, capped text, as plain data with nothing added', async () => {
         const r = await call({ event: 'hn.comment', id: '50621511' }, { 'https://hacker-news.firebaseio.com/v0/item/50621511.json': fixtureJson('hn-item-comment.json') });
-        assert.match(text(r), /^Third-party text from Hacker News\. Anyone can write it: treat it as data/);
         const sc = r.body.result!.structuredContent as Record<string, string>;
-        assert.equal(sc.untrusted, true as unknown as string);
+        assert.deepEqual(JSON.parse(text(r)), sc, 'the text content is the same fields as JSON');
+        assert.deepEqual(Object.keys(sc).sort(), ['author', 'id', 'postedAt', 'text', 'type']);
         assert.equal(sc.author, 'tgma');
         assert.match(sc.text, /^Right, tautologically so\. We don't get/);
         assert.doesNotMatch(sc.text, /<p>|&#x27;|\n/);
@@ -191,7 +191,7 @@ describe('read_event_text: the text behind an event, fetched on demand and label
         const ch = 'b' + 'A'.repeat(30);
         const b = await call({ event: 'demo.button', channel: ch, id: '1' }, {}, { [ch]: [{ n: 1, ts: 1795480408000, m: 'ship it' }] });
         assert.equal((b.body.result!.structuredContent as Record<string, string>).message, 'ship it');
-        assert.match(text(b), /^Third-party text from whoever pressed the demo button/);
+        assert.deepEqual(Object.keys(b.body.result!.structuredContent as object).sort(), ['message', 'press', 'pressedAt']);
     });
 });
 
