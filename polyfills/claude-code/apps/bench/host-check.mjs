@@ -472,12 +472,22 @@ await post(socket, "/open", { viewId: "keys", server: "echo", toolName: "keys", 
 await until(() => h.said.has("keys"), 8000);
 const typed = () => JSON.parse(h.said.get("keys") ?? "{}");
 const press = (event) => post(socket, "/input", { viewId: "keys", event });
+// The helper counts a press within 500 ms of the last one, from when it
+// handles each (helper-rs/src/input.rs, MULTI_CLICK_MS). Each press here is
+// sent once the one before is handled, so on a slow machine the second can
+// come later than that: then the clicks weren't quick, and the check can't
+// be made there.
+const downs = [];
 for (let n = 0; n < 2; n++) {
+  downs.push(Date.now());
   await press({ kind: "pointer", type: "down", x: 5, y: 2, button: "left" });
   await press({ kind: "pointer", type: "up", x: 5, y: 2, button: "left" });
 }
+const between = downs[1] - downs[0];
 await until(() => typed().dblclicks >= 1, 3000);
-check("two quick clicks in one place are a double click", typed().dblclicks === 1, `${typed().dblclicks} double clicks`);
+if (between >= 450 && typed().dblclicks === 0)
+  console.log(`SKIP two quick clicks in one place are a double click: this machine took ${between} ms from one press to the next (the window is 500 ms)`);
+else check("two quick clicks in one place are a double click", typed().dblclicks === 1, `${typed().dblclicks} double clicks, ${between} ms apart`);
 // One character each (an emoji is two UTF-16 units), text of several, and
 // a control sequence no key is known for.
 for (const key of ["😀", "é", "👍🏽", "\u001b[99~", "x"]) await press({ kind: "key", key });
