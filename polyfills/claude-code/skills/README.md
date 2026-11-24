@@ -312,8 +312,9 @@ helper, as it can already run code through its own hooks.
   extension sets for a client, whether the mod meets it, and the test that
   checks it (59 rules: 53 met, 3 met with a stated limit, 3 that do not apply).
 - [`docs/verification.md`](docs/verification.md): a model of the approval
-  and gate state machine, explored state by state, and property tests of what
-  a server's input reaches; what each shows and what it does not.
+  and gate state machine, explored state by state (by an explorer of its own
+  and by TLC), and property tests of what a server's input reaches; what each
+  shows and what it does not.
 - [`docs/host-changes.md`](docs/host-changes.md): what Claude Code would need
   to offer for this mod to work with every server, and how much of the mod
   each addition would remove.
@@ -329,6 +330,7 @@ helper, as it can already run code through its own hooks.
 | The client rules, one test per rule, against a hand-written server; discovery; the bundled helper; property tests; the model of the gate | `npm test` | 118 pass |
 | Approval, the permission questions, first-run behaviour and the runtime setup, in Claude Code's own test kit | `npm run test:mod` | 80 pass |
 | A model of approval, loading and the gate, every reachable state to its bound ([what it shows](docs/verification.md)) | `node verification/model.ts` | every invariant holds |
+| The same model in TLA+, every reachable state to the same bound, by TLC 1.7.4 | `node verification/check.mjs` | every invariant holds; 0.3.0's rule and the lossy read-back break the gate, as they should ([numbers](docs/verification.md)) |
 | Time to a listing, memory and CPU of the helper | [`tools/measure.ts`](tools/measure.ts) | [numbers](docs/evidence/measure.txt) |
 | The official TypeScript SDK's Skills server and client, over stdio and HTTP | `npm run interop` | 15 checks pass |
 | The bundled helper on Bun instead of Node | `npm run test:bun` | 5 pass (Bun 1.3.3) |
@@ -350,6 +352,7 @@ npm run interop:real
 npm run test:bun    # the bundled helper on Bun
 npm run build       # mod/dist/helper.js, from src/
 node verification/model.ts   # the model of the gate, every state to its bound
+TLA2TOOLS=/path/to/tla2tools.jar node verification/check.mjs   # the same in TLA+, by TLC (needs Java)
 node tools/measure.ts        # time to a listing, memory and CPU of the helper
 ```
 
