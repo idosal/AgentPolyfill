@@ -3,8 +3,9 @@
 //! loopback TCP. Every request carries the token the mod got on stdout
 //! (`x-mcp-apps-cli-token`); one without it gets 403, before its body is
 //! read. One request per connection: the answer, then the connection closes.
-//! A request must arrive whole within `READ_DEADLINE`, and at most
-//! `MAX_CONNECTIONS` are open at once (security review, A7).
+//! A request's head must arrive within `HEAD_DEADLINE` and the whole request
+//! within `READ_DEADLINE`, and at most `MAX_CONNECTIONS` are open at once
+//! (security review, A7, and its 0.1.1 re-test).
 
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
@@ -26,6 +27,14 @@ const MAX_BODY: usize = 64 * 1024 * 1024;
 const READ_DEADLINE: std::time::Duration = std::time::Duration::from_secs(30);
 #[cfg(test)]
 const READ_DEADLINE: std::time::Duration = std::time::Duration::from_millis(500);
+/// How long a request's head (its line and headers, where the token is) may
+/// take: the mod sends it at once, so a connection that sends no head soon
+/// frees its slot (the 0.1.1 re-test: 128 idle connections held every slot
+/// for the whole read deadline and locked the mod out, over TCP).
+#[cfg(not(test))]
+const HEAD_DEADLINE: std::time::Duration = std::time::Duration::from_secs(2);
+#[cfg(test)]
+const HEAD_DEADLINE: std::time::Duration = std::time::Duration::from_millis(150);
 /// Connections open at once, at most; one past it is closed unanswered.
 const MAX_CONNECTIONS: usize = 128;
 
@@ -108,7 +117,9 @@ where
     Fut: std::future::Future<Output = Option<Result<Value>>>,
 {
     let read = tokio::time::timeout(READ_DEADLINE, async {
-        let (path, headers, buffered, length) = read_head(&mut stream).await?;
+        let head = tokio::time::timeout(HEAD_DEADLINE, read_head(&mut stream)).await;
+        let Ok(head) = head else { bail!("the request's head took too long") };
+        let (path, headers, buffered, length) = head?;
         let given = headers.iter().find(|(k, _)| k == TOKEN_HEADER).map(|(_, v)| v.as_str()).unwrap_or("");
         if !same(given.as_bytes(), token.as_bytes()) {
             return Ok(None);
@@ -119,6 +130,7 @@ where
     let (status, body) = match read {
         // Too slow to arrive: closed, unanswered.
         Err(_) => return,
+        Ok(Err(error)) if error.to_string().contains("head took too long") => return,
         Ok(Ok(None)) => (403, json!({ "ok": false, "error": "not authorized" })),
         Ok(Ok(Some((path, body)))) => {
             let input: Value = if body.is_empty() { json!({}) } else { serde_json::from_slice(&body).unwrap_or(json!({})) };
@@ -485,6 +497,35 @@ mod tests {
         let done = tokio::time::timeout(std::time::Duration::from_secs(3), task).await;
         assert!(done.is_ok(), "still waiting after the deadline");
         drop(client);
+    }
+
+    // The 0.1.1 re-test's A7 residual: 128 connections that send nothing (or
+    // a head that never ends) held every slot for the whole read deadline,
+    // locking the mod out of its helper. Each must send its head within the
+    // head deadline, so an idle one frees its slot much sooner.
+    #[tokio::test]
+    async fn a_connection_whose_head_never_ends_is_dropped_at_the_head_deadline() {
+        for prefix in [&b""[..], b"POST /ping HTTP/1.1\r\nx-pad: "] {
+            let (mut client, server) = tokio::io::duplex(1 << 16);
+            let task = tokio::spawn(answer(server, "right-token", |_, _| async { Some(Ok::<_, anyhow::Error>(json!({}))) }));
+            client.write_all(prefix).await.unwrap();
+            let started = std::time::Instant::now();
+            let done = tokio::time::timeout(READ_DEADLINE * 2, task).await;
+            assert!(done.is_ok(), "still waiting");
+            assert!(started.elapsed() < READ_DEADLINE, "held {:?}, the whole read deadline", started.elapsed());
+            assert!(started.elapsed() >= HEAD_DEADLINE / 2, "dropped at once");
+            drop(client);
+        }
+        // A head that arrives in time still gets its body's whole deadline.
+        let (mut client, server) = tokio::io::duplex(1 << 16);
+        let task = tokio::spawn(answer(server, "right-token", |_, input| async move { Some(Ok::<_, anyhow::Error>(input)) }));
+        client.write_all(format!("POST /ping HTTP/1.1\r\n{TOKEN_HEADER}: right-token\r\ncontent-length: 7\r\n\r\n").as_bytes()).await.unwrap();
+        tokio::time::sleep(HEAD_DEADLINE + HEAD_DEADLINE / 2).await;
+        client.write_all(br#"{"a":1}"#).await.unwrap();
+        let mut reply = Vec::new();
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(2), client.read_to_end(&mut reply)).await;
+        assert!(String::from_utf8_lossy(&reply).starts_with("HTTP/1.1 200"), "{}", String::from_utf8_lossy(&reply));
+        let _ = task.await;
     }
 
     #[test]
