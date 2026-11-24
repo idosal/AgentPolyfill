@@ -8,11 +8,13 @@ on:
   push:
     paths:
       - "site/**"
+      - "community/**"
       - ".github/workflows/site.yml"
       - "polyfills/*/claude-code/docs/media/**"
   pull_request:
     paths:
       - "site/**"
+      - "community/**"
       - ".github/workflows/site.yml"
       - "polyfills/*/claude-code/docs/media/**"
 
