@@ -66,8 +66,10 @@ codex plugin add ard-discovery@agent-polyfill
 ```
 
 **Google Antigravity** (App, CLI and IDE; Node 20 or newer on your `PATH`).
-These forms are new and haven't been run in a live Antigravity yet: each
-README says what a first run has to confirm. From a clone of this repository:
+These forms are new. Events was run live in the App and the CLI on
+25 November 2026, including a sidecar waking an idle conversation; the
+others share its approval gate, and each README says what is still to be
+checked live. From a clone of this repository:
 
 ```
 agy plugin install AgentPolyfill/polyfills/events/antigravity/plugin

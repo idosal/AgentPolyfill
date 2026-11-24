@@ -10,7 +10,9 @@ Also available for [Claude Code](../claude-code/README.md) and
 [`mcp-server-cards` for Antigravity](../../server-cards/antigravity/README.md),
 and this plugin checks, shows and adds what it finds with the same code.
 
-**It hasn't been run in a live Antigravity yet.** It is built from
+**Not run live as a whole yet.** Its approval gate, shared with the other
+Antigravity forms, was checked live through the Events plugin on 25 November
+2026. It is built from
 Antigravity's documentation (App v2.35.1, CLI v1.5.16, read on 25 November
 2026) and tested against stand-ins. What a live run has to confirm is in
 [`mcp-server-cards`' list](../../server-cards/antigravity/README.md#before-you-rely-on-it),
@@ -71,7 +73,7 @@ uninstall the plugin, or set `ARD_DISCOVERY_DISABLED=1`.
 
 The ones in [`mcp-server-cards` for Antigravity](../../server-cards/antigravity/README.md#limits)
 apply to adding, and to the approval: it's yes or no, it depends on the hook
-matching the tool's name (`mcp_.*ard.discovery.*(ard_search|add_mcp_server)`),
+seeing the call (`call_mcp_tool` with `ServerName` `ard-discovery_ard`, or the eager `mcp_ard-discovery_ard_<tool>`),
 and without the hook nothing is sent. Also:
 
 - **The hook and the server each read a named registry's catalogs.** The
@@ -102,12 +104,12 @@ differs:
 
 ### Proof
 
-106 tests, run with `npm test`: 96 shared rule tests (ARD's registry client
+107 tests, run with `npm test`: 96 shared rule tests (ARD's registry client
 from `../claude-code/mod/tests`, and the Server Cards core's from
 `../../server-cards/claude-code/mod/tests`), built from the same sources as
-the bundle, and 10 of this form's own (R-1 to R-9 and B-1), with the server
+the bundle, and 11 of this form's own (R-1 to R-10 and B-1), with the server
 on stdio, its hook as a command, a web with an `ard.json` and a registry on
-127.0.0.1, and a throwaway `HOME`. No live run yet.
+127.0.0.1, and a throwaway `HOME`. R-10 runs the search through `call_mcp_tool`, as Antigravity sends it.
 
 ## Development
 

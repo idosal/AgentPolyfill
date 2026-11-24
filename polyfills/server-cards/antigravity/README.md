@@ -15,10 +15,13 @@ This plugin implements the client side of the MCP Server Cards extension
 the Antigravity App, the CLI (`agy`) and the IDE, which share plugins. The
 revisions it follows are in [Spec and conformance](#spec-and-conformance).
 
-**It hasn't been run in a live Antigravity yet.** Everything below is built
-from Antigravity's documentation (App v2.35.1 and CLI v1.5.16, read on
-25 November 2026) and tested against stand-ins. [Before you rely on
-it](#before-you-rely-on-it) lists what a first live run has to confirm.
+**Partly checked live.** It is built from Antigravity's documentation (App
+v2.35.1 and CLI v1.5.16, read on 25 November 2026) and tested against
+stand-ins. Its approval gate, shared with the other Antigravity forms, was run
+live on 25 November 2026 through the Events plugin: the hook takes the call
+under the name Antigravity really uses, and the ticket reaches the server. An
+addition itself, and the approval card's text, haven't been run live yet:
+see [Before you rely on it](#before-you-rely-on-it).
 
 ARD isn't in this plugin. Its `/.well-known/ard.json` and its registry search
 are in [`ard-discovery` for Antigravity](../../ard/antigravity/README.md),
@@ -132,7 +135,7 @@ Each names the host change that would remove it.
 [What hosts would need to change](../../../docs/host-changes.md) has the
 Antigravity column.
 
-- **Untested live.** See [Before you rely on it](#before-you-rely-on-it).
+- **An addition hasn't been run live.** See [Before you rely on it](#before-you-rely-on-it).
 - **A card that needs a secret can't be added.** Antigravity reads no
   `${VAR}` in `~/.gemini/config/mcp_config.json` (a plugin's own file can,
   for its declared `variables`). The plugin would have to write the key, and
@@ -140,17 +143,21 @@ Antigravity column.
   personal file.
 - **The approval is yes or no.** `force_ask` has no other choices. MCP
   elicitation in Antigravity would give the same form the Codex form shows.
-- **The approval depends on the hook matching the tool's name.** Antigravity
-  doesn't document the name a hook sees for a plugin's MCP tool beyond the
-  `mcp_` prefix. The matcher, `mcp_.*server.cards.*add_mcp_server`, assumes
-  the plugin's name is in it. If it isn't, nothing is ever added (the server
-  refuses without a ticket); it never adds unasked. Fix: a documented tool
-  name, or MCP elicitation.
-- **The plugin writes the configuration file itself.** There's no
-  `agy mcp add`. It writes the whole file in one step and keeps everything
-  else in it, but a file with comments, or one Antigravity is writing at the
-  same moment, isn't handled: the first is refused, the second could lose
-  one of the two writes. Fix: `agy mcp add`, or a plugin API for it.
+- **The approval depends on the hook seeing the call.** Antigravity calls a
+  lazily loaded MCP tool (its default) through its own `call_mcp_tool`, with
+  the server in `ServerName`, and an eager one as `mcp_<server>_<tool>`
+  (seen live). The hook's matcher takes both, and the gate acts only when
+  `ServerName` is this plugin's server, `mcp-server-cards_cards`. So the hook
+  runs, briefly, for every lazy MCP call of any server. If Antigravity
+  changes those names, nothing is added (the server refuses without a
+  ticket); it never adds unasked. Fix: MCP elicitation.
+- **The plugin writes the configuration file itself.** The CLI has
+  `agy mcp add` (1.5.16; the MCP page doesn't mention it), and it writes the
+  same entry, but the App doesn't ship `agy`, so the plugin can't count on
+  it. It writes the whole file in one step and keeps everything else in it,
+  but a file with comments, or one Antigravity is writing at the same moment,
+  isn't handled: the first is refused, the second could lose one of the two
+  writes. Fix: a plugin API for adding a server.
 - **The card isn't compared with the live server** (rule S-3). The plugin
   can't send `server/discover` over Antigravity's connection.
 - **A project's own `.agents/mcp_config.json` isn't checked for a name
@@ -162,15 +169,25 @@ Antigravity column.
 
 ## Before you rely on it
 
-A first run in a real Antigravity (App and CLI) has to confirm:
+Checked live on 25 November 2026, through the Events plugin, which uses the
+same gate ([its record](../../events/antigravity/docs/live-run.md)):
 
-1. the name a `PreToolUse` hook sees for `add_mcp_server`, and that the
-   matcher in `plugin/hooks.json` takes it;
-2. that `force_ask` shows the hook's `reason` in the approval card;
-3. that `overwrite` reaches the MCP server's arguments (the ticket);
-4. that Antigravity starts the hook with the plugin folder as its working
-   directory and Node on `PATH`, and the server with the same `HOME`;
-5. that the written entry connects, with and without a sign-in.
+- the name a `PreToolUse` hook sees for a plugin's MCP tool (`call_mcp_tool`
+  with `ServerName`, `ToolName` and `Arguments`, for a lazily loaded tool),
+  and that the matcher in `plugin/hooks.json` takes it;
+- that `overwrite` reaches the MCP server's arguments (the ticket);
+- that Antigravity starts the hook in the plugin folder, with the same `HOME`
+  as the plugin's server.
+
+Also: `agy plugin validate --strict` passes, and `agy mcp add` writes the same
+entry shape as the plugin (`serverUrl`, `headers`).
+
+Not checked yet:
+
+1. that `force_ask` shows the hook's `reason` in the approval card, and that
+   declining it means the tool isn't called;
+2. an addition end to end, and that the written entry connects, with and
+   without a sign-in.
 
 ## Security
 
@@ -219,18 +236,18 @@ differs:
 
 ### Proof
 
-110 tests, run with `npm test`:
+112 tests, run with `npm test`:
 
 - 88 shared rule tests from `../claude-code/mod/tests` (card, configure,
   discover, format, offer), built from the same sources as the bundle;
-- 20 of this form's own: the plan (P-), the file (W-), the gate (G-), the
+- 22 of this form's own: the plan (P-), the file (W-), the gate (G-), the
   hook's matcher (H-), and the server and its hook as Antigravity runs them
   (E-), over stdio and as a command, with a web on 127.0.0.1 and a
   throwaway `HOME`;
 - 2 bundle checks (B-): the committed `plugin/dist/server.mjs` is what the
   sources build, and a copy of `plugin/` alone starts and lists its tools.
 
-No live run yet (see above).
+The gate was also run live, through the Events plugin (see above).
 
 ## Development
 

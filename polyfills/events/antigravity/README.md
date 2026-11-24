@@ -9,9 +9,12 @@ This plugin implements the client side of MCP Events,
 the **Final text as of 24 November 2026**, the same revision as
 [the Codex form](../codex/README.md). It bundles the same [Events client](../core).
 
-**This form has not been run in a live Antigravity yet.** It is built from
-the App v2.35.1 and CLI v1.5.16 documentation read on 25 November 2026, and
-tested with local stand-ins. The live checks still needed are listed below.
+**Run live on 25 November 2026,** in Antigravity App v2.35.1 and CLI v1.5.16
+on macOS, against Mastra's Events server (the [demo](../claude-code/demo)):
+a watch by push, the event delivered at the CLI conversation's next turn, and
+an idle App conversation woken by the sidecar, which then answered from the
+event. [docs/live-run.md](docs/live-run.md) has the record, and
+[What the live run showed](#what-the-live-run-showed) what is still open.
 
 ## Install
 
@@ -79,8 +82,18 @@ can then use `list_event_types` and `watch_event` to watch it. Press the button.
 With the enabled App sidecar, a plugin message should start a turn. Otherwise,
 send another message yourself: `PreInvocation` announces what arrived.
 Ask for `get_event` or `recent_events` to read the payload. To stop, ask
-“stop watching the demo button.” This is a proposed live check, not a recorded
-Antigravity result; the demo has been exercised by the Codex form.
+“stop watching the demo button.”
+
+The live run used the local [deploys demo](../claude-code/demo) instead
+(Mastra's own Events implementation), added with the CLI's
+`agy mcp add --header "Authorization: Bearer <token>" deploys http://127.0.0.1:4010/mcp`:
+
+> Using the mcp-events tools, watch deploy.finished on the deploys MCP server.
+> Note for the watch: when a deploy fails, tell me in one line which service
+> failed and why. Then stop and wait.
+
+Press **Deploy a bad commit** on the demo's page, and leave the conversation
+alone. With the sidecar on, it answers by itself a few seconds later.
 
 | You say | Tool |
 |---|---|
@@ -211,13 +224,13 @@ native Events and this plugin together can produce duplicate subscriptions.
 
 | Limit | Antigravity change needed |
 |---|---|
-| Every tool needs a hook ticket; actual MCP tool spelling and overwrite handling are unverified live. A missing hook makes the call fail closed. | A conversation UUID visible to MCP servers on each call. |
+| Every tool needs a hook ticket, carried in from the `PreToolUse` hook through `overwrite` (checked live). A missing hook makes the call fail closed. Each lazily loaded MCP call in Antigravity (`call_mcp_tool`, any server's) starts the hook once. | A conversation UUID visible to MCP servers on each call. |
 | Idle wakes work only through an enabled App sidecar. | A documented send-message API available outside sidecars. |
 | CLI and IDE wait for the next model call. | Sidecar support in the CLI and IDE, or an equivalent managed background worker. |
 | This is a second MCP client; a local server may run twice. Native sign-in is unavailable. | Forward MCP notifications to plugins and allow custom requests over the host's own approved connection. |
 | It cannot inspect the result of another tool to discover an event handle or correlate its output. | Tool output in `PostToolUse`. |
 | Watches need a running MCP server; the sidecar only wakes, it does not receive upstream events. Reopening waits for a plugin tool call. | A documented persistent plugin-client lifecycle and resume callback with conversation identity. |
-| Injection uses a system-message container, though its contents are explicitly marked as data. Wakes look like input messages. | A plugin event channel marked as untrusted data in both UI and model context. |
+| Injection uses a system-message container, though its contents are explicitly marked as data. Antigravity labels it "injected by a PreInvocation hook". A wake arrives as a system message (`sender=system`, "Message from System" in the App), never as your input. | A plugin event channel marked as untrusted data in both UI and model context. |
 | Hooks have no acknowledgment that an injected step actually reached model history. A crash after stdout but before recording delivery can repeat a batch; a host discarding successful stdout can miss the announcement. | A durable injection acknowledgment/idempotency key. Stored events remain readable today. |
 | A timed-out, nonzero or interrupted `agentapi` send counts as handed over even if no turn started. | A documented idempotent send receipt. The next model call still receives the stored batch. |
 | Automatic native-support stand-down is unavailable. | A host capability query for Events. |
@@ -244,7 +257,7 @@ No shared source is copied or modified. This adapter sets
 | Wake budget reset | Person's turn metadata or an hour | An hour; no guessed turn origin |
 | State | `$CODEX_HOME/mcp-events` | `stateDir('mcp-events')` |
 | No-Events discovery cache | One day | Once per server process; no persistent negative cache |
-| Verified in a real host | Codex TUI | Not yet |
+| Verified in a real host | Codex TUI | App v2.35.1 and CLI v1.5.16 (macOS) |
 
 ## Spec and conformance
 
@@ -257,26 +270,41 @@ Events parameter.
 
 [docs/conformance.md](docs/conformance.md) maps this form's tests and separates
 local checks from the upstream suite. [docs/interop.md](docs/interop.md) gives
-the runnable local external-server procedure. Neither an Antigravity live run
-nor a new external-server/upstream conformance result is claimed here.
+the runnable local external-server procedure. The upstream conformance suite
+hasn't been run against this form.
 
-### What a live run must confirm
+### What the live run showed
 
-1. `agy plugin validate plugin` and install accept the manifests; the six
-   MCP tools appear under the expected namespace in App, CLI and IDE.
-2. The actual MCP tool names match `hooks.json`. `allow` preserves ordinary
-   approval, `overwrite` reaches the server, and conversation UUIDs remain
-   stable across resume. With the hook disabled, tools refuse calls.
-3. `PreInvocation` accepts the nested `systemMessage` shape, presents it as
-   intended, runs during ongoing turns and on sidecar wakes, and keeps one
-   batch in history. A second conversation sees none of the first's events.
-4. Enabling `mcp-events/wake` starts Node in the documented cwd with `agentapi`
-   on PATH. `send-message` reaches the same conversation, wakes it when idle,
-   and behaves correctly while busy, closed, resumed and during App restart.
-5. A push/poll watch and an authenticated webhook watch store and deliver real
-   events; stopping unsubscribes. Sign-in servers are reported unavailable.
-6. Stand-down disables both paths, and CLI/IDE without the sidecar deliver on
-   the next model call. Check permissions and rendered server-data labeling.
+Checked on 25 November 2026 ([docs/live-run.md](docs/live-run.md)):
+
+1. `agy plugin validate --strict` passes (it counts the sidecar), and
+   `agy plugin install` installs the plugin.
+2. **Tool names.** Antigravity loads MCP tools lazily by default, and a hook
+   then sees `call_mcp_tool` with `ServerName` (`mcp-events_events`),
+   `ToolName` and `Arguments`; only an eager tool is `mcp_<server>_<tool>`.
+   The first run found the hook matching the eager names only, so every call
+   was refused (failing closed, as intended). The gate now takes both forms
+   and checks `ServerName`. `allow` keeps Antigravity's own MCP approval
+   ("Allow using this MCP tool?"), and `overwrite` reaches the server; the
+   tool result starts with Antigravity's note that a hook changed
+   `Arguments`.
+3. **Next-turn delivery (CLI).** One `agy` process, two turns: a watch by push
+   on Mastra's server, a failing deploy, then the second turn's
+   `PreInvocation` step carried the event, once, labelled by Antigravity as
+   injected by a hook.
+4. **Idle wake (App).** With `mcp-events/wake` enabled, the App ran the
+   sidecar with its own Node (no Node on `PATH` needed for it) and `agentapi`
+   on its `PATH`. A failing deploy 3.5 s later: the sidecar's
+   `agentapi send-message` woke the idle conversation, the hook delivered the
+   batch, and the agent read the event and the server's deploy log (each
+   through Antigravity's approval) and answered in one line, as the watch's
+   note asked.
+5. Hooks also get the conversation id as `ANTIGRAVITY_CONVERSATION_ID` in
+   their environment.
+
+Not checked yet: the IDE, a webhook watch, the wake while a turn is running or
+across an App restart, stand-down, and a second conversation's isolation in a
+real host (the tests cover it with stand-ins).
 
 ## Development
 

@@ -194,9 +194,10 @@ the live server.
   each `tools/call`, as Codex sends `threadId`, would make that unnecessary.
 - **Support MCP elicitation,** so a server can ask you something in the
   host's own form. Today a polyfill asks through a `PreToolUse` hook that
-  answers `force_ask`: a yes or no, with no other choices, and only when the
-  hook matches the tool's name. A documented form of the name Antigravity
-  gives an MCP tool in hooks would help too.
+  answers `force_ask`: a yes or no, with no other choices. A hook sees a
+  lazily loaded MCP tool (the default) as Antigravity's own `call_mcp_tool`,
+  so every plugin that gates its tools runs its hook for every MCP call of
+  every server; a matcher on the server's name would avoid that.
 - **Let something other than a sidecar send a message to a conversation.**
   `agentapi send-message` is on a sidecar's `PATH`, in the App only, and
   sidecars are off until you turn each one on. The Conversation Management
@@ -206,8 +207,8 @@ the live server.
 - **Read `${VAR}` in `mcp_config.json`,** as a plugin's own file can for its
   declared `variables`. Then the Server Cards polyfill could add a server
   whose card needs an API key, without ever writing the key.
-- **Add a server without editing the file:** an `agy mcp add`, or a plugin
-  API for it.
+- **Add a server without editing the file,** from a plugin. The CLI has
+  `agy mcp add` (1.5.16), but the App doesn't ship `agy`.
 - **Support SEP-2640 natively,** or let a plugin add skills somewhere other
   than your personal skills folder. A plugin's own folder is read-only and is
   replaced on update, so the Skills polyfill writes its entries into

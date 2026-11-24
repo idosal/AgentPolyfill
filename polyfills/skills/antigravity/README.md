@@ -9,11 +9,13 @@ commit `2eb3a8e`, the same revision as the [Codex form](../codex/README.md).
 It shares [Skills core](../core/), Codex's approval store and content formatting,
 and the [Antigravity gate](../../server-cards/antigravity/src/gate.ts).
 
-**It has not been run in a live Antigravity yet.** The adapter follows the
-Antigravity documentation copied on 2026-11-25, for App 2.35.1, CLI `agy`
-1.5.16 and IDE. Tests simulate the documented hook and MCP interfaces. They
-do not establish that the host connects them as expected. See the live checks
-below before relying on it.
+**Not run live as a whole yet.** The adapter follows the Antigravity
+documentation copied on 2026-11-25, for App 2.35.1, CLI `agy` 1.5.16 and IDE.
+Its approval gate, shared with the other Antigravity forms, was checked live
+through the Events plugin on 25 November 2026: the hook sees a lazily loaded
+MCP tool as `call_mcp_tool` (with `ServerName` `mcp-skills_skills`), the gate
+takes that form and the eager one, and `overwrite` reaches the server. The
+rest is in the live checks below.
 
 ## Install
 
@@ -195,7 +197,7 @@ removed from a conversation by deleting the file.
 | No native per-skill enable/disable enforcement; local discovery exclusions can hide a stub without preventing a tool load (H1/X11). Local name collisions are not detected (X9). | Expose effective skill policy and the complete skill namespace to plugins. Use server allow/skip settings here. |
 | The first turn may need `list_skills`; stubs share a global folder, survive uninstall and appear to other programs. At most 100 are written. Multiple installations use the same personal root. | A managed dynamic skill registration API, with discovery refresh and uninstall cleanup. |
 | Binary files are checked but not displayed. | A native skill-file presentation API for non-text resources. |
-| Hook tool names, `reason` display and `overwrite` delivery have not been confirmed live. Without the expected hook/ticket, loads fail closed. | A documented stable tool-name format and a verified hook-to-MCP contract. |
+| The hook runs, briefly, for every lazily loaded MCP call (`call_mcp_tool`, any server); it acts only on this plugin's `ServerName`. `reason` display in the approval card hasn't been confirmed live. Without the hook's ticket, loads fail closed. | MCP elicitation, or a hook matcher on the server's name. |
 | No automatic detection of native SEP-2640 support. | A host feature/version signal that plugins can query. |
 
 ## What differs from the other forms
@@ -262,8 +264,9 @@ CONFORMANCE_DIR=/path/to/modelcontextprotocol/conformance bash test/conformance.
 
 On App, CLI and IDE, with a throwaway HOME and a known fixture, confirm:
 
-- The exact MCP tool name seen by `PreToolUse` matches `hooks.json`, for
-  `load_skill` and the two read tools. It must not match another plugin.
+- Done (through the Events plugin, 25 November 2026): the tool name a
+  `PreToolUse` hook sees (`call_mcp_tool` for a lazy tool), and `overwrite`
+  reaching the server.
 - `force_ask` displays the `reason`, including origin, URI and new/changed
   wording, and declining does not invoke the MCP tool.
 - `overwrite.agentpolyfill_ticket` reaches the server unchanged; approving
