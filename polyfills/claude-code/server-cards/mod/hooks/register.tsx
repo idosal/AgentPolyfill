@@ -3,7 +3,7 @@ import type { EngineInterface, Register } from 'claude-code'
 import type { Json, Pick } from '../types'
 import { discover, isPrivateHost, parseTarget, type Deps } from './discover'
 import { isCompatible, planAdd, previewUrl, type Scope } from './configure'
-import type { ServerCard } from './card'
+import { plainText, type ServerCard } from './card'
 import { formatDiscovery, formatSearch } from './format'
 import { install } from './install'
 import { search, searchEndpoint, type SearchHit } from './search'
@@ -98,7 +98,7 @@ async function press($: EngineInterface, toolUseId: string, id: string) {
   }
   const done = await install($, planned.plan, 'local', card.name, pick.provenance)
   await setPick($, toolUseId, id, { state: done.ok ? 'added' : 'failed', note: done.short })
-  $.ui.toast(done.short)
+  $.ui.toast(plainText(done.short))
 }
 
 const STATE_LABEL: Record<Pick['state'], string> = {
@@ -344,12 +344,12 @@ export const register: Register = (on, options) => {
               <Box flexDirection="row" gap={1}>
                 <Box flexDirection="column" flexGrow={1}>
                   <Text>
-                    {pick.title} <Text dimColor>{pick.url}</Text>
+                    {plainText(pick.title)} <Text dimColor>{plainText(pick.url)}</Text>
                   </Text>
                   <Text dimColor={pick.isConfirmed !== false} color={pick.isConfirmed === false ? 'warning' : undefined}>
-                    {pick.trust}
+                    {plainText(pick.trust)}
                   </Text>
-                  {pick.note ? <Text dimColor>{pick.note}</Text> : null}
+                  {pick.note ? <Text dimColor>{plainText(pick.note)}</Text> : null}
                 </Box>
                 {pick.state === 'ready' ? (
                   <Button key={`add:${pick.id}`} label="Add" variant="primary" onPress={() => press($, p.tool_use_id, pick.id)} />
@@ -380,7 +380,7 @@ export const register: Register = (on, options) => {
         if ('error' in d) return
         const valid = d.servers.filter(s => s.card)
         if (!valid.length) return
-        const names = valid.map(s => s.card!.title ?? s.card!.name).join(', ')
+        const names = valid.map(s => plainText(s.card!.title ?? s.card!.name)).join(', ')
         $.ui.log(
           `${new URL(d.origin).host} publishes ${valid.length === 1 ? 'an MCP server' : `${valid.length} MCP servers`} (Server Card): ${names}. Ask Claude to add it.`,
         )

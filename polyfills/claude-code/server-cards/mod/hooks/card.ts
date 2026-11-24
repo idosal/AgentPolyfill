@@ -64,8 +64,41 @@ const isUri = (v: unknown): boolean => {
 /** Length as JSON Schema counts it: Unicode code points, not UTF-16 units. */
 const length = (s: string) => [...s].length
 
+/**
+ * Characters no card text may hold: C0 controls, DEL, C1 controls, and the
+ * invisible format and bidirectional marks. Any of them could make a terminal
+ * or a page show one thing while another is meant (an ESC sequence that
+ * rewrites a line, an OSC 8 link, a right-to-left override), and none has a
+ * place in a name, a description or a URL.
+ */
+export const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/
+
+/** Text with every UNSAFE_TEXT character removed: for anything shown. */
+export const plainText = (s: unknown) => String(s ?? '').replace(new RegExp(UNSAFE_TEXT.source, 'g'), '')
+
 const NAME = /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/
-const REMOTE_URL = /^(https?:\/\/[^\s]+|\{[a-zA-Z_][a-zA-Z0-9_]*\}[^\s]*)$/
+// The schema's pattern, narrowed to printable ASCII: a remote URL is what the
+// person sees and what is added, so it holds no space, control or non-ASCII.
+const REMOTE_URL = /^(https?:\/\/[\x21-\x7e]+|\{[a-zA-Z_][a-zA-Z0-9_]*\}[\x21-\x7e]*)$/
+
+/** The path of the first string, key or value, that holds an UNSAFE_TEXT character. */
+const unsafeAt = (v: unknown, path: string): string | undefined => {
+  if (typeof v === 'string') return UNSAFE_TEXT.test(v) ? path : undefined
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) {
+      const at = unsafeAt(v[i], `${path}[${i}]`)
+      if (at) return at
+    }
+    return undefined
+  }
+  if (typeof v === 'object' && v !== null)
+    for (const [k, x] of Object.entries(v)) {
+      if (UNSAFE_TEXT.test(k)) return `${path} (a key)`
+      const at = unsafeAt(x, path ? `${path}.${k}` : k)
+      if (at) return at
+    }
+  return undefined
+}
 // schema.ts, ServerCard.version: "Version ranges are rejected (e.g., '^1.2.3',
 // '~1.2.3', '>=1.2.3', '1.x', '1.*')". schema.json does not encode this rule;
 // schema.ts is the stated source of truth, so it is enforced here.
@@ -134,7 +167,7 @@ const checkRemote = (errors: string[], where: string, v: unknown) => {
   if (v.type !== 'streamable-http' && v.type !== 'sse')
     errors.push(`${where}.type must be "streamable-http" or "sse"`)
   if (typeof v.url !== 'string' || !REMOTE_URL.test(v.url))
-    errors.push(`${where}.url must start with http://, https:// or a {variable}`)
+    errors.push(`${where}.url must be printable ASCII starting with http://, https:// or a {variable}`)
   if (v.headers !== undefined) {
     if (!Array.isArray(v.headers)) errors.push(`${where}.headers must be an array`)
     else
@@ -168,6 +201,8 @@ const checkRemote = (errors: string[], where: string, v: unknown) => {
 export const validateCard = (card: unknown): string[] => {
   const errors: string[] = []
   if (!isObject(card)) return ['the Server Card is not a JSON object']
+  const unsafe = unsafeAt(card, '')
+  if (unsafe) errors.push(`${unsafe || 'a key'} holds a control character or an invisible formatting mark`)
   if (card.$schema === undefined) errors.push('$schema is required')
   else if (card.$schema !== CARD_SCHEMA_URL)
     errors.push(`$schema must be ${CARD_SCHEMA_URL} (got ${JSON.stringify(card.$schema)})`)
