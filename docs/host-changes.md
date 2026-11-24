@@ -87,7 +87,9 @@ Codex already has change 2 and half of change 4, and changes 1 and 3 sit on code
 Smaller things that would help on Codex:
 - **Scoped access to the daemon.** Today any local process that can reach the app-server daemon's socket can drive every session. A plugin should get a scope: its own threads, its own servers.
 - **Plugin hooks outside the desktop app.** A plugin's hooks run only when it was installed by hand in the desktop app.
-- **SEP-2640 natively** (`openai/codex` issue #48000), or skills a program can add without writing files (`skills/extraRoots/set` takes folders).
+- **SEP-2640 natively** (`openai/codex` issue #48000), or skills a program can add without writing files (`skills/extraRoots/set` takes folders). A plugin's skills are read once, when the plugin loads, and the skills watcher refreshes the other roots only, so skills a plugin writes appear from the next session. Re-reading a plugin's skills on `skills/changed`, or `skills/extraRoots/set` for plugins, would list them in the same session.
+- **An `ask` decision for PreToolUse hooks** (today only deny), and hook trust that survives files a plugin writes into its own folder. Either would let the Skills polyfill put a cross-server resource read (SEP-2640's X8) to the person.
+- **A plugin's MCP server sees no variables beyond a fixed few**, so servers whose token is in `bearer_token_env_var` or `env_http_headers` are out of reach (change 1 would also fix this).
 - **The approval mode in each tool call's metadata.** Put the approval policy and reviewer, and whether approvals are bypassed, in `x-codex-turn-metadata`. Then an MCP server can tell a form Codex answered itself (under `--dangerously-bypass-approvals-and-sandbox` it accepts every elicitation) from one a person answered.
 - **Headers in `codex mcp add`.** Add `--header` and `--env-header`, and a way to add a server without starting its sign-in, so a plugin can add any remote a Server Card describes without writing the config itself.
 - **MCP Apps in the terminal.** `enable_mcp_apps` passes the extension on only where the host declares it, and the terminal doesn't. No plugin can supply this.

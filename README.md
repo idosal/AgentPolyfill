@@ -13,7 +13,7 @@ The aim is an open community around open specs, where anyone can use these
 capabilities in the host they have, build the next polyfill, or propose a new
 extension, and support does not depend on one host's roadmap. Today that is
 Claude Code with four MCP extensions and one open draft beyond MCP (Agentic
-Resource Discovery), and Codex with Events ([Other hosts](#other-hosts)).
+Resource Discovery), and Codex with Events and Skills ([Other hosts](#other-hosts)).
 More hosts are where it is meant to go.
 
 - **For users:** one line to install, one line to try. See below.
@@ -229,14 +229,19 @@ OpenAI Codex is the second host. A Codex plugin brings an MCP server, every
 tool call it receives names the session (`_meta.threadId`), and
 `codex queue --resume` starts a turn in an idle session from outside, so
 Events works there as a plugin:
-[`polyfills/events/codex`](polyfills/events/codex).
+[`polyfills/events/codex`](polyfills/events/codex). Codex also lists the
+skills a plugin's folder holds with its own, so Skills works there as a plugin
+too: [`polyfills/skills/codex`](polyfills/skills/codex).
 
 | Extension | Spec | Polyfill | State |
 |---|---|---|---|
 | Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events` for Codex](polyfills/events/codex) | Early: poll, push and webhook; an event wakes an idle Codex session through `codex queue`. No OAuth servers; a resumed session's watches start at its first mcp-events tool call. |
+| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | [`mcp-skills` for Codex](polyfills/skills/codex) | Early: served skills in Codex's skill list (from the session after a server first serves them), loaded after a per-skill yes in Codex's own form, verified against the server's digests. No OAuth servers; a cross-server resource read (X8) is not gated. |
 
 ```
-codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-events@agent-polyfill
+codex plugin marketplace add idosal/AgentPolyfill
+codex plugin add mcp-events@agent-polyfill
+codex plugin add mcp-skills@agent-polyfill
 ```
 
 Codex has no documented way for third-party code to send requests over its
