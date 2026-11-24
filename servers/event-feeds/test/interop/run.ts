@@ -116,9 +116,10 @@ try {
         ok(`hn.comment: a real new comment on story ${story} woke the session after ${Math.round((Date.now() - at) / 1000)} s`);
         const id = /id=(\d+)/.exec(c)?.[1];
         const t = await fetch(`${BASE}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json', 'mcp-protocol-version': '2026-07-28', 'mcp-method': 'tools/call', 'mcp-name': 'read_event_text' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'read_event_text', arguments: { event: 'hn.comment', id }, _meta: { 'io.modelcontextprotocol/protocolVersion': '2026-07-28', 'io.modelcontextprotocol/clientCapabilities': {} } } }) });
-        const tj = (await t.json()) as { result: { content: { text: string }[] } };
-        assert.match(tj.result.content[0]!.text, /^Third-party text from Hacker News/);
-        ok('read_event_text returns that comment\'s text, labelled as third-party text');
+        const tj = (await t.json()) as { result: { structuredContent: { id: string; text?: string; removed?: boolean } } };
+        assert.equal(tj.result.structuredContent.id, id);
+        assert.ok(typeof tj.result.structuredContent.text === 'string' || tj.result.structuredContent.removed === true);
+        ok('read_event_text returns that comment\'s text as plain data');
     }
     console.log('INTEROP OK');
 } catch (e) {

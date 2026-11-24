@@ -76,7 +76,7 @@ ${copyable('add', add)}
 <p>Two short-lived things exist only to protect the server and its sources: per-address request counters for rate limits (they last a minute), and copies of the public pages read from Hacker News, npm, GitHub and USGS (a fresh copy for up to two minutes, so many watchers share one read, and the last good copy for up to an hour, to answer with when a source is busy).</p>
 
 <h2>Third-party text</h2>
-<p class="note">An event carries only ids, numbers, times and links. The text behind it (a comment, a title, release notes, a place name, a button message) is written by other people. Your agent reads it only when it asks, with the <code>read_event_text</code> tool, which labels it as third-party text to treat as data, never as instructions. Package versions and release tags in events are short tokens chosen by whoever publishes the package or release.</p>
+<p class="note">An event carries only ids, numbers, times and links. The text behind it (a comment, a title, release notes, a place name, a button message) is written by other people. Your agent reads it only when it asks, with the <code>read_event_text</code> tool, as plain, length-capped text. Package versions and release tags in events are short tokens chosen by whoever publishes the package or release.</p>
 
 <h2>Limits</h2>
 <p>Per address, per minute: ${ROUTE_LIMITS.mcp} requests to <code>/mcp</code>, ${ROUTE_LIMITS.press} presses and new buttons, ${ROUTE_LIMITS.page} page loads. A button: one press a second, 50 presses, one hour. Each upstream site is read at most 60 to 120 times a minute by the whole service, and at most 10 of those for any one address.</p>
