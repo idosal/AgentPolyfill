@@ -1,0 +1,45 @@
+# Security
+
+This covers ard-discovery for OpenCode. The other forms have their own:
+[Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md).
+
+The plugin is one bundled file (`plugin/server.js`) that OpenCode loads into
+its own server. It carries the Server Cards modules, so everything
+[mcp-server-cards for OpenCode's SECURITY.md](../../server-cards/opencode/SECURITY.md)
+says about fetching, showing and adding a server holds here too. What ARD
+adds is the registry search.
+
+## The search
+
+- **It goes to a third party.** A registry is a service someone else runs,
+  and it sees the query.
+- **You choose the registry.** The plugin ships with none. A search goes to
+  the registry the request names, or to `ARD_DISCOVERY_REGISTRY`; with
+  neither, it's refused and nothing is sent.
+- **OpenCode's rules decide before anything is sent.** The action is
+  `ard_search`, on the registry hosts; the request carries the exact query
+  and the endpoints. Nothing is saved by "Allow always". OpenCode's shipped
+  default allows every action, so with no `ask` rule a search is sent without
+  a prompt (the README shows the rule).
+- **What is sent is what is shown.** A query is one line, at most 300
+  characters, with no control characters, direction marks or markup. A
+  registry is named exactly as it is searched, at most 200 characters, and an
+  endpoint holding markup or a user before its host is refused.
+- **At most three registries,** and their referrals one hop deep, under the
+  same address rules as every fetch.
+- **Results are claims.** A registry's order is relevance, not trust. A result
+  is confirmed only when its publisher's own catalog lists it.
+
+## What it does not protect against
+
+- **OpenCode's default policy** (above).
+- **A registry you chose,** which sees your query and ranks other people's
+  servers.
+- **Other plugins.** A plugin runs inside OpenCode's server with the same
+  access as this one.
+
+## Reporting
+
+Report a vulnerability privately, through this repository's **Security →
+Report a vulnerability** form on GitHub, not in a public issue. Name
+`ard-discovery` for OpenCode.
