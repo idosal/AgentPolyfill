@@ -31,16 +31,20 @@ export * from '../../../server-cards/codex/src/mcp'
 export * from '../../../server-cards/codex/src/tools'
 
 export const NAME = 'ard-discovery'
-export const VERSION = '0.1.0'
+export const VERSION = '0.1.1'
 export const DISCOVER = 'ard_discover'
 export const SEARCH = 'ard_search'
 export const BY = 'ard-discovery (ARD v0.91 draft)'
-export const DEFAULT_REGISTRY = 'https://huggingface-hf-discover.hf.space'
 // ARD v0.91 §5.1: a consumer resolving a domain MUST fetch /.well-known/ard.json
 // (a manifest, which need not carry specVersion) and MUST honour rel="ard".
 export const ARD_SOURCES: DiscoverOptions = { catalogs: [{ url: '/.well-known/ard.json', requireVersion: false }], rels: ['ard'], by: BY }
 /** The longest query the question shows, and so the longest that is sent (as in the Claude Code form). */
 export const SHOWN_QUERY = 300
+/** The longest registry the question names, and so the longest searched (as in the Claude Code form). */
+export const SHOWN_REGISTRY = 200
+// The plugin ships with no registry: which one sees the person's words is theirs to choose.
+export const NO_REGISTRY =
+  'No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as `registry`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment Codex starts in. Nothing was sent.'
 /** Characters that display as something else or as nothing (as in the Claude Code form). */
 const UNSEEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/
 /**
@@ -53,13 +57,17 @@ const MARKUP = /[`<>[\]]/
 
 const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
 const refuse = (text: string) => ({ text: shownText(text), isError: true })
+/** Why a registry could not be named in the form exactly as it is searched, or undefined (as in the Claude Code form). */
+const unshowable = (registry: string, from: string) =>
+  registry.length > SHOWN_REGISTRY || UNSEEN.test(registry) || /\s/.test(registry)
+    ? `${from} must be at most ${SHOWN_REGISTRY} characters, with no spaces, control characters or direction marks, so the form names exactly where the search goes. Nothing was sent.`
+    : undefined
 
 /** The search form's choices. */
 export const SEARCH_CHOICES = { yes: { value: 'search', title: 'Send the search' }, no: { value: 'no', title: "Don't send it" } } as const
 
-/** The registry setting: ARD_DISCOVERY_REGISTRY, which may be empty (search only a registry the request names). */
-export const registrySetting = (env: NodeJS.ProcessEnv) =>
-  env.ARD_DISCOVERY_REGISTRY !== undefined ? env.ARD_DISCOVERY_REGISTRY.trim() : DEFAULT_REGISTRY
+/** The registry setting: ARD_DISCOVERY_REGISTRY. Unset or empty, no registry is chosen for the person: a search names its own. */
+export const registrySetting = (env: NodeJS.ProcessEnv) => (env.ARD_DISCOVERY_REGISTRY ?? '').trim()
 
 export function tools(session: Session, defaultRegistry: string): Tool[] {
   const discoverTool: Tool = {
@@ -89,7 +97,9 @@ export function tools(session: Session, defaultRegistry: string): Tool[] {
     description:
       'Search an ARD registry for MCP servers that can do a task, described in plain words ("check why my CI build failed"). ' +
       'The query text is sent to a third party: the registry ' +
-      (defaultRegistry ? `(${defaultRegistry} unless \`registry\` names another)` : '(none is configured: pass `registry`)') +
+      (defaultRegistry
+        ? `(${defaultRegistry} unless \`registry\` names another)`
+        : '(none is configured: pass `registry` with the one the person names. Do not choose a registry for them; if they have not named one, ask which)') +
       ", which ranks other people's servers. Its referrals are followed one hop. Codex asks the person in a form before anything is sent, naming the registry and the query; without that form, or if they decline, nothing is sent. " +
       "Each result's card is fetched and checked, and so is whether the publisher's own domain lists the server. " +
       'Use when the person asks to find a server for a task, or a task needs a capability no tool in this session has and the person has not named a service. ' +
@@ -98,7 +108,12 @@ export function tools(session: Session, defaultRegistry: string): Tool[] {
       type: 'object',
       properties: {
         query: { type: 'string', description: 'What the person needs, in plain words, on one line and at most 300 characters. It is sent to the registry.' },
-        registry: { type: 'string', description: 'Optional: a domain whose catalog lists a registry ("huggingface.co"), or a registry base URL. Default: the configured registry.' },
+        registry: {
+          type: 'string',
+          description:
+            'A registry base URL, or a domain whose catalog lists a registry (an application/ai-registry+json entry): the one the person names. ' +
+            (defaultRegistry ? 'Leave it out to use the configured registry.' : 'No registry is configured, so a search without it is refused.'),
+        },
       },
       required: ['query'],
     },
@@ -111,7 +126,12 @@ export function tools(session: Session, defaultRegistry: string): Tool[] {
       if (UNSEEN.test(query)) return refuse('Write the search on one line, without control characters or direction marks, so the person sees exactly what is sent.')
       if (MARKUP.test(query)) return refuse('Write the search in plain words, without `, <, > or square brackets, so the form shows exactly what is sent.')
       const asked = (str(args.registry) ?? defaultRegistry).trim()
-      if (!asked) return refuse('No registry is configured; pass `registry` (a domain whose catalog lists one, or a registry base URL).')
+      // No registry is chosen for the person: with none set and none named,
+      // there is nothing to ask about, and nothing is sent.
+      if (!asked) return refuse(NO_REGISTRY)
+      // The form names the registry as it is searched, as it shows the query.
+      const unnamed = unshowable(asked, str(args.registry) !== undefined ? 'The `registry` in this search' : 'ARD_DISCOVERY_REGISTRY')
+      if (unnamed) return refuse(unnamed)
 
       // A domain whose catalogs list registries (application/ai-registry+json)
       // is used through those entries; anything else is a registry base URL.

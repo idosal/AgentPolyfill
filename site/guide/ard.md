@@ -62,8 +62,9 @@ every time. It needs Codex 0.170 or newer and Node 20 or newer. In a terminal:
 codex plugin marketplace add idosal/AgentPolyfill && codex plugin add ard-discovery@agent-polyfill
 ```
 
-To add a server it finds, Codex shows you a form, and only on your accept is
-the server added. Its README is
+As in Claude Code, no registry is set: name one in the request, or set
+`ARD_DISCOVERY_REGISTRY`. To add a server it finds, Codex shows you a form, and
+only on your accept is the server added. Its README is
 [`polyfills/ard/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex); the rest
 of this page is about the Claude Code form.
 
@@ -97,8 +98,9 @@ Claude finds Buildkite, and says buildkite.com's own catalog confirms it.
    tool. And before **every** `ard_search`: the plugin puts each search to you
    itself, with the query and the registry it goes to, so no allow rule or auto
    mode answers it. The query sent is the one shown: at most 300 characters, on
-   one line, with no invisible characters or direction marks. If you say no,
-   nothing is sent. With nobody to ask (`claude -p`), every search is refused.
+   one line, with no invisible characters or direction marks; the registry is
+   the one named, at most 200 characters, with no spaces, control characters or
+   direction marks. If you say no, nothing is sent. With nobody to ask (`claude -p`), every search is refused.
 3. **By domain (`ard_discover`):** `mcp-server-cards` reads the domain's
    `ai-catalog.json` and `ard.json`, and follows `rel="ai-catalog"` and
    `rel="ard"` links. It fetches each Server Card listed and checks it.

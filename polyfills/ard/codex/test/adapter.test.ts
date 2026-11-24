@@ -44,12 +44,15 @@ const web = await localWeb({
 })
 after(() => web.close())
 
-const server = (opts: Parameters<typeof startServer>[1] = {}) => {
+// The local registry is set unless a test says otherwise; an env value of
+// undefined leaves that variable out, as if it were never set.
+type Opts = Omit<NonNullable<Parameters<typeof startServer>[1]>, 'env'> & { env?: Record<string, string | undefined> }
+const server = (opts: Opts = {}) => {
   const fake = fakeCodex()
-  const s = startServer(SERVER, {
-    ...opts,
-    env: { CODEX_CLI_PATH: fake.bin, CODEX_HOME: fake.dir, FAKE_CODEX_STATE: fake.state, FAKE_CODEX_LOG: fake.log, ARD_DISCOVERY_REGISTRY: web.origin, ...(opts.env ?? {}) },
-  })
+  const all = { CODEX_CLI_PATH: fake.bin, CODEX_HOME: fake.dir, FAKE_CODEX_STATE: fake.state, FAKE_CODEX_LOG: fake.log, ARD_DISCOVERY_REGISTRY: web.origin, ...(opts.env ?? {}) }
+  const env: Record<string, string> = {}
+  for (const [k, v] of Object.entries(all)) if (v !== undefined) env[k] = v
+  const s = startServer(SERVER, { ...opts, env })
   after(() => s.stop())
   return { ...s, fake }
 }
@@ -114,9 +117,32 @@ test('A-6 a query the person could not see in full is refused before anyone is a
   assert.equal(s.asked.length, 0)
 })
 
-test('A-7 an empty registry setting searches only a registry the request names', async () => {
-  const s = server({ env: { ARD_DISCOVERY_REGISTRY: '' } })
-  assert.match((await s.call('ard_search', { query: QUERY })).text, /No registry is configured/)
+// The plugin ships with no registry: which one sees the person's words is theirs to choose.
+test('A-7 with no registry set and none named, the search is refused before any form, nothing is sent, and Codex is told to ask the person; a named one is searched', async () => {
+  const before = searches().length
+  for (const setting of [undefined, '', '  ']) {
+    // A decline, so that even a form shown by mistake sends nothing.
+    const s = server({ answer: { action: 'decline' }, env: { ARD_DISCOVERY_REGISTRY: setting } })
+    const list = await s.request('tools/list', {})
+    const [search] = list.result.tools.filter((t: any) => t.name === 'ard_search')
+    assert.match(search.description, /none is configured: pass `registry` with the one the person names\. Do not choose a registry for them; if they have not named one, ask which/)
+    assert.match(search.inputSchema.properties.registry.description, /No registry is configured, so a search without it is refused/)
+    assert.doesNotMatch(JSON.stringify(list.result.tools), /huggingface/i)
+    for (const args of [{ query: QUERY }, { query: QUERY, registry: '  ' }]) {
+      const r = await s.call('ard_search', args)
+      assert.equal(r.isError, true, JSON.stringify(setting))
+      assert.match(r.text, /^No ARD registry is set, and this search names none\. Ask the person which registry to search/, JSON.stringify(setting))
+      assert.match(r.text, /pass it as `registry`; they can also set one with ARD_DISCOVERY_REGISTRY/)
+    }
+    assert.equal(s.asked.length, 0, JSON.stringify(setting))
+  }
+  assert.equal(searches().length, before)
+  // With none set, the registry the person names is searched as before.
+  const named = server({ answer: human, env: { ARD_DISCOVERY_REGISTRY: undefined } })
+  const r = await named.call('ard_search', { query: QUERY, registry: web.origin })
+  assert.equal(r.isError, false, r.text)
+  assert.equal(named.asked.length, 1)
+  assert.equal(searches().length, before + 1)
 })
 
 test('A-8 a result whose card URL, or whose card\'s remote URL, holds Markdown is refused and never put in a form (security review C1)', async () => {
@@ -166,5 +192,25 @@ test('A-11 only the explicit "search" sends: an accept without the choice, or wi
   assert.equal(searches().length, before)
   const yes = server({ answer: { action: 'accept', afterMs: 50, content: { decision: 'search' } } })
   assert.equal((await yes.call('ard_search', { query: QUERY })).isError, false)
+  assert.equal(searches().length, before + 1)
+})
+
+// The form names the registry as it is searched, as it shows the query (A-6):
+// one it could not name exactly is refused, whether named or set.
+test('A-12 a registry over 200 characters, or with spaces, control characters or direction marks, named or set, is refused before any form and nothing is sent', async () => {
+  const before = searches().length
+  const s = server({ answer: human })
+  for (const registry of [`${web.origin}/${'x'.repeat(200)}`, `${web.origin}/a\u202eb`, `${web.origin}/api\u200b`, `${web.origin}/a b`, `${new URL(web.origin).host}\u200b`]) {
+    const r = await s.call('ard_search', { query: QUERY, registry })
+    assert.equal(r.isError, true, JSON.stringify(registry))
+    assert.match(r.text, /^The `registry` in this search must be at most 200 characters, with no spaces, control characters or direction marks/, JSON.stringify(registry))
+  }
+  const set = server({ answer: human, env: { ARD_DISCOVERY_REGISTRY: `${web.origin}/api\u200b` } })
+  const r = await set.call('ard_search', { query: QUERY })
+  assert.match(r.text, /^ARD_DISCOVERY_REGISTRY must be at most 200 characters/, r.text)
+  assert.equal(s.asked.length + set.asked.length, 0)
+  assert.equal(searches().length, before)
+  // One the form can name exactly is searched as before.
+  assert.equal((await s.call('ard_search', { query: QUERY, registry: web.origin })).isError, false)
   assert.equal(searches().length, before + 1)
 })
