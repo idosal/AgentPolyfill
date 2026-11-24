@@ -1,0 +1,69 @@
+# The Skills polyfill for OpenCode (polyfills/skills/opencode, plugin mcp-skills), on any change
+# in its folder, in the shared Skills client it bundles, in the fixture server its tests use,
+# or in the OpenCode test kit.
+#
+# The tests run the plugin in a real OpenCode (the release pinned in
+# tools/opencode/package.json), in a throwaway home with its own configuration,
+# data and sign-ins, driven over its HTTP API with a scripted stand-in for a
+# model (tools/opencode/fake-llm.mjs). No model, key or account is used.
+
+name: "mcp-skills for OpenCode: tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/skills/opencode/**"
+      - "polyfills/skills/core/**"
+      - "polyfills/skills/claude-code/test/fixture-skills-server.ts"
+      - "tools/opencode/**"
+      - "tools/bundle-notices.mjs"
+      - ".github/workflows/opencode-skills-test.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see the job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/skills/opencode/**"
+      - "polyfills/skills/core/**"
+      - "polyfills/skills/claude-code/test/fixture-skills-server.ts"
+      - "tools/opencode/**"
+      - "tools/bundle-notices.mjs"
+      - ".github/workflows/opencode-skills-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: opencode-skills-test-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: polyfills/skills/opencode
+
+jobs:
+  test:
+    name: plugin in OpenCode (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      # The pinned OpenCode the tests run against.
+      - run: npm ci
+        working-directory: tools/opencode
+      - run: npm ci
+        working-directory: polyfills/skills/core
+      - run: npm ci
+      - run: npm run typecheck
+      - name: The committed bundle is what the sources build
+        run: npm run check
+      - name: Third-party notices for the bundle are up to date
+        run: node ../../../tools/bundle-notices.mjs . --plugin plugin --entry src/plugin.ts --bundle server.js --check
+      - run: npm test
