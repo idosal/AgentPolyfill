@@ -310,6 +310,8 @@ test('B-9 the permission check asks, naming the server, URL, scope and undo; ref
   expect(reason.includes(SHOWN)).toBe(true)
   expect(reason.includes('.mcp.json')).toBe(true)
   expect(reason.includes('claude mcp remove buildkite -s project')).toBe(true)
+  // The host on its own (security review C3).
+  expect(reason.includes('It connects to the host mcp.buildkite.com, at ')).toBe(true)
   const nobody = await $.tool.check({ tool: ADD, input } as never)
   expect(nobody.decision).toBe('deny')
 })

@@ -39,13 +39,14 @@ Or only the one you want: `mcp-events`, `mcp-apps-cli`, `mcp-skills` or
 `mcp-server-cards` in place of `agent-polyfill`. Then start a new `claude`
 session.
 
-**Codex** (Events needs 0.170 or newer, Skills was run on 0.172; both need
-Node 20 or newer). In a terminal, Events and Skills:
+**Codex** (Events and Server Cards need 0.170 or newer, Skills was run on
+0.172; all need Node 20 or newer). In a terminal:
 
 ```
 codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add mcp-events@agent-polyfill
 codex plugin add mcp-skills@agent-polyfill
+codex plugin add mcp-server-cards@agent-polyfill
 ```
 
 More ways to install are [further down](#more-ways-to-install).
@@ -57,14 +58,17 @@ More ways to install are [further down](#more-ways-to-install).
 | Events (`io.modelcontextprotocol/events`) | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code). Works: poll, push and webhook delivery; an event wakes an idle session. No OAuth servers. | [`mcp-events`](polyfills/events/codex). Early: poll, push and webhook; an event wakes an idle Codex session through `codex queue`. No OAuth servers; a resumed session's watches start at its first mcp-events tool call. |
 | Apps (`io.modelcontextprotocol/ui`) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code). Early: app UIs render inline in the terminal, with mouse and keyboard. No OAuth servers. | Not yet |
 | Skills (`io.modelcontextprotocol/skills`) | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | [`mcp-skills`](polyfills/skills/claude-code). Early: skills served by an MCP server are listed, loaded and read in Claude Code, with the checks the spec asks of a client. No OAuth servers. | [`mcp-skills`](polyfills/skills/codex). Early: served skills in Codex's skill list (from the session after a server first serves them), loaded after a per-skill yes in Codex's own form, verified against the server's digests. No OAuth servers; a cross-server resource read (X8) is not gated. |
-| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (extension Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code). Early: finds the servers a domain publishes, checks each card against the schema, and adds one to Claude Code's own config with a click, so servers behind OAuth work. | Not yet |
+| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (extension Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code). Early: finds the servers a domain publishes, checks each card against the schema, and adds one to Claude Code's own config with a click, so servers behind OAuth work. | [`mcp-server-cards`](polyfills/server-cards/codex). Early: the same discovery and checks; a server is added to Codex's config only after you choose "Add it" in Codex's own form. |
 
-Beyond MCP, [`ard-discovery`](polyfills/ard/claude-code) adds
+Beyond MCP, `ard-discovery` ([Claude Code](polyfills/ard/claude-code),
+[Codex](polyfills/ard/codex)) adds
 [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a
 draft: it finds MCP servers through a domain's `ard.json` or by searching an
 ARD registry, and hands the cards to `mcp-server-cards`. Its search sends the
 words of your request to that registry, and asks you first every time; for
-that reason it is not part of the `agent-polyfill` bundle. Install it by name.
+that reason it is not part of the `agent-polyfill` bundle. Install it by name
+(`/plugin install ard-discovery --marketplace idosal/AgentPolyfill`, or
+`codex plugin add ard-discovery@agent-polyfill`).
 
 Neither host supports these extensions itself yet. For Claude Code, the
 official
