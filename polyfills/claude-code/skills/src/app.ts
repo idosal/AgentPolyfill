@@ -313,6 +313,9 @@ export class App {
             const v = p[key];
             if (typeof v !== 'string' || !v.trim()) throw new LocalError(`"${key}" is required`);
             if (v.length > 4096) throw new LocalError(`"${key}" is too long`);
+            // A skill's identity is taken exactly as given: the permission check looked it up that
+            // way, so a padded server or URI must not reach a skill the check never saw.
+            if (['server', 'uri', 'skill'].includes(key) && v !== v.trim()) throw new LocalError(`"${key}" has spaces or line breaks around it, so it names no skill`);
             return v.trim();
         };
         try {

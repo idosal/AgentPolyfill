@@ -184,6 +184,20 @@ describe('Skill Entries', () => {
         assert.match(app.status(), /Refunds at B\. \[loaded in this session; "a" serves a skill of the same name: they are different skills\]/);
     });
 
+    test('U1: a server or URI with anything around it is not that skill: nothing is loaded or read under it', async () => {
+        // The permission check looks a skill up by the pair exactly as the call gives it; the run must
+        // not take a padded pair for the skill the check never saw.
+        const s = skill('padded', { 'x.md': 'X\n' });
+        const f = new Fixture(scenarioOf([s]));
+        const app = await startApp({ docs: f });
+        for (const input of [{ server: ' docs', uri: s.uri }, { server: 'docs ', uri: s.uri }, { server: 'docs', uri: ` ${s.uri}` }, { server: 'docs', uri: `${s.uri}\n` }]) {
+            await fails(app, 'load_skill', input, /has spaces or line breaks around it/);
+        }
+        assert.equal(f.requests('resources/read').length, 0);
+        await ok(app, 'load_skill', { server: 'docs', uri: s.uri });
+        await fails(app, 'read_skill_file', { server: 'docs', skill: ` ${s.uri}`, path: 'x.md' }, /has spaces or line breaks around it/);
+    });
+
     test('M1: metadata keys reserved for MCP extensions that this client does not know are ignored', async () => {
         const fm = { name: 'tagged', description: 'A skill.', metadata: { 'io.modelcontextprotocol/future-key': 'x', owner: 'me' } };
         const md = '---\nname: tagged\ndescription: A skill.\nmetadata:\n  io.modelcontextprotocol/future-key: x\n  owner: me\n---\nBody.\n';
