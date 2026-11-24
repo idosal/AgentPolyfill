@@ -14,8 +14,8 @@ your own servers.
 
 <Recording
   cut="events"
-  alt="In Claude Code, asked to watch a Worker on Cloudflare and say what breaks, Claude starts a watch through Cloudflare's MCP server, and the session goes idle. When the Worker throws an error, the idle session wakes by itself, reads the event and says what broke: a SyntaxError in the Worker."
-  caption="A real session (23 s; waits sped up, with a badge saying how fast). Cloudflare's MCP server was run locally, with a fix its hosted server does not have yet (cloudflare/mcp#438); the Worker's error was set off from outside."
+  alt="In Claude Code, asked to watch the acme-checkout Worker on Cloudflare and say what breaks, Claude starts a watch through Cloudflare's MCP server, run locally with a fix, delivered by webhook through a relay, and the session goes idle. When the Worker throws an error, the idle session wakes by itself with a prompt from the mcp-events plugin, reads the event and says what broke: a SyntaxError, where a request that expected JSON got plain text."
+  caption="A real session (14 s; the wait is sped up, with a badge saying how fast). Cloudflare's MCP server, run locally with a fix its hosted server doesn't have yet (cloudflare/mcp#438); the Worker's error was set off from outside."
 />
 
 ## Install
