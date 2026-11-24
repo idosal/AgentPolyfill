@@ -15,7 +15,7 @@
 import { spawn } from 'node:child_process'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import type { ServerCard } from '../../claude-code/mod/hooks/card'
+import { hasMarkup, type ServerCard } from '../../claude-code/mod/hooks/card'
 import { planAdd, type Plan } from '../../claude-code/mod/hooks/configure'
 
 export type CodexPlan = {
@@ -83,6 +83,10 @@ export const planForCodex = (
       return {
         error: `The header ${h.name} mixes a secret with other text (${h.value}). Codex takes a header's whole value from one environment variable, or a bearer token; this card's header can be added only by hand.`,
       }
+    // A fixed value is shown in the form as it is: no markup a host could
+    // render as something else (security review C4).
+    else if (hasMarkup(h.value))
+      return { error: `The header ${h.name} holds \`, <, > or a square bracket (${h.value}), which could show as something else in the form.` }
     else httpHeaders[h.name] = h.value
   }
   const base = { name: p.name, url: p.url, bearerEnvVar, httpHeaders, envHttpHeaders, envVars: p.envVars }

@@ -104,7 +104,7 @@ The ARD rules (W-1 to W-6, R-1 to R-8, P-1, B-1) and the Server Cards rules are 
 | Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own (security review M2) | A-3, A-4 | met where Codex puts the form to the person: a form naming the exact endpoints and the query; refused with no form, or on decline or close. Under `--dangerously-bypass-approvals-and-sandbox` Codex accepts the form itself |
 | Q-4 | What is sent is what was shown | this plugin's own (security review R1, and C1 for markup) | A-6, A-9 | met: at most 300 characters, one line, no invisible characters or direction marks, and no `` ` ``, `<`, `>` or square brackets |
 | Q-5 | The query goes only where the form said | this plugin's own | mcp-server-cards F-5 | met: a redirect to another origin, or one that would turn the `POST` into a `GET`, is not followed |
-| V-3 | No URL that displays as something else | the polyfills' own (security review C1) | A-8; mcp-server-cards X-4, P-6, O-9 (run here) | met: a result's card URL, its card's remote URL, a registry URL a catalog names, and where a result was found may hold no `` ` ``, `<`, `>` or square bracket outside an IPv6 host; such a result is refused and never put in a form |
+| V-3 | No URL that displays as something else | the polyfills' own (security review C1) | A-8, A-10; mcp-server-cards X-4, X-5, P-6, P-7, O-9, O-10 (run here) | met: a result's card URL, its card's remote URL, a registry URL a catalog names, and where a result was found may hold no `` ` ``, `<`, `>` or square bracket outside an IPv6 host; such a result is refused and never put in a form. Nor may they, or a registry the request names, name a user before the host (C3): a search to such a registry is refused before the form |
 | D-1 | Domain discovery reads `ard.json`, which needs no `specVersion` | §5.1 | A-2 | met |
 | H-3 | A search result is confirmed only by its publisher's own catalog | the polyfills' own | mcp-server-cards O-2 to O-4, O-8 (run here) | met |
 
@@ -114,7 +114,7 @@ ARD is a draft; no host supports it natively yet. Remove or disable the plugin (
 
 ## Proof
 
-- **Per rule:** 103 tests, run with `npm test`: ARD's 8 registry rule tests and the Server Cards core's 84 rule tests, all from the Claude Code forms and run against the committed bundle; 9 of this form's (A-), over stdio, with a stand-in `codex` command and a local registry on 127.0.0.1; and 2 bundle checks (byte-identical to a fresh build; a copy of `plugin/` alone starts and lists its tools).
+- **Per rule:** 108 tests, run with `npm test`: ARD's 8 registry rule tests and the Server Cards core's 88 rule tests, all from the Claude Code forms and run against the committed bundle; 10 of this form's (A-), over stdio, with a stand-in `codex` command and a local registry on 127.0.0.1; and 2 bundle checks (byte-identical to a fresh build; a copy of `plugin/` alone starts and lists its tools).
 - **The real host:** below.
 - **Upstream conformance:** the MCP conformance suite has no Server Card or ARD scenarios.
 

@@ -28,7 +28,7 @@ It runs the same registry client as the Claude Code form ([its SECURITY.md](../c
 
 ## Text that displays as something else
 
-The rules of `mcp-server-cards`: a result whose card URL or remote URL, a registry URL a catalog names, or where a result was found holds `` ` ``, `<`, `>` or a square bracket outside an IPv6 host is refused, so the form can't show a link text in place of a URL (security review C1). The query is shown verbatim, in quotes, and holds none of those characters either.
+The rules of `mcp-server-cards`: a result whose card URL or remote URL, a registry URL a catalog names, or where a result was found holds `` ` ``, `<`, `>` or a square bracket outside an IPv6 host, or names a user before its host, is refused, so the form can't show a link text, or one host, in place of the URL (security reviews C1 and C3). A registry the request names is held to the same rule before the form is shown. The query is shown verbatim, in quotes, and holds none of those characters either.
 
 ## Where it won't go
 

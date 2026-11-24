@@ -5,6 +5,7 @@
 // as mcp-server-cards. Bundled into plugin/dist/server.mjs; importing it runs
 // nothing, node running it starts the server.
 
+import { hasMarkup, hasUserinfo } from '../../../server-cards/claude-code/mod/hooks/card'
 import { discover, type DiscoverOptions } from '../../../server-cards/claude-code/mod/hooks/discover'
 import { formatDiscovery, formatOffered } from '../../../server-cards/claude-code/mod/hooks/format'
 import { readOffered } from '../../../server-cards/claude-code/mod/hooks/offer'
@@ -129,6 +130,11 @@ export function tools(session: Session, defaultRegistry: string): Tool[] {
         endpoints = [ep]
       }
       endpoints = [...new Set(endpoints)].slice(0, 3)
+      // Each endpoint is shown in the form as it is: it must read as the host
+      // it reaches (security reviews C1 and C3).
+      const unclear = endpoints.find(ep => hasMarkup(ep) || hasUserinfo(ep))
+      if (unclear)
+        return refuse(`The registry ${unclear} holds markup or names a user before its host, so the form could show one host while the query goes to another. Nothing was sent.`)
 
       // Every search is put to the person first, with the words and where they
       // go (security review M2); refused with no form, or a decline or close.

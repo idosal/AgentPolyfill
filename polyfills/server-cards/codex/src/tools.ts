@@ -5,6 +5,7 @@
 
 import { plainText, type ServerCard } from '../../claude-code/mod/hooks/card'
 import { discover, parseTarget, type Deps, type Discovery, type DiscoverOptions } from '../../claude-code/mod/hooks/discover'
+import { hostOf } from '../../claude-code/mod/hooks/configure'
 import { formatDiscovery } from '../../claude-code/mod/hooks/format'
 import type { Offered } from '../../claude-code/mod/hooks/offer'
 import { configPath, isNameTaken, planForCodex, writeEntry, type CodexPlan, type Run } from './codex'
@@ -142,7 +143,9 @@ export function askText(plan: CodexPlan, card: ServerCard, provenance: string, f
   return shownText(
     [
       `Add the MCP server "${plan.name}" to Codex?`,
-      `It connects to ${plan.url}`,
+      // The host on its own line: what the URL connects to (security review C3).
+      `It connects to the host ${hostOf(plan.url) || '(unknown)'}`,
+      `URL: ${plan.url}`,
       headers.length ? `Headers: ${headers.join('; ')}` : 'Headers: none',
       `From the Server Card ${card.name}, ${provenance}.`,
       `Written to ${file} (all your projects).`,

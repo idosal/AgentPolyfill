@@ -203,7 +203,8 @@ test('E-3 an add with a form: the question names the server, URL, headers, file 
   const q = s.asked[0]!
   assert.equal(q.mode, 'form')
   assert.deepEqual(q.requestedSchema, { type: 'object', properties: {}, required: [] })
-  assert.ok(q.message.startsWith(`Add the MCP server "example-docs" to Codex?\nIt connects to ${web.origin}/mcp\nHeaders: none\n`), q.message)
+  // The host on its own line (security review C3), then the URL.
+  assert.ok(q.message.startsWith(`Add the MCP server "example-docs" to Codex?\nIt connects to the host ${new URL(web.origin).host}\nURL: ${web.origin}/mcp\nHeaders: none\n`), q.message)
   assert.ok(q.message.endsWith(`Written to ${s.fake.dir}/config.toml (all your projects).\nTo undo: codex mcp remove example-docs`), q.message)
   assert.deepEqual(adds(s.fake), [['mcp', 'add', 'example-docs', '--url', `${web.origin}/mcp`]])
   assert.match(r.text, /To remove it: codex mcp remove example-docs/)
@@ -282,6 +283,40 @@ test('E-9 a card whose remote URL holds Markdown is refused, so it is never put 
   const r = await s.call('add_mcp_server', { domain: md.origin, identifier: 'urn:air:localhost:md', url: `${md.origin}${LINK}` })
   assert.equal(r.isError, true)
   assert.match(r.text, /was shown in this session/)
+  assert.equal(s.asked.length, 0)
+  assert.deepEqual(adds(s.fake), [])
+})
+
+test('C-7 a fixed header value with markup is refused, since the form shows it as it is (security review C4)', async () => {
+  const r = planForCodex(remote({ headers: [{ name: 'X-A', value: '[https://good.example/mcp](https://evil.example/) <b>x</b>' }] }) as never, 0, {}, undefined, false)
+  assert.match('error' in r ? r.error : '', /header X-A holds `, <, > or a square bracket/)
+  const ok = planForCodex(remote({ headers: [{ name: 'X-A', value: 'plain-value' }] }) as never, 0, {}, undefined, false)
+  assert.ok('plan' in ok)
+})
+
+test('E-10 a card whose remote URL names a user before its host, or holds a backslash, is refused, so it is never put in a form (security review C3)', async () => {
+  const at = await localWeb({
+    '/.well-known/ai-catalog.json': {
+      body: {
+        specVersion: '1.0',
+        entries: [
+          { identifier: 'urn:air:localhost:at', type: 'application/mcp-server-card+json', url: '{origin}/at.json' },
+          { identifier: 'urn:air:localhost:bs', type: 'application/mcp-server-card+json', url: '{origin}/bs.json' },
+        ],
+      },
+    },
+    '/at.json': { body: card({ name: 'com.example/at', remotes: [{ type: 'streamable-http', url: 'https://good.example@evil.example/mcp' }] }) },
+    '/bs.json': { body: card({ name: 'com.example/bs', remotes: [{ type: 'streamable-http', url: 'https://evil.example\\@good.example/mcp' }] }) },
+  })
+  after(() => at.close())
+  const s = server({ answer: { action: 'accept', afterMs: 50 } })
+  const d = await s.call('discover_mcp_servers', { domain: at.origin })
+  assert.match(d.text, /MCP servers listed: 2 \(0 with a valid Server Card\)/)
+  assert.match(d.text, /names a user before its host/)
+  for (const [identifier, url] of [['urn:air:localhost:at', 'https://good.example@evil.example/mcp'], ['urn:air:localhost:bs', 'https://evil.example\\@good.example/mcp']]) {
+    const r = await s.call('add_mcp_server', { domain: at.origin, identifier, url })
+    assert.match(r.text, /was shown in this session/)
+  }
   assert.equal(s.asked.length, 0)
   assert.deepEqual(adds(s.fake), [])
 })
