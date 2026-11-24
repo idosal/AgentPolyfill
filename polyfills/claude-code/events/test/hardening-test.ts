@@ -141,7 +141,7 @@ describe('a relay that misbehaves', () => {
             send({ t: 'ok', n: m.n, queued: 1 });
             send({ t: 'delivery', seq: 2, hook: HOOK, headers: { 'webhook-id': 'msg_1', 'webhook-timestamp': String(ts), 'webhook-signature': sign(secret, 'msg_1', ts, body) }, body, receivedAt: ts });
         });
-        const client = new RelayClient({ settings, key: 'k'.repeat(43), socket: relay.socket, ackGapMs: 0 }); // each ack on its own, to check exactly which were acked
+        const client = new RelayClient({ settings, key: 'k'.repeat(43), socket: relay.socket });
         await client.add(HOOK, { secret, onEvent: (o) => void got.push(o.eventId) });
         assert.deepEqual(got, ['real']);
         await sleep(50);

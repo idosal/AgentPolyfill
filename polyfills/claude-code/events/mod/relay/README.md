@@ -71,9 +71,7 @@ why the mod says so each time. What keeps it from being more than that:
 - A connection that sends more than 600 messages in a minute, or a frame over
   256 KiB, is closed. Asking again for an address already asked for on the
   same connection sends nothing again.
-- It opens at most 2,000 new mailboxes in an hour, and 20 from one address.
-  Every per-address limit counts an IPv6 sender by its /64, since one host
-  may use any address in it.
+- It opens at most 300 new mailboxes in an hour, and 20 from one address.
   Past either, a new mailbox is refused with `429` until the hour is over;
   mailboxes that exist are not affected. To count per address it keeps, for
   that hour only, a hash of the address salted with a value made for the hour.
