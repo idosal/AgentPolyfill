@@ -50,6 +50,12 @@ It uses a server only when both of these hold:
      is never put into a remote server's address or headers. To send a token
      to a server, keep it in a variable with a name of your own.
 
+Once a view is open, each of its app's calls of its server's tools and each
+read of its server's resources goes only while Claude Code still uses that
+server under that name: the plugin asks Claude Code afresh each time, so a
+server you switch off in `/mcp` gets nothing more from its open views. A
+request already on its way when you switch it off is not called back.
+
 The helper's connections follow a redirect only within the server's own
 origin (streamable HTTP: a 307 or 308; the older SSE transport: none), so
 a server's headers never reach another host that way.
@@ -81,7 +87,8 @@ own sandbox is on, unless you turn it off with `MCP_APPS_CLI_NO_SANDBOX`.
   mark).
 - **Network.** An app reaches what its CSP names, never a broad source
   (`*`, `https:`, a wildcard over fewer than two labels such as `*.com`, a
-  wildcard port). Chrome's local-network checks are on: in the review's
+  wildcard over a shared suffix anyone can host under such as
+  `*.workers.dev`, `*.github.io` or `*.co.uk`, a wildcard port). Chrome's local-network checks are on: in the review's
   test, a remote server's app couldn't reach this machine by fetch,
   WebSocket, image or frame, even through a public name that resolves to
   it. A view of a server on your machine or your local network, or of a
@@ -90,7 +97,8 @@ own sandbox is on, unless you turn it off with `MCP_APPS_CLI_NO_SANDBOX`.
 - **The helper** listens on a private Unix socket only you can open (on
   Windows, 127.0.0.1), and answers only requests that carry the token it
   gave the plugin. A request without the token is refused before its body
-  is read.
+  is read; a connection that sends no request head within 2 seconds is
+  closed.
 
 ## The review of 24 November 2026
 
@@ -107,6 +115,14 @@ plugin, and where they stand:
 | A6 | On Linux, the helper's temporary folder has a guessable name, and only the folders made inside it were checked | Fixed: the folder itself is checked |
 | A7 | The helper read a request's body before checking the token (Windows, or `MCP_APPS_CLI_TRANSPORT=tcp`) | Fixed: the token is checked first; a 30-second read deadline; at most 128 connections |
 | A8 | An app could put terminal control sequences into Claude Code's dialogs through a link or a tool name | Fixed |
+| A4, re-test | A CSP wildcard over a shared suffix (`*.workers.dev`, `*.co.uk`) still passed | Fixed in 0.1.2 for a list of the most used such suffixes (`helper-rs/src/policy.rs`); one not on the list still passes |
+| A7, re-test | Over TCP, 128 connections that sent nothing locked the plugin out of its helper for 30 seconds at a time | Fixed in 0.1.2: a request's head must arrive within 2 seconds |
+
+Two more were found by the TLA+ model in `model/` (see
+[docs/COMPLIANCE.md](docs/COMPLIANCE.md)) and fixed in 0.1.2: an open view's
+app kept reaching its server after Claude Code stopped using it, and a view's
+open and close requests to the helper could cross, leaving an app's page
+running unseen.
 
 ## What isn't protected
 
@@ -119,8 +135,9 @@ plugin, and where they stand:
 - **A server you approved is trusted with its own app.** Its page can send
   what it is given (the tool's input and result) to the sites its CSP
   names.
-- **Wildcards over two-label public suffixes** (`*.co.uk`) still pass the
-  CSP filter, which doesn't carry the public suffix list.
+- **Wildcards over a shared suffix not on the plugin's list** still pass
+  the CSP filter, which carries the most used such suffixes, not the whole
+  public suffix list.
 - **Chrome for Testing**, if you accept the download, comes from Google over
   HTTPS with no digest or signature check of the archive, and is updated
   daily without asking again.

@@ -321,7 +321,13 @@ the view drops to cells on the first frame.
   where a config file names the same server; `${VAR}` expanded only in an
   entry that passed, credential-named variables never into a remote entry's
   url or headers. Its HTTP clients follow a redirect only within the
-  server's origin (streamable HTTP: rmcp's 307 and 308; SSE: none).
+  server's origin (streamable HTTP: rmcp's 307 and 308; SSE: none). Once a
+  view is open, each of its app's calls of its server's tools and reads of its
+  resources waits for `$.mcp.connect` asked afresh (`ui/allow-tool`,
+  `ui/allow-read`), so a server switched off later gets nothing more from it.
+  A view's `/open` and `/close` go to the helper one at a time, each after the
+  one before is answered: the helper matches them by view id, and out of
+  order a close could undo a reopen or leave a page running unseen.
 - **What the person decides.** Two settings in `/config` (the plugin's
   `userConfig`):
   - **App tool calls** (`appToolCalls`): `rules` (default) follows the
@@ -500,7 +506,8 @@ pseudo-terminal (or the helper alone) and read what it writes:
 ## Spec parity
 
 Checked against `specification/2026-01-26/apps.mdx` (and the draft's
-`ui/download-file`), requirement by requirement:
+`ui/download-file`), by area; [COMPLIANCE.md](COMPLIANCE.md) has every MUST,
+SHOULD and MAY, one row each, with its test:
 
 | Area | Status |
 |---|---|
@@ -514,7 +521,7 @@ Checked against `specification/2026-01-26/apps.mdx` (and the draft's
 | View→host: `tools/call`, `resources/read`, `resources/list`, `resources/templates/list`, logging, `ping` | ✓ |
 | `ui/message`, `ui/update-model-context`, `ui/open-link`, `ui/request-display-mode`, `ui/download-file`, `size-changed` | ✓ (see How it works) |
 | Host capabilities | ✓ openLinks, downloadFile, serverTools, serverResources, logging, updateModelContext, message, sandbox.csp |
-| Sandbox and CSP from `_meta.ui.csp` (connect, resource, frame, base-uri domains) | ✓; the CSP is logged and the view's header names the domains it may reach. Not applied: the person's machine or network other than where the server runs, and sources naming no one site (`*`, `https:`, a wildcard host over fewer than two labels such as `*.com`, a wildcard port; without the public suffix list, `*.co.uk` still passes). The view's document can't navigate away (a form or `location` would carry data past the CSP), and WebRTC is off |
+| Sandbox and CSP from `_meta.ui.csp` (connect, resource, frame, base-uri domains) | ✓; the CSP is logged and the view's header names the domains it may reach. Not applied: the person's machine or network other than where the server runs, and sources naming no one site (`*`, `https:`, a wildcard host over fewer than two labels such as `*.com` or over a shared suffix on the plugin's list such as `*.workers.dev` or `*.co.uk`, a wildcard port; a shared suffix not on the list still passes). The view's document can't navigate away (a form or `location` would carry data past the CSP), and WebRTC is off |
 | Restrictive default CSP when `ui.csp` is absent | ≈ basic-host's default (see below) |
 | Dedicated origin (`_meta.ui.domain`) | ✓ Claude's format, so that servers' CSP and CORS rules written for Claude accept the view: the app is served at `https://{first 32 hex of sha256(server URL)}.claudemcpcontent.com`, its storage first party. The helper answers every HTTP request Chrome makes to that origin and to `host.` under it, inside Chrome (request interception, `page.rs`), so none goes to that host or to Anthropic; any other domain isn't given (logged), so a server can't take another's |
 | `prefersBorder` | ✓ `true` draws a border and background around the app; omitted or `false`, none |
@@ -721,8 +728,8 @@ newer Stable at most once a day and fetches it for the next launch.
   a link, and the helper's own temporary folder is checked (a folder, not a
   link, the person's, closed to others) before anything goes in it. A
   request to the helper without its token is refused before its body is
-  read; a request must arrive whole within 30 seconds, and at most 128
-  connections are open at once. An earlier independent review of the
+  read; a request's head must arrive within 2 seconds and the whole request
+  within 30, and at most 128 connections are open at once. An earlier independent review of the
   plugin (given the threat model and the code) found eleven issues; nine
   were fixed then, and it questioned two defaults: app tool calls running
   without asking, which is no longer the default, and Chrome's

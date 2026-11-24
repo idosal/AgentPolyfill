@@ -155,8 +155,11 @@ Where it departs from the spec:
   as tall as the terminal, and picture-in-picture is a pane beside the chat.
 - **`platform`** is sent as `"desktop"`; the spec has no value for a terminal.
 
-[Spec parity](docs/DESIGN.md#spec-parity) goes through it requirement by
-requirement.
+[docs/COMPLIANCE.md](docs/COMPLIANCE.md) goes through it clause by clause
+(each MUST, SHOULD and MAY, with its test), and says how the plugin is checked:
+a TLA+ model of which server a view's app comes from and what it may make
+happen, checked with TLC within stated bounds, the server gate checked over
+every case, and property-based tests.
 
 ## When Claude Code supports MCP Apps itself
 
@@ -179,7 +182,9 @@ or remove it with `claude plugin uninstall mcp-apps-cli@mcpolyfill`.
   server in this session under that name, and only to the config entry
   Claude Code would use: not a project server you haven't approved, not one
   in a folder you haven't trusted, not one that is switched off, and none
-  at all under a managed MCP policy. Credentials in your environment
+  at all under a managed MCP policy. Once a view is open, each of its app's
+  calls and reads goes to its server only while Claude Code still uses that
+  server, asked each time. Credentials in your environment
   (`ANTHROPIC_*`, `AWS_*`, `GITHUB_*` and the like) are never put into a
   remote server's address or headers.
 - **An app's tool calls follow your permission rules** by default: what
