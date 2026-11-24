@@ -25,7 +25,9 @@ handed is in [its SECURITY.md](../../server-cards/claude-code/SECURITY.md).
 - **`mcp-server-cards`,** the declared dependency that checks, shows and adds
   what this mod finds.
 - **Not the registry.** It ranks other people's servers. Its score is
-  relevance, never trust, and its descriptions are its own. A result counts as
+  relevance, never trust, and its descriptions are its own. What it says in an
+  error, and the referrals it gives, reach a result as one quoted line (from
+  0.1.6), so its words can't pass for the mod's own. A result counts as
   confirmed only when the publisher's own catalog lists the server.
 - **Not the publishers.** A catalog can list anything, and a card can claim
   anything.
