@@ -111,3 +111,20 @@ test('X-2 every string, key or value, is held to it: C0, DEL, C1, bidi and forma
   expect(validateCard({ ...base, description: 'Données en temps réel — 日本語' })).toEqual([])
   expect(validateCard({ ...base, remotes: [{ type: 'streamable-http', url: 'https://exämple.com/mcp' }] }).length > 0).toBe(true)
 })
+
+// Security review of the Codex forms (C1): Markdown or HTML in a card URL could
+// make a host that renders either show a link text in place of the URL.
+const MARKDOWN_URL = 'https://evil.example/x/[https://good.example/mcp](https://evil.example/)'
+
+test('X-4 a URL with `, <, > or square brackets outside an IPv6 host is refused; an IPv6 host is not', async () => {
+  const base = fixtures.official.valid.minimal
+  const remote = (url: string) => ({ ...base, remotes: [{ type: 'streamable-http', url }] })
+  for (const url of [MARKDOWN_URL, 'https://a.example/`code`', 'https://a.example/<b>', '{base}/x/[a](b)']) {
+    const errors = validateCard(remote(url))
+    expect([url, errors.some(e => e.includes('square brackets'))]).toEqual([url, true])
+  }
+  for (const url of ['https://[::1]:8080/mcp', 'https://[2001:db8::1]/mcp', 'https://{tenant}.example.com/mcp?x=1&y=%20'])
+    expect([url, validateCard(remote(url))]).toEqual([url, []])
+  expect(validateCard({ ...base, websiteUrl: MARKDOWN_URL }).some(e => e.startsWith('websiteUrl'))).toBe(true)
+  expect(validateCard({ ...base, repository: { url: MARKDOWN_URL, source: 'github' } }).some(e => e.startsWith('repository.url'))).toBe(true)
+})

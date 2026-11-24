@@ -474,3 +474,19 @@ test('DEF-2 by default rel="ard" is not followed; rel="ai-catalog" (AI Catalog) 
   expect(calls.some(c => c.url === 'https://example.com/a.json')).toBe(false)
   expect(d.servers.map(s => s.identifier)).toEqual(['x'])
 })
+
+test('P-6 a catalog\'s card or registry URL with markup is not used (security review C1)', async () => {
+  const { deps, calls } = web({
+    'https://example.com/.well-known/ai-catalog.json': {
+      body: catalog([
+        entry('md', 'https://cards.example/x/[https://good.example/card](https://cards.example/)'),
+        { identifier: 'reg', type: 'application/ai-registry+json', url: 'https://reg.example/[a](b)' },
+      ]),
+    },
+  })
+  const d = await discover(deps, 'example.com')
+  if ('error' in d) throw new Error(d.error)
+  expect(d.servers[0]!.errors[0]!.includes('square bracket')).toBe(true)
+  expect(d.registries[0]!.url).toBe(undefined)
+  expect(calls.some(c => c.url.startsWith('https://cards.example/'))).toBe(false)
+})

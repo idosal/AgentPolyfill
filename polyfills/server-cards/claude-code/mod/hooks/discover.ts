@@ -12,7 +12,7 @@
 // domain (DiscoverOptions, through present_server_cards): the ARD plugin names
 // /.well-known/ard.json and rel="ard". Nothing here knows those names.
 
-import { CARD_TYPE, type ServerCard, validateCard } from './card'
+import { CARD_TYPE, hasMarkup, type ServerCard, validateCard } from './card'
 import { byteLength, cachedGet, type Fetch, type Store } from './http'
 
 export const CATALOG_TYPE = 'application/ai-catalog+json'
@@ -380,6 +380,7 @@ export const discover = async (
           if (!u) found.errors = [`"${entry.url}" is not a URL`]
           else if (!isAllowedUrl(u)) found.errors = [`${u.href}: Server Cards must be served over HTTPS`]
           else if (!mayFollow(u, catalogIsLocal)) found.errors = [`${u.href}: a public catalog may not point at a local or private address`]
+          else if (hasMarkup(u.href)) found.errors = ['the card URL holds `, <, > or a square bracket outside an IPv6 host, which could show as something else']
           else {
             found.cardUrl = found.cardFrom = u.href
             found.isLocal = catalogIsLocal && isPrivateHost(u.hostname)
@@ -405,11 +406,12 @@ export const discover = async (
         // §5.3: the entry's url is the registry's base URL, resolved here
         // against the catalog that lists it.
         const u = typeof entry.url === 'string' ? resolve(entry.url, catalogUrl.split('#')[0]!) : undefined
-        if (typeof entry.url === 'string' && !(u && mayFollow(u, catalogIsLocal)))
-          result.problems.push(`${catalogUrl}: registry ${id} has no HTTPS URL on a public host`)
+        const usable = !!u && mayFollow(u, catalogIsLocal) && !hasMarkup(u.href)
+        if (typeof entry.url === 'string' && !usable)
+          result.problems.push(`${catalogUrl}: registry ${id} has no plain HTTPS URL on a public host`)
         result.registries.push({
           identifier: id,
-          url: u && mayFollow(u, catalogIsLocal) ? u.href : undefined,
+          url: usable ? u!.href : undefined,
           displayName: typeof entry.displayName === 'string' ? entry.displayName : undefined,
         })
       } else {

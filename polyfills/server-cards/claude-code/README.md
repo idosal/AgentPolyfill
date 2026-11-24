@@ -120,7 +120,7 @@ There is one row for each rule the specs put on a client, and the test that cove
 | V-2 | `version` is one version, not a range | schema.ts, `ServerCard.version` | V-3 | met (see Findings) |
 | P-1 | Never replace a server the person has | the polyfill's own, from the security review (SC2) | B-8, U-4 | met. A name taken in any scope is refused for Claude's add; the picker uses the next free name and says so |
 | P-2 | A person approves every addition Claude asks for | the polyfill's own, from the security review (SC4, its re-check, and M1) | B-9, B-13, B-14, B-15 | met. A hook-made ask names the server, URL, headers, scope and undo. No rule or auto mode answers it, and it is refused with nobody to ask. Only Claude's own call is taken: a call from another plugin is refused, at the check and at the run. The add runs only for a call that was put to a person, and only as it was put (the same URL, scope and name); a check made before its card was shown is refused |
-| V-3 | No text that displays as something else | the polyfill's own, from the security review: SEP-2127 says cards are untrusted ("Clients MUST NOT treat Server Card contents as authoritative") | X-1, X-2, X-3, A-21 | A card is refused if any string in it, key or value, holds a C0 or C1 control, DEL, or an invisible format or bidirectional mark. A remote URL must be printable ASCII. The same holds for every value Claude gives. Everything shown passes a plain-text filter. A card carries no command or environment (remotes only), so none can reach `claude mcp add` that way |
+| V-3 | No text that displays as something else | the polyfill's own, from the security review: SEP-2127 says cards are untrusted ("Clients MUST NOT treat Server Card contents as authoritative") | X-1, X-2, X-3, X-4, A-21, A-24, P-6, O-9 | A card is refused if any string in it, key or value, holds a C0 or C1 control, DEL, or an invisible format or bidirectional mark. A remote URL must be printable ASCII, without `` ` ``, `<`, `>` or square brackets outside an IPv6 host, so Markdown or HTML can't show a link text in its place (security review of the Codex forms, C1); so must the URL a variable fills in, `websiteUrl`, `repository.url`, card and registry URLs, and a hand-over's `listedIn`. The same holds for every value Claude gives. Everything shown passes a plain-text filter. A card carries no command or environment (remotes only), so none can reach `claude mcp add` that way |
 | C-1 | Respect `Cache-Control` | discovery.md, Caching and Denial of Service (SHOULD) | C-1, C-3 | met |
 | C-2 | Send the `ETag` back as `If-None-Match`; accept `304` | discovery.md (SHOULD) | C-1, C-2, C-4 | met |
 | C-3 | Avoid unnecessary polling | discovery.md (SHOULD) | by design: fetches happen only for a tool call, or once per site per session after a WebFetch | met |
@@ -165,7 +165,7 @@ Claude Code has no Server Card support to detect yet. When it ships, turn on the
 
 ## Proof
 
-- **Per rule:** 99 tests, run with `claude plugin test mod`.
+- **Per rule:** 103 tests, run with `claude plugin test mod`.
   - They cover the official example cards (`examples/ServerCard`, valid and invalid) and fixtures of my own for edge cases.
   - Nineteen of them (B-1 to B-15, U-1 to U-4) run through the plugin as Claude Code loads it, with the engine's network, `claude mcp add` and connect stood in for.
   - The picker is drawn on the terminal, desktop, VS Code and mobile surfaces, and a press of **Add** is followed to the exact `claude mcp add` it runs.
