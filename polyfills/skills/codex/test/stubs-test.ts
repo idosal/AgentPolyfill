@@ -19,7 +19,7 @@ describe('stubs', () => {
         const r = syncStubs(root, { listed: new Map([['hf', [a]]]), keep: new Set() });
         assert.equal(r.written, 1);
         const text = readFileSync(join(stubDir(root, 'hf', a.entry.uri), 'SKILL.md'), 'utf8');
-        assert.deepEqual(frontmatter(text), { name: 'hf:hf-cli', description: '[MCP server "hf", not a local skill] What hf-cli does.' });
+        assert.deepEqual(frontmatter(text), { name: 'mcp-skills:hf:hf-cli', description: '[MCP server "hf", not a local skill] What hf-cli does.' });
         assert.match(text, /"server": "hf",\n {2}"uri": "skill:\/\/hf-cli\/SKILL.md"/);
         assert.equal(syncStubs(root, { listed: new Map([['hf', [a]]]), keep: new Set() }).written, 0, 'an unchanged stub is not written again');
     });
@@ -40,8 +40,8 @@ describe('stubs', () => {
         const long = listed('a-very-long-server-name-for-tests', 'a-skill-with-a-long-name-past-the-limit');
         const names = stubNames([one, two, other, long]);
         assert.notEqual(names.get(one), names.get(two));
-        assert.match(names.get(one)!, /^docs:refunds-[0-9a-f]{6}$/);
-        assert.equal(names.get(other), 'beta:refunds');
+        assert.match(names.get(one)!, /^mcp-skills:docs:refunds-[0-9a-f]{6}$/);
+        assert.equal(names.get(other), 'mcp-skills:beta:refunds');
         assert.ok(names.get(long)!.length <= 64);
     });
 

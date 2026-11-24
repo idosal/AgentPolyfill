@@ -1,25 +1,29 @@
 // How Codex comes to list the skills your MCP servers serve, natively.
 //
-// Codex lists every SKILL.md it finds in its skill folders, and a plugin's own
-// `skills/` folder is one of them. For each served skill, the helper writes a
-// short SKILL.md of its own into that folder, under `served/`:
+// Codex lists every SKILL.md it finds in its skill folders, and `~/.agents/skills`
+// is one of them. For each served skill, the helper writes a short SKILL.md of
+// its own into a folder there that is the plugin's alone:
 //
-//   <plugin>/skills/served/<server>-<6 hex>/<16 hex of the skill's URI>/SKILL.md
+//   ~/.agents/skills/mcp-skills-served/<server>-<6 hex>/<16 hex of the skill's URI>/SKILL.md
 //
-// It holds the skill's name (as `<server>:<name>`), its description from the
-// server's listing (marked with the server's name), and a body in the plugin's
-// own words that says how to load the skill: with the load_skill tool, which asks
-// the user, fetches the skill from its server and verifies it. No file of the skill
-// is fetched to write it, and none of its content is written to disk: what a
-// server sends in its listing is all it uses ("Lazy Retrieval"), and nothing of a
+// Not in the plugin's own folder: Codex copies that folder afresh whenever the
+// marketplace it came from is updated, which would delete them. Codex watches
+// `~/.agents/skills`, so what is written there is listed from the next turn.
+//
+// A stub holds the skill's name (as `mcp-skills:<server>:<name>`), its description
+// from the server's listing (marked with the server's name), and a body in the
+// plugin's own words that says how to load the skill: with the load_skill tool,
+// which asks the user, fetches the skill from its server and verifies it. No file of
+// the skill is fetched to write it, and none of its content is written to disk: what
+// a server sends in its listing is all it uses ("Lazy Retrieval"), and nothing of a
 // skill gains a local file's standing by being on disk.
 //
 // The path carries the server's identity (its name in your config, and a hash of the
 // exact name, so two names that differ only in case never share a folder) and the
 // skill's URI (a hash, so nothing of a URI is used as a path). The folder is the
-// plugin's own: nothing outside `served/` is touched, nothing in it but these
-// folders, and only folders whose names have this shape are removed. A symbolic link
-// found there is removed, never followed.
+// plugin's own: nothing outside `mcp-skills-served/` is touched, nothing in it but
+// these folders, and only folders whose names have this shape are removed. A
+// symbolic link found there is removed, never followed.
 
 import { createHash } from 'node:crypto';
 import { lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -51,17 +55,21 @@ export function plain(text: unknown, max: number): string {
     return oneLine(cleaned, max);
 }
 
+/** Where the stubs go: a folder of the plugin's own in `~/.agents/skills`, a skill root Codex reads and watches. */
+export const stubRootOf = (home: string): string => join(home, '.agents', 'skills', 'mcp-skills-served');
+
 /**
- * The name each listed skill goes by in Codex, `<server>:<name>` (Codex adds the plugin's name in
- * front). Two skills of one server with the same name each get a part of their URI's hash, so
- * neither is dropped or preferred; a name too long for Codex is cut and given the same.
+ * The name each listed skill goes by in Codex, `mcp-skills:<server>:<name>`. Two skills of one
+ * server with the same name each get a part of their URI's hash, so neither is dropped or
+ * preferred; a name too long for Codex (64 characters) is cut and given the same.
  */
 export function stubNames(skills: Listed[]): Map<Listed, string> {
     const out = new Map<Listed, string>();
     const count = new Map<string, number>();
-    for (const l of skills) count.set(`${l.label}:${l.entry.frontmatter.name}`, (count.get(`${l.label}:${l.entry.frontmatter.name}`) ?? 0) + 1);
+    const baseOf = (l: Listed) => `${PLUGIN}:${l.label}:${l.entry.frontmatter.name}`;
+    for (const l of skills) count.set(baseOf(l), (count.get(baseOf(l)) ?? 0) + 1);
     for (const l of skills) {
-        const base = `${l.label}:${l.entry.frontmatter.name}`;
+        const base = baseOf(l);
         const tag = sha256(l.entry.uri).slice(0, 6);
         const name = (count.get(base) ?? 0) > 1 || base.length > NAME_LIMIT ? `${base.slice(0, NAME_LIMIT - 7)}-${tag}` : base;
         out.set(l, name);
@@ -207,4 +215,27 @@ export function syncStubs(root: string, s: StubSync): { written: number; removed
         unlock();
     }
     return { written, removed, omitted };
+}
+
+/**
+ * Removes the stubs an earlier version wrote into the plugin's own folder (`<plugin>/skills/served`,
+ * up to 0.1.4), so a copy of the plugin that still has them does not list them twice. Only folders
+ * of the stubs' shape are removed, and a symbolic link is never followed.
+ */
+export function removeOldStubs(pluginRoot: string): number {
+    const old = join(pluginRoot, 'skills', 'served');
+    const st = lstatSync(old, { throwIfNoEntry: false });
+    if (!st || st.isSymbolicLink() || !st.isDirectory()) return 0;
+    let removed = 0;
+    for (const entry of readdirSync(old)) {
+        if (!LABEL_DIR.test(entry) && entry !== '.lock') continue;
+        remove(join(old, entry));
+        removed++;
+    }
+    try {
+        rmdirSync(old);
+    } catch {
+        // something else is in there: it is left as it is
+    }
+    return removed;
 }
