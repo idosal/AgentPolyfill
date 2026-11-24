@@ -185,6 +185,12 @@ A first run in a real Antigravity (App and CLI) has to confirm:
 - A card is the publisher's claim. It's shown as data, and adding a server
   goes through your approval and then Antigravity's own handling of that
   server.
+- What the ticket guards against is the agent adding a server through this
+  tool without your approval. It doesn't guard against a command you let the
+  agent run as you: such a command could run the hook itself and get a
+  ticket, but it could also edit `mcp_config.json` directly. Antigravity's
+  terminal sandbox (on by default) limits commands to the workspace and temp
+  folders, so they can't write the plugin's ticket folder.
 
 ## Spec and conformance
 

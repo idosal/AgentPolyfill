@@ -65,17 +65,28 @@ you choose):
 codex plugin add ard-discovery@agent-polyfill
 ```
 
+**Google Antigravity** (App, CLI and IDE; Node 20 or newer on your `PATH`).
+These forms are new and haven't been run in a live Antigravity yet: each
+README says what a first run has to confirm. From a clone of this repository:
+
+```
+agy plugin install AgentPolyfill/polyfills/events/antigravity/plugin
+agy plugin install AgentPolyfill/polyfills/skills/antigravity/plugin
+agy plugin install AgentPolyfill/polyfills/server-cards/antigravity/plugin
+agy plugin install AgentPolyfill/polyfills/ard/antigravity/plugin
+```
+
 There are [more ways to install](#more-ways-to-install) further down.
 
 ## Polyfills
 
-| Extension | Spec | Claude Code | Codex |
-|---|---|---|---|
-| Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code) | [`mcp-events`](polyfills/events/codex) |
-| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | [`mcp-skills`](polyfills/skills/claude-code) | [`mcp-skills`](polyfills/skills/codex) |
-| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) |
-| Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet |
-| ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) |
+| Extension | Spec | Claude Code | Codex | Antigravity |
+|---|---|---|---|---|
+| Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code) | [`mcp-events`](polyfills/events/codex) | [`mcp-events`](polyfills/events/antigravity) |
+| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | [`mcp-skills`](polyfills/skills/claude-code) | [`mcp-skills`](polyfills/skills/codex) | [`mcp-skills`](polyfills/skills/antigravity) |
+| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) | [`mcp-server-cards`](polyfills/server-cards/antigravity) |
+| Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet | native in the App (v2.34.0+); the CLI and IDE show text |
+| ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) | [`ard-discovery`](polyfills/ard/antigravity) |
 
 All of them are early. Here is what each one does, and where it stops:
 
@@ -100,7 +111,13 @@ All of them are early. Here is what each one does, and where it stops:
   and answers the mouse and keyboard: real pixels in iTerm2, kitty and
   Ghostty, text cells everywhere else.
 
-Events, Skills and Apps can't reach servers behind OAuth yet, in either host.
+In Antigravity, which tells a plugin's MCP server neither which conversation
+calls it nor lets it ask you anything, the plugins ask through Antigravity's
+own approval card from a `PreToolUse` hook, and a woken conversation needs
+the App and a sidecar you turn on (Events). The CLI and IDE get new events at
+the conversation's next turn.
+
+Events, Skills and Apps can't reach servers behind OAuth yet, in any host.
 [Why, and what would fix it.](#how-it-works-in-each-host-and-where-it-stops)
 
 **Beyond MCP**, `ard-discovery` ([Claude Code](polyfills/ard/claude-code),
