@@ -13,9 +13,12 @@ app's text, including chart labels, as real characters.
 ## Install
 
 ```
-claude plugin marketplace add idosal/MCPolyfill
-claude plugin install mcp-apps-cli@mcpolyfill
+claude plugin install mcp-apps-cli --marketplace idosal/MCPolyfill
 ```
+
+Or, at the prompt of a `claude` session,
+`/plugin install mcp-apps-cli --marketplace idosal/MCPolyfill`. Start a new
+session for it to load.
 
 The package carries the helper for each platform it supports; nothing
 else is downloaded or installed.

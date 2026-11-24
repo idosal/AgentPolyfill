@@ -30,7 +30,8 @@ left, character cells on the right
 A demo server for Apps: the arcade server (classic shareware games from
 archive.org, played in the app's view) is hosted at
 `https://mcp-apps-arcade.idosalomon.workers.dev/mcp`. With `mcp-apps-cli`
-installed:
+installed ([Install](#install)), add it, start `claude` and ask for a game
+("Load the game msdos_DOOM_1993 with the arcade tool"):
 
 ```
 claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp
@@ -64,7 +65,7 @@ contract: the spec's client rules as a checklist, how each wire need is reached
 on the host, stand-down, and what counts as proof.
 
 ```
-/plugin install polyfill-author@mcpolyfill
+/plugin install polyfill-author --marketplace idosal/MCPolyfill
 ```
 
 Then ask for the extension you want, for example "polyfill MCP Server Cards in
@@ -126,33 +127,42 @@ is built here yet.
 
 ## Install
 
-In Claude Code:
+Every polyfill at once, at the prompt of a `claude` session:
 
 ```
-/plugin marketplace add idosal/MCPolyfill
-/plugin install mcp-events@mcpolyfill
-/plugin install mcp-apps-cli@mcpolyfill
+/plugin install mcpolyfill --marketplace idosal/MCPolyfill
 ```
 
-Or in a terminal:
+Or one of them:
 
-```bash
-claude plugin marketplace add idosal/MCPolyfill
+```
+/plugin install mcp-apps-cli --marketplace idosal/MCPolyfill
 ```
 
-```bash
-claude plugin install mcp-apps-cli@mcpolyfill
+```
+/plugin install mcp-events --marketplace idosal/MCPolyfill
 ```
 
-Install only the polyfills you want. Each polyfill's own README lists its
-requirements and limits.
+The same works in a terminal as `claude plugin install mcpolyfill --marketplace idosal/MCPolyfill`.
+It adds this repository's marketplace and installs from it in one step; start
+a new `claude` session for the polyfills to load. `mcpolyfill` holds nothing
+of its own: it depends on each polyfill, and each stays a plugin you can
+disable or uninstall on its own.
+
+With the marketplace already added, the short form is
+`/plugin install mcp-apps-cli@mcpolyfill`; to add it by itself,
+`/plugin marketplace add idosal/MCPolyfill`.
+
+Each polyfill's own README lists its requirements and limits.
 
 ## Repository layout
 
 Each polyfill is a folder, `polyfills/<host>/<extension>/`: the Apps polyfill
 for Claude Code is [`polyfills/claude-code/apps`](polyfills/claude-code/apps).
 One marketplace file ([`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json))
-lists them all, and each releases on its own, under tags that start with its
+lists them all, with two plugins in [`plugins/`](plugins): `mcpolyfill`, which
+installs every polyfill, and `polyfill-author`, the skills for building one.
+Each polyfill releases on its own, under tags that start with its
 plugin's name (`mcp-apps-cli-v0.1.0`). A polyfill whose row in the table links
 another repository has not moved here yet.
 
