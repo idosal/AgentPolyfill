@@ -28,6 +28,10 @@ The install is one small folder (about 0.8 MB), and nothing else is downloaded
 unless you ask for it with `/mcp-events setup`. It needs Claude Code 2.1.326 or
 newer, and Node 20 or newer or Bun.
 
+Events also works in OpenAI Codex, as a plugin:
+`codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-events@agent-polyfill`
+([Other hosts](./how-it-works#other-hosts)).
+
 ## Try it
 
 A demo server with events is hosted for anyone to try, with no sign-in:
