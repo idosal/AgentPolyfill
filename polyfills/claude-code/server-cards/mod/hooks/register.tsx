@@ -1,8 +1,11 @@
+import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
+import type { Json, Pick } from '../types'
 import { discover, isPrivateHost, parseTarget, type Deps } from './discover'
-import { planAdd, type Scope } from './configure'
+import { isCompatible, planAdd, previewUrl, type Scope } from './configure'
 import type { ServerCard } from './card'
 import { formatDiscovery, formatSearch } from './format'
+import { install } from './install'
 import { search, searchEndpoint, type SearchHit } from './search'
 
 const PLUGIN = 'mcp-server-cards'
@@ -10,18 +13,101 @@ const DISCOVER = 'discover_mcp_servers'
 const ADD = 'add_mcp_server'
 const SEARCH = 'search_mcp_servers'
 
-const deps = ($: EngineInterface): Deps => ({
-  fetch: (url, init) => $.http.fetch(url, init),
-  store: {
-    get: key => $.store.get(key),
-    set: (key, value) => $.store.set(key, value),
-    delete: key => $.store.delete(key),
-    keys: () => $.store.keys(),
-  },
-  now: () => Date.now(),
-})
+function deps($: EngineInterface): Deps {
+  return {
+    fetch: (url, init) => $.http.fetch(url, init),
+    store: {
+      get: key => $.store.get(key),
+      set: (key, value) => $.store.set(key, value),
+      delete: key => $.store.delete(key),
+      keys: () => $.store.keys(),
+    },
+    now: () => Date.now(),
+  }
+}
 
 const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
+
+// The picker: the servers offered under each discovery or search result, by
+// that tool call's id, kept for the last few calls.
+const picks = atom({ plugin: 'mcp-server-cards', key: 'picks' } as const, {})
+const MAX_PICKS = 8
+const KEPT_CALLS = 10
+
+/** One pick per usable remote of a valid card. */
+const picksFor = (
+  card: ServerCard,
+  identifier: string,
+  trust: string,
+  isConfirmed: boolean | null,
+  provenance: string,
+  fromLocal: boolean,
+): Pick[] =>
+  (card.remotes ?? []).flatMap((r, i): Pick[] => {
+    if (!isCompatible(r)) return []
+    const planned = planAdd(card, i, {}, undefined, 'local', fromLocal)
+    if ('error' in planned) return []
+    const needs = 'missing' in planned ? planned.missing.map(m => m.input) : []
+    return [
+      {
+        id: `${identifier}#${i}`,
+        title: card.title ?? card.name,
+        url: previewUrl(card, i, fromLocal),
+        transport: r.type,
+        trust,
+        isConfirmed,
+        card: card as unknown as Json,
+        remote: i,
+        fromLocal,
+        provenance,
+        state: needs.length ? 'needs-input' : 'ready',
+        note: needs.length ? `Needs ${needs.join(', ')}: ask Claude to add it.` : undefined,
+      },
+    ]
+  })
+
+async function keepPicks($: EngineInterface, toolUseId: string, list: Pick[]) {
+  if (!list.length) return
+  await update($, picks, (all: Record<string, Pick[]>) => {
+    const next: Record<string, Pick[]> = { ...all, [toolUseId]: list.slice(0, MAX_PICKS) }
+    const ids = Object.keys(next)
+    for (const id of ids.slice(0, Math.max(0, ids.length - KEPT_CALLS))) delete next[id]
+    return next
+  })
+}
+
+async function setPick($: EngineInterface, toolUseId: string, id: string, change: Partial<Pick>) {
+  await update($, picks, (all: Record<string, Pick[]>) => ({
+    ...all,
+    [toolUseId]: (all[toolUseId] ?? []).map(p => (p.id === id ? { ...p, ...change } : p)),
+  }))
+}
+
+// A press is the person's own choice of a card they can see, so it adds the
+// server without a further prompt: with the card as shown, its defaults, and
+// the local scope.
+async function press($: EngineInterface, toolUseId: string, id: string) {
+  const pick = ((await read($, picks)) as Record<string, Pick[]>)[toolUseId]?.find(p => p.id === id)
+  if (!pick || pick.state !== 'ready') return
+  await setPick($, toolUseId, id, { state: 'adding', note: undefined })
+  const card = pick.card as unknown as ServerCard
+  const planned = planAdd(card, pick.remote, {}, undefined, 'local', pick.fromLocal)
+  if (!('plan' in planned) || planned.plan.url !== pick.url) {
+    await setPick($, toolUseId, id, { state: 'failed', note: 'error' in planned ? planned.error : 'Ask Claude to add it.' })
+    return
+  }
+  const done = await install($, planned.plan, 'local', card.name, pick.provenance)
+  await setPick($, toolUseId, id, { state: done.ok ? 'added' : 'failed', note: done.short })
+  $.ui.toast(done.short)
+}
+
+const STATE_LABEL: Record<Pick['state'], string> = {
+  ready: '',
+  'needs-input': 'needs input',
+  adding: 'adding…',
+  added: 'added',
+  failed: 'not added',
+}
 
 export const register: Register = (on, options) => {
   // Stand-down (contract rule 4): a setting. Claude Code has no Server Card
@@ -36,6 +122,8 @@ export const register: Register = (on, options) => {
   const discovered = new Map<string, { card: ServerCard; isLocal: boolean }>()
   const shownKey = (origin: string, identifier: string) => `${origin}\n${identifier}`
   const defaultRegistry = typeof options.registry === 'string' ? options.registry.trim() : ''
+  const showPicker = options.picker !== false
+  const pickerLine = '\n\nThe person can also add one of these by pressing its Add button, shown under this result.'
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
@@ -116,8 +204,14 @@ export const register: Register = (on, options) => {
     const domain = str((e as Record<string, unknown>).domain) ?? ''
     const d = await discover(deps($), domain)
     if ('error' in d) return { deny: d.error }
-    for (const s of d.servers) if (s.card) discovered.set(shownKey(d.origin, s.identifier), { card: s.card, isLocal: s.isLocal })
-    return { result: formatDiscovery(d) }
+    const offered: Pick[] = []
+    for (const s of d.servers) {
+      if (!s.card) continue
+      discovered.set(shownKey(d.origin, s.identifier), { card: s.card, isLocal: s.isLocal })
+      offered.push(...picksFor(s.card, s.identifier, `published by ${new URL(d.origin).host}`, null, `published by ${d.origin}`, s.isLocal))
+    }
+    if (showPicker) await keepPicks($, e.tool_use_id, offered)
+    return { result: formatDiscovery(d) + (showPicker && offered.length ? pickerLine : '') }
   }).catch(($, e, next) => ({ deny: `${PLUGIN}: discovery failed.` }))
 
   on('tool.run', { tool: `mcp__${PLUGIN}__${SEARCH}` }, async ($, e) => {
@@ -144,8 +238,26 @@ export const register: Register = (on, options) => {
       endpoints = [ep]
     }
     const s = await search(deps($), query, endpoints)
-    for (const hit of s.hits) if (hit.installCard) searched.set(hit.identifier, hit)
-    return { result: formatSearch(s) }
+    const offered: Pick[] = []
+    for (const hit of s.hits) {
+      if (!hit.installCard) continue
+      searched.set(hit.identifier, hit)
+      const confirmed = hit.publisher?.state === 'confirmed'
+      offered.push(
+        ...picksFor(
+          hit.installCard,
+          hit.identifier,
+          confirmed ? `confirmed by ${hit.publisherDomain}` : `NOT confirmed by its publisher (from ${new URL(hit.registry).host})`,
+          confirmed,
+          confirmed
+            ? `found through ${hit.registry} and confirmed by ${hit.publisherDomain}'s own catalog`
+            : `found through ${hit.registry}; NOT confirmed by its publisher's own catalog`,
+          isPrivateHost(new URL(hit.registry).hostname) && (!hit.cardUrl || isPrivateHost(new URL(hit.cardUrl).hostname)),
+        ),
+      )
+    }
+    if (showPicker) await keepPicks($, e.tool_use_id, offered)
+    return { result: formatSearch(s) + (showPicker && offered.length ? pickerLine : '') }
   }).catch(($, e, next) => ({ deny: `${PLUGIN}: the search failed.` }))
 
   on('tool.run', { tool: `mcp__${PLUGIN}__${ADD}` }, async ($, e) => {
@@ -204,38 +316,48 @@ export const register: Register = (on, options) => {
         deny: `This would add ${plan.url}, not ${shownUrl || '(no url given)'}. Tell the person it connects to ${plan.url}, and if they agree, call again with that url.`,
       }
 
-    let ran: { exitCode: number; stdout: string; stderr: string }
-    try {
-      ran = await $.process.run(plan.argv, { timeoutMs: 60_000 })
-    } catch (err) {
-      // No `claude` on PATH (some desktop installs), or it did not finish.
-      return {
-        deny: `Could not run \`claude mcp add\` (${err instanceof Error ? err.message : String(err)}). The person can run it in a terminal instead: ${plan.command}`,
-      }
-    }
-    if (ran.exitCode !== 0)
-      return {
-        deny: `claude mcp add failed: ${(ran.stderr || ran.stdout).trim().slice(0, 600)}${/already exists/i.test(ran.stderr + ran.stdout) ? ' Pass a different `name`.' : ''}`,
-      }
-
-    const lines = [
-      `Added "${plan.name}" (${plan.transport} ${plan.url}) to the ${scope} MCP configuration, from the Server Card ${card.name}, ${provenance}.`,
-    ]
-    if (plan.envVars.length) {
-      lines.push(
-        `It reads ${plan.envVars.length === 1 ? 'a secret' : 'secrets'} from the environment: ${plan.envVars.map(v => `${v.name} (${v.for}${v.description ? `: ${v.description}` : ''})`).join('; ')}. The person sets ${plan.envVars.length === 1 ? 'it' : 'them'} and restarts Claude Code; until then the server cannot connect.`,
-      )
-      return { result: lines.join('\n') }
-    }
-    const joined = await $.mcp.connect(plan.name)
-    if (joined.isConnected)
-      lines.push(`Connected as "${joined.server}": its tools are available from the next request.`)
-    else
-      lines.push(
-        `Not connected yet: ${joined.message} If the server needs a sign-in, the person runs /mcp, picks "${plan.name}" and authenticates; Claude Code holds that sign-in itself.`,
-      )
-    return { result: lines.join('\n') }
+    const done = await install($, plan, scope, card.name, provenance)
+    return done.ok ? { result: done.text } : { deny: done.text }
   }).catch(($, e, next) => ({ deny: `${PLUGIN}: adding the server failed.` }))
+
+  // Host presentation: the picker. Under a discovery or search result, each
+  // server found, with an Add button (see press above).
+  if (showPicker)
+    on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
+      const row = await next(e)
+      const p = e.props
+      if ((p.tool !== `mcp__${PLUGIN}__${DISCOVER}` && p.tool !== `mcp__${PLUGIN}__${SEARCH}`) || p.isRunning || p.isErrored)
+        return row
+      const list = ((await read($, picks)) as Record<string, Pick[]>)[p.tool_use_id]
+      if (!list?.length) return row
+      const { Box, Button, Text } = $.ui.resolve(e)
+      return (
+        <Box flexDirection="column">
+          {row}
+          <Box flexDirection="column" borderStyle="round" paddingX={1}>
+            <Text bold>MCP servers you can add</Text>
+            {list.map(pick => (
+              <Box flexDirection="row" gap={1}>
+                <Box flexDirection="column" flexGrow={1}>
+                  <Text>
+                    {pick.title} <Text dimColor>{pick.url}</Text>
+                  </Text>
+                  <Text dimColor={pick.isConfirmed !== false} color={pick.isConfirmed === false ? 'warning' : undefined}>
+                    {pick.trust}
+                  </Text>
+                  {pick.note ? <Text dimColor>{pick.note}</Text> : null}
+                </Box>
+                {pick.state === 'ready' ? (
+                  <Button key={`add:${pick.id}`} label="Add" variant="primary" onPress={() => press($, p.tool_use_id, pick.id)} />
+                ) : (
+                  <Text dimColor>{STATE_LABEL[pick.state]}</Text>
+                )}
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      )
+    })
 
   // Host presentation: "Clients can automatically discover Server Cards through
   // AI Catalog entries advertised on domains present in agentic sessions"

@@ -13,6 +13,6 @@ It needs Claude Code 2.1.329 or later, and nothing else.
 
 ## Use
 
-Ask, for example, "connect Claude Code to Buildkite", or "find an MCP server that can check why my CI build failed". Claude Code asks before Claude calls each tool the first time, and again before a server is added. A server that needs a sign-in asks for it in `/mcp`.
+Ask, for example, "connect Claude Code to Buildkite", or "find an MCP server that can check why my CI build failed". Under the result, a picker lists the servers found, with an **Add** button for each. Or let Claude add one: Claude Code asks you first. A server that needs a sign-in asks for it in `/mcp`.
 
 The full documentation, including the spec rules, limits, privacy and how to turn it off, is in [the polyfill's README](../README.md).

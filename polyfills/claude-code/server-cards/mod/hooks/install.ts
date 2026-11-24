@@ -1,0 +1,62 @@
+// Adding a planned server to Claude Code: `claude mcp add`, then asking the
+// session to connect it. Shared by add_mcp_server and the picker's Add button.
+
+import type { EngineInterface } from 'claude-code'
+import type { Plan, Scope } from './configure'
+
+export type Installed = {
+  ok: boolean
+  /** for the model, or the person: what happened, in full */
+  text: string
+  /** one line for the picker and a toast */
+  short: string
+}
+
+export async function install(
+  $: EngineInterface,
+  plan: Plan,
+  scope: Scope,
+  cardName: string,
+  provenance: string,
+): Promise<Installed> {
+  let ran: { exitCode: number; stdout: string; stderr: string }
+  try {
+    ran = await $.process.run(plan.argv, { timeoutMs: 60_000 })
+  } catch (err) {
+    // No `claude` on PATH (some desktop installs), or it did not finish.
+    return {
+      ok: false,
+      text: `Could not run \`claude mcp add\` (${err instanceof Error ? err.message : String(err)}). The person can run it in a terminal instead: ${plan.command}`,
+      short: `Couldn't run claude mcp add. Run it in a terminal: ${plan.command}`,
+    }
+  }
+  if (ran.exitCode !== 0) {
+    const why = (ran.stderr || ran.stdout).trim().slice(0, 600)
+    const taken = /already exists/i.test(ran.stderr + ran.stdout)
+    return {
+      ok: false,
+      text: `claude mcp add failed: ${why}${taken ? ' Pass a different `name`.' : ''}`,
+      short: taken ? `A server named "${plan.name}" already exists. Ask Claude to add it under another name.` : `claude mcp add failed: ${why.slice(0, 200)}`,
+    }
+  }
+
+  const lines = [
+    `Added "${plan.name}" (${plan.transport} ${plan.url}) to the ${scope} MCP configuration, from the Server Card ${cardName}, ${provenance}.`,
+  ]
+  if (plan.envVars.length) {
+    const vars = plan.envVars.map(v => v.name).join(', ')
+    lines.push(
+      `It reads ${plan.envVars.length === 1 ? 'a secret' : 'secrets'} from the environment: ${plan.envVars.map(v => `${v.name} (${v.for}${v.description ? `: ${v.description}` : ''})`).join('; ')}. The person sets ${plan.envVars.length === 1 ? 'it' : 'them'} and restarts Claude Code; until then the server cannot connect.`,
+    )
+    return { ok: true, text: lines.join('\n'), short: `Added "${plan.name}". Set ${vars} and restart Claude Code to connect it.` }
+  }
+  const joined = await $.mcp.connect(plan.name)
+  if (joined.isConnected) {
+    lines.push(`Connected as "${joined.server}": its tools are available from the next request.`)
+    return { ok: true, text: lines.join('\n'), short: `Added and connected "${joined.server}".` }
+  }
+  lines.push(
+    `Not connected yet: ${joined.message} If the server needs a sign-in, the person runs /mcp, picks "${plan.name}" and authenticates; Claude Code holds that sign-in itself.`,
+  )
+  return { ok: true, text: lines.join('\n'), short: `Added "${plan.name}". Run /mcp to connect or sign in.` }
+}
