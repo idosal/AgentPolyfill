@@ -12,13 +12,16 @@
 //   - when the helper says events wait, submits them as a prompt ($.prompt.submit),
 //     which starts a turn once the session is idle;
 //   - tells the helper when the person sends a message of their own (prompt.submit),
-//     which is what restarts waking after its hourly limit was reached.
+//     which is what restarts waking after its hourly limit was reached;
+//   - `/mcp-events setup`: on a machine with no Node and no Bun, fetches a copy of Bun for the
+//     helper alone, on the person's own command and yes (runtime.ts).
 //
 // The model reads such a prompt as "The mcp-events plugin sent a message: …",
 // never as the person's own words, and what it does next goes through Claude
 // Code's permissions like anything else.
 
 import type { EngineInterface, Register } from 'claude-code'
+import { BUN, SetupError, install, pinned, platformOf, remove } from './runtime'
 import { isThePersons, PLUGIN, TOOLS } from './tools'
 
 type Endpoint = { url: string; token: string }
@@ -45,36 +48,170 @@ const state: {
    * same lines over again: it is told before the next take. Kept here, where it outlives the helper.
    */
   submitted?: { spool: string; upto: number }
+  /** The fetch of the mod's own runtime, while one is under way. */
+  setup?: Promise<void>
+  /** What the helper runs on, for /mcp-events: set where it is the mod's own copy of Bun. */
+  ownRuntime?: string
 } = { isStandingBy: false, isEnded: false, isDelivering: false, isMoreWaiting: false, isWatchLoaded: false, restarts: [], problemShown: false }
 
 const debug = ($: EngineInterface, text: string) => $.ui.log(`${PLUGIN}: ${text}`, { to: 'debug' })
 const plain = (text: unknown) => String(text).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').slice(0, 300)
+const quoted = (text: string) => JSON.stringify(plain(text))
 
-/** Why there is no helper on this machine, in words for the person and for Claude. */
-class NoHelper extends Error {}
+/** Why there is no helper on this machine, in words for the person and for Claude; `short` is the one-line notice. */
+class NoHelper extends Error {
+  constructor(
+    message: string,
+    readonly short = message,
+  ) {
+    super(message)
+  }
+}
+/** The plugin's own data folder: Claude Code makes it, and keeps it across updates. */
+const dataFolder = async ($: EngineInterface) => (await $.process.hookEnv()).CLAUDE_PLUGIN_DATA
 
 /**
- * What runs the helper: Node 20 or newer, or Bun. Claude Code itself needs neither, so a machine
- * may have none; then the tools say so, and nothing else happens.
+ * What runs the helper: Node 20 or newer, or Bun. Claude Code itself needs neither, so a machine may
+ * have none. And a Claude Code that was not started from a shell (the desktop app, an editor) may not
+ * have the PATH a terminal has, so a runtime that is installed is looked for where it usually is.
+ * (The same order as the mcp-skills mod's.)
  */
 async function runtime($: EngineInterface): Promise<string[]> {
-  const version = async (argv: string[]) => {
+  const version = async (command: string) => {
     try {
-      const { exitCode, stdout } = await $.process.run(argv, { timeoutMs: 10000 })
+      const { exitCode, stdout } = await $.process.run([command, '--version'], { timeoutMs: 10000 })
       return exitCode === 0 ? stdout.trim() : undefined
     } catch {
       return undefined
     }
   }
-  const node = await version(['node', '--version'])
-  const major = Number(/^v(\d+)\./.exec(node ?? '')?.[1])
-  if (major >= 20) return ['node', '--no-warnings']
-  if (await version(['bun', '--version'])) return ['bun']
+  const usable = async (command: string): Promise<string[] | undefined> => {
+    const found = await version(command)
+    if (found === undefined) return undefined
+    // Bun answers with a bare version, Node with a v before it.
+    if (/^\d+\.\d+\.\d+/.test(found)) return [command]
+    if (Number(/^v(\d+)\./.exec(found)?.[1]) >= 20) return [command, '--no-warnings']
+    old ??= found
+    return undefined
+  }
+  let old: string | undefined
+  state.ownRuntime = undefined
+  // The person's own choice, where they made one: a path (run as it is, through no shell), or
+  // `private` for nothing but the copy of Bun this mod fetched for itself.
+  const named = String((await $.env.get('MCP_EVENTS_RUNTIME').catch(() => undefined)) ?? '').trim()
+  if (named && named !== 'private') {
+    const argv = await usable(named)
+    if (argv) return argv
+    throw new NoHelper(`MCP_EVENTS_RUNTIME names ${quoted(named)}, which is not a Node 20 or newer, or a Bun, that runs${old ? ` (it is Node ${plain(old)})` : ''}. Name one by its full path, or unset the variable, then start a new session.`, 'MCP Events: MCP_EVENTS_RUNTIME does not name a runtime that runs. Type /mcp-events for more.')
+  }
+  const own = async (): Promise<string[] | undefined> => {
+    const data = await dataFolder($).catch(() => undefined)
+    // Only the release this version of the mod pins, checked when it was fetched: a copy of any
+    // other version in that folder, whoever put it there, is never run.
+    const copy = data ? await pinned($, data) : undefined
+    if (!copy) return undefined
+    state.ownRuntime = `its own copy of Bun ${copy.version}`
+    return [copy.path]
+  }
+  const offer = async () =>
+    (await platformOf($).then((platform) => platform !== undefined && platform in BUN.assets, () => false))
+      ? `Type /mcp-events setup to have this mod download Bun ${BUN.version} for its own use (the official release from github.com/oven-sh/bun, about 40 MB, checked against the SHA-256 pinned in the mod; nothing else on your machine changes). Or install`
+      : 'Install'
+  if (named === 'private') {
+    const argv = await own()
+    if (argv) return argv
+    throw new NoHelper(`MCP_EVENTS_RUNTIME=private says to run the helper only on this mod's own copy of Bun, and there is none yet. ${await offer()} Node from https://nodejs.org or Bun from https://bun.sh and unset the variable.`, 'MCP Events has no runtime of its own yet. Type /mcp-events setup to fetch one.')
+  }
+  // 1. As Claude Code itself would find them.
+  for (const command of ['node', 'bun']) {
+    const argv = await usable(command)
+    if (argv) return argv
+  }
+  // 2. As the person's own login shell finds them (version managers set the PATH there).
+  const candidates: string[] = []
+  const shell = await $.env.get('SHELL').catch(() => undefined)
+  if (shell) {
+    try {
+      const { stdout } = await $.process.run([shell, '-lic', 'command -v node; command -v bun'], { timeoutMs: 10000 })
+      candidates.push(...stdout.split('\n').map((line) => line.trim()).filter((line) => /^\/[^\n]*\/(node|bun)$/.test(line)))
+    } catch {
+      // no answer from the shell
+    }
+  }
+  // 3. Where installers usually put them.
+  const home = await $.env.get('HOME').catch(() => undefined)
+  if (home) candidates.push(`${home}/.bun/bin/bun`, `${home}/.volta/bin/node`, `${home}/.local/bin/node`)
+  candidates.push('/opt/homebrew/bin/node', '/usr/local/bin/node', '/opt/homebrew/bin/bun', '/usr/local/bin/bun')
+  for (const command of [...new Set(candidates)]) {
+    const argv = await usable(command)
+    if (argv) return argv
+  }
+  // 4. The copy of Bun this mod fetched for itself, where the person had it do that.
+  const argv = await own()
+  if (argv) return argv
+  const found = old ? `only Node ${plain(old)}` : 'neither'
   throw new NoHelper(
-    node
-      ? `MCP Events needs Node 20 or newer (or Bun) on your PATH to run its helper; this machine has Node ${plain(node)}.`
-      : 'MCP Events needs Node 20 or newer (or Bun) on your PATH to run its helper, and found neither.',
+    `MCP Events needs Node 20 or newer, or Bun, to run its helper, and found ${found} on this machine. ` +
+      `${await offer()} Node from https://nodejs.org or Bun from https://bun.sh, then start a new session. Until then no events are watched.`,
+    `MCP Events needs Node 20 or newer, or Bun, and found ${found}. Type /mcp-events for what to do.`,
   )
+}
+
+/**
+ * `/mcp-events setup`: fetches the mod's own copy of Bun, for a machine with no Node and no Bun.
+ * Only on the person's own command (not the model's, a script's, another session's or an
+ * unattended run's), and only after they answer yes in Claude Code's own question dialog, which
+ * names what is downloaded and from where: a download that is then run is theirs to agree to. The
+ * question comes once this command has answered (a dialog opened from inside the command would wait
+ * on it), and the fetch after that; a notice says how it ended. (As the mcp-skills mod does.)
+ */
+async function setup($: EngineInterface, what: string, origin: { kind?: string } | undefined): Promise<string> {
+  if (origin?.kind !== 'composer' && origin?.kind !== 'bridge') return 'This downloads a program and runs it, so it is done only when you type it yourself: /mcp-events setup, at the prompt of a `claude` session.'
+  if (state.setup) return 'The download is already under way. A notice says when it is done.'
+  let data: string | undefined
+  try {
+    data = await dataFolder($)
+  } catch {
+    // answered below
+  }
+  if (!data) return 'This session has no data folder for the plugin, so there is nowhere to put a runtime. Install Node from https://nodejs.org or Bun from https://bun.sh instead.'
+  if (what === 'remove') {
+    const { removed, left } = await remove($, data)
+    const inUse = state.ownRuntime !== undefined
+    if (left.length) return `${removed ? `Deleted ${removed} cop${removed > 1 ? 'ies' : 'y'} of Bun, but ` : ''}${removed ? (left.length > 1 ? 'these could' : 'this could') : left.length > 1 ? 'These could' : 'This could'} not be deleted, and ${left.length > 1 ? 'are' : 'is'} left not runnable: ${left.map(plain).join(', ')}. Delete ${left.length > 1 ? 'them' : 'it'} by hand.`
+    return removed ? `Deleted this mod's own copy of Bun${removed > 1 ? ` (${removed} versions)` : ''}.${inUse ? ' The helper of this session keeps running on it until the session ends.' : ''}` : 'This mod has no copy of Bun of its own.'
+  }
+  if (what) return 'Usage: /mcp-events setup (fetch Bun for this mod), or /mcp-events setup remove (delete it).'
+  // With a Node or Bun of the person's own that runs the helper, there is nothing to fetch.
+  if ((await ensureHelper($).then(() => true, () => false)) && state.ownRuntime === undefined) return 'The helper already runs on a Node or Bun found on this machine, so there is nothing to set up. (To have this mod use a copy of Bun of its own instead, set MCP_EVENTS_RUNTIME=private and run this again.)'
+  const where = data
+  const question = `Download Bun ${BUN.version} for MCP Events? It is the official release from github.com/oven-sh/bun (about 40 MB), checked against the SHA-256 pinned in the mod before it is run, kept in the plugin's data folder and used only for this mod's helper.`
+  state.setup = (async () => {
+    try {
+      await new Promise<void>((resolve) => $.clock.after(50, resolve))
+      // "Not now" first: a dialog left unanswered must not come out as a yes.
+      const answer = await $.ui.ask(question, { options: ['Not now', 'Download'], header: 'Runtime' }).catch((error: unknown) => {
+        debug($, `setup: the question was not answered (${plain(error instanceof Error ? error.message : error)})`)
+        return undefined
+      })
+      if (answer !== 'Download') {
+        $.ui.toast('MCP Events: nothing was downloaded. /mcp-events setup asks again.', { timeoutMs: 10000 })
+        return
+      }
+      const got = await install($, where)
+      state.problemShown = false
+      const helper = await ensureHelper($).then(() => true, () => false)
+      $.ui.toast(got.isNew ? `MCP Events: Bun ${got.version} is in place${helper ? ' and the helper is running.' : ', but the helper did not start. Type /mcp-events.'}` : `MCP Events: Bun ${got.version} was already in place.`, { timeoutMs: 15000 })
+      debug($, `setup: Bun ${got.version} at ${got.path} (${got.bytes} bytes, new: ${got.isNew})`)
+    } catch (error) {
+      const why = error instanceof SetupError ? error.message : `The setup failed (${plain(error instanceof Error ? error.message : error)}).`
+      $.ui.toast(`MCP Events: ${plain(why)}`, { timeoutMs: 20000 })
+      debug($, `setup failed: ${plain(why)}`)
+    } finally {
+      state.setup = undefined
+    }
+  })()
+  return `MCP Events can download Bun ${BUN.version} for its own use, from github.com/oven-sh/bun, into the plugin's data folder (${plain(where)}/runtime). A question follows; nothing is downloaded unless you answer Download. It is checked against the SHA-256 pinned in the mod before anything is run, a notice says when it is done, and /mcp-events setup remove deletes it.`
 }
 
 async function post($: EngineInterface, where: Endpoint, route: string, body: unknown): Promise<Record<string, unknown>> {
@@ -138,7 +275,7 @@ function ensureHelper($: EngineInterface, isAsked = false): Promise<Endpoint> {
         debug($, `the helper did not start: ${plain(why)}`)
         if (failure instanceof NoHelper && !state.problemShown) {
           state.problemShown = true
-          $.ui.toast(plain(why))
+          $.ui.toast(plain(failure.short))
         }
         reject(failure instanceof NoHelper ? failure : new Error(`the MCP Events helper did not start (${plain(why)})`))
         return
@@ -268,8 +405,26 @@ export const register: Register = (on) => {
     const env = await $.process.hookEnv().catch(() => ({}) as Record<string, string>)
     if (e.isInteractive || env.CLAUDE_CODE_SESSION_ATTENDED === '1') void ensureHelper($).catch(() => {})
     // Awaited, so the tools are listed by the first turn.
-    await Promise.all(TOOLS.map((spec) => $.tool.register({ ...spec })))
+    await Promise.all([
+      ...TOOLS.map((spec) => $.tool.register({ ...spec })),
+      $.command.register({ name: 'mcp-events', description: 'MCP Events: what runs its helper; setup fetches Bun for a machine with no Node or Bun', argumentHint: '[setup [remove]]' }),
+    ])
     return started
+  })
+
+  // /mcp-events                 what runs the helper, or why nothing does and what to do
+  // /mcp-events setup           fetch the mod's own Bun (a machine with no Node and no Bun)
+  // /mcp-events setup remove    delete it
+  on('command.run', { command: 'mcp-events' }, async ($, e) => {
+    const [verb = '', what = ''] = String(e.args ?? '').trim().split(/\s+/)
+    if (verb === 'setup') return { text: await setup($, what, e.origin as { kind?: string } | undefined) }
+    if (verb) return { text: 'Usage: /mcp-events, /mcp-events setup (fetch Bun for this mod, on a machine with no Node and no Bun), /mcp-events setup remove (delete it).' }
+    try {
+      await ensureHelper($)
+      return { text: `The MCP Events helper runs on ${state.ownRuntime ?? 'the Node or Bun found on this machine'}.${state.ownRuntime ? ' /mcp-events setup remove deletes it.' : ''} Watches are Claude's to set: ask it to watch an event of one of your MCP servers.` }
+    } catch (error) {
+      return { text: error instanceof NoHelper ? error.message : `MCP Events could not start its helper: ${plain(error instanceof Error ? error.message : error)}` }
+    }
   })
 
   // Each tool is hooked by its exact name, written out so `claude plugin validate` can read it.

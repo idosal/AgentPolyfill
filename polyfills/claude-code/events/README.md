@@ -34,8 +34,10 @@ by itself, `/plugin marketplace add idosal/MCPolyfill`.
 polyfill in the marketplace, this one included.
 
 The install is one small folder ([`mod/`](mod/), about 0.8 MB), and nothing
-else is downloaded. It needs Claude Code 2.1.326 or newer, and Node 20 or
-newer or Bun on your PATH ([Requirements](#requirements)).
+else is downloaded unless you ask for it with `/mcp-events setup` (below). It
+needs Claude Code 2.1.326 or newer, and Node 20 or newer or Bun; on a machine
+with neither, `/mcp-events setup` fetches a copy of Bun for the mod alone
+([Requirements](#requirements)).
 
 ## Try it
 
@@ -106,10 +108,13 @@ session, and what happens when one is missing or you say no:
    you have told it you trust, which it asks the first time you start
    `claude` in a folder. In a folder you have not trusted, the mod does
    nothing.
-3. **Node 20 or newer, or Bun, on your PATH.** Claude Code itself needs
-   neither, so check with `node --version`. Without one, the mod shows one
-   notice saying so, each of its tools answers with the same sentence, and
-   nothing else happens.
+3. **Node 20 or newer, or Bun.** Claude Code itself needs neither, so check
+   with `node --version`. The mod looks on Claude Code's PATH, then where your
+   login shell finds them, then where their installers put them. Without one,
+   the mod shows one notice saying so, each of its tools and `/mcp-events`
+   answer with what to do, and nothing else happens. On macOS or Linux,
+   `/mcp-events setup` then fetches a copy of Bun for the mod alone
+   ([The mod's own runtime](#the-mods-own-runtime)).
 4. **An MCP server with events that Claude Code itself uses in the session:**
    added with `claude mcp add` or in a project's `.mcp.json`, approved, and
    not switched off. The mod leaves alone any server Claude Code is not
@@ -146,9 +151,9 @@ session, and what happens when one is missing or you say no:
 
 - **Claude Code 2.1.326 or newer.** Mods, the kind of plugin this is, are on
   by default from Claude Code 2.1.287.
-- **Node 20 or newer, or Bun, on your PATH**, for the helper process. Webhook
-  delivery through a relay needs Node 22 or newer (or Bun); push and poll
-  work on Node 20.
+- **Node 20 or newer, or Bun**, for the helper process, or the copy of Bun
+  that `/mcp-events setup` fetches (macOS and Linux). Webhook delivery through
+  a relay needs Node 22 or newer (or Bun); push and poll work on Node 20.
 - **A terminal session, or one an app keeps open** ([Where it runs](#where-it-runs)).
 
 ## What Claude can do with it
@@ -361,6 +366,50 @@ webhook itself, holds no OAuth grant, and listens only on the loopback address
 behind a token. What it does and does not protect against, and how to report
 a vulnerability: [`SECURITY.md`](SECURITY.md).
 
+## The mod's own runtime
+
+The mod's helper is JavaScript, so it needs Node or Bun, and Claude Code comes
+with neither. For a machine that has none, `/mcp-events setup` fetches one, in
+the same way as the mcp-skills mod:
+
+- **Only when you ask, and only after you say yes.** The command counts only
+  when you type it at the prompt, or send it from your own Remote Control. It
+  is refused from Claude, from a script, from another session and in an
+  unattended run (`claude -p`). When you run it, Claude Code's own dialog asks
+  whether to download; "Not now" is the first answer.
+- **What is fetched:** one fixed Bun release (the version is in
+  [`mod/hooks/runtime.ts`](mod/hooks/runtime.ts)), for macOS or Linux, arm64 or
+  x64, from that release's page on GitHub, over HTTPS only. GitHub redirects
+  the download to its file storage; the checksum below is what makes it safe,
+  not the host.
+- **Checked before it is installed:** the SHA-256 of the downloaded bytes,
+  computed inside the mod before anything is unpacked or run, must equal the
+  one written in the mod's source, copied from the release's own checksum
+  file. A download that does not match is deleted. The check happens when it
+  is fetched, not each time it runs. Only the copy of the pinned version is
+  ever run: a folder of any other version there is never run (not even to
+  ask its version), and the next setup deletes it.
+- **Where it goes:** the `runtime` folder in the plugin's data folder
+  (`~/.claude/plugins/data/mcp-events-mcp-events/runtime`, or the same under
+  `CLAUDE_CONFIG_DIR`). It is used for this mod's helper and for nothing else;
+  your PATH and shell profile are not touched. `/mcp-events setup remove`
+  deletes it; before you uninstall the plugin, run that, or delete the folder
+  afterwards.
+- **It needs** `curl` and `unzip`, as Bun's own installer does. On Windows, or
+  without them, install Node or Bun yourself.
+
+`/mcp-events` says what the helper runs on, or why nothing does and what to
+do. A Node or Bun of your own is always used first. To run the helper on a
+particular one, name it in `MCP_EVENTS_RUNTIME` (or `private` for only the
+copy the mod fetched). A project's settings can set that variable too, so a
+folder you trust can choose the program that runs the helper, as it can
+already run code through its own hooks.
+
+**Not yet run as one sequence.** The download, the check and the unpacking
+are tested with stand-ins for the machine (`mod/hooks/setup.test.ts`); the
+download itself has not been run from this mod. The same code in the
+mcp-skills mod was run in parts against the real release.
+
 ## Settings
 
 Environment variables, for example in the `env` block of
@@ -369,6 +418,7 @@ Environment variables, for example in the `env` block of
 | Variable | What it does |
 |---|---|
 | `MCP_EVENTS_OFF=1` | Installed, and doing nothing. |
+| `MCP_EVENTS_RUNTIME` | What runs the helper: the full path of a Node 20+ or a Bun (nothing else is then tried), or `private` for only the copy of Bun `/mcp-events setup` fetched. Default: whatever is found ([The mod's own runtime](#the-mods-own-runtime)). |
 | `MCP_EVENTS_PRE_STANDARD` | Servers that advertise events only in the form from before the standard are used by default. `off` refuses them all, which is exactly the SEP; a comma-separated list of server names allows that form for those servers only. |
 | `MCP_EVENTS_SERVERS` / `MCP_EVENTS_SKIP` | Only these server names, or never these (comma-separated). |
 | `MCP_EVENTS_SOURCES` | Which Claude Code configuration scopes to read: `project,local,user` (default all three). |
