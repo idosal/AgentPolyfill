@@ -193,10 +193,14 @@ data from that server, never as instructions from you.
   approval is bound to its content. The form has a required choice, which,
   in Codex 0.172's source (`codex-mcp/src/elicitation.rs`), Codex does not
   answer in your place; anything but "Load it" is a no.
-- A skill or file URI holding anything but printable ASCII is refused, and
-  the SKILL.md shown before a load has control and invisible characters
-  removed, inside a frame it cannot forge, so a server cannot use control
-  characters to rewrite the question you are asked.
+- A skill or file URI holding anything but printable ASCII is refused. The
+  SKILL.md shown before a load has its control characters removed and every
+  run of hidden characters (tag characters, variation selectors and other
+  default-ignorable code points) shown as `⟦3 hidden characters⟧`, inside a
+  frame it cannot forge. So a server cannot use control characters to rewrite
+  the question you are asked, and the preview shows you where there is text
+  you cannot see but the model would read; the loaded skill tells the model
+  how many such characters it holds.
 - Everything from a server is shown under the server's name as you configured
   it, never what the server calls itself.
 - A skill's frontmatter grants nothing: `allowed-tools` and the rest never
@@ -265,7 +269,7 @@ question, and one never approved is refused
 
 | What | How to run it | Result |
 |---|---|---|
-| The client rules, one test per rule, against a hand-written server; the stubs; the config reader; the bundled plugin server spoken to as Codex speaks to it, its questions answered as Codex answers them; control and invisible characters from a server | `npm test` | 65 pass |
+| The client rules, one test per rule, against a hand-written server; the stubs; the config reader; the bundled plugin server spoken to as Codex speaks to it, its questions answered as Codex answers them; control and hidden characters from a server | `npm test` | 68 pass |
 | The official MCP conformance suite's client scenarios for SEP-2640 (it has four) | [`test/conformance/run.sh`](test/conformance/run.sh) | 4 of 4 pass ([output](docs/evidence/conformance.txt)) |
 | Hugging Face's public server: 25 skills listed and written as stubs, every skill loaded, all 135 files verified | `npm run interop:real` | all verified ([output](docs/evidence/interop-real.txt)) |
 | Installing from the marketplace into a fresh `CODEX_HOME` (Codex lists only the Codex plugins there: mcp-events and mcp-skills), and the installed copy running from its own folder | `codex plugin marketplace add`, `codex plugin add` | installs, runs, writes 25 stubs ([output](docs/evidence/install.txt)) |
