@@ -32,9 +32,11 @@ export function projectKey(projectDir: string): string {
 }
 
 /**
- * Replaces a state file whole. The new content is flushed before it takes the old one's place, and
- * the folder after, so that a crash or a power cut leaves the old file or the new one: never an
- * empty one, which would read as no watches at all.
+ * Replaces a state file whole. The new content is flushed before it takes the old one's place, so
+ * that a crash or a power cut leaves the old file or the new one: never an empty one, which would
+ * read as no watches at all. (The folder is not flushed after the rename: if the rename is what is
+ * lost, the old file is what comes back, and a starting helper recovers what it lacks from the
+ * spools. Flushing the folder too cost a third of the event rate, measured: docs/performance.md.)
  */
 function writeAtomic(file: string, data: string): void {
     const tmp = `${file}.${process.pid}.tmp`;
@@ -47,18 +49,6 @@ function writeAtomic(file: string, data: string): void {
     }
     chmodSync(tmp, 0o600);
     renameSync(tmp, file);
-    // A folder cannot be opened for this on Windows, where the rename is what there is.
-    if (process.platform === 'win32') return;
-    try {
-        const d = openSync(dirname(file), 'r');
-        try {
-            fsyncSync(d);
-        } finally {
-            closeSync(d);
-        }
-    } catch {
-        // the rename stands; only its flush is not certain
-    }
 }
 
 /** How many sessions a project keeps listed as possibly holding events not yet handed over. */

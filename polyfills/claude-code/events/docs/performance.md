@@ -13,9 +13,55 @@ CPU time and memory come from `ps`, which counts CPU time in steps of 10 ms, so
 the idle figures are small numbers read coarsely. Nothing here was measured on
 Linux or Windows, or against a remote server.
 
+## 0.5.0 against 0.4.1
+
+Both bundles on Node 22.23.1, the same machine (macOS 15, Apple Silicon), the
+same day, by `test/perf.ts` (one run each; the idle CPU figures move by tens of
+milliseconds between runs):
+
+| | 0.4.1 | 0.5.0 |
+|---|---|---|
+| Bundle (`mod/dist/helper.js`) | 540,760 bytes | 544,029 bytes (+0.6 %) |
+| Start → ready, median of 9 | 135 ms | 130 ms |
+| Start → catalog, one local server, median of 9 | 375 ms | 359 ms |
+| Idle, 4 push watches: memory / CPU over 30 s | 55 MiB / 40 ms | 55 MiB / 90 ms |
+| Idle, 4 poll watches every 5 s: memory / CPU over 30 s | 57 MiB / 40 ms | 56 MiB / 70 ms |
+| **1,000 events through one push watch, until all are on disk** | **5.5 s (180 a second)** | **11.4 s (88 a second)** |
+| Helper CPU per event | 0.69 ms | 1.18 ms |
+| One event: server has it → helper says it waits, median of 10 | 45 ms | 44 ms |
+| 20 local servers, 10 with events: start → catalog | 830 ms | 816 ms |
+
+**The event rate halved, on purpose.** 0.5.0 flushes `watches.json` to disk
+before it replaces the old one, so that a power cut leaves the old file or the
+new one, never an empty one that reads as no watches at all. On macOS each
+flush is a full one (`F_FULLFSYNC`, about 5 ms), and the watch is saved with
+every event, so every event now costs two flushes instead of one. A first
+version also flushed the folder after the rename: 16.6 ms an event, 60 a
+second; that third flush bought nothing the second does not (if the rename is
+what a crash loses, the old file comes back and a starting helper recovers the
+rest from the spools), and was taken out. 88 events a second from one watch is
+far above what a session can use: a watch wakes it at most once a minute.
+
+**Start with what an earlier session left behind.** A starting helper reads the
+end of the spools of the sessions listed for the project (at most 16 MiB of
+each). Measured from source, the worst case being a session that stored
+events and showed none of them:
+
+| Earlier session's spool, none of it handed over | `WatchManager.start()` |
+|---|---|
+| none | 20 ms |
+| 1 MiB (2,796 events) | 45 ms |
+| 16 MiB (44,739 events) | 207 ms |
+| 64 MiB (178,956 events; 16 MiB of it read) | 203 ms |
+
+The first version of this took 1,769 ms at 16 MiB: it checked each event id
+against a list that grew as it went. With a set it is the 207 ms above.
+
+The figures below are from 0.4.x.
+
 ## What runs, and when
 
-One process, `mod/dist/helper.js` (533 kB, no dependencies to install), started by
+One process, `mod/dist/helper.js` (544 kB, no dependencies to install), started by
 the hooks module:
 
 - **With a person at the session** (a terminal, or an app hosting it): at
