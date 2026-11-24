@@ -131,7 +131,7 @@ test('A-7 every search asks the person, naming the registry and the query; refus
     'Send this search to https://registry.example/api, and to up to three registries it refers to? "why did my [2K CI build fail"',
   )
   const byDomain = await $.tool.check({ tool: SEARCH, input: { query: 'x', registry: 'huggingface.co' }, tool_use_id: 'a7b', approver: 'person' } as never)
-  expect(String((byDomain as { reason?: string }).reason).startsWith('Send this search to the registry that huggingface.co lists')).toBe(true)
+  expect(String((byDomain as { reason?: string }).reason).startsWith('Send this search to the registries that huggingface.co lists (up to three), and to up to three registries they refer to?')).toBe(true)
   const nobody = await $.tool.check({ tool: SEARCH, input } as never)
   expect(nobody.decision).toBe('deny')
   beneath.decision = 'deny'
@@ -152,4 +152,25 @@ test('A-8 with nobody to ask (claude -p, a background loop), nothing is sent', a
   expect(String((r as { deny?: string; text?: string }).deny ?? (r as { text?: string }).text).includes('nobody can be asked')).toBe(true)
   expect(posted).toEqual([])
   expect(handed).toEqual([])
+})
+
+// Security review R1: the ask shows at most 300 characters with control
+// characters blanked, so a query the ask could not show whole is not sent.
+test('A-9 a query longer than the ask shows, or with control characters, is refused and nothing is sent', async ($, on) => {
+  const handed = cards(on)
+  const posted: string[] = []
+  on('http.fetch', (_, e) => {
+    posted.push(e.url)
+    return { value: { status: 200, ok: true, headers: {}, text: '{"results":[]}' } }
+  })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const long = await $.tool.run({ tool: SEARCH, tool_use_id: 'a9', query: `check why my CI build failed ${'x'.repeat(300)}`, registry: 'https://registry.example/api' } as never)
+  expect(String((long as { deny?: string }).deny)).toContain('under 300 characters')
+  const hidden = await $.tool.run({ tool: SEARCH, tool_use_id: 'a9b', query: 'CI build\u001b[8m secret words', registry: 'https://registry.example/api' } as never)
+  expect(String((hidden as { deny?: string }).deny)).toContain('without control characters')
+  expect(posted).toEqual([])
+  expect(handed).toEqual([])
+  const ok = await $.tool.run({ tool: SEARCH, tool_use_id: 'a9c', query: 'x'.repeat(300), registry: 'https://registry.example/api' } as never)
+  expect((ok as { deny?: string }).deny).toBe(undefined)
+  expect(posted).toEqual(['https://registry.example/api/search'])
 })
