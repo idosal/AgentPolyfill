@@ -13,7 +13,7 @@
 // passed through to the connected plugin and answered by it.
 
 import { ACCESS_KEY_RE, ACCESS_PREFIX, HOOK_RE, HOOKS_PATH, KEY_PREFIX, KEY_RE, MAILBOX_RE, mailboxIdOf, SUBPROTOCOL, type DeliveryHeaders } from './protocol.ts';
-import { allowed, LIMITS_DOWN, SENDER_HEADER, TOO_MANY, type Verdict } from './limits.ts';
+import { allowed, LIMITS_DOWN, SENDER_HEADER, senderKey, TOO_MANY, type Verdict } from './limits.ts';
 import type { Mailbox } from './mailbox.ts';
 import type { Registry } from './registry.ts';
 
@@ -54,8 +54,8 @@ export interface Env {
 }
 
 const DAY_S = 24 * 3600;
-/** The address a request came from, as Cloudflare reports it. */
-const sender = (request: Request) => request.headers.get('cf-connecting-ip') ?? 'unknown';
+/** Who a request is counted as: the address Cloudflare reports, by its /64 for IPv6 (see senderKey). */
+const sender = (request: Request) => senderKey(request.headers.get('cf-connecting-ip'));
 /** The answer to a request a limit did not let through, or undefined if it did. */
 function refusal(v: Verdict): Response | undefined {
     if (v === 'yes') return undefined;

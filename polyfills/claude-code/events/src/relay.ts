@@ -135,6 +135,8 @@ export type RelayOptions = {
     socket?: (url: string, protocols: string[]) => WebSocket;
     /** The most bytes of delivery bodies waiting to be judged at once (tests lower it). */
     maxWaitingBytes?: number;
+    /** The least time between two `ack` messages; acks that come sooner go together in the next one. */
+    ackGapMs?: number;
 };
 
 type Pending = { resolve: (m: Extract<RelayMessage, { t: 'ok' }>) => void; reject: (e: Error) => void; timer: NodeJS.Timeout };
@@ -155,6 +157,14 @@ const MAX_WAITING = 2000;
 /** More than a relay holds for one mailbox by default (16 MiB), so what a relay kept while Claude Code was closed fits. */
 const MAX_WAITING_BYTES = 24 * 1024 * 1024;
 const HEADER = /^[\x20-\x7e]{1,2048}$/;
+/**
+ * Acks are sent at most this often, each carrying every delivery taken since the last. A relay anyone
+ * may use closes a connection that sends too many messages in a minute (600 on the public one): one
+ * ack per delivery would reach that with a few busy addresses. Two a second stays well under it.
+ */
+const ACK_GAP_MS = 500;
+/** The most deliveries one ack names (the relay reads up to 1,000). */
+const ACK_BATCH = 500;
 
 export class RelayClient {
     readonly url: string;
@@ -183,6 +193,10 @@ export class RelayClient {
      */
     #stale = new Set<string>();
     #missed = new Set<string>();
+    /** Deliveries taken (or dropped as malformed) whose ack has not gone out yet, and when the last ack did. */
+    #acks: number[] = [];
+    #ackTimer?: NodeJS.Timeout;
+    #lastAckAt = 0;
     #backoff: number;
     #retry?: NodeJS.Timeout;
     #ping?: NodeJS.Timeout;
@@ -285,6 +299,28 @@ export class RelayClient {
         if (this.#ws?.readyState === WebSocket.OPEN) this.#ws.send(JSON.stringify(m));
     }
 
+    /** Acknowledges one delivery: at once if no ack went out in the last ACK_GAP_MS, else with the next one. */
+    #ack(seq: number): void {
+        this.#acks.push(seq);
+        if (this.#ackTimer) return;
+        const wait = this.#lastAckAt + (this.#o.ackGapMs ?? ACK_GAP_MS) - Date.now();
+        if (wait <= 0 && this.#acks.length < ACK_BATCH) return this.#flushAcks();
+        this.#ackTimer = setTimeout(() => this.#flushAcks(), Math.max(0, wait));
+        this.#ackTimer.unref();
+    }
+
+    #flushAcks(): void {
+        clearTimeout(this.#ackTimer);
+        this.#ackTimer = undefined;
+        if (!this.#acks.length) return;
+        this.#send({ t: 'ack', seqs: this.#acks.splice(0, ACK_BATCH) });
+        this.#lastAckAt = Date.now();
+        if (this.#acks.length) {
+            this.#ackTimer = setTimeout(() => this.#flushAcks(), this.#o.ackGapMs ?? ACK_GAP_MS);
+            this.#ackTimer.unref();
+        }
+    }
+
     #request(m: { t: 'add' | 'remove'; hook: string }): Promise<Extract<RelayMessage, { t: 'ok' }>> {
         const n = ++this.#n;
         return new Promise((resolve, reject) => {
@@ -329,7 +365,7 @@ export class RelayClient {
             if (!sound) {
                 // It can never be taken, so it is not left to take up the mailbox's room (anyone who knows a
                 // webhook address can post one): it is dropped at the relay, as a delivery that fails its signature is.
-                if (Number.isSafeInteger(d.seq)) this.#send({ t: 'ack', seqs: [d.seq] });
+                if (Number.isSafeInteger(d.seq)) this.#ack(d.seq);
                 return void this.#log('relay: dropped a malformed delivery');
             }
             // More waiting than could be real: leave the rest at the relay, which sends them again on the next connection.
@@ -356,7 +392,7 @@ export class RelayClient {
                         if (r.status === 503) this.#log(`relay: ${r.reason}`);
                         else {
                             if (r.status !== 200) this.#log(`relay: dropped a delivery that does not verify (${r.reason})`);
-                            this.#send({ t: 'ack', seqs: [d.seq] });
+                            this.#ack(d.seq);
                         }
                     }
                 } finally {
@@ -390,6 +426,11 @@ export class RelayClient {
 
     #onClose(ws: WebSocket, code: number, reopening = false): void {
         if (ws !== this.#ws) return;
+        // Acks not sent yet go with the connection: the relay sends those deliveries again on the next
+        // one, where each is recognised as already taken and acked then.
+        clearTimeout(this.#ackTimer);
+        this.#ackTimer = undefined;
+        this.#acks = [];
         clearInterval(this.#ping);
         clearTimeout(this.#pong);
         this.#pong = undefined;
@@ -503,6 +544,7 @@ export class RelayClient {
         clearInterval(this.#ping);
         clearTimeout(this.#pong);
         await Promise.race([this.#work, new Promise((r) => setTimeout(r, 2000))]);
+        this.#flushAcks();
         this.#ws?.close();
     }
 }
