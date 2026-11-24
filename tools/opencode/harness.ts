@@ -150,7 +150,10 @@ export class World {
 
     async start(): Promise<this> {
         const h = this.home;
+        // Windows programs need a few of the system's own variables to start at all.
+        const windows = process.platform === 'win32' ? Object.fromEntries(['SystemRoot', 'SYSTEMROOT', 'windir', 'ComSpec', 'PATHEXT', 'SystemDrive', 'ProgramData', 'ProgramFiles', 'NUMBER_OF_PROCESSORS', 'PROCESSOR_ARCHITECTURE'].flatMap((k) => (process.env[k] ? [[k, process.env[k]!]] : []))) : {};
         this.env = {
+            ...windows,
             PATH: process.env.PATH,
             HOME: h,
             USERPROFILE: h,
@@ -159,6 +162,7 @@ export class World {
             XDG_CACHE_HOME: join(h, '.cache'),
             XDG_STATE_HOME: join(h, '.local', 'state'),
             TMPDIR: join(this.dir, 'tmp'),
+            ...(process.platform === 'win32' ? { TEMP: join(this.dir, 'tmp'), TMP: join(this.dir, 'tmp'), APPDATA: join(h, 'AppData', 'Roaming'), LOCALAPPDATA: join(h, 'AppData', 'Local') } : {}),
             OPENCODE_DISABLE_AUTOUPDATE: '1',
             OPENCODE_DISABLE_CLAUDE_CODE: '1',
             ...(this.#o.model ? {} : { OPENCODE_DISABLE_MODELS_FETCH: '1' }),
@@ -167,7 +171,7 @@ export class World {
         };
         mkdirSync(this.env.TMPDIR!, { recursive: true });
         this.#llmPort = await freePort();
-        this.#procs.push(await startProcess(process.execPath, [join(KIT, 'fake-llm.mjs'), String(this.#llmPort), this.llmLog], { env: { PATH: process.env.PATH }, cwd: this.dir, log: join(this.logs, 'llm.out'), ready: /fake-llm \d+/ }));
+        this.#procs.push(await startProcess(process.execPath, [join(KIT, 'fake-llm.mjs'), String(this.#llmPort), this.llmLog], { env: { ...windows, PATH: process.env.PATH }, cwd: this.dir, log: join(this.logs, 'llm.out'), ready: /fake-llm \d+/ }));
         this.writeConfig();
         const port = await freePort();
         this.url = `http://127.0.0.1:${port}`;
