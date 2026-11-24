@@ -9,8 +9,8 @@
 // Needs Quint 0.34.0 (QUINT, default `npx --yes @informalsystems/quint@0.34.0`), Java and
 // tla2tools.jar (JAVA, TLA2TOOLS, as for check.mjs). Works in a temporary folder, removed after.
 // This samples one direction only: what Quint can do, TLA+ can do. For the other, each
-// counterexample TLC found on 0.5.0's models is also a scenario in the Quint file; the rest is
-// by reading.
+// counterexample TLC found on 0.5.0's models was replayed as a scenario in the Quint file, and
+// Quint reproduced it; the rest is by reading.
 
 import { execSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -105,7 +105,7 @@ try {
       const reached = Number(/([\d,]+) distinct states found/.exec(text)?.[1]?.replace(/,/g, "") ?? -1);
       const states = group.reduce((n, t) => n + t.states.length, 0);
       const ok = /Model checking completed\. No error has been found/.test(text) && reached === states;
-      console.log(`${ok ? "ok  " : "FAIL"} ${m.module} (${fix ? "0.5.0" : "0.4.1"}): ${group.length} Quint traces, ${states - group.length} steps${ok ? ", each a behaviour of the TLA+ model" : ""}`);
+      console.log(`${ok ? "ok  " : "FAIL"} ${m.module} (${fix ? "0.5.1" : "0.4.1"}): ${group.length} Quint traces, ${states - group.length} steps${ok ? ", each a behaviour of the TLA+ model" : ""}`);
       if (!ok) {
         failed++;
         if (reached !== states) console.log(`  ${reached} of the traces' ${states} states reached (a first state that is not an initial state is never reached)`);

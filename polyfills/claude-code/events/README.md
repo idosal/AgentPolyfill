@@ -412,8 +412,8 @@ way to see what Claude Code's own MCP client supports.
   suite's result (17 of 17 of its Events client scenarios).
 - [`model/`](model/README.md): a formal model, in Quint and in TLA+, of how
   events get from a server to the session and of how often they wake it; what
-  it found in 0.4.1, and what TLC shows of this version within small, stated
-  bounds, including the cases it found.
+  it found in 0.4.1, what TLC found in 0.5.0 (fixed in 0.5.1), and what it
+  shows of this version within small, stated bounds.
 - [`docs/sign-in.md`](docs/sign-in.md): servers that need credentials, and why
   interactive OAuth is out of reach.
 - [`docs/performance.md`](docs/performance.md): what it costs to run.
