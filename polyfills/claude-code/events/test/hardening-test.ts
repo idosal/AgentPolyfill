@@ -2,7 +2,9 @@
 // otherwise do: put words in front of the model, crash the plugin, or share a claim.
 
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { existsSync, mkdirSync, utimesSync, writeFileSync } from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { connect } from 'node:net';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
@@ -253,6 +255,35 @@ describe('what is left on disk', () => {
         assert.ok(existsSync(join(mine, 'events.jsonl')), "this session's own stays, however old");
         assert.ok(existsSync(join(foreign, 'notes.txt')), 'a folder holding anything else is not removed');
         assert.equal(pruneSessions(join(base, 'nowhere'), 'x'), 0);
+    });
+});
+
+describe('state that must survive a power cut', () => {
+    test('a state file is flushed to disk before it replaces the old one, so a crash leaves the old one or the new one, never an empty one', () => {
+        const dir = temp();
+        const project = new ProjectState(dir, '/project/durable');
+        project.watches = [{ id: 'w-1', server: 's', fingerprint: 'fp', event: 'x', arguments: {}, mode: 'poll', cursor: 'c1', createdAt: '', events: 0, status: 'active', seen: [] }];
+        const calls: string[] = [];
+        const real = { fsyncSync: fs.fsyncSync, renameSync: fs.renameSync };
+        const spy = fs as unknown as { fsyncSync: typeof fs.fsyncSync; renameSync: typeof fs.renameSync };
+        spy.fsyncSync = (fd) => {
+            calls.push('fsync');
+            return real.fsyncSync(fd);
+        };
+        spy.renameSync = (a, b) => {
+            calls.push(`rename ${String(b).split(/[\\/]/).at(-1)}`);
+            return real.renameSync(a, b);
+        };
+        syncBuiltinESMExports();
+        try {
+            project.save();
+        } finally {
+            Object.assign(spy, real);
+            syncBuiltinESMExports();
+        }
+        const at = calls.indexOf('rename watches.json');
+        assert.ok(at > 0, `renamed into place (${calls.join(', ')})`);
+        assert.equal(calls[at - 1], 'fsync', 'after its content was flushed');
     });
 });
 

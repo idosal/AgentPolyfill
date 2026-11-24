@@ -31,11 +31,34 @@ export function projectKey(projectDir: string): string {
     return createHash('sha256').update(resolve(projectDir)).digest('hex').slice(0, 16);
 }
 
+/**
+ * Replaces a state file whole. The new content is flushed before it takes the old one's place, and
+ * the folder after, so that a crash or a power cut leaves the old file or the new one: never an
+ * empty one, which would read as no watches at all.
+ */
 function writeAtomic(file: string, data: string): void {
     const tmp = `${file}.${process.pid}.tmp`;
-    writeFileSync(tmp, data, { mode: 0o600 });
+    const fd = openSync(tmp, 'w', 0o600);
+    try {
+        writeSync(fd, data);
+        fsyncSync(fd);
+    } finally {
+        closeSync(fd);
+    }
     chmodSync(tmp, 0o600);
     renameSync(tmp, file);
+    // A folder cannot be opened for this on Windows, where the rename is what there is.
+    if (process.platform === 'win32') return;
+    try {
+        const d = openSync(dirname(file), 'r');
+        try {
+            fsyncSync(d);
+        } finally {
+            closeSync(d);
+        }
+    } catch {
+        // the rename stands; only its flush is not certain
+    }
 }
 
 /** How many sessions a project keeps listed as possibly holding events not yet handed over. */
