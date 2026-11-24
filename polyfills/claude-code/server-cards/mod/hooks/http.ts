@@ -97,9 +97,11 @@ export const cachedGet = async (
   accept: string,
   now: number,
   transform?: (text: string, headers: Record<string, string>) => string,
+  /** what the transform depends on, so two transforms of one URL are kept apart */
+  variant = '',
 ): Promise<Got> => {
   const target = url.split('#')[0]!
-  const key = `${PREFIX}${accept} ${target}${transform ? ' (kept)' : ''}`
+  const key = `${PREFIX}${accept} ${target}${transform ? ` (kept${variant ? ` ${variant}` : ''})` : ''}`
   let held: Entry | undefined
   try {
     held = (await store.get(key)) as Entry | undefined

@@ -14,35 +14,25 @@ It adds the client side of the MCP **Server Cards** extension, which Claude Code
 
 This is a community project. It is not affiliated with or endorsed by Anthropic, the Model Context Protocol project, the Agentic AI Foundation or the Linux Foundation.
 
-### Beyond SEP-2127: the ARD draft parts
+### What it does not do: ARD
 
-Some of what this mod does comes from [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) (ARD) v0.91, at `f073b1ea9b`. ARD is a draft ("Proposal") from Google, R.V. Guha and Hugging Face, not an MCP specification. These parts are therefore outside this repository's rule that a polyfill implements [one published extension and nothing else](../../../docs/polyfill-contract.md):
-
-- **`/.well-known/ard.json`**, the catalog location ARD names, read beside the `/.well-known/ai-catalog.json` that SEP-2127 names. Most sites that publish one also publish the other.
-- **`rel="ard"` links** in a page's `<head>` or `Link` header.
-- **Registry search**, `search_mcp_servers`: asking an ARD registry for a server that can do a task. It sends your query to that registry; see [Registry search](#registry-search).
-
-**They are off by default.** Out of the box the polyfill is exactly SEP-2127 and what it references:
-- Discovery reads only `/.well-known/ai-catalog.json`, plus `rel="ai-catalog"` links from the AI Catalog.
-- There is no `search_mcp_servers`.
-
-To turn the ARD parts on, set **`ard`** to on in `/config` (under the plugin). Most sites that publish `ard.json` also publish `ai-catalog.json`, so discovery finds them either way.
+Agentic Resource Discovery (ARD) is a draft, not an MCP specification. Its `/.well-known/ard.json`, `rel="ard"` links and registry search are not in this plugin. They are in a separate plugin, [`ard-discovery`](../ard), which finds cards that way and hands them to this one, to be checked, shown and added in the same way. Installing `ard-discovery` is how you turn ARD on.
 
 ## Install
 
 At the prompt of a `claude` session:
 
 ```
-/plugin install mcp-server-cards --marketplace idosal/MCPolyfill
+/plugin install mcp-server-cards --marketplace idosal/AgentPolyfill
 ```
 
 Or in a terminal:
 
 ```bash
-claude plugin install mcp-server-cards --marketplace idosal/MCPolyfill
+claude plugin install mcp-server-cards --marketplace idosal/AgentPolyfill
 ```
 
-Either adds the [MCPolyfill](../../../README.md) marketplace and installs the plugin in one step. With the marketplace already added, `/plugin install mcp-server-cards@mcpolyfill` does the same. To add the marketplace by itself, use `/plugin marketplace add idosal/MCPolyfill`.
+Either adds the [AgentPolyfill](../../../README.md) marketplace and installs the plugin in one step. With the marketplace already added, `/plugin install mcp-server-cards@agent-polyfill` does the same. To add the marketplace by itself, use `/plugin marketplace add idosal/AgentPolyfill`.
 
 That is the whole install. You need:
 
@@ -55,8 +45,8 @@ The mod is one small folder, [`mod/`](mod/). To turn it off, set `disabled` in `
 To run it from a clone of this repository instead, for one session:
 
 ```bash
-git clone https://github.com/idosal/MCPolyfill
-claude --plugin-dir MCPolyfill/polyfills/claude-code/server-cards/mod
+git clone https://github.com/idosal/AgentPolyfill
+claude --plugin-dir AgentPolyfill/polyfills/claude-code/server-cards/mod
 ```
 
 ## Try it
@@ -65,9 +55,9 @@ Ask Claude "What MCP servers does buildkite.com publish?", then press **Add** un
 
 ## Using it, step by step
 
-1. **Ask.** For example "connect Claude Code to Buildkite", "what MCP servers does neon.com publish?", or, with `ard` on, "find an MCP server that can check why my CI build failed".
-2. **Claude Code asks before the first lookup.** The first call to `discover_mcp_servers` or `search_mcp_servers` gets Claude Code's usual permission prompt, as any new tool does. If you say no, nothing is fetched.
-3. **Claude shows what it found:** each server's card, whether the card is valid, and, for a search result, whether the publisher's own domain confirms the server. A refused card says why; nothing refused can be added.
+1. **Ask.** For example "connect Claude Code to Buildkite", or "what MCP servers does neon.com publish?".
+2. **Claude Code asks before the first lookup.** The first call to `discover_mcp_servers` gets Claude Code's usual permission prompt, as any new tool does. If you say no, nothing is fetched.
+3. **Claude shows what it found:** each server's card, and whether the card is valid. A refused card says why; nothing refused can be added.
 4. **Pick one.** Under the result, a box lists the servers you can add. Each shows its name, the URL it connects to, who stands behind it, and the server name and headers it would write, with an **Add** button.
    - Pressing **Add** adds that server, with the card as shown and its defaults, to the local scope (this project, only you). The press is your choice, so no further prompt follows.
    - It never replaces a server you have. If the name is taken in any scope, it adds the server as `name-2` (up to `name-9`) and says so.
@@ -98,9 +88,7 @@ They are in `/config`, under the plugin.
 | Setting | Default | What it does |
 |---|---|---|
 | `disabled` | off | Turns the polyfill fully off: no tools, nothing fetched. |
-| `ard` | off | The ARD draft parts above: `ard.json`, `rel="ard"`, registry search. Off: only what SEP-2127 names. |
-| `registry` | `https://huggingface-hf-discover.hf.space` | The ARD registry that `search_mcp_servers` asks when Claude names none. The query text is sent there. Empty: only a registry named in the request is used. |
-| `picker` | on | Shows the list of servers with **Add** buttons under discovery and search results. Off: you add servers by asking Claude. |
+| `picker` | on | Shows the list of servers with **Add** buttons under discovery results, and under another plugin's results that it was handed. Off: you add servers by asking Claude. |
 | `notice_on_fetch` | on | After Claude fetches a page with WebFetch, the polyfill reads that site's catalog once per session. If the site publishes a server, you see one line in the transcript: "buildkite.com publishes an MCP server (Server Card): Buildkite". Claude is not told. Only sites Claude has already contacted are checked. |
 
 ### The tools
@@ -108,31 +96,30 @@ They are in `/config`, under the plugin.
 | Tool | What it does |
 |---|---|
 | `discover_mcp_servers(domain)` | Reads the domain's catalogs and every card they list; reports each card, valid or refused. Read-only. |
-| `search_mcp_servers(query, registry?)` | (ARD; only with `ard` on) Asks an ARD registry; checks each card it returns, and whether the publisher's own catalog lists the server. Sends the query text to the registry. |
-| `add_mcp_server(identifier, url, domain?, remote?, name?, scope?, values?)` | Adds a server one of the two tools above showed in this session, with `claude mcp add`, then asks Claude Code to connect it. `url` must be the URL the server will connect to. |
+| `add_mcp_server(identifier, url, domain?, remote?, name?, scope?, values?)` | Adds a server shown in this session, with `claude mcp add`, then asks Claude Code to connect it. `url` must be the URL the server will connect to. |
+| `present_server_cards` | For other plugins only, never the model: see [For other plugins](#for-other-plugins). |
 
 ## Client rules
 
 There is one row for each rule the specs put on a client, and the test that covers it. The tests are in [`mod/tests`](mod/tests); run them with `claude plugin test mod`.
 
-### Discovery (SEP-2127, ARD §5.1, AI Catalog)
+### Discovery (SEP-2127 and the AI Catalog it names)
 
 | # | Rule | Source | Test | State |
 |---|---|---|---|---|
-| D-1 | Fetch `https://{domain}/.well-known/ard.json` | ARD §5.1 (MUST); ARD draft, only with `ard` on | D-1 D-2, B-5, B-6, DEF-1 | met when `ard` is on |
-| D-2 | Attempt `/.well-known/ai-catalog.json`, as an equivalent source | discovery.md (SHOULD); ARD §5.1 (MAY) | D-1 D-2, D-6 | met |
-| D-3 | Honour `rel="ard"` (ARD draft, only with `ard` on) and `rel="ai-catalog"` links, in a `Link` header or a `<link>` tag | ARD §5.1 (MUST); AI Catalog | D-7, D-13, D-15, B-5 | met |
-| D-4 | Select the entries whose `type` is `application/mcp-server-card+json` | discovery.md, step 2 | D-3, E-1 | met |
-| D-5 | Fetch a `url` entry's card with `Accept: application/mcp-server-card+json` | discovery.md (SHOULD) | D-3 | met |
-| D-6 | Use a `data` entry's card inline | discovery.md, step 3 | D-4 | met |
-| D-7 | Exactly one of `url` and `data` per entry | AI Catalog (MUST); ARD §4.3 (MUST NOT carry both) | D-5 | met |
-| D-8 | Limit nested catalogs; depth 4 is recommended | AI Catalog (SHOULD) | D-8 | met: limit 4 |
-| D-9 | Read `specVersion` first; reject an unsupported major version with an informative error | AI Catalog, Consumer Behavior (SHOULD) | D-9 | met (see [Findings](#findings-to-report-upstream)) |
-| D-10 | The same `identifier` names the same artifact | AI Catalog | D-6 | met |
+| D-1 | Attempt `https://{domain}/.well-known/ai-catalog.json` | discovery.md (SHOULD) | D-1 D-2, DEF-1, B-5 | met |
+| D-2 | Honour `rel="ai-catalog"` links, in a `Link` header or a `<link>` tag | AI Catalog, Link Relation Discovery | D-7, D-13, D-15, DEF-2 | met |
+| D-3 | Select the entries whose `type` is `application/mcp-server-card+json` | discovery.md, step 2 | D-3, E-1 | met |
+| D-4 | Fetch a `url` entry's card with `Accept: application/mcp-server-card+json` | discovery.md (SHOULD) | D-3 | met |
+| D-5 | Use a `data` entry's card inline | discovery.md, step 3 | D-4 | met |
+| D-6 | Exactly one of `url` and `data` per entry | AI Catalog (MUST) | D-5, O-1 | met |
+| D-7 | Limit nested catalogs; depth 4 is recommended | AI Catalog (SHOULD) | D-8 | met: limit 4 |
+| D-8 | Read `specVersion` first; reject an unsupported major version with an informative error | AI Catalog, Consumer Behavior (SHOULD) | D-9 | met (see [Findings](#findings-to-report-upstream)) |
+| D-9 | The same `identifier` names the same artifact | AI Catalog | D-6 | met |
 | V-1 | A card conforms to the schema: the v1 `$schema` URL, a reverse-DNS `name`, `version`, a `description` of 100 characters or fewer, remotes, inputs | schema.ts and schema.json | V-1 to V-5 | met: an invalid card is refused, never repaired |
 | V-2 | `version` is one version, not a range | schema.ts, `ServerCard.version` | V-3 | met (see Findings) |
 | P-1 | Never replace a server the person has | the polyfill's own, from the security review (SC2) | B-8, U-4 | met. A name taken in any scope is refused for Claude's add; the picker uses the next free name and says so |
-| P-2 | A person approves every addition Claude asks for | the polyfill's own, from the security review (SC4) | B-9 | met. A hook-made ask names the server, URL, headers, scope and undo. No rule or auto mode answers it, and it is refused with nobody to ask |
+| P-2 | A person approves every addition Claude asks for | the polyfill's own, from the security review (SC4 and its re-check) | B-9, B-13, B-14 | met. A hook-made ask names the server, URL, headers, scope and undo. No rule or auto mode answers it, and it is refused with nobody to ask. The add runs only for a call that was put to a person: a call that skipped the check (another plugin's own `$.tool.call`) is refused, and so is a check made before its card was shown |
 | V-3 | No text that displays as something else | the polyfill's own, from the security review: SEP-2127 says cards are untrusted ("Clients MUST NOT treat Server Card contents as authoritative") | X-1, X-2, X-3, A-21 | A card is refused if any string in it, key or value, holds a C0 or C1 control, DEL, or an invisible format or bidirectional mark. A remote URL must be printable ASCII. The same holds for every value Claude gives. Everything shown passes a plain-text filter. A card carries no command or environment (remotes only), so none can reach `claude mcp add` that way |
 | C-1 | Respect `Cache-Control` | discovery.md, Caching and Denial of Service (SHOULD) | C-1, C-3 | met |
 | C-2 | Send the `ETag` back as `If-None-Match`; accept `304` | discovery.md (SHOULD) | C-1, C-2, C-4 | met |
@@ -148,24 +135,18 @@ There is one row for each rule the specs put on a client, and the test that cove
 | I-3 | Choose a remote by its `supportedProtocolVersions` | schema.ts, `Remote` | A-5 | met: a remote with no revision Claude Code speaks is not added |
 | I-4 | Transport `streamable-http` or `sse` | schema.ts, `Remote.type` | A-1, A-6 | met |
 
-### Registry search
+### Cards another plugin found
 
-This part implements a second spec, the ARD v0.91 draft (§5.3), for MCP Server Cards only. It is outside SEP-2127, so it is off by default; the `ard` setting turns it on. It shares the card checks above.
+Servers another plugin found and handed over through `present_server_cards` (the `ard-discovery` plugin's search results, say) get every check above. Beyond those:
 
 | # | Rule | Source | Test | State |
 |---|---|---|---|---|
-| R-1 | A registry entry's `url` is a base URL; the client appends `/search` | §5.3 | R-1 | met |
-| R-2 | `POST /search` with `query.text` (required), `filter` and `federation` | §5.3.1, §5.3.2, §5.4 | R-2 | met: `filter.type` is the Server Card type; `federation` is `"referrals"`, so the client decides which referrals to follow |
-| R-3 | A referral's `url` is the complete search endpoint, and the client MUST NOT append `/search` | §5.3 (MUST NOT) | R-3 | met: one hop, at most three referrals |
-| R-4 | A result MUST carry `identifier`; its `url` addresses the artifact (the card), not the ARD entry | §5.3.2 | R-4 | met: results without one are skipped; each card is fetched and checked as in discovery |
-| R-5 | `score` is relevance only, and MUST NOT be read as trust | §5.3.2, §5.3.3 (MUST NOT) | R-5 | met: shown as relevance, used for nothing |
-| R-6 | The publisher is the `<publisher>` domain of `urn:air:<publisher>:…` | Appendix C | R-8 | met |
-| R-7 | A claim to a publisher's name needs that publisher's attestation | §4.5.1 | R-5, R-6 | partly: trust manifests are not verified. Instead the publisher's own catalog is read, and a result is **confirmed** only if it lists the server; the publisher's own card is then the one used |
-| R-8 | Standard error codes | Appendix B | R-7 | met: reported as `HTTP <code> (<errorCode>: <message>)` |
+| H-1 | Each is an AI Catalog entry: an `identifier`, exactly one of `url` and `data`, and where it was found | AI Catalog | O-1 | met: anything else is skipped |
+| H-2 | Who stands behind a server: the publisher is the domain in `urn:air:<publisher>:…`, never an address or a local name | AI Catalog, identifier format | O-5 | met |
+| H-3 | A server is **confirmed** only when the publisher's own catalog lists the same identifier with a valid card; that card is then the one shown and added | the polyfill's own: a finder's word is not the publisher's | O-2 to O-4, O-8, B-10, B-12 | met: the publisher's domain is read with the finder's further sources too (ARD's `ard.json`) |
+| H-4 | Only another plugin can hand cards over: the model is not shown the tool, and a call of its own is refused | the polyfill's own | B-7, B-11 | met |
 
-`add_mcp_server` takes a search result by `identifier`, and only a result a registry returned in this session. A URL is never taken from the conversation.
-
-The default registry, Hugging Face Discover, is the only public ARD registry found. On 24 November 2026 it answered searches and referred to its Spaces registry, which was followed. Every MCP result it returned pointed at an MCP Registry `server.json` rather than a Server Card, so every one is refused (see Findings). Until a public registry serves valid cards, the [demo registry](#demo) stands in.
+`add_mcp_server` takes such a server by `identifier`, and only one handed over in this session. A URL is never taken from the conversation.
 
 ## Stand-down
 
@@ -174,33 +155,32 @@ Claude Code has no Server Card support to detect yet. When it ships, turn on the
 ## Scope
 
 - **In the polyfill:** the SEP-2127 client rules above.
-- **Beside it, from the ARD draft, off by default and on with `ard`:** `/.well-known/ard.json`, `rel="ard"`, and registry search.
+- **For other plugins:** `present_server_cards`, so that a plugin which finds cards another way (`ard-discovery`) has them checked, shown and added here, with nothing duplicated.
 - **Host presentation:** the tools, the picker under their results, and the one-line notice after a WebFetch. The extension's README describes that case: clients "can automatically discover Server Cards through AI Catalog entries advertised on domains present in agentic sessions".
 - **Not in it:**
-  - ARD `POST /explore`, `GET /agents` and `federation: "auto"`.
-  - Verifying AI Catalog or ARD trust manifests and signatures. No card is ever called verified.
+  - ARD, in [`ard-discovery`](../ard).
+  - Verifying AI Catalog trust manifests and signatures. No card is ever called verified.
   - Agent skills, A2A cards and other artifact types in the same catalogs. They are counted, not used.
   - Local (stdio) servers, which cards do not describe.
 
 ## Proof
 
-- **Per rule:** 99 tests, run with `claude plugin test mod`.
+- **Per rule:** 98 tests, run with `claude plugin test mod`.
   - They cover the official example cards (`examples/ServerCard`, valid and invalid) and fixtures of my own for edge cases.
-  - Thirteen of them (B-1 to B-9, U-1 to U-4) run through the plugin as Claude Code loads it, with the engine's network, `claude mcp add` and connect stood in for.
+  - Eighteen of them (B-1 to B-14, U-1 to U-4) run through the plugin as Claude Code loads it, with the engine's network, `claude mcp add` and connect stood in for.
   - The picker is drawn on the terminal, desktop, VS Code and mobile surfaces, and a press of **Add** is followed to the exact `claude mcp add` it runs.
-- **Independent security review** for the launch (24 November 2026), by an AI session, not a human audit. Its findings SC1 to SC7 are fixed and tested (V-3, P-1, P-2, A-21 to A-23, X-1 to X-3).
+- **Independent security review** for the launch (24 November 2026), by an AI session, not a human audit. Its findings SC1 to SC7 are fixed and tested (V-3, P-1, P-2, A-21 to A-23, X-1 to X-3), and so are the two narrow paths around the SC4 ask that its re-check found (B-13, B-14).
 - **Earlier reviews:** two read-only review rounds by a second agent (Codex), on 2026-11-24. The first found 18 issues; the second checked the fixes and found 9 incomplete and 7 more issues. All of them are fixed, and each has a test: those marked "Review findings" and "Second review pass".
 - **Documents someone else wrote:** the catalogs and cards live on 2026-11-24 from Buildkite, GitHub, Hugging Face, Neon, Netlify, Notion, Context7, Exa, Supabase and Zapier.
   - Ten of the eleven cards are valid; Zapier's is refused.
   - ajv, run with the official `schema.json`, gives the same verdict on all eleven.
   - Snapshots are in [`mod/tests/fixtures.ts`](mod/tests/fixtures.ts).
-- **A registry someone else runs:** Hugging Face Discover, including its referral.
 - **The real host (Claude Code 2.1.329 CLI, 2.1.330 engine):**
   - `discover_mcp_servers` returned the cards for buildkite.com, huggingface.co, neon.com, and neon.tech (which redirects to neon.com).
-  - `search_mcp_servers` against the demo registry returned Buildkite, confirmed by `buildkite.com/.well-known/ard.json`.
   - A subagent's WebFetch of a Buildkite docs page set off discovery of buildkite.com.
+  - With `ard-discovery` loaded beside it, `present_server_cards` read buildkite.com's `ard.json` for that plugin, and checked the results of two registry searches against their publishers, confirming Netlify through `netlify.com/.well-known/ard.json`.
 - **Not yet run in the real host:** adding a server end to end, by `add_mcp_server` or by the picker's **Add**. Claude Code's auto-mode permission check stopped the tool call, as it should for a configuration change. A person pressing **Add**, or approving the call, is the run still to record.
-- **Upstream conformance:** the MCP conformance suite has no Server Card or ARD scenarios (`modelcontextprotocol/conformance` at `96a6f9478b`).
+- **Upstream conformance:** the MCP conformance suite has no Server Card scenarios (`modelcontextprotocol/conformance` at `96a6f9478b`).
 
 ## Limits, and the host changes that would remove them
 
@@ -214,32 +194,28 @@ Claude Code has no Server Card support to detect yet. When it ships, turn on the
 
 What it sends, what it stores, what it changes and what it trusts are in [SECURITY.md](SECURITY.md). In short:
 - It reads public documents from the domain you name and the card URLs that domain's catalog lists. It never fetches a local or private address unless you name one yourself.
-- Search sends your query to the registry.
 - It changes only your MCP configuration, and only for the server you pick or approve.
 - It never reads Claude Code's credentials, holds no token, and never puts a secret's value anywhere.
 
-## Demo
+## For other plugins
 
-[`demo/registry.mjs`](demo/registry.mjs) is a demo ARD registry, not a real one. When it starts, it reads the live catalogs of ten publishers (Buildkite, GitHub, Notion, Neon, Supabase, Netlify, Exa, Context7, Hugging Face, Zapier). It keeps their Server Card entries as published, and answers `POST /search` by word match. Every result points at the publisher's own card, so each comes back confirmed.
+`present_server_cards` lets another plugin have this one check, show and add cards it found. It is kept from the model: the model is not shown the tool, and a call of the model's own is refused. It takes:
 
-```bash
-node demo/registry.mjs
-```
+- `by`: who found them, shown with the result.
+- `under`: the caller's own `tool_use_id`, so the picker is drawn under the caller's row.
+- `domain`, a domain to read as `discover_mcp_servers` does;
+- or `entries`: AI Catalog entries found elsewhere, each with `listedIn` (where it was found);
+- and, with either, `catalogs` (further catalog URLs, which may be relative to the domain, each with `requireVersion: false` for a manifest that needs no `specVersion`) and `rels` (further link relations to follow), at most three of each. They are read on `domain`, and on each entry's publisher domain when that is checked.
 
-It listens on `http://127.0.0.1:9011`. Turn `ard` on in `/config`, then, in Claude Code:
-
-> My CI build failed and I don't have a tool for it. Search the registry at http://127.0.0.1:9011 for an MCP server that can check why.
-
-Claude finds Buildkite and says buildkite.com's own catalog confirms it. It asks you, adds it, and Claude Code asks you to sign in through `/mcp`.
+It answers with JSON text, `{ text, servers, registries }`: the text Claude reads, the number of valid cards, and the search registries the domain's catalogs list. (Claude Code holds a registered tool's result to text, so the object comes as JSON.) Everything it is handed is checked as if this plugin had found it, under the same address rules, and a server is confirmed only by its publisher's own catalog.
 
 ## Findings to report upstream
 
 Found on 24 November 2026, and not yet reported:
 
 - **specVersion.** AI Catalog v0.9 says implementations of the release candidate use `"0.9"`, and that consumers "should not assume compatibility" with `"1.0"`. Yet the Server Cards discovery doc's examples, and every live catalog found, use `"1.0"`. This client accepts majors 0 and 1.
-- **The well-known path.** ARD v0.91 makes `/.well-known/ard.json` a MUST and treats `ai-catalog.json` as optional. The Server Cards discovery doc names only `ai-catalog.json`. This client reads both.
+- **The well-known path.** ARD v0.91 makes `/.well-known/ard.json` a MUST and treats `ai-catalog.json` as optional. The Server Cards discovery doc names only `ai-catalog.json`. This plugin reads `ai-catalog.json`; `ard-discovery` adds `ard.json`.
 - **Version ranges.** schema.ts says version ranges are rejected; the generated schema.json does not encode that rule.
-- **Hugging Face Discover** answers searches with entries typed `application/mcp-server-card+json` whose `url` is an MCP Registry `server.json` (a date-versioned `$schema`, a name with no namespace), and so does the Spaces registry it refers to. Those fail the card schema.
 - **Zapier.** `zapier.com/.well-known/mcp/server-card.json` has no `$schema`, and its description is over 100 characters.
 - **JSON values.** schema.ts lets `extensionsInfo` values hold `null` and any JSON number; the generated schema.json allows neither `null` nor non-integers. This client follows schema.ts.
 - **The ext-server-card README** still says "Experimental … not an accepted or official MCP extension", while the extensions overview lists it as Beta.
@@ -260,7 +236,7 @@ The code is in [`mod/hooks`](mod/hooks):
 |---|---|
 | `card.ts` | Validates a card. |
 | `discover.ts` | Resolves a domain. |
-| `search.ts` | The registry client. |
+| `offer.ts` | Reads cards another plugin handed over, and checks them against their publisher. |
 | `http.ts` | The cache. |
 | `configure.ts` | Turns a remote into `claude mcp add`. |
 | `format.ts` | What Claude reads. |

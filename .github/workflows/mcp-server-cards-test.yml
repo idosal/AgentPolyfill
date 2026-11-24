@@ -49,5 +49,3 @@ jobs:
         run: claude plugin validate mod
       - name: The hooks module's tests (claude plugin test)
         run: claude plugin test mod
-      - name: The demo registry parses
-        run: node --check demo/registry.mjs

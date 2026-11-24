@@ -1,17 +1,17 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 import type { Json, Pick } from '../types'
-import { discover, isPrivateHost, parseTarget, type Deps } from './discover'
+import { discover, parseTarget, type Deps, type Discovery } from './discover'
 import { defaultName, isCompatible, planAdd, previewUrl, type Plan, type Scope } from './configure'
 import { plainText, type ServerCard } from './card'
-import { formatDiscovery, formatSearch } from './format'
+import { formatDiscovery, formatOffered } from './format'
 import { freeName, install, isNameTaken } from './install'
-import { search, searchEndpoint, type SearchHit } from './search'
+import { readOffered, type Offered } from './offer'
 
 const PLUGIN = 'mcp-server-cards'
 const DISCOVER = 'discover_mcp_servers'
 const ADD = 'add_mcp_server'
-const SEARCH = 'search_mcp_servers'
+const PRESENT = 'present_server_cards'
 
 function deps($: EngineInterface): Deps {
   return {
@@ -56,7 +56,7 @@ const picksFor = (
         url: previewUrl(card, i, fromLocal),
         transport: r.type,
         name: plan?.name ?? defaultName(card),
-        headers: plan ? plan.headers.map(h => `${h.name}: ${h.value}`) : [],
+        headers: plan ? plan.headers.map(h => h.name) : [],
         trust,
         isConfirmed,
         card: card as unknown as Json,
@@ -130,20 +130,27 @@ export const register: Register = (on, options) => {
   // support to detect yet; when it ships, this setting turns the polyfill off.
   if (options.disabled === true) return
 
-  // Servers a registry returned in this session, by identifier: the only search
-  // results add_mcp_server accepts without a domain.
-  const searched = new Map<string, SearchHit>()
-  // Cards discover_mcp_servers showed in this session, by origin and
-  // identifier: add_mcp_server installs exactly what was shown.
+  // Servers another plugin handed over (present_server_cards with `entries`)
+  // in this session, by identifier: added by identifier alone.
+  const handedOver = new Map<string, Offered>()
+  // Cards a discovery showed in this session, by origin and identifier:
+  // add_mcp_server installs exactly what was shown.
   const discovered = new Map<string, { card: ServerCard; isLocal: boolean }>()
   const shownKey = (origin: string, identifier: string) => `${origin}\n${identifier}`
-  const defaultRegistry = typeof options.registry === 'string' ? options.registry.trim() : ''
   const showPicker = options.picker !== false
-  // The Agentic Resource Discovery draft's parts: /.well-known/ard.json,
-  // rel="ard", and registry search. Outside SEP-2127, so off unless the
-  // person turns the `ard` setting on.
-  const ard = options.ard === true
   const pickerLine = '\n\nThe person can also add one of these by pressing its Add button, shown under this result.'
+
+  // A discovery, ours or one another plugin asked for with further sources:
+  // the cards it showed are kept, and offered in the picker under `under`.
+  const shownDiscovery = (d: Discovery): Pick[] => {
+    const offered: Pick[] = []
+    for (const s of d.servers) {
+      if (!s.card) continue
+      discovered.set(shownKey(d.origin, s.identifier), { card: s.card, isLocal: s.isLocal })
+      offered.push(...picksFor(s.card, s.identifier, `listed by ${new URL(d.origin).host}`, null, `listed in ${d.origin}'s catalog`, s.isLocal))
+    }
+    return offered
+  }
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
@@ -151,11 +158,7 @@ export const register: Register = (on, options) => {
       name: DISCOVER,
       isDeferred: false,
       description:
-        'Find the MCP servers a domain publishes, using the MCP Server Cards extension (SEP-2127): ' +
-        (ard
-          ? 'reads https://<domain>/.well-known/ard.json and /.well-known/ai-catalog.json (Agentic Resource Discovery / AI Catalog) and any rel="ard" or rel="ai-catalog" link on the page, '
-          : 'reads https://<domain>/.well-known/ai-catalog.json (the AI Catalog SEP-2127 names) and any rel="ai-catalog" link on the page, ') +
-        'fetches each MCP Server Card the catalog lists, and checks it against the Server Card schema. ' +
+        'Find the MCP servers a domain publishes, using the MCP Server Cards extension (SEP-2127): reads https://<domain>/.well-known/ai-catalog.json (the AI Catalog SEP-2127 names) and any rel="ai-catalog" link on the page, fetches each MCP Server Card the catalog lists, and checks it against the Server Card schema. ' +
         'Use when the person wants to connect Claude Code to a service by its domain or website, or a task needs a service that has no tools in this session and the person names its site. ' +
         'Read-only: it reads public documents from that domain and from the card URLs its catalog names, and returns the publisher\'s description of its servers.',
       inputSchema: {
@@ -169,43 +172,20 @@ export const register: Register = (on, options) => {
         required: ['domain'],
       },
     })
-    if (ard) await $.tool.register({
-      name: SEARCH,
-      isDeferred: false,
-      description:
-        'Search an Agentic Resource Discovery (ARD) registry for MCP servers that can do a task, by describing the need in plain words ("check why my CI build failed"). ' +
-        'Sends the query text to the registry (POST /search, ARD v0.91), follows its referrals one hop, fetches each result\'s MCP Server Card and checks it against the schema, then checks whether the publisher\'s own domain lists the server. ' +
-        'Use when a task needs a capability no tool in this session has and the person has not named a service. ' +
-        (defaultRegistry
-          ? `Default registry: ${defaultRegistry}. `
-          : 'No default registry is set: pass `registry`. ') +
-        'Results are a third party\'s ranked suggestions, not recommendations: say so, and say which ones their publisher confirms.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          query: { type: 'string', description: 'What the person needs, in plain words.' },
-          registry: {
-            type: 'string',
-            description: 'Optional: a domain whose catalog lists a registry ("huggingface.co"), or a registry base URL. Default: the configured registry.',
-          },
-        },
-        required: ['query'],
-      },
-    })
     await $.tool.register({
       name: ADD,
       isDeferred: false,
       description:
-        'Add an MCP server that discover_mcp_servers or search_mcp_servers found to Claude Code\'s MCP configuration (as `claude mcp add` does), then connect it in this session. The URL and headers come from the domain\'s Server Card; choose the remote and give any non-secret inputs the card asks for. ' +
+        'Add an MCP server that discover_mcp_servers found, or that another plugin found and showed through this one (such as a search registry\'s result), to Claude Code\'s MCP configuration (as `claude mcp add` does), then connect it in this session. The URL and headers come from the Server Card; choose the remote and give any non-secret inputs the card asks for. ' +
         'Secret inputs never pass through you: they are written as ${ENV_VAR} references that the person sets. Sign-in (OAuth) is Claude Code\'s own, through /mcp. ' +
         'This changes the person\'s configuration: ask them before calling it, and say which server and URL. Pass `url`, the URL the server connects to as the result showed it (its "connects to" line, else the remote\'s URL): the server is added only if that is the URL the card yields, and only for a card shown in this session.',
       inputSchema: {
         type: 'object',
         properties: {
-          domain: { type: 'string', description: 'The domain or URL given to discover_mcp_servers. Leave out for a search_mcp_servers result.' },
+          domain: { type: 'string', description: 'The domain or URL a discovery was for. Leave out for a server another plugin handed over (a search result).' },
           identifier: { type: 'string', description: 'The catalog entry identifier of the server to add.' },
           url: { type: 'string', description: 'The URL the server connects to, exactly as the result showed it: its "connects to" line, or else the remote\'s URL after "remote #N: <transport>". With other `values`, the URL those values give.' },
-          remote: { type: 'integer', minimum: 0, description: 'The remote number from the discovery result. Default 0.' },
+          remote: { type: 'integer', minimum: 0, description: 'The remote number from the result. Default 0.' },
           name: { type: 'string', description: 'The name to add the server under. Default: the suggested server name.' },
           scope: {
             type: 'string',
@@ -221,68 +201,105 @@ export const register: Register = (on, options) => {
         required: ['identifier', 'url'],
       },
     })
+    // For other plugins only (see the README, "For other plugins"): kept from
+    // the model below, and refused when the model calls it.
+    await $.tool.register({
+      name: PRESENT,
+      isDeferred: true,
+      description:
+        'For other plugins, not for the model. Shows MCP Server Cards that another plugin found, with this plugin\'s checks, picker and Add. ' +
+        'Either `domain`, or `entries` (AI Catalog entries found elsewhere, each with `listedIn`); `catalogs` and link `rels` are further sources to read beside the AI Catalog, on that domain and on each entry\'s publisher domain. `under` is the caller\'s tool_use_id, under whose row the picker is drawn; `by` names the finder.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          under: { type: 'string' },
+          by: { type: 'string' },
+          domain: { type: 'string' },
+          catalogs: { type: 'array', items: { type: 'object', properties: { url: { type: 'string' }, requireVersion: { type: 'boolean' } }, required: ['url'] } },
+          rels: { type: 'array', items: { type: 'string' } },
+          entries: { type: 'array', items: { type: 'object' } },
+        },
+        required: ['by'],
+      },
+    })
     return started
   })
 
   on('tool.run', { tool: `mcp__${PLUGIN}__${DISCOVER}` }, async ($, e) => {
     const domain = str((e as Record<string, unknown>).domain) ?? ''
-    const d = await discover(deps($), domain, { ard })
+    const d = await discover(deps($), domain)
     if ('error' in d) return { deny: d.error }
-    const offered: Pick[] = []
-    for (const s of d.servers) {
-      if (!s.card) continue
-      discovered.set(shownKey(d.origin, s.identifier), { card: s.card, isLocal: s.isLocal })
-      offered.push(...picksFor(s.card, s.identifier, `listed by ${new URL(d.origin).host}`, null, `listed in ${d.origin}'s catalog`, s.isLocal))
-    }
+    const offered = shownDiscovery(d)
     if (showPicker) await keepPicks($, e.tool_use_id, offered)
     return { result: formatDiscovery(d) + (showPicker && offered.length ? pickerLine : '') }
   }).catch(($, e, next) => ({ deny: `${PLUGIN}: discovery failed.` }))
 
-  if (ard) on('tool.run', { tool: `mcp__${PLUGIN}__${SEARCH}` }, async ($, e) => {
-    const input = e as Record<string, unknown>
-    const query = (str(input.query) ?? '').trim()
-    if (!query) return { deny: 'Give `query`: what the person needs, in plain words.' }
-    const asked = (str(input.registry) ?? defaultRegistry).trim()
-    if (!asked) return { deny: 'No registry is configured; pass `registry` (a domain whose catalog lists one, or a registry base URL).' }
+  // present_server_cards is another plugin's door in, never the model's: the
+  // model is not shown it, and a call of the model's is refused.
+  on('tool.offer', { tool: `mcp__${PLUGIN}__${PRESENT}` }, () => ({ isOffered: false })).catch(() => ({ isOffered: false }))
+  on('tool.call', { tool: `mcp__${PLUGIN}__${PRESENT}` }, ($, e, next) =>
+    next.origin.plugin === 'engine' || next.origin.plugin === PLUGIN
+      ? { deny: `${PRESENT} is for other plugins to call.` }
+      : next(e),
+  ).catch(($, e, next) => ({ deny: `${PLUGIN}: ${PRESENT} could not check its caller.` }))
 
-    // A domain whose catalog lists registries (application/ai-registry+json) is
-    // used through those entries; anything else is taken as a registry base URL.
-    let endpoints: string[] = []
-    const viaCatalog = /^https?:\/\//i.test(asked) ? undefined : await discover(deps($), asked)
-    if (viaCatalog && !('error' in viaCatalog))
-      // Only registries the catalog names on a public host (or any, for a
-      // local catalog): discover() has already applied that rule to r.url.
-      for (const r of viaCatalog.registries) if (r.url) {
-        const ep = searchEndpoint(r.url)
-        if (typeof ep === 'string') endpoints.push(ep)
+  on('tool.run', { tool: `mcp__${PLUGIN}__${PRESENT}` }, async ($, e) => {
+    const input = e as Record<string, unknown>
+    const by = plainText(str(input.by) ?? 'another plugin').slice(0, 80) || 'another plugin'
+    const under = str(input.under)
+    const lines: string[] = []
+    let offered: Pick[] = []
+    let registries: { identifier: string; url?: string; displayName?: string }[] = []
+    let servers = 0
+    // Further sources the caller reads: on the domain it names, and on each
+    // handed-over server's publisher domain when that is checked.
+    const catalogs = Array.isArray(input.catalogs)
+      ? input.catalogs.flatMap(c =>
+          c && typeof c === 'object' && typeof (c as { url?: unknown }).url === 'string'
+            ? [{ url: (c as { url: string }).url, requireVersion: (c as { requireVersion?: unknown }).requireVersion !== false }]
+            : [],
+        )
+      : []
+    const rels = Array.isArray(input.rels) ? input.rels.filter((r): r is string => typeof r === 'string') : []
+    const sources = { catalogs: catalogs.slice(0, 3), rels: rels.slice(0, 3), by }
+    if (str(input.domain)) {
+      const d = await discover(deps($), str(input.domain)!, sources)
+      if ('error' in d) return { deny: d.error }
+      offered = shownDiscovery(d)
+      registries = d.registries
+      servers = d.servers.filter(s => s.card).length
+      lines.push(formatDiscovery(d))
+    }
+    if (Array.isArray(input.entries)) {
+      const r = await readOffered(deps($), input.entries, sources)
+      for (const o of r.offered) {
+        if (!o.installCard) continue
+        handedOver.set(o.identifier, o)
+        servers++
+        const confirmed = o.publisher?.state === 'confirmed'
+        offered.push(
+          ...picksFor(
+            o.installCard,
+            o.identifier,
+            confirmed ? `confirmed by ${o.publisherDomain}` : `NOT confirmed by its publisher (found by ${by})`,
+            confirmed,
+            confirmed
+              ? `found by ${by} in ${o.listedIn} and confirmed by ${o.publisherDomain}'s own catalog`
+              : `found by ${by} in ${o.listedIn}; NOT confirmed by its publisher's own catalog`,
+            o.isLocal,
+          ),
+        )
       }
-    if (!endpoints.length) {
-      const ep = searchEndpoint(/^https?:\/\//i.test(asked) ? asked : `https://${asked}`)
-      if (typeof ep !== 'string') return { deny: ep.error }
-      endpoints = [ep]
+      lines.push(formatOffered(r, by))
     }
-    const s = await search(deps($), query, endpoints)
-    const offered: Pick[] = []
-    for (const hit of s.hits) {
-      if (!hit.installCard) continue
-      searched.set(hit.identifier, hit)
-      const confirmed = hit.publisher?.state === 'confirmed'
-      offered.push(
-        ...picksFor(
-          hit.installCard,
-          hit.identifier,
-          confirmed ? `confirmed by ${hit.publisherDomain}` : `NOT confirmed by its publisher (from ${new URL(hit.registry).host})`,
-          confirmed,
-          confirmed
-            ? `found through ${hit.registry} and confirmed by ${hit.publisherDomain}'s own catalog`
-            : `found through ${hit.registry}; NOT confirmed by its publisher's own catalog`,
-          isPrivateHost(new URL(hit.registry).hostname) && (!hit.cardUrl || isPrivateHost(new URL(hit.cardUrl).hostname)),
-        ),
-      )
+    if (!lines.length) return { deny: 'Give `domain` (with `catalogs` or `rels`) or `entries`.' }
+    if (showPicker && under) await keepPicks($, under, offered)
+    // As JSON text: Claude Code holds a registered tool's result to its output
+    // shape, which takes text, not an object.
+    return {
+      result: JSON.stringify({ text: lines.join('\n\n') + (showPicker && under && offered.length ? pickerLine : ''), servers, registries }),
     }
-    if (showPicker) await keepPicks($, e.tool_use_id, offered)
-    return { result: formatSearch(s) + (showPicker && offered.length ? pickerLine : '') }
-  }).catch(($, e, next) => ({ deny: `${PLUGIN}: the search failed.` }))
+  }).catch(($, e, next) => ({ deny: `${PLUGIN}: showing the cards failed.` }))
 
   // One reading of an add_mcp_server call, for the permission check and the
   // run alike: the card a domain or a registry served and a tool showed in this
@@ -314,15 +331,15 @@ export const register: Register = (on, options) => {
       fromLocal = shown.isLocal
       provenance = `listed in ${target.origin}'s catalog`
     } else {
-      const hit = searched.get(identifier)
-      if (!hit?.installCard)
-        return { deny: `"${identifier}" is not a valid result of a ${SEARCH} call in this session. Pass \`domain\` for a server found with ${DISCOVER}.` }
-      card = hit.installCard
-      fromLocal = isPrivateHost(new URL(hit.registry).hostname) && (!hit.cardUrl || isPrivateHost(new URL(hit.cardUrl).hostname))
+      const o = handedOver.get(identifier)
+      if (!o?.installCard)
+        return { deny: `"${identifier}" is not a server shown in this session without a domain. Pass \`domain\` for a server found with ${DISCOVER}.` }
+      card = o.installCard
+      fromLocal = o.isLocal
       provenance =
-        hit.publisher?.state === 'confirmed'
-          ? `found through ${hit.registry} and confirmed by ${hit.publisherDomain}'s own catalog`
-          : `found through ${hit.registry}; NOT confirmed by its publisher's own catalog`
+        o.publisher?.state === 'confirmed'
+          ? `found in ${o.listedIn} and confirmed by ${o.publisherDomain}'s own catalog`
+          : `found in ${o.listedIn}; NOT confirmed by its publisher's own catalog`
     }
     const planned = planAdd(card, remote, values, str(input.name), scope, fromLocal)
     if ('error' in planned) return { deny: planned.error }
@@ -345,13 +362,17 @@ export const register: Register = (on, options) => {
   // The person decides every addition Claude asks for: an ask made by this
   // hook goes to a person, whatever the rules, allow-lists or auto mode say
   // (security review SC4), and names what would be written. Where nobody can
-  // be asked, the addition is refused.
+  // be asked, the addition is refused. The calls asked about are recorded, and
+  // the run below adds only for one of them: a call that never met this check
+  // (another plugin's $.tool.call) is refused, and so is one whose check came
+  // before its card was shown (the re-check's two paths around the ask).
+  const asked = new Set<string>()
   on('tool.check', { tool: `mcp__${PLUGIN}__${ADD}` }, async ($, e, next) => {
     const verdict = await next(e)
     if (verdict.decision === 'deny') return verdict
     const r = resolveAdd(e.input)
-    // A call that will be refused anyway (not shown, wrong URL) needs no one: it fails with the reason.
-    if ('deny' in r) return verdict
+    // Refused here, not left to the rules: an allow now could meet a card shown later.
+    if ('deny' in r) return { decision: 'deny' as const, reason: plainText(r.deny) }
     if (e.approver === undefined)
       return { decision: 'deny' as const, reason: 'Adding an MCP server needs a person to approve it, and nobody can be asked in this session. Add it with `claude mcp add` instead.' }
     const { plan, card, provenance, scope } = r
@@ -362,6 +383,7 @@ export const register: Register = (on, options) => {
         : scope === 'user'
           ? ' The user scope adds it to all your projects.'
           : ' The local scope adds it for you, in this project only.'
+    if (e.tool_use_id) asked.add(e.tool_use_id)
     return {
       decision: 'ask' as const,
       reason: plainText(
@@ -371,6 +393,8 @@ export const register: Register = (on, options) => {
   }).catch(($, e, next) => ({ decision: 'ask' as const, reason: 'MCP Server Cards could not describe this addition. Check the server and URL in the call before you allow it.' }))
 
   on('tool.run', { tool: `mcp__${PLUGIN}__${ADD}` }, async ($, e) => {
+    if (!e.tool_use_id || !asked.delete(e.tool_use_id))
+      return { deny: `${ADD} adds a server only after a person approved it in Claude Code's prompt, and this call was not put to one. Ask the person to press Add under the result, or call ${ADD} again.` }
     const r = resolveAdd(e)
     if ('deny' in r) return { deny: r.deny }
     const { card, provenance, plan, scope } = r
@@ -390,8 +414,8 @@ export const register: Register = (on, options) => {
     on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
       const row = await next(e)
       const p = e.props
-      if ((p.tool !== `mcp__${PLUGIN}__${DISCOVER}` && p.tool !== `mcp__${PLUGIN}__${SEARCH}`) || p.isRunning || p.isErrored)
-        return row
+      // Under our discovery's row, or under another plugin's call that handed cards over.
+      if (p.isRunning || p.isErrored) return row
       const list = ((await read($, picks)) as Record<string, Pick[]>)[p.tool_use_id]
       if (!list?.length) return row
       const { Box, Button, Text } = $.ui.resolve(e)
@@ -410,7 +434,7 @@ export const register: Register = (on, options) => {
                     {plainText(pick.trust)}
                   </Text>
                   <Text dimColor>
-                    adds "{plainText(pick.name)}" to this project (local scope){pick.headers.length ? `, sending ${pick.headers.map(plainText).join('; ')}` : ''}
+                    adds "{plainText(pick.name)}" to this project (local scope){pick.headers.length ? `, with the header${pick.headers.length === 1 ? '' : 's'} ${pick.headers.map(plainText).join(', ')}` : ''}
                   </Text>
                   {pick.note ? <Text dimColor>{plainText(pick.note)}</Text> : null}
                 </Box>
@@ -438,7 +462,7 @@ export const register: Register = (on, options) => {
     const target = parseTarget(e.url)
     if ('error' in target || checked.has(target.origin)) return ran
     checked.add(target.origin)
-    void discover(deps($), target.origin, { ard })
+    void discover(deps($), target.origin)
       .then(d => {
         if ('error' in d) return
         const valid = d.servers.filter(s => s.card)

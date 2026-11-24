@@ -1,4 +1,4 @@
-import type { On } from 'claude-code'
+import type { On, Register } from 'claude-code'
 import { expect, test } from 'claude-code/testing'
 import { fixtures } from './fixtures'
 
@@ -13,13 +13,15 @@ let calls = 0
 async function add($: Engine, input: Record<string, unknown>) {
   const id = `add${++calls}`
   const verdict = await $.tool.check({ tool: ADD, input, tool_use_id: id, approver: 'person' } as never)
+  // Refused at the check, the call never runs: the model reads the reason.
+  if (verdict.decision === 'deny') return { verdict, deny: String((verdict as { reason?: string }).reason) }
   const ran = (await $.tool.run({ tool: ADD, tool_use_id: id, ...input } as never)) as { result?: string; deny?: string }
   return { verdict, ...ran }
 }
 
 // The engine beneath the plugin: a fake web, a recorded `claude mcp add`, and a
 // connect that succeeds.
-const engine = (on: On, card: { current: unknown }, taken: string[] = []) => {
+const engine = (on: On, card: { current: unknown }, taken: string[] = [], beneath: 'ask' | 'allow' = 'ask') => {
   const runs: string[][] = []
   on('tool.register', (_, e) => ({ value: { tool: `mcp__mcp-server-cards__${e.name}` } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
@@ -44,6 +46,8 @@ const engine = (on: On, card: { current: unknown }, taken: string[] = []) => {
     return { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
   })
   on('mcp.connect', (_, e) => ({ value: { isConnected: true, server: e.server } }))
+  // Claude Code's own verdict on the add: ask with no rule for the tool, allow under an allow rule or auto mode.
+  on('tool.check', { tool: ADD }, () => ({ decision: beneath }))
   return runs
 }
 
@@ -72,7 +76,7 @@ test('B-2 a search result is added only if this session\'s search returned it', 
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   const r = await add($, {identifier: ID, url: SHOWN })
   expect(runs.length).toBe(0)
-  expect(String(r.deny ?? r.result).includes('is not a valid result of a search_mcp_servers call')).toBe(true)
+  expect(String(r.deny ?? r.result).includes('is not a server shown in this session without a domain')).toBe(true)
 })
 
 test('B-3 a card that was never shown in this session is not added', async ($, on) => {
@@ -107,6 +111,7 @@ test('B-4 with no `claude` on PATH, the usual install places are tried', async (
     return { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
   })
   on('mcp.connect', (_, e) => ({ value: { isConnected: true, server: e.server } }))
+  on('tool.check', { tool: ADD }, () => ({ decision: 'ask' }))
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   await $.tool.call({ tool: DISCOVER, domain: 'buildkite.com' })
   const r = await add($, {domain: 'buildkite.com', identifier: ID, url: SHOWN })
@@ -114,7 +119,7 @@ test('B-4 with no `claude` on PATH, the usual install places are tried', async (
   expect(String(r.result).includes('Connected as "buildkite"')).toBe(true)
 })
 
-test('B-5 with `ard` off: no ard.json, no rel="ard", no registry search', { options: { ard: false } }, async ($, on) => {
+test('B-5 discovery reads what SEP-2127 names: ai-catalog.json and rel="ai-catalog", not ard.json or rel="ard"', async ($, on) => {
   const fetched: string[] = []
   on('tool.register', (_, e) => ({ value: { tool: `mcp__mcp-server-cards__${e.name}` } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
@@ -133,40 +138,128 @@ test('B-5 with `ard` off: no ard.json, no rel="ard", no registry search', { opti
   expect(String(d.result).includes('urn:air:buildkite.com:mcp:buildkite')).toBe(true)
   expect(fetched.includes('https://buildkite.com/.well-known/ard.json')).toBe(false)
   expect(fetched.includes('https://buildkite.com/agents.json')).toBe(false)
-  let refused = false
-  try {
-    const s = await $.tool.call({ tool: 'mcp__mcp-server-cards__search_mcp_servers', query: 'ci' })
-    refused = s.deny !== undefined || s.isError === true
-  } catch {
-    refused = true
-  }
-  expect(refused).toBe(true)
 })
 
-test('B-6 with `ard` turned on: ard.json is read and registry search is offered', { options: { ard: true } }, async ($, on) => {
+const PRESENT = 'mcp__mcp-server-cards__present_server_cards'
+
+// Another plugin, as the ARD plugin is: its own tool `find` hands a payload to
+// present_server_cards, under its own call's row. An inline plugin runs in an
+// environment of its own, so each one is written out whole, literals inside.
+const finderForDomain = {
+  name: 'finder',
+  register: (on => {
+    on('session.start', async ($, e, next) => {
+      const started = await next(e)
+      await $.tool.register({ name: 'find', description: 'finds servers' })
+      return started
+    })
+    on('tool.run', { tool: 'mcp__finder__find' }, async ($, e) => {
+      const r = await $.tool.call({
+        tool: 'mcp__mcp-server-cards__present_server_cards',
+        by: 'a test plugin',
+        under: e.tool_use_id,
+        domain: 'huggingface.co',
+        catalogs: [{ url: '/.well-known/ard.json', requireVersion: false }],
+        rels: ['ard'],
+      } as never)
+      return r.deny !== undefined ? { deny: r.deny } : { result: r.result as never }
+    })
+  }) as Register,
+}
+const finderForEntries = {
+  name: 'finder',
+  register: (on => {
+    on('session.start', async ($, e, next) => {
+      const started = await next(e)
+      await $.tool.register({ name: 'find', description: 'finds servers' })
+      return started
+    })
+    on('tool.run', { tool: 'mcp__finder__find' }, async ($, e) => {
+      const r = await $.tool.call({
+        tool: 'mcp__mcp-server-cards__present_server_cards',
+        by: 'the registry at r.example',
+        under: e.tool_use_id,
+        entries: [
+          {
+            identifier: 'urn:air:buildkite.com:mcp:buildkite',
+            type: 'application/mcp-server-card+json',
+            url: 'https://mcp.buildkite.com/mcp/server-card',
+            listedIn: 'https://r.example/search',
+            score: 75,
+          },
+        ],
+      } as never)
+      return r.deny !== undefined ? { deny: r.deny } : { result: r.result as never }
+    })
+  }) as Register,
+}
+const FIND = 'mcp__finder__find'
+/** A finder that reads a further catalog (as ard-discovery reads ard.json), and says so with its entries. */
+const finderWithSources = {
+  name: 'finder',
+  register: (on => {
+    on('session.start', async ($, e, next) => {
+      const started = await next(e)
+      await $.tool.register({ name: 'find', description: 'finds servers' })
+      return started
+    })
+    on('tool.run', { tool: 'mcp__finder__find' }, async ($, e) => {
+      const r = await $.tool.call({
+        tool: 'mcp__mcp-server-cards__present_server_cards',
+        by: 'the registry at r.example',
+        under: e.tool_use_id,
+        catalogs: [{ url: '/.well-known/ard.json', requireVersion: false }],
+        rels: ['ard'],
+        entries: [
+          {
+            identifier: 'urn:air:buildkite.com:mcp:buildkite',
+            type: 'application/mcp-server-card+json',
+            url: 'https://mcp.buildkite.com/mcp/server-card',
+            listedIn: 'https://r.example/search',
+          },
+        ],
+      } as never)
+      return r.deny !== undefined ? { deny: r.deny } : { result: r.result as never }
+    })
+  }) as Register,
+}
+/** The engine beneath, for a plugin's own $.tool.call: the call is allowed, and runs. */
+const runsCalls = (on: On) =>
+  on('tool.call', { tool: PRESENT }, ($, e) => ($ as unknown as { tool: { run: (e: unknown) => Promise<never> } }).tool.run(e))
+
+test('B-6 another plugin can have further catalogs and link types read for a domain, and gets the registries listed', { plugins: [finderForDomain] }, async ($, on) => {
   const fetched: string[] = []
-  const registered: string[] = []
-  on('tool.register', (_, e) => {
-    registered.push(e.name)
-    return { value: { tool: `mcp__mcp-server-cards__${e.name}` } }
-  })
+  on('tool.register', (_, e) => ({ value: { tool: `mcp__mcp-server-cards__${e.name}` } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('http.fetch', (_, e) => {
     fetched.push(e.url)
-    if (e.url === 'https://buildkite.com/.well-known/ard.json')
-      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify(fixtures.catalogs['buildkite.com']) } }
-    if (e.url === 'https://mcp.buildkite.com/mcp/server-card')
-      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify(fixtures.live['mcp.buildkite.com_mcp_server-card']) } }
+    if (e.url === 'https://huggingface.co/.well-known/ard.json')
+      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ entries: fixtures.catalogs['huggingface.co'].entries }) } }
+    if (e.url === 'https://huggingface.co/mcp/server-card')
+      return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify(fixtures.live['huggingface.co_mcp_server-card']) } }
     return { value: { status: 404, ok: false, headers: {}, text: '' } }
   })
+  on('process.run', (_, e) =>
+    e.argv[2] === 'get'
+      ? { value: { exitCode: 1, stdout: 'No MCP server named "x".', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+      : { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } },
+  )
+  on('mcp.connect', (_, e) => ({ value: { isConnected: true, server: e.server } }))
+  on('tool.check', { tool: ADD }, () => ({ decision: 'ask' }))
+  runsCalls(on)
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-  expect(registered.includes('search_mcp_servers')).toBe(true)
-  const d = await $.tool.call({ tool: DISCOVER, domain: 'buildkite.com' })
-  expect(fetched.includes('https://buildkite.com/.well-known/ard.json')).toBe(true)
-  expect(String(d.result).includes('urn:air:buildkite.com:mcp:buildkite')).toBe(true)
+  const r = await $.tool.call({ tool: FIND } as never)
+  expect(fetched.includes('https://huggingface.co/.well-known/ard.json')).toBe(true)
+  const out = JSON.parse(String(r.result)) as { text: string; servers: number; registries: { identifier: string; url?: string }[] }
+  expect(out.servers).toBe(1)
+  expect(out.registries[0]).toEqual({ identifier: 'urn:air:huggingface.co:registry:discover', url: 'https://huggingface-hf-discover.hf.space/', displayName: 'Hugging Face Discover Registry' })
+  expect(out.text.includes('further sources from a test plugin')).toBe(true)
+  // Added by domain, as a card a discovery showed.
+  const added = await add($, { domain: 'huggingface.co', identifier: 'urn:air:huggingface.co:mcp:hub', url: 'https://huggingface.co/mcp' })
+  expect(String(added.result).includes('Added "hugging-face"')).toBe(true)
 })
 
-test('B-7 by default registry search is not offered', async ($, on) => {
+test('B-7 the tools: discovery, add, and a hand-over tool kept from the model', async ($, on) => {
   const registered: string[] = []
   on('tool.register', (_, e) => {
     registered.push(e.name)
@@ -174,7 +267,21 @@ test('B-7 by default registry search is not offered', async ($, on) => {
   })
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-  expect(registered).toEqual(['discover_mcp_servers', 'add_mcp_server'])
+  expect(registered).toEqual(['discover_mcp_servers', 'add_mcp_server', 'present_server_cards'])
+})
+
+test('B-10 servers another plugin found are checked here, shown with the finder named, and added by identifier', { plugins: [finderForEntries] }, async ($, on) => {
+  const runs = engine(on, { current: fixtures.live['mcp.buildkite.com_mcp_server-card'] })
+  runsCalls(on)
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const r = await $.tool.call({ tool: FIND } as never)
+  const out = JSON.parse(String(r.result)) as { text: string; servers: number }
+  expect(out.servers).toBe(1)
+  expect(out.text.includes('MCP servers found by the registry at r.example')).toBe(true)
+  expect(out.text.includes("CONFIRMED: buildkite.com's own catalog")).toBe(true)
+  const added = await add($, { identifier: ID, url: SHOWN })
+  expect(runs).toEqual([['claude', 'mcp', 'add', '--transport', 'http', '--scope', 'local', 'buildkite', SHOWN]])
+  expect(String(added.result).includes('confirmed by buildkite.com')).toBe(true)
 })
 
 // Security review SC2: a server of the same name in another scope is never replaced.
@@ -192,8 +299,7 @@ test('B-8 Claude\'s add refuses a name that already exists in any scope', async 
 
 // Security review SC4: the add is always put to a person, naming what is written.
 test('B-9 the permission check asks, naming the server, URL, scope and undo; refuses with nobody to ask', async ($, on) => {
-  engine(on, { current: fixtures.live['mcp.buildkite.com_mcp_server-card'] })
-  on('tool.check', () => ({ decision: 'allow' }))
+  engine(on, { current: fixtures.live['mcp.buildkite.com_mcp_server-card'] }, [], 'allow')
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   await $.tool.call({ tool: DISCOVER, domain: 'buildkite.com' })
   const input = { domain: 'buildkite.com', identifier: ID, url: SHOWN, scope: 'project' }
@@ -206,4 +312,58 @@ test('B-9 the permission check asks, naming the server, URL, scope and undo; ref
   expect(reason.includes('claude mcp remove buildkite -s project')).toBe(true)
   const nobody = await $.tool.check({ tool: ADD, input } as never)
   expect(nobody.decision).toBe('deny')
+})
+
+test('B-11 the hand-over tool refuses the model: a call that is not another plugin\'s', async ($, on) => {
+  engine(on, { current: fixtures.live['mcp.buildkite.com_mcp_server-card'] })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const r = await $.tool.call({ tool: PRESENT, by: 'me', domain: 'buildkite.com' } as never)
+  expect(String((r as { deny?: string }).deny).includes('for other plugins to call')).toBe(true)
+})
+
+test('B-12 a finder\'s further sources are read on the publisher\'s domain: a server its publisher lists only there is confirmed', { plugins: [finderWithSources] }, async ($, on) => {
+  const fetched: string[] = []
+  on('tool.register', (_, e) => ({ value: { tool: `mcp__mcp-server-cards__${e.name}` } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('http.fetch', (_, e) => {
+    fetched.push(e.url)
+    const body =
+      e.url === 'https://buildkite.com/.well-known/ard.json'
+        ? fixtures.catalogs['buildkite.com']
+        : e.url === 'https://mcp.buildkite.com/mcp/server-card'
+          ? fixtures.live['mcp.buildkite.com_mcp_server-card']
+          : undefined
+    return body === undefined
+      ? { value: { status: 404, ok: false, headers: {}, text: '' } }
+      : { value: { status: 200, ok: true, headers: {}, text: JSON.stringify(body) } }
+  })
+  runsCalls(on)
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const r = await $.tool.call({ tool: FIND } as never)
+  const out = JSON.parse(String(r.result)) as { text: string }
+  expect(fetched.includes('https://buildkite.com/.well-known/ard.json')).toBe(true)
+  expect(out.text.includes("CONFIRMED: buildkite.com's own catalog")).toBe(true)
+})
+
+// Security review re-check, the two paths around the SC4 ask.
+test('B-13 a call that never met the permission check (another plugin\'s $.tool.call) adds nothing', async ($, on) => {
+  const runs = engine(on, { current: fixtures.live['mcp.buildkite.com_mcp_server-card'] })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.tool.call({ tool: DISCOVER, domain: 'buildkite.com' })
+  const r = (await $.tool.run({ tool: ADD, tool_use_id: 'unchecked', domain: 'buildkite.com', identifier: ID, url: SHOWN } as never)) as { deny?: string }
+  expect(runs.length).toBe(0)
+  expect(String(r.deny).includes('was not put to one')).toBe(true)
+})
+
+test('B-14 a check that comes before the card is shown refuses, whatever the rules say, and the call can\'t run once it is shown', async ($, on) => {
+  const runs = engine(on, { current: fixtures.live['mcp.buildkite.com_mcp_server-card'] }, [], 'allow')
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const input = { domain: 'buildkite.com', identifier: ID, url: SHOWN }
+  const early = await $.tool.check({ tool: ADD, input, tool_use_id: 'early', approver: 'person' } as never)
+  expect(early.decision).toBe('deny')
+  expect(String((early as { reason?: string }).reason).includes('was shown in this session')).toBe(true)
+  await $.tool.call({ tool: DISCOVER, domain: 'buildkite.com' })
+  const late = (await $.tool.run({ tool: ADD, tool_use_id: 'early', ...input } as never)) as { deny?: string }
+  expect(runs.length).toBe(0)
+  expect(String(late.deny).includes('was not put to one')).toBe(true)
 })

@@ -1,31 +1,21 @@
 {
   "name": "mcp-server-cards",
   "version": "0.1.0",
-  "license": "Apache-2.0",
-  "types": "./types/index.d.ts",
+  "description": "MCP Server Cards (SEP-2127) for Claude Code: find the MCP servers a domain publishes, check their Server Cards, and add one with a click, with Claude Code's own config and sign-in",
   "author": {
     "name": "Ido Salomon",
     "url": "https://github.com/idosal"
   },
-  "description": "MCP Server Cards (SEP-2127) for Claude Code: find the MCP servers a domain publishes, check their Server Cards, and add one with Claude Code's own config and sign-in",
+  "homepage": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/claude-code/server-cards",
+  "repository": "https://github.com/idosal/AgentPolyfill",
+  "license": "Apache-2.0",
+  "types": "./types/index.d.ts",
   "userConfig": {
     "disabled": {
       "type": "boolean",
       "title": "Turn the polyfill off",
       "description": "Registers nothing and fetches nothing. Use this once Claude Code supports Server Cards itself.",
       "default": false
-    },
-    "ard": {
-      "type": "boolean",
-      "title": "Agentic Resource Discovery (draft) features",
-      "description": "Off by default. On: also read /.well-known/ard.json and rel=\"ard\" links, and offer registry search (search_mcp_servers). These come from the Agentic Resource Discovery draft, not from the Server Cards spec (SEP-2127). Off: only /.well-known/ai-catalog.json, which SEP-2127 names, and the AI Catalog it relies on.",
-      "default": false
-    },
-    "registry": {
-      "type": "string",
-      "title": "ARD registry for search",
-      "description": "Base URL of the Agentic Resource Discovery registry that search_mcp_servers asks (it appends /search). The query text is sent there. Empty: search only a registry you name each time.",
-      "default": "https://huggingface-hf-discover.hf.space"
     },
     "notice_on_fetch": {
       "type": "boolean",

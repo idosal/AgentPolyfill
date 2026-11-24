@@ -1,28 +1,30 @@
 # Security
 
-This mod reads documents that strangers publish on the web: catalogs and Server Cards, and the answers of a search registry. It turns one of those cards into an entry in your Claude Code MCP configuration. Every rule below follows from that. What a catalog, card or registry says is someone else's claim, read before any connection. Claude Code's own permissions and sign-in are the boundary, and the mod adds no policy of its own.
+This mod reads documents that strangers publish on the web: catalogs and Server Cards. It turns one of those cards into an entry in your Claude Code MCP configuration. Every rule below follows from that. What a catalog or card says is someone else's claim, read before any connection. Claude Code's own permissions and sign-in are the boundary, and the mod adds no policy of its own.
 
-The client rules it follows, from SEP-2127 and, for the parts marked ARD, from the ARD v0.91 draft, are listed with their tests in the [README](README.md#client-rules).
+The client rules it follows, from SEP-2127 and the AI Catalog it names, are listed with their tests in the [README](README.md#client-rules).
 
 ## What is trusted
 
 - **You.** The servers you pick with **Add**, or approve when Claude asks.
 - **Claude Code**: its permission dialog, its rules, its network policy, its sign-in.
 - **Not the publishers.** A catalog can list anything, and a card can claim anything. The SEP says a card is advisory and never authoritative for security decisions.
-- **Not the registry.** A search registry is a third party ranking other people's cards. Its score is relevance, never trust.
+- **Not another plugin.** Cards another plugin hands over through `present_server_cards` (a search registry's results, from `ard-discovery`) are someone else's finding. They get every check below, and a server counts as confirmed only when its publisher's own catalog lists it.
 
 ## What the mod does
 
 **What it fetches.** Plain `GET`s, through Claude Code's own network path and under its web-fetch policy, with only `Accept` and `If-None-Match` headers: no cookies, no credentials. It reads:
-- for a domain you name: `/.well-known/ai-catalog.json` and that page's `rel="ai-catalog"` links, plus, with the `ard` setting on (off by default), `/.well-known/ard.json` and `rel="ard"` links;
+- for a domain you name: `/.well-known/ai-catalog.json` and that page's `rel="ai-catalog"` links;
 - the cards and nested catalogs those name;
-- for search (only with `ard` on): one `POST` of your query text to the registry, and up to three registries it refers to;
+- for another plugin: the further catalog paths and link relations it names for a domain (at most three of each), or the cards of the entries it hands over, and each one's publisher catalog;
 - after a WebFetch: that site's catalogs, once per session.
 
-Every fetch is bounded: at most 512 KiB per answer, 20 cards, 3 page links, 3 registries plus 3 referrals, 50 results per answer, 5 publisher checks, and nested catalogs 4 deep.
+It sends nothing to a third party: no query text, and no request that is not a `GET`. (`ard-discovery`'s registry search is that plugin's, and its SECURITY.md says what it sends.)
+
+Every fetch is bounded: at most 512 KiB per answer, 64 KiB per card, 20 cards, 3 page links, 50 entries read and 10 shown from a hand-over, 5 publisher checks, and nested catalogs 4 deep.
 
 **Where it won't go.**
-- A public catalog, card or registry can't send it to a local or private address: `localhost`, `127.0.0.0/8`, `10/8`, `172.16/12`, `192.168/16`, link-local, unique-local, `.local` and `.internal` names, and single-label names. That holds whatever the spelling (`0x7f.1`, a trailing dot).
+- A public catalog, card or finder can't send it to a local or private address: `localhost`, `127.0.0.0/8`, `10/8`, `172.16/12`, `192.168/16`, link-local, unique-local, `.local` and `.internal` names, and single-label names. That holds whatever the spelling (`0x7f.1`, a trailing dot).
 - Plain HTTP is used only for a loopback address you name yourself, for local development.
 
 **Text that displays as something else.**
@@ -31,12 +33,12 @@ Every fetch is bounded: at most 512 KiB per answer, 20 cards, 3 page links, 3 re
 - Values Claude gives are held to the same rule.
 - Everything shown (the picker, tool results, notices, toasts) also passes a plain-text filter.
 
-**What reaches the model.** A card's fields, and a registry's names and descriptions, as tool results: with the URL each came from, control characters and invisible marks removed, and each field capped in length. A refused card shows only why it was refused. A secret's default value is never shown.
+**What reaches the model.** A card's fields, and the names and descriptions a finder gave, as tool results: with the URL each came from, control characters and invisible marks removed, and each field capped in length. A refused card shows only why it was refused. A secret's default value is never shown.
 
 **What it writes.** Only your MCP configuration, through `claude mcp add`, for one server at a time.
-- **Who decides:** you. Either you press **Add**, or Claude asks and Claude Code puts the question to you. The polyfill makes that question itself, so no allow rule or auto mode answers it. It names the server, URL, headers, scope and how to undo it. With nobody to ask, the addition is refused.
+- **Who decides:** you. Either you press **Add**, or Claude asks and Claude Code puts the question to you. The polyfill makes that question itself, so no allow rule or auto mode answers it. It names the server, URL, headers, scope and how to undo it. With nobody to ask, the addition is refused. The add runs only for a call that question was put to: a call that skipped Claude Code's check (another plugin's own `$.tool.call`) is refused, and so is one checked before its card was shown.
 - **Never over a server you have:** a name taken in any scope is not reused. Claude's add is refused; the picker uses the next free name (`github-2`) and says so.
-- **Which server:** only a card a tool showed in this session.
+- **Which server:** only a card a tool showed in this session, or that another plugin handed over and the picker showed.
 - **Which URL:** when Claude adds it, only if the URL in Claude Code's approval prompt is the one the card gives. When you press **Add**, it is the URL shown beside the button.
 - **Remotes:** a card from a public source may not name a private address.
 - **Values:** a value put into a URL holds only letters, digits and `. _ ~ -`, so it can't change the host, path or query. The path written is the path reached, with no `.` or `..` segments.
@@ -52,16 +54,19 @@ Every fetch is bounded: at most 512 KiB per answer, 20 cards, 3 page links, 3 re
 - the catalogs and cards it fetched, with their `ETag` and expiry, for at most 40 entries of at most 64 KiB;
 - for a page, only the catalog links found on it.
 
-Query text is not stored. Search results and the picker's list are kept for the session.
+What another plugin handed over and the picker's list are kept for the session.
 
-**What it never does.** It never reads Claude Code's credentials, runs no sign-in of its own, and holds no token. It runs nothing a card says: the only command it runs is `claude mcp add`, with arguments it builds itself.
+**What it never does.** It never reads Claude Code's credentials, runs no sign-in of its own, and holds no token. It runs nothing a card says: the only commands it runs are `claude mcp get` (is the name taken?) and `claude mcp add`, with arguments it builds itself.
+
+**What another plugin can do through it.** `present_server_cards` is not offered to the model, and a call the model makes is refused, so only a plugin's own code can call it. What a plugin hands over is read as above. A plugin can't add a server: only you can, with **Add** or by approving Claude's request.
 
 ## What it does not protect against
 
 - **A public name that resolves to a private address, or a redirect to one.** Claude Code's `$.http.fetch` resolves names and follows redirects without reporting either, so only addresses named directly are refused.
 - **Knowing where a redirect led.** A catalog fetched through a redirect is shown under the domain asked for (`neon.tech` for what `neon.com` served). SEP-2127 permits following it. Its one same-origin rule is for `extensionsInfo` used in a security decision, and this mod never reads `extensionsInfo`, so no redirect feeds a decision. See [A domain that redirects](README.md#a-domain-that-redirects).
 - **A publisher's own bad server.** A valid card from the real publisher can still point at a server that misbehaves once connected. What that server can then do is up to Claude Code's permissions for MCP tools, as for any server you add.
-- **An unconfirmed search result you add anyway.** The mod says plainly when a server's publisher does not confirm it. Adding it is your call.
+- **An unconfirmed server you add anyway.** For a server another plugin found, the mod says plainly when its publisher does not confirm it. Adding it is your call.
+- **A plugin you installed.** A plugin runs with the rights Claude Code gives it. This mod checks what a plugin hands over, but can't stop a plugin from doing harm by other means.
 - **The card's claims about the live server.** They are not checked against the connection (SEP-2127's SHOULD), because a mod can't send `server/discover` over Claude Code's connection.
 
 ## Undoing an addition

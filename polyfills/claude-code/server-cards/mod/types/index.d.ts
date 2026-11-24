@@ -1,5 +1,5 @@
 // The values this mod keeps in $.state: the servers its picker offers under a
-// discover_mcp_servers or search_mcp_servers result, by that call's id.
+// discover_mcp_servers result, or another plugin's call that handed cards over, by that call's id.
 
 export type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
 
@@ -14,7 +14,7 @@ export type Pick = {
   transport: string
   /** the server name it would be added under (a free one is chosen at the press if this is taken) */
   name: string
-  /** the headers it would send, as "Name: value"; secrets as ${MCP_…} references */
+  /** the names of the headers it would send (values are not shown) */
   headers: string[]
   /** who stands behind it, as one line */
   trust: string
