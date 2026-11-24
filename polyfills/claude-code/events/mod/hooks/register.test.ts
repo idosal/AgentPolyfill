@@ -21,6 +21,7 @@ function standIn(on: On, o: { node?: string; says: string[][]; take?: () => Reco
     seen.registered.push({ name: e.name, isDeferred: e.isDeferred })
     return { value: { tool: `mcp__mcp-events__${e.name}` } }
   })
+  on('command.register', (_, e) => ({ value: { command: e.name } }) as never)
   on('process.hookEnv', () => ({ value: { CLAUDE_CODE_SESSION_ID: 's', CLAUDE_CODE_SESSION_ATTENDED: o.attended === false ? '0' : '1' } }))
   on('process.run', (_, e) => {
     const found = e.argv[0] === 'node' && o.node !== undefined
@@ -142,7 +143,7 @@ test('with neither Node 20 nor Bun, nothing is started and a tool says what is n
   on('ui.toast', () => ({ value: undefined }))
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   const answer = await $.tool.call({ tool: 'mcp__mcp-events__list_watches' })
-  expect(String(answer.deny ?? answer.text)).toContain('needs Node 20 or newer (or Bun)')
+  expect(String(answer.deny ?? answer.text)).toContain('needs Node 20 or newer, or Bun')
   expect(seen.spawned.length).toBe(0)
 })
 

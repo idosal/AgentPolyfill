@@ -1,6 +1,6 @@
 # SEP-3415 client conformance, clause by clause
 
-How this client (mcp-events 0.5.1) stands against the **Final** text of
+How this client (mcp-events 0.6.0) stands against the **Final** text of
 SEP-3415 (`seps/3415-events-extension.md` in
 `modelcontextprotocol/modelcontextprotocol`, as fetched on 24 November 2026)
 and against the transport rules it defers to (Streamable HTTP in the
@@ -223,9 +223,9 @@ dead stream at twice the heartbeat, where the Final text says three times).
 folder), from a checkout of the suite named in `MCP_CONFORMANCE_SUITE_DIR`.
 That checkout is code this repository does not hold: read it before you run it.
 
-**Result, 24 November 2026, on 0.5.0: 17 of 17 pass** (not run again on 0.5.1, whose two
-changes, to the wake budget's notice and to the order of a starting helper's writes, are
-outside what these scenarios reach), unmodified, at the pull request's
+**Result, 24 November 2026, on 0.5.0: 17 of 17 pass** (not run again on 0.5.1 or 0.6.0, whose
+changes, to the wake budget's notice, the order of a starting helper's writes and the runtime the
+helper runs on, are outside what these scenarios reach), unmodified, at the pull request's
 head `c8625de3118c2d5dc0561696cddeb0baaf124f2c`, on Node 22.23.1, macOS 15 on
 Apple Silicon. 0.4.1 passed 15: in `events-client-push` the stand-in's
 `notifications/events/active` carries no `heartbeatMs`, so the client waited

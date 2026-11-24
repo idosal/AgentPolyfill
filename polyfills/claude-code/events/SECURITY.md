@@ -116,6 +116,28 @@ is bounded (see "Events wake a session only so often" below), not prevented.
   connections without it; a relay with none refuses everyone unless opened on
   purpose (`OPEN_RELAY`). A mailbox key is used only with the relay it was
   made for.
+- **The one thing it downloads.** Nothing, unless you run `/mcp-events setup`
+  on a machine that has no Node and no Bun, and answer Download to the
+  question it then puts in Claude Code's own dialog ("Not now" is the first
+  answer, so a dialog that closes by itself is a no). Then it downloads one
+  fixed Bun release from GitHub over HTTPS (`curl`, HTTPS also required of
+  any redirect), hashes the archive inside the mod (no checksum program on
+  your PATH is trusted), and compares the SHA-256 with the value written in
+  [`mod/hooks/runtime.ts`](mod/hooks/runtime.ts) for that platform. Only on a
+  match is one named file unpacked, checked to answer with the expected
+  version, and moved into the plugin's data folder
+  (`~/.claude/plugins/data/mcp-events-mcp-events/runtime`); otherwise the
+  download is deleted and nothing of it is run; a file that cannot be deleted
+  is left not runnable, and you are told where it is. The command is honoured
+  only from your own input: typed at the prompt, or sent from your own Remote
+  Control. Claude cannot run it, and neither can a script, another session or
+  `claude -p`. Two sessions cannot fetch at once. No server or event can
+  change what is downloaded or from where. The SHA-256 is checked when the
+  copy is fetched, not each time it runs; only the copy of the pinned version
+  is ever run, and a copy of any other version put in that folder is never
+  run, not even to ask its version. `/mcp-events setup remove` deletes it. A
+  newer Bun arrives only with a newer version of the mod, and only when you
+  run the command again.
 - **Bounds.** One event or webhook delivery is at most 256 KiB, measured by
   the mod whether it came directly or through a relay; a cursor at most
   16 KiB; one answer from a remote server 4 MiB (one message of it, for an
@@ -181,10 +203,11 @@ is bounded (see "Events wake a session only so often" below), not prevented.
   Claude Code's interactive sign-in is not reachable by the mod. See
   [`docs/sign-in.md`](docs/sign-in.md).
 - **A folder you trust can configure it**, as it can configure Claude Code: its
-  settings may set this mod's environment variables. The mod refuses a
-  servers file (`MCP_EVENTS_CONFIG`) inside the project or its repository as a
-  guard against a careless setting, not as a boundary: a trusted folder can
-  already run commands through hooks.
+  settings may set this mod's environment variables, `MCP_EVENTS_RUNTIME`
+  (the program that runs the helper) among them. The mod refuses a servers
+  file (`MCP_EVENTS_CONFIG`) inside the project or its repository as a guard
+  against a careless setting, not as a boundary: a trusted folder can already
+  run commands through hooks.
 - **A watch's note is whatever the session that set the watch wrote.** It is
   shown with each event as "Note saved with this watch".
 - **A local (stdio) server's output is not size-limited.** It is a program you
