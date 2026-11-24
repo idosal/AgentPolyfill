@@ -42,6 +42,13 @@ export const ARD_SOURCES: DiscoverOptions = { catalogs: [{ url: '/.well-known/ar
 export const SHOWN_QUERY = 300
 /** Characters that display as something else or as nothing (as in the Claude Code form). */
 const UNSEEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/
+/**
+ * Markdown and HTML a host could render in the form: a query such as
+ * `check [my CI](https://evil.example/)` would show "check my CI" while the
+ * whole text is sent. Refused, so what is sent is exactly what the form shows
+ * (the same rule as card URLs, security review C1).
+ */
+const MARKUP = /[`<>[\]]/
 
 const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
 const refuse = (text: string) => ({ text: shownText(text), isError: true })
@@ -98,6 +105,7 @@ export function tools(session: Session, defaultRegistry: string): Tool[] {
       // What is sent is what the question showed (security review R1).
       if (query.length > SHOWN_QUERY) return refuse(`Keep the search under ${SHOWN_QUERY} characters, so the person sees all of it before it is sent.`)
       if (UNSEEN.test(query)) return refuse('Write the search on one line, without control characters or direction marks, so the person sees exactly what is sent.')
+      if (MARKUP.test(query)) return refuse('Write the search in plain words, without `, <, > or square brackets, so the form shows exactly what is sent.')
       const asked = (str(args.registry) ?? defaultRegistry).trim()
       if (!asked) return refuse('No registry is configured; pass `registry` (a domain whose catalog lists one, or a registry base URL).')
 

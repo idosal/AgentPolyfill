@@ -126,3 +126,15 @@ test('A-8 a result whose card URL, or whose card\'s remote URL, holds Markdown i
   assert.match(add.text, /is not a server shown in this session/)
   assert.equal(s.asked.length, 1) // the search's own form, and no other
 })
+
+test('A-9 a query with `, <, > or square brackets is refused before anyone is asked, so it can\'t show differently in the form from what is sent', async () => {
+  const before = searches().length
+  const s = server({ answer: human })
+  for (const query of ['check [my CI](https://evil.example/)', 'find `ci` tools', 'ci <b>build</b>', 'ci ]']) {
+    const r = await s.call('ard_search', { query })
+    assert.equal(r.isError, true, query)
+    assert.match(r.text, /without `, <, > or square brackets/, query)
+  }
+  assert.equal(s.asked.length, 0)
+  assert.equal(searches().length, before)
+})

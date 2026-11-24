@@ -1906,6 +1906,7 @@ var DEFAULT_REGISTRY = "https://huggingface-hf-discover.hf.space";
 var ARD_SOURCES = { catalogs: [{ url: "/.well-known/ard.json", requireVersion: false }], rels: ["ard"], by: BY };
 var SHOWN_QUERY = 300;
 var UNSEEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/;
+var MARKUP = /[`<>[\]]/;
 var str2 = (v) => typeof v === "string" ? v : void 0;
 var refuse2 = (text) => ({ text: shownText(text), isError: true });
 var registrySetting = (env) => env.ARD_DISCOVERY_REGISTRY !== void 0 ? env.ARD_DISCOVERY_REGISTRY.trim() : DEFAULT_REGISTRY;
@@ -1946,6 +1947,7 @@ function tools(session, defaultRegistry) {
       if (!query) return refuse2("Give `query`: what the person needs, in plain words.");
       if (query.length > SHOWN_QUERY) return refuse2(`Keep the search under ${SHOWN_QUERY} characters, so the person sees all of it before it is sent.`);
       if (UNSEEN.test(query)) return refuse2("Write the search on one line, without control characters or direction marks, so the person sees exactly what is sent.");
+      if (MARKUP.test(query)) return refuse2("Write the search in plain words, without `, <, > or square brackets, so the form shows exactly what is sent.");
       const asked = (str2(args.registry) ?? defaultRegistry).trim();
       if (!asked) return refuse2("No registry is configured; pass `registry` (a domain whose catalog lists one, or a registry base URL).");
       let endpoints = [];

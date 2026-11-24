@@ -54,7 +54,7 @@ To try search without sending anything to a third party, start the [demo registr
 
    - **Accept**, and the query is posted, then sent on to at most three registries the first one refers to, one hop.
    - **Decline** or close it, and nothing is sent.
-   - The query sent is the one shown: at most 300 characters, on one line, with no invisible characters or direction marks. A longer one is refused before you are asked.
+   - The query sent is the one shown: at most 300 characters, on one line, with no invisible characters or direction marks, and no `` ` ``, `<`, `>` or square brackets, which a host could render as Markdown or HTML. Any other query is refused before you are asked.
    - Each result's card is fetched and checked, and each publisher's own catalogs (`ai-catalog.json` and `ard.json` on the domain in the result's `urn:air:<publisher>:…` identifier) are read. A server is **confirmed** only if its publisher lists it there with a valid card, and then the publisher's card is the one shown and added. Otherwise it is marked **NOT confirmed by its publisher**. The registry's order is its relevance ranking, not a judgement of trust.
 4. **Add.** Ask Codex to add one. It calls this plugin's `add_mcp_server`, which works as in [`mcp-server-cards`](../../server-cards/codex/README.md#using-it-step-by-step): a form naming the server, its URL, its headers, the file written and the undo, and `codex mcp add` on your accept. For a search result, the form also says whether its publisher confirms it.
 
@@ -102,7 +102,7 @@ The ARD rules (W-1 to W-6, R-1 to R-8, P-1, B-1) and the Server Cards rules are 
 | Q-1 | Say where the query went | this plugin's own | A-1, A-5 | met: the tool's description names the registry, and every result names each one asked |
 | Q-2 | The registry is a setting | this plugin's own | A-8 | met: `ARD_DISCOVERY_REGISTRY`, which can be empty |
 | Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own (security review M2) | A-3, A-4 | met where Codex puts the form to the person: a form naming the exact endpoints and the query; refused with no form, or on decline or close. Under `--dangerously-bypass-approvals-and-sandbox` Codex accepts the form itself |
-| Q-4 | What is sent is what was shown | this plugin's own (security review R1) | A-6 | met: at most 300 characters, one line, no invisible characters or direction marks |
+| Q-4 | What is sent is what was shown | this plugin's own (security review R1, and C1 for markup) | A-6, A-9 | met: at most 300 characters, one line, no invisible characters or direction marks, and no `` ` ``, `<`, `>` or square brackets |
 | Q-5 | The query goes only where the form said | this plugin's own | mcp-server-cards F-5 | met: a redirect to another origin, or one that would turn the `POST` into a `GET`, is not followed |
 | V-3 | No URL that displays as something else | the polyfills' own (security review C1) | A-8; mcp-server-cards X-4, P-6, O-9 (run here) | met: a result's card URL, its card's remote URL, a registry URL a catalog names, and where a result was found may hold no `` ` ``, `<`, `>` or square bracket outside an IPv6 host; such a result is refused and never put in a form |
 | D-1 | Domain discovery reads `ard.json`, which needs no `specVersion` | §5.1 | A-2 | met |
@@ -114,7 +114,7 @@ ARD is a draft; no host supports it natively yet. Remove or disable the plugin (
 
 ## Proof
 
-- **Per rule:** 102 tests, run with `npm test`: ARD's 8 registry rule tests and the Server Cards core's 84 rule tests, all from the Claude Code forms and run against the committed bundle; 8 of this form's (A-), over stdio, with a stand-in `codex` command and a local registry on 127.0.0.1; and 2 bundle checks (byte-identical to a fresh build; a copy of `plugin/` alone starts and lists its tools).
+- **Per rule:** 103 tests, run with `npm test`: ARD's 8 registry rule tests and the Server Cards core's 84 rule tests, all from the Claude Code forms and run against the committed bundle; 9 of this form's (A-), over stdio, with a stand-in `codex` command and a local registry on 127.0.0.1; and 2 bundle checks (byte-identical to a fresh build; a copy of `plugin/` alone starts and lists its tools).
 - **The real host:** below.
 - **Upstream conformance:** the MCP conformance suite has no Server Card or ARD scenarios.
 
