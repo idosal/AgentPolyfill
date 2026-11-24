@@ -4,9 +4,9 @@ description: What AgentPolyfill is, which MCP extensions it adds to Claude Code 
 
 # Introduction
 
-AgentPolyfill makes polyfills for agent protocols. Run new protocol
-extensions in the clients you already use, before official support. Works in
-Claude Code and Codex: Events, Skills and Server Cards run in both, Apps runs
+AgentPolyfill makes polyfills for agent protocols. Run protocol extensions in
+the clients you already use, before official support. Works in Claude Code
+and Codex: Events, Skills and Server Cards run in both, Apps runs
 in Claude Code, and Agentic Resource Discovery, an open draft beyond MCP, runs
 in both.
 
@@ -99,7 +99,5 @@ credentials: not Claude Code's, and not Codex's sign-ins or tokens. Each
 polyfill's `SECURITY.md` says what it checks and what it doesn't protect
 against; [Security](./security) collects them.
 
-AgentPolyfill is a community project. It isn't part of the MCP specification,
-and it isn't affiliated with or endorsed by the MCP project, the Agentic AI
-Foundation, the Linux Foundation, Anthropic, OpenAI or any other host vendor.
+AgentPolyfill isn't affiliated with Anthropic, OpenAI, MCP, ARD or the AAIF.
 See [About](/about).
