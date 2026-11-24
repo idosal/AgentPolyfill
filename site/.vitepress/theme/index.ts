@@ -9,6 +9,7 @@ import PolyfillCards from './components/PolyfillCards.vue'
 import Recording from './components/Recording.vue'
 import CopyCommand from './components/CopyCommand.vue'
 import PageMarkdown from './components/PageMarkdown.vue'
+import CommunityList from './components/CommunityList.vue'
 
 export default {
   extends: DefaultTheme,
@@ -23,5 +24,6 @@ export default {
     app.component('PolyfillCards', PolyfillCards)
     app.component('Recording', Recording)
     app.component('CopyCommand', CopyCommand)
+    app.component('CommunityList', CommunityList)
   },
 } satisfies Theme

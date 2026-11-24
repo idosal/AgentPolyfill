@@ -5,6 +5,10 @@
       "name": "Events",
       "plugin": "mcp-events",
       "spec": "SEP-3415, Final",
+      "hosts": [
+        "Claude Code",
+        "Codex"
+      ],
       "id": "io.modelcontextprotocol/events",
       "state": "Works",
       "stateNote": "Poll, push and webhook delivery; an event wakes an idle session. No OAuth servers.",
@@ -20,6 +24,9 @@
       "name": "Apps",
       "plugin": "mcp-apps-cli",
       "spec": "MCP Apps 2026-01-26, Stable",
+      "hosts": [
+        "Claude Code"
+      ],
       "id": "io.modelcontextprotocol/ui",
       "state": "Early",
       "stateNote": "App UIs render inline in the terminal, with mouse and keyboard. No OAuth servers.",
@@ -35,6 +42,10 @@
       "name": "Skills",
       "plugin": "mcp-skills",
       "spec": "SEP-2640, Final",
+      "hosts": [
+        "Claude Code",
+        "Codex"
+      ],
       "id": "io.modelcontextprotocol/skills",
       "state": "Early",
       "stateNote": "Skills served by an MCP server are listed, loaded and read in Claude Code, with the checks the spec asks of a client. No OAuth servers.",
@@ -50,6 +61,9 @@
       "name": "Server Cards",
       "plugin": "mcp-server-cards",
       "spec": "SEP-2127, Final (extension Beta)",
+      "hosts": [
+        "Claude Code"
+      ],
       "id": "",
       "state": "Early",
       "stateNote": "Finds the servers a domain publishes, checks each card against the schema, and adds one to Claude Code's own config with a click, so servers behind OAuth work.",
@@ -87,6 +101,9 @@
       "name": "ARD discovery",
       "plugin": "ard-discovery",
       "spec": "Agentic Resource Discovery v0.91, a draft outside MCP",
+      "hosts": [
+        "Claude Code"
+      ],
       "id": "",
       "line": "Find the MCP servers a domain lists in its ARD file, or search an ARD registry, and add one in one click.",
       "cut": "ard",

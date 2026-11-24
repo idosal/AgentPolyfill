@@ -33,6 +33,12 @@ documents and adds a server to Claude Code's own config, only when you press
 
 ## Each polyfill
 
+The sections below are the Claude Code forms. The Codex forms of Events and
+Skills have their own `SECURITY.md`:
+[`polyfills/events/codex`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) and
+[`polyfills/skills/codex`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md);
+neither reads Codex's stored sign-ins or tokens.
+
 ### Events
 
 - What a server sent reaches Claude only as a tool result, when Claude reads it.

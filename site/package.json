@@ -6,8 +6,8 @@
   "scripts": {
     "media": "node scripts/media.mjs",
     "media:launch": "node scripts/media.mjs launch",
-    "dev": "node scripts/media.mjs --optional && vitepress dev .",
-    "build": "node scripts/media.mjs && vitepress build . && node scripts/agents.mjs",
+    "dev": "node scripts/media.mjs --optional && node scripts/community.mjs && vitepress dev .",
+    "build": "node scripts/media.mjs && node scripts/community.mjs && vitepress build . && node scripts/agents.mjs",
     "preview": "vitepress preview .",
     "check:links": "node scripts/check-links.mjs",
     "deploy": "npm run build && npx --yes wrangler@4.167.0 deploy"

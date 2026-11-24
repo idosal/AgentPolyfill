@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress'
 const repo = 'https://github.com/idosal/AgentPolyfill'
 const site = 'https://agentpolyfill.com'
 const description =
-  'Open agent extensions, in the host you already have. Claude Code plugins that add MCP Events, Apps, Skills and Server Cards.'
+  'Open agent extensions, in the host you already have. Plugins for Claude Code and Codex that add MCP Events, Apps, Skills and Server Cards.'
 
 export default defineConfig({
   lang: 'en',
@@ -24,6 +24,10 @@ export default defineConfig({
   ],
 
   sitemap: { hostname: site },
+
+  // The community directory lives at the repository's root
+  // (../community/polyfills.json); let the dev server read it.
+  vite: { server: { fs: { allow: ['..'] } } },
 
   // Each page's Markdown copy, written by scripts/agents.mjs after the build.
   transformHead({ pageData }) {
@@ -66,11 +70,12 @@ export default defineConfig({
       },
       {
         text: 'Build',
-        activeMatch: '^/guide/(build-a-polyfill|spec-authors|contributing)',
+        activeMatch: '^/guide/(build-a-polyfill|spec-authors|contributing|community)',
         items: [
           { text: 'Build a polyfill', link: '/guide/build-a-polyfill' },
           { text: 'For spec authors', link: '/guide/spec-authors' },
           { text: 'Contributing', link: '/guide/contributing' },
+          { text: 'Community', link: '/guide/community' },
         ],
       },
       { text: 'About', link: '/about' },
@@ -104,6 +109,7 @@ export default defineConfig({
             { text: 'Build a polyfill', link: '/guide/build-a-polyfill' },
             { text: 'For spec authors', link: '/guide/spec-authors' },
             { text: 'Contributing', link: '/guide/contributing' },
+            { text: 'Community', link: '/guide/community' },
           ],
         },
         {
