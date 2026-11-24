@@ -1,0 +1,257 @@
+# mcp-apps-cli: compliance and verification
+
+What `mcp-apps-cli` 0.1.2 implements of MCP Apps, clause by clause, how each
+part is checked, and what each check does and does not prove. The spec is
+[`specification/2026-01-26/apps.mdx`](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx)
+(Stable), byte for byte the copy on `main` on 24 November 2026 (SHA-256
+`ee452a7d…`), plus `ui/download-file` from the draft.
+
+## Clause by clause
+
+Every line of the spec with MUST, SHOULD, MAY or REQUIRED, 75 in all, one row
+each. "Binds" is who the line is about: the host (this plugin), the client
+(its MCP connection), a server, a view (the app), or a web host's sandbox proxy
+("host (web)"), which this host doesn't have: its views run in a headless
+Chrome, not in a web page that holds the conversation. The rows were first
+made by the verification of 20 November 2026 in the prototype this plugin came
+from, and are restated here for this code; the rows the fixes since then
+touch (CSP sources, app traffic, the client capability) are rewritten.
+
+| State | Rows |
+|---|---|
+| Met (28 with a test, 4 by reading only, 1 by Claude Code itself) | 33 |
+| Met, a MAY taken up (one only in part: R03) | 5 |
+| Met with an exception the host causes (R66: Claude Code's own connection doesn't advertise the extension) | 1 |
+| Not met, deliberately (R12: the default CSP when an app declares none) | 1 |
+| A MAY not taken up | 6 |
+| Not applicable: binds a server, a view, or a web host's sandbox proxy | 29 |
+
+R12 is the one MUST that is neither met nor a limit of the host; see the row.
+
+| # | Line | Clause | Binds | State | Where, and the test |
+|---|---|---|---|---|---|
+| R01 | 64 | MUST use the `ui://` URI scheme to distinguish UI resources | server | n/a | Binds the server. |
+| R02 | 95 | SHOULD be `text/html;profile=mcp-app` for HTML-based UIs | server | n/a | Binds the server. |
+| R03 | 170 | Hosts MAY honor these by setting appropriate iframe `allow` attributes. | host | met (MAY, in part) | clipboardWrite is honoured (after a click or key, once per click). Camera, microphone and geolocation are not granted: headless Chrome has no devices and no indicator the person could see. |
+| R04 | 171 | Apps SHOULD NOT assume permissions are granted | view | n/a | Binds the view (the app). |
+| R05 | 206 | Servers MUST consult host-specific documentation | server | n/a | Binds the server. |
+| R06 | 240 | // MUST be "text/html;profile=mcp-app" | server | n/a | Binds the server. |
+| R07 | 267 | URI MUST start with `ui://` scheme | server | n/a | Binds the server. |
+| R08 | 268 | `mimeType` MUST be `text/html;profile=mcp-app` (other types reserved | server | n/a | Binds the server. |
+| R09 | 269 | Content MUST be provided via either `text` (string) or `blob` (base64-encoded) | server | n/a | Binds the server. |
+| R10 | 270 | Content MUST be valid HTML5 document | server | n/a | Binds the server. |
+| R11 | 274 | Host MUST construct CSP headers based on declared domains | host | met | The view's document gets a CSP response header built from the declared domains the helper keeps (policy.rs allowed_csp, build_csp; tests: random_domain_lists_preserve_directive_boundaries and the injection tests). |
+| R12 | 275 | Restrictive Default: If `ui.csp` is omitted, Host MUST use: | host | not met (deliberate) | Not met, deliberately: without `ui.csp` the view gets basic-host's default (it adds `'unsafe-eval'` and `blob:` and `connect-src 'self'`, where `'self'` is the view's own origin, answered by the helper inside Chrome), so apps that run generated code, such as the SDK's own three.js example (it declares no CSP and calls `new Function`), work. Not a limit of the host: Ido's decision (see the report). |
+| R13 | 286 | No Loosening: Host MAY further restrict but MUST NOT allow undeclared domains | host | met | Further restricted, never loosened: broad sources (`*`, `https:`, a wildcard port, a wildcard over fewer than two labels or over a shared suffix such as `*.workers.dev`, `*.co.uk`) and private addresses other than the server's own are dropped and logged (tests: broad_sources_are_not_applied, wildcards_over_shared_suffixes_are_not_applied, csp_private_ports_and_injection). |
+| R14 | 287 | Audit Trail: Host SHOULD log CSP configurations for security review | host | met | Each view's CSP goes to Claude Code's debug log; dropped sources are logged too. |
+| R15 | 390 | Resource MUST exist on the server | server | n/a | Binds the server. |
+| R16 | 391 | Host MUST use `resources/read` to fetch the referenced resource URI | host | met | Over the helper's own MCP connection (a plugin can't read resources through Claude Code's). |
+| R17 | 392 | Host MAY prefetch and cache UI resource content | host | met (MAY, taken up) | Taken up: a second view of an app uses the copy read before, refreshed in the background. |
+| R18 | 393 | Servers MAY omit UI-only resources from `resources/list` | server | n/a | Binds the server. |
+| R19 | 400 | tools/list behavior: Host MUST NOT include tools in the agent's tool list when their visibility does not include `"model"` | host | met (by Claude Code) | Claude Code does not put app-only tools in the model's tool list; that list is its own, not the plugin's. |
+| R20 | 401 | tools/call behavior: Host MUST reject `tools/call` requests from apps for tools that don't include `"app"` in visibility | host | met | The helper refuses a tool whose visibility leaves out `app` before consent is asked (views.rs host_call); the mod refuses a tool its server doesn't list and calls only the view's own server. |
+| R21 | 472 | If the Host is a web page, it MUST wrap the View and communicate with it through an intermediate Sandbox proxy. | host (web) | n/a | Not a web host in the spec's sense: the host page in headless Chrome holds no conversation or session, and the view is cross-origin to it (host.<origin> vs <origin>); the binding answers only the host page's frame. |
+| R22 | 474 | The Host and the Sandbox MUST have different origins. | host (web) | met | The analogue here: the host page's origin differs from the app's in every case (generated, the Rust helper). |
+| R23 | 475 | The Sandbox MUST have the following permissions: `allow-scripts`, `allow-same-origin`. | host | met | The view's iframe: allow-scripts allow-forms allow-same-origin allow-pointer-lock, identical in the Rust helper. |
+| R24 | 476 | The Sandbox MUST send a `ui/notifications/sandbox-proxy-ready` notification | host (web) | n/a | No sandbox proxy (R21). |
+| R25 | 477 | Once the Sandbox is ready, the Host MUST send the raw HTML resource | host (web) | n/a | No sandbox proxy: the helper serves the HTML at the app's origin with its CSP header. |
+| R26 | 478 | The Sandbox MUST load the raw HTML of the View with CSP settings that: | host | met | Declared domains enforced; frame-src 'none' unless declared; base-uri 'none' unless declared (stricter than 'self'); object-src 'none'; restrictive default: see R12. |
+| R27 | 484 | If `permissions` is declared, the Sandbox MAY set the inner iframe's `allow` attribute | host | n/a (MAY, not taken up) | See R03. |
+| R28 | 485 | The Host MUST NOT send any request or notification to the View before it receives an `initialized` notification. | host | met | Arguments, result, cancel, context changes and the teardown all wait for initialized (host.ts keeps them; __teardown returns when the app never initialized: F3, fixed 2026-11-19). The line also binds the sandbox proxy's forwarding, which has no counterpart here. |
+| R29 | 486 | The Sandbox SHOULD NOT create/send any requests to the Host or to the View | host (web) | n/a |  |
+| R30 | 487 | The Host MAY forward any message from the View (coming via the Sandbox) to the MCP Apps server | host | met | Forwarded only with consent (appToolCalls; deny rules first), only while Claude Code uses that server, asked afresh each time (0.1.2), and only to the view's own server. Model: AppsConsent (ToolCallsConsented, DenyWins, AskedWhereClaudeCodeWouldAsk) and AppsViews (GatedSends, NoSendAfterNo, OwnServerOnly). Test: "an app's calls and reads stop once Claude Code stops using its server". |
+| R31 | 512 | it MUST include its capabilities in the `appCapabilities` field | view | n/a | Binds the view (the app). |
+| R32 | 533 | the Host SHOULD include UI-specific context in the `McpUiInitializeResult`'s `hostContext` field | host | met | theme, styles, displayMode, availableDisplayModes, containerDimensions, locale, timeZone, userAgent, platform, deviceCapabilities, safeAreaInsets, toolInfo. |
+| R33 | 718 | hosts MUST listen for `ui/notifications/size-changed` notifications from the View and update the iframe | host | met | Test: in a tall view scrolled down, a click lands on what's under it; resize |
+| R34 | 781 | View MUST declare all display modes it supports | view | n/a | Binds the view (the app). |
+| R35 | 782 | View MUST check if the requested mode is in `availableDisplayModes` | view | n/a | Binds the view (the app). |
+| R36 | 783 | View MUST handle the response mode differing from the requested mode. | view | n/a | Binds the view (the app). |
+| R37 | 786 | Host MUST NOT switch the View to a display mode that does not appear in its `appCapabilities.availableDisplayModes`, if set. | host | met (no test) | Checked in host.ts and again in the mod (and the header offers only declared modes). The test covers the modes an app declares, not a refused one. |
+| R38 | 787 | Host MUST return the resulting mode (whether updated or not) | host | met | Test: an app can ask to fill the terminal, move to a pane, and come back |
+| R39 | 788 | If the requested mode is not available, Host SHOULD return the current display mode | host | met (no test) |  |
+| R40 | 789 | Host MAY decline display mode requests from Views that did not declare said modes | host | n/a (MAY, not taken up) |  |
+| R41 | 996 | Host SHOULD open the URL in the user's default browser or a new tab. | host | met | After the person says yes (or allowed this app's links for the session); http(s) only. |
+| R42 | 1033 | Host SHOULD add the message to the conversation context, preserving the specified role. | host | met | A user turn, framed as the app's words . |
+| R43 | 1034 | Host MAY request user consent. | host | met | Taken up: asked by default (appMessages). |
+| R44 | 1093 | The View MAY send this request to update the Host's model context. | view | n/a | Binds the view (the app). |
+| R45 | 1097 | SHOULD provide the context to the model in future turns | host | met | With the next prompt, out of the person's view, and only from live views of this session: closed views' context is dropped, and all of it is cleared at /clear and when the helper exits (F2, N2, fixed 2026-11-19). |
+| R46 | 1098 | MAY overwrite the previous model context with the new update | host | met (MAY, taken up) | Taken up (latest per app). |
+| R47 | 1099 | MAY defer sending the context to the model until the next user message | host | met (MAY, taken up) | Taken up. |
+| R48 | 1100 | MAY dedupe identical `ui/update-model-context` calls | host | n/a (MAY, not taken up) |  |
+| R49 | 1101 | If multiple updates are received before the next user message, Host SHOULD only send the last update | host | met (no test) | One entry per view, replaced by each update. |
+| R50 | 1102 | MAY display context updates to the user | host | n/a (MAY, not taken up) |  |
+| R51 | 1106 | Host MUST send this notification with the complete tool arguments after the View's initialize request completes. | host | met | Test: InputBeforeResult; InputBeforeResult; then the whole arguments, once |
+| R52 | 1120 | Host MAY send this notification zero or more times while the agent is streaming tool arguments | host | met | Taken up, for calls that run without asking; a call that would ask gets none until allowed (WithheldNoArgs holds). |
+| R53 | 1134 | MAY parse the agent's partial JSON output by closing unclosed brackets/braces | host | met (MAY, taken up) | Taken up. |
+| R54 | 1135 | MAY send recovered arguments as they become available during streaming | host | n/a (MAY, not taken up) |  |
+| R55 | 1136 | MUST stop sending once `ui/notifications/tool-input` is sent with complete arguments | host | met | Test: NoPartialAfterInput; NoPartialAfterInput |
+| R56 | 1140 | MAY ignore these notifications entirely | view | n/a | Binds the view (the app). |
+| R57 | 1141 | MAY render progressive loading/streaming states | view | n/a | Binds the view (the app). |
+| R58 | 1142 | MUST NOT rely on partial arguments for critical operations | view | n/a | Binds the view (the app). |
+| R59 | 1143 | SHOULD gracefully handle missing or changing fields between notifications | view | n/a | Binds the view (the app). |
+| R60 | 1155 | Host MUST send this notification when tool execution completes (if the View is displayed during tool execution). | host | met | Sent once per call, never after a cancel: tool.run marks the call it takes, and an early view's approval is decided once. |
+| R61 | 1169 | Host MUST send this notification if the tool execution was cancelled, for any reason | host | met | Denied, failed to run, or the turn stopped. A view that loaded while its call waited to be allowed, and was denied, is torn down instead (it never had the arguments). |
+| R62 | 1201 | Host MUST send this notification before tearing down the UI resource, for any reason | host | met | On eviction, sleep, session end, /clear and a dropped early view (1.5 s at most). A page that crashed has nothing to send it to. |
+| R63 | 1202 | Host SHOULD wait for a response before tearing down the resource | host | met | Up to 1.5 s, then closed anyway (the threat model asks for a host deadline). |
+| R64 | 1217 | The View SHOULD send this notification when rendered content body size changes | view | n/a | Binds the view (the app). |
+| R65 | 1229 | Host MAY send this notification when any context field changes | host | met | Taken up: theme, display mode, size, scale. |
+| R66 | 1522 | `mimeTypes`: Array of supported content types (REQUIRED | client | exception (host) | On the helper's own connection. Claude Code's connection, which runs the model's calls, doesn't advertise it, and a plugin can't change that: a limit of the host. |
+| R67 | 1531 | Servers SHOULD check client capabilities before registering UI-enabled tools. | server | n/a | Binds the server. |
+| R68 | 1558 | Servers SHOULD provide text-only fallback behavior | server | n/a | Binds the server. |
+| R69 | 1559 | Tools MUST return meaningful content array even when UI is available | server | n/a | Binds the server. |
+| R70 | 1560 | Servers MAY register different tool variants based on host capabilities | server | n/a | Binds the server. |
+| R71 | 1698 | All View content MUST be rendered in sandboxed iframes with restricted permissions. | host | met | A sandboxed iframe (`allow-scripts allow-forms allow-same-origin allow-pointer-lock`), served from an origin other than the host page's, in a headless Chrome with its own sandbox on (unless MCP_APPS_CLI_NO_SANDBOX), one browser context per view, WebRTC off, navigation away blocked. |
+| R72 | 1725 | Hosts MUST enforce Content Security Policies based on resource metadata. | host | met | Enforced by Chrome on the header; navigation, which connect-src doesn't cover, is blocked separately. |
+| R73 | 1756 | Host MUST block connections to undeclared domains | host | met | And dedicated origins only for a server's own hash (generated cases in the 20 November verification). |
+| R74 | 1757 | Host SHOULD warn users when UI requires external domain access | host | met (no test) | The view's header names the domains its CSP lets it reach. |
+| R75 | 1758 | Host MAY implement global domain allowlists/blocklists | host | n/a (MAY, not taken up) | A fixed blocklist of sorts: broad sources and other private addresses are never applied. |
+
+## Features a client can have, and which it has
+
+| Feature (spec section) | Here |
+|---|---|
+| UI resources from `_meta.ui.resourceUri`, read with `resources/read`, `text` or `blob`, MIME checked | yes, over the helper's own connection |
+| Advertising `io.modelcontextprotocol/ui` with `mimeTypes` | on the helper's connection only (host limit: Claude Code's own) |
+| Tool visibility (`model`, `app`) | yes: apps call only tools that include `app`; Claude Code keeps app-only tools from the model |
+| Lifecycle: `ui/initialize`, `initialized`, `tool-input`, `tool-input-partial`, `tool-result`, `tool-cancelled`, `resource-teardown` | yes |
+| Host context and `host-context-changed` | yes (theme, styles, display mode and modes, container size, locale, time zone, user agent, platform, device capabilities, safe areas, tool info) |
+| View requests: `tools/call`, `resources/read`, `resources/list`, `resources/templates/list`, logging, `ping` | yes |
+| `ui/message`, `ui/update-model-context`, `ui/open-link`, `ui/request-display-mode`, `size-changed` | yes |
+| `ui/download-file` (draft) | yes, after the person says Save |
+| CSP from `_meta.ui.csp`, `prefersBorder`, `domain` | yes (see R11-R14, R26, R72-R75) |
+| `permissions` | `clipboardWrite` yes; camera, microphone, geolocation not granted (no devices in headless Chrome, no indicator) |
+| Display modes `inline`, `fullscreen`, `pip` | yes, as a terminal allows: fullscreen fills the terminal, pip is a pane |
+| Sign-in (OAuth) for servers that need it | no: the helper's own connection can't use Claude Code's sign-in. Host change: `$.mcp.request` over Claude Code's connection ([host-changes](../../../../docs/host-changes.md), change 1) |
+| `_meta` and `structuredContent` of Claude Code's own results | restored for tools with an `outputSchema`; host change 4 would give them whole |
+| `tools/list_changed`, resource updates | no: Claude Code delivers no server notifications to plugins (host change 3) |
+
+## The conformance suite
+
+`@modelcontextprotocol/conformance` (npm 0.1.16 and 0.2.0-alpha.12;
+`main` at `96a6f947`, 10 November 2026) has client scenarios for
+initialization, tools, HTTP headers, auth and Skills, and none for MCP Apps
+(`io.modelcontextprotocol/ui`). There is nothing of it to run for this
+extension.
+
+## Verification
+
+### The formal model
+
+`model/AppsViews.tla` and `model/AppsConsent.tla`, checked with TLC 1.7.4
+(`node model/check.mjs`; CI runs it too, `mcp-apps-cli-test.yml`, job
+`model`). TLC explores every state reachable within each configuration's
+bounds; what it reports for a configuration is exhaustive within them and
+says nothing past them.
+
+What is modelled: Claude Code's verdict on each server (which can change at
+any time), the mod's kept verdicts (5 s) and fresh ones, views opening,
+closing, sleeping, reopening and evicted past three live, the helper's pages,
+its per-id open lock and the closes it keeps for an open under way, requests
+between the mod and the helper delivered in any order, an app's reads and
+tool calls, crashes, `/clear`, another program on the machine without the
+token; and, in the second module, an app's tool calls under `rules`, `ask`
+and `allow` with rules that change at any time and checks that fail, session
+grants, one question at a time, views opened while Claude writes the call,
+messages under `ask`, `fill` and `allow`, links and downloads.
+
+What is not modelled, and is checked elsewhere or not at all: the config
+gate's decision (taken as given here, and checked over every case below);
+`${VAR}` expansion (an operator here, property-tested below); Chrome, the
+host page and the app's own code; the terminal; timing (the 5 s verdict and
+every deadline are "may expire at any time").
+
+The invariants, in plain words:
+
+| Invariant | Says |
+|---|---|
+| GatedSends | The helper sends a server nothing unless the request behind it came with Claude Code's yes for that server under that name |
+| NoSendAfterNo | Once the mod has heard that Claude Code doesn't use a server, a request made after that sends it nothing |
+| NoCredentialToRemote | A credential-named variable never reaches a remote server's URL or headers; a server's headers go to its own origin only |
+| AtMostLiveMax | At most three views are live (or opening) at once |
+| TokenRequired | A request without the token changes nothing and reaches no server |
+| OwnServerOnly | A view gets results only from the server its app came from |
+| NoOrphanPages | Once nothing is in flight, the helper holds a page only for a view the mod has live or opening |
+| NoDeadViews | Once nothing is in flight, every view the mod has live has its page |
+| ToolCallsConsented | An app's tool call runs only where the rules allowed it (`rules`, `allow`), the setting allowed it (`allow`, rules not denying), or the person said yes, now or "this session" in this session |
+| DenyWins | A deny rule, at the time of the check, is never overridden |
+| AskedWhereClaudeCodeWouldAsk | Where the rules would ask, or the check failed, the person is asked, in every mode (unless they allowed the tool this session) |
+| LinksAsked, SavesAsked, MessagesAsked | No link opens and no file is saved without a yes; a message goes to Claude only with a yes, the setting `allow`, or from the person's own prompt (`fill`) |
+| OnlyApprovedViews | Nothing happens for a view whose call Claude Code didn't let run |
+| GrantsEndWithSession | A "this session" yes never carries into the next session |
+
+Results, on an Apple M1 Max (32 GB, macOS 15.4.1), TLC 1.7.4 on Temurin 21:
+
+| Configuration | Bounds | Result |
+|---|---|---|
+| Live | 4 calls on one server, 3 live at most, each opened once; up to symmetry | all hold; 131,783 states, depth 35 |
+| Reopen | 2 calls, 1 live, each opened twice | all hold; 62,681 states |
+| Race | 1 call opened, closed and reopened up to 3 times | all hold; 947 states, depth 24 |
+| Traffic | 2 calls on 2 servers, 1 live, every kind of app request, Claude Code changing its mind | all hold; 386,173 states, depth 29 |
+| TrafficShared | 2 calls on 1 server, both live, the same | all hold; 391,097 states |
+| Token | another program sending forged requests | all hold; 73,872 states |
+| ConsentRules, ConsentAsk, ConsentAllow | 2 tool calls (one app-only), two sessions, each setting | all hold; 534,554, 657,304 and 519,488 states, depth 16 |
+| ConsentOther | 2 messages, links or downloads, every appMessages setting | all hold; 72,769 states |
+| RaceBefore, RaceBeforeDead | Race against 0.1.1 | NoOrphanPages and NoDeadViews violated (the defects fixed in 0.1.2) |
+| TrafficBefore, TrafficBeforeNo | Traffic against 0.1.1 | GatedSends and NoSendAfterNo violated (fixed in 0.1.2) |
+| Window | Traffic, 0.1.2 | "sends only while Claude Code uses the server" violated, as documented: a request already on its way isn't called back, and the mod reuses a yes for up to 5 s for discovery and opening (never for an app's own traffic) |
+| Instance | 1 call reopened | "requests are answered only for the open that made them" violated, as documented: the mod finds a view by id, so a request from an earlier open of the same call can be answered for the reopened view (same call, same server, same app, consent asked as usual) |
+| Witness* | each outcome (a run, a message, a link, a save) | reachable, so the consent invariants don't hold for want of anything happening |
+
+What the model found, both fixed in 0.1.2 with a test each that fails on
+0.1.1:
+
+1. **An app's own traffic was never re-checked.** After a view opened, its
+   app's reads and calls of app-only tools went to the server over the
+   helper's connection with no further look at Claude Code's verdict, so a
+   server switched off in `/mcp` (or that Claude Code stopped using) still got
+   them. Each now waits for `$.mcp.connect`, asked afresh.
+2. **A view's `/open` and `/close` could cross.** They are separate requests
+   the helper matches by view id. Out of order, a close for an earlier open
+   could close a reopened view's page (the view then stood live with no page),
+   or arrive before its page existed and leave that page running unseen. They
+   now go one at a time per id.
+
+### The config gate, over every case
+
+`config::decide` takes a finite input: 11 flags and four settings layers of
+12 states each, 42,467,328 cases. `helper-rs/tests/support/gate_exhaustive.rs`
+checks every one against the rules written out on their own, asserts each
+safety rule separately (no reserved name; nothing under a policy or switched
+off; never a lower scope's entry for a refused higher one; local and project
+entries only in a trusted folder; under inherited trust, the repository's own
+settings change nothing), and checks that every scope is reachable. Three
+mutants of `decide` are each caught. This proves `decide` matches those rules.
+It does not prove the rules are Claude Code's: they are its documented
+behaviour as the security review read it, and the mod asks Claude Code's own
+verdict first.
+
+### Property-based tests
+
+Seeded, generated inputs (the helper's own generator, no new dependency),
+run on every `cargo test`:
+
+| What | Cases | Found |
+|---|---|---|
+| `config::facts` reads 400 random worlds on disk back as the facts they were written from, and `resolve_in` agrees with `decide` | 400 | nothing |
+| `${VAR}` expansion: in a remote entry no credential-named variable is looked up or appears; a local entry gets every variable | 5,000 | nothing |
+| Already there: the HTTP request reader (random bytes, short reads, lengths, the head limit, allocation bounds), the token comparison, CSP building against injection, origins, command-line words and `--mcp-config` parsing, expansion fallbacks | 3,000-5,000 each | nothing |
+
+## Measurements
+
+The helper, started alone, five times each, on the machine above, over the
+TCP transport: ready (its first line) in 4.5-9.8 ms, idle at 4.4-4.7 MB
+resident and no measurable CPU over 5 s (the release build of 20 November;
+this branch's debug build: 4.6-9.9 ms, 8.2-8.7 MB), a `/ping` round trip in
+0.3-0.6 ms, gone 0.6-1.1 ms after SIGTERM. The mod starts nothing with the
+session; the helper starts with the first MCP call. The hooks module is
+160 KB of TypeScript. Nothing here was worth changing; the costs with views
+open (Chrome, pictures) are in [DESIGN.md](DESIGN.md) and were not measured
+again.
+
+## Not run here
+
+Only macOS on Apple Silicon was available. Not run: macOS on Intel, Linux,
+Windows (CI is blocked by GitHub billing), the bench checks that need Chrome
+and the SDK's example servers, the render crate's parity tests (their
+fixtures are made by the Node helper, whose packages aren't installed here),
+a live Claude Code session.
