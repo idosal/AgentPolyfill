@@ -12,7 +12,7 @@ const ogVersion = createHash('sha256')
   .slice(0, 12)
 const ogImage = `${site}/og.jpg?v=${ogVersion}`
 const description =
-  'Open agent extensions, in the host you already have. Plugins for Claude Code and Codex that add MCP Events, Apps, Skills and Server Cards.'
+  'Polyfills for agent protocols: run new MCP extensions (Events, Apps, Skills, Server Cards) in the agent you already use, before its host supports them. Today in Claude Code and Codex.'
 
 export default defineConfig({
   lang: 'en',
@@ -32,7 +32,7 @@ export default defineConfig({
     ['meta', { property: 'og:image', content: ogImage }],
     ['meta', { property: 'og:image:width', content: '1200' }],
     ['meta', { property: 'og:image:height', content: '630' }],
-    ['meta', { property: 'og:image:alt', content: 'AgentPolyfill: open agent extensions, in the host you already have. MCP Events, Apps, Skills and Server Cards, as plugins for Claude Code and Codex.' }],
+    ['meta', { property: 'og:image:alt', content: 'AgentPolyfill: polyfills for agent protocols. Run new MCP extensions in the agent you already use, before its host supports them. Today in Claude Code and Codex.' }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ['meta', { name: 'twitter:title', content: 'AgentPolyfill' }],
     ['meta', { name: 'twitter:description', content: description }],

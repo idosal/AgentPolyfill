@@ -6,9 +6,10 @@ aside: false
 # About
 
 AgentPolyfill is a community project by
-[Ido Salomon](https://github.com/idosal): plugins that add open agent
-extensions to the host you already have, starting with four MCP extensions and
-one open draft beyond MCP in Claude Code.
+[Ido Salomon](https://github.com/idosal): polyfills for agent protocols. Each
+one brings a published protocol extension to agent hosts that have not shipped
+it yet. Today that is four MCP extensions and one open draft beyond MCP, in
+Claude Code and Codex.
 
 ## Not affiliated
 
