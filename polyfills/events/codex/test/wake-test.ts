@@ -281,7 +281,10 @@ describe('when codex queue fails', () => {
             await untilActive(h, thread);
             w.emit('ticket.created', { title: 'one' });
             await waitFor(() => w.queued().length === 1, 20000, 'the failed try');
-            assert.match((await h.call('list_watches', {}, thread)).text, /Waking this session failed the last time it was tried \(codex queue failed \(exit 1\)\)/);
+            // The failure is known once codex queue has exited, a moment after the try is seen. Looked at
+            // from a woken turn, so the look is not the person's and does not bring the next try forward.
+            const failed = /Waking this session failed the last time it was tried \(codex queue failed \(exit 1\)\)/;
+            await waitFor(async () => failed.test((await h.call('list_watches', {}, thread, 'queue')).text), 20000, 'list_watches to say the try failed');
             writeFileSync(w.mode, 'noresume');
             await waitFor(() => w.queued().length === 2, 20000, 'the second try');
             assert.equal(w.queued()[1]!.message, w.queued()[0]!.message, 'the same events');
