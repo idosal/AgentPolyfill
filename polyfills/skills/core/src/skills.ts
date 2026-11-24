@@ -718,12 +718,20 @@ export class SkillsHost {
     }
 }
 
+/**
+ * What no text file needs and a terminal acts on: the control characters but tab and the line
+ * breaks, ESC and the C1 set (one of which opens a control sequence by itself) among them. A file
+ * that holds one is not shown as text. It is never altered to be shown: what is verified is what is
+ * shown, or nothing is.
+ */
+// eslint-disable-next-line no-control-regex
+const NOT_TEXT = /[\u0000-\u0008\u000e-\u001f\u007f-\u009f]/;
+
 /** A file's text, when the server sent text or the bytes are text; nothing for a binary file. */
 function textOf(content: FileContent): string | undefined {
     try {
         const text = new TextDecoder('utf-8', { fatal: true }).decode(content.bytes);
-        // eslint-disable-next-line no-control-regex
-        return /[\u0000-\u0008\u000e-\u001a]/.test(text) ? undefined : text;
+        return NOT_TEXT.test(text) ? undefined : text;
     } catch {
         return undefined;
     }

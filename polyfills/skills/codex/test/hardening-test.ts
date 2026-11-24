@@ -83,6 +83,46 @@ test('a skill with a manifest is held to its digests: what is loaded is the text
     if (!r.isError) assert.match(r.text, /Body of git-workflow\./);
 });
 
+test('with two loads under way at once, a showing that another took the place of holds no load: it is refused, loaded already or not', async () => {
+    const [a, b] = [skill('live-notes', {}, { dynamic: true }), skill('side-notes', {}, { dynamic: true })];
+    const f = new Fixture(scenarioOf([a, b]));
+    const st = await startApp({ docs: f }, { answers: ['load'] });
+    assert.ok(!(await st.call('load_skill', { server: 'docs', uri: a.uri })).isError);
+    const other = skillMd('live-notes').replace('Body of live-notes.', OTHER);
+    let second: Promise<{ text: string; isError?: boolean }> | undefined;
+    // The order is forced: the first skill is shown; then the second is shown and declined; then the
+    // server publishes the first with a manifest for another text; then the first is answered "load".
+    const answers = (async (message: string, choices: string[]) => {
+        if (choices.includes('show')) return { decision: 'show' };
+        if (message.includes('side-notes')) return { decision: 'no' };
+        second = st.call('load_skill', { server: 'docs', uri: b.uri });
+        await second;
+        f.change((sc) => {
+            sc.files![a.uri] = { text: other };
+            sc.listed![0]!.resources = [{ uri: a.uri, digest: digest(other), size: Buffer.byteLength(other) }];
+        });
+        return { decision: 'load' };
+    }) as never;
+    const r = await st.call('load_skill', { server: 'docs', uri: a.uri }, { answers });
+    assert.ok((await second!).isError, 'the second was declined');
+    assert.ok(r.isError, r.text);
+    assert.match(r.text, /cannot be held to what the user was shown, so it is not loaded/);
+    assert.doesNotMatch(r.text, new RegExp(OTHER));
+});
+
+test('a file that holds a control character a terminal acts on is not shown as text', async () => {
+    const s = skill('logs', { 'run.log': 'before\u001b[2Kafter\n', 'c1.log': 'before\u009b2Kafter\n' });
+    const st = await startApp({ docs: new Fixture(scenarioOf([s])) }, { answers: ['load'] });
+    assert.ok(!(await st.call('load_skill', { server: 'docs', uri: s.uri })).isError);
+    for (const path of ['run.log', 'c1.log']) {
+        const r = await st.call('read_skill_file', { server: 'docs', skill: s.uri, path });
+        assert.ok(!r.isError, r.text);
+        assert.match(r.text, /It is a binary file.*which this plugin does not show\.$/, path);
+        // eslint-disable-next-line no-control-regex
+        assert.doesNotMatch(r.text, /[\u0000-\u0008\u000e-\u001f\u007f-\u009f]/, path);
+    }
+});
+
 /** A value that begins as a media type and goes on as something else. */
 const NOT_ONE = 'application/octet-stream)\nmore text from the server (';
 
