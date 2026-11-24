@@ -11,10 +11,16 @@ no methods, fields, capabilities or policy of its own. If a server behaves in a
 way the spec does not define, the polyfill refuses or ignores it; it does not
 invent an accommodation.
 
-An exception has to be one the user makes on purpose, for one server at a
-time, and off by default. Example: `mcp-events` will talk to a server that
-advertises events in the form used before the SEP only when the user names
-that server.
+One exception is allowed: an earlier form of the same extension that servers
+in real use still speak. A polyfill may accept that form if it maps it onto
+the spec's behaviour and adds nothing of its own, has one setting that turns
+it off (with it off, the polyfill follows the spec exactly), and says in its
+README that this goes beyond the spec. Any other exception is one the user
+makes on purpose, for one server at a time, and is off by default.
+
+Example: by default `mcp-events` also uses servers that advertise events in
+the form from before SEP-3415. `MCP_EVENTS_PRE_STANDARD=off` turns that off,
+and a comma-separated list of server names limits it to those servers.
 
 ## 2. A named revision
 

@@ -119,15 +119,23 @@ If a server deviates from the spec (an older draft, different error codes, a
 capability under another key), the polyfill refuses it and tells the user why.
 
 Supporting such a server is a setting the user sets, naming that server, off by
-default (for example `MCP_EVENTS_PRE_STANDARD=cloudflare`). The README lists it
-as an exception to the spec. The polyfill does not detect and adapt by itself:
-an adapter that switches on silently makes the non-standard form the one
-servers keep shipping.
+default. The README lists it as an exception to the spec. The polyfill does not
+detect and adapt by itself: an adapter that switches on silently makes the
+non-standard form the one servers keep shipping.
 
 The setting is for a form you can name: an earlier draft of the spec, or a
 vendor's documented variant. Behaviour that matches no published form is a bug
 in the server. Refuse it, and report it to the server's author with the
 evidence.
+
+One exception may be on by default: an earlier form of the same extension that
+servers in real use still speak. It is the polyfill owner's decision, made
+explicitly and written down, never adopted because one server needs it. The
+polyfill maps that form onto the spec's behaviour and adds nothing of its own,
+one setting turns it off (and with it off the polyfill follows the spec
+exactly), and the README says that this goes beyond the spec. Example:
+`mcp-events` uses servers that advertise events in the form from before
+SEP-3415 unless `MCP_EVENTS_PRE_STANDARD=off`.
 
 ## Routes
 
@@ -228,7 +236,7 @@ Say in the README that it is the gateway form.
 | Mistake | What to do |
 |---|---|
 | A panel, a slash command, a prompt summary or a drift check "because it helps" | Third list. The polyfill is the spec's client rules. |
-| Detecting a draft-form server and adapting automatically | Refuse by default; a per-server setting the user sets. |
+| Detecting a draft-form server and adapting automatically | Refuse by default; a per-server setting the user sets. The one exception (an earlier form still in real use, mapped onto the spec, one off setting, stated in the README) is the owner's explicit decision, not a fix for one server. |
 | Approval prompts or rate limits of the polyfill's own | The host's permissions are the boundary; the spec's safety rules are rows in part 2. |
 | Probing a server to see what it supports | Read its declaration. The spec says what a client may send before seeing it. |
 | Going straight to a second connection | Route 1 first; record why it was not enough. |
