@@ -10,7 +10,7 @@ Some MCP servers deliver events only by webhook. A webhook needs a public https 
 
 This skill deploys the relay to **the user's own Cloudflare account**. Before anything else, tell the user in two or three plain sentences what will happen:
 
-- a Worker named `mcp-events-relay` (with a Durable Object) is created in their Cloudflare account, at a public `workers.dev` address;
+- a Worker named `mcp-events-relay` (with its Durable Objects) is created in their Cloudflare account, at a public `workers.dev` address;
 - a random access key is stored as that Worker's secret and in `~/.mcp-events/relay.json` on this machine, readable only by them;
 - event payloads their MCP servers send by webhook pass through that Worker and are stored there until collected (for at most a week).
 
