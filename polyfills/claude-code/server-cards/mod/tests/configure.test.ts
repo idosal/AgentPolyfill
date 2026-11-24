@@ -180,3 +180,17 @@ test('A-20 the preview shows where a template really connects', async () => {
   const card = { ...buildkite, remotes: [{ type: 'streamable-http', url: '{base}/mcp', variables: { base: { value: 'https://attacker.example' } } }] } as unknown as ServerCard
   expect(previewUrl(card, 0)).toBe('https://attacker.example/mcp')
 })
+
+// Security review (2026-11-24).
+test('A-21 what is added is printable: no control or formatting character from a card or from Claude', async () => {
+  const card = (r: unknown) => ({ ...buildkite, remotes: [r] }) as unknown as ServerCard
+  // planAdd also holds the line on its own, for a card that reached it unvalidated.
+  const esc = card({ type: 'streamable-http', url: 'https://evil.example/mcp\x1b[2K\x1b[1Ghttps://good.example/mcp' })
+  expect('error' in planAdd(esc, 0, {}, 'x', 'local')).toBe(true)
+  const tenant = card({ type: 'streamable-http', url: 'https://x.example/{t}/mcp', variables: { t: { isRequired: true } } })
+  expect('error' in planAdd(tenant, 0, { t: 'a‮b' }, 'x', 'local')).toBe(true)
+  const header = card({ type: 'streamable-http', url: 'https://x.example/mcp', headers: [{ name: 'X-Team', isRequired: true }] })
+  expect('error' in planAdd(header, 0, { 'X-Team': 'ops\x1b]8;;x\x07' }, 'x', 'local')).toBe(true)
+  const preset = card({ type: 'streamable-http', url: 'https://x.example/mcp', headers: [{ name: 'X-Client', value: 'a\u0085b' }] })
+  expect('error' in planAdd(preset, 0, {}, 'x', 'local')).toBe(true)
+})

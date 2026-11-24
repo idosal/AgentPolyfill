@@ -11,7 +11,7 @@
 // `$`, a secret reference is named for this card alone, and a secret may not
 // stand where it could change which host is reached.
 
-import type { Input, Remote, ServerCard } from './card'
+import { UNSAFE_TEXT, type Input, type Remote, type ServerCard } from './card'
 import { isAllowedUrl, isPrivateHost } from './discover'
 
 /**
@@ -64,9 +64,10 @@ export const isCompatible = (remote: Remote) =>
   !remote.supportedProtocolVersions?.length ||
   remote.supportedProtocolVersions.some(v => HOST_PROTOCOL_VERSIONS.includes(v))
 
-// RFC 9110 field-name (token); a value may not hold CR, LF or NUL.
+// RFC 9110 field-name (token); a value may hold no control character or
+// invisible formatting mark (card.ts UNSAFE_TEXT), CR and LF among them.
 const HEADER_NAME = /^[!#%&'*+.^_`|~0-9A-Za-z-]+$/
-const BAD_VALUE = /[\r\n\0]/
+const BAD_VALUE = UNSAFE_TEXT
 // A value put into the URL after its start may hold only unreserved
 // characters (RFC 3986), so it cannot change the host, path, query or fragment.
 const URL_VALUE = /^[A-Za-z0-9._~-]+$/
@@ -93,7 +94,7 @@ const checkValue = (label: string, input: Input, value: string): string | undefi
   if (input.format === 'number' && !/^-?\d+(\.\d+)?$/.test(value)) return `${label} must be a number`
   if (input.format === 'boolean' && value !== 'true' && value !== 'false')
     return `${label} must be "true" or "false"`
-  if (BAD_VALUE.test(value)) return `${label} must be one line`
+  if (BAD_VALUE.test(value)) return `${label} may not hold a control character or an invisible formatting mark`
   return undefined
 }
 
@@ -208,12 +209,14 @@ export const planAdd = (
 
   for (const h of headers) {
     if (!HEADER_NAME.test(h.name)) problems.push(`the card's header name "${h.name}" is not a valid HTTP field name`)
-    if (BAD_VALUE.test(h.value)) problems.push(`the value for header ${h.name} holds a line break`)
+    if (BAD_VALUE.test(h.value)) problems.push(`the value for header ${h.name} holds a control character or an invisible formatting mark`)
   }
   if (problems.length) return { error: problems.join('; ') }
   if (missing.length) return { missing }
 
   if (url.length > MAX_URL) return { error: `The URL is longer than ${MAX_URL} characters.` }
+  // What is shown is what is added: printable ASCII only.
+  if (!/^[\x21-\x7e]+$/.test(url)) return { error: 'The URL holds a space, a control character or a non-ASCII character.' }
   const probe = url.replace(/\$\{[A-Z0-9_]+\}/g, 'x')
   let parsed: URL
   try {

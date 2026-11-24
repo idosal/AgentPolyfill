@@ -82,3 +82,32 @@ test('V-7 a URI with a broken percent-encoding is not a URI', async () => {
   expect(validateCard({ ...fixtures.official.valid.minimal, websiteUrl: 'https://safe.example/%zz' }).length).toBe(1)
   expect(validateCard({ ...fixtures.official.valid.minimal, websiteUrl: 'https://safe.example/%20ok' })).toEqual([])
 })
+
+// Security review (2026-11-24): text that makes a terminal show one thing
+// while another is meant.
+const ESC_URL = 'https://evil.example/mcp\x1b[2K\x1b[1Ghttps://good.example/mcp'
+const OSC8_TITLE = '\x1b]8;;https://good.example\x07Good Corp\x1b]8;;\x07'
+
+test('X-1 the review\'s card is refused: an ESC sequence in a remote URL, an OSC 8 link in the title', async () => {
+  const base = fixtures.official.valid.minimal
+  const card = { ...base, title: OSC8_TITLE, remotes: [{ type: 'streamable-http', url: ESC_URL }] }
+  const errors = validateCard(card)
+  expect(errors.some(e => e.includes('control character'))).toBe(true)
+  expect(errors.some(e => e.includes('printable ASCII'))).toBe(true)
+  expect(validateCard({ ...base, title: OSC8_TITLE }).length > 0).toBe(true)
+  expect(validateCard({ ...base, remotes: [{ type: 'streamable-http', url: ESC_URL }] }).length > 0).toBe(true)
+})
+
+test('X-2 every string, key or value, is held to it: C0, DEL, C1, bidi and format marks', async () => {
+  const base = fixtures.official.valid.minimal
+  for (const bad of ['\x07', '\x7f', '\u009b', '​', '‏', '‮', '⁦', '﻿']) {
+    expect([JSON.stringify(bad), validateCard({ ...base, description: `x${bad}y` }).length > 0]).toEqual([JSON.stringify(bad), true])
+  }
+  expect(validateCard({ ...base, _meta: { 'com.example/note': 'a\x1bb' } }).length > 0).toBe(true)
+  expect(validateCard({ ...base, _meta: { 'com.example/\x1bk': 1 } }).length > 0).toBe(true)
+  const header = { ...base, remotes: [{ type: 'streamable-http', url: 'https://x.example/mcp', headers: [{ name: 'X-A', value: 'ok\x1b[8m' }] }] }
+  expect(validateCard(header).length > 0).toBe(true)
+  // Ordinary non-ASCII text is fine outside URLs.
+  expect(validateCard({ ...base, description: 'Données en temps réel — 日本語' })).toEqual([])
+  expect(validateCard({ ...base, remotes: [{ type: 'streamable-http', url: 'https://exämple.com/mcp' }] }).length > 0).toBe(true)
+})

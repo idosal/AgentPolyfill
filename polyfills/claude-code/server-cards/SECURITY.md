@@ -25,6 +25,12 @@ Every fetch is bounded: at most 512 KiB per answer, 20 cards, 3 page links, 3 re
 - A public catalog, card or registry can't send it to a local or private address: `localhost`, `127.0.0.0/8`, `10/8`, `172.16/12`, `192.168/16`, link-local, unique-local, `.local` and `.internal` names, and single-label names. That holds whatever the spelling (`0x7f.1`, a trailing dot).
 - Plain HTTP is used only for a loopback address you name yourself, for local development.
 
+**Text that displays as something else.**
+- A card is refused if any string in it holds a control character (C0, DEL, C1) or an invisible format or bidirectional mark. That rules out an ESC sequence that rewrites a line, an OSC 8 link, or a right-to-left override.
+- A remote URL must be printable ASCII. So what the picker shows beside **Add** is what is added.
+- Values Claude gives are held to the same rule.
+- Everything shown (the picker, tool results, notices, toasts) also passes a plain-text filter.
+
 **What reaches the model.** A card's fields, and a registry's names and descriptions. Each is labelled with whose claim it is, with control characters removed and lengths capped. A refused card shows only why it was refused. A secret's default value is never shown.
 
 **What it writes.** Only your MCP configuration, through `claude mcp add`, for one server at a time.

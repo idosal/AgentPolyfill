@@ -2,6 +2,7 @@ import { expect, test } from 'claude-code/testing'
 import type { ServerCard } from '../hooks/card'
 import { planAdd } from '../hooks/configure'
 import { formatServer } from '../hooks/format'
+import { plainText } from '../hooks/card'
 import { fixtures } from './fixtures'
 
 const BUILDKITE_CARD = fixtures.live['mcp.buildkite.com_mcp_server-card']
@@ -48,4 +49,12 @@ test('S-4 extensionsInfo is never read: it changes nothing shown or added', asyn
   const b = planAdd(withInfo, 0, {}, undefined, 'local')
   if (!('plan' in a && 'plan' in b)) throw new Error('no plan')
   expect(b.plan.argv).toEqual(a.plan.argv)
+})
+
+test('X-3 whatever is shown passes a plain-text filter', async () => {
+  expect(plainText('Good\x1b]8;;https://evil.example\x07 Corp\u202e')).toBe('Good]8;;https://evil.example Corp')
+  // A card that slipped past validation still prints no control character.
+  const card = { ...BUILDKITE_CARD, title: 'T\x1b[2Kx', description: 'd\u009bx' } as unknown as ServerCard
+  const text = formatServer({ identifier: 'i\x07d', listedIn: ['c'], cardFrom: 'c', card, isLocal: false, errors: [] }, 1)
+  expect(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/.test(text)).toBe(false)
 })
