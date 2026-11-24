@@ -313,4 +313,6 @@ ahead of native support, collected at
 
 ## Licence
 
-[Apache-2.0](../../../LICENSE). By Ido Salomon.
+[Apache-2.0](../../../LICENSE). By Ido Salomon. The bundled helper
+(`mod/dist/helper.js`) includes npm packages under their own licences:
+[`mod/THIRD_PARTY_LICENSES.txt`](mod/THIRD_PARTY_LICENSES.txt).
