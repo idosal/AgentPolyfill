@@ -68,10 +68,11 @@ GitHub releases, and earthquakes; its source is in
 
 ### Apps: an MCP App's interface, in the terminal
 
-Real pixels on the left, character cells on the right
-([full video, 57 s](https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4)).
+A server's app opens under the tool call and answers the mouse; real pixels
+in iTerm2, kitty and Ghostty, character cells elsewhere
+([full video, 32 s](https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4)).
 
-![Two Claude Code terminals side by side. In each, an arcade game, a cohort heatmap and a 3D scene appear under the tool call that returned them, and respond to the mouse.](docs/media/mcp-apps-cli.gif)
+![In Claude Code, a cohort retention heatmap from an MCP server opens under the tool call and shows a tooltip wherever the pointer goes, and a control switches its period. Then a 3D scene opens and turns when dragged. Last, the same heatmap drawn in character cells.](docs/media/mcp-apps-cli.gif)
 
 Try it against a hosted demo server (classic shareware games from archive.org,
 played in the app's view). Add it, start `claude`, and ask for a game ("Find
@@ -85,7 +86,7 @@ claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.worker
 
 ### Skills: skills served by an MCP server
 
-![In Claude Code, the skills a server offers are listed. A question is asked, Claude asks to load one skill from the server, reads the files it points to, and answers from them.](polyfills/claude-code/skills/docs/media/demo.webp)
+![In Claude Code, the skills a server offers are listed. A question is asked, Claude asks to load one skill from the server, reads the files it points to, and answers from them.](polyfills/claude-code/skills/docs/media/demo.gif)
 
 Try it against Hugging Face's public MCP server (no sign-in). Add it, start
 `claude`, and type `/mcp-skills` to see what it serves, or just ask a question
