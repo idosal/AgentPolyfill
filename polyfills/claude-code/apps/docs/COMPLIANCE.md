@@ -1,6 +1,6 @@
 # mcp-apps-cli: compliance and verification
 
-What `mcp-apps-cli` 0.1.2 implements of MCP Apps, clause by clause, how each
+What `mcp-apps-cli` 0.1.3 implements of MCP Apps, clause by clause, how each
 part is checked, and what each check does and does not prove. The spec is
 [`specification/2026-01-26/apps.mdx`](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx)
 (Stable), byte for byte the copy on `main` on 24 November 2026 (SHA-256
@@ -59,7 +59,7 @@ R12 is the one MUST that is neither met nor a limit of the host; see the row.
 | R27 | 484 | If `permissions` is declared, the Sandbox MAY set the inner iframe's `allow` attribute | host | n/a (MAY, not taken up) | See R03. |
 | R28 | 485 | The Host MUST NOT send any request or notification to the View before it receives an `initialized` notification. | host | met | Arguments, result, cancel, context changes and the teardown all wait for initialized (host.ts keeps them; __teardown returns when the app never initialized: F3, fixed 2026-11-19). The line also binds the sandbox proxy's forwarding, which has no counterpart here. |
 | R29 | 486 | The Sandbox SHOULD NOT create/send any requests to the Host or to the View | host (web) | n/a |  |
-| R30 | 487 | The Host MAY forward any message from the View (coming via the Sandbox) to the MCP Apps server | host | met | Forwarded only with consent (appToolCalls; deny rules first), only while Claude Code uses that server, asked afresh each time (0.1.2), and only to the view's own server. Model: AppsConsent (ToolCallsConsented, DenyWins, AskedWhereClaudeCodeWouldAsk) and AppsViews (GatedSends, NoSendAfterNo, OwnServerOnly). Test: "an app's calls and reads stop once Claude Code stops using its server". |
+| R30 | 487 | The Host MAY forward any message from the View (coming via the Sandbox) to the MCP Apps server | host | met | Forwarded only with consent (appToolCalls; deny rules first), only to the view's own server, only for the open of the view that asked (0.1.3), and only on Claude Code's yes asked for that request (0.1.2; from 0.1.3 asked again after the person's consent, and a no cancels what is in flight). Model: AppsConsent (ToolCallsConsented, DenyWins, AskedWhereClaudeCodeWouldAsk) and AppsViews (GatedSends, NoSendAfterNo, SendsOnlyWhileUsed, NoAnswerAfterNo, SameInstance, OwnServerOnly). Tests: "an app's calls and reads stop once Claude Code stops using its server", "an app-only tool's yes is asked of Claude Code after the person's yes", "what an earlier open's page asks is refused", `tests/gate.rs` (a revoke cancels a request in flight). |
 | R31 | 512 | it MUST include its capabilities in the `appCapabilities` field | view | n/a | Binds the view (the app). |
 | R32 | 533 | the Host SHOULD include UI-specific context in the `McpUiInitializeResult`'s `hostContext` field | host | met | theme, styles, displayMode, availableDisplayModes, containerDimensions, locale, timeZone, userAgent, platform, deviceCapabilities, safeAreaInsets, toolInfo. |
 | R33 | 718 | hosts MUST listen for `ui/notifications/size-changed` notifications from the View and update the iframe | host | met | Test: in a tall view scrolled down, a click lands on what's under it; resize |
@@ -144,12 +144,14 @@ bounds; what it reports for a configuration is exhaustive within them and
 says nothing past them.
 
 What is modelled: Claude Code's verdict on each server (which can change at
-any time), the mod's kept verdicts (5 s) and fresh ones, views opening,
-closing, sleeping, reopening and evicted past three live, the helper's pages,
-its per-id open lock and the closes it keeps for an open under way, requests
-between the mod and the helper delivered in any order, an app's reads and
-tool calls, crashes, `/clear`, another program on the machine without the
-token; and, in the second module, an app's tool calls under `rules`, `ask`
+any time), the mod's verdicts (0.1.2's, kept 5 s, and 0.1.3's, asked for each
+request), views opening, closing, sleeping, reopening and evicted past three
+live, each open's generation, the helper's pages, its per-id open lock and
+the closes it keeps for an open under way, requests between the mod and the
+helper delivered in any order, an app's reads and tool calls and their
+answers in flight, a no cancelling what is in flight, the mod asking again
+while the helper waits on a server, crashes, `/clear`, another program on the
+machine without the token; and, in the second module, an app's tool calls under `rules`, `ask`
 and `allow` with rules that change at any time and checks that fail, session
 grants, one question at a time, views opened while Claude writes the call,
 messages under `ask`, `fill` and `allow`, links and downloads.
@@ -157,8 +159,16 @@ messages under `ask`, `fill` and `allow`, links and downloads.
 What is not modelled, and is checked elsewhere or not at all: the config
 gate's decision (taken as given here, and checked over every case below);
 `${VAR}` expansion (an operator here, property-tested below); Chrome, the
-host page and the app's own code; the terminal; timing (the 5 s verdict and
-every deadline are "may expire at any time").
+host page and the app's own code; the terminal; timing (the 5 s verdict,
+the 0.5 s watch and every deadline are "may happen at any time"). Two
+abstractions matter for what SendsOnlyWhileUsed and NoAnswerAfterNo say:
+the mod's `$.mcp.connect` and the helper's writing of the request it was
+asked for are one step here, though in the code they are one local round
+trip apart; and a `/revoke` is applied in the step the mod hears the no,
+though in the code it is one local request later. What falls in those gaps
+is listed under "What remains" below. The epoch that refuses a yes which
+crossed a no on its way exists for the second gap and is checked by
+`tests/gate.rs`, not by the model.
 
 The invariants, in plain words:
 
@@ -172,6 +182,9 @@ The invariants, in plain words:
 | OwnServerOnly | A view gets results only from the server its app came from |
 | NoOrphanPages | Once nothing is in flight, the helper holds a page only for a view the mod has live or opening |
 | NoDeadViews | Once nothing is in flight, every view the mod has live has its page |
+| SendsOnlyWhileUsed | Every request the helper writes to a server goes while Claude Code uses that server under that name (0.1.3) |
+| NoAnswerAfterNo | Once the mod has heard that Claude Code stopped using a server, nothing more from it reaches a view (an answer, the UI resource of an open under way) until a later yes (0.1.3) |
+| SameInstance | What a view's app asked is done only for the open that asked it, never for a later open of the same call (0.1.3) |
 | ToolCallsConsented | An app's tool call runs only where the rules allowed it (`rules`, `allow`), the setting allowed it (`allow`, rules not denying), or the person said yes, now or "this session" in this session |
 | DenyWins | A deny rule, at the time of the check, is never overridden |
 | AskedWhereClaudeCodeWouldAsk | Where the rules would ask, or the check failed, the person is asked, in every mode (unless they allowed the tool this session) |
@@ -179,23 +192,39 @@ The invariants, in plain words:
 | OnlyApprovedViews | Nothing happens for a view whose call Claude Code didn't let run |
 | GrantsEndWithSession | A "this session" yes never carries into the next session |
 
-Results, on an Apple M1 Max (32 GB, macOS 15.4.1), TLC 1.7.4 on Temurin 21:
+Results, on an Apple M1 Max (32 GB, macOS 15.4.1), TLC 1.7.4 on Temurin 21,
+`-workers auto`; state files under 150 MB (a run past it counts as failed),
+deleted after each run. The counts are TLC's final distinct-state counts
+(0.1.2's table took a progress line for some). With several workers the
+reported depth can differ by one from run to run, and for a violated
+configuration the states explored up to the first violation found vary too;
+the numbers below are one run's.
 
 | Configuration | Bounds | Result |
 |---|---|---|
-| Live | 4 calls on one server, 3 live at most, each opened once; up to symmetry | all hold; 131,783 states, depth 35 |
-| Reopen | 2 calls, 1 live, each opened twice | all hold; 62,681 states |
-| Race | 1 call opened, closed and reopened up to 3 times | all hold; 947 states, depth 24 |
-| Traffic | 2 calls on 2 servers, 1 live, every kind of app request, Claude Code changing its mind | all hold; 386,173 states, depth 29 |
-| TrafficShared | 2 calls on 1 server, both live, the same | all hold; 391,097 states |
-| Token | another program sending forged requests | all hold; 73,872 states |
-| ConsentRules, ConsentAsk, ConsentAllow | 2 tool calls (one app-only), two sessions, each setting | all hold; 534,554, 657,304 and 519,488 states, depth 16 |
-| ConsentOther | 2 messages, links or downloads, every appMessages setting | all hold; 72,769 states |
+| Live | 4 calls on one server, 3 live at most, each opened once; up to symmetry | all hold; 96,487 states, depth 33 |
+| Reopen | 2 calls, 1 live, each opened twice | all hold; 23,773 states, depth 32 |
+| Race | 1 call opened, closed and reopened up to 3 times | all hold; 434 states, depth 23 |
+| Traffic | 2 calls on 2 servers, 1 live, every kind of app request, Claude Code changing its mind | all hold, SendsOnlyWhileUsed and NoAnswerAfterNo among them; 470,040 states, depth 28 |
+| TrafficShared | 2 calls on 1 server, both live, the same | all hold, the same; 199,672 states, depth 27 |
+| Instance | 1 call opened twice, its app asking all along | SameInstance, NoOrphanPages, NoDeadViews hold; 1,164 states, depth 20 |
+| ReopenTraffic | 1 call opened twice, every kind of app request, Claude Code changing its mind | all hold (generations and cancelling together); 7,552 states, depth 22 |
+| Token | another program sending forged requests | all hold; 40,112 states, depth 24 |
+| ConsentRules, ConsentAsk, ConsentAllow | 2 tool calls (one app-only), two sessions, each setting | all hold; 947,520, 1,532,480 and 519,488 states, depth 16 |
+| ConsentOther | 2 messages, links or downloads, every appMessages setting | all hold; 72,769 states, depth 14 |
 | RaceBefore, RaceBeforeDead | Race against 0.1.1 | NoOrphanPages and NoDeadViews violated (the defects fixed in 0.1.2) |
 | TrafficBefore, TrafficBeforeNo | Traffic against 0.1.1 | GatedSends and NoSendAfterNo violated (fixed in 0.1.2) |
-| Window | Traffic, 0.1.2 | "sends only while Claude Code uses the server" violated, as documented: a request already on its way isn't called back, and the mod reuses a yes for up to 5 s for discovery and opening (never for an app's own traffic) |
-| Instance | 1 call reopened | "requests are answered only for the open that made them" violated, as documented: the mod finds a view by id, so a request from an earlier open of the same call can be answered for the reopened view (same call, same server, same app, consent asked as usual) |
+| WindowBefore | Traffic against 0.1.2 | SendsOnlyWhileUsed violated: the window 0.1.2 documented (a yes kept 5 s for discovery and opening; an open's resource read on the /open's yes) |
+| CancelBefore | TrafficShared with every 0.1.3 fix but the cancelling | NoAnswerAfterNo violated: an answer in flight when the mod hears the no still reached the app |
+| InstanceBefore | Instance against 0.1.2 | SameInstance violated: requests were matched to a view by id alone |
+| RaceGen | Race with generations but not the one-at-a-time order | NoDeadViews violated: a late /open of an earlier generation replaces the newer page, so the order stays |
 | Witness* | each outcome (a run, a message, a link, a save) | reachable, so the consent invariants don't hold for want of anything happening |
+
+`node model/check.mjs` ran all 24 configurations in 47 s; every one
+gave what it should. The configurations 0.1.2 had keep their bounds;
+ReopenTraffic and RaceGen are new. A larger one (2 calls of one server, each
+opened twice, with traffic) passed 150 MB of state files within 7 s and was
+dropped.
 
 What the model found, both fixed in 0.1.2 with a test each that fails on
 0.1.1:
@@ -210,6 +239,70 @@ What the model found, both fixed in 0.1.2 with a test each that fails on
    could close a reopened view's page (the view then stood live with no page),
    or arrive before its page existed and leave that page running unseen. They
    now go one at a time per id.
+
+The two windows 0.1.2 documented as reachable, closed in 0.1.3, each in
+the model first (the invariant that failed with the documented exception
+now holds without it), then in the code, each with tests that fail on
+0.1.2:
+
+3. **A request reached a server just after Claude Code stopped using it.**
+   0.1.2 kept a yes 5 s and reused it to discover and open views, read an
+   open's UI resource on the `/open`'s yes, asked Claude Code about an app's
+   tool before the person was asked (so the yes could be minutes old), and
+   let a request in flight go on. Now no yes is kept: each request the
+   helper writes to a server waits for Claude Code's verdict asked for it
+   (the helper's `check`, or the mod's answer to the app's own request,
+   asked again after the person's consent); a no tells the helper
+   (`/revoke`), which fails what is in flight to the server, closes the
+   connection and refuses any yes older than the no; and while the helper
+   waits on a server the mod asks again every 0.5 s. Model: FixAtSend and
+   FixRevoke (WindowBefore, CancelBefore). Tests: the mod's "no yes is
+   kept", "the helper's check before each request it writes", "while the
+   helper waits on a server", "an app-only tool's yes is asked of Claude
+   Code after the person's yes"; `tests/gate.rs`'s
+   `a_server_claude_code_says_no_to_is_never_started`,
+   `a_revoke_stops_the_server_and_refuses_a_yes_from_before_it`,
+   `a_revoke_cancels_a_request_in_flight`.
+4. **An earlier open's request could be answered for the reopened view.**
+   The mod found a view by its id (the tool call's), so what the page of an
+   earlier open of the same call asked (a message to Claude, a link, a tool
+   call, its context for the model) could be done for the view opened again
+   in its place. Now each open has its own generation, a nonce carried by
+   `/open`, every route about the view, every line the helper says of its
+   page and every answer; anything of another generation is refused or
+   ignored. Model: FixGen (InstanceBefore). Tests: the mod's "what an earlier
+   open's page asks is refused" and the reopen test's generations; the Rust
+   and Node helpers' generation rules (`views.rs` tests,
+   `test/generations.test.mjs`).
+
+What remains of the first, which no change in this plugin can remove:
+
+- Claude Code's yes and the helper's writing of the request are one local
+  round trip apart: a `check` line on the helper's stdout, the mod's
+  `$.mcp.connect`, its `/reply`. In the live session below the mod's reply
+  went out within 2 ms of `$.mcp.connect` answering, and took 0-2 ms. A
+  server switched off within that moment still gets the request.
+- A request already written isn't unsent: the server may have acted on it.
+  Closing the connection is its only notice, and over streamable HTTP rmcp
+  closes it with one more request, the session's `DELETE`.
+- Within one request, what follows the server's own answers goes on the same
+  yes: the second half of the connection's handshake (`initialized`),
+  further pages of a tool list, rmcp's upkeep of an HTTP server's event
+  stream while the connection stands.
+- The mod hears a no only when it asks: at the next request for that server,
+  or within 0.5 s while a request to it is in flight. An answer arriving
+  before then still reaches the app; a connection with nothing in flight (an
+  idle stdio server the helper started) stays open until then, or until the
+  helper exits. A `/revoke` reaches the helper one local request after the
+  no, and an answer can land in between.
+- An app's call of a tool the model also sees goes over Claude Code's own
+  connection (`$.mcp.call`), which Claude Code decides about.
+- The Node helper, which the plugin doesn't package or run, has the
+  generations but none of this (nor 0.1.2's recheck of an app's traffic).
+
+Nothing remains of the second within the model's bounds: a request, answer,
+note, picture or close of another generation is refused or ignored by both
+the mod and the Rust helper.
 
 ### The config gate, over every case
 
@@ -246,12 +339,30 @@ this branch's debug build: 4.6-9.9 ms, 8.2-8.7 MB), a `/ping` round trip in
 session; the helper starts with the first MCP call. The hooks module is
 160 KB of TypeScript. Nothing here was worth changing; the costs with views
 open (Chrome, pictures) are in [DESIGN.md](DESIGN.md) and were not measured
-again.
+again. These are 0.1.2's numbers; 0.1.3 changes nothing at start and adds one
+local round trip (a `check`) before each request the helper writes to a
+server: the mod's answer went out within 2 ms of Claude Code's and reached
+the helper in 0-2 ms in the live session below.
+
+## A live session (0.1.3)
+
+One real Claude Code 2.1.329 session (`bench/session.py`, a plain terminal,
+in a folder Claude Code already trusts, with the plugin's debug build of the
+helper) against the hosted arcade server: "Load the game msdos_DOOM_1993".
+The helper asked a `check` before each request it wrote (the connection,
+the tool list, the UI resource read ahead, its refreshes), each answered on
+`/reply`; the view opened with its generation in 155 ms (the tab kept
+ready), drew its pictures, took a click and keys, and closed with the
+session. Nothing was refused or logged as an error. The app made no calls of
+its server's tools of its own in that session, so `ui/allow-tool` and
+`ui/allow-read` were exercised by the tests, not live.
 
 ## Not run here
 
 Only macOS on Apple Silicon was available. Not run: macOS on Intel, Linux,
-Windows (CI is blocked by GitHub billing), the bench checks that need Chrome
-and the SDK's example servers, the render crate's parity tests (their
+Windows (CI is blocked by GitHub billing), the bench checks that need the
+SDK's example servers (`bench/gate-check.mjs` and `bench/redirect-check.mjs`
+pass against 0.1.3's debug build), the render crate's parity tests (their
 fixtures are made by the Node helper, whose packages aren't installed here),
-a live Claude Code session.
+a live session in which Claude Code stops using a server while a view of it
+is open.
