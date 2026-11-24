@@ -35,10 +35,22 @@ const source = computed(() => {
   if (props.cut && !cut) throw new Error(`Recording: no cut named ${props.cut} in media.json`)
   if (cut) {
     const v = cut.sha256.slice(0, 12)
-    return { src: `/media/${cut.file}?v=${v}`, poster: `/media/${cut.poster}?v=${v}`, width: cut.width, height: cut.height }
+    const name = cut.poster.replace(/\.jpg$/, '')
+    const webp = (w: number) => `${withBase(`/media/p/${name}-${w}.webp`)}?v=${v}`
+    return {
+      src: `/media/${cut.file}?v=${v}`,
+      poster: webp(cut.webp[cut.webp.length - 1]),
+      srcset: cut.webp.map((w) => `${webp(w)} ${w}w`).join(', '),
+      width: cut.width,
+      height: cut.height,
+    }
   }
-  return { src: props.src!, poster: props.poster!, width: props.width!, height: props.height! }
+  return { src: props.src!, poster: withBase(props.poster!), srcset: '', width: props.width!, height: props.height! }
 })
+// A cut's poster is a lazy <img> with srcset over the video (WebP, sized to the
+// slot, fetched only near the viewport), hidden once the video plays; a
+// recording from the repository keeps the video's own poster.
+const shown = ref(false)
 
 const root = ref<HTMLElement>()
 const video = ref<HTMLVideoElement>()
@@ -117,7 +129,7 @@ onBeforeUnmount(() => observer?.disconnect())
     <div class="frame" :style="{ aspectRatio: ratio }">
       <video
         ref="video"
-        :poster="withBase(source.poster)"
+        :poster="source.srcset ? undefined : source.poster"
         :width="source.width"
         :height="source.height"
         :loop="loop"
@@ -126,6 +138,20 @@ onBeforeUnmount(() => observer?.disconnect())
         preload="none"
         :aria-label="alt"
         @click="toggle"
+        @playing="shown = true"
+      />
+      <img
+        v-if="source.srcset"
+        v-show="!shown"
+        class="poster"
+        :srcset="source.srcset"
+        sizes="(min-width: 960px) 688px, calc(100vw - 48px)"
+        :src="source.poster"
+        :width="source.width"
+        :height="source.height"
+        alt=""
+        loading="lazy"
+        decoding="async"
       />
       <button type="button" class="toggle" :aria-label="playing ? 'Pause recording' : 'Play recording'" @click="toggle">
         <svg v-if="playing" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -142,3 +168,15 @@ onBeforeUnmount(() => observer?.disconnect())
     </figcaption>
   </figure>
 </template>
+
+<style scoped>
+.poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  background: var(--ap-screen);
+}
+</style>
