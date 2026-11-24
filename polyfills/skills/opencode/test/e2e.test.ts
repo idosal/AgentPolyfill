@@ -9,7 +9,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { waitFor, World, type Rule } from '../../../../tools/opencode/harness.ts';
+import { createServer } from 'node:http';
+import { freePort, waitFor, World, type Rule } from '../../../../tools/opencode/harness.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PLUGIN = join(ROOT, 'plugin');
@@ -188,5 +189,68 @@ describe('mcp-skills across an OpenCode restart', () => {
         await world.api('GET', `/api/mcp?location[directory]=${encodeURIComponent(world.project)}`);
         await turn(world, session, 'CALL opencode_read_mcp_resource {"server":"other","uri":"skill://other-skill/SKILL.md"}', 'reject', (p) => assert.equal(p.action, 'mcp_skills_cross_server'));
         assert.equal(other.requests('resources/read').length, 0);
+    });
+});
+
+describe('mcp-skills installed as a person would', () => {
+    const guide = skill('haiku-guide', 'Use when the user wants answers in haiku.');
+    const docs = fixture([guide]);
+    const skills = (w: World) => w.api<{ data: { id: string }[] }>('GET', `/api/skill?location[directory]=${encodeURIComponent(w.project)}`).then((r) => r.data.map((s) => s.id));
+
+    test('in the global opencode.json, in the object form, it loads in a project with no configuration of its own', async () => {
+        const world = new World({ plugins: [{ package: PLUGIN, options: {} }], mcp: { docs: docs.config }, configIn: 'global' });
+        try {
+            await world.start();
+            assert.ok(await waitFor(async () => (await skills(world)).includes('mcp-skills:docs:haiku-guide'), 30000, 'the served skill'));
+        } finally {
+            await world.stop();
+        }
+    });
+
+    test('with the option off, it does nothing', async () => {
+        const world = new World({ plugins: [{ package: PLUGIN, options: { off: true } }], mcp: { docs: docs.config }, configIn: 'global' });
+        try {
+            await world.start();
+            await waitFor(async () => (await world.api<{ data: { name: string; status: unknown }[] }>('GET', `/api/mcp?location[directory]=${encodeURIComponent(world.project)}`)).data.some((s) => JSON.stringify(s.status).includes('connected')), 30000, 'OpenCode to connect the server');
+            await new Promise((r) => setTimeout(r, 3000));
+            assert.ok(!(await skills(world)).some((id) => id.startsWith('mcp-skills:')));
+            const log = readFileSync(join(world.home, '.local', 'share', 'opencode', 'mcp-skills', 'mcp-skills.log'), 'utf8');
+            assert.match(log, /turned off/);
+        } finally {
+            await world.stop();
+        }
+    });
+});
+
+describe('mcp-skills with a server that needs a sign-in', () => {
+    const SECRET = 'test-secret-5d2e8a41c9';
+    let locked: ReturnType<typeof createServer>;
+    const docs = fixture([skill('haiku-guide', 'Use when the user wants answers in haiku.')]);
+    let world: World;
+    let session = '';
+    before(async () => {
+        locked = createServer((_req, res) => {
+            res.writeHead(401, { 'www-authenticate': 'Bearer realm="locked"' });
+            res.end();
+        });
+        const port = await freePort();
+        await new Promise<void>((r) => locked.listen(port, '127.0.0.1', r));
+        world = new World({ plugins: [PLUGIN], mcp: { docs: docs.config, locked: { type: 'remote', url: `http://127.0.0.1:${port}/mcp`, headers: { Authorization: `Bearer ${SECRET}` }, oauth: false } } });
+        await world.start();
+        session = await world.createSession();
+    });
+    after(async () => {
+        await world.stop();
+        locked.close();
+    });
+
+    test('it is named as not used, why, and the other server\'s skills still work; its header never shows', async () => {
+        const out = await turn(world, session, 'CALL mcp_skills_list_skills {}');
+        assert.match(out, /Not used: "locked": .*sign-in/);
+        assert.match(out, /haiku-guide/);
+        assert.doesNotMatch(out, new RegExp(SECRET));
+        const log = readFileSync(join(world.home, '.local', 'share', 'opencode', 'mcp-skills', 'mcp-skills.log'), 'utf8');
+        assert.doesNotMatch(log, new RegExp(SECRET));
+        assert.doesNotMatch(JSON.stringify(world.llmRequests()), new RegExp(SECRET));
     });
 });

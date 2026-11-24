@@ -59,8 +59,10 @@ a prompt, as a tool result from the same server could. How often is bounded
 - **Webhooks are verified.** Only deliveries signed with the watch's secret
   are taken, and only from a subscription on a connection that carries your
   credentials, as in the other forms.
-- **Push is OpenCode's.** The plugin opens no push stream. Event types a
-  server offers by push are left to OpenCode's own client.
+- **Push beside OpenCode's automations.** An event type offered by push is
+  watched by push, on the plugin's own connection. OpenCode's automations can
+  take push events too; the plugin tells the model to use one or the other,
+  so an event doesn't wake the session twice.
 - **No sign-in of its own.** The plugin connects with what your OpenCode
   configuration holds (a command, a URL, headers). It never reads OpenCode's
   stored credentials, OAuth tokens included, though OpenCode's plugin API

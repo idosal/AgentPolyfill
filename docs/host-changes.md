@@ -185,9 +185,14 @@ the live server.
   OpenCode applies its configuration (`mcp.status.changed`). Applying it
   before plugin setup, or documenting that event as the signal, would remove
   the wait.
-- **Poll and webhook delivery in OpenCode's own Events client.** It takes push
-  only. With poll and webhook too, the Events polyfill could stand down
-  entirely, and every event type would go through automations.
+- **Every event type, and poll and webhook, in OpenCode's own Events client.**
+  It takes push only, and skips an event type whose schemas it can't turn into
+  a checker (`pattern`, `format` and the SEP's `x-mcp-content` among what made
+  it skip the fixture server's types). With every valid schema, poll and
+  webhook, and a way to watch for a session, not only an automation, the
+  Events polyfill could stand down entirely. Until then a plugin can't ask
+  which event types OpenCode accepts (`opencode_list_mcp_events` is the
+  model's tool), so the polyfill watches them all.
 - **Mark synthetic messages to the model.** A synthetic message is stored as
   synthetic, but reaches the model in the user's role, so the polyfill's own
   first line is what says it isn't the user's.

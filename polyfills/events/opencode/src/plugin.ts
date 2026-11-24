@@ -9,9 +9,12 @@
 // every event; then `ctx.session.synthetic` hands the session a message saying
 // what is new, which wakes it if it is idle.
 //
-// OpenCode's own MCP client watches events by push itself (its automations take
-// an MCP event as a trigger). Where it does, this plugin leaves push to it and
-// watches only what OpenCode doesn't: event types delivered by poll or webhook.
+// OpenCode's own MCP client takes events by push too, for its automations (an
+// MCP event as a trigger), but only for event types whose schemas it can turn
+// into a checker: it skips others, valid SEP-3415 schemas among them. It doesn't
+// poll or take webhooks, and an automation isn't a watch of a session. So this
+// plugin watches any event type it is asked to, by whichever mode the SEP's
+// order picks, and points the model at automations as the alternative for push.
 
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -112,7 +115,7 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
     } catch {
         // not known: treated as no native support
     }
-    if (native) log('OpenCode watches MCP events by push itself: this plugin watches poll and webhook event types only');
+    if (native) log("OpenCode's automations take push events too; this plugin's watches are separate from them");
 
     secrets.add(env.MCP_EVENTS_RELAY_ACCESS_KEY, readRelaySettings(env)?.accessKey);
     const servers = new OpenCodeServers(ctx);
@@ -213,7 +216,6 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
         const p = (typeof input === 'object' && input !== null && !Array.isArray(input) ? input : {}) as Record<string, unknown>;
         if (name === 'watch_event' && typeof p.server === 'string' && typeof p.event === 'string') {
             const type = connections.get(p.server)?.eventTypes.find((t) => t.name === p.event);
-            if (type && native && type.delivery.includes('push')) return NATIVE_PUSH;
             if (type) await ask(call, ACTIONS.watch, p.server, p.event, { arguments: p.arguments ?? {}, note: p.note ?? '' });
         }
         if (name === 'unwatch_event' && typeof p.watch === 'string') {
@@ -221,9 +223,10 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
             if (w) await ask(call, ACTIONS.unwatch, w.server, w.event, { watch: w.id });
         }
         const answer = await s.call(name, p);
-        if (name === 'list_event_types' && native)
-            return `${answer.text}\n\nOpenCode watches the event types that offer push itself (automation_create with an event trigger). This plugin watches the others: those delivered by poll or webhook only.`;
-        return answer.isError ? `Error: ${answer.text}` : answer.text;
+        if (answer.isError) return `Error: ${answer.text}`;
+        if (native && name === 'list_event_types') return `${answer.text}\n\n${NATIVE_PUSH}`;
+        if (native && name === 'watch_event' && /, by push,/.test(answer.text)) return `${answer.text} ${NATIVE_PUSH}`;
+        return answer.text;
     };
 
     await ctx.tool.transform((editor) => {

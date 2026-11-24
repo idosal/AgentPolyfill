@@ -36,11 +36,18 @@ async function localWeb() {
         entries: [
           { identifier: 'urn:air:localhost:docs', type: 'application/mcp-server-card+json', url: `${origin}/docs.json` },
           { identifier: 'urn:air:localhost:keyed', type: 'application/mcp-server-card+json', url: `${origin}/keyed.json` },
+          { identifier: 'urn:air:localhost:locked', type: 'application/mcp-server-card+json', url: `${origin}/locked.json` },
         ],
       })
     if (req.url === '/docs.json') return json(200, card({ name: 'com.example/docs', title: 'Example Docs', remotes: [{ type: 'streamable-http', url: `${origin}/mcp` }] }))
     if (req.url === '/keyed.json') return json(200, card({ name: 'com.example/keyed', title: 'Keyed', remotes: [{ type: 'streamable-http', url: `${origin}/keyed/mcp`, headers: [{ name: 'X-API-Key', isSecret: true }] }] }))
-    if (req.url === '/mcp' && req.method === 'POST') {
+    if (req.url === '/locked.json') return json(200, card({ name: 'com.example/locked', title: 'Locked', remotes: [{ type: 'streamable-http', url: `${origin}/locked/mcp` }] }))
+    // A server behind a sign-in: every request is refused with 401.
+    if (req.url?.startsWith('/locked/')) {
+      res.writeHead(401, { 'www-authenticate': `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/locked/mcp"` })
+      return res.end()
+    }
+    if (req.method === 'POST' && req.url === '/mcp') {
       const m = JSON.parse(body || '{}') as { id?: number; method?: string; params?: { protocolVersion?: string } }
       if (m.id === undefined) {
         res.writeHead(202)
@@ -96,7 +103,7 @@ describe('mcp-server-cards in OpenCode', () => {
 
   test('discover reads the catalog and checks each card, with OpenCode named', async () => {
     const out = await turn(world, session, `CALL server_cards_discover_mcp_servers {"domain":"${web.origin}"}`)
-    assert.match(out, /MCP servers listed: 2 \(2 with a valid Server Card\)\. Server Cards are advisory \(SEP-2127\): OpenCode checks/)
+    assert.match(out, /MCP servers listed: 3 \(3 with a valid Server Card\)\. Server Cards are advisory \(SEP-2127\): OpenCode checks/)
   })
 
   test("an add is put to OpenCode's permission rules, naming the server, URL and headers; rejected, nothing is added", async () => {
@@ -141,6 +148,12 @@ describe('mcp-server-cards in OpenCode', () => {
     assert.match(out, /nothing was added/)
     assert.match(out, /\{env:[A-Z0-9_]+\}/)
     assert.equal((await world.permissions(session)).length, 0)
+  })
+
+  test('a server behind a sign-in is added, and the answer says the sign-in is OpenCode\'s', async () => {
+    const out = await turn(world, session, `CALL server_cards_add_mcp_server ${JSON.stringify({ domain: web.origin, identifier: 'urn:air:localhost:locked', url: `${web.origin}/locked/mcp` })}`, 'once')
+    assert.match(out, /Added "[^"]+" \(http:\/\/127\.0\.0\.1:\d+\/locked\/mcp\)/)
+    assert.match(out, /asks for a sign-in: the person runs `opencode mcp auth [a-z0-9-]+` in a terminal\. OpenCode holds that sign-in itself/)
   })
 
   test('remove takes away only what the plugin added, after OpenCode\'s rules allow it', async () => {
