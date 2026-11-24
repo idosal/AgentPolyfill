@@ -36,8 +36,9 @@ install every polyfill at once:
 ```
 
 Or install just one, with its name in place of `agent-polyfill`:
-`mcp-events`, `mcp-apps-cli`, `mcp-skills` or `mcp-server-cards`. Then start a
-new `claude` session.
+`mcp-events`, `mcp-apps-cli`, `mcp-skills` or `mcp-server-cards`. Beyond MCP,
+`ard-discovery` adds ARD; it isn't in the bundle, so install it by name. Then
+start a new `claude` session.
 
 **Codex** (0.170 or newer; Skills was tested on 0.172; Node 20 or newer). In a
 terminal:
@@ -47,6 +48,13 @@ codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add mcp-events@agent-polyfill
 codex plugin add mcp-skills@agent-polyfill
 codex plugin add mcp-server-cards@agent-polyfill
+```
+
+Beyond MCP, ARD (a draft; every search asks you first and goes to a registry
+you choose):
+
+```
+codex plugin add ard-discovery@agent-polyfill
 ```
 
 There are [more ways to install](#more-ways-to-install) further down.
@@ -59,6 +67,7 @@ There are [more ways to install](#more-ways-to-install) further down.
 | Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | [`mcp-skills`](polyfills/skills/claude-code) | [`mcp-skills`](polyfills/skills/codex) |
 | Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) |
 | Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet |
+| ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) |
 
 All of them are early. Here is what each one does, and where it stops:
 
