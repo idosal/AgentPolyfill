@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
-const props = defineProps<{ command: string; label?: string }>()
+// wrap: false keeps the command on one line, scrolling sideways if it must
+// (Chrome breaks at <wbr> even under white-space: nowrap, so none are added).
+const props = withDefaults(defineProps<{ command: string; label?: string; wrap?: boolean }>(), { wrap: true })
 const copied = ref(false)
 // Where a wrapped command may break: after a space, after a dot, after "//",
 // and after a slash that ends a path segment. Each piece between those is kept
@@ -23,7 +25,8 @@ async function copy() {
 
 <template>
   <div class="ap-cmd">
-    <code :aria-label="label"><template v-for="(part, i) in parts" :key="i"><wbr v-if="i" /><span class="piece">{{ part }}</span></template></code>
+    <code v-if="wrap" :aria-label="label"><template v-for="(part, i) in parts" :key="i"><wbr v-if="i" /><span class="piece">{{ part }}</span></template></code>
+    <code v-else :aria-label="label">{{ command }}</code>
     <button type="button" :data-copied="copied" :aria-label="copied ? 'Copied' : 'Copy command'" @click="copy">
       <svg v-if="!copied" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
         <rect x="5.25" y="5.25" width="8" height="8" rx="1.5" />

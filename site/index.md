@@ -7,7 +7,11 @@ description: Open agent extensions, in the host you already have. Claude Code pl
 hero:
   name: AgentPolyfill
   text: Open agent extensions, in the host you already have.
-  tagline: "Claude Code plugins that add MCP Events, Apps, Skills and Server Cards. No server changes needed."
+  tagline: MCP Events, Apps, Skills and Server Cards for Claude Code. No server changes.
+  image:
+    light: /mark-light.svg
+    dark: /mark-dark.svg
+    alt: ""
   actions:
     - theme: brand
       text: Get started
@@ -15,26 +19,24 @@ hero:
     - theme: alt
       text: GitHub
       link: https://github.com/idosal/AgentPolyfill
+    - theme: alt
+      text: Security
+      link: /guide/security
 ---
 
 <div class="ap-home"><div class="wrap">
 
-<section aria-label="Launch video">
+<section aria-label="The launch video">
   <LaunchVideo />
 </section>
 
 <section>
   <h2>The polyfills</h2>
-  <p class="lede">Each one implements a published MCP extension's client side, follows its spec, and steps aside when Claude Code ships its own.</p>
+  <p class="lede">Each implements one MCP extension's client side, to spec, until Claude Code ships its own.</p>
   <PolyfillCards />
   <h3 class="beyond">Beyond MCP</h3>
-  <p class="lede">The same approach for an open draft outside MCP, installed on its own.</p>
   <PolyfillCards group="beyond" />
-</section>
-
-<section>
-  <h2>Who it is for</h2>
-  <Audiences />
+  <p class="closing">Building a polyfill or writing a spec? <a href="/guide/build-a-polyfill">Build a polyfill</a> · <a href="/guide/spec-authors">For spec authors</a></p>
 </section>
 
 </div></div>
