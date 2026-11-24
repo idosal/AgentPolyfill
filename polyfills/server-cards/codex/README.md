@@ -24,7 +24,7 @@ In a terminal:
 codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-server-cards@agent-polyfill
 ```
 
-The first command adds the [AgentPolyfill](../../../README.md) marketplace (Codex reads its `.agents/plugins/marketplace.json`), and the second installs the plugin. With the marketplace added, `/plugins` in the Codex TUI lists it too. Start a new Codex session afterwards.
+The first command adds the [AgentPolyfill](../../../README.md) marketplace (Codex reads its `.agents/plugins/marketplace.json`), and the second installs the plugin. With the marketplace added, `codex plugin list` shows both of its Codex plugins. Start a new Codex session afterwards.
 
 You need:
 
@@ -150,7 +150,7 @@ Codex has no Server Card support to detect yet. When it ships, remove or disable
   - Installed from this repository's marketplace into a throwaway `CODEX_HOME` (`codex plugin marketplace add`, `codex plugin add mcp-server-cards@agent-polyfill`): both servers started and listed their tools.
   - The sign-in step, with the real `codex mcp add` (0.172.0) against a local server that advertises OAuth: the entry was in `config.toml` when "Detected OAuth support" was printed, and the command was stopped before any registration request.
   - A live server that needs a sign-in, Buildkite, added the same way through [`ard-discovery`](../../ard/codex/README.md#proof-in-the-real-host), which runs this add: the entry was written, `codex mcp add` was stopped at its sign-in, and the result said `codex mcp login buildkite`.
-- **Not yet run in the real host:** a live card with headers. The headers path (`codex app-server` `config/value/write`) was checked by hand against a throwaway `CODEX_HOME`, and is tested with the stand-in `codex` (E-8); none of the live cards found has headers.
+- **Not yet run in the real host:** a live card with headers; and the form as the TUI or the desktop app draws it. In these runs the client answering the form was a script on app-server, the API both of them use, so the question reached the client exactly as recorded, but how it looks on screen was not seen. The headers path (`codex app-server` `config/value/write`) was checked by hand against a throwaway `CODEX_HOME`, and is tested with the stand-in `codex` (E-8); none of the live cards found has headers.
 - **Upstream conformance:** the MCP conformance suite has no Server Card scenarios.
 
 ## Limits, and the host changes that would remove them
