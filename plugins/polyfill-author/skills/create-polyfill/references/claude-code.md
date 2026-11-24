@@ -2,8 +2,8 @@
 
 What a polyfill can reach from inside Claude Code, and how existing ones are
 laid out. This was checked against the mod API types for Claude Code 2.1.330.
-The mod API is early access, so check each row against the types for the
-installed version before relying on it (the `plugin-authoring` skill names the
+The mod API is new and changes between releases, so check each row against
+the types for the installed version before relying on it (the `plugin-authoring` skill names the
 file).
 
 A polyfill is a mod: a hooks module that runs inside Claude Code, and usually

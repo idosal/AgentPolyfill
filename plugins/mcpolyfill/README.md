@@ -13,7 +13,11 @@ Today that is:
 - `mcp-apps-cli`: MCP Apps, app UIs inline in the terminal
   ([README](../../polyfills/claude-code/apps/README.md)).
 - `mcp-events`: MCP Events, Claude watches events on your MCP servers and
-  reacts when they happen.
+  reacts when they happen
+  ([README](../../polyfills/claude-code/events/README.md)).
+- `mcp-skills`: MCP Skills, skills served by your MCP servers are listed for
+  Claude and loaded when a task needs one
+  ([README](../../polyfills/claude-code/skills/README.md)).
 
 Each polyfill is a plugin of its own, so you can disable or uninstall any of
 them on its own, or install only the ones you want
