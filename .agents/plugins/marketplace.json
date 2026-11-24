@@ -1,0 +1,23 @@
+{
+  "name": "agent-polyfill",
+  "owner": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "interface": {
+    "displayName": "AgentPolyfill"
+  },
+  "plugins": [
+    {
+      "name": "mcp-events",
+      "source": {
+        "source": "local",
+        "path": "./polyfills/events/codex/plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

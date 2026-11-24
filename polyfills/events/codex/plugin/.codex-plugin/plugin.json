@@ -1,0 +1,29 @@
+{
+  "name": "mcp-events",
+  "version": "0.1.0",
+  "description": "MCP Events (SEP-3415) for Codex: Codex can watch events on your MCP servers (poll, push or webhook), and an event wakes the idle session that asked for it.",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "homepage": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex",
+  "repository": "https://github.com/idosal/AgentPolyfill",
+  "license": "Apache-2.0",
+  "keywords": ["mcp", "events", "sep-3415", "webhooks", "polyfill"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "MCP Events",
+    "shortDescription": "Watch events on your MCP servers; an event wakes the idle session",
+    "longDescription": "Adds the client side of the MCP Events extension (SEP-3415) to Codex. Ask Codex to watch something one of your MCP servers reports, such as a failed deploy or a new ticket; when it happens, the session is woken with a message naming the server, the event type and the event's id, and Codex reads the event and acts on it through its usual approvals.",
+    "developerName": "Ido Salomon",
+    "category": "Developer Tools",
+    "capabilities": ["Read"],
+    "defaultPrompt": [
+      "What can you watch on my MCP servers?",
+      "Watch my deploys and tell me when one fails.",
+      "What are you watching?"
+    ],
+    "websiteURL": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex"
+  }
+}

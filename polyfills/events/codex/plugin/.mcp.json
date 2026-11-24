@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "mcp-events": {
+      "command": "node",
+      "args": ["./dist/helper.js"],
+      "cwd": ".",
+      "env_vars": [
+        "CODEX_HOME",
+        "MCP_EVENTS_OFF",
+        "MCP_EVENTS_STATE",
+        "MCP_EVENTS_CONFIG",
+        "MCP_EVENTS_SERVERS",
+        "MCP_EVENTS_SKIP",
+        "MCP_EVENTS_PRE_STANDARD",
+        "MCP_EVENTS_CODEX_BIN",
+        "MCP_EVENTS_CODEX_REMOTE",
+        "MCP_EVENTS_BATCH_MS",
+        "MCP_EVENTS_WAKE_GAP_S",
+        "MCP_EVENTS_WAKES_PER_HOUR",
+        "MCP_EVENTS_WAKE_VALUES",
+        "MCP_EVENTS_MIN_POLL_MS",
+        "MCP_EVENTS_CONNECT_TIMEOUT_MS",
+        "MCP_EVENTS_RELAY",
+        "MCP_EVENTS_RELAY_URL",
+        "MCP_EVENTS_RELAY_ACCESS_KEY",
+        "MCP_EVENTS_RELAY_FILE",
+        "MCP_EVENTS_PUBLIC_URL",
+        "MCP_EVENTS_RECEIVER_PORT"
+      ],
+      "startup_timeout_sec": 30
+    }
+  }
+}
