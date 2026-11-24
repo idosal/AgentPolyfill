@@ -12,9 +12,9 @@ ships its own. Servers need no changes.
 The aim is an open community around open specs, where anyone can use these
 capabilities in the host they have, build the next polyfill, or propose a new
 extension, and support does not depend on one host's roadmap. Today that is
-Claude Code, four MCP extensions, and one open draft beyond MCP (Agentic
-Resource Discovery). Other hosts are where it is meant to go; they are not
-built yet.
+Claude Code with four MCP extensions and one open draft beyond MCP (Agentic
+Resource Discovery), and Codex with Events ([Other hosts](#other-hosts)).
+More hosts are where it is meant to go.
 
 - **For users:** one line to install, one line to try. See below.
 - **For builders:** the `create-polyfill` and `design-extension` skills, and
@@ -225,12 +225,26 @@ server. The details, and the questions they raise about permissions, are in
 
 ## Other hosts
 
-We have not found a documented way for third-party code to send requests over
-the host's MCP connection in Codex, Cursor or VS Code, and ChatGPT runs no
-third-party code on the client side. For those hosts the only polyfill is a
-gateway: an MCP server that presents an extension as plain tools. It is a
-weaker form (for Events, the model has to poll and nothing wakes it), and none
-is built here yet.
+OpenAI Codex is the second host. A Codex plugin brings an MCP server, every
+tool call it receives names the session (`_meta.threadId`), and
+`codex queue --resume` starts a turn in an idle session from outside, so
+Events works there as a plugin:
+[`polyfills/events/codex`](polyfills/events/codex).
+
+| Extension | Spec | Polyfill | State |
+|---|---|---|---|
+| Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events` for Codex](polyfills/events/codex) | Early: poll, push and webhook; an event wakes an idle Codex session through `codex queue`. No OAuth servers; a resumed session's watches start at its first mcp-events tool call. |
+
+```
+codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-events@agent-polyfill
+```
+
+Codex has no documented way for third-party code to send requests over its
+own MCP connection, so as in Claude Code, servers behind OAuth are out of
+reach ([`docs/host-changes.md`](docs/host-changes.md)). We have not found such
+a way in Cursor or VS Code, and ChatGPT runs no third-party code on the client
+side; for those the only polyfill is a gateway (an MCP server that presents an
+extension as plain tools), a weaker form, and none is built here yet.
 
 ## More ways to install
 
