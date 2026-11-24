@@ -23,7 +23,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir, userInfo } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve, win32 } from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import type { HeadersHelper, ServerTable, UpstreamConfig } from '../../core/src/upstream.ts';
 
@@ -49,10 +49,15 @@ function isSelf(arg: string): boolean {
     return /mcp-events[^\\/]*(?:[\\/][^\\/]+){0,3}[\\/]dist[\\/]helper\.js$/.test(arg) || /[\\/]events[\\/]codex[\\/](?:plugin[\\/]dist[\\/]helper\.js|src[\\/]helper\.ts)$/.test(arg);
 }
 
-function defaultManagedFiles(): string[] {
-    if (process.platform === 'win32') return [];
+/**
+ * Where Codex reads an organisation's requirements: /etc/codex on Linux and macOS (with the legacy
+ * managed_config.toml), managed-preferences profiles on macOS, and %ProgramData%\OpenAI\Codex on
+ * Windows. A Windows policy set in the registry or by MDM is not visible here.
+ */
+export function defaultManagedFiles(platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env): string[] {
+    if (platform === 'win32') return [win32.join(env.PROGRAMDATA || env.ProgramData || 'C:\\ProgramData', 'OpenAI', 'Codex', 'requirements.toml')];
     const files = ['/etc/codex/requirements.toml', '/etc/codex/managed_config.toml'];
-    if (process.platform === 'darwin') files.push('/Library/Managed Preferences/com.openai.codex.plist', `/Library/Managed Preferences/${userInfo().username}/com.openai.codex.plist`);
+    if (platform === 'darwin') files.push('/Library/Managed Preferences/com.openai.codex.plist', `/Library/Managed Preferences/${userInfo().username}/com.openai.codex.plist`);
     return files;
 }
 

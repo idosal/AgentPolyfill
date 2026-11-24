@@ -27,10 +27,10 @@ export type Gate =
     | { kind: 'wait'; ms: number }
     /** The hour's wakes are spent: say so, once. */
     | { kind: 'notice' }
-    /** Said already: nothing until the person speaks. */
-    | { kind: 'paused' };
+    /** Said already: nothing until the person speaks (or, where the pause lifts by itself, for `ms`). */
+    | { kind: 'paused'; ms?: number };
 
-type Saved = { last?: Record<string, number>; wakes?: number[]; paused?: boolean; noticeHanded?: boolean };
+type Saved = { last?: Record<string, number>; wakes?: number[]; paused?: boolean; pausedAt?: number; noticeHanded?: boolean };
 
 export function wakeLimits(env: NodeJS.ProcessEnv): { gapMs: number; perHour: number } {
     const num = (v: string | undefined, fallback: number) => {
@@ -56,18 +56,30 @@ export class WakeBudget {
      * counts as given, whenever its ack comes, as it does for the helper that handed it over.
      */
     #noticeHanded = false;
+    /**
+     * How long the pause lasts when nobody speaks, where it lifts by itself (Codex, where the person
+     * can be seen only through the turn metadata of a tool call). Unset: until the person speaks.
+     */
+    readonly #liftAfterMs?: number;
+    /** When waking stopped, for a pause that lifts by itself. */
+    #pausedAt?: number;
 
-    /** `file`: where the count is kept, so a helper that restarts does not start the hour again. */
-    constructor(limits: { gapMs: number; perHour: number }, file?: string) {
+    /**
+     * `file`: where the count is kept, so a helper that restarts does not start the hour again.
+     * `o.liftAfterMs`: the pause also lifts by itself after this long.
+     */
+    constructor(limits: { gapMs: number; perHour: number }, file?: string, o: { liftAfterMs?: number } = {}) {
         this.gapMs = limits.gapMs;
         this.perHour = limits.perHour;
         this.#file = file;
+        this.#liftAfterMs = typeof o.liftAfterMs === 'number' && o.liftAfterMs > 0 ? o.liftAfterMs : undefined;
         if (!file) return;
         try {
             const saved = JSON.parse(readFileSync(file, 'utf8')) as Saved;
             for (const [k, v] of Object.entries(saved.last ?? {})) if (typeof v === 'number') this.#last.set(k, v);
             this.#wakes = (saved.wakes ?? []).filter((t) => typeof t === 'number');
             this.#paused = saved.paused === true;
+            if (typeof saved.pausedAt === 'number') this.#pausedAt = saved.pausedAt;
             this.#noticeHanded = saved.noticeHanded === true;
         } catch {
             // nothing kept yet
@@ -86,7 +98,7 @@ export class WakeBudget {
     #save(): void {
         if (!this.#file) return;
         try {
-            writeFileSync(this.#file, JSON.stringify({ last: Object.fromEntries(this.#last), wakes: this.#wakes, paused: this.#paused, noticeHanded: this.#noticeHanded } satisfies Saved), { mode: 0o600 });
+            writeFileSync(this.#file, JSON.stringify({ last: Object.fromEntries(this.#last), wakes: this.#wakes, paused: this.#paused, pausedAt: this.#pausedAt, noticeHanded: this.#noticeHanded } satisfies Saved), { mode: 0o600 });
         } catch {
             // counted in memory all the same
         }
@@ -94,7 +106,21 @@ export class WakeBudget {
 
     /** Whether events waiting for these watches may wake the session now. */
     gate(watches: string[], now = Date.now()): Gate {
-        if (this.#paused) return { kind: 'paused' };
+        if (this.#paused) {
+            if (this.#liftAfterMs === undefined) return { kind: 'paused' };
+            // A pause kept from before it could lift by itself counts from now.
+            if (this.#pausedAt === undefined) {
+                this.#pausedAt = now;
+                this.#save();
+            }
+            const left = this.#pausedAt + this.#liftAfterMs - now;
+            if (left > 0) return { kind: 'paused', ms: left };
+            // Nobody spoke for the whole of it: the hour starts again, as it does when someone does.
+            this.#paused = false;
+            this.#pausedAt = undefined;
+            this.#wakes = [];
+            this.#save();
+        }
         // A wake starts when any one of the watches is due; what waits for the others goes with it.
         const waits = watches.map((w) => Math.max(0, (this.#last.get(w) ?? -Infinity) + this.gapMs - now));
         const wait = waits.length ? Math.min(...waits) : 0;
@@ -123,9 +149,10 @@ export class WakeBudget {
     }
 
     /** The session was told that waking has stopped. */
-    pause(): void {
+    pause(now = Date.now()): void {
         this.#paused = true;
         this.#noticeHanded = false;
+        if (this.#liftAfterMs !== undefined) this.#pausedAt = now;
         this.#save();
     }
 
@@ -134,6 +161,7 @@ export class WakeBudget {
         const was = this.#paused;
         if (!was && !this.#wakes.length) return false;
         this.#paused = false;
+        this.#pausedAt = undefined;
         this.#wakes = [];
         this.#save();
         return was;

@@ -44,11 +44,18 @@ model, are what tell it apart from what you typed.
   is yours to choose, and it puts text a server wrote into the conversation.
 - **Events wake a session only so often.** A watch can start a wake at most
   once a minute; a session is woken at most 30 times in an hour. Past that it
-  is told once that events are waiting, and is not woken again until you
-  write to it and Codex then calls one of the plugin's tools (the plugin sees
-  that the turn was started by you, from the turn metadata Codex sends with
-  each call; it never reads what you wrote). Nothing is dropped.
-  `MCP_EVENTS_WAKE_GAP_S` and `MCP_EVENTS_WAKES_PER_HOUR` change the numbers.
+  is told once that events are waiting, and is not woken again for an hour,
+  or until, sooner, you write to it and Codex then calls one of the plugin's
+  tools in that turn. Nothing is dropped. `MCP_EVENTS_WAKE_GAP_S` and
+  `MCP_EVENTS_WAKES_PER_HOUR` change the numbers.
+  - **How it knows you wrote.** From the turn metadata Codex 0.172 sends with
+    each call (`x-codex-turn-metadata.turn_trigger`); it never reads what you
+    wrote. Only `user` (typed in Codex), `exec` (`codex exec`) and `realtime`
+    or `voice` (voice) count. A turn the queue started (this plugin's own wake
+    among them), a hook, an automation, a trigger it does not know, and a call
+    with no turn metadata (a Codex before 0.172) do not. So a woken turn
+    cannot lift the cap, and on a Codex that sends no turn metadata the pause
+    ends only after its hour.
 - **A watch belongs to one session.** The session is the one Codex names in
   each call (`_meta.threadId`), which the model cannot set. Only an id in
   Codex's own form (a UUID) is accepted; it names the state folder and is the
@@ -58,6 +65,16 @@ model, are what tell it apart from what you typed.
   as one argument, and `--resume`, and with none of the plugin's own settings
   in its environment. What Codex prints is not repeated, only whether it
   worked.
+  - **On macOS and Linux** that is the `codex` program found on PATH (or in
+    `MCP_EVENTS_CODEX_BIN`), started directly.
+  - **On Windows** (not tried) the plugin runs only `codex.exe`, or, for Codex
+    installed with npm, Node itself with the package's
+    `node_modules\@openai\codex\bin\codex.js`, found beside npm's `codex.cmd`.
+    It never runs a `.cmd` or `.bat`, npm's `codex.cmd` included, because
+    those go through cmd.exe, which would parse the message a second time.
+    `MCP_EVENTS_CODEX_BIN` may name a `codex.exe` or a `codex.js`, nothing
+    else. If neither is found, the plugin does not wake the session, and
+    `list_watches` and the log say why.
 - **Starting and stopping a watch ask first.** `watch_event` and
   `unwatch_event` are not marked read-only, so Codex asks you (or its
   reviewer) before each. The four tools that only read are marked read-only,
@@ -66,9 +83,12 @@ model, are what tell it apart from what you typed.
   It reads `[mcp_servers.*]` from `$CODEX_HOME/config.toml`; a server with
   `enabled = false` stays off; a server that signs in through Codex (`codex
   mcp login`, `auth = "chatgpt"`, an `oauth` table) is left alone; where an
-  organisation manages Codex (`/etc/codex/requirements.toml` or
-  `managed_config.toml` naming MCP, or a managed-preferences profile on
-  macOS), it connects to none. Credentials come only from the server's own
+  organisation manages Codex, it connects to none. That is: on macOS and
+  Linux, `/etc/codex/requirements.toml` or `managed_config.toml` naming MCP
+  (or unreadable), or on macOS a managed-preferences profile for Codex; on
+  Windows, `%ProgramData%\OpenAI\Codex\requirements.toml` naming MCP (or
+  unreadable). A Windows policy set only in the registry or by MDM is not
+  detected. Credentials come only from the server's own
   configuration: `http_headers`, `env_http_headers` and `bearer_token_env_var`
   (from the variables Codex passes the plugin), and `http_headers_helper`.
   **It never reads Codex's stored credentials** (`auth.json`, OAuth tokens,

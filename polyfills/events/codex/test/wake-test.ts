@@ -6,7 +6,8 @@
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
-import { newThread, sleep, startHelper, untilActive, waitFor, world } from './harness.ts';
+import { ThreadSession } from '../src/threads.ts';
+import { newThread, sleep, startHelper, temp, untilActive, waitFor, world } from './harness.ts';
 
 describe('which session', () => {
     test("a watch belongs to the session that made it: its events wake that session, and another session does not see it", async () => {
@@ -104,12 +105,55 @@ describe('how often', () => {
             await h.call('list_watches', {}, thread, 'queue');
             await sleep(1000);
             assert.equal(w.queued().length, 2);
-            // The person writes, and the model calls a tool in that turn.
-            await h.call('list_watches', {}, thread, 'composer');
+            // CX1: nor is a turn Codex says nothing about, or one started by something else (a hook).
+            await h.request('tools/call', { name: 'list_watches', arguments: {}, _meta: { threadId: thread } });
+            await h.request('tools/call', { name: 'list_watches', arguments: {}, _meta: { threadId: thread, 'x-codex-turn-metadata': { thread_id: thread } } });
+            await h.call('list_watches', {}, thread, 'hook');
+            await sleep(1000);
+            assert.equal(w.queued().length, 2, 'not woken by a turn that is not the person\'s');
+            // The person writes (the TUI says "user"), and the model calls a tool in that turn.
+            await h.call('list_watches', {}, thread, 'user');
             await waitFor(() => w.queued().length === 3, 20000, 'waking again');
             assert.match(w.queued()[2]!.message, /2 new events \[events e2, e3;/);
         } finally {
             await h.stop();
+        }
+    });
+});
+
+describe('CX1: when the person never writes', () => {
+    test('the pause after the hourly limit lifts by itself after its time, and what waited is handed over in one wake', async () => {
+        const base = temp('mcp-events-codex-lift-');
+        const wakes: string[] = [];
+        const s = new ThreadSession(newThread(), {
+            base,
+            connections: new Map(),
+            unavailable: () => [],
+            wake: async (_thread, text) => {
+                wakes.push(text);
+                return { ok: true, resumed: true };
+            },
+            log: () => {},
+            env: { MCP_EVENTS_WAKE_GAP_S: '0', MCP_EVENTS_WAKES_PER_HOUR: '1', MCP_EVENTS_BATCH_MS: '50' },
+            // An hour in use; a second and a half here.
+            liftAfterMs: 1500
+        });
+        try {
+            assert.equal(s.start(), true);
+            const event = (eventId: string) => s.spool.append({ kind: 'event', watch: 'w-aaaaaa', server: 'tickets', event: 'ticket.created', eventId, data: {} });
+            event('a1');
+            await waitFor(() => wakes.length === 1, 5000, 'the wake');
+            event('a2');
+            await waitFor(() => wakes.length === 2, 5000, 'the notice');
+            assert.match(wakes[1]!, /has stopped waking it/);
+            event('a3');
+            await sleep(500);
+            assert.equal(wakes.length, 2, 'paused');
+            // Nobody writes. The pause lifts on its own, without a new event to prompt it.
+            await waitFor(() => wakes.length === 3, 5000, 'waking again after the pause');
+            assert.match(wakes[2]!, /2 new events \[events e2, e3;/);
+        } finally {
+            await s.stop();
         }
     });
 });
