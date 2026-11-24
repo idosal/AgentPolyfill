@@ -16,12 +16,13 @@
 // session spool (which the monitor prints), and its cursor saved.
 
 import { randomBytes } from 'node:crypto';
+import { dirname } from 'node:path';
 import { errorCode, EventsConnection, EventsError, type DeliveryMode, type Occurrence } from './events-client.ts';
 import { mailboxKey, readRelaySettings, RelayClient } from './relay.ts';
 import { publicAddress } from './tunnel.ts';
 import { describeError, isoDate, LocalError, secrets } from './untrusted.ts';
 import { MAX_CURSOR, newSecret, Receiver, ReplayGuard, type Hook } from './webhooks.ts';
-import type { ProjectState, Spool, Watch } from './store.ts';
+import { alive, peekSpool, saveDeliveredPosition, type ProjectState, type Spool, type SpoolRecord, type Watch } from './store.ts';
 
 type Json = Record<string, unknown>;
 /** How soon a poll may follow the last one, whatever the server says (MCP_EVENTS_MIN_POLL_MS). */
@@ -142,8 +143,84 @@ export class WatchManager {
         this.holder = undefined;
         this.project.reload();
         for (const w of this.watches) this.#redact?.add(w.webhook?.secret, w.webhook?.url);
+        try {
+            this.#recover();
+        } catch {
+            this.#log('what earlier sessions left behind could not be read; nothing was taken from it');
+        }
         for (const w of this.watches) if (w.status !== 'ended') this.#run(w);
         return true;
+    }
+
+    /**
+     * What earlier helpers of this project left behind, read before the watches run:
+     *   - an event already in a listed session's spool counts as seen, though its watch was not
+     *     saved after it (the helper stopped between the two writes), so it is not written again;
+     *   - an event an earlier session stored and never handed over (Claude Code closed while its
+     *     wake waited) is appended to this session's spool, in one write, unless it was handed over
+     *     somewhere or is here already; then that session counts it as handed over and is taken off
+     *     the list. A session whose helper still runs is left alone.
+     * A crash between the append and the marking can show such an event twice; it cannot lose it.
+     * (model/delivery.qnt: recovery, Carry and Settle.)
+     */
+    #recover(): void {
+        const base = dirname(dirname(this.spool.dir));
+        const mine = new Set(this.watches.map((w) => w.id));
+        this.project.list(this.session);
+        const key = (r: SpoolRecord) => `${r.watch}\0${r.eventId}`;
+        const isEvent = (r: SpoolRecord) => r.kind === 'event' && typeof r.watch === 'string' && mine.has(r.watch) && typeof r.eventId === 'string';
+        const here = new Set(this.spool.all().filter(isEvent).map(key));
+        const handed = new Set<string>();
+        const found = new Map<string, Set<string>>();
+        const waiting: SpoolRecord[] = [];
+        const settle: { session: string; dir: string; size: number }[] = [];
+        for (const { session, pid } of this.project.listed()) {
+            if (session === this.session) continue;
+            // Still running (another window that lost the claim a moment ago): not ours to take from.
+            if (pid !== process.pid && alive(pid)) continue;
+            const peek = peekSpool(base, session);
+            for (const { rec, end } of peek.records) {
+                if (!isEvent(rec)) continue;
+                let ids = found.get(rec.watch!);
+                if (!ids) found.set(rec.watch!, (ids = new Set()));
+                ids.add(rec.eventId!);
+                if (end <= peek.delivered) handed.add(key(rec));
+                else waiting.push(rec);
+            }
+            settle.push({ session, dir: peek.dir, size: peek.size });
+        }
+        for (const r of this.spool.all()) if (isEvent(r)) (found.get(r.watch!) ?? found.set(r.watch!, new Set()).get(r.watch!)!).add(r.eventId!);
+        let changed = false;
+        for (const w of this.watches) {
+            const have = new Set(w.seen);
+            // In spool order, so that the latest are the ones kept.
+            for (const id of found.get(w.id) ?? []) {
+                if (have.has(id)) continue;
+                have.add(id);
+                w.seen.push(id);
+                changed = true;
+            }
+            if (w.seen.length > SEEN_LIMIT) w.seen.splice(0, w.seen.length - SEEN_LIMIT);
+        }
+        const carry: SpoolRecord[] = [];
+        for (const r of waiting) {
+            if (handed.has(key(r)) || here.has(key(r))) continue;
+            here.add(key(r));
+            carry.push(r);
+        }
+        if (carry.length) {
+            this.spool.appendMany(carry.map(({ id: _id, ...r }) => r));
+            this.#log(`${carry.length} event(s) an earlier session stored and never showed are shown in this one`);
+        }
+        for (const s of settle) {
+            try {
+                saveDeliveredPosition(s.dir, s.size);
+            } catch {
+                // its folder is gone: nothing left there to take
+            }
+        }
+        this.project.unlist(settle.map((s) => s.session));
+        if (changed) this.#saveNow();
     }
 
     async stop(): Promise<void> {
@@ -414,6 +491,10 @@ export class WatchManager {
             const watchdog = !conn.stdio;
             let last = Date.now();
             let heartbeat: number | undefined;
+            // A server "sends a heartbeat whenever heartbeatMs passes without any other message", so
+            // the quiet before each heartbeat is the interval it keeps. Used only when `active` grants
+            // none: a grant is authoritative.
+            let kept: number | undefined;
             let flowed = false;
             let terminated: { code?: number } | undefined;
             const sent = w.cursor;
@@ -457,7 +538,9 @@ export class WatchManager {
                         inOrder(() => this.#deliver(w, o, o.cursor));
                     },
                     heartbeat: (h) => {
-                        last = Date.now();
+                        const now = Date.now();
+                        if (flowed) kept = Math.max(kept ?? 0, now - last);
+                        last = now;
                         inOrder(() => this.#cursor(w, h.cursor));
                     },
                     error: (p) => {
@@ -476,7 +559,8 @@ export class WatchManager {
             const dog = setInterval(() => {
                 if (!watchdog || terminated) return;
                 const quiet = Date.now() - last;
-                if (heartbeat === undefined ? quiet > FIRST_MESSAGE_MS : quiet > 3 * heartbeat) {
+                const interval = heartbeat ?? kept;
+                if (interval === undefined ? quiet > FIRST_MESSAGE_MS : quiet > 3 * interval) {
                     this.#log(`watch ${w.id}: stream silent for ${quiet} ms; reconnecting`);
                     s.cancel();
                 }

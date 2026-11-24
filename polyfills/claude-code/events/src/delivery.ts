@@ -127,6 +127,32 @@ export class Delivery {
         }
     }
 
+    /** The watches whose records lie between the acknowledged position and `upto` (a batch handed over by an earlier helper). */
+    watchesUpTo(upto: number): string[] {
+        let fd: number | undefined;
+        try {
+            fd = openSync(this.#spool.file, 'r');
+            const end = Math.min(upto, fstatSync(fd).size, this.#delivered + MAX_READ);
+            if (end <= this.#delivered) return [];
+            const buf = Buffer.alloc(end - this.#delivered);
+            const got = readSync(fd, buf, 0, buf.length, this.#delivered);
+            const watches = new Set<string>();
+            for (const line of buf.subarray(0, got).toString('utf8').split('\n')) {
+                try {
+                    const w = (JSON.parse(line) as SpoolRecord).watch;
+                    watches.add(String(w ?? ''));
+                } catch {
+                    // a partial or blank line
+                }
+            }
+            return [...watches];
+        } catch {
+            return [];
+        } finally {
+            if (fd !== undefined) closeSync(fd);
+        }
+    }
+
     /** Claude Code has taken everything up to `upto`. */
     ack(upto: number): void {
         if (!Number.isFinite(upto) || upto <= this.#delivered) return;

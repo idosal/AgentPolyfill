@@ -5,7 +5,9 @@
 # - the relay's own tests, in the local Workers runtime;
 # - the bundled helper started on Node 20 and on Bun, the runtimes an
 #   installed copy may find;
-# - claude plugin validate and the hooks module's tests (claude plugin test).
+# - claude plugin validate and the hooks module's tests (claude plugin test);
+# - the formal models in model/ (Quint): their scenarios, random simulation of
+#   their invariants, and a bounded model check with Apalache.
 
 name: "mcp-events: tests"
 
@@ -124,3 +126,34 @@ jobs:
         run: claude plugin validate mod
       - name: The hooks module's tests (claude plugin test)
         run: claude plugin test mod
+
+  model:
+    name: the formal models (Quint)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    env:
+      QUINT: npx --yes @informalsystems/quint@0.34.0
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: The counterexamples, as scenarios
+        run: |
+          $QUINT test model/delivery.qnt --backend typescript --max-samples 200
+          $QUINT test model/wake.qnt --backend typescript --max-samples 200
+      # Random simulation: it samples executions, it does not prove anything.
+      - name: The invariants, by simulation
+        run: |
+          for init in poll push webhook; do $QUINT run model/delivery.qnt --init $init --invariant Safety --max-samples 5000 --max-steps 60 --backend typescript; done
+          $QUINT run model/delivery.qnt --init webhookEvilRelay --invariant AtMostOnce --max-samples 5000 --max-steps 60 --backend typescript
+          $QUINT run model/delivery.qnt --init webhookEvilRelay --invariant NothingForged --max-samples 5000 --max-steps 60 --backend typescript
+          $QUINT run model/wake.qnt --init init --invariant Kept --max-samples 10000 --max-steps 40 --backend typescript
+      # A bounded model check (Apalache, which Quint downloads and runs on the runner's Java). It
+      # has not been run yet: it was written where neither Java nor Apalache could be installed,
+      # and CI was not running. Until a run shows it passes, a failure here does not fail the job.
+      - name: The invariants, by bounded model checking (not yet run)
+        continue-on-error: true
+        run: |
+          $QUINT verify model/wake.qnt --init init --invariant Kept --max-steps 12
+          for init in poll push webhook; do $QUINT verify model/delivery.qnt --init $init --invariant Safety --max-steps 10; done

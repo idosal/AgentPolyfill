@@ -143,8 +143,13 @@ describe('restarts', () => {
         await plugin.call('watch_event', { server: 'tickets', event: 'ticket.created' });
         await waitFor(() => w.fixtureMethods().includes('events/stream'), 8000, 'events/stream');
         await sleep(300);
+        // Shown in the first session. (One stored and never shown there would come to the next
+        // session: recovery-test.ts.)
+        const first = startMonitor(w, 'sess-1');
         w.emit('ticket.created', { ticketId: 'BEFORE' });
-        await sleep(1500);
+        await waitFor(() => first.lines.find((l) => l.includes('BEFORE')), 8000, 'the event, in the first session');
+        await sleep(500);
+        first.stop();
         await plugin.stop();
         await sleep(500);
         w.emit('ticket.created', { ticketId: 'WHILE-CLOSED' });

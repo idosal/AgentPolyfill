@@ -33,7 +33,7 @@ by itself, `/plugin marketplace add idosal/MCPolyfill`.
 `/plugin install mcpolyfill --marketplace idosal/MCPolyfill` installs every
 polyfill in the marketplace, this one included.
 
-The install is one small folder ([`mod/`](mod/), about 0.7 MB), and nothing
+The install is one small folder ([`mod/`](mod/), about 0.8 MB), and nothing
 else is downloaded. It needs Claude Code 2.1.326 or newer, and Node 20 or
 newer or Bun on your PATH ([Requirements](#requirements)).
 
@@ -166,7 +166,9 @@ plain words.
 
 Watches belong to the project folder and survive a restart: when you start
 Claude Code there again, a watch picks up where it stopped, and events from
-the meantime arrive if the server (or your relay, below) kept them.
+the meantime arrive if the server (or your relay, below) kept them. Events
+that had arrived and not been shown yet when Claude Code closed (their wake
+was held back, see Limits) are shown in the next session there.
 
 ## How it works
 
@@ -321,7 +323,8 @@ welcome.
   once a minute: events that come sooner wait, and are announced together. A
   session is woken at most 30 times in an hour; after that it is told once
   that events are waiting, and is not woken again until you send a message.
-  Nothing is dropped, and `recent_events` lists what waited. Two settings
+  Nothing is dropped: `recent_events` lists what waited, and if Claude Code
+  is closed first, the next session in the project is shown it. Two settings
   below change the numbers.
 - **A second connection.** The helper opens its own connection to each server
   that offers events, so a local (stdio) server runs twice. Servers without
@@ -330,7 +333,8 @@ welcome.
   come from an authenticated caller, so webhook delivery is used only for a
   server whose configuration carries a header or a `headersHelper`.
 - **Delivery is at least once.** After a crash at the wrong moment an event
-  can show twice.
+  can show twice: for example, when Claude Code closes just after a batch was
+  shown and before that was saved, the next session shows it again.
 - **Sizes.** One event is at most 256 KiB, one answer from a remote server
   4 MiB, one session's stored events 64 MiB.
 - **Managed machines.** Where your organisation sets an MCP allow or deny
@@ -404,7 +408,11 @@ way to see what Claude Code's own MCP client supports.
 ## More
 
 - [`docs/conformance.md`](docs/conformance.md): every client-side rule of
-  SEP-3415, with the code and the test for each.
+  SEP-3415, with the code and the test for each, and the upstream conformance
+  suite's result (17 of 17 of its Events client scenarios).
+- [`model/`](model/README.md): a formal model, in Quint, of how events get
+  from a server to the session and of how often they wake it; what it found
+  in 0.4.1, and what it shows of this version (by simulation, not proof).
 - [`docs/sign-in.md`](docs/sign-in.md): servers that need credentials, and why
   interactive OAuth is out of reach.
 - [`docs/performance.md`](docs/performance.md): what it costs to run.
@@ -437,6 +445,10 @@ claude --plugin-dir mod   # run it from this checkout
   [`mcp-events-test.yml`](../../../.github/workflows/mcp-events-test.yml)) and three
   interop runs against servers built on Mastra's `@mastra/mcp`
   (`npm run interop`, `test/interop/deploys.ts`, `test/interop/sign-in.ts`).
+- `npm run conformance` runs the upstream conformance suite's Events client
+  scenarios against the client, from a checkout of the suite
+  ([`docs/conformance.md`](docs/conformance.md)); `model/README.md` says how
+  to run the model's checks.
 - To release, change the version in `mod/.claude-plugin/plugin.json`,
   `package.json` and `src/version.ts`, rebuild, and merge to `main`: the
   marketplace installs this folder from `main`. Claude Code updates an
