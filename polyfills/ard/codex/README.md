@@ -28,7 +28,7 @@ In a terminal:
 codex plugin marketplace add idosal/AgentPolyfill && codex plugin add ard-discovery@agent-polyfill
 ```
 
-With the marketplace already added, `codex plugin add ard-discovery@agent-polyfill` is enough, and `/plugins` in the Codex TUI lists it. Start a new Codex session afterwards. It works on its own; installing [`mcp-server-cards`](../../server-cards/codex) beside it is optional.
+With the marketplace already added, `codex plugin add ard-discovery@agent-polyfill` is enough, and `codex plugin list` shows it. Start a new Codex session afterwards. It works on its own; installing [`mcp-server-cards`](../../server-cards/codex) beside it is optional.
 
 You need **Codex CLI 0.170.0 or newer** (tested with 0.170.0 and 0.172.0) and **Node.js 20 or newer** on your `PATH`. Nothing else: no account, no key.
 
