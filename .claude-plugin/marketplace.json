@@ -26,6 +26,11 @@
       }
     },
     {
+      "name": "mcp-skills",
+      "description": "MCP Skills (SEP-2640): skills served by your MCP servers are listed for Claude, loaded when a task needs one, and checked against the server's manifest",
+      "source": "./polyfills/claude-code/skills/mod"
+    },
+    {
       "name": "polyfill-author",
       "description": "Skills for building a polyfill (client support for an MCP extension in a host that hasn't shipped it) and for designing a new extension on top of MCP.",
       "source": "./plugins/polyfill-author"
