@@ -124,9 +124,9 @@ export const register: Register = (on, options) => {
   const defaultRegistry = typeof options.registry === 'string' ? options.registry.trim() : ''
   const showPicker = options.picker !== false
   // The Agentic Resource Discovery draft's parts: /.well-known/ard.json,
-  // rel="ard", and registry search. Outside SEP-2127; the `ard` setting turns
-  // them all off.
-  const ard = options.ard !== false
+  // rel="ard", and registry search. Outside SEP-2127, so off unless the
+  // person turns the `ard` setting on.
+  const ard = options.ard === true
   const pickerLine = '\n\nThe person can also add one of these by pressing its Add button, shown under this result.'
 
   on('session.start', async ($, e, next) => {

@@ -2,7 +2,7 @@
 
 A Claude Code mod that lets Claude find the MCP servers a domain publishes, and connect Claude Code to one. Name a company, and Claude reads that domain's catalog, fetches each Server Card it lists, checks the card against the schema, and shows you what it found. Under the result there is a list of the servers you can add, each with an **Add** button.
 
-> What MCP servers does neon.com publish?
+> What MCP servers does buildkite.com publish?
 
 Press **Add**, and the server goes into Claude Code's own MCP configuration, as if you had typed `claude mcp add`. Claude Code then connects it with its own sign-in. Nothing is installed besides that configuration entry, and the polyfill never sees a token.
 
@@ -22,7 +22,11 @@ Some of what this mod does comes from [Agentic Resource Discovery](https://githu
 - **`rel="ard"` links** in a page's `<head>` or `Link` header.
 - **Registry search**, `search_mcp_servers`: asking an ARD registry for a server that can do a task. It sends your query to that registry; see [Registry search](#registry-search).
 
-They are on by default. To turn them all off, set **`ard`** to off in `/config` (under the plugin). Discovery then reads only `/.well-known/ai-catalog.json` (and `rel="ai-catalog"`, from the AI Catalog), and `search_mcp_servers` is gone.
+**They are off by default.** Out of the box the polyfill is exactly SEP-2127 and what it references:
+- Discovery reads only `/.well-known/ai-catalog.json`, plus `rel="ai-catalog"` links from the AI Catalog.
+- There is no `search_mcp_servers`.
+
+To turn the ARD parts on, set **`ard`** to on in `/config` (under the plugin). Most sites that publish `ard.json` also publish `ai-catalog.json`, so discovery finds them either way.
 
 ## Install
 
@@ -57,11 +61,11 @@ claude --plugin-dir MCPolyfill/polyfills/claude-code/server-cards/mod
 
 ## Try it
 
-Ask Claude "What MCP servers does neon.com publish?", then press **Add** on **Neon Docs**: it needs no account. To remove it again: `claude mcp remove neon-docs -s local`.
+Ask Claude "What MCP servers does buildkite.com publish?", then press **Add** under the answer. Claude Code asks you to sign in to Buildkite through `/mcp`. For one that needs no account, ask about neon.com and press **Add** on **Neon Docs**; `claude mcp remove neon-docs -s local` removes it again.
 
 ## Using it, step by step
 
-1. **Ask.** For example "connect Claude Code to Buildkite", "what MCP servers does neon.com publish?", or, with ARD on, "find an MCP server that can check why my CI build failed".
+1. **Ask.** For example "connect Claude Code to Buildkite", "what MCP servers does neon.com publish?", or, with `ard` on, "find an MCP server that can check why my CI build failed".
 2. **Claude Code asks before the first lookup.** The first call to `discover_mcp_servers` or `search_mcp_servers` gets Claude Code's usual permission prompt, as any new tool does. If you say no, nothing is fetched.
 3. **Claude shows what it found:** each server's card, whether the card is valid, and, for a search result, whether the publisher's own domain confirms the server. A refused card says why; nothing refused can be added.
 4. **Pick one.** Under the result, a box lists the servers you can add. Each shows its name, the URL it connects to, and who stands behind it, with an **Add** button.
@@ -92,7 +96,7 @@ They are in `/config`, under the plugin.
 | Setting | Default | What it does |
 |---|---|---|
 | `disabled` | off | Turns the polyfill fully off: no tools, nothing fetched. |
-| `ard` | on | The ARD draft parts above: `ard.json`, `rel="ard"`, registry search. Off: only what SEP-2127 names. |
+| `ard` | off | The ARD draft parts above: `ard.json`, `rel="ard"`, registry search. Off: only what SEP-2127 names. |
 | `registry` | `https://huggingface-hf-discover.hf.space` | The ARD registry that `search_mcp_servers` asks when Claude names none. The query text is sent there. Empty: only a registry named in the request is used. |
 | `picker` | on | Shows the list of servers with **Add** buttons under discovery and search results. Off: you add servers by asking Claude. |
 | `notice_on_fetch` | on | After Claude fetches a page with WebFetch, the polyfill reads that site's catalog once per session. If the site publishes a server, you see one line in the transcript: "buildkite.com publishes an MCP server (Server Card): Buildkite". Claude is not told. Only sites Claude has already contacted are checked. |
@@ -102,7 +106,7 @@ They are in `/config`, under the plugin.
 | Tool | What it does |
 |---|---|
 | `discover_mcp_servers(domain)` | Reads the domain's catalogs and every card they list; reports each card, valid or refused. Read-only. |
-| `search_mcp_servers(query, registry?)` | (ARD) Asks an ARD registry; checks each card it returns, and whether the publisher's own catalog lists the server. Sends the query text to the registry. |
+| `search_mcp_servers(query, registry?)` | (ARD; only with `ard` on) Asks an ARD registry; checks each card it returns, and whether the publisher's own catalog lists the server. Sends the query text to the registry. |
 | `add_mcp_server(identifier, url, domain?, remote?, name?, scope?, values?)` | Adds a server one of the two tools above showed in this session, with `claude mcp add`, then asks Claude Code to connect it. `url` must be the URL the server will connect to. |
 
 ## Client rules
@@ -113,9 +117,9 @@ There is one row for each rule the specs put on a client, and the test that cove
 
 | # | Rule | Source | Test | State |
 |---|---|---|---|---|
-| D-1 | Fetch `https://{domain}/.well-known/ard.json` | ARD §5.1 (MUST); ARD draft, off with `ard` | D-1 D-2, B-5 | met |
+| D-1 | Fetch `https://{domain}/.well-known/ard.json` | ARD §5.1 (MUST); ARD draft, only with `ard` on | D-1 D-2, B-5, B-6, DEF-1 | met when `ard` is on |
 | D-2 | Attempt `/.well-known/ai-catalog.json`, as an equivalent source | discovery.md (SHOULD); ARD §5.1 (MAY) | D-1 D-2, D-6 | met |
-| D-3 | Honour `rel="ard"` (ARD draft, off with `ard`) and `rel="ai-catalog"` links, in a `Link` header or a `<link>` tag | ARD §5.1 (MUST); AI Catalog | D-7, D-13, D-15, B-5 | met |
+| D-3 | Honour `rel="ard"` (ARD draft, only with `ard` on) and `rel="ai-catalog"` links, in a `Link` header or a `<link>` tag | ARD §5.1 (MUST); AI Catalog | D-7, D-13, D-15, B-5 | met |
 | D-4 | Select the entries whose `type` is `application/mcp-server-card+json` | discovery.md, step 2 | D-3, E-1 | met |
 | D-5 | Fetch a `url` entry's card with `Accept: application/mcp-server-card+json` | discovery.md (SHOULD) | D-3 | met |
 | D-6 | Use a `data` entry's card inline | discovery.md, step 3 | D-4 | met |
@@ -141,7 +145,7 @@ There is one row for each rule the specs put on a client, and the test that cove
 
 ### Registry search
 
-This part implements a second spec, the ARD v0.91 draft (§5.3), for MCP Server Cards only. It is outside SEP-2127, and the `ard` setting turns it off. It shares the card checks above.
+This part implements a second spec, the ARD v0.91 draft (§5.3), for MCP Server Cards only. It is outside SEP-2127, so it is off by default; the `ard` setting turns it on. It shares the card checks above.
 
 | # | Rule | Source | Test | State |
 |---|---|---|---|---|
@@ -165,7 +169,7 @@ Claude Code has no Server Card support to detect yet. When it ships, turn on the
 ## Scope
 
 - **In the polyfill:** the SEP-2127 client rules above.
-- **Beside it, from the ARD draft, on by default and off with `ard`:** `/.well-known/ard.json`, `rel="ard"`, and registry search.
+- **Beside it, from the ARD draft, off by default and on with `ard`:** `/.well-known/ard.json`, `rel="ard"`, and registry search.
 - **Host presentation:** the tools, the picker under their results, and the one-line notice after a WebFetch. The extension's README describes that case: clients "can automatically discover Server Cards through AI Catalog entries advertised on domains present in agentic sessions".
 - **Not in it:**
   - ARD `POST /explore`, `GET /agents` and `federation: "auto"`.
@@ -175,9 +179,9 @@ Claude Code has no Server Card support to detect yet. When it ships, turn on the
 
 ## Proof
 
-- **Per rule:** 86 tests, run with `claude plugin test mod`.
+- **Per rule:** 90 tests, run with `claude plugin test mod`.
   - They cover the official example cards (`examples/ServerCard`, valid and invalid) and fixtures of my own for edge cases.
-  - Eight of them (B-1 to B-5, U-1 to U-3) run through the plugin as Claude Code loads it, with the engine's network, `claude mcp add` and connect stood in for.
+  - Ten of them (B-1 to B-7, U-1 to U-3) run through the plugin as Claude Code loads it, with the engine's network, `claude mcp add` and connect stood in for.
   - The picker is drawn on the terminal, desktop, VS Code and mobile surfaces, and a press of **Add** is followed to the exact `claude mcp add` it runs.
 - **Independent review:** two read-only review rounds by a second agent (Codex), on 2026-11-24. The first found 18 issues; the second checked the fixes and found 9 incomplete and 7 more issues. All of them are fixed, and each has a test: those marked "Review findings" and "Second review pass".
 - **Documents someone else wrote:** the catalogs and cards live on 2026-11-24 from Buildkite, GitHub, Hugging Face, Neon, Netlify, Notion, Context7, Exa, Supabase and Zapier.
@@ -216,7 +220,7 @@ What it sends, what it stores, what it changes and what it trusts are in [SECURI
 node demo/registry.mjs
 ```
 
-It listens on `http://127.0.0.1:9011`. Then, in Claude Code:
+It listens on `http://127.0.0.1:9011`. Turn `ard` on in `/config`, then, in Claude Code:
 
 > My CI build failed and I don't have a tool for it. Search the registry at http://127.0.0.1:9011 for an MCP server that can check why.
 

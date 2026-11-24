@@ -7,7 +7,7 @@
     "name": "Ido Salomon",
     "url": "https://github.com/idosal"
   },
-  "description": "MCP Server Cards (SEP-2127) for Claude Code: find the MCP servers a domain publishes, check their Server Cards, and add one with Claude Code's own config and sign-in; optional ARD registry search",
+  "description": "MCP Server Cards (SEP-2127) for Claude Code: find the MCP servers a domain publishes, check their Server Cards, and add one with Claude Code's own config and sign-in",
   "userConfig": {
     "disabled": {
       "type": "boolean",
@@ -18,8 +18,8 @@
     "ard": {
       "type": "boolean",
       "title": "Agentic Resource Discovery (draft) features",
-      "description": "Read /.well-known/ard.json and rel=\"ard\" links, and offer registry search (search_mcp_servers). These come from the ARD draft, not from the Server Cards spec (SEP-2127). Off: only /.well-known/ai-catalog.json, which SEP-2127 names.",
-      "default": true
+      "description": "Off by default. On: also read /.well-known/ard.json and rel=\"ard\" links, and offer registry search (search_mcp_servers). These come from the Agentic Resource Discovery draft, not from the Server Cards spec (SEP-2127). Off: only /.well-known/ai-catalog.json, which SEP-2127 names, and the AI Catalog it relies on.",
+      "default": false
     },
     "registry": {
       "type": "string",

@@ -68,7 +68,7 @@ export const formatServer = (s: FoundServer, n: number) => {
 export const formatDiscovery = (d: Discovery) => {
   const found = d.sources.filter(s => s.state === 'found')
   const lines: string[] = []
-  lines.push(`Discovery for ${d.origin} (MCP Server Cards, SEP-2127; ARD v0.91 / AI Catalog v0.9)`)
+  lines.push(`Discovery for ${d.origin} (MCP Server Cards, SEP-2127; AI Catalog v0.9${d.ard ? '; ARD v0.91 draft' : ''})`)
   lines.push('Sources read:')
   for (const s of d.sources)
     lines.push(`  - ${s.url} [${s.kind}]: ${s.state}${s.note ? ` (${clean(s.note, 200)})` : ''}`)

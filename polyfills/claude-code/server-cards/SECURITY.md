@@ -14,9 +14,9 @@ The client rules it follows, from SEP-2127 and, for the parts marked ARD, from t
 ## What the mod does
 
 **What it fetches.** Plain `GET`s, through Claude Code's own network path and under its web-fetch policy, with only `Accept` and `If-None-Match` headers: no cookies, no credentials. It reads:
-- for a domain you name: `/.well-known/ai-catalog.json`, `/.well-known/ard.json` (ARD) and that page's `rel` links;
+- for a domain you name: `/.well-known/ai-catalog.json` and that page's `rel="ai-catalog"` links, plus, with the `ard` setting on (off by default), `/.well-known/ard.json` and `rel="ard"` links;
 - the cards and nested catalogs those name;
-- for search (ARD): one `POST` of your query text to the registry, and up to three registries it refers to;
+- for search (only with `ard` on): one `POST` of your query text to the registry, and up to three registries it refers to;
 - after a WebFetch: that site's catalogs, once per session.
 
 Every fetch is bounded: at most 512 KiB per answer, 20 cards, 3 page links, 3 registries plus 3 referrals, 50 results per answer, 5 publisher checks, and nested catalogs 4 deep.
