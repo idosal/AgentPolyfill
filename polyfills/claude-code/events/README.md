@@ -16,61 +16,49 @@ shortened, and the frame zooms in on what is being typed or shown.
 
 ## Install
 
-At the prompt of a `claude` session in a terminal:
+At the prompt of a `claude` session:
 
 ```
-/plugin install mcp-events --marketplace idosal/claude-events-mod
+/plugin install mcp-events --marketplace idosal/MCPolyfill
 ```
 
-Or from a shell:
+Or in a terminal:
 
 ```bash
-claude plugin install mcp-events --marketplace idosal/claude-events-mod
+claude plugin install mcp-events --marketplace idosal/MCPolyfill
 ```
 
-You need:
+Either adds the [MCPolyfill](../../../README.md) marketplace and installs
+the plugin in one step. With the marketplace already added,
+`/plugin install mcp-events@mcpolyfill` does the same; to add the marketplace
+by itself, `/plugin marketplace add idosal/MCPolyfill`.
+`/plugin install mcpolyfill --marketplace idosal/MCPolyfill` installs every
+polyfill in the marketplace, this one included.
 
-- **Claude Code 2.1.326 or newer.**
-- **Node 20 or newer, or Bun, on your PATH.** Claude Code itself needs
-  neither, so check with `node --version`. Without one the mod tells you once
-  and does nothing.
-
-Nothing else is installed or downloaded: the install is one small folder
-([`mod/`](mod/), about 0.7 MB).
-
-What you will be asked, once each:
-
-- **By the install:** whether to add the marketplace (`y`), and a scope
-  (Enter for all your projects).
-- **By Claude Code, the first time Claude uses one of the mod's tools:**
-  whether to allow it, as for any tool. Choose "don't ask again", or allow
-  them all up front in `~/.claude/settings.json`:
-
-  ```json
-  { "permissions": { "allow": ["mcp__mcp-events__*"] } }
-  ```
-
-  This matters for waking: if Claude has to ask before it may read an event,
-  an event that arrives while you are away waits at that question.
-
-The mod loads only in a folder you have told Claude Code you trust, like any
-plugin code.
+The install is one small folder ([`mod/`](mod/), about 0.7 MB), and nothing
+else is downloaded. It needs Claude Code 2.1.326 or newer, and Node 20 or
+newer or Bun on your PATH ([Requirements](#requirements)).
 
 ## Try it
 
 Any MCP server that implements the Events extension will do. If you have none,
-this repository has a small one: a "deploys" service with a page of buttons.
-It needs Node 22.18 or newer.
+this repository has a small one in [`demo/`](demo/): a "deploys" service with
+a page of buttons. It needs Node 22.18 or newer.
+
+<!-- Hosted demo server: not deployed yet. When it is, put its one line here,
+     claude mcp add --transport http <name> <its https URL>,
+     with the question to ask, and keep the steps below for running the
+     demo server yourself. -->
 
 ```bash
-git clone https://github.com/idosal/claude-events-mod
-cd claude-events-mod/demo
+git clone https://github.com/idosal/MCPolyfill
+cd MCPolyfill/polyfills/claude-code/events/demo
 npm install
 DEPLOYS_TOKEN=demo-token npm start
 ```
 
-In another terminal, in any project folder, tell Claude Code about the server
-and start a session:
+In another terminal, in a project folder you trust in Claude Code, tell Claude
+Code about the server and start a session:
 
 ```bash
 claude mcp add --transport http deploys http://127.0.0.1:4010/mcp --header "Authorization: Bearer demo-token"
@@ -87,6 +75,63 @@ itself, shows a "Prompt from the mcp-events plugin" line, reads the deploy's
 log and tells you the cause.
 
 To stop: "Stop watching the deploys server."
+
+## From install to the first event
+
+Every step and question between the install line and an event waking your
+session, and what happens when one is missing or you say no:
+
+1. **Install** (above). In a session, Claude Code shows the marketplace it
+   resolved and asks you to confirm adding it, then opens the plugin's page,
+   where you choose who gets it: you, everyone on this repository, or you in
+   this repository only. The terminal form asks nothing. The plugin has no
+   settings to fill in. Say no to the marketplace and nothing is installed.
+2. **A folder you trust.** Claude Code runs a plugin's code only in a folder
+   you have told it you trust, which it asks the first time you start
+   `claude` in a folder. In a folder you have not trusted, the mod does
+   nothing.
+3. **Node 20 or newer, or Bun, on your PATH.** Claude Code itself needs
+   neither, so check with `node --version`. Without one, the mod shows one
+   notice saying so, each of its tools answers with the same sentence, and
+   nothing else happens.
+4. **An MCP server with events that Claude Code itself uses in the session:**
+   added with `claude mcp add` or in a project's `.mcp.json`, approved, and
+   not switched off. The mod leaves alone any server Claude Code is not
+   using. A server you can reach only by signing in through `/mcp` (OAuth),
+   and claude.ai connectors, do not work
+   ([Which servers it works with](#which-servers-it-works-with)).
+5. **Ask for a watch**, in plain words. In the default permission mode, the
+   first time Claude uses each of the mod's tools, Claude Code asks "Do you
+   want to proceed?", as for any MCP tool. That includes what Claude does
+   when an event wakes the session while you are away: a tool it may not use
+   yet waits at that question until you answer, and so does any tool of the
+   server's that Claude uses to act on the event. Choose the answer that stops
+   Claude Code asking again for that tool, or allow all six of the mod's tools
+   up front in `~/.claude/settings.json`:
+
+   ```json
+   { "permissions": { "allow": ["mcp__mcp-events__*"] } }
+   ```
+
+   Say no and that tool does not run.
+6. **A server that delivers only by webhook** also needs a relay: a public
+   https address that holds deliveries until the mod collects them. Set up
+   your own first, from inside Claude Code, with `/mcp-events:relay-setup`
+   (it deploys a small Worker to your own Cloudflare account). If you cannot,
+   the public relay is the second choice, off until you turn it on by name
+   with `MCP_EVENTS_RELAY=public`; read
+   [what that means](#the-public-relay-opt-in) first. Without a relay, a
+   watch on such a server is refused with a message that lists these choices.
+   Push and poll delivery need no relay.
+
+## Requirements
+
+- **Claude Code 2.1.326 or newer.** Mods, the kind of plugin this is, are on
+  by default from Claude Code 2.1.287.
+- **Node 20 or newer, or Bun, on your PATH**, for the helper process. Webhook
+  delivery through a relay needs Node 22 or newer (or Bun); push and poll
+  work on Node 20.
+- **A terminal session, or one an app keeps open** ([Where it runs](#where-it-runs)).
 
 ## What Claude can do with it
 
@@ -182,7 +227,8 @@ Cloudflare account. From inside Claude Code:
 or by hand, from a clone of this repository (Node 22.18 or newer):
 
 ```bash
-cd mod/relay && npm install && npx wrangler login && npm run setup
+cd polyfills/claude-code/events/mod/relay
+npm install && npx wrangler login && npm run setup
 ```
 
 It gets a random access key that only your machine knows, and nobody else's
@@ -263,8 +309,9 @@ welcome.
   4 MiB, one session's stored events 64 MiB.
 - **Managed machines.** Where your organisation sets an MCP allow or deny
   policy that the mod can see, it connects to nothing.
-- **The mod API is early access** and may change between Claude Code
-  releases, which can break the mod until it is updated.
+- **The mod API is new.** Mods are on by default from Claude Code 2.1.287,
+  and the API still gains and changes parts between releases, which can
+  break the mod until it is updated.
 
 ## Security
 
@@ -310,9 +357,9 @@ Environment variables, for example in the `env` block of
 - A server that has just gained events support is noticed within a day, or at
   once if you delete `servers-without-events.json` in the data folder.
 
-Bugs and questions: [open an issue](https://github.com/idosal/claude-events-mod/issues),
-with your Claude Code version, your operating system, and the relevant lines
-of the log. For a security problem, see [`SECURITY.md`](SECURITY.md) instead.
+Bugs and questions: [open an issue](https://github.com/idosal/MCPolyfill/issues)
+that names `mcp-events`, with your Claude Code version, your operating system,
+and the relevant lines of the log. For a security problem, see [`SECURITY.md`](SECURITY.md) instead.
 
 ## When Claude Code supports Events itself
 
@@ -334,13 +381,15 @@ way to see what Claude Code's own MCP client supports.
 
 ## Development
 
+From this folder (`polyfills/claude-code/events` in the repository):
+
 ```bash
 npm install
 npm test             # the helper and the Events client (Node 22.18+ runs the TypeScript tests)
 npm run test:mod     # the hooks module, with Claude Code's own test runner
 npm run typecheck
 npm run build        # mod/dist/helper.js; a test fails when it is stale
-npm run validate     # claude plugin validate .
+npm run validate     # claude plugin validate mod
 claude --plugin-dir mod   # run it from this checkout
 ```
 
@@ -351,18 +400,20 @@ claude --plugin-dir mod   # run it from this checkout
   (`events-client.ts`, `watcher.ts`, `routing-headers.ts`, `webhooks.ts`,
   `relay.ts`, `store.ts`); the rest is specific to Claude Code (`config.ts`,
   `tools.ts`, `delivery.ts`, `helper.ts`).
-- `test/` holds the tests (run on macOS, Linux and Windows in CI) and three
+- `test/` holds the tests (run on macOS, Linux and Windows in CI, by
+  [`mcp-events-test.yml`](../../../.github/workflows/mcp-events-test.yml)) and three
   interop runs against servers built on Mastra's `@mastra/mcp`
   (`npm run interop`, `test/interop/deploys.ts`, `test/interop/sign-in.ts`).
 - To release, change the version in `mod/.claude-plugin/plugin.json`,
-  `package.json` and `src/version.ts` and rebuild. Claude Code updates an
+  `package.json` and `src/version.ts`, rebuild, and merge to `main`: the
+  marketplace installs this folder from `main`. Claude Code updates an
   installed copy only when the version changes.
 
 ## Related
 
-Part of [MCPolyfill](https://github.com/idosal/MCPolyfill): MCP extensions for
-hosts that haven't shipped them yet.
+Part of [MCPolyfill](../../../README.md): MCP extensions for hosts that
+haven't shipped them yet.
 
 ## Licence
 
-Apache-2.0. See [`LICENSE`](LICENSE).
+Apache-2.0. See [`LICENSE`](../../../LICENSE).

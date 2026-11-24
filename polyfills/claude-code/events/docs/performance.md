@@ -55,7 +55,7 @@ The helper, from the bundle:
 "Start → catalog" includes the fixture server's own start (a Node process),
 which is most of it.
 
-For comparison, the earlier plugin (the first commit of this repository), on
+For comparison, the earlier plugin (this mod's first version), on
 Node 22.23, measured by `test/perf-baseline.ts`:
 
 | | Before (stdio server + monitor) | Now (one helper) |
