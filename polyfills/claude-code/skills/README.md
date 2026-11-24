@@ -40,16 +40,24 @@ polyfill in the marketplace, this one included.
 That is the whole install: no settings to fill in, nothing to configure per
 server. You need:
 
-- **Claude Code 2.1.329 or newer** (the version it was tested on). Mods, the
-  kind of plugin this is, are on by default from Claude Code 2.1.287.
-- **Node 20 or newer, or Bun, somewhere on the machine.** Claude Code itself
-  needs neither. The mod looks on your PATH, asks your login shell, and checks
-  the usual install folders; if it finds none it says so once, with what to
-  install, and does nothing else.
+- **Claude Code 2.1.329 or newer** (the version it was tested on), with mods
+  (on by default from Claude Code 2.1.287).
+- **Node 20 or newer, or Bun**, to run the mod's helper. If your machine has
+  either, it is found by itself: on your PATH, through your login shell, or in
+  the usual install folders. If it has neither (Claude Code itself needs
+  neither), the mod says so, and one command sets it up:
 
-Nothing else is installed or downloaded: the mod is one small folder,
-[`mod/`](mod/). To turn it off, disable or uninstall the plugin
-(`/plugin`).
+  ```
+  /mcp-skills setup
+  ```
+
+  That downloads the official Bun release for your platform (about 40 MB, from
+  `github.com/oven-sh/bun`) into the plugin's own data folder, for this mod
+  only. Nothing else on your machine changes: no PATH entry, no shell profile.
+  See [The mod's own runtime](#the-mods-own-runtime).
+
+The mod is one small folder, [`mod/`](mod/). It downloads nothing unless you
+type that command. To turn it off, disable or uninstall the plugin (`/plugin`).
 
 To run it from a clone of this repository instead, for one session:
 
@@ -83,9 +91,11 @@ Three commands are worth knowing:
 | `/mcp-skills show <skill>` | Opens a skill's `SKILL.md` in a panel for you to read. Nothing is loaded, and Claude does not read the panel. |
 | `/mcp-skills use <skill> [what to do]` | Asks Claude to load a skill by name. |
 
-Also: `/mcp-skills refresh` looks at every server again, and
-`/mcp-skills forget [<skill>]` drops your approvals. `<skill>` is a name,
-`server:name`, or the URI of a `SKILL.md`.
+Also: `/mcp-skills refresh` looks at every server again,
+`/mcp-skills forget [<skill>]` drops your approvals, and `/mcp-skills setup`
+is for a machine with no Node and no Bun
+([below](#the-mods-own-runtime)). `<skill>` is a name, `server:name`, or the
+URI of a `SKILL.md`.
 
 To try it with a server on your own machine, [`demo/`](demo/) holds a small one
 that serves two skills (`npm install`, then point a server entry at
@@ -115,9 +125,10 @@ what happens when a step is missing or you say no:
 
 | Step | What you see | If it is missing or declined |
 |---|---|---|
-| Install | Two questions from Claude Code: "Add marketplace?" (y/n), then the plugin's page with where to install it (you, this repository, or "Not now"). Then "Installed mcp-skills. Plugin is now active." No settings, no restart. The terminal form asks nothing. | Nothing is installed. |
+| Install | Two questions from Claude Code: "Add marketplace?" (y/n), then the plugin's page with where to install it (you, this repository, or "Not now"). Then "Installed mcp-skills. Plugin is now active." No settings, no restart. | Nothing is installed. |
 | A folder you trust | Claude Code's question about trusting the folder, the first time you start `claude` in it. | Claude Code runs no plugin code in a folder you have not trusted, so the mod does nothing there. |
-| A runtime for the helper | Nothing: Node 20+ or Bun is found by itself. | One notice saying what to install. `/mcp-skills` and the mod's tools say the same. Claude Code is otherwise unchanged. |
+| A runtime for the helper | Nothing: Node 20+ or Bun is found by itself. | A one-line notice (in the first three sessions). `/mcp-skills` says what to do: type `/mcp-skills setup` to have the mod fetch Bun for itself, or install Node or Bun yourself. Until then nothing is listed, and Claude Code is otherwise unchanged. |
+| `/mcp-skills setup`, if you run it | A question in Claude Code's dialog: download Bun, or not now. On Download, a notice that it is in place and the helper is running; skills are listed from then on. | "Not now", or closing the dialog: nothing is downloaded. A failed or mismatched download is deleted, nothing of it is run, and the notice says why. The command can be run again. |
 | A server that serves skills | Its skills are in Claude's listing and in `/mcp-skills` at once (from the next session for a server added later). | `/mcp-skills` says no server serves skills, and names each server it left alone with the reason: not approved in Claude Code yet, switched off, needs a browser sign-in, comes from a plugin or a claude.ai connector. |
 | A project's `.mcp.json` server | Claude Code's own question about trusting the folder and approving the server. | The mod leaves the server alone until Claude Code itself uses it. |
 | Claude wants a skill | Claude Code asks once whether to load it. | The skill is not loaded and nothing of it reaches Claude. You are asked again the next time. To read it first: `/mcp-skills show <skill>`. |
@@ -212,9 +223,15 @@ itself, the mod turns itself off (see [Settings](#settings)).
   use it unattended.
 - **Managed machines.** Where an organisation's policy says which MCP servers
   are allowed, the mod connects to nothing, because it cannot apply that policy.
-- **Not tried yet:** Windows; the desktop app and IDE extensions (the preview
-  panel was tried in the terminal only); bypass-permissions mode; Claude Code
-  versions other than 2.1.329.
+- **Not tried yet:** Windows and Linux (everything here was run on macOS; the
+  repository's tests are set up to run on all three); the desktop app and IDE
+  extensions (the preview panel was tried in the terminal only);
+  bypass-permissions mode; Claude Code versions other than 2.1.329.
+- **`/mcp-skills setup` has been tested in parts, not yet as one run** on a
+  machine with no Node and no Bun: the download command against the release,
+  the unpacking, the checksum code inside Claude Code on a 60 MB file, the
+  refusals, and the helper on Bun were each run for real; the sequence as a
+  whole is covered by tests with stand-ins.
 
 ## Security
 
@@ -248,10 +265,35 @@ Environment variables, for the rare case:
 | Variable | What it does |
 |---|---|
 | `MCP_SKILLS_OFF=1` | The mod does nothing, without being uninstalled. |
+| `MCP_SKILLS_RUNTIME` | What runs the helper: the full path of a Node 20+ or a Bun (nothing else is then tried), or `private` for only the copy of Bun the mod fetched for itself. Default: whatever is found. |
 | `MCP_SKILLS_SOURCES` | Which Claude Code configurations to read: `project,local,user` (default all three). |
 | `MCP_SKILLS_SERVERS` / `MCP_SKILLS_SKIP` | Only these server names, or never these (comma-separated). |
 | `MCP_SKILLS_CONFIG` | A servers file of your own (`{"mcpServers": {...}}`) instead of Claude Code's configuration. It must be outside the project folder and its repository. |
 | `MCP_SKILLS_STATE` | Where the mod keeps its log and its note of which servers serve skills. Default: the plugin's data folder. |
+
+## The mod's own runtime
+
+The mod's helper is JavaScript, so it needs Node or Bun, and Claude Code comes
+with neither. For a machine that has none, `/mcp-skills setup` fetches one:
+
+- **Only when you ask, and only after you say yes.** The command is refused
+  from the model, from a script, from another session and in an unattended run
+  (`claude -p`). When you run it, Claude Code's own dialog asks whether to
+  download; "Not now" is the first answer.
+- **What is fetched:** one fixed Bun release (the version is in
+  [`mod/hooks/runtime.ts`](mod/hooks/runtime.ts)), for macOS or Linux, arm64 or
+  x64, from that release's page on GitHub, over HTTPS only.
+- **Checked before anything runs:** the download's SHA-256 must equal the one
+  written in the mod's source, copied from the release's own checksum file. A
+  download that does not match is deleted.
+- **Where it goes:** the `runtime` folder inside the plugin's data folder.
+  It is used for this mod's helper and for nothing else, and
+  `/mcp-skills setup remove` deletes it.
+- **It needs** `curl` and `unzip`, as Bun's own installer does. On Windows, or
+  without them, install Node or Bun yourself.
+
+A Node or Bun of your own is always used first. To run the helper on a
+particular one, name it in `MCP_SKILLS_RUNTIME`.
 
 ## Going deeper
 
@@ -270,9 +312,10 @@ Environment variables, for the rare case:
 |---|---|---|
 | Two real public servers, Hugging Face (25 skills, 135 files) and TogoMCP (5 skills, 8 files): every skill loaded, every file verified | `npm run interop:real` | all verified |
 | The official MCP conformance suite's client scenarios for SEP-2640 | [`test/conformance/run.sh`](test/conformance/run.sh) | 4 of 4 pass |
-| The client rules, one test per rule, against a hand-written server | `npm test` | 91 pass |
-| Approval, the permission questions and first-run behaviour, in Claude Code's own test kit | `npm run test:mod` | 42 pass |
+| The client rules, one test per rule, against a hand-written server | `npm test` | 93 pass |
+| Approval, the permission questions, first-run behaviour and the runtime setup, in Claude Code's own test kit | `npm run test:mod` | 72 pass |
 | The official TypeScript SDK's Skills server and client, over stdio and HTTP | `npm run interop` | 15 checks pass |
+| The bundled helper on Bun instead of Node | `npm run test:bun` | 4 pass |
 | Real Claude Code sessions, recorded | [`live/`](live/) | [screens](live/runs/) |
 
 The output of each run is in [`docs/evidence/`](docs/evidence/).
@@ -288,11 +331,14 @@ npm run test:mod    # the hooks module, in Claude Code's test kit
 npm run typecheck
 npm run interop     # against the official TypeScript SDK
 npm run interop:real
+npm run test:bun    # the bundled helper on Bun
 npm run build       # mod/dist/helper.js, from src/
 ```
 
 `mod/` is all an installed copy carries: the manifest, the hooks module
-([`mod/hooks/register.ts`](mod/hooks/register.ts)) and the bundled helper.
+([`mod/hooks/register.ts`](mod/hooks/register.ts), with
+[`runtime.ts`](mod/hooks/runtime.ts) for a machine with no Node or Bun) and
+the bundled helper.
 [`src/skills.ts`](src/skills.ts) is the extension's client logic and nothing
 else; [`src/wire.ts`](src/wire.ts) and [`src/config.ts`](src/config.ts) are the
 connection the mod has to make for itself today.

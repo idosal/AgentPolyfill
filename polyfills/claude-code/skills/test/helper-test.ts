@@ -12,13 +12,15 @@ import { Fixture, scenarioOf, skill } from './harness.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const BUNDLE = join(ROOT, 'mod', 'dist', 'helper.js');
+// What the bundle runs on: this Node, or (HELPER_RUNTIME=/path/to/bun) another runtime, as the mod starts it there.
+const RUNTIME = process.env.HELPER_RUNTIME ? [process.env.HELPER_RUNTIME] : [process.execPath, '--no-warnings'];
 const children: ChildProcess[] = [];
 after(() => children.forEach((c) => c.kill()));
 
 type Message = Record<string, unknown>;
 async function startHelper(env: Record<string, string>): Promise<{ messages: Message[]; post: (route: string, body?: unknown, token?: string) => Promise<{ status: number; json: Message }>; next: (t: string) => Promise<Message>; child: ChildProcess }> {
     const state = mkdtempSync(join(tmpdir(), 'mcp-skills-helper-'));
-    const child = spawn(process.execPath, ['--no-warnings', BUNDLE], { env: { PATH: process.env.PATH ?? '', HOME: state, MCP_SKILLS_STATE: state, ...env }, stdio: ['ignore', 'pipe', 'inherit'] });
+    const child = spawn(RUNTIME[0]!, [...RUNTIME.slice(1), BUNDLE], { env: { PATH: process.env.PATH ?? '', HOME: state, MCP_SKILLS_STATE: state, ...env }, stdio: ['ignore', 'pipe', 'inherit'] });
     children.push(child);
     const messages: Message[] = [];
     const waiters: (() => void)[] = [];

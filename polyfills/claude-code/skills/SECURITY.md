@@ -88,7 +88,8 @@ tool, and loads *unapproved*: the model is told so. While it is loaded, the
 mod refuses every tool call except these, whatever your rules allow:
 
 - Claude Code's `Read`, `Glob`, `Grep`, `LS`, `NotebookRead`, `TodoWrite`,
-  `ToolSearch` and `ListMcpResourcesTool`;
+  `ToolSearch`, `ListMcpResourcesTool` and `AskUserQuestion` (which only puts
+  a question to you);
 - the mod's own four tools (list skills, load a skill, read a loaded skill's
   file, list its directory);
 - a resource read from the skill's own server.
@@ -119,8 +120,30 @@ verifies them; Claude Code's generic resource tool is refused for them.
 **What is kept.** In the helper's memory, for the session: the listings, the
 entries of loaded skills, and verified file content. On disk: your approvals
 (above); which of your servers serve skills, by name and fingerprint, so the
-others are not connected to at every start; and a log (your config's secrets
-scrubbed, private to your user). No skill content, and no tokens.
+others are not connected to at every start; a log (your config's secrets
+scrubbed, private to your user); and, if you ran `/mcp-skills setup`, the
+mod's own copy of Bun. No skill content, and no tokens.
+
+**The one thing it downloads.** Nothing, unless you run `/mcp-skills setup`
+on a machine that has no Node and no Bun, and answer Download to the question
+it then puts in Claude Code's own dialog ("Not now" is the first answer, so a
+dialog that closes by itself is a no). Then it downloads one fixed Bun
+release from GitHub over HTTPS (`curl`, HTTPS also required of any redirect),
+hashes the archive inside the mod (no checksum program on your PATH is
+trusted), and compares the SHA-256 with the value written in
+[`mod/hooks/runtime.ts`](mod/hooks/runtime.ts) for that platform. Only on a
+match is one named file unpacked, checked to answer with the expected
+version, and moved into the plugin's data folder; otherwise the download is
+deleted and nothing of it is run; a file that cannot be deleted is left not
+runnable, and you are told where it is. The command is honoured only from your
+own input at the prompt: Claude cannot run it, and neither can a script, another
+session or `claude -p`. Two sessions cannot fetch at once (the second is told
+to wait).
+No server, skill or project file can change what is downloaded or from where.
+The copy is used only to run this mod's helper; your PATH and shell profile
+are not touched; `/mcp-skills setup remove` deletes it. A newer Bun arrives
+only with a newer version of the mod, and only when you run the command
+again.
 
 **A server's `headersHelper`.** Where a server's entry has one, the mod runs
 that command as Claude Code documents it and does itself, to get the headers
@@ -149,6 +172,10 @@ the log.
   on this page hold there: a skill may load without your being asked, and its
   text may then drive any tool. Do not use that mode with a server you do not
   trust.
+- **The runtime it runs on.** The helper runs on your Node or Bun, or on the
+  Bun release you had it fetch. The checksum shows the download is the file
+  its publisher released, not that the release is free of faults; a newer one
+  is fetched only with a newer version of the mod and your command.
 - **Other mods.** A mod can call tools without a permission check
   (`$.tool.call`). That is Claude Code's design for mods, not something this mod
   can change.

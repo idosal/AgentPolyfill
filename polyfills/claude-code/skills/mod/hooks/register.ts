@@ -22,6 +22,7 @@
 //   - stands down when Claude Code serves MCP skills itself.
 
 import type { EngineInterface, Register } from 'claude-code'
+import { BUN, SetupError, fetched, install, platformOf, remove } from './runtime'
 import { INERT_TOOLS, PLUGIN, RESOURCE_TOOLS, TOOLS } from './tools'
 
 type Endpoint = { url: string; token: string }
@@ -52,6 +53,8 @@ const state: {
   gotCatalog?: () => void
   /** Undefined until read back from the conversation (after a start, a resume or a reload). */
   acting?: Acting[]
+  /** The skills this module loaded in this session, kept apart from what was read back from the conversation. */
+  loadedHere: Acting[]
   /** Load calls whose permission check has run: what was decided there, for when the call runs. */
   pending: Map<string, { hash?: string; isApproved: boolean; isNew: boolean; facts: Facts }>
   /** What the preview pane shows. */
@@ -62,14 +65,25 @@ const state: {
   areToolsLoaded: boolean
   restarts: number[]
   problemShown: boolean
-} = { isEnded: false, areToolsLoaded: false, restarts: [], problemShown: false, pending: new Map() }
+  /** The fetch of the mod's own runtime, while one is under way. */
+  setup?: Promise<void>
+  /** What the helper runs on, for the status: set where it is the mod's own copy of Bun. */
+  ownRuntime?: string
+} = { isEnded: false, areToolsLoaded: false, restarts: [], problemShown: false, pending: new Map(), loadedHere: [] }
 
 const debug = ($: EngineInterface, text: string) => $.ui.log(`${PLUGIN}: ${text}`, { to: 'debug' })
 const plain = (text: unknown) => String(text).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').slice(0, 300)
 const quoted = (text: string) => JSON.stringify(plain(text))
 
-/** Why there is no helper on this machine, in words for the person and for Claude. */
-class NoHelper extends Error {}
+/** Why there is no helper on this machine, in words for the person and for Claude; `brief` is the same in a line. */
+class NoHelper extends Error {
+  constructor(message: string, readonly brief = message) {
+    super(message)
+  }
+}
+
+/** The plugin's own data folder: Claude Code makes it, and keeps it across updates. */
+const dataFolder = async ($: EngineInterface) => (await $.process.hookEnv()).CLAUDE_PLUGIN_DATA
 
 /**
  * What runs the helper: Node 20 or newer, or Bun. Claude Code itself needs neither, so a machine may
@@ -88,12 +102,38 @@ async function runtime($: EngineInterface): Promise<string[]> {
   const usable = async (command: string): Promise<string[] | undefined> => {
     const found = await version(command)
     if (found === undefined) return undefined
-    if (/(^|[\\/])bun(\.exe)?$/.test(command)) return [command]
+    // Bun answers with a bare version, Node with a v before it.
+    if (/^\d+\.\d+\.\d+/.test(found)) return [command]
     if (Number(/^v(\d+)\./.exec(found)?.[1]) >= 20) return [command, '--no-warnings']
     old ??= found
     return undefined
   }
   let old: string | undefined
+  state.ownRuntime = undefined
+  // The person's own choice, where they made one: a path (run as it is, through no shell), or
+  // `private` for nothing but the copy of Bun this mod fetched for itself.
+  const named = String((await $.env.get('MCP_SKILLS_RUNTIME').catch(() => undefined)) ?? '').trim()
+  if (named && named !== 'private') {
+    const argv = await usable(named)
+    if (argv) return argv
+    throw new NoHelper(`MCP_SKILLS_RUNTIME names ${quoted(named)}, which is not a Node 20 or newer, or a Bun, that runs${old ? ` (it is Node ${plain(old)})` : ''}. Name one by its full path, or unset the variable, then start a new session.`, 'MCP Skills: MCP_SKILLS_RUNTIME does not name a runtime that runs. Type /mcp-skills for more.')
+  }
+  const own = async (): Promise<string[] | undefined> => {
+    const data = await dataFolder($).catch(() => undefined)
+    const [copy] = data ? await fetched($, data) : []
+    if (!copy) return undefined
+    state.ownRuntime = `its own copy of Bun ${copy.version}${copy.version === BUN.version ? '' : ` (/mcp-skills setup fetches ${BUN.version})`}`
+    return [copy.path]
+  }
+  const offer = async () =>
+    (await platformOf($).then((platform) => platform !== undefined && platform in BUN.assets, () => false))
+      ? `Type /mcp-skills setup to have this mod download Bun ${BUN.version} for its own use (the official release from github.com/oven-sh/bun, about 40 MB, checked against the SHA-256 pinned in the mod; nothing else on your machine changes). Or install`
+      : 'Install'
+  if (named === 'private') {
+    const argv = await own()
+    if (argv) return argv
+    throw new NoHelper(`MCP_SKILLS_RUNTIME=private says to run the helper only on this mod's own copy of Bun, and there is none yet. ${await offer()} Node from https://nodejs.org or Bun from https://bun.sh and unset the variable.`, 'MCP Skills has no runtime of its own yet. Type /mcp-skills setup to fetch one.')
+  }
   // 1. As Claude Code itself would find them.
   for (const command of ['node', 'bun']) {
     const argv = await usable(command)
@@ -105,7 +145,7 @@ async function runtime($: EngineInterface): Promise<string[]> {
   if (shell) {
     try {
       const { stdout } = await $.process.run([shell, '-lic', 'command -v node; command -v bun'], { timeoutMs: 10000 })
-      candidates.push(...stdout.split('\n').map((line) => line.trim()).filter((line) => /^\/[^\s]*\/(node|bun)$/.test(line)))
+      candidates.push(...stdout.split('\n').map((line) => line.trim()).filter((line) => /^\/[^\n]*\/(node|bun)$/.test(line)))
     } catch {
       // no answer from the shell
     }
@@ -118,10 +158,72 @@ async function runtime($: EngineInterface): Promise<string[]> {
     const argv = await usable(command)
     if (argv) return argv
   }
+  // 4. The copy of Bun this mod fetched for itself, where the person had it do that.
+  const argv = await own()
+  if (argv) return argv
+  const found = old ? `only Node ${plain(old)}` : 'neither'
   throw new NoHelper(
-    `MCP Skills needs Node 20 or newer, or Bun, to run its helper, and found ${old ? `only Node ${plain(old)}` : 'neither'} on this machine. ` +
-      'Install Node from https://nodejs.org or Bun from https://bun.sh, then start a new session. Until then no skills from your MCP servers are listed.',
+    `MCP Skills needs Node 20 or newer, or Bun, to run its helper, and found ${found} on this machine. ` +
+      `${await offer()} Node from https://nodejs.org or Bun from https://bun.sh, then start a new session. Until then no skills from your MCP servers are listed.`,
+    `MCP Skills needs Node 20 or newer, or Bun, and found ${found}. Type /mcp-skills for what to do.`,
   )
+}
+
+/**
+ * `/mcp-skills setup`: fetches the mod's own copy of Bun, for a machine with no Node and no Bun.
+ * Only on the person's own command (not the model's, a script's or an unattended run's), and only
+ * after they answer yes in Claude Code's own question dialog, which names what is downloaded and
+ * from where: a download that is then run is theirs to agree to. The question comes once this
+ * command has answered (a dialog opened from inside the command would wait on it), and the fetch
+ * after that; a notice says how it ended.
+ */
+async function setup($: EngineInterface, what: string, origin: { kind?: string } | undefined): Promise<string> {
+  if (origin?.kind !== 'composer' && origin?.kind !== 'bridge') return 'This downloads a program and runs it, so it is done only when you type it yourself: /mcp-skills setup, at the prompt of a `claude` session.'
+  if (state.setup) return 'The download is already under way. A notice says when it is done.'
+  let data: string | undefined
+  try {
+    data = await dataFolder($)
+  } catch {
+    // answered below
+  }
+  if (!data) return 'This session has no data folder for the plugin, so there is nowhere to put a runtime. Install Node from https://nodejs.org or Bun from https://bun.sh instead.'
+  if (what === 'remove') {
+    const { removed, left } = await remove($, data)
+    const inUse = state.ownRuntime !== undefined
+    if (left.length) return `${removed ? `Deleted ${removed} cop${removed > 1 ? 'ies' : 'y'} of Bun, but ` : ''}${removed ? (left.length > 1 ? 'these could' : 'this could') : left.length > 1 ? 'These could' : 'This could'} not be deleted, and ${left.length > 1 ? 'are' : 'is'} left not runnable: ${left.map(plain).join(', ')}. Delete ${left.length > 1 ? 'them' : 'it'} by hand.`
+    return removed ? `Deleted this mod's own copy of Bun${removed > 1 ? ` (${removed} versions)` : ''}.${inUse ? ' The helper of this session keeps running on it until the session ends.' : ''}` : 'This mod has no copy of Bun of its own.'
+  }
+  if (what) return 'Usage: /mcp-skills setup (fetch Bun for this mod), or /mcp-skills setup remove (delete it).'
+  // With a Node or Bun of the person's own that runs the helper, there is nothing to fetch.
+  if ((await ensureHelper($).then(() => true, () => false)) && state.ownRuntime === undefined) return 'The helper already runs on a Node or Bun found on this machine, so there is nothing to set up. (To have this mod use a copy of Bun of its own instead, set MCP_SKILLS_RUNTIME=private and run this again.)'
+  const where = data
+  const question = `Download Bun ${BUN.version} for MCP Skills? It is the official release from github.com/oven-sh/bun (about 40 MB), checked against the SHA-256 pinned in the mod before it is run, kept in the plugin's data folder and used only for this mod's helper.`
+  state.setup = (async () => {
+    try {
+      await new Promise<void>((resolve) => $.clock.after(50, resolve))
+      // "Not now" first: a dialog left unanswered must not come out as a yes.
+      const answer = await $.ui.ask(question, { options: ['Not now', 'Download'], header: 'Runtime' }).catch((error: unknown) => {
+        debug($, `setup: the question was not answered (${plain(error instanceof Error ? error.message : error)})`)
+        return undefined
+      })
+      if (answer !== 'Download') {
+        $.ui.toast('MCP Skills: nothing was downloaded. /mcp-skills setup asks again.', { timeoutMs: 10000 })
+        return
+      }
+      const got = await install($, where)
+      state.problemShown = false
+      const helper = await ensureHelper($).then(() => true, () => false)
+      $.ui.toast(got.isNew ? `MCP Skills: Bun ${got.version} is in place${helper ? ' and the helper is running. Type /mcp-skills' : ', but the helper did not start. Type /mcp-skills'}.` : `MCP Skills: Bun ${got.version} was already in place.`, { timeoutMs: 15000 })
+      debug($, `setup: Bun ${got.version} at ${got.path} (${got.bytes} bytes, new: ${got.isNew})`)
+    } catch (error) {
+      const why = error instanceof SetupError ? error.message : `The setup failed (${plain(error instanceof Error ? error.message : error)}).`
+      $.ui.toast(`MCP Skills: ${plain(why)}`, { timeoutMs: 20000 })
+      debug($, `setup failed: ${plain(why)}`)
+    } finally {
+      state.setup = undefined
+    }
+  })()
+  return `MCP Skills can download Bun ${BUN.version} for its own use, from github.com/oven-sh/bun, into the plugin's data folder (${plain(where)}/runtime). A question follows; nothing is downloaded unless you answer Download. It is checked against the SHA-256 pinned in the mod before anything is run, a notice says when it is done, and /mcp-skills setup remove deletes it.`
 }
 
 async function post($: EngineInterface, where: Endpoint, route: string, body: unknown): Promise<Record<string, unknown>> {
@@ -180,7 +282,12 @@ function ensureHelper($: EngineInterface): Promise<Endpoint> {
         debug($, `the helper did not start: ${plain(why)}`)
         if (failure instanceof NoHelper && !state.problemShown) {
           state.problemShown = true
-          $.ui.toast(plain(why))
+          // Said at the start of a few sessions, not of every one from then on: /mcp-skills always says it.
+          const told = Number(await $.store.get(TOLD).catch(() => 0)) || 0
+          if (told < 3) {
+            $.ui.toast(plain(failure.brief), { timeoutMs: 15000 })
+            void $.store.set(TOLD, told + 1).catch(() => {})
+          }
         }
         state.gotCatalog?.()
         reject(failure instanceof NoHelper ? failure : new Error(`the MCP Skills helper did not start (${plain(why)})`))
@@ -266,7 +373,8 @@ async function actingSkills($: EngineInterface): Promise<Acting[]> {
       if (typeof input.server === 'string' && typeof input.uri === 'string') note(found, { server: input.server, uri: input.uri, isApproved: said[1] === APPROVED })
     }
   }
-  // A skill loaded while the conversation was being read is kept.
+  // A skill this module loaded in this session is kept, whatever the read found.
+  for (const a of state.loadedHere) note(found, a)
   for (const a of state.acting ?? []) note(found, a)
   state.acting = found
   return found
@@ -281,6 +389,9 @@ function note(list: Acting[], a: { server: string; uri: string; isApproved: bool
   if (at >= 0) list[at] = entry
   else list.push(entry)
 }
+
+/** Store key: how many sessions were told that no runtime was found. */
+const TOLD = 'toldNoRuntime'
 
 const approvalKey = (server: string, uri: string) => `${server}\n${uri}`
 async function approvals($: EngineInterface): Promise<Record<string, Approval>> {
@@ -334,8 +445,11 @@ async function serve($: EngineInterface, name: string, e: Record<string, unknown
       all[approvalKey(acting.server, acting.uri)] = { hash: acting.hash, fingerprint: String(acting.fingerprint ?? ''), name: String(acting.name ?? ''), at: await $.clock.now() }
       await $.store.set(APPROVALS, all)
     }
-    // From here on the session is acting on this skill.
-    note((state.acting ??= []), { server: acting.server, uri: acting.uri, isApproved })
+    // From here on the session is acting on this skill. Kept apart from what is read back from the
+    // conversation, so a load made before that read cannot stand in for it: a skill loaded unapproved
+    // earlier in a resumed conversation is still found.
+    note(state.loadedHere, { server: acting.server, uri: acting.uri, isApproved })
+    if (state.acting) note(state.acting, { server: acting.server, uri: acting.uri, isApproved })
     return { result: `${isApproved ? APPROVED : UNAPPROVED}\n${text}` }
   } catch (error) {
     return { deny: error instanceof NoHelper ? error.message : `MCP Skills could not answer: ${plain(error instanceof Error ? error.message : error)}` }
@@ -355,6 +469,7 @@ export const register: Register = (on) => {
     const started = await next(e)
     state.isEnded = false
     state.acting = undefined
+    state.loadedHere = []
     state.off = undefined
     state.areToolsLoaded = false
     state.pending.clear()
@@ -366,7 +481,7 @@ export const register: Register = (on) => {
     void ensureHelper($).catch(() => {})
     await Promise.all([
       ...TOOLS.map((spec) => $.tool.register({ ...spec })),
-      $.command.register({ name: 'mcp-skills', description: 'Skills your MCP servers serve: list them, read one (show), have Claude use one (use)', argumentHint: '[show|use|refresh|forget] [skill]' }),
+      $.command.register({ name: 'mcp-skills', description: 'Skills your MCP servers serve: list them, read one (show), have Claude use one (use)', argumentHint: '[show|use|refresh|forget|setup] [skill]' }),
     ])
     // The first request of a session carries its skill listing. Where a server is known to serve
     // skills, wait a little for it, so its skills are in that listing; a slower server's skills are
@@ -476,13 +591,14 @@ export const register: Register = (on) => {
       return e.approver === undefined ? hold(e, `${reason} To use the skill with nobody present, approve it once in an interactive session on this machine: the yes is kept until the server changes the skill.`) : hold(e, reason)
     }
     const input = (e.input ?? {}) as { server?: unknown; uri?: unknown }
-    const own = acting.filter((a) => normal(a.server) === normal(input.server))
+    // The server by its exact name: two servers whose names differ only in punctuation are two servers.
+    const own = acting.filter((a) => a.server === input.server)
     const uri = typeof input.uri === 'string' ? input.uri : ''
     const inside = own.find((a) => uri === a.uri || uri === a.root || uri.startsWith(`${a.root}/`))
     if (inside) {
       return { decision: 'deny' as const, reason: `That is a file of the skill ${quoted(inside.name)}, which is loaded. Read it with mcp__mcp-skills__read_skill_file (server ${quoted(inside.server)}, skill ${quoted(inside.uri)}), which checks it against the skill's manifest.` }
     }
-    const others = acting.filter((a) => normal(a.server) !== normal(input.server))
+    const others = acting.filter((a) => a.server !== input.server)
     if (!others.length) return verdict
     return hold(e, `A skill served by an MCP server is loaded (${named(others)}), and this reads a resource from another MCP server, ${quoted(String(input.server ?? ''))}. A skill from one server may not cause a read from another without your approval.`)
   }).catch(($, e, next) => (isInert(e.tool) ? next(e) : hold(e, 'MCP Skills could not check whether a skill from an MCP server is loaded, so this needs your approval.')))
@@ -506,6 +622,7 @@ export const register: Register = (on) => {
   on('command.run', { command: 'mcp-skills' }, async ($, e) => {
     if (state.off) return { text: `MCP Skills is off in this session: ${state.off}` }
     const [verb = '', what = '', ...rest] = String(e.args ?? '').trim().split(/\s+/)
+    if (verb === 'setup') return { text: await setup($, what, e.origin as { kind?: string } | undefined) }
     const several = (found: { server: string; uri: string; name: string }[]) =>
       found.length ? `That names more than one skill. Say which: ${found.slice(0, 10).map((f) => `${f.server}:${f.name}`).join(', ')}.` : `No served skill is named ${quoted(what)}. Run /mcp-skills to see them.`
     try {
@@ -562,7 +679,8 @@ export const register: Register = (on) => {
       if (others.size) lines.push(`Not looked at, because they are not in your MCP configuration files (a plugin's servers, claude.ai connectors): ${[...others].slice(0, 12).map(quoted).join(', ')}${others.size > 12 ? ` and ${others.size - 12} more` : ''}.`)
       const kept = Object.values(await approvals($))
       if (kept.length) lines.push(`Approved by you, each as it was when you approved it: ${kept.slice(0, 30).map((a) => quoted(a.name)).join(', ')}${kept.length > 30 ? ` and ${kept.length - 30} more` : ''}. /mcp-skills forget drops them.`)
-      if (acting.length) lines.push(`Loaded in this conversation: ${named(acting)}. Until the conversation is cleared, Claude Code asks you before a resource read from any other MCP server${acting.some((a) => !a.isApproved) ? ', and before each command, since a skill is loaded that nobody was asked about' : ''}.`)
+      if (acting.length) lines.push(`Loaded in this conversation: ${named(acting)}. Until the conversation is cleared, Claude Code asks you before a resource read from any other MCP server${acting.some((a) => !a.isApproved) ? ', and before anything but reading and searching, since a skill is loaded that nobody was asked about' : ''}.`)
+      if (state.ownRuntime) lines.push(`The helper runs on ${state.ownRuntime}. /mcp-skills setup remove deletes it.`)
       lines.push('Read one before it is loaded: /mcp-skills show <name>. Have Claude use one: /mcp-skills use <name> [what to do].')
       return { text: lines.join('\n') }
     } catch (error) {
@@ -591,6 +709,7 @@ export const register: Register = (on) => {
     if (e.reason === 'clear') {
       // The conversation is gone, and every loaded skill's text with it: nothing is being acted on.
       state.acting = []
+      state.loadedHere = []
       void state.helper?.then((where) => post($, where, '/release', {})).catch(() => {})
     } else {
       state.isEnded = true

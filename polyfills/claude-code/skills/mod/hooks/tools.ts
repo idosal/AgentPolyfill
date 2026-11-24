@@ -80,6 +80,6 @@ export const TOOLS: readonly ToolSpec[] = [
  * another MCP server's tool can do what a shell does, and a tool added to Claude Code after this
  * was written must not slip past.
  */
-export const INERT_TOOLS: readonly string[] = ['Read', 'Glob', 'Grep', 'LS', 'NotebookRead', 'TodoWrite', 'ToolSearch', 'ListMcpResourcesTool']
+export const INERT_TOOLS: readonly string[] = ['Read', 'Glob', 'Grep', 'LS', 'NotebookRead', 'TodoWrite', 'ToolSearch', 'ListMcpResourcesTool', 'AskUserQuestion']
 /** Claude Code's own tools that read from an MCP server by name. */
 export const RESOURCE_TOOLS: readonly string[] = ['ReadMcpResourceTool', 'ReadMcpResourceDirTool', 'ListMcpResourcesTool']

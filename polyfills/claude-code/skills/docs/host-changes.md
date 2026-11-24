@@ -7,7 +7,7 @@ the extension yet, and it is built to shrink as Claude Code gains the pieces.
 Mods that implement an MCP extension keep running into the same four gaps in
 what Claude Code offers a mod. This page says, for the Skills extension, which
 of the four it needs and what each would take out of this polyfill. Line
-counts are of the files at version 0.2.2.
+counts are of the files at version 0.3.0.
 
 Short version: **Skills needs the first and the second. It has no use for the
 third or the fourth.** The numbering is the one in the repository's
@@ -53,7 +53,8 @@ With such a call:
   and servers a plugin brings. A local server is no longer started twice.
   Machines with a managed MCP policy are no longer excluded.
 - **The helper process probably goes too** ([`src/helper.ts`](../src/helper.ts),
-  271 lines, the bundle in `mod/dist/`, and the need for Node on the user's PATH).
+  271 lines, the bundle in `mod/dist/`, the need for Node or Bun on the user's machine, and
+  with it [`mod/hooks/runtime.ts`](../mod/hooks/runtime.ts), which fetches Bun where there is neither).
   The extension's logic, [`src/skills.ts`](../src/skills.ts) (681 lines), is
   written against one small interface, `Wire` (a label, the capabilities, the
   revision, and `request(method, params)`), and uses nothing of Node: hashing is
