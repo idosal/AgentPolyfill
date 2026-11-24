@@ -14,7 +14,7 @@ export const PI: Partial<HostWords> = {
     client: { name: 'mcp-events-pi', version: VERSION },
     other: 'Pi process',
     scope: "this session's",
-    signIn: "it needs a sign-in, which Pi holds for its own connection (/mcp), and this Pi does not lend that connection to extensions: give the server an Authorization header in mcp.json (a ${VARIABLE} or a !command value works), or see \"Servers that need sign-in\" in the README",
+    signIn: "it needs a sign-in, which Pi holds for its own connection (/mcp) and doesn't give extensions: give the server an Authorization header in mcp.json (a ${VARIABLE} or a !command value works), or see \"Servers that need sign-in\" in the README",
     noPublicUrl:
         'This event type is delivered by webhook only, so the server needs a public https address to deliver to, and none is set up. There are three ways, for the user to choose between: ' +
         `(1) A relay of their own on their Cloudflare account; it also keeps events while Pi is closed, and nobody else sees them. ${RELAY_SETUP} ` +
@@ -106,15 +106,35 @@ export const TOOLS: readonly ToolSpec[] = [
     }
 ];
 
-/** What the user is asked before a watch starts: in this extension's words, with the server's names quoted. */
+/** The most of a watch's filters and note the question shows; a watch with more is refused, never shown cut short. */
+export const MAX_SHOWN = { arguments: 1000, note: 500 } as const;
+
+/**
+ * Text as the person must see it: every character that shows nothing, or that changes how the text
+ * around it reads (controls, C1 controls, direction marks, zero-width and other default-ignorable
+ * code points), written out as \u{…}, so what is shown is all of what will be used.
+ */
+export function visible(text: string): string {
+    return text.replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]|\p{Default_Ignorable_Code_Point}/gu, (c) => `\\u{${c.codePointAt(0)!.toString(16)}}`);
+}
+
+/** Why a watch can't be put to the person in full, if it can't. */
+export function unshowable(p: { arguments?: unknown; note?: string }): string | undefined {
+    const args = p.arguments && typeof p.arguments === 'object' ? JSON.stringify(p.arguments) : '';
+    if (args.length > MAX_SHOWN.arguments) return `its filters are longer than the ${MAX_SHOWN.arguments} characters the question shows, so the user could not see all of them: use fewer or shorter filters`;
+    if ((p.note ?? '').length > MAX_SHOWN.note) return `its note is longer than the ${MAX_SHOWN.note} characters the question shows: give a shorter note`;
+    return undefined;
+}
+
+/** What the user is asked before a watch starts: in this extension's words, with every name and value shown whole. */
 export function watchQuestion(p: { server: string; event: string; arguments?: unknown; note?: string }, limits: { gapMs: number; perHour: number }): { title: string; message: string } {
-    const args = p.arguments && typeof p.arguments === 'object' && Object.keys(p.arguments).length ? ` with ${JSON.stringify(p.arguments).slice(0, 200)}` : '';
+    const args = p.arguments && typeof p.arguments === 'object' && Object.keys(p.arguments).length ? ` with the filters ${visible(JSON.stringify(p.arguments))}` : '';
     const pace = limits.gapMs > 0 || limits.perHour > 0 ? ` (at most once every ${Math.round(limits.gapMs / 1000)} s per watch, ${limits.perHour} times an hour)` : '';
     return {
         title: 'mcp-events: start a watch?',
         message:
-            `Pi wants to watch ${JSON.stringify(p.event)} on the MCP server ${JSON.stringify(p.server)}${args}.` +
-            (p.note ? `\nWhen it fires: ${JSON.stringify(p.note.slice(0, 300))}` : '') +
+            `Pi wants to watch ${visible(JSON.stringify(p.event))} on the MCP server ${visible(JSON.stringify(p.server))}${args}.` +
+            (p.note ? `\nWhen it fires: ${visible(JSON.stringify(p.note))}` : '') +
             `\n\nIts events will start turns in this session by themselves, while you are away too${pace}. You can stop it at any time by asking Pi to stop the watch.`
     };
 }

@@ -19,7 +19,7 @@ import { describeError, secrets } from '../../core/src/untrusted.ts';
 import { isHttp, type ServerTable } from '../../core/src/upstream.ts';
 import { agentDir, mayUseOAuth, readPiServers } from './pi-config.ts';
 import { PiSession } from './session.ts';
-import { CUSTOM_TYPE, inPisWords, PI, TOOLS, VERSION, watchQuestion } from './words.ts';
+import { CUSTOM_TYPE, inPisWords, PI, TOOLS, unshowable, VERSION, watchQuestion } from './words.ts';
 
 const SECTION = 'mcp_events';
 /** How long the first prompt of a session waits for the servers to be looked at. */
@@ -66,7 +66,7 @@ export default function mcpEvents(pi: ExtensionAPI): void {
             description: spec.description,
             parameters: spec.parameters as never,
             annotations: spec.annotations,
-            async execute(_id, params, _signal, _onUpdate, ctx) {
+            async execute(_id, params, signal, _onUpdate, ctx) {
                 const text = (t: string, isError?: boolean) => ({ content: [{ type: 'text' as const, text: t }], details: {}, ...(isError ? { isError: true } : {}) });
                 if (!running) return text('mcp-events has not started in this session yet.', true);
                 await waitForServers(FIRST_PROMPT_WAIT_MS + 5000);
@@ -76,8 +76,13 @@ export default function mcpEvents(pi: ExtensionAPI): void {
                 if (spec.name === 'watch_event') {
                     // A watch lets a server's events start turns while nobody is there: the person says yes to each one.
                     if (!ctx.hasUI) return text('A watch needs the user to confirm it, and Pi has no one to ask in this mode (print or JSON). Start the watch in an interactive or RPC session.', true);
-                    const q = watchQuestion({ server: String(p.server ?? ''), event: String(p.event ?? ''), arguments: p.arguments, note: typeof p.note === 'string' ? p.note : undefined }, session.limits);
-                    const ok = await ctx.ui.confirm(q.title, q.message);
+                    const asked = { server: String(p.server ?? ''), event: String(p.event ?? ''), arguments: p.arguments, note: typeof p.note === 'string' ? p.note : undefined };
+                    const why = unshowable(asked);
+                    if (why) return text(`The watch is not started: ${why}.`, true);
+                    const q = watchQuestion(asked, session.limits);
+                    const ok = await ctx.ui.confirm(q.title, secrets.scrub(q.message), { signal });
+                    // A call Pi cancelled while the user was asked starts nothing, whatever the answer.
+                    if (signal?.aborted) return text('The call was cancelled, so nothing is watched.', true);
                     if (!ok) {
                         log(`watch of ${oneLine(p.server, 40)}/${oneLine(p.event, 80)} declined by the user`);
                         return text('The user did not confirm the watch, so nothing is watched. Ask them before trying again.', true);
@@ -151,7 +156,9 @@ export default function mcpEvents(pi: ExtensionAPI): void {
             unavailable: () => unavailable,
             log,
             env,
-            send: (text, o) => pi.sendMessage({ customType: CUSTOM_TYPE, content: text, display: true }, o.wake ? { triggerTurn: true, deliverAs: 'followUp' } : { deliverAs: 'nextTurn' })
+            // A wake starts a turn (now if idle, else after the current one); the notice is added to the
+            // conversation without one, where the user sees it at once and the model with the next turn.
+            send: (text, o) => pi.sendMessage({ customType: CUSTOM_TYPE, content: text, display: true }, o.wake ? { triggerTurn: true, deliverAs: 'followUp' } : {})
         });
         const discovery = discover({ table, connections, unavailable, signal: abort.signal, log }).then(() => {
             if (!abort.signal.aborted) session.start();

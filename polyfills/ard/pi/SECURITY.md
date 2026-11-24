@@ -41,8 +41,11 @@ JSON modes refuse. The question supplies consent because Pi does not prompt
 before every tool call; annotations also support permission extensions.
 
 Queries over 300 characters or containing control characters, invisible
-marks, direction marks, backticks, angle brackets or square brackets are
-refused. Registry arguments and settings are limited to 200 characters,
+marks (default-ignorable code points such as tag characters and variation
+selectors included), direction marks, backticks, angle brackets or square
+brackets are refused. What a registry says in an error, or in a problem with
+its answer, goes into the result as one quoted line, so it can't pass for the
+extension's own text. Registry arguments and settings are limited to 200 characters,
 without spaces, controls or direction marks. Endpoints containing misleading
 markup or userinfo are refused. The question shows the endpoint actually
 used, after URL normalization.

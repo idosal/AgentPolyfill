@@ -33,8 +33,12 @@ policy on what Pi does with an event.
 What it adds is a question before the one step that lets a server set work in
 motion while you're away: **each watch needs your yes**, in a Pi dialog that
 names the server, the event type, its filters and the note, and says that its
-events will start turns by themselves. Where nobody can be asked (print and
-JSON modes), no watch is started.
+events will start turns by themselves. Filters and note are shown whole, with
+any character that shows nothing or changes how text reads (controls,
+direction marks, zero-width and tag characters) written out; a watch with more
+than the question can show is refused, never shown cut short. Where nobody can
+be asked (print and JSON modes), no watch is started, and a watch whose tool
+call Pi cancels while you're being asked isn't started either.
 
 ## What the extension does
 
@@ -50,14 +54,17 @@ JSON modes), no watch is started.
   waiting, and isn't woken again until you write to it. Pi tells the extension
   that you wrote (its `input` event, from the terminal or an RPC client); a
   message an extension sends doesn't count, so a wake can't lift the cap. The
-  count is kept on disk, so a restart doesn't reset it. Nothing is dropped.
+  count is kept on disk, so a restart doesn't reset it, and a second Pi
+  process that takes over the session's watches carries on from it. Nothing
+  is dropped.
 - **A watch belongs to one session**, by Pi's session id, which the model
   can't set. Another session sees none of its watches or events.
 - **The tools say what they do.** The four that only read are marked
   read-only (`readOnlyHint`), and `watch_event` and `unwatch_event` aren't,
   so a permission extension can tell them apart.
 - **It connects only where Pi does, and with only what Pi's configuration
-  holds.**
+  holds.** Each server's transport is chosen as Pi chooses it, and an entry
+  Pi would reject is left alone, before any value in it is resolved.
   - It reads the servers Pi reads: `mcp.json` in Pi's agent directory, the
     project's `.pi/mcp.json` only once you trust the project, and the servers
     other extensions register.
