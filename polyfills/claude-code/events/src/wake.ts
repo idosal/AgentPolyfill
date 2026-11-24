@@ -29,7 +29,7 @@ export type Gate =
     /** Said already: nothing until the person speaks. */
     | { kind: 'paused' };
 
-type Saved = { last?: Record<string, number>; wakes?: number[]; paused?: boolean };
+type Saved = { last?: Record<string, number>; wakes?: number[]; paused?: boolean; noticeHanded?: boolean };
 
 export function wakeLimits(env: NodeJS.ProcessEnv): { gapMs: number; perHour: number } {
     const num = (v: string | undefined, fallback: number) => {
@@ -48,6 +48,13 @@ export class WakeBudget {
     /** When this session was woken, within the last hour. */
     #wakes: number[] = [];
     #paused = false;
+    /**
+     * The notice was handed over and its acknowledgement not yet heard. Kept on disk: a helper that
+     * restarted between the submit and the ack is told of it by the hooks module, as of a batch,
+     * and needs to know that what it is told of is the notice. Once Claude Code took the notice it
+     * counts as given, whenever its ack comes, as it does for the helper that handed it over.
+     */
+    #noticeHanded = false;
 
     /** `file`: where the count is kept, so a helper that restarts does not start the hour again. */
     constructor(limits: { gapMs: number; perHour: number }, file?: string) {
@@ -60,6 +67,7 @@ export class WakeBudget {
             for (const [k, v] of Object.entries(saved.last ?? {})) if (typeof v === 'number') this.#last.set(k, v);
             this.#wakes = (saved.wakes ?? []).filter((t) => typeof t === 'number');
             this.#paused = saved.paused === true;
+            this.#noticeHanded = saved.noticeHanded === true;
         } catch {
             // nothing kept yet
         }
@@ -69,10 +77,15 @@ export class WakeBudget {
         return this.#paused;
     }
 
+    /** Whether the notice was handed over and not yet acknowledged (by this helper or an earlier one). */
+    get noticeHanded(): boolean {
+        return this.#noticeHanded;
+    }
+
     #save(): void {
         if (!this.#file) return;
         try {
-            writeFileSync(this.#file, JSON.stringify({ last: Object.fromEntries(this.#last), wakes: this.#wakes, paused: this.#paused } satisfies Saved), { mode: 0o600 });
+            writeFileSync(this.#file, JSON.stringify({ last: Object.fromEntries(this.#last), wakes: this.#wakes, paused: this.#paused, noticeHanded: this.#noticeHanded } satisfies Saved), { mode: 0o600 });
         } catch {
             // counted in memory all the same
         }
@@ -94,14 +107,24 @@ export class WakeBudget {
     woke(watches: string[], now = Date.now()): void {
         for (const w of watches) this.#last.set(w, now);
         this.#wakes.push(now);
+        // A notice handed over before, and never acknowledged, was never shown.
+        this.#noticeHanded = false;
         // Watches come and go: forget the ones not heard from for an hour.
         for (const [w, t] of this.#last) if (now - t > HOUR_MS) this.#last.delete(w);
+        this.#save();
+    }
+
+    /** The notice is being handed over; it counts as given once its acknowledgement comes. */
+    handNotice(): void {
+        if (this.#noticeHanded) return;
+        this.#noticeHanded = true;
         this.#save();
     }
 
     /** The session was told that waking has stopped. */
     pause(): void {
         this.#paused = true;
+        this.#noticeHanded = false;
         this.#save();
     }
 
