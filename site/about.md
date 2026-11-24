@@ -19,8 +19,7 @@ author works in the MCP Apps working group;
 this is not working-group output.
 
 Model Context Protocol and MCP are trademarks of LF Projects, LLC. Claude and
-Claude Code are trademarks of Anthropic, PBC. Other names are used only to say
-what the plugins work with.
+Claude Code are trademarks of Anthropic, PBC.
 
 ## Licence
 
@@ -33,7 +32,7 @@ polyfill that ships third-party code includes its notices in its folder.
 The plugins, their docs and this site are in one repository:
 [github.com/idosal/AgentPolyfill](https://github.com/idosal/AgentPolyfill). This
 site is built with VitePress from the `site/` folder, from the repository's own
-READMEs and recordings.
+READMEs, with a launch video and one recording per polyfill made for the site.
 
 ## Contact
 

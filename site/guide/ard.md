@@ -23,9 +23,13 @@ theirs.
 
 ::: warning Search sends your query to a third party
 `ard_search` posts the words of your request to an ARD registry, a service
-someone else runs, which ranks other people's servers. Claude Code asks you
-before every search, showing the query and where it goes. For that reason the
-plugin is not part of the `agent-polyfill` bundle: you install it by name.
+someone else runs, which ranks other people's servers. By default that registry
+is a Hugging Face Space, `https://huggingface-hf-discover.hf.space` (the
+`registry` setting changes or empties it), and the query also goes to up to
+three registries it refers to. Claude Code asks you before every search, showing
+the query and where it goes; with nobody to ask (`claude -p`), nothing is sent.
+For that reason the plugin is not part of the `agent-polyfill` bundle: you
+install it by name.
 :::
 
 It implements ARD v0.91 at commit `f073b1ea9b`: §5.1 (domain discovery), §5.3

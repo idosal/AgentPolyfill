@@ -1,5 +1,5 @@
 ---
-description: mcp-skills adds the client side of the MCP Skills extension (SEP-2640) to Claude Code. Skills your MCP servers serve are listed, approved once, loaded and verified.
+description: mcp-skills adds the client side of the MCP Skills extension (SEP-2640) to Claude Code. Skills your MCP servers serve are listed, approved once, loaded, and checked against the server's manifest.
 ---
 
 # Skills
@@ -13,12 +13,9 @@ the MCP **Skills** extension, `io.modelcontextprotocol/skills`
 Final), which Claude Code does not support by itself yet.
 
 <Recording
-  src="/media/skills.mp4"
-  poster="/media/skills.jpg"
-  :width="960"
-  :height="540"
-  alt="A Claude Code session lists the 25 skills that Hugging Face's MCP server serves. Asked which model quantization to use on a 16 GB Mac, Claude picks the matching skill, Claude Code asks once whether to load it, and Claude reads the skill's files from the server and answers from them."
-  caption="A real session against Hugging Face's public MCP server (21 s). The picture zooms in on parts of the terminal, and waits are shortened."
+  cut="skills"
+  alt="In Claude Code, /mcp-skills lists the skills Hugging Face's MCP server serves. Asked to use the trl-training skill on which TRL trainer aligns a 7B model with preference pairs on one GPU, Claude asks to load it, Claude Code asks once for approval, the skill is loaded from the server, and Claude answers from it."
+  caption="A real session against Hugging Face's public MCP server (23 s). The picture zooms in on parts of the terminal, and waits are shortened."
 />
 
 ## Install
@@ -191,7 +188,7 @@ The full account:
 | The official MCP conformance suite's client scenarios for SEP-2640 (it has four) | 4 of 4 pass |
 | The client rules, one test per rule, against a hand-written server; discovery; the bundled helper; per-skill disable; property tests; the model of the gate | 128 pass |
 | Approval, the permission questions, disable and enable, first-run behaviour and the runtime setup, in Claude Code's own test kit | 96 pass |
-| A model of approval, loading, disabling and the gate, every reachable state to its bound | every invariant holds |
+| A model of approval, loading, disabling and the gate, every reachable state to its bound (it checks the model, not the code) | every invariant holds |
 | The same model in TLA+, every reachable state to the same bound, by TLC 1.7.4 | every invariant holds |
 | The official TypeScript SDK's Skills server and client, over stdio and HTTP | 15 checks pass |
 | Real Claude Code sessions, recorded | screens in [`live/`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/claude-code/skills/live) |
@@ -216,6 +213,29 @@ for a session in which it sees Claude Code load a skill from an MCP server.
 | `MCP_SKILLS_SERVERS` / `MCP_SKILLS_SKIP` | Only these server names, or never these (comma-separated). |
 | `MCP_SKILLS_CONFIG` | A servers file of your own instead of Claude Code's configuration, outside the project folder and its repository. |
 | `MCP_SKILLS_STATE` | Where the mod keeps its log and its note of which servers serve skills. |
+
+## The mod's own runtime
+
+The helper is JavaScript, so it needs Node or Bun, and Claude Code comes with
+neither. On a machine with none, `/mcp-skills setup` fetches one:
+
+- **Only when you ask, and only after you say yes.** The command counts only
+  when you type it at the prompt, or send it from your own Remote Control.
+  Claude Code's own dialog then asks whether to download; "Not now" is the first
+  answer.
+- **What is fetched:** one fixed Bun release, for macOS or Linux, arm64 or x64,
+  from that release's page on GitHub, over HTTPS only.
+- **Checked before it is installed:** its SHA-256 must equal the one written in
+  the mod's source, copied from the release's own checksum file. A download that
+  does not match is deleted. Only the copy of the pinned version is ever run.
+- **Where it goes:** a `runtime` folder in the plugin's data folder, used for
+  this mod's helper and nothing else. `/mcp-skills setup remove` deletes it.
+
+`/mcp-skills setup` has been tested in parts, not yet as one run on a machine
+with no Node and no Bun: the download command against the release, the
+unpacking, the checksum code inside Claude Code, the refusals, and the helper on
+Bun were each run for real; the sequence as a whole is covered by tests with
+stand-ins.
 
 ## More
 

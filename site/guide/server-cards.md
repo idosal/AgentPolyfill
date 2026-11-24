@@ -27,12 +27,9 @@ does not support by itself yet:
   domain discovery to, v0.9 (a release candidate).
 
 <Recording
-  src="/media/server-cards.mp4"
-  poster="/media/server-cards.jpg"
-  :width="1280"
-  :height="720"
-  alt="In Claude Code, the question What MCP servers does neon.com publish? lists Neon and Neon Docs, each with an Add button, from neon.com's own catalog. Add is pressed on Neon Docs, and it is added to Claude Code's configuration."
-  caption="Part of the launch video (9 s): neon.com's two servers, found from its domain, and Neon Docs added with a press of Add."
+  cut="server-cards"
+  alt="In Claude Code, the question What MCP servers does neon.com publish? lists Neon and Neon Docs from neon.com's own catalog, each with an Add button. Add is pressed on Neon Docs, which is marked added, with a note to run /mcp to connect or sign in."
+  caption="A real session (21 s, recorded with 0.1.0): neon.com's two servers, found from its domain. Add on Neon Docs writes it to Claude Code's config; connecting is left to /mcp."
 />
 
 ## Install
@@ -152,8 +149,8 @@ says is someone else's claim, read before any connection.
 
 - **What it fetches:** plain `GET`s, through Claude Code's own network path,
   with no cookies or credentials, bounded in size and number. It sends nothing to
-  a third party. A public catalog or card can't send it to a local or private
-  address.
+  a third party: no query text, and no request that is not a `GET`. A public
+  catalog or card can't send it to a local or private address.
 - **What it writes:** only your MCP configuration, through `claude mcp add`, for
   one server at a time, and only when you press **Add** or approve Claude's
   request. Never over a server you have.
@@ -167,7 +164,8 @@ says is someone else's claim, read before any connection.
   holds no token.
 
 It does not protect against a publisher's own bad server, an unconfirmed server
-you add anyway, or a public name that resolves to a private address.
+you add anyway, or a public name that resolves to a private address, or a
+redirect to one.
 
 How it is checked: 99 tests for the client rules, run with Claude Code's own
 test kit (two rules are met by design, and the one about the live server is not
@@ -175,8 +173,9 @@ met); the live catalogs and
 cards of Buildkite, GitHub, Hugging Face, Neon, Netlify, Notion, Context7, Exa,
 Supabase and Zapier (ten of the eleven cards valid, Zapier's refused, and ajv
 with the official schema gives the same verdict on all eleven); and runs in the
-real host. Adding a server end to end in the real host is the run still to
-record. The MCP conformance suite has no Server Card scenarios. An independent
+real host. Adding a server end to end in the real host (added, then connected
+and used) is the run still to record; the recording at the top of this page
+shows **Add** pressed and the server written to the config, not connected. The MCP conformance suite has no Server Card scenarios. An independent
 security review for the launch (24 November 2026), by an AI session, not a human
 audit: its findings SC1 to SC7 are fixed and tested.
 

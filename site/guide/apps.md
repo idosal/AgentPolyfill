@@ -16,18 +16,10 @@ Apps (`io.modelcontextprotocol/ui`) as published in `specification/2026-01-26`
   Text, including chart labels, stays real characters.
 
 <Recording
-  src="/media/apps.mp4"
-  poster="/media/apps.jpg"
-  :width="880"
-  :height="495"
+  cut="apps"
   alt="In Claude Code, a classic shareware game from the hosted arcade server runs under the tool call and is played with keys and clicks. Then a cohort retention heatmap from another MCP server opens inline, shows a tooltip wherever the pointer goes, and a control switches its period. Last, a 3D scene opens and turns when dragged."
->
-  A classic shareware game from the hosted arcade server, played with keys and
-  clicks; a cohort heatmap from an MCP server that opens under the tool call and
-  answers the pointer; and a 3D scene Claude writes, turned by dragging. The
-  <a href="https://github.com/idosal/AgentPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4">full video</a>
-  is 33 s.
-</Recording>
+  caption="A real session (33 s): a classic shareware game from the hosted arcade server, played with keys and clicks; a cohort heatmap from an MCP server that opens under the tool call and answers the pointer; and a 3D scene Claude writes, turned by dragging."
+/>
 
 ## Install
 

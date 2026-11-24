@@ -12,12 +12,9 @@ nobody typing. It adds the client side of the MCP **Events** extension,
 Final), which Claude Code does not support by itself yet.
 
 <Recording
-  src="/media/events-button.mp4"
-  poster="/media/events-button.jpg"
-  :width="1280"
-  :height="720"
+  cut="events"
   alt="One sentence to Claude Code gives a private button page and a watch, and the session goes idle. Someone types ship it on the page and presses the button; the idle session wakes by itself and says what was typed."
-  caption="A recording against the hosted demo server (28 s). One sentence gives a private button page and a watch, and the session goes idle. Someone types on the page and presses the button; the idle session wakes by itself and says what was typed."
+  caption="A real session against the hosted demo server (21 s, waits shortened). One sentence gives a private button page and a watch, and the session goes idle. Someone types on the page and presses the button; the idle session wakes by itself and says what was typed."
 />
 
 ## Install
@@ -181,6 +178,9 @@ own Cloudflare account. From inside Claude Code:
 /mcp-events:relay-setup
 ```
 
+Webhook delivery through a relay needs Node 22 or newer (or Bun); push and poll
+work on Node 20.
+
 **The public relay** is off unless you turn it on by name, with
 `MCP_EVENTS_RELAY=public`. It is run by Ido Salomon, the author of the mod.
 The payloads of your webhook-delivered events pass through that server and are
@@ -219,7 +219,7 @@ Environment variables, for example in the `env` block of
 |---|---|
 | `MCP_EVENTS_OFF=1` | Installed, and doing nothing. |
 | `MCP_EVENTS_RUNTIME` | What runs the helper: the full path of a Node 20+ or a Bun, or `private` for only the copy of Bun `/mcp-events setup` fetched. |
-| `MCP_EVENTS_PRE_STANDARD` | `off` refuses servers that advertise events only in the form from before the standard, which is exactly the SEP; a comma-separated list of server names allows that form for those servers only. |
+| `MCP_EVENTS_PRE_STANDARD` | Servers that advertise events only in the form from before the standard are used by default. `off` refuses servers that advertise events only in the form from before the standard, which is exactly the SEP; a comma-separated list of server names allows that form for those servers only. |
 | `MCP_EVENTS_SERVERS` / `MCP_EVENTS_SKIP` | Only these server names, or never these (comma-separated). |
 | `MCP_EVENTS_SOURCES` | Which Claude Code configuration scopes to read: `project,local,user` (default all three). |
 | `MCP_EVENTS_CONFIG` | A servers file of your own instead of Claude Code's configuration, outside the project folder and its repository. |
@@ -277,7 +277,7 @@ How it is checked:
 
 - **Conformance.** Every client-side rule of SEP-3415, clause by clause, with
   the code and the test for each. The upstream conformance suite's Events
-  client scenarios (an unmerged pull request) pass 17 of 17.
+  client scenarios (an unmerged pull request) pass 17 of 17, as run on 0.5.0.
 - **Property-based tests** over what a server, a relay or anyone on the wire
   sends first reaches.
 - **A formal model** of delivery and of waking, in Quint and in TLA+:
@@ -292,6 +292,28 @@ How it is checked:
 
 The full account, including what it does not protect against:
 [`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/events/SECURITY.md).
+
+## The mod's own runtime
+
+The helper is JavaScript, so it needs Node or Bun, and Claude Code comes with
+neither. On a machine with none, `/mcp-events setup` fetches one:
+
+- **Only when you ask, and only after you say yes.** The command counts only
+  when you type it at the prompt, or send it from your own Remote Control.
+  Claude Code's own dialog then asks whether to download; "Not now" is the first
+  answer.
+- **What is fetched:** one fixed Bun release, for macOS or Linux, arm64 or x64,
+  from that release's page on GitHub, over HTTPS only.
+- **Checked before it is installed:** its SHA-256 must equal the one written in
+  the mod's source, copied from the release's own checksum file. A download that
+  does not match is deleted.
+- **Where it goes:** a `runtime` folder in the plugin's data folder, used for
+  this mod's helper and nothing else. `/mcp-events setup remove` deletes it.
+
+**Not yet run as one sequence.** The download, the check and the unpacking are
+tested with stand-ins for the machine; the download itself has not been run
+from this mod. The same code in the mcp-skills mod was run in parts against the
+real release.
 
 ## When Claude Code supports Events itself
 
