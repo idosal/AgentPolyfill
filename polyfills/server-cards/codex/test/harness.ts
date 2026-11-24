@@ -9,7 +9,7 @@ import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rea
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { test } from 'node:test'
+import { after, test } from 'node:test'
 
 // The stand-in for `codex`: `mcp get`, `mcp add` and `app-server`'s
 // config/value/write, as Codex 0.170.0 answers them.
@@ -57,6 +57,8 @@ export type Fake = { dir: string; bin: string; state: string; log: string; calls
 
 export function fakeCodex(): Fake {
   const dir = mkdtempSync(join(tmpdir(), 'codex-polyfill-test-'))
+  // A throwaway CODEX_HOME: removed when the test that made it ends.
+  after(() => rmSync(dir, { recursive: true, force: true }))
   const bin = join(dir, 'codex.cjs')
   writeFileSync(bin, FAKE_CODEX)
   chmodSync(bin, 0o755)
