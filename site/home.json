@@ -62,7 +62,8 @@
       "plugin": "mcp-server-cards",
       "spec": "SEP-2127, Final (extension Beta)",
       "hosts": [
-        "Claude Code"
+        "Claude Code",
+        "Codex"
       ],
       "id": "",
       "state": "Early",
@@ -102,7 +103,8 @@
       "plugin": "ard-discovery",
       "spec": "Agentic Resource Discovery v0.91, a draft outside MCP",
       "hosts": [
-        "Claude Code"
+        "Claude Code",
+        "Codex"
       ],
       "id": "",
       "line": "Find the MCP servers a domain lists in its ARD file, or search an ARD registry, and add one in one click.",

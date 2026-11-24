@@ -47,6 +47,21 @@ It is also part of the `agent-polyfill` bundle. You need:
   or in the usual install folders. If neither works, it gives you the exact
   command to run yourself.
 
+### In Codex
+
+Server Cards also runs in OpenAI Codex, as a plugin, and is early there: the
+same discovery and checks, and a server is added to Codex's config only after
+you choose "Add it" in Codex's own form. It needs Codex 0.170 or newer and
+Node 20 or newer. In a terminal:
+
+```bash
+codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-server-cards@agent-polyfill
+```
+
+The rest of this page is about the Claude Code form. The Codex form's
+requirements, limits and tests are in its README,
+[`polyfills/server-cards/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex).
+
 ## Try it
 
 Nothing to set up. Start `claude` and ask:
@@ -67,8 +82,9 @@ removes it again. For one behind a sign-in, ask about buildkite.com; after
 3. **Claude shows what it found:** each server's card, and whether the card is
    valid. A refused card says why; nothing refused can be added.
 4. **Pick one.** Under the result, a box lists the servers you can add: each
-   one's name, the URL it connects to, who stands behind it, and the server name
-   and headers it would write, with an **Add** button.
+   one's name, the URL it connects to and, on its own line, the host, who
+   stands behind it, and the server name and headers it would write, with an
+   **Add** button.
    - **Add** adds that server, with the card as shown and its defaults, to the
      local scope (this project, only you). The press is your choice, so no
      further prompt follows.
@@ -155,9 +171,10 @@ says is someone else's claim, read before any connection.
   one server at a time, and only when you press **Add** or approve Claude's
   request. Never over a server you have.
 - **Text that displays as something else:** a card is refused if any string in
-  it holds a control character or an invisible format or bidirectional mark; a
-  remote URL must be printable ASCII, so what the picker shows beside **Add** is
-  what is added.
+  it holds a control character or an invisible format or bidirectional mark. A
+  remote URL must be printable ASCII, without `` ` ``, `<`, `>` or square
+  brackets outside an IPv6 host, so Markdown or HTML can't show other text in
+  its place, and may not name a user before its host.
 - **Secrets** never pass through Claude, the command line or the polyfill's
   store, and a card that sets a secret's value itself is refused.
 - **It never reads Claude Code's credentials**, runs no sign-in of its own, and
@@ -167,7 +184,7 @@ It does not protect against a publisher's own bad server, an unconfirmed server
 you add anyway, or a public name that resolves to a private address, or a
 redirect to one.
 
-How it is checked: 99 tests for the client rules, run with Claude Code's own
+How it is checked (the Claude Code form): 108 tests for the client rules, run with Claude Code's own
 test kit (two rules are met by design, and the one about the live server is not
 met); the live catalogs and
 cards of Buildkite, GitHub, Hugging Face, Neon, Netlify, Notion, Context7, Exa,
