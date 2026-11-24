@@ -41,14 +41,30 @@ newer or Bun on your PATH ([Requirements](#requirements)).
 
 ## Try it
 
-Any MCP server that implements the Events extension will do. If you have none,
-this repository has a small one in [`demo/`](demo/): a "deploys" service with
-a page of buttons. It needs Node 22.18 or newer.
+A demo server with events is hosted for anyone to try, with no sign-in. With
+the mod installed, add it:
 
-<!-- Hosted demo server: not deployed yet. When it is, put its one line here,
-     claude mcp add --transport http <name> <its https URL>,
-     with the question to ask, and keep the steps below for running the
-     demo server yourself. -->
+```bash
+claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev/mcp
+```
+
+Start `claude` in the same folder (one you trust) and ask:
+
+> Give me a demo button and tell me when it is pressed.
+
+Claude makes a private button page with the server's `new_demo_button` tool,
+gives you its link, and watches it. Open the link and press the button: a few
+seconds later the idle session wakes by itself, shows a "Prompt from the
+mcp-events plugin" line, and answers. The same server also offers
+`hn.comment` (new comments in a Hacker News thread), `hn.story`,
+`npm.release`, `github.release` and `usgs.earthquake`, all delivered by poll.
+
+To stop: "Stop watching the demo button."
+
+### Or run a demo server yourself
+
+[`demo/`](demo/) holds a small Events server: a "deploys" service with a page
+of buttons. It needs Node 22.18 or newer.
 
 ```bash
 git clone https://github.com/idosal/MCPolyfill
@@ -294,6 +310,9 @@ welcome.
 ## Limits
 
 - **No interactive OAuth**, as above.
+- **No limit on wakes.** Each batch of events starts a turn once the session
+  is idle, so a server that sends events often keeps the session busy, and
+  uses your plan or API spend, until you stop the watch.
 - **It needs an open session.** Nothing starts Claude Code when an event
   arrives. With a relay, webhook events wait for your next session (for up to
   a week on your own relay, a day on the public one).
@@ -315,8 +334,10 @@ welcome.
 
 ## Security
 
-An event is data from a server you configured, and the mod treats it the way
-Claude Code treats a tool result from that server. Receiving one gives Claude
+An event is data from a server you configured, labelled as that server's. The
+whole event reaches Claude as a tool result (`get_event`); the line that wakes
+the session carries a few short fields of it as a message from the plugin,
+never as your words. Receiving one gives Claude
 no permission it did not already have: what Claude does next goes through
 Claude Code's own permission mode, rules and hooks. Keep in mind that an event
 arrives without anyone asking, so in a session that approves actions without

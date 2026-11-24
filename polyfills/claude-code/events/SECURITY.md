@@ -6,14 +6,17 @@ holds the Events client.
 
 ## The model
 
-An event is data from an MCP server you configured. The mod treats it the
-way Claude Code treats a tool result from that server, which is what the Events
-extension asks for ("the same caution as tool results"). Receiving an event
+An event is data from an MCP server you configured, and the Events extension
+asks clients to treat it with "the same caution as tool results". The whole
+event reaches Claude as a tool result (`get_event`). The line that wakes the
+session is different: it carries a few short fields of the event as a message
+from the plugin (never as your words), so those fields reach the model as
+message text, not as a tool result. Receiving an event
 gives Claude no permission it did not already have: whatever Claude does about
 one goes through Claude Code's own permission mode, rules and hooks. The mod
 adds no policy of its own on top.
 
-The difference from a tool result is timing. An event arrives without anyone
+The other difference from a tool result is timing. An event arrives without anyone
 asking, and wakes an idle session. If that session runs in a mode that approves
 actions without asking, an event from a server can lead to actions without a
 prompt, as a tool result from the same server could.
@@ -106,9 +109,13 @@ prompt, as a tool result from the same server could.
   secret stays on your machine and the mod checks every delivery. Push and
   poll never touch any relay.
 - **Anyone who learns a webhook address can post junk to it.** The mod drops
-  it, but while Claude Code is closed nothing clears the mailbox, so enough
-  junk fills it and genuine deliveries are answered `503` until the mod next
-  connects. Treat a webhook address as a secret.
+  it, but it counts against the mailbox's rate limit first, so a steady stream
+  of it makes genuine deliveries wait (`429`) even while the mod is connected.
+  While Claude Code is closed only expiry clears the mailbox, so enough junk
+  fills it and genuine deliveries are answered `503` until the mod next
+  connects. A project's watches share one mailbox, so a server can do this to
+  the other servers' watches through its own address. Treat a webhook address
+  as a secret.
 - **A challenge is echoed by the mod with the relay in
   [`mod/relay/`](mod/relay/).** A server cannot tell that relay from one that
   echoes challenges itself.
