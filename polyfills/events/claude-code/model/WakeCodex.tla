@@ -136,7 +136,7 @@ HelperDies == /\ s.helper
                                 !.excused = IF s.queued = "batch" /\ ~s.answered THEN MaxOf(s.excused, s.upto) ELSE s.excused]
 \* A new helper reads the budget and the position from disk. A notice handed to codex queue by a
 \* helper that ended before it heard back counts as given: it starts paused (ThreadSession.start,
-\* from 0.1.4; the constructor before). Then, 0.1.3, a batch such a helper handed over (the record) is marked handed over
+\* from 0.1.5; the constructor before). Then, 0.1.3, a batch such a helper handed over (the record) is marked handed over
 \* and counted, now (ThreadSession.start).
 HelperStarts == LET b == IF s.budget.noticeHanded THEN Pause(s.budget, s.lift, s.now) ELSE s.budget IN
                 /\ ~s.helper

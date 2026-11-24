@@ -41,8 +41,20 @@ A new access key: `npm run setup -- --rotate`. To remove everything:
 who cannot deploy their own:
 
 ```bash
-npx wrangler deploy -c wrangler.public.jsonc
+npm run deploy:public
 ```
+
+That is `wrangler deploy -c wrangler.public.jsonc`, with `VERSION` set to the
+commit, which `GET /` then shows.
+
+Deploy it on a Workers Paid account that holds nothing else, with billing
+notifications on. On Workers Free, an account's daily quotas (requests, and
+Durable Object rows written) are shared by every Worker on it, and anyone can
+spend them just by sending requests here: a request the relay refuses still
+counts as one. Then the relay, and every other Worker on the account, stops
+until the quotas reset at 00:00 UTC. Nothing in the relay can prevent that. On
+Paid the same traffic is billed instead, and Cloudflare offers billing
+notifications, not a spending cap.
 
 The mod's author runs one at
 `https://mcp-events-public-relay.idosalomon.workers.dev`; the mod uses it only
@@ -56,8 +68,8 @@ why the mod says so each time. What keeps it from being more than that:
 - A delivery is deleted once collected, and after 23 hours if it never is
   (the clear-out runs hourly, so within about a day; this depends on
   Cloudflare running the mailbox's alarm).
-- One mailbox holds at most 100 deliveries (4 MiB of bodies) for at most 16
-  webhook addresses. An address its owner has not asked for or collected from
+- One mailbox holds at most 100 deliveries (4 MiB, their headers included)
+  for at most 16 webhook addresses. An address its owner has not asked for or collected from
   in a week is retired, whatever was posted to it meanwhile. A mailbox with no
   address and nobody connected gives its storage back.
 - Rate limits: about 120 deliveries a minute to one webhook address, 300
@@ -70,27 +82,45 @@ why the mod says so each time. What keeps it from being more than that:
   elsewhere in a mailbox does not use it up.
 - MCP servers hosted on Cloudflare Workers all reach the relay from one
   address (Cloudflare sets `CF-Connecting-IP` to `2a06:98c0:3600::103` for a
-  Worker's request to another Cloudflare site), so they share one bucket of
-  their own, 3,000 delivery requests a minute, and any Worker can spend it.
-  Each webhook address's own allowance still applies. This comes from
-  Cloudflare's documentation; it was not tested here.
+  Worker's request to another Cloudflare site), so their delivery requests are
+  counted per mailbox instead, 3,000 a minute to one mailbox. Junk a Worker
+  sends to made-up addresses spends only the buckets of the mailboxes it names,
+  never another's. Each webhook address's own allowance still applies. This
+  comes from Cloudflare's documentation; it was not tested here.
 - A request whose limit cannot be checked is refused with `503`
   (`REQUIRE_LIMITS`): with its limits off, an open relay is free storage.
 - A connection that sends more than 600 messages in a minute, or a frame over
   256 KiB, is closed. Asking again for an address already asked for on the
   same connection sends nothing again.
-- It opens at most 2,000 new mailboxes in an hour, and 60 from one sender.
-  Past either, a new mailbox is refused with `429` until the hour is over;
-  mailboxes that exist are not affected. The first ceiling bounds cost (an
-  empty mailbox gives its storage back, and a full one holds at most 4 MiB);
-  someone with many IPv6 /64s or IPv4 addresses can still spend it, and keep
-  new users out for the rest of that hour. A mailbox that gave its storage
-  back counts as new when its owner returns, and many people behind one
-  address (an office, a conference) share that address's 60. To count per
-  sender it keeps, for that hour only, a hash of the sender salted with a
-  value made for the hour.
+- It opens at most 2,000 new mailboxes in an hour, 60 from one sender and
+  200 from one network (an IPv6 /48; an IPv4 address is its own network).
+  Past any of them, a new mailbox is refused with `429` until the hour is
+  over; mailboxes that exist are not affected. One /48 (which tunnel brokers
+  hand out free) cannot spend the hour's 2,000 by itself; someone with ten or
+  more /48s or many IPv4 addresses still can, and keep new users out for the
+  rest of that hour. A mailbox that gave its storage back counts as new when
+  its owner returns, and many people behind one address or network (an
+  office, a conference, a mobile carrier) share its ceiling. To count per
+  sender and network it keeps, for that hour, hashes salted with a value made
+  for the hour; they are deleted when the hour is over.
+- It holds at most 20,000 mailboxes at once (`MAX_LIVE_MAILBOXES`), so at most
+  about 80 GiB in all. Past it, a new mailbox is refused with `503` until
+  others give their storage back. The hourly ceilings bound how fast
+  mailboxes appear; this bounds how many there are. It can be filled and kept
+  full: at 200 an hour from each /48, ten /48s (or about 34 IPv4 addresses)
+  fill it in about ten hours, and a mailbox with one address stays live as
+  long as its owner reconnects once a week. New users then get `503` until
+  the operator blocks those mailboxes; existing users are unaffected. There
+  is no cap on live mailboxes per network yet.
+- The front page names an abuse contact. A mailbox the operator lists in
+  `BLOCKED_MAILBOXES` is refused: its socket and its deliveries get `410`.
 - Request logs are off.
-- `GET /` says who runs it, that it is open, and how long it keeps a delivery.
+- `GET /` says who runs it, that it is open, how long it keeps a delivery,
+  where to report abuse, and which build is deployed.
+- The plugin has its address written in, so whoever holds that hostname gets
+  its users' payloads and mailbox keys (though still no signing secret). If it
+  is ever retired, a plugin release without it comes first, and its
+  `workers.dev` subdomain is kept, not given up for someone else to claim.
 
 ## What it is trusted with
 
@@ -112,10 +142,16 @@ Nothing it could misuse to make an event up.
 - **It can read payloads.** Webhooks are signed, not encrypted, so whoever runs
   the relay can read the events that pass through it. Run your own.
 - **It can delay or drop.** It cannot replay: the plugin refuses a delivery it
-  has already taken, or one signed well before those it has taken.
+  has already taken, or one signed well before those it has taken. It says when
+  a delivery arrived, and the plugin's freshness check takes its word, so a
+  relay can hold a genuine delivery back and hand it over later as fresh: for
+  up to 25 hours on the public relay (its retention and an hour), and up to
+  eight days on one of your own.
 - **Challenges.** A server's verification challenge is passed to the connected
-  plugin, which echoes it only if its signature verifies; with no plugin
-  connected the relay answers 503. That is this relay's behaviour. A server
+  plugin, which echoes it only if its signature verifies. Every challenge the
+  plugin does not confirm gets the same `503`: refused, unanswered, or with no
+  plugin connected. So posting one without the secret does not tell whether
+  the plugin is online, except by how long the answer takes. That is this relay's behaviour. A server
   cannot tell it from a relay that echoes challenges itself; such a relay would
   have an address confirmed without the plugin, and still could not forge an
   event.
@@ -159,7 +195,7 @@ The socket's messages are in [`src/protocol.ts`](src/protocol.ts).
 |---|---|---|
 | Body of one delivery | 256 KiB | |
 | Deliveries a mailbox holds | 500 | `MAX_QUEUED` |
-| Their total size | 16 MiB | `MAX_QUEUED_BYTES` |
+| Their total size, headers included | 16 MiB | `MAX_QUEUED_BYTES` |
 | Hooks per mailbox | 64 | `MAX_HOOKS` |
 | An uncollected delivery is kept | 7 days | `DELIVERY_TTL_S` |
 | A hook nobody used is retired after | 30 days | `HOOK_IDLE_TTL_S` |
@@ -167,7 +203,9 @@ The socket's messages are in [`src/protocol.ts`](src/protocol.ts).
 | Challenges waiting at once | 16 | |
 | One frame from the plugin | 256 KiB | |
 | Messages one connection sends in a minute | 1,200 | `SOCKET_MESSAGES_PER_MINUTE` |
-| New mailboxes opened in an hour, in all and from one sender (IPv4 address or IPv6 /64) | no ceiling | `NEW_MAILBOXES_PER_HOUR`, `NEW_MAILBOXES_PER_SENDER_PER_HOUR` |
+| New mailboxes opened in an hour, in all, from one sender (IPv4 address or IPv6 /64) and from one network (IPv6 /48) | no ceiling | `NEW_MAILBOXES_PER_HOUR`, `NEW_MAILBOXES_PER_SENDER_PER_HOUR`, `NEW_MAILBOXES_PER_NETWORK_PER_HOUR` |
+| Mailboxes held at once | no ceiling | `MAX_LIVE_MAILBOXES` |
+| Mailboxes refused | none | `BLOCKED_MAILBOXES` |
 | A request whose rate limit cannot be checked | let through | `REQUIRE_LIMITS=1` refuses it |
 
 A full mailbox answers `503` with `Retry-After`, so the server tries again
@@ -199,4 +237,6 @@ over and acknowledging deliveries; holding them while nobody is connected;
 retries and look-alike deliveries under one id; passing a challenge to the
 plugin; malformed and oversized requests; removed and idle hooks; a replaced
 connection losing its say; the challenge cap; a full mailbox; and that what is
-stored survives a restart.
+stored survives a restart. `test/adversarial-test.ts` attacks it: two tenants,
+an outsider, a malicious MCP server and a hostile relay, against the plugin's
+real relay client.

@@ -26,13 +26,15 @@ hero:
 
 <div class="ap-home"><div class="wrap">
 
+<p class="poc"><strong>An early proof of concept.</strong> Some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs. <a href="/guide/how-it-works#how-it-works-in-each-host-and-where-it-stops">What's missing</a>.</p>
+
 <section aria-label="The launch video">
   <LaunchVideo />
 </section>
 
 <section>
   <h2>The polyfills</h2>
-  <p class="lede">Each one implements an MCP extension's client side, to spec, and steps aside once the host ships its own. Servers don't change. All of them are early, and Events, Skills and Apps can't reach servers behind OAuth yet (<a href="/guide/how-it-works#how-it-works-in-each-host-and-where-it-stops">why</a>).</p>
+  <p class="lede">Each one implements an MCP extension's client side, to spec, and steps aside once the host ships its own. Servers don't change.</p>
   <PolyfillCards />
   <h3 class="beyond">Beyond MCP</h3>
   <PolyfillCards group="beyond" />

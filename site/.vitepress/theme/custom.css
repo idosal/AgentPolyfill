@@ -313,6 +313,30 @@ body {
 .ap-home section + section {
   margin-top: 96px;
 }
+/* Right under the hero: what state this is in, and where the gaps close.
+   The width of the install line above it, so the two read as one column. */
+.ap-home .poc {
+  max-width: 680px;
+  margin: 0 0 48px;
+  padding: 14px 18px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 10px;
+  background: var(--vp-c-bg-soft);
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--vp-c-text-2);
+  text-wrap: pretty;
+}
+.ap-home .poc strong {
+  font-weight: 650;
+  color: var(--vp-c-text-1);
+}
+.ap-home .poc a {
+  font-weight: 500;
+  color: var(--vp-c-brand-1);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .ap-home h2 + .ap-launch {
   margin-top: 24px;
 }

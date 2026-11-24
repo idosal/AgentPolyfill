@@ -215,6 +215,9 @@ function homeMarkdown() {
   }
   const paragraphs = (chunk) => [...chunk.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/g)].map((m) => html(m[1]))
   const [lede] = paragraphs(section('The polyfills'))
+  const poc = /<p class="poc">([\s\S]*?)<\/p>/.exec(body)
+  if (!poc) fail('index.md has no proof-of-concept notice (<p class="poc">)')
+  const notice = html(poc[1].replace(/<strong>([\s\S]*?)<\/strong>/g, '**$1**'))
   const card = (p) => {
     const cut = media.cuts.find((c) => c.name === p.cut)
     const lines = [
@@ -242,6 +245,8 @@ function homeMarkdown() {
   return `# ${data.title ?? 'AgentPolyfill'}
 
 > ${/[.!?]$/.test(text) ? text : `${text}.`} ${tagline}
+
+${notice}
 
 ## Install
 
@@ -313,7 +318,7 @@ function llmsTxt() {
 
 > ${data.description}
 
-AgentPolyfill makes polyfills for agent protocols: it brings more of MCP to the clients you already use, before they support it. Each polyfill implements the client side of one published MCP extension as a plugin, follows that extension's spec (any exception is listed and can be switched off), and steps aside once the host ships its own. Servers don't change. Today the hosts are Claude Code and Codex. Events (SEP-3415), Skills (SEP-2640) and Server Cards (SEP-2127) run in both; Apps (MCP Apps 2026-01-26) runs in Claude Code and isn't in Codex yet. All of them are early. Events, Skills and Apps can't reach servers behind OAuth yet, in either host. Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft) in both hosts; a search sends the words of your request to the ARD registry you choose and asks you first every time, so it isn't in the bundle and is installed by name.
+AgentPolyfill makes polyfills for agent protocols: it brings more of MCP to the clients you already use, before they support it. Each polyfill implements the client side of one published MCP extension as a plugin, follows that extension's spec (any exception is listed and can be switched off), and steps aside once the host ships its own. Servers don't change. Today the hosts are Claude Code and Codex. Events (SEP-3415), Skills (SEP-2640) and Server Cards (SEP-2127) run in both; Apps (MCP Apps 2026-01-26) runs in Claude Code and isn't in Codex yet. It's an early proof of concept: some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs (${origin}/guide/how-it-works.md). Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft) in both hosts; a search sends the words of your request to the ARD registry you choose and asks you first every time, so it isn't in the bundle and is installed by name.
 
 Install in Claude Code 2.1.329 or newer (every MCP polyfill, the \`agent-polyfill\` bundle), from a terminal: \`${INSTALL_CLI}\`. At the prompt of a \`claude\` session it is \`${INSTALL}\`. Start a new session for the plugins to load. Install in Codex 0.170 or newer (Node 20 or newer), from a terminal: \`${INSTALL_CODEX.join(' && ')}\`.
 

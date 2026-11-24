@@ -99,7 +99,11 @@ onMounted(() => {
   el.addEventListener('play', () => (playing.value = true))
   el.addEventListener('pause', () => (playing.value = false))
   if (!props.autoplay) {
-    // Load nothing until asked; with a mouse, hovering plays it.
+    // Load nothing until asked; with a mouse, hovering plays it. Only where
+    // the device really hovers: after a tap, a phone's browser can report a
+    // mouse at the tap's spot, and a card scrolled under it would start, so
+    // the tap on its button would pause it.
+    if (!window.matchMedia('(hover: hover)').matches) return
     root.value!.addEventListener('pointerenter', (e) => {
       if (e.pointerType === 'mouse' && !reduced.value) play()
     })

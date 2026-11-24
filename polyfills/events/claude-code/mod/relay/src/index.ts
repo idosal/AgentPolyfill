@@ -38,13 +38,19 @@ export interface Env {
     CLEANUP_EVERY_MS?: string;
     /** Who runs this relay, said at its front page. For a relay other people may use. */
     OPERATOR?: string;
+    /** Where to report abuse of this relay, said at its front page. */
+    ABUSE_CONTACT?: string;
+    /** The build deployed (a commit), said at its front page. Set by the deploy (`npm run deploy:public`). */
+    VERSION?: string;
+    /** Mailboxes this relay refuses, separated by commas or spaces: the operator's way to stop one being misused. */
+    BLOCKED_MAILBOXES?: string;
     /**
      * Rate limits, for a relay anyone may use (see wrangler.public.jsonc). Each is optional: a relay
      * behind an access key has none. They are approximate, and counted per Cloudflare location.
      */
     DELIVERIES_PER_HOOK?: RateLimit;
     DELIVERIES_PER_SENDER?: RateLimit;
-    /** Deliveries from MCP servers hosted on Cloudflare Workers, which all reach this relay from one address. */
+    /** Deliveries from MCP servers hosted on Cloudflare Workers, which all reach this relay from one address: counted per mailbox. */
     DELIVERIES_FROM_WORKERS?: RateLimit;
     SOCKETS_PER_SENDER?: RateLimit;
     /** "1": refuse a request whose limit cannot be checked (the limiter is missing, or does not answer). For a relay anyone may use. */
@@ -52,6 +58,10 @@ export interface Env {
     /** New mailboxes this relay opens in an hour, in all and for one sender. Unset: as many as are asked for. */
     NEW_MAILBOXES_PER_HOUR?: string;
     NEW_MAILBOXES_PER_SENDER_PER_HOUR?: string;
+    /** New mailboxes in an hour from one network (an IPv6 /48; an IPv4 address is its own). Unset: no ceiling. */
+    NEW_MAILBOXES_PER_NETWORK_PER_HOUR?: string;
+    /** Mailboxes this relay holds at once, however old. Unset: no ceiling. */
+    MAX_LIVE_MAILBOXES?: string;
     REGISTRY?: DurableObjectNamespace<Registry>;
 }
 
@@ -72,6 +82,9 @@ const MAX_BODY = 256 * 1024;
 const FRESHNESS_S = 5 * 60;
 /** Header text the plugin will accept: printable ASCII. Anything else is refused here, not stored. */
 const PLAIN = /^[\x20-\x7e]+$/;
+
+/** Whether the operator has blocked this mailbox. */
+const blocked = (env: Env, mailbox: string) => (env.BLOCKED_MAILBOXES ?? '').split(/[\s,]+/).includes(mailbox);
 
 function json(status: number, body: unknown, headers: Record<string, string> = {}): Response {
     return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers } });
@@ -117,13 +130,19 @@ async function readCapped(request: Request, limit: number): Promise<Uint8Array |
 async function deliver(request: Request, env: Env, mailbox: string, hook: string): Promise<Response> {
     if (!MAILBOX_RE.test(mailbox) || !HOOK_RE.test(hook)) return json(404, { error: 'no such webhook address' });
     if (request.method !== 'POST') return json(405, { error: 'deliveries are POSTed' }, { allow: 'POST' });
+    // 410: the SEP has servers stop retrying.
+    if (blocked(env, mailbox)) return json(410, { error: 'this webhook address was removed' });
     // Before the body is read or a mailbox is woken: one sender cannot flood the relay. A refused
     // delivery is told to come back (the SEP has senders retry). The allowance of the address itself
     // is spent later, by the mailbox, and only on a delivery that is well formed and names an address
     // that exists: anyone can POST to a mailbox, so what they send to a made-up address must not use
     // up what its real ones may receive.
+    //
+    // Every MCP server on Cloudflare Workers arrives from one address, so one bucket for all of
+    // them would let any Worker spend it, with junk to made-up mailboxes, for every one of them.
+    // Theirs is counted per mailbox instead: junk spends only the bucket of the mailbox it names.
     const who = sender(request);
-    const flood = refusal(await allowed(who === WORKERS_SENDER ? env.DELIVERIES_FROM_WORKERS : env.DELIVERIES_PER_SENDER, who, env.REQUIRE_LIMITS === '1'));
+    const flood = refusal(await allowed(who === WORKERS_SENDER ? env.DELIVERIES_FROM_WORKERS : env.DELIVERIES_PER_SENDER, who === WORKERS_SENDER ? `${who}/${mailbox}` : who, env.REQUIRE_LIMITS === '1'));
     if (flood) return flood;
     const bytes = await readCapped(request, MAX_BODY);
     if (!bytes) return json(413, { error: 'the body is over 256 KiB' });
@@ -158,6 +177,7 @@ async function deliver(request: Request, env: Env, mailbox: string, hook: string
 async function socket(request: Request, env: Env, mailbox: string): Promise<Response> {
     if (!MAILBOX_RE.test(mailbox)) return json(404, { error: 'no such mailbox' });
     if (request.method !== 'GET') return json(405, { error: 'the socket is opened with GET' }, { allow: 'GET' });
+    if (blocked(env, mailbox)) return json(410, { error: 'this relay has blocked this mailbox' });
     const flood = refusal(await allowed(env.SOCKETS_PER_SENDER, sender(request), env.REQUIRE_LIMITS === '1'));
     if (flood) return flood;
     const accessKey = env.ACCESS_KEY ?? '';
@@ -191,12 +211,16 @@ export default {
                 service: 'mcp-events relay',
                 what: 'Holds signed MCP Events (SEP-3415) webhook deliveries until the client that registered the address collects them.',
                 operator: env.OPERATOR || null,
+                abuse: env.ABUSE_CONTACT || null,
+                version: env.VERSION || null,
                 open: env.OPEN_RELAY === '1' && !env.ACCESS_KEY,
                 holds: 'Event payloads pass through this server and are kept until collected, or dropped after retentionHours. It holds no signing secret: it cannot create or alter an event, and the client checks every signature itself.',
                 retentionHours: (Number.isFinite(ttl) && ttl > 0 ? ttl : 7 * DAY_S) / 3600,
                 rateLimited: Boolean(env.DELIVERIES_PER_HOOK && env.DELIVERIES_PER_SENDER && env.SOCKETS_PER_SENDER),
                 newMailboxesPerHour: Number(env.NEW_MAILBOXES_PER_HOUR) || null,
                 newMailboxesPerSenderPerHour: Number(env.NEW_MAILBOXES_PER_SENDER_PER_HOUR) || null,
+                newMailboxesPerNetworkPerHour: Number(env.NEW_MAILBOXES_PER_NETWORK_PER_HOUR) || null,
+                maxMailboxes: Number(env.MAX_LIVE_MAILBOXES) || null,
                 source: 'https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/claude-code/mod/relay'
             });
         }
