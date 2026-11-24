@@ -50,11 +50,37 @@ It uses a server only when both of these hold:
      is never put into a remote server's address or headers. To send a token
      to a server, keep it in a variable with a name of your own.
 
-Once a view is open, each of its app's calls of its server's tools and each
-read of its server's resources goes only while Claude Code still uses that
-server under that name: the plugin asks Claude Code afresh each time, so a
-server you switch off in `/mcp` gets nothing more from its open views. A
-request already on its way when you switch it off is not called back.
+Every request the helper sends to a server, once the name has passed
+both, waits for Claude Code's yes asked for that request (no yes is kept
+and reused): an app's own call or read, the connection's handshake, the
+tool list, a UI resource. When Claude Code says no (you switched the
+server off in `/mcp`, it disconnected), the helper fails what it has in
+flight to that server, closes its connection (a stdio server it started
+stops), and sends nothing more on a yes given before the no. While a
+request to a server is in flight, Claude Code is asked again every half
+second.
+
+What this leaves:
+
+- Claude Code's yes and the helper's sending of the request are one local
+  round trip apart (a line on the helper's output, the plugin's question
+  to Claude Code, its answer to the helper). A server switched off within
+  that moment still gets the request.
+- A request already sent isn't unsent: the server may already have acted
+  on it. Closing the connection is the only notice it gets, and for
+  streamable HTTP that closing is itself one request (the session's
+  `DELETE`).
+- Within one request, what follows the server's own answers goes on the
+  same yes: the second half of a connection's handshake, further pages of
+  a tool list, and the HTTP event stream rmcp keeps open while the
+  connection stands.
+- A no is heard only when the plugin asks: at the next request to that
+  server, or within half a second while one is in flight. An answer that
+  arrives before then still reaches the app. A connection with nothing in
+  flight (a stdio server the helper started, idle) stays open until then,
+  or until the helper exits.
+- An app's call of a tool the model also sees goes over Claude Code's own
+  connection, which Claude Code itself decides about.
 
 The helper's connections follow a redirect only within the server's own
 origin (streamable HTTP: a 307 or 308; the older SSE transport: none), so
@@ -123,6 +149,15 @@ Two more were found by the TLA+ model in `model/` (see
 app kept reaching its server after Claude Code stopped using it, and a view's
 open and close requests to the helper could cross, leaving an app's page
 running unseen.
+
+Two windows 0.1.2 documented were closed in 0.1.3, each first in the model:
+a yes from Claude Code was kept for 5 seconds and reused to discover and
+open views, and a request in flight went on after Claude Code stopped using
+its server (now: a yes for each request, and a no that cancels, as above);
+and the plugin matched what a view's page asked to the view by the tool
+call's id alone, so what the page of an earlier open of the same call asked
+could be done for the view opened again in its place (now each open has its
+own generation, and anything of another is refused).
 
 ## What isn't protected
 

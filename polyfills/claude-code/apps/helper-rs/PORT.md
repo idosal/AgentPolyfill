@@ -27,11 +27,18 @@ binary it carries for the machine). Environment: the person's, plus
 | `type` | Fields | When |
 |---|---|---|
 | `ready` | `socket` (Unix) or `url` (TCP), `token`, `pid`, `images`, `swapEveryDraw`, `truecolor`, `env` (`CLAUDE_CODE_NO_FLICKER`, `MCP_APPS_CLI_SLEEP_S`, `TMUX`: a hook sees only the session's own variables) | listening |
-| `frame` | `viewId`, `v`, and `frame` (`cols`, `rows`, `cells` base64 u32 triples, or `styled` runs; `scroll`) or `image` (`png` or `file`, `strips` + `stripCount`, `cols`, `rows`, `scroll`, `generation`) | a new picture |
-| `request` | `id`, `viewId`, `method`, `params` | the mod must answer (`/reply`): `tools/call`, `ui/allow-tool` (with `appOnly`), `ui/message`, `ui/open-link`, `ui/allow-download`, `ui/request-display-mode` |
-| `notify` | `viewId`, `method`, `params` | `ui/update-model-context`, `log`, `ui/copy`, `ui/downloaded`, `ui/app-modes` |
-| `describe` | `viewId`, `text`, `title` | alt text for a picture view; the app page's title, any view |
-| `closed` | `viewId`, `reason` | Chrome stopped, or the app's page crashed |
+| `frame` | `viewId`, `gen`, `v`, and `frame` (`cols`, `rows`, `cells` base64 u32 triples, or `styled` runs; `scroll`) or `image` (`png` or `file`, `strips` + `stripCount`, `cols`, `rows`, `scroll`, `generation`) | a new picture |
+| `request` | `id`, `viewId`, `gen`, `method`, `params` | the mod must answer (`/reply`, naming `gen`): `tools/call`, `ui/allow-tool` (with `appOnly`), `ui/allow-read`, `ui/message`, `ui/open-link`, `ui/allow-download`, `ui/request-display-mode`. A yes to `ui/allow-tool` or `ui/allow-read` carries its `epoch` |
+| `check` | `id`, `server` | before each request the helper writes to a server: the mod answers (`/reply`) `{ allow: true, epoch }` on Claude Code's yes asked then, or `{ allow: false }` (0.1.3) |
+| `busy` | `server`, `busy` | the helper starts (`true`) or stops (`false`) waiting on a server: the mod asks Claude Code again meanwhile (0.1.3) |
+| `notify` | `viewId`, `gen`, `method`, `params` | `ui/update-model-context`, `log`, `ui/copy`, `ui/downloaded`, `ui/app-modes` |
+| `describe` | `viewId`, `gen`, `text`, `title` | alt text for a picture view; the app page's title, any view |
+| `closed` | `viewId`, `gen`, `reason` | Chrome stopped, or the app's page crashed |
+
+`gen` is the generation of the open the page is for (0.1.3): the mod's
+nonce from `/open`. The mod acts only on what names its view's own; every
+route below that names a `viewId` names it too, and the helper refuses one
+for another generation (a `/close` of another closes nothing).
 | `status` / `fatal` / `log` | `text` | status line, toast, debug log |
 
 ### Requests: HTTP POST, JSON body, header `x-mcp-apps-cli-token`
@@ -47,14 +54,15 @@ Over a Unix socket (mode 0600) or, on Windows and with
 | `/fetch-browser` | | only on the person's yes (the mod asks): fetches Chrome for Testing's current Stable headless shell into the plugin's data folder: `{ ok, path, version }` |
 | `/activity` | `viewId` | the view's own network: `{ ok, sockets, inflight, quietMs }`, for resting a view that reaches other sites |
 | `/prewarm` | `server`, `tool`, `theme` (each optional) | starts Chrome; given the theme, keeps a tab ready for the next view of that server (see below), and given the tool, reads its UI resource ahead |
-| `/open` | `viewId`, `server`, `toolName`, `toolInput`, `streaming`, `partialInput`, `toolResult`, `cols`, `maxRows`, `theme`, `mode`, `userAgent` | opens a view: `{ ok, mode, domains }` |
+| `/open` | `viewId`, `gen`, `server`, `toolName`, `toolInput`, `streaming`, `partialInput`, `toolResult`, `cols`, `maxRows`, `theme`, `mode`, `userAgent` | opens a view: `{ ok, mode, domains }` |
 | `/args` | `viewId`, `arguments`, `partial` | tool-input-partial, then tool-input |
 | `/result`, `/cancel` | `viewId`, `result` / `reason` | tool-result, tool-cancelled |
 | `/input` | `viewId`, `event` (pointer, key, wheel) | clicks, keys, wheel |
 | `/resize` | `viewId`, `cols`, `maxRows`, `display` | new size or display mode |
 | `/shown` | `viewId`, `shown` | in or out of sight (paused) |
 | `/theme` | `viewId`, `theme` | host-context-changed |
-| `/reply` | `id`, `result` or `error` | answers a `request` |
+| `/reply` | `id`, `gen`, `result` or `error` | answers a `request` (refused for another generation than the page that asked), or a `check` |
+| `/revoke` | `server`, `epoch` | Claude Code stopped using the server: what is in flight to it fails, its connection closes, a yes older than `epoch` is refused: `{ ok, revoked }` (0.1.3) |
 | `/refresh`, `/inline-png` | `viewId` | send the picture again; PNG bytes instead of a file |
 | `/mode` | `viewId`, `mode` | cells instead of pictures |
 | `/close` | `viewId`, `discard` | teardown, store saved (or dropped) |

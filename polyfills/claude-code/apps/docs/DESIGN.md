@@ -321,13 +321,39 @@ the view drops to cells on the first frame.
   where a config file names the same server; `${VAR}` expanded only in an
   entry that passed, credential-named variables never into a remote entry's
   url or headers. Its HTTP clients follow a redirect only within the
-  server's origin (streamable HTTP: rmcp's 307 and 308; SSE: none). Once a
-  view is open, each of its app's calls of its server's tools and reads of its
-  resources waits for `$.mcp.connect` asked afresh (`ui/allow-tool`,
-  `ui/allow-read`), so a server switched off later gets nothing more from it.
-  A view's `/open` and `/close` go to the helper one at a time, each after the
-  one before is answered: the helper matches them by view id, and out of
-  order a close could undo a reopen or leave a page running unseen.
+  server's origin (streamable HTTP: rmcp's 307 and 308; SSE: none).
+- **A yes for each request, and a no that cancels** (0.1.3). No verdict is
+  kept: each request the helper writes to a server waits for
+  `$.mcp.connect` asked for that request. For an app's own call or read the
+  mod asks as it answers `ui/allow-tool` or `ui/allow-read` (for a tool,
+  again after the person's consent, right before the yes goes back); for
+  anything else (opening a connection, its tool list, a UI resource, a
+  background refresh of one) the helper asks first with a `check` line on its
+  stdout, which the mod answers on `/reply` (`helper-rs/src/verdict.rs`,
+  `mcp.rs`). The mod counts, per server, the noes it has heard; each yes
+  carries that count as it was when it was asked (its epoch). On a no the
+  mod sends `/revoke` with the new count, and the helper fails at once what
+  it has in flight to that server, closes the connection (a stdio server it
+  started is stopped; over streamable HTTP rmcp ends the session with its
+  `DELETE`), forgets the server's tools, closes a view of it still opening,
+  and from then on refuses a yes with an older epoch, so a yes that crossed
+  the no on its way sends nothing. While a request to a server is in
+  flight the helper says so (`busy`), and the mod asks Claude Code again
+  every 0.5 s, so a server switched off meanwhile is noticed then, not at
+  its next request.
+- **Each open its own generation** (0.1.3). A closed view opened again is a
+  new view for the same id (the tool call's). Each open gets a nonce of its
+  own, its generation, sent with its `/open` and with every request about
+  the view; the helper's page keeps it and carries it on every line it says
+  (pictures, requests, notes, `closed`, `describe`). The mod acts only on a
+  line of its view's own generation, and answers name it; the helper refuses
+  a route or an answer for another generation (a `/close` of an earlier
+  open closes nothing of a later one), and an `/open` of another generation
+  than the page it holds closes that page and makes its own. A view's
+  `/open` and `/close` still go to the helper one at a time, each after the
+  one before is answered: the generation alone doesn't stop a late `/open`
+  of an earlier generation from replacing a newer page (the model's
+  `RaceGen`).
 - **What the person decides.** Two settings in `/config` (the plugin's
   `userConfig`):
   - **App tool calls** (`appToolCalls`): `rules` (default) follows the

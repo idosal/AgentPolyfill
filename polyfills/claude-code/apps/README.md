@@ -182,9 +182,10 @@ or remove it with `claude plugin uninstall mcp-apps-cli@agent-polyfill`.
   server in this session under that name, and only to the config entry
   Claude Code would use: not a project server you haven't approved, not one
   in a folder you haven't trusted, not one that is switched off, and none
-  at all under a managed MCP policy. Once a view is open, each of its app's
-  calls and reads goes to its server only while Claude Code still uses that
-  server, asked each time. Credentials in your environment
+  at all under a managed MCP policy. Each request the helper then sends to
+  a server waits for Claude Code's yes, asked for that request; when Claude
+  Code stops using the server, what the helper has in flight to it is
+  cancelled and its connection closed. Credentials in your environment
   (`ANTHROPIC_*`, `AWS_*`, `GITHUB_*` and the like) are never put into a
   remote server's address or headers.
 - **An app's tool calls follow your permission rules** by default: what
