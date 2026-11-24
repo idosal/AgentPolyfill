@@ -361,6 +361,7 @@ export class App {
         const fingerprint = fingerprintOf(this.conns.get(server)!.cfg);
         const approval = hash === undefined ? undefined : { server, fingerprint, uri: entry.uri, hash };
         let asked = false;
+        let shownBody: string | undefined;
         if (!approval || !this.#o.store.isApproved(approval)) {
             asked = true;
             const files = entry.resources === 'dynamic' ? [] : entry.resources;
@@ -370,6 +371,7 @@ export class App {
             if ('decision' in answer && answer.decision === 'show') {
                 const shown = await host.preview(server, uri);
                 if ((await manifestHash(shown.entry)) !== hash) throw new LocalError('this skill changed on the server while it was being shown, so it is not loaded: load it again, and the user is asked about it as it is now');
+                shownBody = shown.body;
                 answer = await ctx.ask(previewText({ server, entry: shown.entry, body: shown.body, isVerified: shown.isVerified }), ['no', 'load']);
             }
             if ('unavailable' in answer) throw new LocalError(`the skill is not loaded: the user could not be asked (${answer.unavailable}). A skill the user approves once in an interactive Codex session loads without the question afterwards, while it is unchanged`);
@@ -380,6 +382,12 @@ export class App {
         }
         this.#refuseDisabled(server, entry.uri);
         const loaded = await host.load(server, uri, { expect: hash });
+        // A generated skill has no digests to hold it to what the person read: what is loaded must be
+        // the text they were shown, or nothing.
+        if (shownBody !== undefined && loaded.body !== shownBody) {
+            host.release(server, uri);
+            throw new LocalError('this skill\'s content changed on the server after the user was shown it, so it is not loaded: load it again, and the user is asked about it as it is now');
+        }
         if (approval && asked && !this.#o.store.approve(approval)) this.#log(`${server}: the approval of ${uri} could not be kept`);
         this.#log(`${server}: loaded ${uri}${loaded.isVerified ? '' : ' (dynamic, unverified)'}${asked ? '' : ' (approved earlier)'}`);
         return { text: loadedText(loaded, { asked }) };
