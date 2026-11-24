@@ -545,13 +545,16 @@ check("a view out of sight answers a request", asked?.ok === true, JSON.stringif
 await post(socket, "/shown", { viewId: "ticker", shown: true });
 await sleep(400);
 const back = seen("ticker");
-await sleep(1000);
+// Two seconds, not one: a frame from another site takes a moment longer to
+// run again on macOS. Running, each count gains about 40 in that time;
+// paused, none.
+await sleep(2000);
 const later = seen("ticker");
 // Last count before hiding to the first after showing, about 2.4 s: running,
 // about 48. Paused, a few still: the report's age, the time to pause, the
 // /theme request's wake (up to about 190 ms), the 400 ms after showing.
 check("out of sight, its page, a frame from another site in it, and its worker stop", back.own - running.own < 25 && back.frame - running.frame < 25 && back.worker - running.worker < 25, `in about 2.4 s: own +${back.own - running.own}, frame +${back.frame - running.frame}, worker +${back.worker - running.worker} (shown when hidden: ${JSON.stringify(hidden)})`);
-check("back in sight, both run again", later.own - back.own > 10 && later.frame - back.frame > 10, `in 1 s: own +${later.own - back.own}, frame +${later.frame - back.frame}`);
+check("back in sight, both run again", later.own - back.own > 10 && later.frame - back.frame > 10, `in 2 s: own +${later.own - back.own}, frame +${later.frame - back.frame}`);
 await post(socket, "/close", { viewId: "ticker" });
 h.helper.kill("SIGTERM");
 await new Promise((r) => h.helper.once("exit", r));
