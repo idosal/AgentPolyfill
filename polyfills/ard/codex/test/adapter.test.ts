@@ -220,7 +220,7 @@ test('A-12 a registry over 200 characters, or with spaces, control characters or
 test('A-13 a query holding hidden characters (tag characters, variation selectors, a soft hyphen) is refused before anyone is asked', async () => {
   const s = server({ answer: human })
   const before = searches().length
-  for (const query of ['check my CI\u{E0073}\u{E0065}\u{E0063}', 'check my CI\ufe0f', 'check my C\u00adI']) {
+  for (const query of ['check my CI\u{E0073}\u{E0065}\u{E0063}', 'check my CI\ufe0f', 'check my C\u00adI', 'check my\u2800CI']) {
     const r = await s.call('ard_search', { query })
     assert.match(r.text, /without control characters/, JSON.stringify(query))
   }

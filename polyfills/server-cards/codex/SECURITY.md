@@ -74,6 +74,9 @@ The rules are the same in both forms:
   one host and connects to another (C3). The form names the host first, since
   some clients join its lines, and again on a line of its own.
 - A card's fixed header values hold no markup (C4).
+- A header value that would be written, from the card or given, is refused if
+  it holds a character that shows as nothing, so the value written is the one
+  you were asked about.
 - Everything shown passes a plain-text filter, line by line.
 
 ### What it writes

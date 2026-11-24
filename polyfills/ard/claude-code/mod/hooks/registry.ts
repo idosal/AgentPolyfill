@@ -52,14 +52,15 @@ export type Search = {
 
 /**
  * Characters that display as something else or as nothing: C0 and C1 controls,
- * line and paragraph separators, interlinear annotation marks, and every
+ * line and paragraph separators, interlinear annotation marks, a blank Braille
+ * pattern (it shows as a space but isn't one), and every
  * default-ignorable code point (Unicode's Default_Ignorable_Code_Point: a soft
  * hyphen, zero-width and direction marks, invisible operators, variation
  * selectors, a BOM, and plane 14's tag characters, which can carry text nobody
  * sees). A query or registry holding one is refused; a registry's own words are
  * shown without them.
  */
-export const HIDDEN = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\ufff9-\ufffb\p{Default_Ignorable_Code_Point}]/u
+export const HIDDEN = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\ufff9-\ufffb\u2800\p{Default_Ignorable_Code_Point}]/u
 const HIDDEN_ALL = new RegExp(HIDDEN.source, 'gu')
 
 /**

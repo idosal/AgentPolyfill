@@ -791,7 +791,7 @@ var defaultName = (card) => slug(card.title ?? "") || slug(card.name.split("/")[
 var shellQuote = (a) => /^[A-Za-z0-9_./:@%+=,-]+$/.test(a) ? a : `'${a.replace(/'/g, `'\\''`)}'`;
 var isCompatible = (remote) => !remote.supportedProtocolVersions?.length || remote.supportedProtocolVersions.some((v) => host.protocolVersions.includes(v));
 var HEADER_NAME = /^[!#%&'*+.^_`|~0-9A-Za-z-]+$/;
-var BAD_VALUE = UNSAFE_TEXT;
+var BAD_VALUE = { test: (v) => UNSAFE_TEXT.test(v) || INVISIBLE_TEXT.test(v) };
 var URL_VALUE = /^[A-Za-z0-9._~-]+$/;
 var VAR = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
 var tag = (s) => base32(sha256(s), 80);
@@ -1821,7 +1821,7 @@ var MAX_REFERRALS = 3;
 var MAX_RESULTS = 10;
 var MAX_READ2 = 50;
 var MAX_BODY2 = 512 * 1024;
-var HIDDEN = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\ufff9-\ufffb\p{Default_Ignorable_Code_Point}]/u;
+var HIDDEN = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\ufff9-\ufffb\u2800\p{Default_Ignorable_Code_Point}]/u;
 var HIDDEN_ALL = new RegExp(HIDDEN.source, "gu");
 var oneLine = (v, max) => {
   const s = String(v ?? "").replace(HIDDEN_ALL, " ").replace(/\s+/g, " ").trim();

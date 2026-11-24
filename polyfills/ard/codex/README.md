@@ -252,8 +252,8 @@ the rows where Codex differs:
 
 ### Proof
 
-- **Per rule:** 117 tests, run with `npm test`.
-  - ARD's 12 registry rule tests and the Server Cards core's 89 rule tests,
+- **Per rule:** 118 tests, run with `npm test`.
+  - ARD's 12 registry rule tests and the Server Cards core's 90 rule tests,
     from the Claude Code forms' test folders, run against the committed
     bundle.
   - 14 of this form's own (A-), over stdio, with a stand-in `codex` command

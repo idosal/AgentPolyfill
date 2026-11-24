@@ -118,7 +118,10 @@ time.
 - **Values:** a value put into a URL holds only letters, digits and
   `. _ ~ -`, so it can't change the host, path or query. The path written is
   the path reached, with no `.` or `..` segments.
-- **Headers:** header names and values are checked for line breaks.
+- **Headers:** header names and values are checked for line breaks. A value
+  that would be written, from the card or given, is refused if it holds a
+  character that shows as nothing, so the value written is the one you were
+  asked about.
 
 ### Secrets
 

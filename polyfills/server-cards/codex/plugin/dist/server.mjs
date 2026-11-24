@@ -795,7 +795,7 @@ var defaultName = (card) => slug(card.title ?? "") || slug(card.name.split("/")[
 var shellQuote = (a) => /^[A-Za-z0-9_./:@%+=,-]+$/.test(a) ? a : `'${a.replace(/'/g, `'\\''`)}'`;
 var isCompatible = (remote) => !remote.supportedProtocolVersions?.length || remote.supportedProtocolVersions.some((v) => host.protocolVersions.includes(v));
 var HEADER_NAME = /^[!#%&'*+.^_`|~0-9A-Za-z-]+$/;
-var BAD_VALUE = UNSAFE_TEXT;
+var BAD_VALUE = { test: (v) => UNSAFE_TEXT.test(v) || INVISIBLE_TEXT.test(v) };
 var URL_VALUE = /^[A-Za-z0-9._~-]+$/;
 var VAR = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
 var tag = (s) => base32(sha256(s), 80);
