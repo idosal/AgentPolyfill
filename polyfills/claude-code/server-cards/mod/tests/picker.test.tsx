@@ -59,7 +59,7 @@ test('U-1 the picker lists the servers found, on every surface, and Add adds the
   for (const surface of SURFACES) {
     const ui = await $.ui.mount({ ...row(id), surface })
     expect((await ui.find({ type: 'Text', text: /MCP servers you can add/ })) !== undefined).toBe(true)
-    expect((await ui.find({ type: 'Text', text: /confirmed|published by buildkite\.com/ })) !== undefined).toBe(true)
+    expect((await ui.find({ type: 'Text', text: /confirmed|listed by buildkite\.com/ })) !== undefined).toBe(true)
     expect((await ui.find({ key: 'add:urn:air:buildkite.com:mcp:buildkite#0' })) !== undefined).toBe(true)
     await ui.unmount()
   }
