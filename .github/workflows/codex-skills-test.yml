@@ -1,0 +1,90 @@
+# The Skills polyfill for Codex (polyfills/skills/codex, plugin mcp-skills), on
+# any change in its folder, in the core it shares with the Claude Code adapter
+# (polyfills/skills/core), in the Claude adapter's test fixtures it reuses, or in
+# the Codex marketplace file:
+# - the client rules, the stubs, the config reader and the bundled plugin server
+#   (and that it is what src/ builds), with a typecheck, on Linux, macOS and Windows;
+# - the plugin's manifests are valid JSON, and the Codex marketplace lists it.
+
+name: "mcp-skills (Codex): tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/skills/codex/**"
+      - "polyfills/skills/core/**"
+      - "polyfills/skills/claude-code/test/harness.ts"
+      - "polyfills/skills/claude-code/test/fixture-skills-server.ts"
+      - "tools/bundle-notices.mjs"
+      - ".agents/plugins/marketplace.json"
+      - ".github/workflows/codex-skills-test.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see each job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/skills/codex/**"
+      - "polyfills/skills/core/**"
+      - "polyfills/skills/claude-code/test/harness.ts"
+      - "polyfills/skills/claude-code/test/fixture-skills-server.ts"
+      - "tools/bundle-notices.mjs"
+      - ".agents/plugins/marketplace.json"
+      - ".github/workflows/codex-skills-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codex-skills-test-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: polyfills/skills/codex
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - run: npm ci
+      # The Skills logic and the connection, shared with the Claude Code adapter, with their own dependencies.
+      - run: npm ci
+        working-directory: polyfills/skills/core
+      # The test fixtures this adapter reuses from the Claude Code adapter import its code.
+      - run: npm ci
+        working-directory: polyfills/skills/claude-code
+      - run: npm run typecheck
+      - name: Third-party notices for the bundle are up to date
+        run: node ../../../tools/bundle-notices.mjs . --check
+      - run: npm test
+
+  manifests:
+    name: manifests and the Codex marketplace
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Manifests are valid JSON
+        run: |
+          for file in polyfills/skills/codex/mod/.codex-plugin/plugin.json polyfills/skills/codex/mod/.mcp.json .agents/plugins/marketplace.json; do
+            jq -e . "$file" >/dev/null || { echo "::error file=$file::not valid JSON"; exit 1; }
+          done
+      - name: The Codex marketplace lists the plugin at its folder, under its name and version
+        run: |
+          path=$(jq -r '.plugins[] | select(.name == "mcp-skills") | .source.path' .agents/plugins/marketplace.json)
+          [ "$path" = "./polyfills/skills/codex/mod" ] || { echo "::error file=.agents/plugins/marketplace.json::mcp-skills should point at ./polyfills/skills/codex/mod, not $path"; exit 1; }
+          [ "$(jq -r .name "$path/.codex-plugin/plugin.json")" = "mcp-skills" ] || { echo "::error::the plugin's name is not mcp-skills"; exit 1; }
+          [ "$(jq -r .version "$path/.codex-plugin/plugin.json")" = "$(jq -r .version polyfills/skills/codex/package.json)" ] || { echo "::error::plugin.json and package.json disagree on the version"; exit 1; }
