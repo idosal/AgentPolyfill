@@ -360,9 +360,10 @@ a C cross-compiler. `src/win.rs` covers:
   Node's helper reads it), and its exit (a handle taken at start);
 - Ctrl-C, Ctrl-Break, console close and shutdown.
 
-No Windows machine was available, so none of it has run yet. The release
-workflow (Distribution, below) builds it on Windows and runs the smoke,
-store and change checks there, the job object included.
+The release workflow (Distribution, below) builds it on Windows and runs
+the smoke, store and change checks there, the job object included; they
+pass on GitHub's Windows runners. It has not yet been used in a Claude Code
+session on Windows.
 
 ### Linux
 
