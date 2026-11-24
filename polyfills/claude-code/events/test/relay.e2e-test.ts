@@ -4,12 +4,14 @@
 // webhooks to the relay's address; the plugin collects them over its socket.
 
 import assert from 'node:assert/strict';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
-import { startRelay } from '../mod/relay/test/harness.ts';
-import { sign } from '../src/webhooks.ts';
+import { mailboxIdOf } from '../mod/relay/src/protocol.ts';
+import { newKey, startRelay } from '../mod/relay/test/harness.ts';
+import { RelayClient } from '../src/relay.ts';
+import { newSecret, sign } from '../src/webhooks.ts';
 import { sleep, startMonitor, startPlugin, waitFor, world, type World } from './harness.ts';
 
 const ACCESS = 'e2e-access-key-0123456789';
@@ -24,17 +26,17 @@ const freePort = () =>
     });
 
 type Logged = { dir: string; m: { method?: string; params?: { delivery?: { url?: string; secret?: string } }; result?: { id?: string } } };
-const fixtureLog = (w: World): Logged[] =>
-    existsSync(w.fixtureLog)
-        ? readFileSync(w.fixtureLog, 'utf8')
+const fixtureLog = (w: World, file = w.fixtureLog): Logged[] =>
+    existsSync(file)
+        ? readFileSync(file, 'utf8')
               .split('\n')
               .filter(Boolean)
               .map((l) => JSON.parse(l) as Logged)
         : [];
 
 /** The subscription the fixture server last granted: where it delivers, the secret it signs with, and its id. */
-function subscription(w: World): { url: string; secret: string; id: string } {
-    const log = fixtureLog(w);
+function subscription(w: World, logFile = w.fixtureLog): { url: string; secret: string; id: string } {
+    const log = fixtureLog(w, logFile);
     const asked = log.filter((r) => r.dir === 'in' && r.m.method === 'events/subscribe').at(-1)?.m.params?.delivery;
     const id = log.filter((r) => r.dir === 'out' && r.m.result?.id?.startsWith('sub_')).at(-1)?.m.result?.id;
     assert.ok(asked?.url && asked.secret && id, 'the fixture logged a subscription');
@@ -53,6 +55,20 @@ function deliver(sub: { url: string; secret: string; id: string }, occurrence: R
     });
 }
 const deploy = (eventId: string, data: Record<string, unknown>) => ({ eventId, name: 'deploy.finished', timestamp: new Date().toISOString(), data });
+
+/** A second MCP server in the world, named `name`: the same fixture, with an upstream and a log of its own. */
+function addServer(w: World, name: string): { log: string } {
+    const config = JSON.parse(readFileSync(w.config, 'utf8')) as { mcpServers: Record<string, { env: Record<string, string> }> };
+    const log = join(w.dir, `fixture-${name}.jsonl`);
+    const upstream = join(w.dir, `upstream-${name}.jsonl`);
+    writeFileSync(upstream, '');
+    config.mcpServers[name] = { ...config.mcpServers.tickets!, env: { ...config.mcpServers.tickets!.env, FIXTURE_LOG: log, FIXTURE_UPSTREAM: upstream } };
+    writeFileSync(w.config, JSON.stringify(config));
+    return { log };
+}
+const granted = (w: World, file = w.fixtureLog) => fixtureLog(w, file).filter((x) => x.dir === 'out' && x.m.result?.id?.startsWith('sub_')).length;
+const mailboxOf = (url: string) => /\/hooks\/([A-Za-z0-9_-]{43})\//.exec(url)?.[1];
+const projectOf = (w: World) => join(w.state, 'projects', readdirSync(join(w.state, 'projects'))[0]!);
 
 describe('webhook delivery through the relay', { concurrency: false }, () => {
     test("a webhook-only event type: the server's challenge is answered by the plugin, and its signed delivery reaches Claude", async () => {
@@ -150,7 +166,7 @@ describe('webhook delivery through the relay', { concurrency: false }, () => {
             await waitFor(() => fixtureLog(w).some((x) => x.dir === 'out' && x.m.result?.id?.startsWith('sub_')), 8000, 'the subscription');
             const sub = subscription(w);
             const project = join(w.state, 'projects', readdirSync(join(w.state, 'projects'))[0]!);
-            const key = (JSON.parse(readFileSync(join(project, 'relay-mailbox.json'), 'utf8')) as { key: string }).key;
+            const key = Object.values((JSON.parse(readFileSync(join(project, 'relay-mailbox.json'), 'utf8')) as { servers: Record<string, string> }).servers)[0]!;
             // The server knows the address and the secret it was given. It sends them back every way it can.
             const echo = { eventId: `evt-${sub.secret}`, name: 'deploy.finished', timestamp: new Date().toISOString(), data: { service: 'echo-1', address: sub.url, secret: sub.secret, key } };
             assert.equal((await deliver(sub, echo)).status, 200);
@@ -270,6 +286,97 @@ describe('webhook delivery through the relay', { concurrency: false }, () => {
             assert.match(r.text, /access key/i);
             assert.equal(w.fixtureMethods().includes('events/subscribe'), false);
         } finally {
+            await plugin.stop();
+            await relay.stop();
+        }
+    });
+    // P3 of 0.6.0: a project's watches shared one mailbox, so while Claude Code was closed one server's
+    // well-formed junk to its own address could fill it, and the others' deliveries were refused.
+    test("each MCP server has a mailbox of its own: while Claude Code is closed, one server's junk fills only its own, and another's deliveries are still taken", async () => {
+        const relay = await startRelay({ ACCESS_KEY: ACCESS, MAX_QUEUED: '3' });
+        const w = world({ FIXTURE_ALLOW_HTTP: '1' });
+        const deploys = addServer(w, 'deploys');
+        const env = { MCP_EVENTS_RELAY_URL: relay.origin, MCP_EVENTS_RELAY_ACCESS_KEY: ACCESS };
+        let plugin = await startPlugin(w, 'sess-a', env);
+        let monitor = startMonitor(w, 'sess-a');
+        try {
+            for (const server of ['tickets', 'deploys']) {
+                const r = await plugin.call('watch_event', { server, event: 'deploy.finished' });
+                assert.equal(r.isError, false, r.text);
+            }
+            await waitFor(() => granted(w) > 0 && granted(w, deploys.log) > 0, 10000, 'both subscriptions');
+            const [junkSide, other] = [subscription(w), subscription(w, deploys.log)];
+            assert.ok(mailboxOf(junkSide.url) && mailboxOf(other.url));
+            assert.notEqual(mailboxOf(junkSide.url), mailboxOf(other.url), "the two servers' addresses are in different mailboxes");
+
+            // Claude Code closes; the first server posts well-formed junk to its own address until its mailbox is full.
+            monitor.stop();
+            await plugin.stop();
+            const junk = () => deliver(junkSide, deploy(`junk_${Math.random()}`, { service: 'junk', status: 'ok' }), { secret: newSecret() });
+            for (let i = 0; i < 3; i++) assert.equal((await junk()).status, 200, 'junk that looks like a delivery is stored');
+            assert.equal((await junk()).status, 503, 'its own mailbox is full');
+            // The other server's delivery is still taken.
+            assert.equal((await deliver(other, deploy('evt_other', { service: 'other-server', status: 'ok' }))).status, 200);
+
+            plugin = await startPlugin(w, 'sess-b', env);
+            monitor = startMonitor(w, 'sess-b');
+            await waitFor(() => monitor.lines.find((l) => l.includes('service=other-server')), 10000, "the other server's event");
+            await sleep(800);
+            assert.equal(monitor.lines.filter((l) => l.includes('service=other-server')).length, 1, 'once');
+            assert.equal(monitor.lines.filter((l) => l.includes('junk')).length, 0, 'and none of the junk');
+        } finally {
+            monitor.stop();
+            await plugin.stop();
+            await relay.stop();
+        }
+    });
+
+    test("a watch at the project's one mailbox of 0.6.0 moves to its server's own: what was held there arrives once, the old address is retired, and the old key is forgotten", async () => {
+        const relay = await startRelay({ ACCESS_KEY: ACCESS });
+        const w = world({ FIXTURE_ALLOW_HTTP: '1' });
+        const env = { MCP_EVENTS_RELAY_URL: relay.origin, MCP_EVENTS_RELAY_ACCESS_KEY: ACCESS };
+        let plugin = await startPlugin(w, 'sess-a', env);
+        let monitor = startMonitor(w, 'sess-a');
+        try {
+            const r = await plugin.call('watch_event', { server: 'tickets', event: 'deploy.finished' });
+            assert.equal(r.isError, false, r.text);
+            await waitFor(() => granted(w) > 0, 8000, 'the subscription');
+            monitor.stop();
+            await plugin.stop();
+
+            // Make the project what 0.6.0 left: one mailbox key for the project, and the watch's address in that mailbox.
+            const project = projectOf(w);
+            const legacyKey = newKey();
+            writeFileSync(join(project, 'relay-mailbox.json'), JSON.stringify({ key: legacyKey, relay: relay.origin }), { mode: 0o600 });
+            const saved = JSON.parse(readFileSync(join(project, 'watches.json'), 'utf8')) as { watches: { webhook: { hook: string; url: string; secret: string } }[] };
+            const watch = saved.watches[0]!.webhook;
+            const oldUrl = `${relay.origin}/hooks/${await mailboxIdOf(legacyKey)}/${watch.hook}`;
+            watch.url = oldUrl;
+            writeFileSync(join(project, 'watches.json'), JSON.stringify(saved, null, 2));
+            const old = new RelayClient({ settings: { url: relay.origin, accessKey: ACCESS, source: 'test' }, key: legacyKey });
+            await old.add(watch.hook, { secret: watch.secret, onEvent: () => {} });
+            await old.close();
+            // While Claude Code is closed, the server delivers to the old address.
+            const before = granted(w);
+            assert.equal((await deliver({ url: oldUrl, secret: watch.secret, id: 'sub_old' }, deploy('evt_held_old', { service: 'held-at-old', status: 'ok' }))).status, 200);
+
+            plugin = await startPlugin(w, 'sess-b', env);
+            monitor = startMonitor(w, 'sess-b');
+            await waitFor(() => monitor.lines.find((l) => l.includes('service=held-at-old')), 10000, 'what the old mailbox held');
+            await waitFor(() => granted(w) > before, 10000, 'the subscription at the new address');
+            const moved = subscription(w);
+            assert.ok(mailboxOf(moved.url) && mailboxOf(moved.url) !== (await mailboxIdOf(legacyKey)), "the watch's new address is in its server's own mailbox");
+            await waitFor(async () => (await deliver({ url: oldUrl, secret: watch.secret, id: 'sub_old' }, deploy('evt_late_old', { service: 'late-old', status: 'ok' }))).status === 410, 8000, 'the old address to be retired');
+            const keys = JSON.parse(readFileSync(join(project, 'relay-mailbox.json'), 'utf8')) as { key?: string; servers: Record<string, string> };
+            assert.equal(keys.key, undefined, "the project's old key is forgotten");
+            assert.ok(keys.servers.tickets);
+            assert.equal((await deliver(moved, deploy('evt_new', { service: 'at-new', status: 'ok' }))).status, 200);
+            await waitFor(() => monitor.lines.find((l) => l.includes('service=at-new')), 10000, 'an event at the new address');
+            await sleep(800);
+            assert.equal(monitor.lines.filter((l) => l.includes('service=held-at-old')).length, 1, 'what was held arrived once');
+            assert.equal(monitor.lines.filter((l) => l.includes('late-old')).length, 0);
+        } finally {
+            monitor.stop();
             await plugin.stop();
             await relay.stop();
         }

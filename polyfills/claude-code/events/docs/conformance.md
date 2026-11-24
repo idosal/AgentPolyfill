@@ -1,6 +1,6 @@
 # SEP-3415 client conformance, clause by clause
 
-How this client (mcp-events 0.6.0) stands against the **Final** text of
+How this client (mcp-events 0.7.0) stands against the **Final** text of
 SEP-3415 (`seps/3415-events-extension.md` in
 `modelcontextprotocol/modelcontextprotocol`, as fetched on 24 November 2026)
 and against the transport rules it defers to (Streamable HTTP in the
@@ -187,7 +187,7 @@ conforming server's events.
 | B7 | Event-type admission filters on `events/list`: names over 128 characters or with control characters, names matching a known secret, types with no known delivery mode, more than 200 types or 20 pages; descriptions cut at 2,000; schemas bounded ("tamed") before display. | `src/events-client.ts`; `src/untrusted.ts` | |
 | B8 | 4 MiB cap on one response or one SSE message. | `src/events-client.ts` | A larger poll result fails every time (`maxEvents: 100` limits the risk). |
 | B9 | Error policy: `-32601` and `-32602` end the subscription; `NotFound`/`Unsupported` re-list and restart at most once per 60 s per watch, reusing the stored cursor. | `src/watcher.ts` | See note N1. |
-| B10 | The relay and its protocol: mailbox per key, WebSocket subprotocol, access key, 7-day retention, 30-day idle retirement, 410 tombstones, 500-delivery / 16 MiB queue with 503 + `Retry-After`, dedup keyed on (hook, `webhook-id`, digest) rather than `webhook-id` alone, `/healthz`. | `mod/relay/src/*`, `src/relay.ts`; `src/webhooks.ts` | The SEP leaves the proxy-to-client channel "implementation-defined", so this is permitted, but none of it is SEP-defined. |
+| B10 | The relay and its protocol: mailbox per key (from 0.7.0 one key, so one mailbox, per MCP server and project; the project's one mailbox of earlier versions is emptied into them and forgotten), WebSocket subprotocol, access key, 7-day retention, 30-day idle retirement, 410 tombstones, 500-delivery / 16 MiB queue with 503 + `Retry-After`, dedup keyed on (hook, `webhook-id`, digest) rather than `webhook-id` alone, `/healthz`. | `mod/relay/src/*`, `src/relay.ts`; `src/webhooks.ts` | The SEP leaves the proxy-to-client channel "implementation-defined", so this is permitted, but none of it is SEP-defined. |
 | B11 | A lasting (relay) subscription is kept, not unsubscribed, when the session ends. | `src/watcher.ts` | Permitted: unsubscribe is optional. |
 | B12 | Private request `_meta` key `dev.mcp-events-plugin/streamKey`. | `src/events-client.ts` | Stripped before sending (checked on the wire over stdio; no test asserts it). |
 | B13 | Unknown control-envelope `type` is acknowledged 200 and ignored; `list_changed` is acted on wherever it arrives, opted in or not. | `src/webhooks.ts`; `src/events-client.ts` | Harmless. |
@@ -223,9 +223,10 @@ dead stream at twice the heartbeat, where the Final text says three times).
 folder), from a checkout of the suite named in `MCP_CONFORMANCE_SUITE_DIR`.
 That checkout is code this repository does not hold: read it before you run it.
 
-**Result, 24 November 2026, on 0.5.0: 17 of 17 pass** (not run again on 0.5.1 or 0.6.0, whose
-changes, to the wake budget's notice, the order of a starting helper's writes and the runtime the
-helper runs on, are outside what these scenarios reach), unmodified, at the pull request's
+**Result, 24 November 2026, on 0.5.0: 17 of 17 pass** (not run again on 0.5.1, 0.6.0 or 0.7.0, whose
+changes, to the wake budget's notice, the order of a starting helper's writes, the runtime the
+helper runs on and the relay mailbox each server's addresses are in, are outside what these
+scenarios reach), unmodified, at the pull request's
 head `c8625de3118c2d5dc0561696cddeb0baaf124f2c`, on Node 22.23.1, macOS 15 on
 Apple Silicon. 0.4.1 passed 15: in `events-client-push` the stand-in's
 `notifications/events/active` carries no `heartbeatMs`, so the client waited

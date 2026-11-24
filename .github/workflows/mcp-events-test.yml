@@ -148,6 +148,7 @@ jobs:
         run: |
           $QUINT test model/delivery.qnt --backend typescript --max-samples 200
           $QUINT test model/wake.qnt --backend typescript --max-samples 200
+          $QUINT test model/relay.qnt --backend typescript --max-samples 200
       # Random simulation: it samples executions, it does not prove anything.
       - name: The invariants, by simulation
         run: |
@@ -155,6 +156,8 @@ jobs:
           $QUINT run model/delivery.qnt --init webhookEvilRelay --invariant AtMostOnce --max-samples 5000 --max-steps 60 --backend typescript
           $QUINT run model/delivery.qnt --init webhookEvilRelay --invariant NothingForged --max-samples 5000 --max-steps 60 --backend typescript
           $QUINT run model/wake.qnt --init init --invariant Kept --max-samples 10000 --max-steps 40 --backend typescript
+          $QUINT run model/relay.qnt --init init --invariant NoCrossRefusal --max-samples 5000 --max-steps 30 --backend typescript
+          $QUINT run model/relay.qnt --init migrating --invariant NoCrossRefusalAtOwn --max-samples 5000 --max-steps 30 --backend typescript
       - name: TLC 1.7.4
         run: |
           curl -fsSL -o "$RUNNER_TEMP/tla2tools.jar" https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
