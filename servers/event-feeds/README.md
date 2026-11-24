@@ -257,8 +257,8 @@ node --no-warnings test/interop/run.ts     # the mcp-events client against the d
   same press not delivered twice, presses made while the client was closed delivered on reopen from
   the client's cursor, a refused watch, and a real new Hacker News story.
 - `live/take.sh` records a real Claude Code session doing the button demo, with the browser page;
-  `live/edit-zoom.json` cuts it into the demo in the Events polyfill's
-  `docs/media/button-demo.mp4`, with that polyfill's `video/cut.mjs`.
+  `live/edit-zoom.json` is the cut (zooms and captions) behind the Events
+  polyfill's `docs/media/button-demo.mp4`.
 
 The upstream conformance suite (`@modelcontextprotocol/conformance`, 0.1.16) has no Events scenarios
 yet; they are in an open pull request (modelcontextprotocol/conformance#521) and were not run.
