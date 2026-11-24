@@ -163,7 +163,8 @@ describe('the tools as Claude Code is told of them', () => {
         } finally {
             await plugin.stop();
         }
-        const tools = readFileSync(join(ROOT, 'src', 'tools.ts'), 'utf8');
+        // The handlers are shared with the Codex form, in polyfills/events/core.
+        const tools = readFileSync(join(ROOT, '..', 'core', 'src', 'tools.ts'), 'utf8');
         for (const spec of TOOLS) {
             for (const arg of Object.keys((spec.inputSchema as { properties: object }).properties)) assert.match(tools, new RegExp(`p\\.${arg}\\b`), `${spec.name} reads ${arg}`);
         }

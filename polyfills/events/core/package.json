@@ -1,0 +1,31 @@
+{
+  "name": "mcp-events-core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The client side of MCP Events (SEP-3415) shared by the Claude Code and Codex polyfills: the Events client, watches, webhooks, the relay client, the event store and the wake gate. Each polyfill bundles it into its own plugin folder.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.9.3"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idosal/AgentPolyfill.git",
+    "directory": "polyfills/events/core"
+  }
+}
