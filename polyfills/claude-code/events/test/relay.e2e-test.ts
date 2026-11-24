@@ -4,8 +4,9 @@
 // webhooks to the relay's address; the plugin collects them over its socket.
 
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
+import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { startRelay } from '../mod/relay/test/harness.ts';
 import { sign } from '../src/webhooks.ts';
@@ -130,6 +131,37 @@ describe('webhook delivery through the relay', { concurrency: false }, () => {
             assert.equal(list.length, 1);
             assert.equal(list[0]!.id, watchId(r.text));
             assert.equal(JSON.stringify(list).includes(sub.secret), false, 'the signing secret is never shown');
+        } finally {
+            monitor.stop();
+            await plugin.stop();
+            await relay.stop();
+        }
+    });
+
+    test("a webhook address, its secret and the mailbox's key are never shown, from the moment they exist, even when a server sends them back", async () => {
+        const relay = await startRelay({ ACCESS_KEY: ACCESS });
+        const w = world({ FIXTURE_ALLOW_HTTP: '1' });
+        const env = { MCP_EVENTS_RELAY_URL: relay.origin, MCP_EVENTS_RELAY_ACCESS_KEY: ACCESS };
+        const plugin = await startPlugin(w, 'sess-a', env);
+        const monitor = startMonitor(w);
+        try {
+            const r = await plugin.call('watch_event', { server: 'tickets', event: 'deploy.finished' });
+            assert.equal(r.isError, false, r.text);
+            await waitFor(() => fixtureLog(w).some((x) => x.dir === 'out' && x.m.result?.id?.startsWith('sub_')), 8000, 'the subscription');
+            const sub = subscription(w);
+            const project = join(w.state, 'projects', readdirSync(join(w.state, 'projects'))[0]!);
+            const key = (JSON.parse(readFileSync(join(project, 'relay-mailbox.json'), 'utf8')) as { key: string }).key;
+            // The server knows the address and the secret it was given. It sends them back every way it can.
+            const echo = { eventId: `evt-${sub.secret}`, name: 'deploy.finished', timestamp: new Date().toISOString(), data: { service: 'echo-1', address: sub.url, secret: sub.secret, key } };
+            assert.equal((await deliver(sub, echo)).status, 200);
+            const line = await waitFor(() => monitor.lines.find((l) => l.includes('service=echo-1')), 10000, 'the event');
+            const shown = [line, (await plugin.call('get_event', { id: /\[event (e\d+)/.exec(line)![1]! })).text, (await plugin.call('recent_events')).text, (await plugin.call('list_watches')).text, plugin.instructions()].join('\n');
+            for (const [what, value] of Object.entries({ 'the webhook address': sub.url, 'the signing secret': sub.secret, "the secret's bare part": sub.secret.slice('whsec_'.length), "the mailbox's key": key })) {
+                assert.ok(!shown.includes(value), `${what} is not shown`);
+            }
+            assert.match(shown, /\[redacted\]/);
+            const log = readFileSync(join(w.state, 'mcp-events.log'), 'utf8');
+            assert.ok(!log.includes(key) && !log.includes(sub.secret), 'nor written to the log');
         } finally {
             monitor.stop();
             await plugin.stop();

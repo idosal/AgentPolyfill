@@ -10,14 +10,16 @@
 //     connect to ($.mcp.connect), so the helper uses only servers Claude Code uses;
 //   - adds the catalog of event types to the session's instructions (prompt.compose);
 //   - when the helper says events wait, submits them as a prompt ($.prompt.submit),
-//     which starts a turn once the session is idle.
+//     which starts a turn once the session is idle;
+//   - tells the helper when the person sends a message of their own (prompt.submit),
+//     which is what restarts waking after its hourly limit was reached.
 //
 // The model reads such a prompt as "The mcp-events plugin sent a message: …",
 // never as the person's own words, and what it does next goes through Claude
 // Code's permissions like anything else.
 
 import type { EngineInterface, Register } from 'claude-code'
-import { PLUGIN, TOOLS } from './tools'
+import { isThePersons, PLUGIN, TOOLS } from './tools'
 
 type Endpoint = { url: string; token: string }
 type Catalog = { text: string; eventTypes: number; watches: number }
@@ -270,6 +272,16 @@ export const register: Register = (on) => {
     const catalog = state.catalog
     if (!catalog || (catalog.eventTypes === 0 && catalog.watches === 0)) return composed
     return { sections: [...composed.sections, { id: `${PLUGIN}:catalog`, text: catalog.text, scope: 'session' as const }] }
+  })
+
+  // Events wake a session only so often (the helper counts). When the hour's wakes are spent it
+  // stops until the person says something: this tells the helper that they have. Only where the
+  // prompt came from is looked at, never what it says, and it goes on unchanged whatever happens here.
+  on('prompt.submit', ($, e, next) => {
+    if (isThePersons(e.origin?.kind) && state.helper && !state.isStandingBy && !state.isEnded) {
+      void state.helper.then((where) => post($, where, '/spoke', {})).catch(() => {})
+    }
+    return next(e)
   })
 
   on('session.end', async ($, e, next) => {

@@ -3,7 +3,8 @@
 // The helper spools every event before it acknowledges it to its sender. This
 // reads the spool from where the last hand-over stopped and gives the mod's
 // hooks module a batch of lines to submit as a prompt, which wakes an idle
-// session. Bursts are folded: a few in full, then a count.
+// session. The batch says which watches have new events and how many; the
+// payloads stay in the spool, for get_event and recent_events.
 //
 // Where it has got to is saved only once the hooks module says Claude Code took
 // the lines (`ack`), so a session that ends between reading an event and
@@ -15,19 +16,24 @@ import { closeSync, existsSync, fstatSync, openSync, readFileSync, readSync, wri
 import { join } from 'node:path';
 import { formatBatch, LINE_PREFIX } from './format.ts';
 import type { Spool, SpoolRecord } from './store.ts';
+import { secrets } from './untrusted.ts';
 
 const MAX_READ = 4 * 1024 * 1024;
 const SKIPPED = `${LINE_PREFIX} One event could not be shown (too large, or not in a form this mod can print) and was skipped.`;
 
-export type Batch = { lines: string[]; upto: number };
+/** `watches`: whose events these are (a notice counts under its watch). `events`: how many records. */
+export type Batch = { lines: string[]; upto: number; watches: string[]; events: number };
 
 export class Delivery {
     readonly #spool: Spool;
     readonly #posFile: string;
     /** Bytes of the spool handed over and acknowledged (saved). */
     #delivered = 0;
+    readonly #values: boolean;
 
-    constructor(spool: Spool) {
+    /** `values`: put a few short payload fields in the lines (MCP_EVENTS_WAKE_VALUES=1). */
+    constructor(spool: Spool, o: { values?: boolean } = {}) {
+        this.#values = o.values === true;
         this.#spool = spool;
         this.#posFile = join(spool.dir, 'delivered.pos');
         // A position saved by the monitor of an earlier version of this plugin counts too.
@@ -54,6 +60,11 @@ export class Delivery {
         }
     }
 
+    /** Where the acknowledged hand-over stands, in bytes of the spool. */
+    get position(): number {
+        return this.#delivered;
+    }
+
     /** Whether the spool holds anything not yet handed over. */
     get pending(): boolean {
         const size = this.#size();
@@ -77,7 +88,7 @@ export class Delivery {
             if (whole === 0) {
                 // No line end in a full window: a record longer than this will read. Pass over it, to
                 // wherever the window ends, so the records after it are not held up behind it.
-                return got === MAX_READ ? { lines: [SKIPPED], upto: this.#delivered + got } : undefined;
+                return got === MAX_READ ? { lines: [SKIPPED], upto: this.#delivered + got, watches: [], events: 0 } : undefined;
             }
             const records: (SpoolRecord | undefined)[] = [];
             for (const line of buf.subarray(0, whole).toString('utf8').split('\n').slice(0, -1)) {
@@ -88,25 +99,27 @@ export class Delivery {
                     records.push(undefined); // not a record (or the tail of one passed over): shown as skipped
                 }
             }
-            if (!records.length) return { lines: [], upto: this.#delivered + whole };
+            if (!records.length) return { lines: [], upto: this.#delivered + whole, watches: [], events: 0 };
             let lines: string[];
             let skipped = records.some((r) => !r);
             try {
-                lines = formatBatch(records.filter((r): r is SpoolRecord => !!r));
+                lines = formatBatch(records.filter((r): r is SpoolRecord => !!r), { values: this.#values });
             } catch {
                 // One of these cannot be formatted. Take them one at a time, and pass over the one that fails.
                 lines = [];
                 for (const r of records) {
                     if (!r) continue;
                     try {
-                        lines.push(...formatBatch([r]));
+                        lines.push(...formatBatch([r], { values: this.#values }));
                     } catch {
                         skipped = true;
                     }
                 }
             }
             if (skipped) lines.push(SKIPPED);
-            return { lines, upto: this.#delivered + whole };
+            lines = lines.map((l) => secrets.scrub(l));
+            const sound = records.filter((r): r is SpoolRecord => !!r);
+            return { lines, upto: this.#delivered + whole, watches: [...new Set(sound.map((r) => String(r.watch ?? '')))], events: sound.length };
         } catch {
             return undefined; // tried again on the next ask
         } finally {

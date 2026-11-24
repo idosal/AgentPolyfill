@@ -243,7 +243,7 @@ export class Spool {
     readonly dir: string;
     readonly file: string;
     /** Called after each record is on disk (the helper uses it to tell Claude Code that events wait). */
-    onAppend?: () => void;
+    onAppend?: (rec: SpoolRecord) => void;
     #seq = 0;
     #bytes = 0;
 
@@ -277,7 +277,7 @@ export class Spool {
         }
         this.#seq++;
         this.#bytes += Buffer.byteLength(line);
-        this.onAppend?.();
+        this.onAppend?.(full);
         return full;
     }
 

@@ -20,7 +20,7 @@ import { errorCode, EventsConnection, EventsError, type DeliveryMode, type Occur
 import { mailboxKey, readRelaySettings, RelayClient } from './relay.ts';
 import { publicAddress } from './tunnel.ts';
 import { describeError, isoDate, LocalError, secrets } from './untrusted.ts';
-import { newSecret, Receiver, ReplayGuard, type Hook } from './webhooks.ts';
+import { MAX_CURSOR, newSecret, Receiver, ReplayGuard, type Hook } from './webhooks.ts';
 import type { ProjectState, Spool, Watch } from './store.ts';
 
 type Json = Record<string, unknown>;
@@ -342,7 +342,7 @@ export class WatchManager {
 
     /** Takes the position a server gave. An absent cursor is a `null` cursor: there is nothing to resume from. */
     #cursor(w: Watch, c: string | null | undefined): void {
-        const next = typeof c === 'string' ? c : null;
+        const next = typeof c === 'string' && c.length <= MAX_CURSOR ? c : null;
         if (next === w.cursor) return;
         w.cursor = next;
         this.#saveSoon();
@@ -352,7 +352,7 @@ export class WatchManager {
         if (!o || typeof o.eventId !== 'string' || o.eventId.length > 512) return;
         // A session that no longer runs this project's watches takes nothing (and so acknowledges nothing).
         if (!this.#stillOwner()) throw new LocalError('another session runs this project\'s watches now');
-        const position = cursor === KEEP ? w.cursor : typeof cursor === 'string' ? cursor : null;
+        const position = cursor === KEEP ? w.cursor : typeof cursor === 'string' && cursor.length <= MAX_CURSOR ? cursor : null;
         if (!w.seen.includes(o.eventId)) {
             // An event too big or too deeply nested to handle safely is not shown; it is noted, and not asked for again.
             let size = Infinity;
@@ -374,7 +374,7 @@ export class WatchManager {
             const meta = (o as { _meta?: unknown })._meta;
             // Written down first, and only then marked seen: if the write throws, the delivery is retried.
             // The event's name is the watch's own (the server's copy of it is not repeated).
-            this.spool.append({ kind: 'event', watch: w.id, server: w.server, event: w.event, eventId: o.eventId, timestamp: isoDate(o.timestamp), data, ...(typeof meta === 'object' && meta !== null && !Array.isArray(meta) ? { meta: secrets.scrubDeep(meta as Json) } : {}), note: w.note });
+            this.spool.append({ kind: 'event', watch: w.id, server: w.server, event: w.event, eventId: secrets.scrub(o.eventId), timestamp: isoDate(o.timestamp), data, ...(typeof meta === 'object' && meta !== null && !Array.isArray(meta) ? { meta: secrets.scrubDeep(meta as Json) } : {}), note: w.note });
             w.seen.push(o.eventId);
             if (w.seen.length > SEEN_LIMIT) w.seen.splice(0, w.seen.length - SEEN_LIMIT);
             w.events++;
@@ -557,7 +557,10 @@ export class WatchManager {
         this.#sink ??= (async (): Promise<Sink> => {
             const relay = this.#relay();
             if (relay) {
-                const client = new RelayClient({ settings: relay, key: mailboxKey(this.project.dir, relay.url), log: this.#log, backoffMs: Number(this.#env.MCP_EVENTS_RELAY_BACKOFF_MS) || undefined, owner: () => this.project.owns(this.session) });
+                const key = mailboxKey(this.project.dir, relay.url);
+                // The key opens this project's mailbox: it is kept out of the log and of anything shown.
+                this.#redact?.add(key);
+                const client = new RelayClient({ settings: relay, key, log: this.#log, backoffMs: Number(this.#env.MCP_EVENTS_RELAY_BACKOFF_MS) || undefined, owner: () => this.project.owns(this.session) });
                 await client.connect(); // fail now, with the reason, if the relay will not have us
                 this.#log(`webhooks arrive through the ${relay.isPublic ? 'public relay' : 'relay'} at ${relay.url} (settings from ${relay.source})`);
                 this.webhookAddress = { url: relay.url, kind: 'relay', ...(relay.isPublic ? { isPublic: true as const } : {}) };
@@ -638,6 +641,9 @@ export class WatchManager {
             },
             kept?.hook
         );
+        // The address is a capability (whoever knows it can post to it): out of the log and of anything
+        // shown from the moment it exists, not from the next start.
+        this.#redact?.add(url, id);
         if (sink.lasting) {
             // The address outlives this process, so the watch keeps what it needs to use it again.
             w.webhook = { hook: id, url, secret, replay: replay.state };

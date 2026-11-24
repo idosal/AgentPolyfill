@@ -93,6 +93,16 @@ function envFor(w: World, session: string, extra: Record<string, string | undefi
     );
 }
 
+/**
+ * Most tests tell events apart by a payload field in the line Claude Code is handed, and send
+ * several to one watch in quick succession. So unless a test says otherwise the helper runs with
+ * payload fields in the wake message and no gap between a watch's wakes. Neither is the mod's
+ * default: test/wake-test.ts covers the defaults (no payload text; a minute; thirty an hour).
+ */
+export const WAKE_AS_TESTS_READ_IT = { MCP_EVENTS_WAKE_VALUES: '1', MCP_EVENTS_WAKE_GAP_S: '0', MCP_EVENTS_WAKES_PER_HOUR: '0' };
+/** The mod's own defaults for waking, for a test of them. */
+export const WAKE_DEFAULTS = { MCP_EVENTS_WAKE_VALUES: undefined, MCP_EVENTS_WAKE_GAP_S: undefined, MCP_EVENTS_WAKES_PER_HOUR: undefined };
+
 export type HelperMessage = { t: string; [k: string]: unknown };
 
 /** What a running helper looks like to the hooks module: its messages, and its local endpoint. */
@@ -120,7 +130,7 @@ export async function startHelper(
     o: { command?: string[]; verdict?: (name: string) => { ok: boolean; reason?: string } | undefined; deliver?: boolean } = {}
 ): Promise<Helper & { where: { url: string; token: string }; deliverNow(): Promise<void>; setDeliver(on: boolean): void }> {
     const [cmd, ...args] = o.command ?? [process.execPath, '--no-warnings', HELPER];
-    const child = spawn(cmd!, args, { env: envFor(w, session, { MCP_EVENTS_BATCH_MS: '400', MCP_EVENTS_STANDBY_MS: '0', ...extra }), cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] });
+    const child = spawn(cmd!, args, { env: envFor(w, session, { MCP_EVENTS_BATCH_MS: '400', MCP_EVENTS_STANDBY_MS: '0', ...WAKE_AS_TESTS_READ_IT, ...extra }), cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] });
     const messages: HelperMessage[] = [];
     const lines: string[] = [];
     let where: { url: string; token: string } | undefined;

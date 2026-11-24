@@ -27,7 +27,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { AddressInfo } from 'node:net';
 import { join, resolve } from 'node:path';
 import { discoverServers, isHttp } from './config.ts';
-import { Delivery } from './delivery.ts';
+import { Delivery, type Batch } from './delivery.ts';
 import { EventsConnection, preStandardPolicy } from './events-client.ts';
 import { oneLine } from './format.ts';
 import { readRelaySettings } from './relay.ts';
@@ -35,6 +35,7 @@ import { ProjectState, pruneSessions, sessionId, Spool, stateDir } from './store
 import { createTools, type Unavailable } from './tools.ts';
 import { describeError, secrets } from './untrusted.ts';
 import { VERSION } from './version.ts';
+import { WakeBudget, wakeLimits } from './wake.ts';
 import { WatchManager } from './watcher.ts';
 
 const env = process.env;
@@ -85,7 +86,10 @@ process.stdout.on('error', () => void stop());
 
 const project = new ProjectState(base, resolve(env.CLAUDE_PROJECT_DIR ?? process.cwd()));
 const spool = new Spool(base, session);
-const delivery = new Delivery(spool);
+const delivery = new Delivery(spool, { values: env.MCP_EVENTS_WAKE_VALUES === '1' });
+// How often events may wake this session (see wake.ts). Kept with the session's events, so a
+// helper that restarts carries on counting.
+const budget = new WakeBudget(wakeLimits(env), join(spool.dir, 'wakes.json'));
 // Sessions that ended more than two weeks ago have nobody left to read their events.
 try {
     const gone = pruneSessions(base, session);
@@ -109,14 +113,51 @@ const tools = createTools(
 
 // ---- Events waiting to be shown ----
 
-const announce = () => {
-    // A burst is announced once, a moment after it starts, so it is handed over as one batch.
-    pendingTimer ??= setTimeout(() => {
+/** What `/take` last handed over, until it is acknowledged: a batch of events, or the one notice that waking has stopped. */
+let taken: { batch: Batch } | { notice: true } | undefined;
+
+/** The next thing to hand to Claude Code, if the wake budget allows one now. */
+function next(): { lines: string[]; upto: number } | { waitMs: number } | undefined {
+    const batch = delivery.take();
+    if (!batch) return undefined;
+    // Nothing to show (blank lines): it is only marked as read.
+    if (!batch.lines.length) return { lines: [], upto: batch.upto };
+    const gate = budget.gate(batch.watches);
+    if (gate.kind === 'go') {
+        taken = { batch };
+        return { lines: batch.lines, upto: batch.upto };
+    }
+    if (gate.kind === 'notice') {
+        // The events stay where they are: the notice is handed over with the position unchanged.
+        taken = { notice: true };
+        return { lines: [budget.notice(batch.events)], upto: delivery.position };
+    }
+    return gate.kind === 'wait' ? { waitMs: gate.ms } : undefined;
+}
+
+let pendingAt = 0;
+const announce = (afterMs = BATCH_MS) => {
+    // A burst is announced once, a moment after it starts, so it is handed over as one batch. A
+    // look that is already due sooner stands; one due later gives way.
+    const at = Date.now() + afterMs;
+    if (pendingTimer && pendingAt <= at) return;
+    clearTimeout(pendingTimer);
+    pendingAt = at;
+    pendingTimer = setTimeout(() => {
         pendingTimer = undefined;
-        if (delivery.pending) emit({ t: 'pending' });
-    }, BATCH_MS);
+        if (!delivery.pending) return;
+        const n = next();
+        if (!n) return; // waking has stopped until the person speaks
+        if ('waitMs' in n) return announce(n.waitMs + 50); // a watch woke the session less than its gap ago
+        emit({ t: 'pending' });
+    }, afterMs);
 };
-spool.onAppend = announce;
+spool.onAppend = (rec) => {
+    // An event of a watch that may not wake the session yet waits for its time, without the spool being read for it.
+    const gate = budget.gate([String(rec.watch ?? '')]);
+    if (gate.kind === 'paused') return;
+    announce(gate.kind === 'wait' ? gate.ms + 50 : BATCH_MS);
+};
 
 // ---- The local endpoint ----
 
@@ -168,9 +209,23 @@ const routes: Record<string, (p: Record<string, unknown>) => Promise<unknown> | 
         verdictWaiters.get(name)?.({ ok: p.ok === true, reason: typeof p.reason === 'string' ? p.reason : undefined });
         return {};
     },
-    '/take': () => delivery.take() ?? {},
+    '/take'() {
+        const n = next();
+        return n && 'lines' in n ? n : {};
+    },
     '/ack'(p) {
-        delivery.ack(Number(p.upto));
+        const upto = Number(p.upto);
+        // Claude Code took it, so it counts: a batch as one wake for its watches, the notice as said.
+        if (taken && 'notice' in taken) budget.pause();
+        else if (taken && upto >= taken.batch.upto) budget.woke(taken.batch.watches);
+        taken = undefined;
+        delivery.ack(upto);
+        if (delivery.pending) announce();
+        return {};
+    },
+    // The person sent a message of their own: if waking had stopped at its hourly limit, it starts again.
+    '/spoke'() {
+        budget.spoke();
         if (delivery.pending) announce();
         return {};
     },
