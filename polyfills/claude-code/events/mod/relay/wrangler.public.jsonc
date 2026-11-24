@@ -36,9 +36,12 @@
     "REQUIRE_LIMITS": "1",
     // A connection that sends more than 600 messages in a minute is closed.
     "SOCKET_MESSAGES_PER_MINUTE": "600",
-    // New mailboxes opened in an hour: by everyone together, and from one address. Past either, a
-    // new mailbox is refused until the hour is over; mailboxes that already exist are not affected.
-    "NEW_MAILBOXES_PER_HOUR": "300",
+    // New mailboxes opened in an hour: by everyone together, and from one address (an IPv6 sender
+    // counts by its /64). Past either, a new mailbox is refused until the hour is over; mailboxes that
+    // already exist are not affected. The ceiling for everyone is high on purpose: it bounds storage
+    // (an empty mailbox is given back, a full one holds 4 MiB), and set low it would let one actor with
+    // a few networks close the relay to every new user for the hour.
+    "NEW_MAILBOXES_PER_HOUR": "2000",
     "NEW_MAILBOXES_PER_SENDER_PER_HOUR": "20"
   },
   // Approximate, and counted per Cloudflare location. A refused request gets 429 and Retry-After.

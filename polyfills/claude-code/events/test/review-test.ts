@@ -96,6 +96,27 @@ describe('E4: what a relay hands over is bounded here, not on its word', () => {
         assert.deepEqual(cursors.map((c) => c?.length ?? null), [null, MAX_CURSOR, 4]);
     });
 
+    test('acks go out at most twice a second, each naming every delivery taken since the last', async () => {
+        // A relay anyone may use closes a connection that sends too many messages in a minute; one ack
+        // per delivery would reach that with a few busy addresses.
+        const secret = newSecret();
+        const got: string[] = [];
+        const body = (n: number) => JSON.stringify({ eventId: `b${n}`, name: 'x', timestamp: 't', data: {} });
+        const relay = fakeRelay((m, send) => {
+            if (m.t !== 'add') return;
+            send({ t: 'ok', n: m.n, queued: 0 });
+            for (let n = 1; n <= 40; n++) send({ t: 'delivery', seq: n, hook: HOOK, headers: headersFor(secret, body(n), `msg_b${n}`), body: body(n), receivedAt: now() });
+        });
+        const client = new RelayClient({ settings, key: 'k'.repeat(43), socket: relay.socket });
+        await client.add(HOOK, { secret, onEvent: (o) => void got.push(o.eventId) });
+        await waitFor(() => got.length === 40, 5000, 'all forty taken');
+        await waitFor(() => relay.sent.filter((m) => m.t === 'ack').flatMap((m) => m.seqs ?? []).length === 40, 3000, 'all forty acked');
+        const acks = relay.sent.filter((m) => m.t === 'ack');
+        assert.deepEqual(acks.flatMap((m) => m.seqs ?? []), Array.from({ length: 40 }, (_, i) => i + 1), 'every one acked, in order, once');
+        assert.ok(acks.length <= 3, `in a few messages, not forty: ${acks.length}`);
+        await client.close();
+    });
+
     test('deliveries waiting to be judged are bounded in bytes: the rest stay at the relay, unacknowledged', async () => {
         const secret = newSecret();
         let release!: () => void;
@@ -107,7 +128,7 @@ describe('E4: what a relay hands over is bounded here, not on its word', () => {
             send({ t: 'ok', n: m.n, queued: 0 });
             for (let n = 1; n <= 30; n++) send({ t: 'delivery', seq: n, hook: HOOK, headers: headersFor(secret, body(n), `msg_${n}`), body: body(n), receivedAt: now() });
         });
-        const client = new RelayClient({ settings, key: 'k'.repeat(43), socket: relay.socket, maxWaitingBytes: 1024 * 1024 });
+        const client = new RelayClient({ settings, key: 'k'.repeat(43), socket: relay.socket, maxWaitingBytes: 1024 * 1024, ackGapMs: 0 }); // each ack on its own
         await client.add(HOOK, {
             secret,
             onEvent: async (o) => {
