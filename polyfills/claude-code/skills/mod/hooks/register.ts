@@ -24,7 +24,7 @@
 //   - stands down when Claude Code serves MCP skills itself.
 
 import type { EngineInterface, Register } from 'claude-code'
-import { BUN, SetupError, fetched, install, platformOf, remove } from './runtime'
+import { BUN, SetupError, install, pinned, platformOf, remove } from './runtime'
 import { INERT_TOOLS, PLUGIN, RESOURCE_TOOLS, TOOLS } from './tools'
 
 type Endpoint = { url: string; token: string }
@@ -139,8 +139,8 @@ async function runtime($: EngineInterface): Promise<string[]> {
   const own = async (): Promise<string[] | undefined> => {
     const data = await dataFolder($).catch(() => undefined)
     // Only the release this version of the mod pins and checked when it was fetched: a copy of any
-    // other version in that folder, whoever put it there, is never run.
-    const copy = data ? (await fetched($, data)).find((c) => c.version === BUN.version) : undefined
+    // other version in that folder, whoever put it there, is never run, not even to ask its version.
+    const copy = data ? await pinned($, data) : undefined
     if (!copy) return undefined
     state.ownRuntime = `its own copy of Bun ${copy.version}`
     return [copy.path]
