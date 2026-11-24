@@ -214,11 +214,13 @@ is bounded (see "Events wake a session only so often" below), not prevented.
   in Quint and in TLA+: simulated, and model-checked with TLC to small,
   stated bounds (webhook with one event, or two with the clock stopped). TLC
   checks the model, not the code, and says nothing past its bounds. On 0.5.0's
-  model it found three cases the simulation had missed. By reading, the code
-  has two of them: the notice that waking stopped given again after a helper
-  restart, and an event shown again after Claude Code was closed and reopened,
-  if the helper stops at the wrong moment (in the code a narrower window than
-  in the model). The third is in the model only.
+  model it found three cases the simulation had missed. Two were in the code
+  too: the notice that waking stopped given again after a helper restart, and
+  an event shown again after Claude Code was closed and reopened, if the
+  helper stopped at the wrong moment. 0.5.1 fixes both, each with a test that
+  fails on 0.5.0. The third was in the model only, which now does as the code
+  does. On 0.5.1's model every invariant holds within those bounds; one of
+  them allows the case described under "Delivery is at least once".
 - **One review from outside the sessions that built it, and no audit by a
   person.** The Events client, webhook verification and the relay were
   reviewed adversarially during development. On 24 November 2026 an AI
