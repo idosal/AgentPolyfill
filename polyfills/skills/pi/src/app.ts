@@ -54,6 +54,8 @@ export class App {
     readonly #listedAt = new Map<string, { at: number; ttlMs: number }>();
     readonly #known: Record<string, Known>;
     #omitted = 0;
+    /** The load under way, which the next one waits for (see `#oneAtATime`). */
+    #loads: Promise<unknown> = Promise.resolve();
     #settled!: () => void;
     readonly settled = new Promise<void>((r) => (this.#settled = r));
     /** Says when the stubs changed, so the person can be told a /reload lists them. */
@@ -240,8 +242,10 @@ export class App {
                     await this.refresh(only);
                     return { text: this.status(only) };
                 }
-                case 'load_skill':
-                    return await this.#load(text('server'), text('uri'), ctx);
+                case 'load_skill': {
+                    const [server, uri] = [text('server'), text('uri')];
+                    return await this.#oneAtATime(() => this.#load(server, uri, ctx));
+                }
                 case 'read_skill_file': {
                     const [server, skill, path] = [text('server'), text('skill'), text('path')];
                     await this.#ensure(server);
@@ -264,11 +268,26 @@ export class App {
     }
 
     /**
+     * Loads run one after another. The core keeps one showing of a skill for the load that follows
+     * it, and Pi runs a codemode script's calls in parallel: two loads at once would each show the
+     * person a skill, the second showing would take the first one's place, and that load would be
+     * refused and asked about again. Pi puts one question at a time to the person anyway; this
+     * keeps each skill's questions together.
+     */
+    #oneAtATime<T>(run: () => Promise<T>): Promise<T> {
+        const turn = this.#loads.then(run);
+        this.#loads = turn.catch(() => undefined);
+        return turn;
+    }
+
+    /**
      * Loads one skill. The person is asked first, by name, server and URI, unless they approved
      * this skill before from the same place with the same files. What is loaded is the entry they
      * were asked about, or nothing.
      */
     async #load(server: string, uri: string, ctx: CallContext): Promise<ToolAnswer> {
+        // A call cancelled while it waited for its turn does nothing.
+        if (ctx.signal?.aborted) throw new LocalError('the call was cancelled, so the skill is not loaded');
         await this.#ensure(server);
         // The person is asked about the server's entry as it is now (skills/get), not as an earlier
         // listing had it: what they approve is what is loaded.
@@ -279,7 +298,7 @@ export class App {
         const fingerprint = fingerprintOf(this.conns.get(server)!.cfg);
         const approval = hash === undefined ? undefined : { server, fingerprint, uri: entry.uri, hash };
         let asked = false;
-        let shownBody: string | undefined;
+        let shown = false;
         if (!approval || !this.#o.store.isApproved(approval)) {
             asked = true;
             const files = entry.resources === 'dynamic' ? [] : entry.resources;
@@ -287,10 +306,11 @@ export class App {
             const outer = this.host.listed(server).find((l) => l.entry.uri !== entry.uri && root.startsWith(`${rootOf(l.entry.uri)}/`));
             let answer = await ctx.ask(questionText({ server, entry, files: files.length, bytes: files.reduce((n, r) => n + r.size, 0), changed: this.#o.store.wasApproved(server, entry.uri), nestedIn: outer?.entry.frontmatter.name }), ['no', 'show', 'load']);
             if ('decision' in answer && answer.decision === 'show') {
-                const shown = await this.host.preview(server, uri);
-                if ((await manifestHash(shown.entry)) !== hash) throw new LocalError('this skill changed on the server while it was being shown, so it is not loaded: load it again, and the user is asked about it as it is now');
-                shownBody = shown.body;
-                answer = await ctx.ask(previewText({ server, entry: shown.entry, body: shown.body, isVerified: shown.isVerified }), ['no', 'load']);
+                // Kept for the load: a generated skill, which no digest holds to this text, is loaded from this read.
+                const read = await this.host.preview(server, uri, { keep: true });
+                shown = true;
+                if ((await manifestHash(read.entry)) !== hash) throw new LocalError('this skill changed on the server while it was being shown, so it is not loaded: load it again, and the user is asked about it as it is now');
+                answer = await ctx.ask(previewText({ server, entry: read.entry, body: read.body, isVerified: read.isVerified }), ['no', 'load']);
             }
             if ('unavailable' in answer) throw new LocalError(`the skill is not loaded: the user could not be asked (${answer.unavailable}). A skill the user approves once in an interactive Pi session loads without the question afterwards, while it is unchanged`);
             if (answer.decision !== 'load') {
@@ -299,13 +319,9 @@ export class App {
             }
         }
         if (ctx.signal?.aborted) throw new LocalError('the call was cancelled, so the skill is not loaded');
-        const loaded = await this.host.load(server, uri, { expect: hash });
-        // A generated skill has no digests to hold it to what the person read: what is loaded must be
-        // the text they were shown, or nothing.
-        if (shownBody !== undefined && loaded.body !== shownBody) {
-            this.host.release(server, uri);
-            throw new LocalError('this skill\'s content changed on the server after the user was shown it, so it is not loaded: load it again, and the user is asked about it as it is now');
-        }
+        // What is loaded is what the person was asked about: the same files (the manifest hash), and
+        // where they were shown the text first, that text.
+        const loaded = await this.host.load(server, uri, { expect: hash, shown });
         if (ctx.signal?.aborted) {
             this.host.release(server, uri);
             throw new LocalError('the call was cancelled, so the skill is not loaded');

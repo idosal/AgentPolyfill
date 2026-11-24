@@ -7,7 +7,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { install } from '../../../server-cards/pi/src/host'
 import type { Tool } from '../../../server-cards/pi/src/tools'
 import { addTool, askPerson, Session, shownText } from '../../../server-cards/pi/src/tools'
-import { search, searchEndpoint } from '../../claude-code/mod/hooks/registry'
+import { HIDDEN, search, searchEndpoint } from '../../claude-code/mod/hooks/registry'
 import { originOf } from '../../claude-code/mod/hooks/urls'
 
 // What the tests run against.
@@ -41,16 +41,8 @@ export const SHOWN_REGISTRY = 200
 // The plugin ships with no registry: which one sees the person's words is theirs to choose.
 export const NO_REGISTRY =
   'No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as `registry`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment Pi starts in. Nothing was sent.'
-/** Characters that display as something else or as nothing (as in the Claude Code form). */
-// Default-ignorable code points too (tag characters, variation selectors): they show nothing, so a
-// query holding them would send words the person never saw.
-const UNSEEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]|\p{Default_Ignorable_Code_Point}/u
-/**
- * A note or problem, as one line: the shared search code already quotes what a registry wrote in
- * it; this keeps anything else from starting a line of this extension's text.
- */
-const oneLine = (text: string, max: number) => text.replace(UNSEEN_ALL, ' ').replace(/\s+/g, ' ').trim().slice(0, max)
-const UNSEEN_ALL = new RegExp(UNSEEN.source, 'gu')
+/** Characters that display as something else or as nothing, tag characters among them (registry.ts HIDDEN, as in the Claude Code form). */
+const UNSEEN = HIDDEN
 /**
  * Markdown and HTML a host could render in the form: a query such as
  * `check [my CI](https://evil.example/)` would show "check my CI" while the
@@ -127,7 +119,7 @@ export function tools(session: Session, defaultRegistry: string): Tool[] {
       if (!query) return refuse('Give `query`: what the person needs, in plain words.')
       // What is sent is what the question showed (security review R1).
       if (query.length > SHOWN_QUERY) return refuse(`Keep the search under ${SHOWN_QUERY} characters, so the person sees all of it before it is sent.`)
-      if (UNSEEN.test(query)) return refuse('Write the search on one line, without control characters or direction marks, so the person sees exactly what is sent.')
+      if (UNSEEN.test(query)) return refuse('Write the search on one line, without control characters, direction marks or hidden characters, so the person sees exactly what is sent.')
       if (MARKUP.test(query)) return refuse('Write the search in plain words, without `, <, > or square brackets, so the form shows exactly what is sent.')
       const asked = (str(args.registry) ?? defaultRegistry).trim()
       // No registry is chosen for the person: with none set and none named,
@@ -186,10 +178,10 @@ export function tools(session: Session, defaultRegistry: string): Tool[] {
       const lines = [
         `Registry search for "${query.slice(0, 200)}" (ARD v0.91 §5.3). The query text was sent to: ${[...new Set(s.registries.map(r => new URL(r.endpoint).host))].join(', ')}.`,
         'Registries asked:',
-        ...s.registries.map(r => `  - ${r.endpoint}: ${r.state === 'ok' ? `${r.results} results` : `failed (${oneLine(r.note ?? '', 260)})`}`),
+        ...s.registries.map(r => `  - ${r.endpoint}: ${r.state === 'ok' ? `${r.results} results` : `failed (${(r.note ?? '').slice(0, 200)})`}`),
       ]
       if (s.skipped) lines.push(`(${s.skipped} results of other types were ignored.)`)
-      if (s.problems.length) lines.push('Problems:', ...s.problems.map(p => `  - ${oneLine(p, 300)}`))
+      if (s.problems.length) lines.push('Problems:', ...s.problems.map(p => `  - ${p.slice(0, 300)}`))
       if (!s.entries.length) {
         lines.push('No MCP Server Cards matched.')
         return { text: shownText(lines.join('\n')) }

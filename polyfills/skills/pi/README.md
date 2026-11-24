@@ -223,9 +223,11 @@ logic every form shares. The clause-by-clause table is the Claude Code form's
 - `test/pi-test.ts` also: the X8 question for a read made from inside a
   codemode script.
 - `test/hardening-test.ts`, from the security review: a generated skill that
-  changes after you read it isn't loaded; a call cancelled while you're asked
-  loads and keeps nothing; a server's media type can't add a line to the
-  result; a configured secret a server echoes back reaches no stub.
+  changes after you read it is loaded as you read it; two loads asked at once
+  run one after the other; a call cancelled while you're asked, or while it
+  waits for another load, loads and keeps nothing; a server's media type can't
+  add a line to the result; a configured secret a server echoes back reaches
+  no stub.
 - `test/connection-test.ts`: against an HTTP server behind a token (reached,
   with the header resolved as Pi resolves it) and behind OAuth (out of reach,
   with the reason).

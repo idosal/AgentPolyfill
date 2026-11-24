@@ -151,7 +151,7 @@ This form follows the same pinned revisions as the other Server Cards forms:
   release candidate, commit `19208af2f8`.
 
 The shared [client rule table](../claude-code/README.md#client-rules) covers
-D-1–D-9, V-1–V-3, C-1–C-3, S-1–S-6 and I-1–I-4. This form runs those 88
+D-1–D-9, V-1–V-3, C-1–C-3, S-1–S-6 and I-1–I-4. This form runs those 90
 rule tests against its committed Pi bundle. It additionally tests Pi's
 consent, command arguments, headers, existing names, cancellation, session
 reset, stand-down, redirects and body bounds.
