@@ -414,6 +414,10 @@ export class WatchManager {
             const watchdog = !conn.stdio;
             let last = Date.now();
             let heartbeat: number | undefined;
+            // A server "sends a heartbeat whenever heartbeatMs passes without any other message", so
+            // the quiet before each heartbeat is the interval it keeps. Used only when `active` grants
+            // none: a grant is authoritative.
+            let kept: number | undefined;
             let flowed = false;
             let terminated: { code?: number } | undefined;
             const sent = w.cursor;
@@ -457,7 +461,9 @@ export class WatchManager {
                         inOrder(() => this.#deliver(w, o, o.cursor));
                     },
                     heartbeat: (h) => {
-                        last = Date.now();
+                        const now = Date.now();
+                        if (flowed) kept = Math.max(kept ?? 0, now - last);
+                        last = now;
                         inOrder(() => this.#cursor(w, h.cursor));
                     },
                     error: (p) => {
@@ -476,7 +482,8 @@ export class WatchManager {
             const dog = setInterval(() => {
                 if (!watchdog || terminated) return;
                 const quiet = Date.now() - last;
-                if (heartbeat === undefined ? quiet > FIRST_MESSAGE_MS : quiet > 3 * heartbeat) {
+                const interval = heartbeat ?? kept;
+                if (interval === undefined ? quiet > FIRST_MESSAGE_MS : quiet > 3 * interval) {
                     this.#log(`watch ${w.id}: stream silent for ${quiet} ms; reconnecting`);
                     s.cancel();
                 }

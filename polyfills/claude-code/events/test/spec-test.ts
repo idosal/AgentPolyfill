@@ -318,6 +318,47 @@ describe('push', () => {
         }
     });
 
+    test('over HTTP, a server that grants no interval is held to the one its heartbeats keep: three of those silent and the stream is reopened', async () => {
+        // A server "sends a heartbeat whenever heartbeatMs passes without any other message", so the
+        // gap before each heartbeat is the interval it uses. One that announces none (as the upstream
+        // conformance suite's push stand-in does) is judged by that, not by a minute of the client's own.
+        const r = rig({ mode: 'push', cursor: 'c0', stdio: false });
+        try {
+            r.m.start();
+            await until(() => r.streams.length === 1);
+            const s = r.streams[0]!;
+            s.on.active({ cursor: 'c1' });
+            for (let i = 2; i <= 4; i++) {
+                await sleep(250);
+                s.on.heartbeat({ cursor: `c${i}` });
+            }
+            await sleep(450);
+            assert.equal(r.streams.length, 1, 'less than three intervals is not yet dead');
+            await until(() => r.streams.length === 2, 4000);
+            assert.equal(r.streams[1]!.cursor, 'c4', 'reopened from the last heartbeat\'s cursor');
+        } finally {
+            await r.m.stop();
+        }
+    });
+
+    test('over HTTP, a grant is authoritative: heartbeats that come faster than it do not shorten the deadline', async () => {
+        const r = rig({ mode: 'push', cursor: 'c0', stdio: false });
+        try {
+            r.m.start();
+            await until(() => r.streams.length === 1);
+            const s = r.streams[0]!;
+            s.on.active({ cursor: 'c1', heartbeatMs: 1000 });
+            for (let i = 2; i <= 4; i++) {
+                await sleep(100);
+                s.on.heartbeat({ cursor: `c${i}` });
+            }
+            await sleep(1500);
+            assert.equal(r.streams.length, 1, 'silent for less than three times the grant');
+        } finally {
+            await r.m.stop();
+        }
+    });
+
     test('over stdio the heartbeat is not a deadline: the end of the server\'s output is', async () => {
         const r = rig({ mode: 'push', stdio: true });
         try {
