@@ -166,7 +166,9 @@ own generation, and anything of another is refused).
   files through `HOME` and `CLAUDE_CONFIG_DIR` as its environment has them.
 - **App text reaches the model.** Context an app sets
   (`ui/update-model-context`) goes to Claude with your next prompt, without
-  being shown to you. A message an app sends is asked about by default.
+  being shown to you. A message an app sends is asked about by default. This
+  plugin names the app as the source of both; that wording is ours, not part
+  of the MCP Apps spec, and it is not a protection.
 - **A server you approved is trusted with its own app.** Its page can send
   what it is given (the tool's input and result) to the sites its CSP
   names.
