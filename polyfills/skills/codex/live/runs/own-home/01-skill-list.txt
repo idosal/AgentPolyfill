@@ -1,0 +1,14 @@
+
+  >_ OpenAI Codex (v0.172.0)
+     <project>
+
+  Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost.
+
+
+› huggingface:huggingface-l...  [Skill] [MCP server "huggingface", not a local skill] Use to select models to run locally with llama.cpp an…
+
+  enter insert · esc close
+
+› $mcp-skills:huggingface:huggingface-local-models
+
+  GPT-6-Astra low fast · <project>

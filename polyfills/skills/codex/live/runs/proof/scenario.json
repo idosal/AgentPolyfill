@@ -1,0 +1,33 @@
+{
+  "cmd": ["codex", "--no-alt-screen", "-s", "read-only", "-c", "model_reasoning_effort=\"low\""],
+  "cwd": "<project>",
+  "env": {"CODEX_HOME": "<throwaway CODEX_HOME>"},
+  "cols": 140, "rows": 60,
+  "steps": [
+    {"wait": "Ask Codex|Trust this folder", "timeout": 90},
+    {"sleep": 6},
+    {"when": "Trust this folder", "steps": [{"key": "enter"}, {"sleep": 3}]},
+    {"wait": "Ask Codex", "timeout": 60},
+    {"sleep": 8},
+    {"snap": "00-start"},
+    {"type": "$mcp-skills:huggingface:huggingface-local-models"},
+    {"sleep": 2},
+    {"snap": "01-skill-list"},
+    {"type": " Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?"},
+    {"sleep": 1},
+    {"key": "enter"},
+    {"wait": "Do not load it", "timeout": 240},
+    {"sleep": 2},
+    {"snap": "02-question"},
+    {"key": "down"}, {"sleep": 1}, {"key": "enter"},
+    {"wait": "shown to you only", "timeout": 120},
+    {"sleep": 2},
+    {"snap": "03-preview"},
+    {"key": "down"}, {"sleep": 1},
+    {"snap": "04-choose-load"},
+    {"key": "enter"},
+    {"wait": "Worked for", "timeout": 400},
+    {"sleep": 3},
+    {"snap": "05-answer"}
+  ]
+}

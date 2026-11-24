@@ -1,0 +1,32 @@
+
+  >_ OpenAI Codex (v0.172.0)
+     <project>
+
+  Tip: Maximize usage with GPT-6.1 Sol. Try it on complex work for near-Astra performance at a lower cost.
+
+
+› $mcp-skills:huggingface:huggingface-local-models Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?
+
+
+• I’m using the Hugging Face local-models skill to check the best balance of quality and memory for your Mac.
+
+• Calling mcp-skills.load_skill({"server":"huggingface","uri":"skill://huggingface-local-models/SKILL.md"}) (environment local)
+
+
+  Field 1/1 (1 required unanswered)
+  Server: mcp-skills (environment local)
+
+  Load the skill "huggingface-local-models" from the MCP server "huggingface"?
+
+  It is not a local skill: the server serves it, and its text will reach the model as that server's content. Once it is loaded, what the
+  model does next goes through your usual Codex approvals.
+  URI: skill://huggingface-local-models/SKILL.md
+  4 files, 15849 bytes, each checked against the server's SHA-256 digest when read.
+  The server's description: Use to select models to run locally with llama.cpp and GGUF on CPU, Mac Metal, CUDA, or ROCm. Covers finding
+  GGUFs, quant selection, running servers, exact GGUF file lookup, conversion, and OpenAI-compatible local serving.
+
+  Your answer
+  › 1. Do not load it
+    2. Show me its SKILL.md first
+    3. Load it
+  enter to submit | esc to cancel
