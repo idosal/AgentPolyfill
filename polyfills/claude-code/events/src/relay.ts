@@ -1,9 +1,10 @@
 // The plugin's side of the relay (see relay/README.md).
 //
 // A webhook-only MCP server needs a public https address to deliver to. With a
-// relay set up, each webhook watch gets a lasting address on it, and this
-// client collects what arrives there over one WebSocket: at once while Claude
-// Code is open, and on the next start for what arrived while it was closed.
+// relay set up, each webhook watch gets a lasting address on it, in its MCP
+// server's own mailbox, and this client collects what arrives at one mailbox over
+// one WebSocket: at once while Claude Code is open, and on the next start for
+// what arrived while it was closed.
 //
 // The relay is not trusted with anything. It never gets a subscription's
 // secret; every delivery it hands over goes through the same check as a direct
@@ -102,25 +103,61 @@ function ownRelaySettings(env: NodeJS.ProcessEnv, log: (s: string) => void): Rel
     }
 }
 
-/** This project's mailbox key: made once, kept in the project's state folder, readable only by the user. */
-export function mailboxKey(dir: string, relay = ''): string {
-    const file = join(dir, 'relay-mailbox.json');
-    if (existsSync(file)) {
-        try {
-            const saved = JSON.parse(readFileSync(file, 'utf8')) as { key?: unknown; relay?: unknown };
-            // The key belongs to one relay, the one it was made for: it is not shown to another one. A
-            // saved key that does not say which relay it is for is not used at all.
-            if (typeof saved.key === 'string' && KEY_RE.test(saved.key) && saved.relay === relay) {
-                if (process.platform !== 'win32') chmodSync(file, 0o600);
-                return saved.key;
-            }
-        } catch {
-            // unreadable: make a new one (watches at the old mailbox subscribe again at the new)
+/**
+ * The mailbox keys of a project, kept in its state folder, readable only by the user: one mailbox
+ * per MCP server (from 0.7.0), so that what one server posts to its own addresses can fill only
+ * its own mailbox, never another server's. `legacy` is the one mailbox a project had before 0.7.0,
+ * kept only while a watch still has its address there (the watch moves to its server's mailbox the
+ * next time it runs). Keys belong to the relay they were made for: they are not shown to another
+ * one, and keys saved without saying which relay they are for are not used at all.
+ */
+type SavedKeys = { relay?: unknown; key?: unknown; servers?: unknown };
+const keysFile = (dir: string) => join(dir, 'relay-mailbox.json');
+
+function readKeys(dir: string, relay: string): { servers: Record<string, string>; legacy?: string } {
+    const file = keysFile(dir);
+    if (!existsSync(file)) return { servers: {} };
+    try {
+        const saved = JSON.parse(readFileSync(file, 'utf8')) as SavedKeys;
+        if (saved.relay !== relay) return { servers: {} };
+        if (process.platform !== 'win32') chmodSync(file, 0o600);
+        const servers: Record<string, string> = {};
+        if (typeof saved.servers === 'object' && saved.servers !== null && !Array.isArray(saved.servers)) {
+            for (const [name, key] of Object.entries(saved.servers as Record<string, unknown>)) if (typeof key === 'string' && KEY_RE.test(key)) servers[name] = key;
         }
+        return { servers, ...(typeof saved.key === 'string' && KEY_RE.test(saved.key) ? { legacy: saved.key } : {}) };
+    } catch {
+        // unreadable: new keys are made (watches at the old addresses subscribe again at the new)
+        return { servers: {} };
     }
-    const key = randomBytes(32).toString('base64url');
-    writeFileSync(file, JSON.stringify({ key, relay }) + '\n', { mode: 0o600 });
-    return key;
+}
+
+function writeKeys(dir: string, relay: string, keys: { servers: Record<string, string>; legacy?: string }): void {
+    writeFileSync(keysFile(dir), JSON.stringify({ relay, servers: keys.servers, ...(keys.legacy ? { key: keys.legacy } : {}) }) + '\n', { mode: 0o600 });
+    if (process.platform !== 'win32') chmodSync(keysFile(dir), 0o600);
+}
+
+/** The key of one MCP server's mailbox in this project: made once, then kept. */
+export function serverMailboxKey(dir: string, relay: string, server: string): string {
+    const keys = readKeys(dir, relay);
+    const have = keys.servers[server];
+    if (have) return have;
+    keys.servers[server] = randomBytes(32).toString('base64url');
+    writeKeys(dir, relay, keys);
+    return keys.servers[server];
+}
+
+/** The key of the one mailbox this project had before 0.7.0, while it is kept. */
+export function legacyMailboxKey(dir: string, relay: string): string | undefined {
+    return readKeys(dir, relay).legacy;
+}
+
+/** Forgets the project's old mailbox: no watch has its address there any more. */
+export function dropLegacyMailboxKey(dir: string, relay: string): void {
+    const keys = readKeys(dir, relay);
+    if (!keys.legacy) return;
+    delete keys.legacy;
+    writeKeys(dir, relay, keys);
 }
 
 export type RelayOptions = {

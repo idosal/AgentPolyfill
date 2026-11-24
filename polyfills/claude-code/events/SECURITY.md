@@ -115,7 +115,8 @@ is bounded (see "Events wake a session only so often" below), not prevented.
   mailbox opens only with its key, and a relay with an access key set refuses
   connections without it; a relay with none refuses everyone unless opened on
   purpose (`OPEN_RELAY`). A mailbox key is used only with the relay it was
-  made for.
+  made for. There is one mailbox, and one key, per MCP server in a project;
+  each is a connection of its own while Claude Code is open.
 - **The one thing it downloads.** Nothing, unless you run `/mcp-events setup`
   on a machine that has no Node and no Bun, and answer Download to the
   question it then puts in Claude Code's own dialog ("Not now" is the first
@@ -160,16 +161,20 @@ is bounded (see "Events wake a session only so often" below), not prevented.
   secret stays on your machine and the mod checks every delivery. Push and
   poll never touch any relay.
 - **Anyone who learns a webhook address can post junk to it.** The mod drops
-  it. But a project's watches share one mailbox (500 deliveries or 16 MiB by
-  default on your own relay, 100 or 4 MiB on the public one), and while Claude
-  Code is closed nothing collects from it. Enough well-formed junk to one
-  address then fills the mailbox, and genuine deliveries to any of the
-  project's addresses are answered `503` until the mod next connects or the
-  junk reaches the end of its retention time. The MCP server you gave an
-  address to knows it, so one server you watch can do this to the others in
-  the same project. On the public relay each address also has a delivery
-  allowance of its own, and junk to an address that does not exist uses up
-  nothing. Treat a webhook address as a secret.
+  it. A mailbox holds 500 deliveries or 16 MiB by default on your own relay,
+  100 or 4 MiB on the public one, and while Claude Code is closed nothing
+  collects from it, so enough well-formed junk to one address fills its
+  mailbox, and genuine deliveries to that mailbox's addresses are answered
+  `503` until the mod next connects or the junk reaches the end of its
+  retention time. From 0.7.0 each MCP server has a mailbox of its own in each
+  project, so a server you watch can do this only to its own watches, not to
+  another server's. (Until 0.6.0 a project's watches shared one mailbox, so it
+  could; a watch made then moves to its server's own mailbox the next time it
+  runs, and until it has, it is still in the shared one.) Someone else who
+  learns one of your addresses can still fill that address's mailbox. On the
+  public relay each address also has a delivery allowance of its own, and junk
+  to an address that does not exist uses up nothing. Treat a webhook address
+  as a secret.
 - **It does not stop a server you watch from waking the session.** Within the
   wake limits above, any server you watch wakes an idle session whenever it
   sends an event. Stopping the watch stops it.

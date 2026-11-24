@@ -18,7 +18,8 @@
 import { randomBytes } from 'node:crypto';
 import { dirname } from 'node:path';
 import { errorCode, EventsConnection, EventsError, type DeliveryMode, type Occurrence } from './events-client.ts';
-import { mailboxKey, readRelaySettings, RelayClient } from './relay.ts';
+import { mailboxIdOf } from '../mod/relay/src/protocol.ts';
+import { dropLegacyMailboxKey, legacyMailboxKey, readRelaySettings, RelayClient, serverMailboxKey } from './relay.ts';
 import { publicAddress } from './tunnel.ts';
 import { describeError, isoDate, LocalError, secrets } from './untrusted.ts';
 import { MAX_CURSOR, newSecret, Receiver, ReplayGuard, type Hook } from './webhooks.ts';
@@ -67,6 +68,8 @@ type Sink = {
     kind: 'relay' | 'configured';
     /** The public base address, for messages. */
     url: string;
+    /** What every address this sink gives begins with (for the relay, its mailbox's addresses). */
+    prefix: string;
     /** Whether an address outlives this process (the relay's do). */
     lasting: boolean;
     /** Gives a hook an address. `id` reuses the address a watch already has. */
@@ -105,7 +108,10 @@ export class WatchManager {
     #runs = new Map<string, { ac: AbortController; done: Promise<void>; unwatch: boolean }>();
     /** When a watch last had its event type listed again after the server ended it, so that it does not loop. */
     #relisted = new Map<string, number>();
-    #sink?: Promise<Sink>;
+    /** Where webhooks arrive: with a relay, one mailbox per MCP server (by name); otherwise one receiver (''). */
+    #sinks = new Map<string, Promise<Sink>>();
+    /** The project's one mailbox from before 0.7.0, opened only to move the watches still there to their servers' mailboxes. */
+    #legacy?: Promise<{ client: RelayClient; prefix: string } | undefined>;
     #saveTimer?: NodeJS.Timeout;
     #redact?: ManagerOptions['redact'];
     #saidNoSocket = false;
@@ -235,7 +241,8 @@ export class WatchManager {
         for (const r of this.#runs.values()) r.ac.abort();
         await Promise.race([Promise.allSettled([...this.#runs.values()].map((r) => r.done)), sleep(5000)]);
         this.#saveNow();
-        if (this.#sink) await (await this.#sink.catch(() => undefined))?.close();
+        for (const sink of this.#sinks.values()) await (await sink.catch(() => undefined))?.close();
+        if (this.#legacy) await (await this.#legacy.catch(() => undefined))?.client.close();
         if (this.owner) this.project.release();
     }
 
@@ -246,7 +253,7 @@ export class WatchManager {
         const type = conn.eventTypes.find((t) => t.name === p.event);
         if (!type) throw new LocalError(`server "${conn.name}" has no event type by that name. It has: ${conn.eventTypes.map((t) => t.name).join(', ')}`);
         const mode = this.#mode(conn, type.delivery);
-        if (mode === 'webhook') await this.#rx(); // fail now, not later, if no public URL can be had
+        if (mode === 'webhook') await this.#rx(p.server); // fail now, not later, if no public URL can be had
         const w: Watch = {
             id: 'w-' + randomBytes(3).toString('hex'),
             server: p.server,
@@ -645,20 +652,29 @@ export class WatchManager {
         return undefined;
     }
 
-    #rx(): Promise<Sink> {
-        this.#sink ??= (async (): Promise<Sink> => {
-            const relay = this.#relay();
+    /**
+     * Where a server's webhooks arrive. With a relay, each MCP server has a mailbox of its own: what a
+     * server posts to its addresses (junk included) can fill its own mailbox, never another's, while
+     * nobody collects. Without one, every watch's address is on the one local receiver.
+     */
+    #rx(server: string): Promise<Sink> {
+        const relay = this.#relay();
+        const slot = relay ? server : '';
+        let sink = this.#sinks.get(slot);
+        if (sink) return sink;
+        sink = (async (): Promise<Sink> => {
             if (relay) {
-                const key = mailboxKey(this.project.dir, relay.url);
-                // The key opens this project's mailbox: it is kept out of the log and of anything shown.
+                const key = serverMailboxKey(this.project.dir, relay.url, server);
+                // The key opens this server's mailbox: it is kept out of the log and of anything shown.
                 this.#redact?.add(key);
                 const client = new RelayClient({ settings: relay, key, log: this.#log, backoffMs: Number(this.#env.MCP_EVENTS_RELAY_BACKOFF_MS) || undefined, owner: () => this.project.owns(this.session) });
                 await client.connect(); // fail now, with the reason, if the relay will not have us
-                this.#log(`webhooks arrive through the ${relay.isPublic ? 'public relay' : 'relay'} at ${relay.url} (settings from ${relay.source})`);
+                this.#log(`webhooks of ${server} arrive through the ${relay.isPublic ? 'public relay' : 'relay'} at ${relay.url} (settings from ${relay.source})`);
                 this.webhookAddress = { url: relay.url, kind: 'relay', ...(relay.isPublic ? { isPublic: true as const } : {}) };
                 return {
                     kind: 'relay',
                     url: relay.url,
+                    prefix: `${relay.url}/hooks/${await mailboxIdOf(key)}/`,
                     lasting: true,
                     add: async (hook, id = randomBytes(18).toString('base64url')) => ({ id, url: await client.add(id, hook) }),
                     remove: (id, forget) => client.remove(id, forget),
@@ -675,6 +691,7 @@ export class WatchManager {
             return {
                 kind: address.kind,
                 url: address.url,
+                prefix: address.url,
                 lasting: false,
                 add: async (hook) => {
                     const path = receiver.add(hook);
@@ -684,16 +701,83 @@ export class WatchManager {
                 close: () => receiver.close()
             };
         })();
-        this.#sink.catch(() => (this.#sink = undefined));
-        return this.#sink;
+        this.#sinks.set(slot, sink);
+        sink.catch(() => this.#sinks.delete(slot));
+        return sink;
+    }
+
+    /** The project's mailbox from before 0.7.0, if it is kept: opened when a watch still has an address there. */
+    #legacyMailbox(): Promise<{ client: RelayClient; prefix: string } | undefined> {
+        this.#legacy ??= (async () => {
+            const relay = this.#relay();
+            const key = relay && legacyMailboxKey(this.project.dir, relay.url);
+            if (!relay || !key) return undefined;
+            this.#redact?.add(key);
+            const client = new RelayClient({ settings: relay, key, log: this.#log, backoffMs: Number(this.#env.MCP_EVENTS_RELAY_BACKOFF_MS) || undefined, owner: () => this.project.owns(this.session) });
+            await client.connect();
+            return { client, prefix: `${relay.url}/hooks/${await mailboxIdOf(key)}/` };
+        })();
+        this.#legacy.catch(() => (this.#legacy = undefined));
+        return this.#legacy;
+    }
+
+    /** Whether an address is in the project's mailbox from before 0.7.0. */
+    async #isLegacy(url: string): Promise<boolean> {
+        const relay = this.#relay();
+        const key = relay && legacyMailboxKey(this.project.dir, relay.url);
+        return !!relay && !!key && url.startsWith(`${relay.url}/hooks/${await mailboxIdOf(key)}/`);
+    }
+
+    /**
+     * Moves a watch from the project's mailbox of before 0.7.0 to its server's own, losing nothing:
+     * what the old mailbox holds for its address is collected first (through the same checks as
+     * anything else, with the watch's secret and replay memory), and collected meanwhile, until the
+     * server has been told to end that subscription; only then is the old address retired. The watch
+     * then subscribes from its cursor at a new address in its server's mailbox, as it would after a
+     * relay change. Once no watch is left at the old mailbox, its key is forgotten.
+     */
+    async #migrate(w: Watch, kept: NonNullable<Watch['webhook']>): Promise<void> {
+        const legacy = await this.#legacyMailbox();
+        if (legacy) {
+            const replay = new ReplayGuard(kept.replay);
+            await legacy.client.add(kept.hook, {
+                secret: kept.secret,
+                onEvent: async (o) => {
+                    await this.#deliver(w, o, o.cursor);
+                },
+                onGap: (cursor) => this.#cursor(w, cursor),
+                replay,
+                accepted: () => {
+                    if (w.webhook) w.webhook.replay = replay.state;
+                    if (!this.#saveNow()) throw new LocalError('the watch could not be saved');
+                }
+            });
+            await Promise.race([this.#conn(w.server).then((c) => this.#unsubscribe(c, w, kept.url)).catch(() => undefined), sleep(3000)]);
+            await legacy.client.remove(kept.hook, true).catch(() => undefined);
+        }
+        this.#log(`watch ${w.id}: moved to ${w.server}'s own mailbox at the relay`);
+        delete w.webhook;
+        this.#saveNow();
+        const relay = this.#relay();
+        if (relay && !(await Promise.all(this.watches.map((x) => (x.webhook ? this.#isLegacy(x.webhook.url) : false)))).some(Boolean)) {
+            dropLegacyMailboxKey(this.project.dir, relay.url);
+            const closing = this.#legacy;
+            this.#legacy = undefined;
+            await (await closing?.catch(() => undefined))?.client.close();
+        }
     }
 
     async #webhook(w: Watch, signal: AbortSignal): Promise<'restart' | undefined> {
-        const sink = await this.#rx();
+        const sink = await this.#rx(w.server);
+        let kept = w.webhook;
+        // A watch at the project's one mailbox of before 0.7.0 moves to its server's own.
+        if (kept && sink.kind === 'relay' && (await this.#isLegacy(kept.url))) {
+            await this.#migrate(w, kept);
+            kept = undefined;
+        }
         // A watch last subscribed at an address that is no longer ours (the relay changed, or was
         // turned off): end that subscription, and start over at a new address.
-        let kept = w.webhook;
-        if (kept && !(sink.lasting && kept.url.startsWith(`${sink.url}/hooks/`))) {
+        if (kept && !(sink.lasting && kept.url.startsWith(sink.prefix))) {
             const old = kept.url;
             await Promise.race([this.#conn(w.server).then((c) => this.#unsubscribe(c, w, old)).catch(() => undefined), sleep(3000)]);
             kept = undefined;

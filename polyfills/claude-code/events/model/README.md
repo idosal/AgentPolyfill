@@ -1,9 +1,10 @@
 # Formal models
 
-Two models of the parts of this mod where a bug would matter most: how one watch's events get
-from an MCP server to a Claude Code session, and how often events may wake that session. Each
-is written in [Quint](https://quint-lang.org) (`delivery.qnt`, `wake.qnt`) and, by hand from
-the Quint file, in TLA+ (`Delivery.tla`, `Wake.tla`) for the TLC model checker.
+Three models of the parts of this mod where a bug would matter most: how one watch's events get
+from an MCP server to a Claude Code session, how often events may wake that session, and whether
+one server's webhook posts can crowd out another's at the relay. Each is written in
+[Quint](https://quint-lang.org) (`delivery.qnt`, `wake.qnt`, `relay.qnt`) and, by hand from the
+Quint file, in TLA+ (`Delivery.tla`, `Wake.tla`, `Relay.tla`) for the TLC model checker.
 
 **What has been checked, exactly.**
 
@@ -17,8 +18,8 @@ the Quint file, in TLA+ (`Delivery.tla`, `Wake.tla`) for the TLC model checker.
   simulator, which samples runs. Simulation is not exhaustive at any bound.
 - **That the TLA+ models are the Quint models**, in part. `node model/conform.mjs` replays
   traces Quint generates (random runs from every init, and every scenario) in the TLA+ models
-  with TLC: all 936 traces (603 of `wake.qnt`, 333 of `delivery.qnt`; 38,369 steps) are
-  behaviours of the TLA+ models. That checks one direction (what Quint can do, TLA+ can do), on
+  with TLC: all 2,140 traces (603 of `wake.qnt`, 333 of `delivery.qnt`, 1,204 of `relay.qnt`;
+  74,392 steps) are behaviours of the TLA+ models. That checks one direction (what Quint can do, TLA+ can do), on
   samples. For the other, each counterexample TLC found on 0.5.0's models was also replayed as
   a scenario in the Quint file, and Quint reproduced it; the rest is by reading. The TLA+ is written by hand because Quint's
   own translation (`quint compile --target tlaplus`) needs Apalache, which was not installed.
@@ -34,6 +35,7 @@ quint test model/delivery.qnt --backend typescript         # the counterexamples
 quint run model/delivery.qnt --init webhook --invariant Safety --max-samples 20000 --max-steps 60 --backend typescript
 quint test model/wake.qnt --backend typescript
 quint run model/wake.qnt --invariant Kept --max-samples 30000 --max-steps 40 --backend typescript
+quint test model/relay.qnt --backend typescript
 ```
 
 (Quint 0.34.0, `npx @informalsystems/quint@0.34.0`.) In Quint, `init` in each model is the
@@ -108,6 +110,36 @@ stands for twenty minutes, the hour for three units, the gap for one, and two wa
 The wake budget is also checked, without the hand-over, by a property test over generated
 sequences of events, waits, restarts and messages (`test/properties-test.ts`).
 
+## `relay.qnt`: one mailbox per server
+
+Two MCP servers in one project, each with a webhook address (a watch's hook) at the relay, in a
+mailbox that holds at most `CAP` deliveries. Server `a` is hostile and posts well-formed junk to
+its own address at any time; the relay stores it, because it holds no secret and cannot tell.
+Server `b` posts genuine deliveries. Claude Code closes and opens at any time; while it is open
+the mod collects, in the order each mailbox stored. Until 0.6.0 a project's watches shared one
+mailbox (`p`); from 0.7.0 each server has its own, and a watch whose address is still in the
+shared one moves to its server's own when it next runs.
+
+| In the model | In the code |
+| --- | --- |
+| `box`, `CAP`; `Junk`, `Genuine` refused when full | `Mailbox.deliver` (`mod/relay/src/mailbox.ts`): `MAX_QUEUED`, `503` with `Retry-After` |
+| `home` | the key of each server's mailbox in `relay-mailbox.json` (`serverMailboxKey`, `src/relay.ts`) and the address in each watch |
+| `Collect` | `RelayClient` (`src/relay.ts`): what a mailbox holds is handed over on each connection, judged, acknowledged and deleted |
+| `Drain`, then `Move` | `WatchManager.#migrate` (`src/watcher.ts`): the old address is asked for again, which collects what the old mailbox holds for it, then the old subscription is ended, the old address retired, and the watch subscribes from its cursor at a new address in its server's mailbox; the project's old key is forgotten once no watch is left there |
+
+Not modelled: the retention time (a delivery left uncollected is dropped after it); the sizes in
+bytes (`MAX_QUEUED_BYTES`); a server's retries after a `503`; the rate limits; and the moments,
+inside the move, between ending the old subscription and retiring the old address (the code
+keeps collecting from the old address until it is retired, and the relay hands over what it
+stores while the mod is connected before it acts on the retirement, so `Move` requires that
+nothing of the watch's is left in the old mailbox).
+
+- **`NoCrossRefusal`**: a genuine delivery is never refused for room that another server's posts
+  take up. **`NoCrossRefusalAtOwn`**: the same, for an address in its server's own mailbox.
+- **`NothingLost`**: a genuine delivery a mailbox took is collected, or still held: moving a
+  watch loses none.
+- **`CollectedOnce`**: each genuine event is collected at most once.
+
 ## TLC, configuration by configuration
 
 Each `.cfg` file is one run; its first lines say what it is. The bounds of `delivery`: `N`
@@ -142,7 +174,9 @@ session, 2 deliveries), TLC passed 22 million distinct states (on 0.5.0's model)
 stopped at that limit.
 
 Results on an Apple M1 Max (32 GB, macOS 15.4.1), TLC 1.7.4 on Temurin 21, one worker (so
-the search is breadth first exactly and a trace is a shortest one), 24 November 2026. "States"
+the search is breadth first exactly and a trace is a shortest one), 24 November 2026. The
+`delivery.qnt` and `wake.qnt` runs are of 0.5.1's models, which 0.6.0 and 0.7.0 leave as they
+are; the `relay.qnt` runs are of 0.7.0's. "States"
 is distinct states, as the view tells them apart; "Depth" is the longest of the shortest paths
 from an initial state, counting that state as 1. Where TLC finds a violation it stops there:
 "States" is how many it had found by then, and "Depth" the number of states in its trace.
@@ -166,11 +200,25 @@ from an initial state, counting that state as 1. Where TLC finds a violation it 
 The last five lie within the bounds of the ones above them; they are kept as the places where
 TLC found the cases below.
 
-**0.5.1, a documented limit, reachable:**
+`relay.qnt`, 0.7.0 (`CAP` 4 deliveries a mailbox, 6 genuine deliveries; junk at any time):
+
+| Configuration | Bounds | Invariants | Result | States | Depth |
+| --- | --- | --- | --- | --- | --- |
+| `RelayOwn` | watches made with 0.7.0, each in its server's own mailbox | `NoCrossRefusal`, `NothingLost`, `CollectedOnce` | hold | 450 | 18 |
+| `RelayMigrating` | an existing user's watches, starting in the project's mailbox, moving at any time Claude Code is open | `NoCrossRefusalAtOwn`, `NothingLost`, `CollectedOnce` | hold | 16,382 | 23 |
+
+**Documented limits, reachable:**
 
 | Configuration | Bounds | Invariant | Result | States | Depth |
 | --- | --- | --- | --- | --- | --- |
 | `Strict` | poll, 1 event, 2 sessions | `StrictAtMostOnce` | violated, as documented: the exception in `AtMostOnce` | 549 | 11 |
+| `RelayMigratingShared` | as `RelayMigrating` | `NoCrossRefusal` | violated, as documented: until a watch has moved, its address is in the shared mailbox | 114 | 6 |
+
+**A variant with a protection taken out**, so that the check is seen to need it:
+
+| Configuration | Bounds | Invariant | Result | States | Depth |
+| --- | --- | --- | --- | --- | --- |
+| `RelayNoDrain` | as `RelayMigrating`, moving without collecting the old mailbox first | `NothingLost` | violated | 16 | 3 |
 
 **0.4.1, the defects the scenarios show, found again:**
 
@@ -182,6 +230,12 @@ TLC found the cases below.
 | `PushBeforeStored` | as `Push`, constrained away from the helper being down with a batch submitted and not acknowledged | `AtMostOnce` | violated (`storedTwiceBeforeTest`) | 753 | 10 |
 | `PollBeforeStranded` | as `Poll` | `NoneStranded` | violated (`strandedBeforeTest`) | 123 | 6 |
 | `WebhookBeforeB1`, `WebhookBeforeB1Cursor` | webhook, 2 events, clock 0 to 3, 1 session, 2 deliveries, constrained to runs with no forger, crash, close, lapse, loss or hand-over | `NoAckBeforeStore`; `CursorSafe` | violated (`refusedAsOldBeforeTest`, B1) | 403,642; 416,514 | 17; 17 |
+
+**0.6.0, P3 of the security review, found:**
+
+| Configuration | Bounds | Invariant | Result | States | Depth |
+| --- | --- | --- | --- | --- | --- |
+| `RelayShared` | as `RelayOwn`, one mailbox for the project (`sharedRefusedBeforeTest`) | `NoCrossRefusal` | violated: `a`'s junk fills the mailbox, and `b`'s genuine delivery is refused | 58 | 6 |
 
 Without its constraint, the push run finds `handOverTwice` first (it is as short), and the B1
 run passed the state folder's limit before finding anything. Each trace TLC gives here is the
@@ -256,4 +310,5 @@ the documented case. In 30,000 runs of `wake.qnt` of up to 40 steps, none of the
 invariants broke. TLC found three cases these runs missed (above). Against 0.5.1's models, at the CI job's sizes:
 5,000 runs of up to 60 steps for each of poll, push and webhook (`Safety`) and for the lying
 relay (`AtMostOnce`, `NothingForged`), and 10,000 of `wake.qnt` of up to 40 steps (`Kept`): no
-violation.
+violation. Against 0.7.0's `relay.qnt`: 5,000 runs of up to 30 steps from `init`
+(`NoCrossRefusal`) and from `migrating` (`NoCrossRefusalAtOwn`): no violation.
