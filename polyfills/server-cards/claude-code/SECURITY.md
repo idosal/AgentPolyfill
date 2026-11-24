@@ -29,7 +29,7 @@ Every fetch is bounded: at most 512 KiB per answer, 64 KiB per card, 20 cards, 3
 
 **Text that displays as something else.**
 - A card is refused if any string in it holds a control character (C0, DEL, C1) or an invisible format or bidirectional mark. That rules out an ESC sequence that rewrites a line, an OSC 8 link, or a right-to-left override.
-- A remote URL must be printable ASCII. So what the picker shows beside **Add** is what is added.
+- A remote URL must be printable ASCII, without `` ` ``, `<`, `>` or square brackets outside an IPv6 host (`https://[::1]/`). So what the picker shows beside **Add** is what is added, and no host that renders Markdown or HTML can show a link text in its place. The same holds for the URL a variable fills in, a card's `websiteUrl` and `repository.url`, the card URLs a catalog or another plugin names, a registry's URL, and where another plugin says it found a card.
 - Values Claude gives are held to the same rule.
 - Everything shown (the picker, tool results, notices, toasts) also passes a plain-text filter.
 

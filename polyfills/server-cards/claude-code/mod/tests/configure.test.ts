@@ -223,3 +223,14 @@ test('A-23 the review\'s colliding card gets a different secret reference from G
   expect(a.plan.envVars[0]!.name === b.plan.envVars[0]!.name).toBe(false)
   expect(/^MCP_GITHUB__TOKEN_[A-Z2-7]{16}$/.test(a.plan.envVars[0]!.name)).toBe(true)
 })
+
+test('A-24 a base URL a variable fills in holds no markup either (security review C1)', async () => {
+  const card = {
+    ...fixtures.official.valid.minimal,
+    remotes: [{ type: 'streamable-http', url: '{base}/mcp', variables: { base: { isRequired: true } } }],
+  } as unknown as ServerCard
+  const bad = planAdd(card, 0, { base: 'https://evil.example/x/[https://good.example](https://evil.example)' }, 'x', 'local')
+  expect('error' in bad && bad.error.includes('square brackets')).toBe(true)
+  const good = planAdd(card, 0, { base: 'https://[::1]:8080' }, 'x', 'local', true)
+  expect('plan' in good && good.plan.url).toBe('https://[::1]:8080/mcp')
+})

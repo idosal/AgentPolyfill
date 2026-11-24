@@ -11,7 +11,7 @@
 // `$`, a secret reference is named for this card alone, and a secret may not
 // stand where it could change which host is reached.
 
-import { UNSAFE_TEXT, type Input, type Remote, type ServerCard } from './card'
+import { PLAIN_URL, UNSAFE_TEXT, type Input, type Remote, type ServerCard } from './card'
 import { isAllowedUrl, isPrivateHost } from './discover'
 import { base32, sha256 } from './sha256'
 
@@ -187,7 +187,7 @@ export const planAdd = (
     if (v === undefined) return whole
     if (!input.isSecret) {
       if (at === 0) {
-        if (!/^https?:\/\/[\x21-\x7e]+$/.test(v)) problems.push(`{${key}} must be a URL`)
+        if (!PLAIN_URL.test(v)) problems.push(`{${key}} must be a URL, in printable ASCII without \`, <, > or square brackets (but an IPv6 host's)`)
       } else if (!URL_VALUE.test(v) || /^\.+$/.test(v))
         problems.push(`{${key}} may hold only letters, digits and . _ ~ - (and not be "." or "..")`)
     }
@@ -228,8 +228,10 @@ export const planAdd = (
   if (missing.length) return { missing }
 
   if (url.length > MAX_URL) return { error: `The URL is longer than ${MAX_URL} characters.` }
-  // What is shown is what is added: printable ASCII only.
+  // What is shown is what is added: printable ASCII, and no markup that a
+  // host could render as a link text in place of the URL (card.ts hasMarkup).
   if (!/^[\x21-\x7e]+$/.test(url)) return { error: 'The URL holds a space, a control character or a non-ASCII character.' }
+  if (!PLAIN_URL.test(url)) return { error: 'The URL holds `, <, > or a square bracket outside an IPv6 host, which could show as something else.' }
   const probe = url.replace(/\$\{[A-Z0-9_]+\}/g, 'x')
   let parsed: URL
   try {
