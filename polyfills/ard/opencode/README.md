@@ -86,8 +86,15 @@ You need **OpenCode 2.4** (the V2 plugin API; tested with 2.4.1).
 - **Tried live** with a real model: buildkite.com's `ard.json` read
   ([`live-run.md`](../../../tools/opencode/live-run.md)). CI runs the tests on
   Linux and macOS.
-- **Not tried yet:** Windows, the TUI and the desktop app as clients, and a
-  live registry search.
+- **OpenCode's TUI shows little in the prompt.** In OpenCode 2.4.1's TUI, a
+  permission prompt for a plugin's own action says only "Call tool
+  ard_search". The details are on the model's call line just above it, and
+  "Always allow" lists the pattern it would save. Checked in the TUI
+  ([`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui)). The call
+  line names the query and the registry; a referred registry's host is in
+  the request only.
+- **Not tried yet:** Windows, the desktop app as a client, and a live
+  registry search.
 
 ## Security
 

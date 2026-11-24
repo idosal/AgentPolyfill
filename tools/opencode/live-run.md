@@ -1,13 +1,14 @@
 # Live runs of the OpenCode plugins
 
-Two runs of [`live.ts`](live.ts), 25 November 2026: OpenCode 2.4.1 (`opencode
-serve`, driven over its HTTP API), in a throwaway home with no sign-in, with a
+Two runs of [`live.ts`](live.ts), 25 November 2026, and a run in OpenCode's
+TUI ([below](#in-opencodes-tui)): OpenCode 2.4.1 (`opencode serve`, driven over
+its HTTP API, or by the TUI attached to it), in a throwaway home with no sign-in, with a
 real model, OpenCode's free `opencode/deepseek-v4.1-flash-free`, and real
 public servers: Hugging Face's MCP server (skills) and neon.com and
 buildkite.com (Server Cards, ARD). Events used the fixture events server,
 since no public server delivers events by poll. Every plugin action had an
-`ask` rule, and each request was answered "once" by the script. Not tried:
-the TUI and the desktop app as clients.
+`ask` rule, and each request was answered "once". Not tried: the desktop app
+as a client.
 
 ## What happened
 
@@ -68,6 +69,70 @@ four tools were in the model's tools; in the first run the model called
 its one entry, `com.buildkite/remote-mcp-server`, with a valid card. No
 registry search was sent: the plugin ships with none, and none was named.
 
+## In OpenCode's TUI
+
+The same world, kept running by [`tui-world.ts`](tui-world.ts), with
+OpenCode's TUI attached (`opencode --server <url> <project>`), driven in a
+pseudo-terminal by the repository's `pty-drive.py`, which types and presses
+keys and saves the screen. Shell and edits denied. Each permission prompt was
+answered with the keyboard.
+
+**Events.** The model's call, then OpenCode's prompt:
+
+```
+     ⠹ mcp_events_watch_event [server=tickets, event=ticket.created, note=When a new ticket is created,
+       tell the user its title in exactly one sentence. Do not summarize anything else.]
+  ┃  △ Permission required
+  ┃    ⚙ Call tool mcp_events_watch
+  ┃  Tool: mcp_events_watch
+  ┃   Allow once   Always allow   Reject
+```
+
+After "Allow once" the watch started. With the session idle and the TUI
+open, an event was written to the fixture server, and the TUI showed the
+wake as an entry of its own, not as a message from you, then the model's
+answer:
+
+```
+     ◈ mcp-events: new events
+     + 1 tool
+     A new high-priority ticket was created titled "Printer on fire on floor 3."
+```
+
+**Skills.** Two `mcp_skills_load_skill` calls, each with its server and URI on
+the call line, and a prompt for each. "Always allow" shows the exact pattern
+it would save, bound to the skill's digest:
+
+```
+  ┃    ⚙ Call tool mcp_skills_load
+  ┃  This will always allow the following patterns for this project.
+  ┃  - huggingface:skill://hf-mem/SKILL.md@sha256:
+  ┃  4261a02ca396665e946f4ebc93a5c1abc6e4b1bfe726ba0e8f70914438d1f453
+```
+
+After "Allow once" for both, the model answered from the skills (Q4_K_M, with
+the skill's size table).
+
+**Server Cards.** The call line names the identifier and the URL; nothing is
+saved for an addition, so the prompt offers only "Allow once" and "Reject":
+
+```
+     ⠇ server_cards_add_mcp_server [identifier=urn:air:neon.com:mcp:neon-docs, url=https://neon.com/docs/
+       mcp, domain=neon.com, remote=0, name=neon-docs]
+  ┃    ⚙ Call tool mcp_server_cards_add
+  ┃   Allow once   Reject
+```
+
+Neon Docs was added and connected, and its four tools listed.
+
+**What the TUI doesn't show.** For an action it doesn't know, OpenCode 2.4.1's
+TUI shows only "Call tool <action>" (`packages/tui/src/util/permission.ts`,
+its fallback): not the request's resources or metadata. So what the person
+sees is the model's call line above the prompt (the server, event type, URI
+or URL as the model passed them) and, under "Always allow", the pattern to be
+saved. The digest, the file count and the "not a local skill" note in the
+request's metadata aren't shown.
+
 ## To repeat
 
 ```bash
@@ -78,3 +143,8 @@ node --no-warnings tools/opencode/live.ts provider/model  # another model that n
 
 The transcript goes to a folder the script names; the throwaway home is kept
 for reading, and can be deleted afterwards.
+
+For the TUI, start `tui-world.ts <out>`, then attach OpenCode's TUI with the
+environment `<out>/world.json` gives (its own `HOME` and XDG folders and the
+throwaway server's password): `opencode --server <url> <project>`. Touching
+`<out>/emit` writes a ticket to the fixture server.

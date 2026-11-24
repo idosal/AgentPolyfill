@@ -77,6 +77,12 @@ holds no token. A sign-in for an added server is OpenCode's
 
 ## What it does not protect against
 
+- **What OpenCode's TUI shows in the prompt.** OpenCode 2.4.1's TUI shows a
+  request for this plugin's action as "Call tool mcp_server_cards_add",
+  without the resource or metadata it carries. You read the name and URL on
+  the model's call line above it; the plugin refuses a URL other than the one
+  the card gives, so that is what is added. The headers and the undo aren't
+  shown.
 - **OpenCode's default policy.** It allows every action, so with no rule for
   `mcp_server_cards_add` the model can add a server a card describes without a
   prompt, as it could edit `opencode.json` by default.

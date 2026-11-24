@@ -87,6 +87,11 @@ saved permission rules. No skill content is kept.
 
 ## What it does not protect against
 
+- **What OpenCode's TUI shows in the prompt.** OpenCode 2.4.1's TUI shows a
+  request for this plugin's action as "Call tool mcp_skills_load", without
+  the resource or metadata it carries. You read the server and the skill's
+  URI on the model's call line above it; the digest shows only under
+  "Always allow", in the pattern it would save.
 - **OpenCode's default policy.** It allows every action. With no `ask` or
   `deny` rules, a served skill loads without a prompt, and what the model
   does with it is allowed too.

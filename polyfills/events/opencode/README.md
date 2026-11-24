@@ -176,9 +176,13 @@ remove it.
   fixture server: an event woke the idle session, and the model did what the
   note said ([`live-run.md`](../../../tools/opencode/live-run.md)). CI runs
   the tests on Linux and macOS.
-- **Not tried yet:** Windows, the TUI and the desktop app as clients (the runs
-  drive OpenCode's server over its API), and a public server that delivers
-  events by poll or webhook.
+- **OpenCode's TUI shows little in the prompt.** In OpenCode 2.4.1's TUI, a
+  permission prompt for a plugin's own action says only "Call tool
+  mcp_events_watch". The details are on the model's call line just above it, and
+  "Always allow" lists the pattern it would save. Checked in the TUI
+  ([`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui)).
+- **Not tried yet:** Windows, the desktop app as a client, and a public
+  server that delivers events by poll or webhook.
 
 [What hosts would need to change](../../../docs/host-changes.md) covers these
 gaps for each host.
