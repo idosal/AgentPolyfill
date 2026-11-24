@@ -174,7 +174,7 @@ the meantime arrive if the server (or your relay, below) kept them.
 your MCP server (SEP-3415) ──events/stream · events/poll──────────────────►  helper process (mod/dist/helper.js)
         │                                                                    │  the Events client: one connection per
         └─signed webhooks──►  relay (your Cloudflare Worker)  ──WebSocket──► │  server, one subscription per watch; every
-                              holds deliveries, holds no secret              │  event written to disk before it is acknowledged
+                              holds deliveries, no signing secret            │  event written to disk before it is acknowledged
                                                                              ▲
                                               a local endpoint (127.0.0.1) + │ one JSON line per message
                                                                              ▼

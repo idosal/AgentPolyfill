@@ -202,7 +202,7 @@ the remaining grant and at least hourly.
 - **N2. Refresh timing trusts the local clock** (`src/watcher.ts`). If `refreshBefore` is already in the past by the local clock (skew larger than the grant), the loop refreshes every 250 ms without end.
 - **N3. `X-MCP-Subscription-Id` is never used.** Each watch has its own address and secret, so the path selects the secret (`src/watcher.ts`). A `terminated` envelope that verifies ends the watch whichever subscription id it names.
 - **N4. `webhook-timestamp` is re-serialized through `Number()` before the HMAC** (`src/webhooks.ts`). A non-canonical value such as a leading zero fails verification (it reads as `no matching v1 signature`). Fails closed.
-- **N5. The relay returns 2xx before any signature check** (it holds no secret). Verification happens in the plugin before anything is acted on, so RX-1 holds, but a 2xx from the relay does not mean "verified".
+- **N5. The relay returns 2xx before any signature check** (it holds no signing secret). Verification happens in the plugin before anything is acted on, so RX-1 holds, but a 2xx from the relay does not mean "verified".
 - **N6. The revision test is a string comparison** (`src/events-client.ts`): any revision string that sorts after `2026-07-28` counts as later.
 
 ## The upstream conformance suite
