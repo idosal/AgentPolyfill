@@ -5,6 +5,7 @@
 
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from './index.ts';
+import { allowed, LIMITS_DOWN, SENDER_HEADER, TOO_MANY } from './limits.ts';
 import { HOOK_RE, SUBPROTOCOL, type ClientMessage, type DeliveryHeaders, type RelayMessage } from './protocol.ts';
 
 /** Deliveries one mailbox may hold at once, and their total size. Past either, the server is told to retry. */
@@ -22,17 +23,19 @@ const TOMBSTONE_TTL_S = 7 * 24 * 3600;
 const MAX_FRAME = 256 * 1024;
 const MAX_ANSWER_BODY = 64 * 1024;
 const CLEANUP_EVERY_MS = 6 * 3600 * 1000;
+/** Messages one connection may send in a minute. A client sends one per hook, per delivery and per challenge. */
+const SOCKET_MESSAGES_PER_MINUTE = 1200;
 /** Retired hooks remembered (to answer 410) at most; and challenges waiting for an answer at once. */
 const MAX_TOMBSTONES = 256;
 const MAX_ASKS = 16;
 /** The layout of this mailbox's storage. */
 const SCHEMA = 2;
 
-export type Delivery = { hook: string; headers: DeliveryHeaders; body: string; receivedAt: number };
+export type Delivery = { mailbox: string; hook: string; headers: DeliveryHeaders; body: string; receivedAt: number };
 export type DeliverResult = { status: number; body?: string; retryAfter?: number };
 type Answer = { status: number; body?: string };
-/** What a socket carries: which connection it is, and the hooks it asked for. */
-type Attachment = { gen: number; hooks: string[] };
+/** What a socket carries: which connection it is, the hooks it asked for, and how many messages it sent in which minute. */
+type Attachment = { gen: number; hooks: string[]; minute?: number; sent?: number };
 
 const now = () => Math.floor(Date.now() / 1000);
 const positive = (v: string | undefined, fallback: number) => {
@@ -75,6 +78,7 @@ export class Mailbox extends DurableObject<Env> {
             CREATE TABLE IF NOT EXISTS hooks (
                 hook TEXT PRIMARY KEY,
                 created INTEGER NOT NULL,
+                -- when its owner last asked for it, collected from it or was connected for it; for a removed hook, when it was removed
                 seen INTEGER NOT NULL,
                 removed INTEGER NOT NULL DEFAULT 0
             );
@@ -118,7 +122,12 @@ export class Mailbox extends DurableObject<Env> {
     // ---- the plugin's socket ---------------------------------------------------------
 
     /** The Worker has already checked the mailbox key and the access key. */
-    async fetch(_request: Request): Promise<Response> {
+    async fetch(request: Request): Promise<Response> {
+        // A mailbox opened for the first time counts against what this relay opens in an hour.
+        if (!this.#exists()) {
+            const refused = await this.#admit(request.headers.get(SENDER_HEADER) ?? 'unknown');
+            if (refused) return refused;
+        }
         // Clear out first, while the hooks the outgoing reader holds still count as in use.
         this.#cleanup();
         // One reader per mailbox: a newer connection (a restarted plugin) replaces an older one. The
@@ -134,8 +143,29 @@ export class Mailbox extends DurableObject<Env> {
         const server = pair[1];
         this.ctx.acceptWebSocket(server);
         server.serializeAttachment({ gen, hooks: [] } satisfies Attachment);
+        // Armed here, not only when a hook is added: a mailbox that was opened and left is given back too.
+        await this.#armCleanup();
         this.#send(server, { t: 'hello', v: 1, now: now() });
         return new Response(null, { status: 101, webSocket: client, headers: { 'Sec-WebSocket-Protocol': SUBPROTOCOL } });
+    }
+
+    /** Whether this relay may open one more mailbox now. Returns the refusal, if not. */
+    async #admit(sender: string): Promise<Response | undefined> {
+        const most = positive(this.env.NEW_MAILBOXES_PER_HOUR, 0);
+        const mostPerSender = positive(this.env.NEW_MAILBOXES_PER_SENDER_PER_HOUR, 0);
+        if (!most && !mostPerSender) return undefined;
+        const refuse = (status: number, error: string, retryAfter: number) =>
+            new Response(JSON.stringify({ error }), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', 'retry-after': String(retryAfter) } });
+        let verdict: 'yes' | 'all' | 'sender' | 'down';
+        try {
+            verdict = this.env.REGISTRY ? await this.env.REGISTRY.getByName('registry').admit(sender, most, mostPerSender) : 'down';
+        } catch {
+            verdict = 'down';
+        }
+        if (verdict === 'yes') return undefined;
+        // A count that cannot be kept is no ceiling: a relay that set one refuses rather than go without it.
+        if (verdict === 'down') return refuse(LIMITS_DOWN.status, LIMITS_DOWN.error, LIMITS_DOWN.retryAfter);
+        return refuse(429, verdict === 'all' ? 'this relay has opened as many new mailboxes as it does in an hour; try again later, or use a relay of your own' : 'too many new mailboxes from this address in an hour; try again later', 600);
     }
 
     #send(ws: WebSocket, m: RelayMessage): void {
@@ -158,7 +188,15 @@ export class Mailbox extends DurableObject<Env> {
     async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
         const att = ws.deserializeAttachment() as Attachment | null;
         if (!att || att.gen !== this.#generation()) return; // a replaced connection: it has no say any more
-        if (typeof message !== 'string' || message.length > MAX_FRAME) return this.#send(ws, { t: 'error', message: 'expected a JSON text frame of at most 256 KiB' });
+        // Nothing a client has to say is this large, or comes this often: a connection that does either is closed.
+        if (typeof message !== 'string' ? message.byteLength > MAX_FRAME : message.length > MAX_FRAME) return ws.close(1009, 'a frame is at most 256 KiB');
+        const minute = Math.floor(Date.now() / 60000);
+        const sent = (att.minute === minute ? (att.sent ?? 0) : 0) + 1;
+        if (sent > positive(this.env.SOCKET_MESSAGES_PER_MINUTE, SOCKET_MESSAGES_PER_MINUTE)) return ws.close(4008, 'too many messages in a minute');
+        att.minute = minute;
+        att.sent = sent;
+        ws.serializeAttachment(att);
+        if (typeof message !== 'string') return this.#send(ws, { t: 'error', message: 'expected a JSON text frame of at most 256 KiB' });
         let m: ClientMessage;
         try {
             m = JSON.parse(message) as ClientMessage;
@@ -177,13 +215,17 @@ export class Mailbox extends DurableObject<Env> {
                         this.#sql.exec('UPDATE hooks SET removed = 1, seen = ? WHERE hook = ?', now(), m.hook);
                         this.#sql.exec('DELETE FROM deliveries WHERE hook = ?', m.hook);
                     }
-                    ws.serializeAttachment({ gen: att.gen, hooks: attached.filter((h) => h !== m.hook) } satisfies Attachment);
+                    ws.serializeAttachment({ ...att, hooks: attached.filter((h) => h !== m.hook) } satisfies Attachment);
                     if (this.#exists()) {
                         // Retired hooks are remembered so late deliveries get 410, but only so many of them.
                         this.#sql.exec('DELETE FROM hooks WHERE removed = 1 AND hook NOT IN (SELECT hook FROM hooks WHERE removed = 1 ORDER BY seen DESC, hook LIMIT ?)', MAX_TOMBSTONES);
                     }
                     return this.#send(ws, { t: 'ok', n });
                 }
+                // Asked for already on this connection: what it held was sent then, and what came since was
+                // sent as it came. Sending it all again for the asking would let one connection draw the
+                // whole queue as often as it liked; what is not yet acked comes again on the next connection.
+                if (attached.includes(m.hook)) return this.#send(ws, { t: 'ok', n, queued: 0 });
                 this.#create();
                 const known = this.#sql.exec<{ removed: number }>('SELECT removed FROM hooks WHERE hook = ?', m.hook).toArray()[0];
                 if (!known || known.removed) {
@@ -192,7 +234,7 @@ export class Mailbox extends DurableObject<Env> {
                     if (active >= most) return this.#send(ws, { t: 'error', n, message: `this mailbox already has ${most} hooks` });
                 }
                 this.#sql.exec('INSERT INTO hooks (hook, created, seen, removed) VALUES (?, ?, ?, 0) ON CONFLICT (hook) DO UPDATE SET seen = excluded.seen, removed = 0', m.hook, now(), now());
-                if (!attached.includes(m.hook)) ws.serializeAttachment({ gen: att.gen, hooks: [...attached, m.hook] } satisfies Attachment);
+                ws.serializeAttachment({ ...att, hooks: [...attached, m.hook] } satisfies Attachment);
                 await this.#armCleanup();
                 // Everything held for this hook, oldest first. Each comes again on a later connection until it is acked.
                 const queued = this.#sql.exec<{ seq: number; headers: string; body: string; received_at: number }>('SELECT seq, headers, body, received_at FROM deliveries WHERE hook = ? ORDER BY seq', m.hook).toArray();
@@ -202,7 +244,13 @@ export class Mailbox extends DurableObject<Env> {
             }
             case 'ack': {
                 if (!Array.isArray(m.seqs) || !this.#exists()) return;
-                for (const seq of m.seqs.slice(0, 1000)) if (Number.isSafeInteger(seq)) this.#sql.exec('DELETE FROM deliveries WHERE seq = ?', seq);
+                const t = now();
+                for (const seq of m.seqs.slice(0, 1000)) {
+                    if (!Number.isSafeInteger(seq)) continue;
+                    // Collecting is what keeps an address in use.
+                    this.#sql.exec('UPDATE hooks SET seen = ? WHERE removed = 0 AND seen < ? AND hook IN (SELECT hook FROM deliveries WHERE seq = ?)', t, t, seq);
+                    this.#sql.exec('DELETE FROM deliveries WHERE seq = ?', seq);
+                }
                 return;
             }
             case 'answer': {
@@ -235,6 +283,15 @@ export class Mailbox extends DurableObject<Env> {
         if (!hook) return { status: 404, body: errorBody('no such webhook address') };
         // 410: the SEP has servers stop retrying this delivery.
         if (hook.removed) return { status: 410, body: errorBody('this webhook address was removed') };
+        // The address's allowance is spent here, on a well-formed delivery to an address that exists,
+        // and per address: what one server sends to its own cannot use up another's.
+        const verdict = await allowed(this.env.DELIVERIES_PER_HOOK, `${d.mailbox}/${d.hook}`, this.env.REQUIRE_LIMITS === '1');
+        if (verdict !== 'yes') {
+            const r = verdict === 'no' ? TOO_MANY : LIMITS_DOWN;
+            return { status: r.status, body: errorBody(r.error), retryAfter: r.retryAfter };
+        }
+        // The address may have been removed while the limiter was asked.
+        if (this.#sql.exec<{ removed: number }>('SELECT removed FROM hooks WHERE hook = ?', d.hook).toArray()[0]?.removed !== 0) return { status: 410, body: errorBody('this webhook address was removed') };
         let parsed: unknown;
         try {
             parsed = JSON.parse(d.body);
@@ -260,7 +317,8 @@ export class Mailbox extends DurableObject<Env> {
         const seq = this.#sql
             .exec<{ seq: number }>('INSERT INTO deliveries (hook, webhook_id, digest, headers, body, size, received_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING seq', d.hook, id, digest, JSON.stringify(d.headers), d.body, size, d.receivedAt)
             .one().seq;
-        this.#sql.exec('UPDATE hooks SET seen = ? WHERE hook = ?', d.receivedAt, d.hook);
+        // Receiving does not count as use of the address: anyone can POST to it. Only its owner
+        // collecting does (see `seen`), so an address nobody collects from is retired however much arrives.
         for (const ws of this.#readers(d.hook)) this.#send(ws, { t: 'delivery', seq, hook: d.hook, headers: d.headers, body: d.body, receivedAt: d.receivedAt });
         return { status: 200 };
     }
@@ -312,6 +370,8 @@ export class Mailbox extends DurableObject<Env> {
      * by a twenty-fourth of it at most (an hour, for a day), and never less often than every six hours.
      */
     #cleanupEveryMs(): number {
+        const set = positive(this.env.CLEANUP_EVERY_MS, 0);
+        if (set) return set;
         const ttlMs = positive(this.env.DELIVERY_TTL_S, DELIVERY_TTL_S) * 1000;
         return Math.min(CLEANUP_EVERY_MS, Math.max(15 * 60 * 1000, Math.floor(ttlMs / 24)));
     }
@@ -324,6 +384,11 @@ export class Mailbox extends DurableObject<Env> {
         this.#cleanup();
         if (!this.#exists()) return;
         const left = this.#sql.exec<{ n: number }>('SELECT (SELECT COUNT(*) FROM hooks) + (SELECT COUNT(*) FROM deliveries) AS n').one().n;
-        if (left > 0) await this.ctx.storage.setAlarm(Date.now() + this.#cleanupEveryMs());
+        if (left > 0 || this.ctx.getWebSockets().length > 0) return void (await this.ctx.storage.setAlarm(Date.now() + this.#cleanupEveryMs()));
+        // No address, nothing held and nobody connected: the mailbox gives its storage back. It is
+        // made again, empty, if its owner returns.
+        await this.ctx.storage.deleteAll();
+        this.#hasTables = false;
+        this.#gen = undefined;
     }
 }
