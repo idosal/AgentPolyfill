@@ -22,7 +22,8 @@ The aim is an open community around open specs, where anyone can use these
 capabilities in the host they have, build the next polyfill, or propose a new
 extension, and support does not depend on one host's roadmap. Today that is
 Claude Code with four MCP extensions and one open draft beyond MCP (Agentic
-Resource Discovery), and Codex with Events and Skills ([Other hosts](./how-it-works#other-hosts)).
+Resource Discovery), and Codex with Events, Skills, Server Cards and ARD
+([Other hosts](./how-it-works#other-hosts)).
 More hosts are where it is meant to go.
 
 ## The polyfills
