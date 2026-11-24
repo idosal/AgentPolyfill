@@ -4,7 +4,7 @@
 // code this is.
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
@@ -105,11 +105,32 @@ describe('server discovery', () => {
             const sub = join(p.project, name);
             mkdirSync(join(sub, '.claude'), { recursive: true });
             writeFileSync(join(sub, '.mcp.json'), JSON.stringify({ mcpServers: { nested: { command: 'n' } } }));
-            writeFileSync(join(sub, '.claude', 'settings.json'), JSON.stringify({ enableAllProjectMcpServers: true }));
+            // Approved by the person, for this folder, in Claude Code's own file.
+            const claude = JSON.parse(readFileSync(join(p.home, '.claude.json'), 'utf8'));
+            claude.projects[sub] = { enabledMcpjsonServers: ['nested'] };
+            writeFileSync(join(p.home, '.claude.json'), JSON.stringify(claude));
             const t = discoverServers({ HOME: p.home, CLAUDE_PROJECT_DIR: sub }, undefined, none);
             assert.equal(!!t.servers.nested, expected, name);
             if (!expected) assert.match(t.skipped.nested!, /not marked trusted/);
         }
+    });
+
+    test("where trust comes from a folder around it, a repository's own settings do not approve its servers", () => {
+        // Claude Code: in that case "the repository's own approvals don't count"; it asks the person.
+        const p = setup({ trusted: true });
+        const sub = join(p.project, 'cloned');
+        mkdirSync(join(sub, '.claude'), { recursive: true });
+        writeFileSync(join(sub, '.mcp.json'), JSON.stringify({ mcpServers: { planted: { command: 'p' }, mine: { command: 'shadow' } } }));
+        writeFileSync(join(sub, '.claude', 'settings.json'), JSON.stringify({ enableAllProjectMcpServers: true, enabledMcpjsonServers: ['planted', 'mine'] }));
+        const t = discoverServers({ HOME: p.home, CLAUDE_PROJECT_DIR: sub }, undefined, none);
+        assert.equal(t.servers.planted, undefined);
+        assert.match(t.skipped.planted!, /not approved/);
+        assert.equal(t.servers.mine, undefined, 'nor does it take the place of a server of yours with the same name');
+        // The same folder, trusted on its own: its settings count, as they do in Claude Code.
+        const claude = JSON.parse(readFileSync(join(p.home, '.claude.json'), 'utf8'));
+        claude.projects[sub] = { hasTrustDialogAccepted: true };
+        writeFileSync(join(p.home, '.claude.json'), JSON.stringify(claude));
+        assert.ok(discoverServers({ HOME: p.home, CLAUDE_PROJECT_DIR: sub }, undefined, none).servers.planted);
     });
 
     test('environment variables are expanded the way Claude Code expands them', () => {
