@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "events": { "command": "node", "args": ["${PLUGIN_ROOT}/dist/server.mjs"] }
+  }
+}

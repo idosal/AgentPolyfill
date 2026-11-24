@@ -1,0 +1,9 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "mcp-events",
+  "displayName": "MCP Events",
+  "description": "Watch events from your configured MCP servers (SEP-3415).",
+  "version": "0.1.0",
+  "author": { "name": "Ido Salomon", "url": "https://github.com/idosal" },
+  "license": "Apache-2.0"
+}
