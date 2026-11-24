@@ -54,32 +54,32 @@ test('A-2 search sends the query to the configured registry and hands its result
     }
   })
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-  const r = await $.tool.run({ tool: SEARCH, tool_use_id: 'toolu_a2', query: 'why did my CI build fail', registry: 'https://huggingface-hf-discover.hf.space' } as never)
-  expect(posted[0]!.url).toBe('https://huggingface-hf-discover.hf.space/search')
+  const r = await $.tool.run({ tool: SEARCH, tool_use_id: 'toolu_a2', query: 'why did my CI build fail', registry: 'https://registry.example' } as never)
+  expect(posted[0]!.url).toBe('https://registry.example/search')
   expect(JSON.parse(posted[0]!.body).query.text).toBe('why did my CI build fail')
   expect(handed[0]).toEqual({
-    by: 'the ARD registry at huggingface-hf-discover.hf.space',
+    by: 'the ARD registry at registry.example',
     under: 'toolu_a2',
-    entries: [{ identifier: 'urn:air:buildkite.com:mcp:buildkite', type: 'application/mcp-server-card+json', url: 'https://mcp.buildkite.com/mcp/server-card', listedIn: 'https://huggingface-hf-discover.hf.space/search', score: 75 }],
+    entries: [{ identifier: 'urn:air:buildkite.com:mcp:buildkite', type: 'application/mcp-server-card+json', url: 'https://mcp.buildkite.com/mcp/server-card', listedIn: 'https://registry.example/search', score: 75 }],
     catalogs: [{ url: '/.well-known/ard.json', requireVersion: false }],
     rels: ['ard'],
   })
   const text = String(r.result)
-  expect(text.includes('The query text was sent to: huggingface-hf-discover.hf.space')).toBe(true)
+  expect(text.includes('The query text was sent to: registry.example')).toBe(true)
   expect(text.includes('shown by mcp-server-cards (entries)')).toBe(true)
 })
 
 test('A-3 a registry named by domain is found in that domain\'s catalogs, read by mcp-server-cards', async ($, on) => {
-  const handed = cards(on, [{ identifier: 'urn:air:huggingface.co:registry:discover', url: 'https://huggingface-hf-discover.hf.space/' }])
+  const handed = cards(on, [{ identifier: 'urn:air:publisher.example:registry:search', url: 'https://registry.example/' }])
   const posted: string[] = []
   on('http.fetch', (_, e) => {
     posted.push(e.url)
     return { value: { status: 200, ok: true, headers: {}, text: '{"results":[]}' } }
   })
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-  await $.tool.run({ tool: SEARCH, query: 'x', registry: 'huggingface.co' } as never)
-  expect(handed[0]).toEqual({ by: 'ard-discovery (ARD v0.91 draft)', domain: 'huggingface.co', catalogs: [{ url: '/.well-known/ard.json', requireVersion: false }], rels: ['ard'] })
-  expect(posted).toEqual(['https://huggingface-hf-discover.hf.space/search'])
+  await $.tool.run({ tool: SEARCH, query: 'x', registry: 'publisher.example' } as never)
+  expect(handed[0]).toEqual({ by: 'ard-discovery (ARD v0.91 draft)', domain: 'publisher.example', catalogs: [{ url: '/.well-known/ard.json', requireVersion: false }], rels: ['ard'] })
+  expect(posted).toEqual(['https://registry.example/search'])
 })
 
 test('A-4 without mcp-server-cards it says so, and how to install it', async ($, on) => {
@@ -130,8 +130,8 @@ test('A-7 every search asks the person, naming the registry and the query; refus
   expect(String((asked as { reason?: string }).reason)).toBe(
     'Send this search to https://registry.example/api, and to up to three registries it refers to? "why did my [2K CI build fail"',
   )
-  const byDomain = await $.tool.check({ tool: SEARCH, input: { query: 'x', registry: 'huggingface.co' }, tool_use_id: 'a7b', approver: 'person' } as never)
-  expect(String((byDomain as { reason?: string }).reason).startsWith('Send this search to the registries that huggingface.co lists (up to three), and to up to three registries they refer to?')).toBe(true)
+  const byDomain = await $.tool.check({ tool: SEARCH, input: { query: 'x', registry: 'publisher.example' }, tool_use_id: 'a7b', approver: 'person' } as never)
+  expect(String((byDomain as { reason?: string }).reason).startsWith('Send this search to the registries that publisher.example lists (up to three), and to up to three registries they refer to?')).toBe(true)
   const nobody = await $.tool.check({ tool: SEARCH, input } as never)
   expect(nobody.decision).toBe('deny')
   beneath.decision = 'deny'
@@ -179,4 +179,30 @@ test('A-9 a query longer than the ask shows, or with control characters or direc
   const ok = await $.tool.run({ tool: SEARCH, tool_use_id: 'a9c', query: 'x'.repeat(300), registry: 'https://registry.example/api' } as never)
   expect((ok as { deny?: string }).deny).toBe(undefined)
   expect(posted).toEqual(['https://registry.example/api/search'])
+})
+
+// The plugin ships with no registry, so none is chosen for the person.
+test('A-10 with no registry set and none named, the search is refused before any ask, nothing is sent, and Claude is told to ask the person', async ($, on) => {
+  const descriptions: Record<string, string> = {}
+  on('tool.register', (_, e) => {
+    descriptions[e.name] = String((e as { description?: unknown }).description)
+    return { value: { tool: `mcp__ard-discovery__${e.name}` } }
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('tool.check', { tool: SEARCH }, () => ({ decision: 'allow' }))
+  const posted: string[] = []
+  on('http.fetch', (_, e) => {
+    posted.push(e.url)
+    return { value: { status: 200, ok: true, headers: {}, text: '{"results":[]}' } }
+  })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  expect(descriptions.ard_search).toContain('Do not choose a registry for them')
+  for (const input of [{ query: 'check why my CI build failed' }, { query: 'check why my CI build failed', registry: '  ' }]) {
+    const checked = await $.tool.check({ tool: SEARCH, input, tool_use_id: 'a10', approver: 'person' } as never)
+    expect(checked.decision).toBe('deny')
+    expect(String((checked as { reason?: string }).reason)).toContain('Ask the person which registry to search')
+    const ran = await $.tool.run({ tool: SEARCH, tool_use_id: 'a10b', ...input } as never)
+    expect(String((ran as { deny?: string }).deny)).toContain('No ARD registry is set')
+  }
+  expect(posted).toEqual([])
 })
