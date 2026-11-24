@@ -83,7 +83,7 @@ next start.
   and that whatever they spell is the server's text, not the user's.
 
 The SKILL.md you can read before deciding ("Show me its SKILL.md first") is
-shown with control characters removed, line breaks and tabs kept, and each
+shown with control characters removed, line breaks and tabs kept (the line and paragraph separators, U+2028 and U+2029, become line breaks, from 0.1.4), and each
 run of hidden characters shown as a marker with its count, such as
 `⟦3 hidden characters⟧`: text the model would read is never invisible to you
 there (from 0.1.3). It sits between two marker lines that carry an id made for that one
