@@ -16,7 +16,7 @@ const FACTS = { ...SKILL, files: 4, bytes: 1299, isDynamic: false, hash: 'sha256
 const CATALOG = 'The following skills are served by MCP servers connected to this session (MCP Skills extension).\n\n- release-notes (MCP server "acme", uri skill://release-notes/SKILL.md): Write release notes.'
 const LOADED = 'Loaded the skill "release-notes" from the MCP server "acme" (skill://release-notes/SKILL.md).'
 const APPROVED = 'Approval: the user approved this skill as the server serves it now.'
-const UNAPPROVED = "Approval: none, because nobody could be asked. While it is loaded, running a command needs the user's approval each time."
+const UNAPPROVED = "Approval: none, because nobody could be asked. While it is loaded, every tool call but reading and searching needs the user's approval each time."
 const START = { cwd: '/', surface: 'terminal', isInteractive: true } as const
 const LOAD = 'mcp__mcp-skills__load_skill'
 
@@ -40,14 +40,17 @@ type World = {
 }
 
 /** The engine beneath the mod, and a helper that answers as the real one does. */
-function world(on: On, o: { tools?: string[]; env?: Record<string, string>; /** What each command answers to --version; a missing one is not installed. Default: node on the PATH. */ runtimes?: Record<string, string>; shellFinds?: string; names?: string[]; commands?: string[]; rows?: unknown[]; verdict?: Record<string, unknown>; connect?: Record<string, unknown>; servers?: string[]; catalog?: string | null; expects?: number; store?: Record<string, unknown>; facts?: Facts; found?: unknown[] } = {}): World {
+function world(on: On, o: { tools?: string[]; env?: Record<string, string>; /** What each command answers to --version; a missing one is not installed. Default: node on the PATH. */ runtimes?: Record<string, string>; shellFinds?: string; names?: string[]; commands?: string[]; /** The conversation so far; an Error stands for one that cannot be read. */ rows?: unknown[] | Error; verdict?: Record<string, unknown>; connect?: Record<string, unknown>; servers?: string[]; catalog?: string | null; expects?: number; store?: Record<string, unknown>; facts?: Facts; found?: unknown[] } = {}): World {
   // A wait ends only when a test moves the clock: nothing here times out by itself.
   const w: World = { posts: [], spawns: 0, registered: [], spawned: [], toasts: [], submitted: [], facts: o.facts ?? FACTS, store: { ...(o.store ?? {}) }, clock: mock.clock(on), exit: () => {} }
   const ready = JSON.stringify({ t: 'ready', url: 'http://127.0.0.1:9', token: 'secret', expects: o.expects ?? 1 })
   const lines = [ready, ...(o.servers ? [JSON.stringify({ t: 'servers', names: o.servers })] : []), ...(o.catalog === null ? [] : [JSON.stringify({ t: 'catalog', text: o.catalog ?? CATALOG, skills: 1, servers: 1 })])]
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('session.end', (_, e) => ({ sessionId: e.sessionId }) as never)
-  on('session.messages', () => ({ value: (o.rows ?? []) as never }))
+  on('session.messages', () => {
+    if (o.rows instanceof Error) throw o.rows
+    return { value: (o.rows ?? []) as never }
+  })
   on('process.run', (_, e) => {
     const runtimes = o.runtimes ?? { node: 'v22.18.0' }
     const [command, flag] = e.argv
@@ -121,6 +124,9 @@ async function load($: Engine, o: { approver?: 'person' | null; uri?: string } =
   return { verdict, ran: ran as { result?: string; deny?: string } }
 }
 const bash = { tool: 'Bash', input: { command: 'python3 scripts/extract.py' } }
+/** A permission check with a person at the session to ask. Without this, a check is one with nobody to ask (`claude -p`). */
+const present = (call: { tool: string; input: unknown }) => ({ ...call, approver: 'person' }) as never
+const NOBODY = 'Nobody can be asked in this session, so the call is refused.'
 const settle = async (done: () => boolean) => {
   for (let i = 0; i < 200 && !done(); i++) await new Promise((r) => setTimeout(r, 5))
 }
@@ -197,7 +203,7 @@ test('X5: once the person approved a skill, a command runs under their usual per
   expect((await $.tool.check(bash)).decision).toBe('allow')
 })
 
-test('X5: where nobody can be asked, a skill loads unapproved, and every tool that runs code is put to the person instead', async ($, on) => {
+test('X5: where nobody can be asked, a skill loads unapproved, and every tool that runs code is refused while it is loaded', async ($, on) => {
   const w = world(on, { verdict: { decision: 'allow', rule: 'allowed' } })
   await $.session.start(START)
   const headless = await load($, { approver: null })
@@ -205,12 +211,70 @@ test('X5: where nobody can be asked, a skill loads unapproved, and every tool th
   expect(headless.ran.result).toBe(`${UNAPPROVED}\n${LOADED}`)
   expect(approvals(w)).toEqual({})
   for (const tool of ['Bash', 'PowerShell', 'Monitor', 'REPL']) {
+    // The refusal is the mod's own: it does not wait on what a mode does with a question nobody can answer.
     const verdict = await $.tool.check({ tool, input: { command: 'ls' } })
-    expect(verdict.decision).toBe('ask')
+    expect(verdict.decision).toBe('deny')
+    expect(verdict.reason).toContain('nobody was asked about ("release-notes" from the MCP server "acme")')
+    expect(verdict.reason).toContain(NOBODY)
+    expect(verdict.reason).toContain('approve it once in an interactive session')
+  }
+})
+
+test('X5: a skill that was loaded unapproved, with a person now at the session: each such call is put to them', async ($, on) => {
+  world(on, { verdict: { decision: 'allow', rule: 'allowed' } })
+  await $.session.start(START)
+  await load($, { approver: null })
+  for (const tool of ['Bash', 'Write', 'Agent', 'mcp__shell__run']) {
+    const verdict = await $.tool.check(present({ tool, input: {} }))
+    expect([tool, verdict.decision]).toEqual([tool, 'ask'])
     expect(verdict.plugin).toBe('mcp-skills')
+    expect(verdict.reason).not.toContain(NOBODY)
+  }
+})
+
+// A file written now is code run later: a hook in .claude/settings.json, a git hook, a package.json
+// script. So the gate is not a list of tools that run code, which a new tool would slip past.
+test('X5: with a skill loaded that nobody approved, a write, a subagent, another server\'s tool and a tool this mod has never heard of are refused too', async ($, on) => {
+  world(on, { verdict: { decision: 'allow', rule: 'allowed' } })
+  await $.session.start(START)
+  await load($, { approver: null })
+  for (const tool of ['Write', 'Edit', 'NotebookEdit', 'Task', 'Agent', 'Skill', 'Workflow', 'WebFetch', 'CronCreate', 'mcp__filesystem__write_file', 'mcp__shell__run', 'ATool_OfALaterClaudeCode']) {
+    const verdict = await $.tool.check({ tool, input: { file_path: '.claude/settings.json', content: '{"hooks":{}}' } })
+    expect([tool, verdict.decision]).toEqual([tool, 'deny'])
     expect(verdict.reason).toContain('nobody was asked about ("release-notes" from the MCP server "acme")')
   }
-  expect((await $.tool.check({ tool: 'Read', input: { file_path: 'a.md' } })).decision).toBe('allow')
+})
+
+test('X5: with a skill loaded that nobody approved, reading and searching go ahead, and so do the mod\'s own reads and loads', async ($, on) => {
+  world(on, { verdict: { decision: 'allow', rule: 'allowed' } })
+  await $.session.start(START)
+  await load($, { approver: null })
+  for (const tool of ['Read', 'Glob', 'Grep', 'LS', 'NotebookRead', 'TodoWrite', 'ToolSearch', 'ListMcpResourcesTool', 'mcp__mcp-skills__read_skill_file', 'mcp__mcp-skills__list_skill_directory', 'mcp__mcp-skills__list_skills']) {
+    expect([tool, (await $.tool.check({ tool, input: {} })).decision]).toEqual([tool, 'allow'])
+  }
+  expect((await load($, { approver: null, uri: 'skill://incident-review/SKILL.md' })).verdict.decision).toBe('allow')
+  expect((await $.tool.check({ tool: 'ReadMcpResourceTool', input: { server: 'acme', uri: 'db://x' } })).decision).toBe('allow')
+})
+
+test('X5: a skill the person approved, or no skill at all, changes nothing for a write or for another server\'s tool', async ($, on) => {
+  world(on, { verdict: { decision: 'allow', rule: 'allowed' } })
+  await $.session.start(START)
+  const write = { tool: 'Write', input: { file_path: 'notes.md', content: 'x' } }
+  expect((await $.tool.check(write)).decision).toBe('allow')
+  await load($)
+  expect((await $.tool.check(write)).decision).toBe('allow')
+  expect((await $.tool.check({ tool: 'Agent', input: {} })).decision).toBe('allow')
+  expect((await $.tool.check({ tool: 'mcp__shell__run', input: {} })).decision).toBe('allow')
+})
+
+test('X5: when the mod cannot tell whether such a skill is loaded, a call that could change something is put to the person, or refused with nobody to ask; a read is not', async ($, on) => {
+  world(on, { verdict: { decision: 'allow', rule: 'allowed' }, rows: new Error('the conversation could not be read') })
+  await $.session.start(START)
+  for (const tool of ['Bash', 'Write', 'Agent', 'mcp__shell__run']) {
+    expect([tool, (await $.tool.check(present({ tool, input: {} }))).decision]).toEqual([tool, 'ask'])
+    expect([tool, (await $.tool.check({ tool, input: {} })).decision]).toEqual([tool, 'deny'])
+  }
+  expect((await $.tool.check({ tool: 'Read', input: {} })).decision).toBe('allow')
 })
 
 test('X5: a call that reached the tool with no permission check (another mod\'s) was approved by nobody', async ($, on) => {
@@ -218,7 +282,8 @@ test('X5: a call that reached the tool with no permission check (another mod\'s)
   await $.session.start(START)
   const ran = (await $.tool.run({ tool: LOAD, tool_use_id: 'unchecked', server: SKILL.server, uri: SKILL.uri } as never)) as { result?: string }
   expect(ran.result).toBe(`${UNAPPROVED}\n${LOADED}`)
-  expect((await $.tool.check(bash)).decision).toBe('ask')
+  expect((await $.tool.check(present(bash))).decision).toBe('ask')
+  expect((await $.tool.check(bash)).decision).toBe('deny')
 })
 
 test('X5: a command Claude Code refuses stays refused, and with no skill loaded a command is decided as it always was', async ($, on) => {
@@ -226,15 +291,6 @@ test('X5: a command Claude Code refuses stays refused, and with no skill loaded 
   await $.session.start(START)
   expect((await $.tool.check(bash)).decision).toBe('deny')
   expect((await $.tool.check({ tool: LOAD, input: SKILL, tool_use_id: 'x', approver: 'person' } as never)).decision).toBe('deny')
-})
-
-test('X5: the tools you name as running code are covered too', async ($, on) => {
-  world(on, { verdict: { decision: 'allow', rule: 'x' }, env: { MCP_SKILLS_EXECUTION_TOOLS: 'mcp__ide__executeCode, mcp__shell__run' } })
-  await $.session.start(START)
-  await load($, { approver: null })
-  expect((await $.tool.check({ tool: 'mcp__ide__executeCode', input: {} })).decision).toBe('ask')
-  expect((await $.tool.check({ tool: 'mcp__shell__run', input: {} })).decision).toBe('ask')
-  expect((await $.tool.check({ tool: 'mcp__shell__status', input: {} })).decision).toBe('allow')
 })
 
 test('a load that will fail is no question for anyone: it goes ahead and fails with the reason', async ($, on) => {
@@ -263,24 +319,26 @@ test('W1: a skill loaded before a resume or a reload is still being acted on: it
   world(on, { verdict: { decision: 'allow', rule: 'Bash' }, rows: [row(`${APPROVED}\n${LOADED}`, SKILL.uri)] })
   await $.session.start(START)
   expect((await $.tool.check(bash)).decision).toBe('allow')
-  expect((await $.tool.check({ tool: 'ReadMcpResourceTool', input: { server: 'billing', uri: 'db://x' } })).decision).toBe('ask')
+  expect((await $.tool.check(present({ tool: 'ReadMcpResourceTool', input: { server: 'billing', uri: 'db://x' } }))).decision).toBe('ask')
 })
 
 test('W1: after a resume, a skill that was loaded unapproved still has its commands asked about; a failed load opened nothing', async ($, on) => {
   const use = (text: string, uri: string, isError?: true) => ({ tool_use_id: uri, tool: LOAD, input: { server: 'acme', uri }, text, ...(isError ? { isError } : {}) })
   world(on, { verdict: { decision: 'allow', rule: 'Bash' }, rows: [{ role: 'assistant', text: '', toolUses: [use('The MCP server "acme" serves no skill at that URI.', 'skill://nope/SKILL.md', true), use(`${UNAPPROVED}\n${LOADED}`, SKILL.uri)] }] })
   await $.session.start(START)
-  const verdict = await $.tool.check(bash)
+  const verdict = await $.tool.check(present(bash))
   expect(verdict.decision).toBe('ask')
   expect(verdict.reason).toContain('"release-notes"')
   expect(verdict.reason).not.toContain('"nope"')
+  expect((await $.tool.check(present({ tool: 'Edit', input: { file_path: 'package.json' } }))).decision).toBe('ask')
+  expect((await $.tool.check({ tool: 'Edit', input: { file_path: 'package.json' } })).decision).toBe('deny')
 })
 
 test('W1: clearing the conversation ends it: the skill\'s text is gone, and the helper is told to drop its entry', async ($, on) => {
   const w = world(on, { verdict: { decision: 'allow', rule: 'Bash' } })
   await $.session.start(START)
   await load($, { approver: null })
-  expect((await $.tool.check(bash)).decision).toBe('ask')
+  expect((await $.tool.check(bash)).decision).toBe('deny')
   await $.session.end({ reason: 'clear', sessionId: 's', resume: {} as never })
   expect((await $.tool.check(bash)).decision).toBe('allow')
   await settle(() => w.posts.some((p) => p.route === '/release'))
@@ -303,11 +361,15 @@ test('X6, X8: a resource read from another MCP server is put to the person, nami
   await $.session.start(START)
   await load($)
   for (const tool of ['ReadMcpResourceTool', 'ReadMcpResourceDirTool']) {
-    const verdict = await $.tool.check({ tool, input: { server: 'billing', uri: 'db://customers/42' } })
+    const verdict = await $.tool.check(present({ tool, input: { server: 'billing', uri: 'db://customers/42' } }))
     expect(verdict.decision).toBe('ask')
     expect(verdict.reason).toContain('the MCP server "acme"')
     expect(verdict.reason).toContain('another MCP server, "billing"')
     expect(verdict.plugin).toBe('mcp-skills')
+    // With nobody to ask, it is refused.
+    const alone = await $.tool.check({ tool, input: { server: 'billing', uri: 'db://customers/42' } })
+    expect(alone.decision).toBe('deny')
+    expect(alone.reason).toContain(NOBODY)
   }
   // The skill's own server, outside the skill: Claude Code's own decision stands.
   expect((await $.tool.check({ tool: 'ReadMcpResourceTool', input: { server: 'acme', uri: 'doc://handbook' } })).decision).toBe('allow')
@@ -489,10 +551,11 @@ test('stand-down: once Claude Code itself expands a skill whose words are an MCP
   expect(w.posts.some((p) => p.route === '/stop')).toBe(true)
 })
 
-test('stand-down does not end a window: a skill this mod loaded unapproved earlier still has its commands asked about', async ($, on) => {
+test('stand-down does not end a window: a skill this mod loaded unapproved earlier still has its commands asked about, or refused', async ($, on) => {
   world(on, { verdict: { decision: 'allow', rule: 'Bash' } })
   await $.session.start(START)
   await load($, { approver: null })
   await $.skill.prompt({ skill: 'acme:other', text: 'x', frontmatter: {}, source: 'mcp' })
-  expect((await $.tool.check(bash)).decision).toBe('ask')
+  expect((await $.tool.check(present(bash))).decision).toBe('ask')
+  expect((await $.tool.check(bash)).decision).toBe('deny')
 })

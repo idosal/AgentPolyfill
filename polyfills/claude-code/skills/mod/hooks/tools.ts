@@ -72,9 +72,14 @@ export const TOOLS: readonly ToolSpec[] = [
 ]
 
 /**
- * Claude Code's own tools that run code on this machine. While a skill from an MCP server is
- * loaded, a call to one of them is put to the person, whatever rule or mode would have allowed it.
+ * Claude Code's own tools that read, search or keep the session's notes, and change nothing else.
+ * While a skill is loaded that nobody approved, these (and this mod's own tools) are the only calls
+ * that go ahead without a person: every other tool is put to the person, whatever rule or mode would
+ * have allowed it. The list names what is let through, not what is stopped, because a file written
+ * now is code run later (a hook in a settings file, a git hook, a package script), a subagent or
+ * another MCP server's tool can do what a shell does, and a tool added to Claude Code after this
+ * was written must not slip past.
  */
-export const EXECUTION_TOOLS: readonly string[] = ['Bash', 'PowerShell', 'Monitor', 'REPL']
+export const INERT_TOOLS: readonly string[] = ['Read', 'Glob', 'Grep', 'LS', 'NotebookRead', 'TodoWrite', 'ToolSearch', 'ListMcpResourcesTool']
 /** Claude Code's own tools that read from an MCP server by name. */
 export const RESOURCE_TOOLS: readonly string[] = ['ReadMcpResourceTool', 'ReadMcpResourceDirTool', 'ListMcpResourcesTool']
