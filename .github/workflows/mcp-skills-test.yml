@@ -3,7 +3,9 @@
 # - the client rules, discovery and the bundled helper (and that it is what
 #   src/ builds), with a typecheck and the run against the official
 #   TypeScript SDK's Skills server and client, on Linux, macOS and Windows;
-# - claude plugin validate and the hooks module's tests (claude plugin test).
+# - claude plugin validate and the hooks module's tests (claude plugin test);
+# - the model of the skill gate (verification/): the explorer, and TLC on the
+#   model in TLA+.
 
 name: "mcp-skills: tests"
 
@@ -79,16 +81,17 @@ jobs:
       - name: The hooks module's tests (claude plugin test)
         run: claude plugin test mod
 
-  # The model of the skill gate (verification/, docs/verification.md): the Quint model checked by
-  # TLC, exhaustively to the bound written in it, and the explorer in TypeScript. Two instances must
-  # fail with a counterexample (0.3.0's rule, and the documented read-back limit); a run where they
-  # pass would mean the model no longer says anything.
+  # The model of the skill gate (verification/, docs/verification.md): the explorer in TypeScript,
+  # and TLC on SkillGate.tla (skillGate.qnt in TLA+), exhaustively to each configuration's bound.
+  # Two configurations must fail with a counterexample (0.3.0's rule, and the documented
+  # read-back limit); a run where they pass would mean the model no longer says anything. TLC is
+  # fetched from its release, pinned by SHA-256.
   model:
     name: model of the skill gate (TLC)
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     env:
-      QUINT: "@informalsystems/quint@0.34.0"
+      QUINT: npx --yes @informalsystems/quint@0.34.0
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -102,16 +105,18 @@ jobs:
         run: |
           node --no-warnings verification/model.ts
           node --no-warnings verification/model.ts --versions=4
-      - run: npx --yes "$QUINT" typecheck verification/skillGate.qnt
-      - name: TLC on the instances that must hold
+      - run: $QUINT typecheck verification/skillGate.qnt
+      - name: TLC 1.7.4
         run: |
-          for m in manifest dynamic; do
-            npx --yes "$QUINT" verify verification/skillGate.qnt --main="$m" --backend=tlc --invariants Safety ServerRule
-          done
-      - name: TLC on the instances that must fail
-        run: |
-          for m in rule030 lossy; do
-            if npx --yes "$QUINT" verify verification/skillGate.qnt --main="$m" --backend=tlc --invariant=Safety; then
-              echo "::error::$m should violate Safety"; exit 1
-            fi
-          done
+          curl -fsSL -o "$RUNNER_TEMP/tla2tools.jar" https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+          echo "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88  $RUNNER_TEMP/tla2tools.jar" | sha256sum -c -
+      - name: TLC on each configuration, against what it should give
+        run: node --no-warnings verification/check.mjs --trace
+        env:
+          TLA2TOOLS: ${{ runner.temp }}/tla2tools.jar
+          JAVA_OPTS: -Xmx4g
+          MODEL_STATE_MB: "4000"
+      - name: Quint's traces, replayed in the TLA+ model
+        run: node verification/conform.mjs
+        env:
+          TLA2TOOLS: ${{ runner.temp }}/tla2tools.jar
