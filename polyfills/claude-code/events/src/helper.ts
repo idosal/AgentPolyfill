@@ -130,6 +130,7 @@ function next(): { lines: string[]; upto: number } | { waitMs: number } | undefi
     if (gate.kind === 'notice') {
         // The events stay where they are: the notice is handed over with the position unchanged.
         taken = { notice: true };
+        budget.handNotice();
         return { lines: [budget.notice(batch.events)], upto: delivery.position };
     }
     return gate.kind === 'wait' ? { waitMs: gate.ms } : undefined;
@@ -222,6 +223,9 @@ const routes: Record<string, (p: Record<string, unknown>) => Promise<unknown> | 
         // Claude Code took it, so it counts: a batch as one wake for its watches, the notice as said.
         if (taken && 'notice' in taken) budget.pause();
         else if (taken && upto >= taken.batch.upto) budget.woke(taken.batch.watches);
+        // The notice the helper before this one handed over, whose ack it never heard: given all the
+        // same, so it is not handed over again (it leaves the position where it was).
+        else if (!taken && budget.noticeHanded && upto === delivery.position) budget.pause();
         // A batch the helper before this one handed over, whose ack it never heard: a wake all the same.
         else if (!taken && Number.isFinite(upto) && upto > delivery.position) budget.woke(delivery.watchesUpTo(upto));
         taken = undefined;

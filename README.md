@@ -1,4 +1,4 @@
-# MCPolyfill
+# AgentPolyfill
 
 Open agent extensions, in the host you already have. Claude Code and MCP first.
 
@@ -29,11 +29,11 @@ At the prompt of a `claude` session (Claude Code 2.1.329 or newer), every
 polyfill at once:
 
 ```
-/plugin install mcpolyfill --marketplace idosal/MCPolyfill
+/plugin install agent-polyfill --marketplace idosal/AgentPolyfill
 ```
 
 Or only the one you want: `mcp-events`, `mcp-apps-cli` or `mcp-skills` in
-place of `mcpolyfill`. Then start a new `claude` session. More ways to install
+place of `agent-polyfill`. Then start a new `claude` session. More ways to install
 are [further down](#more-ways-to-install).
 
 ## Polyfills
@@ -70,7 +70,7 @@ GitHub releases, and earthquakes; its source is in
 
 A server's app opens under the tool call and answers the mouse; real pixels
 in iTerm2, kitty and Ghostty, character cells elsewhere
-([full video, 33 s](https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4)).
+([full video, 33 s](https://github.com/idosal/AgentPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4)).
 
 ![In Claude Code, a classic shareware game from the hosted arcade server runs under the tool call and is played with keys and clicks. Then a cohort retention heatmap from another MCP server opens inline, shows a tooltip wherever the pointer goes, and a control switches its period. Last, a 3D scene opens and turns when dragged.](docs/media/mcp-apps-cli.gif)
 
@@ -130,7 +130,7 @@ contract: the spec's client rules as a checklist, how each wire need is reached
 on the host, stand-down, and what counts as proof.
 
 ```
-/plugin install polyfill-author --marketplace idosal/MCPolyfill
+/plugin install polyfill-author --marketplace idosal/AgentPolyfill
 ```
 
 Then ask for the extension you want, for example "polyfill MCP Server Cards in
@@ -215,26 +215,26 @@ is built here yet.
 One polyfill, at the prompt of a `claude` session:
 
 ```
-/plugin install mcp-events --marketplace idosal/MCPolyfill
+/plugin install mcp-events --marketplace idosal/AgentPolyfill
 ```
 
 ```
-/plugin install mcp-apps-cli --marketplace idosal/MCPolyfill
+/plugin install mcp-apps-cli --marketplace idosal/AgentPolyfill
 ```
 
 ```
-/plugin install mcp-skills --marketplace idosal/MCPolyfill
+/plugin install mcp-skills --marketplace idosal/AgentPolyfill
 ```
 
-The same works in a terminal as `claude plugin install mcpolyfill --marketplace idosal/MCPolyfill`.
+The same works in a terminal as `claude plugin install agent-polyfill --marketplace idosal/AgentPolyfill`.
 It adds this repository's marketplace and installs from it in one step; start
-a new `claude` session for the polyfills to load. `mcpolyfill` holds nothing
+a new `claude` session for the polyfills to load. `agent-polyfill` holds nothing
 of its own: it depends on each polyfill, and each stays a plugin you can
 disable or uninstall on its own.
 
 With the marketplace already added, the short form is
-`/plugin install mcp-events@mcpolyfill`; to add it by itself,
-`/plugin marketplace add idosal/MCPolyfill`.
+`/plugin install mcp-events@agent-polyfill`; to add it by itself,
+`/plugin marketplace add idosal/AgentPolyfill`.
 
 Each polyfill's own README lists its requirements, the steps between
 installing and first use, and its limits.
@@ -252,7 +252,7 @@ Each polyfill is a folder, `polyfills/<host>/<extension>/`: for Claude Code,
 [`events`](polyfills/claude-code/events), [`apps`](polyfills/claude-code/apps)
 and [`skills`](polyfills/claude-code/skills).
 One marketplace file ([`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json))
-lists them all, with two plugins in [`plugins/`](plugins): `mcpolyfill`, which
+lists them all, with two plugins in [`plugins/`](plugins): `agent-polyfill`, which
 installs every polyfill, and `polyfill-author`, the skills for building one.
 The demo servers that are hosted for trying a polyfill live in
 [`servers/`](servers): [`event-feeds`](servers/event-feeds), the Events demo.

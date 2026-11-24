@@ -33,7 +33,7 @@
   ],
   "vars": {
     // Where the source lives (shown on the front page).
-    "SOURCE_URL": "https://github.com/idosal/MCPolyfill/tree/main/servers/event-feeds"
+    "SOURCE_URL": "https://github.com/idosal/AgentPolyfill/tree/main/servers/event-feeds"
   },
   "dev": { "ip": "127.0.0.1", "port": 8797 }
 

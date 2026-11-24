@@ -13,11 +13,11 @@ app's text, including chart labels, as real characters.
 ## Install
 
 ```
-claude plugin install mcp-apps-cli --marketplace idosal/MCPolyfill
+claude plugin install mcp-apps-cli --marketplace idosal/AgentPolyfill
 ```
 
 Or, at the prompt of a `claude` session,
-`/plugin install mcp-apps-cli --marketplace idosal/MCPolyfill`. Start a new
+`/plugin install mcp-apps-cli --marketplace idosal/AgentPolyfill`. Start a new
 session for it to load.
 
 The package carries the helper for each platform it supports; nothing
@@ -67,4 +67,4 @@ in exact colours in 24-bit terminals by default; `MCP_APPS_CLI_TRUECOLOR=0`
 uses 16 levels a channel instead, for less CPU. Picture views carry the
 app's text as their alt text, for screen readers. Servers that need
 sign-in (OAuth) don't show apps yet. More:
-https://github.com/idosal/MCPolyfill/tree/main/polyfills/claude-code/apps
+https://github.com/idosal/AgentPolyfill/tree/main/polyfills/claude-code/apps

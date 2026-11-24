@@ -21,7 +21,7 @@ The `create-polyfill` skill walks an agent through building one to that
 contract. Install it with:
 
 ```
-/plugin install polyfill-author --marketplace idosal/MCPolyfill
+/plugin install polyfill-author --marketplace idosal/AgentPolyfill
 ```
 
 Then ask for the extension and host you want, for example "polyfill MCP
@@ -82,10 +82,10 @@ The polyfill's `README.md`, at the top of its folder, states:
   in the host that would remove it. Add any such change to
   [`docs/host-changes.md`](docs/host-changes.md) too.
 - **Requirements, install and use:** the one-line install first
-  (`/plugin install <plugin> --marketplace idosal/MCPolyfill`, and in a
-  terminal `claude plugin install <plugin> --marketplace idosal/MCPolyfill`),
-  then the two-step form (`/plugin marketplace add idosal/MCPolyfill`, then
-  `/plugin install <plugin>@mcpolyfill`); what else it needs; and every
+  (`/plugin install <plugin> --marketplace idosal/AgentPolyfill`, and in a
+  terminal `claude plugin install <plugin> --marketplace idosal/AgentPolyfill`),
+  then the two-step form (`/plugin marketplace add idosal/AgentPolyfill`, then
+  `/plugin install <plugin>@agent-polyfill`); what else it needs; and every
   step and question a new user meets between that line and the extension
   working, with what happens when they say no. Anything beyond "install,
   add a server, ask" needs a reason.
@@ -113,10 +113,10 @@ SHA-256, which a release workflow produces (step 5). A `git-subdir` or
 `url` source takes a full `https://` git URL: the `owner/repo` shorthand
 there is cloned over SSH, which fails on a machine without GitHub SSH keys.
 
-Then add the plugin's name to the `dependencies` of the `mcpolyfill` plugin
-([`plugins/mcpolyfill/.claude-plugin/plugin.json`](plugins/mcpolyfill/.claude-plugin/plugin.json)),
+Then add the plugin's name to the `dependencies` of the `agent-polyfill` plugin
+([`plugins/agent-polyfill/.claude-plugin/plugin.json`](plugins/agent-polyfill/.claude-plugin/plugin.json)),
 which installs every polyfill in one step, and to the list in its
-[README](plugins/mcpolyfill/README.md). CI fails until the two lists match.
+[README](plugins/agent-polyfill/README.md). CI fails until the two lists match.
 Add a row to the polyfills table in the [README](README.md) as well.
 
 ### 5. Add its CI
@@ -124,7 +124,7 @@ Add a row to the polyfills table in the [README](README.md) as well.
 Every push and pull request runs [`ci.yml`](.github/workflows/ci.yml): every
 manifest is valid JSON, `claude plugin validate` passes for the marketplace
 and for every plugin in the repository, and each relative marketplace entry
-points at a plugin that is there, and the `mcpolyfill` bundle depends on
+points at a plugin that is there, and the `agent-polyfill` bundle depends on
 every polyfill. Your plugin is included automatically.
 
 Add the polyfill's own tests as `.github/workflows/<plugin>-test.yml`,
