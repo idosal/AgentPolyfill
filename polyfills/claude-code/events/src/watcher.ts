@@ -192,8 +192,11 @@ export class WatchManager {
         for (const r of this.spool.all()) if (isEvent(r)) (found.get(r.watch!) ?? found.set(r.watch!, new Set()).get(r.watch!)!).add(r.eventId!);
         let changed = false;
         for (const w of this.watches) {
+            const have = new Set(w.seen);
+            // In spool order, so that the latest are the ones kept.
             for (const id of found.get(w.id) ?? []) {
-                if (w.seen.includes(id)) continue;
+                if (have.has(id)) continue;
+                have.add(id);
                 w.seen.push(id);
                 changed = true;
             }

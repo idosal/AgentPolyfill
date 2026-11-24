@@ -266,13 +266,13 @@ describe('the wake budget', () => {
                 let t = 1_000_000;
                 const wakes: number[] = [];
                 const started = new Map<string, number>();
-                let since = -Infinity; // the person's last message
+                let since = 0; // how many wakes there had been when the person last spoke
                 for (const o of ops) {
                     if (o.k === 'wait') t += o.ms;
                     else if (o.k === 'restart') b = new WakeBudget({ gapMs: GAP, perHour: PER_HOUR }, file);
                     else if (o.k === 'spoke') {
                         b.spoke();
-                        since = t;
+                        since = wakes.length;
                     } else {
                         const g = b.gate(o.watches, t);
                         if (g.kind === 'notice') b.pause();
@@ -283,7 +283,7 @@ describe('the wake budget', () => {
                         for (const w of o.watches) started.set(w, t);
                         b.woke(o.watches, t);
                         wakes.push(t);
-                        const inHour = wakes.filter((x) => x > t - 3600_000 && x >= since);
+                        const inHour = wakes.filter((x, i) => x > t - 3600_000 && i >= since);
                         assert.ok(inHour.length <= PER_HOUR, `${inHour.length} wakes within an hour`);
                     }
                 }

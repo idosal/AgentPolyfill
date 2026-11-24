@@ -162,15 +162,14 @@ is bounded (see "Events wake a session only so often" below), not prevented.
 - **A challenge is echoed by the mod with the relay in
   [`mod/relay/`](mod/relay/).** A server cannot tell that relay from one that
   echoes challenges itself.
-- **Delivery is at least once, with one exception.** A crash between writing
-  an event and saving the watch can show it twice after a restart. Two sessions
-  on one project can overlap briefly if one is suspended at the wrong moment.
-  The exception: a webhook delivery that could not be stored is tried again
-  when the mod next connects to the relay, and if deliveries signed more
-  than ten minutes later were taken in between, it is refused as too old.
-  The watch then subscribes again from its saved cursor, which brings that
-  event back only if the server keeps history and no later event has already
-  moved the cursor past it.
+- **Delivery is at least once.** If Claude Code closes or crashes just after a
+  batch of events was handed to it and before that was saved, the next session
+  in the project is shown the batch again. Two sessions on one project can
+  overlap briefly if one is suspended at the wrong moment. A webhook delivery
+  that could not be stored is tried again when the mod next connects to the
+  relay; it is refused only if more than 1,000 later deliveries to the same
+  watch were taken in between, or if it was signed more than eight days ago,
+  and then its event is lost unless the server can replay it.
 - **Policy it cannot see.** A managed policy delivered through the Windows
   registry is invisible to the mod's own reading of the configuration. Claude
   Code's verdict still keeps it from a server such a policy refuses.
@@ -204,7 +203,16 @@ is bounded (see "Events wake a session only so often" below), not prevented.
   and its failures; the local endpoint without its token; ownership of a
   project's watches; a full event store; and oversized responses and headers.
 - **Conformance.** Every client-side rule of SEP-3415, clause by clause:
-  [`docs/conformance.md`](docs/conformance.md).
+  [`docs/conformance.md`](docs/conformance.md). The upstream conformance
+  suite's Events client scenarios (an unmerged pull request) pass 17 of 17.
+- **Property-based tests** (`test/properties-test.ts`) over what a server, a
+  relay or anyone on the wire sends first reaches: signatures, delivery
+  judging, the replay memory, routing headers, schemas, the wake message, the
+  redactor and the wake budget, on generated inputs; and the rule for which
+  servers may be sent `events/*`, over all of its cases.
+- **A formal model** of delivery and of waking ([`model/`](model/README.md)),
+  checked by random simulation. That is not a proof, and no model checker has
+  run over it yet.
 - **One review from outside the sessions that built it, and no audit by a
   person.** The Events client, webhook verification and the relay were
   reviewed adversarially during development. On 24 November 2026 an AI
