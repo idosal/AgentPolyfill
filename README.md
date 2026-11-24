@@ -70,9 +70,9 @@ GitHub releases, and earthquakes; its source is in
 
 A server's app opens under the tool call and answers the mouse; real pixels
 in iTerm2, kitty and Ghostty, character cells elsewhere
-([full video, 32 s](https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4)).
+([full video, 33 s](https://github.com/idosal/MCPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4)).
 
-![In Claude Code, a cohort retention heatmap from an MCP server opens under the tool call and shows a tooltip wherever the pointer goes, and a control switches its period. Then a 3D scene opens and turns when dragged. Last, the same heatmap drawn in character cells.](docs/media/mcp-apps-cli.gif)
+![In Claude Code, a classic shareware game from the hosted arcade server runs under the tool call and is played with keys and clicks. Then a cohort retention heatmap from another MCP server opens inline, shows a tooltip wherever the pointer goes, and a control switches its period. Last, a 3D scene opens and turns when dragged.](docs/media/mcp-apps-cli.gif)
 
 Try it against a hosted demo server (classic shareware games from archive.org,
 played in the app's view). Add it, start `claude`, and ask for a game ("Find
