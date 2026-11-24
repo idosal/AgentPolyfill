@@ -313,13 +313,13 @@ function llmsTxt() {
 
 > ${data.description}
 
-AgentPolyfill makes polyfills for agent protocols: it lets you run new protocol extensions in the clients you already use, before official support. Each polyfill implements the client side of one published MCP extension as a plugin, follows that extension's spec (any exception is listed and can be switched off), and steps aside once the host ships its own. Servers don't change. Today the hosts are Claude Code and Codex. Events (SEP-3415), Skills (SEP-2640) and Server Cards (SEP-2127) run in both; Apps (MCP Apps 2026-01-26) runs in Claude Code and isn't in Codex yet. All of them are early. Events, Skills and Apps can't reach servers behind OAuth yet, in either host. Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft) in both hosts; a search sends the words of your request to the ARD registry you choose and asks you first every time, so it isn't in the bundle and is installed by name.
+AgentPolyfill makes polyfills for agent protocols: it lets you run protocol extensions in the clients you already use, before official support. Each polyfill implements the client side of one published MCP extension as a plugin, follows that extension's spec (any exception is listed and can be switched off), and steps aside once the host ships its own. Servers don't change. Today the hosts are Claude Code and Codex. Events (SEP-3415), Skills (SEP-2640) and Server Cards (SEP-2127) run in both; Apps (MCP Apps 2026-01-26) runs in Claude Code and isn't in Codex yet. All of them are early. Events, Skills and Apps can't reach servers behind OAuth yet, in either host. Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft) in both hosts; a search sends the words of your request to the ARD registry you choose and asks you first every time, so it isn't in the bundle and is installed by name.
 
 Install in Claude Code 2.1.329 or newer (every MCP polyfill, the \`agent-polyfill\` bundle), from a terminal: \`${INSTALL_CLI}\`. At the prompt of a \`claude\` session it is \`${INSTALL}\`. Start a new session for the plugins to load. Install in Codex 0.170 or newer (Node 20 or newer), from a terminal: \`${INSTALL_CODEX.join(' && ')}\`.
 
 Anyone can build a polyfill to the contract, bring an existing one to another host, or list one they keep in their own repository in the community directory (${origin}/guide/community.md).
 
-A community project, not affiliated with or endorsed by the MCP project, the Agentic AI Foundation, the Linux Foundation, Anthropic, OpenAI, any other host vendor, or the authors of Agentic Resource Discovery. Source: https://github.com/idosal/AgentPolyfill (Apache-2.0).
+By Ido Salomon (https://x.com/idosal1). Not affiliated with Anthropic, OpenAI, MCP, Agentic Resource Discovery or the Agentic AI Foundation (AAIF). Source: https://github.com/idosal/AgentPolyfill (Apache-2.0).
 
 Every page of this site is also plain Markdown at its address plus \`.md\`, and all of them together are at ${origin}/llms-full.txt.
 
