@@ -254,7 +254,8 @@ Codex differs.
 | R-8 | A claim to a publisher's name needs that publisher's attestation | §4.5.1 | mcp-server-cards O-2 to O-4, O-8, B-12; A-2 | partly: trust manifests aren't verified. Instead the publisher's own catalogs (`ai-catalog.json` and `ard.json`) are read, and a result is confirmed only if they list the server. The publisher's card is then the one used |
 | Q-1 | Say where the query went | this plugin's own | A-2 | met: the tool's description says it, and every result names each registry asked |
 | Q-2 | The person chooses the registry | this plugin's own | A-5, A-10 | met: none is set by default. A registry named in the request is used, or the one in the `registry` setting. With neither, the search is refused before any ask, and nothing is sent |
-| Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own, from the security review (M2) | A-7, A-8, A-9, A-11 | met: a hook-made ask that no allow rule or auto mode answers. It is refused with nobody to ask, so nothing is sent. A query or a registry the ask couldn't show exactly is refused |
+| Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own, from the security review (M2) | A-7, A-8, A-9, A-11, A-12 | met: a hook-made ask that no allow rule or auto mode answers. It is refused with nobody to ask, so nothing is sent. A query or a registry the ask couldn't show exactly is refused, one holding tag characters or other invisible ones among them |
+| Q-4 | A registry's own words are shown as one line, with nothing hidden | this plugin's own | L-1 to L-4, A-13 | met: its error messages, the referrals it names, and each result's name and description are one line, capped, with control and invisible characters out. A result whose identifier holds one is skipped |
 | P-1 | A public registry can't refer the client to a local or private address | this plugin's own | P-1 | met |
 | B-1 | Bounds | this plugin's own | R-7 | three registries, three referrals, 50 results read per answer, 10 handed on, 512 KiB per answer |
 
@@ -281,11 +282,11 @@ valid cards, the [demo registry](#demo-registry) stands in.
 
 ### Proof
 
-- **Per rule:** 19 tests in this plugin, run with `claude plugin test mod`,
+- **Per rule:** 25 tests in this plugin, run with `claude plugin test mod`,
   and the `mcp-server-cards` tests named above.
-  - A-1 to A-11 run through the plugin as Claude Code loads it, with
+  - A-1 to A-13 run through the plugin as Claude Code loads it, with
     `mcp-server-cards` and the network stood in for.
-  - R-1 to R-7 and P-1 test the registry client.
+  - R-1 to R-7, L-1 to L-4 and P-1 test the registry client.
 - **A registry someone else runs:** Hugging Face Discover, including its
   referral (24 November 2026).
 - **The real host** (Claude Code 2.1.329), with both plugins loaded:

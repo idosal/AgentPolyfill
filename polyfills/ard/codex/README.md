@@ -243,19 +243,20 @@ the rows where Codex differs:
 | Q-1 | Say where the query went | this plugin's own | A-1, A-5 | met: the tool's description names the registry, and every result names each one asked |
 | Q-2 | The person chooses the registry | this plugin's own | A-5, A-7 | met: none is set by default. A registry named in the request is used, or the one in `ARD_DISCOVERY_REGISTRY`. With neither, the search is refused before any form, and nothing is sent |
 | Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own (security review M2) | A-3, A-4, A-11 | met: a form naming the exact endpoints and the query, with a required choice. Only **Send the search** sends. Codex 0.172 doesn't answer such a form by itself, even under `--dangerously-bypass-approvals-and-sandbox` |
-| Q-4 | What is sent is what was shown | this plugin's own (security review R1, and C1 for markup) | A-6, A-9, A-12 | met: the query is at most 300 characters, on one line, with no invisible characters or direction marks, and no `` ` ``, `<`, `>` or square brackets. The registry, named or set, is at most 200 characters, with no spaces, control characters or direction marks |
+| Q-4 | What is sent is what was shown | this plugin's own (security review R1, and C1 for markup) | A-6, A-9, A-12, A-13 | met: the query is at most 300 characters, on one line, with no invisible characters (tag characters among them) or direction marks, and no `` ` ``, `<`, `>` or square brackets. The registry, named or set, is at most 200 characters, with no spaces, control characters, invisible characters or direction marks |
 | Q-5 | The query goes only where the form said | this plugin's own | mcp-server-cards F-5 | met: a redirect to another origin, or one that would turn the `POST` into a `GET`, isn't followed |
+| Q-6 | A registry's own words are shown as one line, with nothing hidden | this plugin's own | L-1 to L-4, A-14 | met: its error messages, the referrals it names, and each result's name and description are one line, capped, with control and invisible characters out. A result whose identifier holds one is skipped |
 | V-3 | No URL that displays as something else | the polyfills' own (security review C1) | A-8, A-10; mcp-server-cards X-4, X-5, P-6, P-7, O-9, O-10 (run here) | met: a result's card URL, its card's remote URL, a registry URL a catalog names, and where a result was found may hold no `` ` ``, `<`, `>` or square bracket outside an IPv6 host. Such a result is refused and never put in a form. Nor may they, or a registry the request names, name a user before the host (C3). A search to such a registry is refused before the form |
 | D-1 | Domain discovery reads `ard.json`, which needs no `specVersion` | §5.1 | A-2 | met |
 | H-3 | A search result is confirmed only by its publisher's own catalog | the polyfills' own | mcp-server-cards O-2 to O-4, O-8 (run here) | met |
 
 ### Proof
 
-- **Per rule:** 110 tests, run with `npm test`.
-  - ARD's 8 registry rule tests and the Server Cards core's 88 rule tests,
+- **Per rule:** 117 tests, run with `npm test`.
+  - ARD's 12 registry rule tests and the Server Cards core's 89 rule tests,
     from the Claude Code forms' test folders, run against the committed
     bundle.
-  - 12 of this form's own (A-), over stdio, with a stand-in `codex` command
+  - 14 of this form's own (A-), over stdio, with a stand-in `codex` command
     and a local registry on 127.0.0.1.
   - 2 bundle checks: it is byte-identical to a fresh build, and a copy of
     `plugin/` alone starts and lists its tools.

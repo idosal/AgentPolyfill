@@ -64,6 +64,11 @@ checks, and nested catalogs 4 deep.
 - A card is refused if any string in it holds a control character (C0, DEL,
   C1) or an invisible format or bidirectional mark. That rules out an ESC
   sequence that rewrites a line, an OSC 8 link, or a right-to-left override.
+- Other characters that show as nothing don't get a card refused (an emoji's
+  variation selector is one), but they're taken out of everything shown, to
+  you and to the model: a soft hyphen, variation selectors, and tag
+  characters, which can carry text nobody sees. A line separator is shown as a
+  space.
 - A remote URL must be printable ASCII. It may hold no `` ` ``, `<`, `>`,
   backslash, or square brackets outside an IPv6 host (`https://[::1]/`). It
   may not name a user before its host: `https://good.example@evil.example/`
