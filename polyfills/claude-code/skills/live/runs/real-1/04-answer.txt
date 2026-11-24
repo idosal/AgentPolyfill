@@ -1,47 +1,47 @@
-                                    "references/quantization.md")
-  ⎿  "references/quantization.md" of the skill "huggingface-local-models", from the MCP server "huggingface" (6136
-     bytes, matched the size and SHA-256 digest in the skill's entry). Content from that server:
-     <mcp-skill-file id="06540bc1ea21" server="huggingface" uri="skill://huggingface-local-models/references/quanti
-     … +256 lines (ctrl+o to expand)
+  │ Quant  │  File size    │   RAM     │                                Fit on 16 GB                                │
+  │        │     (7B)      │  needed   │                                                                            │
+  ├────────┼───────────────┼───────────┼────────────────────────────────────────────────────────────────────────────┤
+  │ Q4_K_M │ ~4.1 GB       │ ~7 GB     │ Comfortable. Leaves room for longer context and your other apps            │
+  ├────────┼───────────────┼───────────┼────────────────────────────────────────────────────────────────────────────┤
+  │ Q5_K_M │ ~4.8 GB       │ ~8 GB     │ Still fine. Slightly better quality (+0.4% perplexity vs +1.7% for Q4_K_M) │
+  ├────────┼───────────────┼───────────┼────────────────────────────────────────────────────────────────────────────┤
+  │ Q6_K   │ ~5.5 GB       │ ~9 GB     │ Works, but tight if you have a browser or IDE open                         │
+  ├────────┼───────────────┼───────────┼────────────────────────────────────────────────────────────────────────────┤
+  │ Q8_0   │ ~7.0 GB       │ ~11 GB    │ Not recommended. macOS lets the GPU use only about 2/3 to 3/4 of unified   │
+  │        │               │           │ memory                                                                     │
+  └────────┴───────────────┴───────────┴────────────────────────────────────────────────────────────────────────────┘
 
-⏺ mcp-skills - read_skill_file (MCP)(server: "huggingface", skill: "skill://huggingface-local-models/SKILL.md", path:
-                                    "references/hardware.md")
-  ⎿  "references/hardware.md" of the skill "huggingface-local-models", from the MCP server "huggingface" (623 bytes
-     , matched the size and SHA-256 digest in the skill's entry). Content from that server:
-     <mcp-skill-file id="7558196c9585" server="huggingface" uri="skill://huggingface-local-models/references/hardwa
-     … +40 lines (ctrl+o to expand)
+  Avoid Q3 and Q2 on a 7B model. They lose noticeably more quality, and you don't need the savings.
 
-⏺ I used the huggingface-local-models skill from the Hugging Face server. Pick Q4_K_M: for a 7B model it is about a 4.1
-  GB file needing roughly 7 GB of RAM, which leaves plenty of your 16 GB for macOS and other apps.
+  If the model's Hugging Face page (https://huggingface.co/<repo>?local-app=llama.cpp) marks a quant as compatible, or
+  uses its own label such as UD-Q4_K_M, go with that.
 
-  To start it (Homebrew's build uses Metal on Apple Silicon):
+  Commands
 
+  # Install (Homebrew builds include Metal GPU support)
   brew install llama.cpp
-  llama-cli -hf <repo>:Q4_K_M
 
-  Replace <repo> with the GGUF repo of the model you want; you didn't name one, so I haven't checked a specific repo.
-  Use llama-server instead of llama-cli if you want an OpenAI-compatible server on http://localhost:8080 rather than a
-  terminal chat.
+  # Interactive chat, downloading straight from the Hub
+  llama-cli -hf <repo>:Q4_K_M -ngl 99 -c 8192
 
-  You have room to go higher if quality matters more than speed. The figures below are the skill's generic 7B table, not
-  measured on your machine:
+  # Or as a local OpenAI-compatible server on http://localhost:8080
+  llama-server -hf <repo>:Q4_K_M -ngl 99 -c 8192
 
-  ┌────────┬───────────┬────────────┬────────────────────────────────────────────────────────────┐
-  │ Quant  │ File size │ RAM needed │                      When to pick it                       │
-  ├────────┼───────────┼────────────┼────────────────────────────────────────────────────────────┤
-  │ Q4_K_M │ 4.1 GB    │ 7 GB       │ Default: best balance of quality and speed                 │
-  ├────────┼───────────┼────────────┼────────────────────────────────────────────────────────────┤
-  │ Q5_K_M │ 4.8 GB    │ 8 GB       │ Code or technical work                                     │
-  ├────────┼───────────┼────────────┼────────────────────────────────────────────────────────────┤
-  │ Q6_K   │ 5.5 GB    │ 9 GB       │ Higher quality, still comfortable on 16 GB                 │
-  ├────────┼───────────┼────────────┼────────────────────────────────────────────────────────────┤
-  │ Q8_0   │ 7.0 GB    │ 11 GB      │ Nearly lossless, but slower and tight alongside other apps │
-  └────────┴───────────┴────────────┴────────────────────────────────────────────────────────────┘
+  Replace <repo> with a GGUF repo, for example bartowski/Qwen2.5-7B-Instruct-GGUF (I didn't check that repo's file list
+  live).
 
-  Some repos use their own labels (for example UD-Q4_K_M), so use the tag exactly as the repo lists it. The model's page
-  at https://huggingface.co/<repo>?local-app=llama.cpp shows the available quants and the exact command.
+  - -ngl 99 puts all layers on the Apple GPU through Metal.
+  - -c 8192 sets the context length. Raising it uses more memory, so lower it to 4096 if you run short.
+  - Exact filename: if a repo names its files in a way -hf repo:QUANT doesn't recognize, use --hf-repo <repo> --hf-file
+    <exact-file>.gguf instead.
+  - Gated models: for Llama and similar, run hf auth login first.
 
-✻ Worked for 13s · done 1:55 AM
+  To test the server:
+
+  curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" \
+    -d '{"messages":[{"role":"user","content":"Hello"}]}'
+
+✻ Brewed for 19s · done 9:55 AM
 
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 ❯

@@ -60,13 +60,13 @@ steps = [
     *say("I have a Mac with 16 GB of memory. Which GGUF quantization should I pick to run a 7B model with llama.cpp, and what command starts it? Use a skill if one fits."),
     {"wait": "Do you want to proceed", "timeout": 180}, {"sleep": 3}, {"snap": "03-approval"},
     {"key": "enter", "after": 2},
-    {"wait": "Q4_K_M(.|\\n)*· done ", "timeout": 300}, {"sleep": 6}, {"expect_absent": "Do you want to proceed"}, {"snap": "04-answer"},
+    {"wait": "Q4_K_M.*?· done ", "timeout": 300}, {"sleep": 6}, {"expect_absent": "Do you want to proceed"}, {"snap": "04-answer"},
     *say("Now run this in the shell: echo approved-skill-runs"),
-    {"wait": "approved-skill-runs(.|\\n)*approved-skill-runs(.|\\n)*approved-skill-runs", "timeout": 120}, {"sleep": 5}, {"expect_absent": "Do you want to proceed"}, {"snap": "05-command"},
+    {"wait": "approved-skill-runs.*?approved-skill-runs.*?approved-skill-runs", "timeout": 120}, {"sleep": 5}, {"expect_absent": "Do you want to proceed"}, {"snap": "05-command"},
     *say("One more: which TogoMCP skill should I start from before using any of its tools? Load it and tell me its first instruction in one sentence."),
     {"wait": "Do you want to proceed", "timeout": 180}, {"sleep": 3}, {"snap": "06-second-approval"},
     {"key": "enter", "after": 2},
-    {"wait": "One more: which TogoMCP skill(.|\\n)*· done ", "timeout": 300}, {"sleep": 6}, {"snap": "07-second-answer"},
+    {"wait": "One more: which TogoMCP skill.*?· done ", "timeout": 300}, {"sleep": 6}, {"snap": "07-second-answer"},
     {"key": "ctrl-c", "after": 0.5}, {"key": "ctrl-c", "after": 0.5}, {"key": "ctrl-c", "after": 2},
 ]
 json.dump({"cmd": cmd, "cwd": project, "env": env, "cols": 120, "rows": 50, "steps": steps}, open(out + "/scenario.json", "w"), indent=1, ensure_ascii=False)

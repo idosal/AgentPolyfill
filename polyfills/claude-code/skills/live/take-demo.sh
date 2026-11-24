@@ -43,7 +43,7 @@ steps = [
     *say("Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?", 0.06),
     {"wait": "Do you want to proceed", "timeout": 180}, {"sleep": 3}, {"snap": "02-approval"},
     {"key": "enter", "after": 2},
-    {"wait": "Which GGUF(.|\\n)*· done |Q[4-8]_K(.|\\n)*· done ", "timeout": 300}, {"sleep": 6}, {"snap": "03-answer"},
+    {"wait": "Which GGUF.*?· done |Q[4-8]_K.*?· done ", "timeout": 300}, {"sleep": 6}, {"snap": "03-answer"},
     {"key": "ctrl-c", "after": 0.5}, {"key": "ctrl-c", "after": 0.5}, {"key": "ctrl-c", "after": 2},
 ]
 json.dump({"cmd": cmd, "cwd": project, "env": env, "cols": 88, "rows": 28, "steps": steps}, open(out + "/scenario.json", "w"), indent=1, ensure_ascii=False)

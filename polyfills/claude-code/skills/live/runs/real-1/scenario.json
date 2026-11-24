@@ -10,10 +10,10 @@
   "--allowedTools",
   "Bash"
  ],
- "cwd": "<repo>/live/runs/real-1/project",
+ "cwd": "<out>/project",
  "env": {
   "MCP_SKILLS_SOURCES": "project",
-  "MCP_SKILLS_STATE": "<repo>/live/runs/real-1/state"
+  "MCP_SKILLS_STATE": "<out>/state"
  },
  "cols": 120,
  "rows": 50,
@@ -135,7 +135,7 @@
    "after": 2
   },
   {
-   "wait": "Q4_K_M(.|\\n)*· done ",
+   "wait": "Q4_K_M.*?· done ",
    "timeout": 300
   },
   {
@@ -159,7 +159,7 @@
    "after": 2
   },
   {
-   "wait": "approved-skill-runs(.|\\n)*approved-skill-runs(.|\\n)*approved-skill-runs",
+   "wait": "approved-skill-runs.*?approved-skill-runs.*?approved-skill-runs",
    "timeout": 120
   },
   {
@@ -197,7 +197,7 @@
    "after": 2
   },
   {
-   "wait": "One more: which TogoMCP skill(.|\\n)*· done ",
+   "wait": "One more: which TogoMCP skill.*?· done ",
    "timeout": 300
   },
   {
