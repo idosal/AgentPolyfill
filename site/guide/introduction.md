@@ -1,80 +1,104 @@
 ---
-description: What AgentPolyfill is, which MCP extensions it adds to Claude Code, and who it is for.
+description: What AgentPolyfill is, which MCP extensions it adds to Claude Code and Codex, and who it is for.
 ---
 
 # Introduction
 
-AgentPolyfill is a set of Claude Code plugins. Four of them each add the client
-side of one published MCP extension that Claude Code does not support by itself
-yet: Events, Apps, Skills and Server Cards. A fifth adds Agentic Resource
-Discovery, an open draft beyond MCP.
+AgentPolyfill makes polyfills for agent protocols. Use new MCP extensions in
+the agent you already have, before its host supports them. Today in Claude
+Code and Codex: Events, Skills and Server Cards run in both, Apps runs in
+Claude Code, and Agentic Resource Discovery, an open draft beyond MCP, runs in
+both.
 
 ## Why polyfills
 
-MCP now grows through extensions: Apps, Skills, Events, Server Cards. A server can adopt one
-quickly. Each host has to build and ship each one, on its own schedule. A
-polyfill closes that gap from the outside: it implements one published
-extension's client side as a plugin, follows that extension's spec (any
-exception is listed in its README), and steps aside when the host ships its
-own. Servers need no changes.
+MCP grows through extensions now: Apps, Skills, Events, Server Cards. A server
+can adopt one in a day, but every host has to build each one itself, on its
+own schedule, so a new extension can sit unused for months. A polyfill closes
+that gap from the outside. It implements one published extension's client side
+as a plugin, follows that extension's spec (any exception is listed and can be
+switched off), and steps aside once the host ships its own. Servers don't
+change at all.
 
-The aim is an open community around open specs, where anyone can use these
-capabilities in the host they have, build the next polyfill, or propose a new
-extension, and support does not depend on one host's roadmap. Today that is
-Claude Code with four MCP extensions and one open draft beyond MCP (Agentic
-Resource Discovery), and Codex with Events, Skills, Server Cards and ARD
-([Other hosts](./how-it-works#other-hosts)).
-More hosts are where it is meant to go.
+We want this to be an open community around open specs: anyone can use these
+extensions in the host they have, bring a polyfill to another host, or propose
+a new extension, without waiting on one company's roadmap.
 
 ## The polyfills
 
-| Extension | Spec | Polyfill | State |
+| Extension | Spec | Claude Code | Codex |
 |---|---|---|---|
-| [Events](./events) (`io.modelcontextprotocol/events`) | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | `mcp-events` | Works: poll, push and webhook delivery; an event wakes an idle session. No OAuth servers. |
-| [Apps](./apps) (`io.modelcontextprotocol/ui`) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | `mcp-apps-cli` | Early: app UIs render inline in the terminal, with mouse and keyboard. No OAuth servers. |
-| [Skills](./skills) (`io.modelcontextprotocol/skills`) | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | `mcp-skills` | Early: skills served by an MCP server are listed, loaded and read in Claude Code, with the checks the spec asks of a client. No OAuth servers. |
-| [Server Cards](./server-cards) | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (extension Beta) | `mcp-server-cards` | Early: finds the servers a domain publishes, checks each card against the schema, and adds one to Claude Code's own config with a click, so servers behind OAuth work. |
+| [Events](./events) | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | `mcp-events` | `mcp-events` |
+| [Skills](./skills) | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | `mcp-skills` | `mcp-skills` |
+| [Server Cards](./server-cards) | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | `mcp-server-cards` | `mcp-server-cards` |
+| [Apps](./apps) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | `mcp-apps-cli` | not yet |
 
-Beyond MCP, [`ard-discovery`](./ard) adds
-[Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a
-draft: it finds MCP servers through a domain's `ard.json` or by searching an
-ARD registry, and hands the cards to `mcp-server-cards`. Its search sends the
-words of your request to that registry, and asks you first every time; for that
-reason it is not part of the `agent-polyfill` bundle. Install it by name.
+All of them are early. Here is what each one does, and where it stops:
 
-On 23 November 2026 the official
+- **Events.** The agent watches events on your MCP servers, by poll, push or
+  webhook, and an event wakes an idle session. In Codex, a woken session is a
+  Codex CLI session (the terminal app or `codex exec`): a chat in the ChatGPT
+  desktop app keeps its events but can't be woken, so ask it for
+  `recent_events`. A resumed Codex session starts watching at its first Events
+  tool call.
+- **Skills.** Skills an MCP server serves show up next to your own, load only
+  after you say yes to each one, and are checked against the server's
+  digests. In Codex they appear in Codex's own skill list from the session
+  after a server first serves them. One rule of the spec can't be met in Codex
+  yet: a skill from one server reading another server's resources isn't put
+  to you first (rule X8), because Codex doesn't let a plugin ask.
+- **Server Cards.** Name a company and the agent finds the MCP servers its
+  domain publishes, checks each card against the schema, and adds the one you
+  pick to the host's own configuration. The host then connects it with its own
+  sign-in, so servers behind OAuth work. You see the host it connects to
+  before you add it.
+- **Apps.** A server's app opens right under the tool call in the terminal
+  and answers the mouse and keyboard: real pixels in iTerm2, kitty and
+  Ghostty, text cells everywhere else.
+
+Events, Skills and Apps can't reach servers behind OAuth yet, in either host.
+[How it works](./how-it-works#how-it-works-in-each-host-and-where-it-stops)
+says why, and what would fix it.
+
+**Beyond MCP**, [`ard-discovery`](./ard) adds
+[Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91,
+a draft, in both hosts. It finds MCP servers through a domain's `ard.json`, or
+by searching an ARD registry you choose, and hands the cards to
+`mcp-server-cards`. A search sends the words of your request to that
+registry, so every search asks you first and names where it's going. That's
+also why it isn't part of the `agent-polyfill` bundle; install it by name.
+
+Neither host supports these extensions itself yet. On 23 November 2026 the
+official
 [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix)
-showed Claude Code with Tasks, and none of Events, Apps or Skills (Server Cards
-is not in the matrix). Hosts are adding
-extensions steadily, so check the matrix for today's picture. The Skills SEP
-notes that Claude Code support has been prototyped at Anthropic.
-
-"No OAuth servers" is the same limit in Events, Apps and Skills: each opens a
-second connection of its own to each server, and that connection cannot use
-Claude Code's sign-in. Server Cards needs no connection: the server it finds is
-added to Claude Code's own config, so Claude Code connects it with its own
-sign-in. [How it works](./how-it-works) explains why, and which host changes
-would remove the limit.
+listed Tasks for Claude Code, and none of Events, Apps or Skills (Server Cards
+isn't in the matrix). Codex doesn't support Events for your own servers, or
+Skills (openai/codex#48000). Hosts add extensions all the time, so check the
+matrix for today's picture. The Skills SEP notes that Claude Code support has
+been prototyped at Anthropic.
 
 ## Who it is for
 
-- **People who use agents:** one line to install, one line to try. See
-  [Getting started](./getting-started).
-- **People who build:** the `create-polyfill` and `design-extension` skills,
-  and the contract every polyfill here meets. New polyfills are welcome:
-  [Build a polyfill](./build-a-polyfill).
-- **Spec authors:** a polyfill can be the client half of the two
+- **If you use Claude Code or Codex,** installing takes one line and trying it
+  takes one more. See [Getting started](./getting-started).
+- **If you build,** the `create-polyfill` and `design-extension` skills and the
+  contract every polyfill here meets are your starting point. New polyfills,
+  and existing ones brought to another host, are welcome:
+  [Build a polyfill](./build-a-polyfill). If you keep one in your own
+  repository, list it in the [community directory](./community).
+- **If you write specs,** a polyfill can be the client half of the two
   implementations an extension needs to reach Stable:
   [For spec authors](./spec-authors).
 
 ## Before you install
 
-These are third-party plugins that run with your permissions, as every Claude
-Code mod does. None of them reads Claude Code's stored credentials. Each
-polyfill's `SECURITY.md` says what it checks and what it does not protect
+These are third-party plugins, and they run with your permissions, like every
+Claude Code mod and Codex plugin. None of them reads the host's stored
+credentials: not Claude Code's, and not Codex's sign-ins or tokens. Each
+polyfill's `SECURITY.md` says what it checks and what it doesn't protect
 against; [Security](./security) collects them.
 
-AgentPolyfill is a community project. It is not part of the MCP specification
-and is not affiliated with or endorsed by the MCP project, the Agentic AI
-Foundation, the Linux Foundation, Anthropic or any host vendor. See
-[About](/about).
+AgentPolyfill is a community project. It isn't part of the MCP specification,
+and it isn't affiliated with or endorsed by the MCP project, the Agentic AI
+Foundation, the Linux Foundation, Anthropic, OpenAI or any other host vendor.
+See [About](/about).
