@@ -265,7 +265,7 @@ export const search = async (deps: Deps, text: string, endpoints: string[]): Pro
       hit.publisher = { state: 'not-checked' }
       continue
     }
-    const d = await discover(deps, hit.publisherDomain)
+    const d = await discover(deps, hit.publisherDomain, { ard: true })
     if ('error' in d) {
       hit.publisher = { state: 'no-catalog' }
       continue
