@@ -474,6 +474,30 @@ test('W1: after a resume, loading an approved skill before anything else does no
   expect(verdict.reason).toContain('"incident-review"')
 })
 
+// Found by the model (verification/model.ts, "Gate"): the unapproved text is still in the
+// conversation after a later load of the same skill, so a later yes does not lift the gate for it.
+test('X5, W1: a skill loaded unapproved stays unapproved until the conversation is cleared, though it is loaded again with a yes', async ($, on) => {
+  const w = world(on, { verdict: { decision: 'allow', rule: 'allowed' } })
+  await $.session.start(START)
+  await load($, { approver: null })
+  // Approved meanwhile (in another session on this machine), possibly as the server serves it now.
+  w.store.approvals = { [`${SKILL.server}\n${SKILL.uri}`]: { hash: FACTS.hash, fingerprint: FACTS.fingerprint, name: SKILL.name, at: 1 } }
+  expect((await load($, { approver: null })).ran.result).toBe(`${APPROVED}\n${LOADED}`)
+  expect((await $.tool.check(bash)).decision).toBe('deny')
+  expect((await $.tool.check(present(bash))).decision).toBe('ask')
+  await $.session.end({ reason: 'clear', sessionId: 's', resume: {} as never })
+  await load($, { approver: null })
+  expect((await $.tool.check(bash)).decision).toBe('allow')
+})
+
+test('W1: after a resume, a skill loaded unapproved and later with a yes is still read back as unapproved', async ($, on) => {
+  const use = (id: string, text: string) => ({ tool_use_id: id, tool: LOAD, input: { server: SKILL.server, uri: SKILL.uri }, text })
+  world(on, { verdict: { decision: 'allow', rule: 'Bash' }, rows: [{ role: 'assistant', text: '', toolUses: [use('first', `${UNAPPROVED}\n${LOADED}`)] }, { role: 'assistant', text: '', toolUses: [use('second', `${APPROVED}\n${LOADED}`)] }] })
+  await $.session.start(START)
+  expect((await $.tool.check(bash)).decision).toBe('deny')
+  expect((await $.tool.check(present(bash))).decision).toBe('ask')
+})
+
 test('X6: two servers whose names differ only in punctuation are two servers: a read from the other one is asked about', async ($, on) => {
   world(on, { verdict: { decision: 'allow', rule: 'x' }, facts: { ...FACTS, server: 'acme.prod' } })
   await $.session.start(START)
