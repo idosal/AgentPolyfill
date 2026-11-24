@@ -377,7 +377,9 @@ node tools/measure.ts        # time to a listing, memory and CPU of the helper
 the bundled helper.
 [`src/skills.ts`](src/skills.ts) is the extension's client logic and nothing
 else; [`src/wire.ts`](src/wire.ts) and [`src/config.ts`](src/config.ts) are the
-connection the mod has to make for itself today.
+connection the mod has to make for itself today. The first two are kept in
+[`../core`](../core/), shared with the [Codex adapter](../codex/), and bundled
+into `mod/dist/helper.js`; to work on them, run `npm ci` in `../core` too.
 
 ## Problems and questions
 
