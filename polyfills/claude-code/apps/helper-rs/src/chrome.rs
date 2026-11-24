@@ -19,8 +19,10 @@ use crate::out::log;
 
 /// Playwright's own `--disable-features` list (Chrome keeps only the last
 /// such flag, so ours repeats it), then ours: the address bar's popup page
-/// Chrome preloads for every page (a renderer of its own, never shown), and
-/// the local-network checks (a server on localhost serves its own app).
+/// Chrome preloads for every page (a renderer of its own, never shown).
+/// Chrome's local-network checks stay on: a view gets local-network access
+/// only where its server runs on this machine or its network (see
+/// Page::new and Clients::local_network).
 const DISABLED_FEATURES: &[&str] = &[
     "AvoidUnnecessaryBeforeUnloadCheckSync", "DestroyProfileOnBrowserClose", "HttpsUpgrades",
     "HttpsFirstBalancedModeAutoEnable", "LensOverlay", "MediaRouter", "PaintHolding",
@@ -309,7 +311,7 @@ async fn launch(chrome: Arc<Chrome>) -> Result<Arc<Browser>> {
     crate::tmp::sweep_old();
     // A new context can open while an idle browser is still shutting down.
     // Never share that browser's profile/SingletonLock with its successor.
-    let profile = crate::tmp::own_dir().join(format!("profile-{}", crate::tmp::random_hex(8)?));
+    let profile = crate::tmp::own_private_dir()?.join(format!("profile-{}", crate::tmp::random_hex(8)?));
     crate::store::private_folder(&profile)?;
     let mut args: Vec<String> = PLAYWRIGHT_SWITCHES.iter().map(|s| s.to_string()).collect();
     args.push(format!("--disable-features={}", DISABLED_FEATURES.join(",")));
