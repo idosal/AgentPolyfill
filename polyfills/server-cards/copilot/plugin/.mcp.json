@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "mcp-server-cards": {
+      "type": "local",
+      "command": "node",
+      "args": ["${PLUGIN_ROOT}/dist/server.mjs"],
+      "tools": ["*"]
+    }
+  }
+}

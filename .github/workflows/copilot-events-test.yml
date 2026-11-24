@@ -1,0 +1,114 @@
+# The Events polyfill for GitHub Copilot CLI (polyfills/events/copilot, plugin mcp-events in the
+# Copilot marketplace, .github/plugin/marketplace.json), on any change in its folder, in the shared
+# Events client and the Codex form's session code it bundles, in the fixture server its tests use,
+# or in the Copilot marketplace file:
+# - the extension's tests (joining a stand-in session, Copilot's MCP configuration, waking through
+#   session.send, the SEP's client rules end to end against the fixture server, the committed
+#   bundle), with a typecheck, on Linux and macOS;
+# - Copilot CLI itself installing the plugin from this repository's marketplace into a throwaway
+#   COPILOT_HOME, and then, offline with a stand-in model and no sign-in, loading the extension
+#   in `copilot -p` and running list_event_types against the fixture server.
+# The shared client's clause-by-clause tests run in mcp-events-test.yml.
+
+name: "mcp-events for Copilot: tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/events/copilot/**"
+      - "polyfills/events/core/**"
+      - "polyfills/events/codex/src/threads.ts"
+      - "polyfills/events/codex/src/waker.ts"
+      - "polyfills/events/claude-code/test/fixture-events-server.ts"
+      - "polyfills/events/claude-code/mod/relay/src/protocol.ts"
+      - "tools/bundle-notices.mjs"
+      - ".github/plugin/marketplace.json"
+      - ".github/workflows/copilot-events-test.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see each job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/events/copilot/**"
+      - "polyfills/events/core/**"
+      - "polyfills/events/codex/src/threads.ts"
+      - "polyfills/events/codex/src/waker.ts"
+      - "polyfills/events/claude-code/test/fixture-events-server.ts"
+      - "polyfills/events/claude-code/mod/relay/src/protocol.ts"
+      - "tools/bundle-notices.mjs"
+      - ".github/plugin/marketplace.json"
+      - ".github/workflows/copilot-events-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: copilot-events-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The Copilot CLI release the plugin was tested live with.
+  COPILOT_VERSION: 1.0.115
+
+defaults:
+  run:
+    working-directory: polyfills/events/copilot
+
+jobs:
+  extension:
+    name: extension (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: polyfills/events/core
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Third-party notices for the bundle are up to date
+        run: node ../../../tools/bundle-notices.mjs . --plugin plugin --entry src/extension.ts --bundle plugin/extensions/mcp-events/extension.mjs --check
+      - run: npm test
+
+  copilot:
+    name: copilot plugin install, and the extension in copilot -p
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: Copilot CLI
+        run: npm install -g --no-audit --no-fund "@github/copilot@$COPILOT_VERSION"
+      - name: Install the plugin into a throwaway COPILOT_HOME, then run list_event_types offline
+        env:
+          HOME: ${{ runner.temp }}/home
+          COPILOT_HOME: ${{ runner.temp }}/home/.copilot
+          COPILOT_AUTO_UPDATE: "false"
+          COPILOT_OFFLINE: "true"
+          COPILOT_PROVIDER_BASE_URL: http://127.0.0.1:18555/v1
+          COPILOT_MODEL: gpt-4.1
+          COPILOT_PROVIDER_API_KEY: none
+          GH_TOKEN: ""
+          GITHUB_TOKEN: ""
+        run: |
+          mkdir -p "$COPILOT_HOME" "$RUNNER_TEMP/work"
+          copilot plugin marketplace add "$GITHUB_WORKSPACE"
+          copilot plugin install mcp-events@agent-polyfill
+          copilot plugin list | tee "$RUNNER_TEMP/list.txt"
+          grep -q 'mcp-events@agent-polyfill' "$RUNNER_TEMP/list.txt"
+          : > "$RUNNER_TEMP/upstream.jsonl"
+          node -e 'const [f, fx, up] = process.argv.slice(1); require("fs").writeFileSync(f, JSON.stringify({ mcpServers: { tickets: { type: "local", command: process.execPath, args: ["--no-warnings", fx], env: { FIXTURE_UPSTREAM: up } } } }))' \
+            "$COPILOT_HOME/mcp-config.json" "$GITHUB_WORKSPACE/polyfills/events/claude-code/test/fixture-events-server.ts" "$RUNNER_TEMP/upstream.jsonl"
+          FAKE_MODEL_LOG="$RUNNER_TEMP/model.log" PORT=18555 node test/live/fake-model.mjs &
+          sleep 1
+          (cd "$RUNNER_TEMP/work" && copilot --experimental -p 'CALL list_event_types {}' --allow-all-tools) | tee "$RUNNER_TEMP/out.txt"
+          grep -q 'ticket.created' "$RUNNER_TEMP/out.txt"
+          grep -q 'joined session' "$COPILOT_HOME/mcp-events/mcp-events.log"

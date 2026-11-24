@@ -51,6 +51,7 @@ polyfills/<extension>/
   core/          the host-neutral logic and its tests of the spec's rules
   claude-code/   the Claude Code adapter
   codex/         the Codex adapter
+  copilot/       the GitHub Copilot CLI adapter
 ```
 
 - `<extension>` is the extension's short name: `apps`, `events`, `skills`,
@@ -58,7 +59,7 @@ polyfills/<extension>/
 - `core/` holds what doesn't depend on the host: the protocol, the spec's
   client rules and the tests for each rule. A polyfill for a single host can
   start without it.
-- `claude-code/` and `codex/` each hold a host adapter: the code that wires
+- `claude-code/`, `codex/` and `copilot/` each hold a host adapter: the code that wires
   `core/` into that host, with the host's own tests. A host's folder is named
   after it, in lower case with hyphens.
 
@@ -116,6 +117,8 @@ It states:
     `/plugin install <plugin>@agent-polyfill`.
   - In Codex:
     `codex plugin marketplace add idosal/AgentPolyfill && codex plugin add <plugin>@agent-polyfill`.
+  - In Copilot CLI: `copilot plugin marketplace add idosal/AgentPolyfill`,
+    then `copilot plugin install <plugin>@agent-polyfill`.
   - Then what else it needs, and every step and question a new user meets
     between that line and the extension working, with what happens when they
     say no. Anything beyond "install, add a server, ask" needs a reason.
@@ -161,6 +164,20 @@ For Codex, add an entry to
   "source": { "source": "local", "path": "./polyfills/<extension>/codex/<plugin subfolder>" },
   "policy": { "installation": "AVAILABLE" },
   "category": "Developer Tools"
+}
+```
+
+For Copilot CLI, add an entry to
+[`.github/plugin/marketplace.json`](.github/plugin/marketplace.json), which
+Copilot reads before `.claude-plugin/marketplace.json` (so Copilot users see
+only the plugins that run there). Keep its `version` equal to the plugin's:
+
+```json
+{
+  "name": "<plugin>",
+  "description": "…",
+  "version": "<the plugin.json version>",
+  "source": "./polyfills/<extension>/copilot/<plugin subfolder>"
 }
 ```
 
@@ -218,8 +235,8 @@ saw.
 ## Bringing a polyfill to another host
 
 An extension keeps one folder and one plugin name, and each host gets an
-adapter beside the others. Events and Skills are the examples: one `core/`, a
-`claude-code/` mod and a `codex/` plugin
+adapter beside the others. Events is the fullest example: one `core/`, a
+`claude-code/` mod, a `codex/` plugin and a `copilot/` extension
 ([`polyfills/events`](polyfills/events), [`polyfills/skills`](polyfills/skills)).
 
 1. **Find the host's way in.** What can third-party code do there? It may run

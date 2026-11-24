@@ -478,6 +478,13 @@ and `codex/src/waker.ts` at 0.1.3, with the table above. The tests in `codex/tes
 helper killed after `codex queue` took a batch, a `codex queue` that times out, and a notice
 whose `codex queue` failed before the person wrote and the helper restarted. Each fails on 0.1.2.
 
+The Copilot form (`../copilot`) runs this same `ThreadSession` and wake budget, unchanged. Two of
+the model's inputs differ there, and the model was not rerun for them: the hand-over goes through
+`session.send` (`copilot/src/waker.ts`), whose "no answer within a minute" counts as handed over, as
+a `codex queue` timeout does; and the person is seen in every `user.message` without an automation
+source, not in a tool call's turn metadata, so the pause can end at the person's message itself.
+`copilot/test/extension-test.ts` checks both on the code.
+
 ### What TLC found in mcp-events for Codex 0.1.2
 
 **A wake that `codex queue` took, and that the helper never heard of, is not counted**

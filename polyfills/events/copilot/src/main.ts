@@ -1,0 +1,290 @@
+// mcp-events for Copilot: the extension.
+//
+// Copilot CLI starts it (plugin/extensions/mcp-events/extension.mjs) as a child process for the
+// session in the foreground, and it joins that session with joinSession(): it adds the six tools,
+// gives the session its instructions when it starts, and listens to the session's messages. The
+// Events client (polyfills/events/core) connects to the MCP servers Copilot uses, runs the watches
+// and stores every event; then `session.send` hands the session a message saying what is new,
+// which wakes it if it is idle. One process serves one session; Copilot stops it (SIGTERM) when
+// the session ends or is replaced.
+//
+// The watches, their delivery and the wake gate are the Codex form's ThreadSession, unchanged:
+// only the wake (session.send instead of `codex queue`) and what counts as the person writing (a
+// `user.message` with no automation source, instead of a tool call's turn metadata) differ.
+
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { EventsConnection, preStandardPolicy } from '../../core/src/events-client.ts';
+import { oneLine } from '../../core/src/format.ts';
+import { configureHost } from '../../core/src/host.ts';
+import { readRelaySettings } from '../../core/src/relay.ts';
+import { pruneSessions } from '../../core/src/store.ts';
+import type { Unavailable } from '../../core/src/tools.ts';
+import { describeError, secrets } from '../../core/src/untrusted.ts';
+import { isHttp } from '../../core/src/upstream.ts';
+import { ThreadSession } from '../../codex/src/threads.ts';
+import { THREAD_ID } from '../../codex/src/waker.ts';
+import { copilotHome, readCopilotServers, type Configured } from './copilot-config.ts';
+import { VERSION } from './version.ts';
+import { isThePersons, sendWake, type Sender } from './waker.ts';
+import { COPILOT, INSTRUCTIONS, TOOLS } from './words.ts';
+
+type Json = Record<string, unknown>;
+
+/** The part of `@microsoft/copilot-sdk/extension` this uses. */
+export type JoinedSession = Sender & {
+    sessionId: string;
+    on(type: string, handler: (event: { type: string; data?: Json; agentId?: unknown }) => void): () => void;
+    rpc?: { mcp?: { listConfigured?: () => Promise<{ servers: Configured[] }> } };
+};
+export type ToolResult = string | { textResultForLlm: string; resultType: 'success' | 'failure' };
+export type JoinSession = (config: {
+    tools?: { definitions: { name: string; description: string; parameters: Json; skipPermission?: boolean; handler: (args: Json) => Promise<ToolResult> }[] };
+    hooks?: { onSessionStart?: (input: Json) => Promise<{ additionalContext?: string } | void> };
+}) => Promise<JoinedSession>;
+
+export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = process.env): Promise<{ stop: () => Promise<void> }> {
+    configureHost(COPILOT);
+    const off = env.MCP_EVENTS_OFF === '1';
+    const base = env.MCP_EVENTS_STATE || join(copilotHome(env), 'mcp-events');
+    mkdirSync(base, { recursive: true, mode: 0o700 });
+
+    // The log is for the user: private to them, kept to a few megabytes, and with known secrets taken out.
+    // Never stdout: that is the extension's channel to Copilot.
+    const logFile = join(base, 'mcp-events.log');
+    try {
+        if (existsSync(logFile) && statSync(logFile).size > 2 * 1024 * 1024) renameSync(logFile, logFile + '.1');
+        if (!existsSync(logFile)) writeFileSync(logFile, '', { mode: 0o600 });
+        chmodSync(logFile, 0o600);
+    } catch {
+        // logging is best effort
+    }
+    let logged = 0;
+    const log = (s: string) => {
+        try {
+            if (++logged % 200 === 0 && statSync(logFile).size > 2 * 1024 * 1024) {
+                renameSync(logFile, logFile + '.1');
+                writeFileSync(logFile, '', { mode: 0o600 });
+            }
+            appendFileSync(logFile, `${new Date().toISOString()} [${process.pid}] ${oneLine(secrets.scrub(s), 600)}\n`);
+        } catch {
+            // state dir not ready
+        }
+    };
+    process.on('unhandledRejection', (e) => log(`unexpected failure (${describeError(e)})`));
+    log(`mcp-events ${VERSION} for Copilot started${off ? ' (MCP_EVENTS_OFF=1: doing nothing)' : ''}`);
+
+    // Stand-down (contract rule 4): Copilot gives an extension no way to see what its own MCP client
+    // declares, so native Events cannot be detected yet. MCP_EVENTS_OFF=1 joins with nothing.
+    if (off) {
+        await joinSession({});
+        return { stop: async () => {} };
+    }
+
+    let ready: () => void = () => {};
+    const joined = new Promise<void>((r) => (ready = r));
+    let s: ThreadSession | undefined;
+    let session: JoinedSession | undefined;
+    const names = new Set(TOOLS.map((t) => t.name));
+
+    const connections = new Map<string, EventsConnection>();
+    const unavailable: Unavailable[] = [];
+    const preStandard = preStandardPolicy(env.MCP_EVENTS_PRE_STANDARD);
+    const timeout = Number(env.MCP_EVENTS_CONNECT_TIMEOUT_MS ?? 10000);
+
+    // A server that turned out not to offer events is not connected to again in every session (for a
+    // local server that means starting it a second time): the answer is kept for a day, by how the
+    // server is reached. A server a saved watch of this session names is always asked.
+    const PROBE_TTL_MS = 24 * 60 * 60 * 1000;
+    const probeFile = join(base, 'servers-without-events.json');
+    const without: Record<string, number> = (() => {
+        try {
+            const j = JSON.parse(readFileSync(probeFile, 'utf8')) as unknown;
+            return typeof j === 'object' && j !== null && !Array.isArray(j) ? (j as Record<string, number>) : {};
+        } catch {
+            return {};
+        }
+    })();
+    const remember = (fingerprint: string, has: boolean) => {
+        if (has && !(fingerprint in without)) return;
+        if (has) delete without[fingerprint];
+        else without[fingerprint] = Date.now();
+        for (const [k, at] of Object.entries(without)) if (Date.now() - at >= PROBE_TTL_MS) delete without[k];
+        try {
+            writeFileSync(probeFile, JSON.stringify(without), { mode: 0o600 });
+        } catch {
+            // asked again next time
+        }
+    };
+    const savedWatches = (id: string): { server?: unknown }[] => {
+        try {
+            return (JSON.parse(readFileSync(join(base, 'threads', id, 'watches.json'), 'utf8')) as { watches?: { server?: unknown }[] }).watches ?? [];
+        } catch {
+            return [];
+        }
+    };
+
+    let discovery: Promise<void> | undefined;
+    /** Connects to each server Copilot uses once, and keeps those that offer events. */
+    const discover = (id: string): Promise<void> =>
+        (discovery ??= (async () => {
+            let configured: Configured[] | undefined;
+            try {
+                configured = (await session?.rpc?.mcp?.listConfigured?.())?.servers;
+            } catch (e) {
+                log(`Copilot did not list its MCP servers (${describeError(e)}); reading its files instead`);
+            }
+            const table = readCopilotServers(env, log, { cwd: process.cwd(), configured });
+            for (const [name, why] of Object.entries(table.skipped)) unavailable.push({ name, why });
+            secrets.add(env.MCP_EVENTS_RELAY_ACCESS_KEY, readRelaySettings(env)?.accessKey);
+            for (const cfg of Object.values(table.servers)) {
+                if (isHttp(cfg)) {
+                    secrets.add(...Object.values(cfg.headers ?? {}));
+                    try {
+                        const u = new URL(cfg.url);
+                        secrets.add(u.password, u.username, ...[...u.searchParams.values()]);
+                    } catch {
+                        // not an address: it will fail to connect
+                    }
+                } else secrets.add(...Object.values(cfg.env ?? {}));
+            }
+            const watched = new Set(savedWatches(id).map((w) => w.server).filter((n): n is string => typeof n === 'string'));
+            await Promise.all(
+                Object.entries(table.servers).map(async ([name, cfg]) => {
+                    const c = new EventsConnection(name, cfg, { preStandard: preStandard(name) });
+                    c.log = log;
+                    if (!watched.has(name) && typeof without[c.fingerprint] === 'number' && Date.now() - without[c.fingerprint]! < PROBE_TTL_MS) return;
+                    try {
+                        await c.connect(timeout);
+                    } catch {
+                        if (c.needsSignIn) unavailable.push({ name, why: c.error ?? 'needs sign-in' });
+                        log(`${name}: not connected: ${c.error}`);
+                        return;
+                    }
+                    if (!c.declaration) {
+                        const why = c.outsideTheSpec;
+                        if (why) {
+                            unavailable.push({ name, why });
+                            log(`${name}: ${why}`);
+                        } else remember(c.fingerprint, false);
+                        await c.close();
+                        return;
+                    }
+                    try {
+                        await c.list();
+                        remember(c.fingerprint, true);
+                        connections.set(name, c);
+                        log(`${name}: ${c.eventTypes.length} event type(s) (protocol revision ${c.revision}${c.declaration === 'pre-standard' ? '; it advertises events in the form from before the standard' : ''})`);
+                    } catch (e) {
+                        unavailable.push({ name, why: `events/list failed: ${describeError(e)}` });
+                        await c.close();
+                    }
+                })
+            );
+        })());
+
+    const sessionFor = (id: string): ThreadSession => {
+        if (!s) {
+            s = new ThreadSession(id, {
+                base,
+                connections,
+                unavailable: () => unavailable,
+                wake: async (_thread, text) => (session ? sendWake(session, text, Number(env.MCP_EVENTS_SEND_TIMEOUT_MS ?? 60000)) : { ok: false, why: 'not joined to the session yet' }),
+                log,
+                env,
+                connectTimeoutMs: timeout,
+                label: 'copilot session',
+                wakeName: 'session.send'
+            });
+            s.start();
+        }
+        return s;
+    };
+
+    const toResult = (a: { text: string; isError?: true }): ToolResult => (a.isError ? { textResultForLlm: a.text, resultType: 'failure' } : a.text);
+
+    session = await joinSession({
+        tools: {
+            definitions: TOOLS.map((t) => ({
+                name: t.name,
+                description: t.description,
+                parameters: t.parameters,
+                ...(t.reads ? { skipPermission: true } : {}),
+                handler: async (args: Json) => {
+                    await joined;
+                    const id = sessionId();
+                    if (!names.has(t.name) || !id) return toResult({ text: 'mcp-events could not tell which Copilot session this is.', isError: true });
+                    log(`${t.name} from session ${id.slice(0, 8)}`);
+                    // A tool called while the servers are still being looked at waits for them, within reason.
+                    await Promise.race([discover(id), new Promise((r) => setTimeout(r, timeout + 5000).unref())]);
+                    const ts = sessionFor(id);
+                    if (!ts.manager.owner) ts.start();
+                    return toResult(await ts.call(t.name, (args ?? {}) as Json));
+                }
+            }))
+        },
+        hooks: {
+            onSessionStart: async () => ({ additionalContext: INSTRUCTIONS })
+        }
+    });
+    const sessionId = () => {
+        const id = env.SESSION_ID || session?.sessionId;
+        return id && THREAD_ID.test(id) ? id.toLowerCase() : undefined;
+    };
+    ready();
+    log(`joined session ${sessionId()?.slice(0, 8) ?? '(no id)'}`);
+
+    // The person writing to the session: if waking had stopped at its hourly limit, it starts again.
+    session.on('user.message', (e) => {
+        if (isThePersons(e.data, e.agentId)) s?.spoke();
+    });
+
+    // A session resumed with saved watches picks them up at once, from their cursors.
+    const id = sessionId();
+    if (id && savedWatches(id).length) {
+        void discover(id).then(() => {
+            sessionFor(id);
+            log(`resumed this session's ${savedWatches(id).length} watch(es)`);
+        });
+    }
+
+    // Saved sessions that ended long ago have nobody left to read their events.
+    try {
+        const gone = pruneSessions(base, '');
+        if (gone) log(`removed the stored events of ${gone} session(s) not heard from in two weeks`);
+    } catch {
+        // best effort
+    }
+
+    // A second process with the same session open (the session resumed in a second terminal) leaves
+    // the watches to the first; if the first goes, this one takes them over.
+    const parent = Number(env.COPILOT_EXTENSION_PARENT_PID) || process.ppid;
+    const tick = setInterval(() => {
+        // Orphaned: the Copilot that started this is gone, and nobody will send SIGTERM.
+        if (!alive(parent)) return void stop().then(() => process.exit(0));
+        if (s && !s.manager.owner && s.start()) log(`[${s.id.slice(0, 8)}] the process that ran this session's watches has gone; this one runs them now`);
+    }, 5000);
+    tick.unref();
+
+    let stopping = false;
+    async function stop(): Promise<void> {
+        if (stopping) return;
+        stopping = true;
+        clearInterval(tick);
+        // Whatever happens below, this process ends within Copilot's grace period.
+        setTimeout(() => process.exit(0), 4000).unref();
+        await s?.stop().catch(() => {});
+        await Promise.all([...connections.values()].map((c) => c.close().catch(() => {})));
+        log('stopped');
+    }
+    return { stop };
+}
+
+function alive(pid: number): boolean {
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch (e) {
+        return (e as NodeJS.ErrnoException).code === 'EPERM';
+    }
+}

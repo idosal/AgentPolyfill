@@ -2,9 +2,11 @@
 
 The client side of MCP Events
 ([SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)),
-shared by both forms of the Events polyfill:
-[`../claude-code`](../claude-code) for Claude Code and
-[`../codex`](../codex) for Codex. It isn't installed by itself: each form
+shared by every form of the Events polyfill:
+[`../claude-code`](../claude-code) for Claude Code,
+[`../codex`](../codex) for Codex and [`../copilot`](../copilot) for GitHub
+Copilot CLI. (The Copilot form also runs the Codex form's session code,
+`../codex/src/threads.ts`.) It isn't installed by itself: each form
 bundles it into its own plugin folder.
 
 What is here:
@@ -30,4 +32,4 @@ The relay's wire format comes from the relay Worker itself, through
 ships it and deploys it from its own folder.
 
 The tests of every rule the SEP puts on a client run in each form, against
-this code. Run `npm ci` here, then `npm test` in either form's folder.
+this code. Run `npm ci` here, then `npm test` in any form's folder.

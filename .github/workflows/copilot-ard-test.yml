@@ -1,0 +1,90 @@
+# The ARD plugin for GitHub Copilot CLI (polyfills/ard/copilot, plugin ard-discovery): its
+# typecheck, a rebuild of the bundle that must equal the committed one, and its tests: a
+# byte-for-byte check of the bundle and a run of a copy of plugin/; the Claude Code forms' rule
+# tests, run against this bundle; and the Copilot adapter's. Then Copilot CLI itself installs the
+# plugin from this repository's marketplace into a throwaway COPILOT_HOME and lists its server.
+# The tests reach no network beyond 127.0.0.1 and run no real `copilot`.
+
+name: "ard-discovery (Copilot): tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/ard/copilot/**"
+      - "polyfills/ard/codex/src/ard.ts"
+      - "polyfills/ard/claude-code/mod/hooks/**"
+      - "polyfills/ard/claude-code/mod/tests/**"
+      - "polyfills/server-cards/copilot/**"
+      - "polyfills/server-cards/codex/src/**"
+      - "polyfills/server-cards/codex/build.mjs"
+      - "polyfills/server-cards/codex/test/harness.ts"
+      - "polyfills/server-cards/claude-code/mod/hooks/**"
+      - "polyfills/server-cards/claude-code/mod/tests/**"
+      - ".github/plugin/marketplace.json"
+      - ".github/workflows/copilot-ard-test.yml"
+  pull_request:
+    paths:
+      - "polyfills/ard/copilot/**"
+      - "polyfills/ard/codex/src/ard.ts"
+      - "polyfills/ard/claude-code/mod/hooks/**"
+      - "polyfills/ard/claude-code/mod/tests/**"
+      - "polyfills/server-cards/copilot/**"
+      - "polyfills/server-cards/codex/src/**"
+      - "polyfills/server-cards/codex/build.mjs"
+      - "polyfills/server-cards/codex/test/harness.ts"
+      - "polyfills/server-cards/claude-code/mod/hooks/**"
+      - "polyfills/server-cards/claude-code/mod/tests/**"
+      - ".github/plugin/marketplace.json"
+      - ".github/workflows/copilot-ard-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: copilot-ard-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COPILOT_VERSION: 1.0.115
+
+jobs:
+  test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: polyfills/ard/copilot
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Rebuild plugin/dist; it must equal the committed one
+        run: |
+          npm run build
+          if [ -n "$(git status --porcelain -- plugin/dist)" ]; then
+            git status --porcelain -- plugin/dist
+            echo "::error file=polyfills/ard/copilot/plugin/dist/server.mjs::plugin/dist is not what the sources build: run npm run build and commit it"
+            exit 1
+          fi
+      - name: The plugin's manifests and the Copilot marketplace are valid JSON
+        run: |
+          for f in plugin/plugin.json plugin/.mcp.json ../../../.github/plugin/marketplace.json; do
+            node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))" "$f" || { echo "::error file=$f::not valid JSON"; exit 1; }
+          done
+      - run: npm test
+      - name: Copilot CLI installs the plugin from this repository and lists its server
+        env:
+          HOME: ${{ runner.temp }}/home
+          COPILOT_HOME: ${{ runner.temp }}/home/.copilot
+          COPILOT_AUTO_UPDATE: "false"
+        run: |
+          npm install -g --no-audit --no-fund "@github/copilot@$COPILOT_VERSION"
+          mkdir -p "$COPILOT_HOME"
+          copilot plugin marketplace add "$GITHUB_WORKSPACE"
+          copilot plugin install ard-discovery@agent-polyfill
+          copilot mcp list | tee "$RUNNER_TEMP/mcp.txt"
+          grep -q 'ard-discovery' "$RUNNER_TEMP/mcp.txt"

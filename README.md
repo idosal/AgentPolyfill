@@ -1,8 +1,8 @@
 # AgentPolyfill
 
 Polyfills for agent protocols. Bring more of MCP to the clients you already
-use. Plugins add Apps, Skills, Events, Server Cards and ARD to Claude Code and
-Codex.
+use. Plugins add Apps, Skills, Events, Server Cards and ARD to Claude Code,
+Codex and GitHub Copilot CLI.
 
 > **An early proof of concept.** It works today, and it has real gaps. Events,
 > Skills and Apps can't reach servers behind OAuth yet, Apps doesn't run in
@@ -23,8 +23,8 @@ We want this to be an open community around open specs: anyone can use these
 extensions in the host they have, bring a polyfill to another host, or propose
 a new extension, without waiting on one company's roadmap.
 
-- **If you use Claude Code or Codex,** installing takes one line and trying it
-  takes one more. See below.
+- **If you use Claude Code, Codex or Copilot CLI,** installing takes one line
+  and trying it takes one more. See below.
 - **If you build,** the `create-polyfill` and `design-extension` skills and the
   [contract](docs/polyfill-contract.md) every polyfill here meets are your
   starting point. New polyfills, and existing ones brought to another host,
@@ -65,17 +65,31 @@ you choose):
 codex plugin add ard-discovery@agent-polyfill
 ```
 
+**GitHub Copilot CLI** (1.0.115 or newer). In a terminal:
+
+```
+copilot plugin marketplace add idosal/AgentPolyfill
+copilot plugin install mcp-events@agent-polyfill
+copilot plugin install mcp-server-cards@agent-polyfill
+copilot plugin install ard-discovery@agent-polyfill
+```
+
+Events is a Copilot extension, so it needs Copilot's experimental mode
+(`copilot --experimental`, or `/settings experimental on`). Server Cards and
+ARD need Node 20 or newer. Copilot has Skills over MCP and MCP Apps built in,
+so there is no Copilot form of those.
+
 There are [more ways to install](#more-ways-to-install) further down.
 
 ## Polyfills
 
-| Extension | Spec | Claude Code | Codex |
-|---|---|---|---|
-| Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code) | [`mcp-events`](polyfills/events/codex) |
-| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | [`mcp-skills`](polyfills/skills/claude-code) | [`mcp-skills`](polyfills/skills/codex) |
-| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) |
-| Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet |
-| ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) |
+| Extension | Spec | Claude Code | Codex | Copilot CLI |
+|---|---|---|---|---|
+| Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code) | [`mcp-events`](polyfills/events/codex) | [`mcp-events`](polyfills/events/copilot) |
+| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | [`mcp-skills`](polyfills/skills/claude-code) | [`mcp-skills`](polyfills/skills/codex) | built in |
+| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) | [`mcp-server-cards`](polyfills/server-cards/copilot) |
+| Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet | built in for graphical hosts (VS Code); none in the terminal |
+| ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) | [`ard-discovery`](polyfills/ard/copilot) |
 
 All of them are early. Here is what each one does, and where it stops:
 
@@ -84,7 +98,8 @@ All of them are early. Here is what each one does, and where it stops:
   Codex CLI session (the terminal app or `codex exec`): a chat in the ChatGPT
   desktop app keeps its events but can't be woken, so ask it for
   `recent_events`. A resumed Codex session starts watching at its first Events
-  tool call.
+  tool call. In Copilot it needs experimental mode, and VS Code's Copilot
+  harness runs a wake without showing it.
 - **Skills.** Skills an MCP server serves show up next to your own, load only
   after you say yes to each one, and are checked against the server's
   digests. In Codex they appear in Codex's own skill list after you ask once
@@ -100,11 +115,11 @@ All of them are early. Here is what each one does, and where it stops:
   and answers the mouse and keyboard: real pixels in iTerm2, kitty and
   Ghostty, text cells everywhere else.
 
-Events, Skills and Apps can't reach servers behind OAuth yet, in either host.
+Events, Skills and Apps can't reach servers behind OAuth yet, in any host.
 [Why, and what would fix it.](#how-it-works-in-each-host-and-where-it-stops)
 
 **Beyond MCP**, `ard-discovery` ([Claude Code](polyfills/ard/claude-code),
-[Codex](polyfills/ard/codex)) adds
+[Codex](polyfills/ard/codex), [Copilot](polyfills/ard/copilot)) adds
 [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91,
 a draft. It finds MCP servers through a domain's `ard.json`, or by searching
 an ARD registry you choose, and hands the cards to `mcp-server-cards`. A
@@ -117,7 +132,9 @@ official
 [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix)
 listed Tasks for Claude Code, and none of Events, Apps or Skills (Server Cards
 isn't in the matrix). Codex doesn't support Events for your own servers, or
-Skills (openai/codex#48000). Hosts add extensions all the time, so check the
+Skills (openai/codex#48000). Copilot CLI 1.0.115 declares Skills over MCP to
+every server, and VS Code's Copilot harness renders MCP Apps; neither does
+Events, Server Cards or ARD. Hosts add extensions all the time, so check the
 matrix for today's picture. The Skills SEP notes that Claude Code support has
 been prototyped at Anthropic.
 
@@ -208,11 +225,14 @@ when your host ships one of these extensions, turn that polyfill off. In Claude
 Code, disable its plugin (`/plugin disable mcp-events`), or use its own
 setting (`MCP_EVENTS_OFF=1`, `MCP_SKILLS_OFF=1`, or `disabled` in `/config`
 for Server Cards and ARD). In Codex, remove the plugin
-(`codex plugin remove mcp-events@agent-polyfill`). Each README says how.
+(`codex plugin remove mcp-events@agent-polyfill`). In Copilot, uninstall or
+disable it (`copilot plugin disable mcp-events@agent-polyfill`), or use its
+setting (`MCP_EVENTS_OFF=1`, `MCP_SERVER_CARDS_DISABLED=1`,
+`ARD_DISCOVERY_DISABLED=1`). Each README says how.
 
 ## How it works in each host, and where it stops
 
-Both hosts let outside code in, in different ways.
+Each host lets outside code in, in its own way.
 
 - **Claude Code** runs mods inside the host (on by default since 2.1.287). A
   mod can register tools, draw UI, start a turn in an idle session, and call a
@@ -221,9 +241,14 @@ Both hosts let outside code in, in different ways.
   server receives says which session it came from, `codex queue --resume`
   starts a turn in an idle session from outside, and Codex lists the skills a
   plugin's folder holds alongside its own.
+- **GitHub Copilot CLI** runs plugins with MCP servers, and, in experimental
+  mode, extensions: a process that joins the session, registers tools, starts
+  a turn with `session.send`, opens dialogs, and calls a server's tools or
+  reads its resources over Copilot's own connection. VS Code's Copilot harness
+  runs the same runtime and loads the same extensions.
 
 That's the host half of almost any extension. The protocol half is missing in
-both. Neither host lets a plugin send an extension's own methods, such as
+all of them. Neither host lets a plugin send an extension's own methods, such as
 `events/poll` or `skills/list`, over the host's connection, see everything a
 server advertised, or receive a server's notifications. So Events, Skills and
 Apps each open a second connection of their own, using the headers in your
@@ -234,15 +259,15 @@ Server Cards doesn't have this problem. A card is a public document, and the
 server it describes goes into the host's own config, so the host connects it
 with its own sign-in.
 
-Four small, generic changes would remove the limit, in both hosts. None of
+Four small, generic changes would remove the limit, in every host. None of
 them names an extension:
 
-| Change | Claude Code today | Codex today |
-|---|---|---|
-| Send any MCP method over the host's connection | missing | missing (its client can, internally) |
-| Read what the server advertised | missing | mostly there |
-| Deliver a server's notifications to the plugin | missing | only for OpenAI's hosted apps server |
-| Raw tool results; declare a client extension | missing | declaring only by Codex's own client |
+| Change | Claude Code today | Codex today | Copilot today |
+|---|---|---|---|
+| Send any MCP method over the host's connection | missing | missing (its client can, internally) | missing (tool calls and resource reads only) |
+| Read what the server advertised | missing | mostly there | missing (instructions only) |
+| Deliver a server's notifications to the plugin | missing | only for OpenAI's hosted apps server | `list_changed` only |
+| Raw tool results; declare a client extension | missing | declaring only by Codex's own client | raw tool results; declaring only by Copilot itself |
 
 The first two are enough for Events (by poll and webhook) and Skills to work
 with every server you've signed in to. What each change would look like, what
@@ -252,7 +277,8 @@ each extension needs, and the questions they raise about permissions are in
 ## Other hosts
 
 We haven't found a documented way for third-party code to send requests over
-the host's MCP connection in Cursor or VS Code, and ChatGPT runs no
+the host's MCP connection in Cursor or in VS Code's own chat (its Copilot
+harness runs Copilot CLI's runtime, above), and ChatGPT runs no
 third-party code on the client side. For those, the only polyfill would be a
 gateway: an MCP server that presents an extension as plain tools. That's a
 weaker form (for Events, the model would have to poll, and nothing would wake
@@ -366,11 +392,18 @@ installs one (`mcp-events`, `mcp-skills`, `mcp-server-cards` or
 `ard-discovery`), and `codex plugin remove <name>@agent-polyfill` removes it.
 Codex has no bundle.
 
+**GitHub Copilot CLI.** With the marketplace added (Copilot reads
+`.github/plugin/marketplace.json`), `copilot plugin install <name>@agent-polyfill`
+installs one (`mcp-events`, `mcp-server-cards` or `ard-discovery`), and
+`copilot plugin uninstall <name>@agent-polyfill` removes it. Copilot has no
+bundle.
+
 ## Safety
 
 These are third-party plugins, and they run with your permissions, like every
-Claude Code mod and Codex plugin. None of them reads the host's stored
-credentials: not Claude Code's, and not Codex's sign-ins or tokens. Each
+Claude Code mod, Codex plugin and Copilot plugin. None of them reads the
+host's stored credentials: not Claude Code's, not Codex's sign-ins or tokens,
+and not Copilot's. Each
 polyfill's `SECURITY.md` says what it checks and what it doesn't protect
 against. [`SECURITY.md`](SECURITY.md) says how to report a problem privately.
 
@@ -378,9 +411,10 @@ against. [`SECURITY.md`](SECURITY.md) says how to report a problem privately.
 
 - **`polyfills/<extension>/`**: one folder per extension, with a subfolder per
   host it runs in, and a `core/` next to them when the hosts share code.
-  [`events`](polyfills/events) and [`skills`](polyfills/skills) have a core,
-  a Claude Code mod and a Codex plugin; [`server-cards`](polyfills/server-cards)
-  and [`ard`](polyfills/ard) run in both hosts; [`apps`](polyfills/apps)
+  [`events`](polyfills/events) has a core, a Claude Code mod, a Codex plugin
+  and a Copilot plugin; [`skills`](polyfills/skills) a core, a Claude Code mod
+  and a Codex plugin; [`server-cards`](polyfills/server-cards) and
+  [`ard`](polyfills/ard) run in all three hosts; [`apps`](polyfills/apps)
   runs in Claude Code.
 - **Marketplaces**, one per host.
   [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) lists
@@ -388,7 +422,8 @@ against. [`SECURITY.md`](SECURITY.md) says how to report a problem privately.
   [`plugins/`](plugins): `agent-polyfill`, which installs every MCP polyfill,
   and `polyfill-author`, the skills for building one.
   [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) lists
-  the Codex plugins.
+  the Codex plugins, and [`.github/plugin/marketplace.json`](.github/plugin/marketplace.json)
+  the Copilot ones.
 - **[`servers/`](servers):** the demo servers hosted for trying a polyfill,
   such as [`event-feeds`](servers/event-feeds) for Events.
 - **[`community/`](community/):** the community directory.

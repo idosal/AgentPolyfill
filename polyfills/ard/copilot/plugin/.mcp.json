@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "ard-discovery": {
+      "type": "local",
+      "command": "node",
+      "args": ["${PLUGIN_ROOT}/dist/server.mjs"],
+      "tools": ["*"]
+    }
+  }
+}
