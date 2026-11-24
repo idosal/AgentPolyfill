@@ -1,5 +1,5 @@
 {
-  "//": "The home page's polyfill cards (polyfills: the MCP extensions; beyond: outside MCP) and audiences. Read by PolyfillCards.vue and scripts/agents.mjs; the audiences only by the latter (the Markdown copies for agents). Every line is taken from the repository's README and each polyfill's README, in the README's order: keep them in step when those change. The recordings are Claude Code sessions, and their alt text says so.",
+  "//": "The home page's polyfill cards (polyfills: the MCP extensions; beyond: outside MCP) and audiences. Read by PolyfillCards.vue and scripts/agents.mjs; the audiences only by the latter (the Markdown copies for agents). Every line is taken from the repository's README and each polyfill's README, in the README's order: keep them in step when those change. The recordings are real Claude Code and Codex sessions, and each alt text says which.",
   "polyfills": [
     {
       "name": "Events",
@@ -31,7 +31,7 @@
       "id": "io.modelcontextprotocol/skills",
       "line": "Skills an MCP server serves show up next to your own, load only after you say yes to each one, and are checked against the server's digests.",
       "cut": "skills",
-      "alt": "In Claude Code, /mcp-skills lists the skills Hugging Face's MCP server serves. Asked to use huggingface-local-models for a 16 GB Mac, Claude asks to load it and Claude Code asks once for approval; the skill and its files are read from the server, and Claude answers from it.",
+      "alt": "In Codex, in the ChatGPT desktop app, asked what skills the Hugging Face MCP server serves, Codex lists its 25 skills, all visible in Codex. Asked which GGUF quantization to use for a 7B model on a 16 GB Mac, Codex asks in its own form whether to load the skill huggingface-local-models from that server, saying its 4 files are each checked against the server's SHA-256 digest when read, with Do not load it, Show me its SKILL.md first, and Load it. After Load it, Codex answers from the skill: Q4_K_M.",
       "addStep": "Try it with Hugging Face's public MCP server (no sign-in):",
       "add": "claude mcp add --transport http huggingface https://huggingface.co/mcp",
       "addCodex": "codex mcp add huggingface --url https://huggingface.co/mcp",
@@ -50,7 +50,7 @@
       "id": "",
       "line": "Name a company and the agent finds the MCP servers its domain publishes, and adds the one you pick. Servers behind OAuth work.",
       "cut": "server-cards",
-      "alt": "In Claude Code, the question What MCP servers does neon.com publish? lists Neon and Neon Docs from neon.com's own catalog, each with an Add button. Add is pressed on Neon Docs, which is marked added, with a note to run /mcp to connect or sign in.",
+      "alt": "In Claude Code, What MCP servers does neon.com publish? lists Neon and Neon Docs from neon.com's own catalog, each with an Add button, and Add on Neon Docs marks it added, with a note to run /mcp to connect or sign in. Then the same in Codex, in the ChatGPT desktop app: Codex lists the two servers, and asked to add Neon Docs, shows its own form naming the host, the URL, the headers (none) and the Server Card it came from, with Don't add it and Add it. After Add it, neon-docs is in Codex's config; codex mcp remove neon-docs undoes it.",
       "add": "",
       "ask": "What MCP servers does neon.com publish?",
       "then": "Then add Neon Docs (no sign-in): press Add in Claude Code, or choose \"Add it\" in Codex's form.",

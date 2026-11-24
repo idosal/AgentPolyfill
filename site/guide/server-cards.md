@@ -28,8 +28,8 @@ Claude Code nor Codex supports by itself yet:
 
 <Recording
   cut="server-cards"
-  alt="In Claude Code, the question What MCP servers does neon.com publish? lists Neon and Neon Docs from neon.com's own catalog, each with an Add button. Add is pressed on Neon Docs, which is marked added, with a note to run /mcp to connect or sign in."
-  caption="A real session (16 s): neon.com's two servers, found from its domain. Add on Neon Docs writes it to Claude Code's config; connecting is left to /mcp."
+  alt="In Claude Code, What MCP servers does neon.com publish? lists Neon and Neon Docs from neon.com's own catalog, each with an Add button, and Add on Neon Docs marks it added, with a note to run /mcp to connect or sign in. Then the same in Codex, in the ChatGPT desktop app: Codex lists the two servers, and asked to add Neon Docs, shows its own form naming the host, the URL, the headers (none) and the Server Card it came from, with Don't add it and Add it. After Add it, neon-docs is in Codex's config; codex mcp remove neon-docs undoes it."
+  caption="Real sessions (27 s; waits sped up, with a badge saying how fast): neon.com's two servers, found from its domain, in Claude Code and then in Codex. Adding one writes it to the host's own config, and the host connects it."
 />
 
 ## Install
