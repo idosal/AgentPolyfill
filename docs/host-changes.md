@@ -193,11 +193,20 @@ the live server.
   `PreToolUse` hook to the call through a one-use ticket. A `_meta` field on
   each `tools/call`, as Codex sends `threadId`, would make that unnecessary.
 - **Support MCP elicitation,** so a server can ask you something in the
-  host's own form. Today a polyfill asks through a `PreToolUse` hook that
+  host's own form. Antigravity's MCP client declares it (`form` and `url`)
+  but answers every request with `cancel` without showing anything, in the
+  App and the CLI (seen live, App v2.35.1, CLI v1.5.16). Today a polyfill asks
+  through a `PreToolUse` hook that
   answers `force_ask`: a yes or no, with no other choices. A hook sees a
   lazily loaded MCP tool (the default) as Antigravity's own `call_mcp_tool`,
   so every plugin that gates its tools runs its hook for every MCP call of
   every server; a matcher on the server's name would avoid that.
+- **Pass a hook's `reason` to editors.** The App's approval card shows a
+  `force_ask` hook's question; `agy acp` sends an editor only the tool's
+  name and arguments.
+- **Run plugin hooks in the IDE.** Its hooks page lists workspace and global
+  hooks only; the polyfills' approvals and Events delivery rest on a
+  plugin's hooks.
 - **Let something other than a sidecar send a message to a conversation.**
   `agentapi send-message` is on a sidecar's `PATH`, in the App only, and
   sidecars are off until you turn each one on. The Conversation Management

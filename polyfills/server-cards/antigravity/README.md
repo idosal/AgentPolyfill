@@ -141,8 +141,15 @@ Antigravity column.
   for its declared `variables`). The plugin would have to write the key, and
   it never does. You add such a server by hand. Fix: `${VAR}` in the
   personal file.
-- **The approval is yes or no.** `force_ask` has no other choices. MCP
-  elicitation in Antigravity would give the same form the Codex form shows.
+- **The approval is yes or no.** `force_ask` has no other choices. Antigravity's
+  MCP client declares elicitation, but cancels every request without showing
+  it (seen live, App and CLI); a working form would give the choices the
+  Codex form shows.
+- **An editor shows less.** Through `agy acp` (Zed, JetBrains and others),
+  Antigravity sends the editor the tool's name and arguments, not the hook's
+  question: the person sees the server's card identifier and URL, but not the
+  headers, the file or the undo. Fix: pass the hook's `reason` in ACP's
+  permission request.
 - **The approval depends on the hook seeing the call.** Antigravity calls a
   lazily loaded MCP tool (its default) through its own `call_mcp_tool`, with
   the server in `ServerName`, and an eager one as `mcp_<server>_<tool>`
@@ -182,12 +189,21 @@ same gate ([its record](../../events/antigravity/docs/live-run.md)):
 Also: `agy plugin validate --strict` passes, and `agy mcp add` writes the same
 entry shape as the plugin (`serverUrl`, `headers`).
 
-Not checked yet:
+Checked live later the same night ([record](../../events/antigravity/docs/live-run.md#second-pass-later-the-same-night)):
 
-1. that `force_ask` shows the hook's `reason` in the approval card, and that
-   declining it means the tool isn't called;
-2. an addition end to end, and that the written entry connects, with and
-   without a sign-in.
+- In the **App**, the approval card shows the hook's whole question above the
+  tool name, joined into one paragraph (which is why it starts with the
+  host), and greys out the "always allow" choices.
+- In the **CLI** through an editor (`agy acp`), the permission request carries
+  only the tool's name and arguments (server, card identifier, URL), not the
+  question. In headless `agy -p`, nobody can answer, so the call is denied.
+- An approved addition wrote `"neon-docs": {"serverUrl": "https://neon.com/docs/mcp"}`,
+  and the App connected it. A declined one, in the App and over ACP, wrote
+  nothing.
+
+Not checked yet: a server behind a sign-in (Authenticate) after an addition,
+and the IDE (its hooks page lists no plugin hooks; without them the gate
+refuses every addition).
 
 ## Security
 

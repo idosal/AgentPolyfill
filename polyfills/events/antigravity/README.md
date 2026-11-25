@@ -225,7 +225,8 @@ native Events and this plugin together can produce duplicate subscriptions.
 | Limit | Antigravity change needed |
 |---|---|
 | Every tool needs a hook ticket, carried in from the `PreToolUse` hook through `overwrite` (checked live). A missing hook makes the call fail closed. Each lazily loaded MCP call in Antigravity (`call_mcp_tool`, any server's) starts the hook once. | A conversation UUID visible to MCP servers on each call. |
-| Idle wakes work only through an enabled App sidecar. | A documented send-message API available outside sidecars. |
+| Idle wakes work only through an enabled App sidecar, and reach only the App's conversations. | A documented send-message API available outside sidecars. |
+| The IDE's hooks page lists no plugin-level hooks; if the IDE doesn't run a plugin's hooks, every Events call there is refused (no ticket) and nothing is injected. Not checked live. | Plugin hooks in the IDE. |
 | CLI and IDE wait for the next model call. | Sidecar support in the CLI and IDE, or an equivalent managed background worker. |
 | This is a second MCP client; a local server may run twice. Native sign-in is unavailable. | Forward MCP notifications to plugins and allow custom requests over the host's own approved connection. |
 | It cannot inspect the result of another tool to discover an event handle or correlate its output. | Tool output in `PostToolUse`. |
@@ -301,10 +302,22 @@ Checked on 25 November 2026 ([docs/live-run.md](docs/live-run.md)):
    note asked.
 5. Hooks also get the conversation id as `ANTIGRAVITY_CONVERSATION_ID` in
    their environment.
+6. **Only the App's conversations can be woken.** A CLI conversation was at
+   first told idle wakes were available, because the App's sidecar was
+   running. The hook now records where a conversation lives, and a CLI or IDE
+   conversation is told it can't be woken and is never sent a wake.
+7. **Stand-down, isolation, restarts.** `MCP_EVENTS_OFF=1` left no tools and
+   no injections. A second conversation saw none of the first's events.
+   After an App restart an old watch stays dormant until that conversation
+   calls the plugin again; then the events missed in between arrive at its
+   next turn, from the server's cursor.
+8. Antigravity's MCP client declares elicitation but answers every request
+   with `cancel`, so the hook is the only way to reach the person.
 
-Not checked yet: the IDE, a webhook watch, the wake while a turn is running or
-across an App restart, stand-down, and a second conversation's isolation in a
-real host (the tests cover it with stand-ins).
+Not checked yet: the IDE, a webhook watch (the demo server refused a plain
+`http` local callback; it needs an https address), and how the App shows a
+wake that arrives mid-turn (the send itself succeeded). Details:
+[docs/live-run.md](docs/live-run.md#second-pass-later-the-same-night).
 
 ## Development
 

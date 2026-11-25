@@ -264,9 +264,17 @@ CONFORMANCE_DIR=/path/to/modelcontextprotocol/conformance bash test/conformance.
 
 On App, CLI and IDE, with a throwaway HOME and a known fixture, confirm:
 
-- Done (through the Events plugin, 25 November 2026): the tool name a
-  `PreToolUse` hook sees (`call_mcp_tool` for a lazy tool), and `overwrite`
-  reaching the server.
+- Done (25 November 2026, [record](../../events/antigravity/docs/live-run.md#second-pass-later-the-same-night)):
+  the tool name a hook sees (`call_mcp_tool` for a lazy tool) and `overwrite`
+  reaching the server; `list_skills` wrote 25 placeholder folders for
+  Hugging Face's skills, and a fresh conversation found the right one by
+  itself; the App's approval card showed the question ("Load the skill
+  "hf-cli" from the MCP server "huggingface"? ... This is a new skill
+  approval ..."), an approved load returned verified `SKILL.md` and reference
+  files, and the same unchanged skill then loaded with no question; a load
+  nobody could answer (headless `agy -p`) was denied and the plugin's server
+  never saw it. Over `agy acp`, an editor sees the tool name and arguments,
+  not the question.
 - `force_ask` displays the `reason`, including origin, URI and new/changed
   wording, and declining does not invoke the MCP tool.
 - `overwrite.agentpolyfill_ticket` reaches the server unchanged; approving

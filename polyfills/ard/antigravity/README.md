@@ -10,9 +10,12 @@ Also available for [Claude Code](../claude-code/README.md) and
 [`mcp-server-cards` for Antigravity](../../server-cards/antigravity/README.md),
 and this plugin checks, shows and adds what it finds with the same code.
 
-**Not run live as a whole yet.** Its approval gate, shared with the other
-Antigravity forms, was checked live through the Events plugin on 25 November
-2026. It is built from
+**Checked live on 25 November 2026:** `ard_discover` for buildkite.com read its
+`ard.json`, and an `ard_search` against the local demo registry, through an
+editor connected to `agy acp`, was put to the person with the exact query and
+registry and sent only after the approval
+([record](../../events/antigravity/docs/live-run.md#second-pass-later-the-same-night)).
+In the App the approval card shows the hook's whole question. It is built from
 Antigravity's documentation (App v2.35.1, CLI v1.5.16, read on 25 November
 2026) and tested against stand-ins. What a live run has to confirm is in
 [`mcp-server-cards`' list](../../server-cards/antigravity/README.md#before-you-rely-on-it),
