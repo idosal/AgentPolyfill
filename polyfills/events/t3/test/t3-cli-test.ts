@@ -19,8 +19,14 @@ const env = { PATH: process.env.PATH, HOME: join(home, 'home'), T3CODE_HOME: joi
 mkdirSync(env.HOME, { recursive: true });
 let server: ChildProcess | undefined;
 after(async () => {
-    server?.kill('SIGTERM');
-    await new Promise((r) => setTimeout(r, 1000));
+    // T3 Code writes into its home until it has exited.
+    if (server && server.exitCode === null && server.signalCode === null) {
+        const exited = new Promise((r) => server!.once('exit', r));
+        server.kill('SIGTERM');
+        const timer = setTimeout(() => server!.kill('SIGKILL'), 10000);
+        await exited;
+        clearTimeout(timer);
+    }
     cleanup();
 });
 

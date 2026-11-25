@@ -64,8 +64,11 @@ instructions to the model, are what tell it apart from what you typed.
   - **How it knows you wrote.** From the turn metadata Codex 0.172 sends with
     each call (`x-codex-turn-metadata.turn_trigger`). It never reads what you
     wrote.
-  - Only `user` (typed in Codex), `exec` (`codex exec`) and `realtime` or
-    `voice` (voice) count.
+  - Only these count: `user` (typed in the TUI), `composer` (sent in the
+    ChatGPT desktop app), `exec` (`codex exec`) and `realtime` (voice). Each is
+    where Codex 0.172's source sets it, except `composer`. That one is the
+    desktop app's default, read from the installed app and its sessions'
+    records, not run.
   - These don't count: a turn the queue started (this plugin's own wake among
     them), a hook, an automation, a trigger it doesn't know, and a call with no
     turn metadata (a Codex before 0.172).
@@ -133,6 +136,27 @@ instructions to the model, are what tell it apart from what you typed.
 - **It listens on nothing**, unless a webhook watch uses
   `MCP_EVENTS_PUBLIC_URL`. That opens a local receiver on 127.0.0.1 for your
   own forwarder. It downloads nothing.
+- **A wake runs only where Codex's own app shows it.** `codex queue` runs the
+  wake in whichever app server has the session open. An app that runs Codex
+  through an app server of its own, as T3 Code does, may not show that turn.
+  In a session with full access, actions could then run that nobody sees in
+  the app.
+  - So the plugin wakes a session only while the latest of the session's turns
+    that called its tools was one you started in Codex's own app. It tells
+    from that turn's `turn_trigger`, the same allowlist as above.
+  - Any other call stops the wakes, so a trigger the plugin doesn't know
+    fails closed. That covers a turn that names no trigger, as from another
+    app's app server (T3 Code sets none) or a Codex before 0.172. It also
+    covers a goal, an automation, a review, or an app's own name for its
+    turns. Only a turn the queue started, which Codex marks `queue` in any app
+    server, changes nothing.
+  - The latest call's answer is kept in `threads/<session id>/shown-by.json`
+    (readable only by you), so it holds for a helper that starts later and
+    for the window that runs the watches.
+  - In T3 Code, [mcp-events for T3 Code](../t3/SECURITY.md) wakes a thread
+    through T3 Code itself instead.
+  - Events are still stored, nothing is handed over and no wake is counted,
+    and `list_watches` and `watch_event` say why.
 - **A chat it can't reach isn't tried again.** In the ChatGPT desktop app, a
   watch records events but can't wake the chat: its threads aren't local
   Codex sessions that `codex queue` can reach. Ask for recent events. Waking
@@ -146,8 +170,8 @@ instructions to the model, are what tell it apart from what you typed.
 Everything is in `$CODEX_HOME/mcp-events/` (or `MCP_EVENTS_STATE`), readable
 only by you:
 
-- each session's watches, with their cursors and webhook secrets
-  (`threads/<session id>/`);
+- each session's watches, with their cursors and webhook secrets, and
+  whether its latest call came from Codex's own app (`threads/<session id>/`);
 - each session's events (`sessions/<session id>/`), removed two weeks after
   the last one;
 - the servers found to have no events, for a day;
@@ -157,6 +181,10 @@ only by you:
 
 - **A server you configured that sends misleading events.** They are its
   data, and Codex may act on them within your approval policy.
+- **An app that marks its turns as Codex's own do.** `turnTrigger` is set by
+  the app that starts the turn. An app that runs Codex itself and sets it to
+  `user` is taken for the TUI, and a wake there runs as `codex queue` makes it
+  run, shown or not.
 - **Someone who can read your files.** The state folder holds webhook secrets
   and payloads, as your Codex home holds your sessions.
 - **A relay operator reading webhook payloads.** Webhooks are signed, not
