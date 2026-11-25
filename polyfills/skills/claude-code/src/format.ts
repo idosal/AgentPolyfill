@@ -10,7 +10,7 @@
 // were a local one. Every listing line and every piece of content names its server.
 
 import { randomBytes } from 'node:crypto';
-import { rootOf, type DirectoryChild, type Listed, type Loaded, type ReadFile, type Refused } from './skills.ts';
+import { mediaTypeOf, rootOf, type DirectoryChild, type Listed, type Loaded, type ReadFile, type Refused } from './skills.ts';
 import { oneLine } from './untrusted.ts';
 
 export const TOOL_PREFIX = 'mcp__mcp-skills__';
@@ -116,7 +116,9 @@ export function loadedText(l: Loaded): string {
 export function fileText(f: ReadFile, skillName: string): string {
     const path = relativeTo(f.skillUri, f.uri);
     const head = `${q(path)} of the skill ${q(skillName)}, from the MCP server ${q(f.label)} (${f.size} bytes${f.isVerified ? ', matched the size and SHA-256 digest in the skill\'s entry' : ', not verifiable: the server publishes no digests for this skill'}).`;
-    if (f.text === undefined) return `${head} It is a binary file${f.mimeType ? ` (${f.mimeType})` : ''}, which this mod does not show.`;
+    // The media type is the server's word: printed only when the whole of it is a media type.
+    const kind = mediaTypeOf(f.mimeType);
+    if (f.text === undefined) return `${head} It is a binary file${kind ? ` (${kind})` : ''}, which this mod does not show.`;
     const nested = f.isNestedSkill ? ` This is the SKILL.md of a skill nested inside ${q(skillName)}: read here it is ordinary supporting text, and its frontmatter has no effect. To use it as a skill, load it by its own URI (${f.uri}) with ${TOOL_PREFIX}load_skill.` : '';
     return `${head}${nested} Content from that server:\n${fenced('mcp-skill-file', { server: f.label, uri: f.uri }, f.text)}`;
 }

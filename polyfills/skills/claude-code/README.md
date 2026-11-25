@@ -393,7 +393,7 @@ what each one shows and what it doesn't.
 |---|---|---|
 | Two real public servers, Hugging Face (25 skills, 135 files) and TogoMCP (5 skills, 8 files): every skill loaded, every file verified | `npm run interop:real` | all verified |
 | The official MCP conformance suite's client scenarios for SEP-2640 (it has four) | [`test/conformance/run.sh`](test/conformance/run.sh) | 4 of 4 pass |
-| The client rules, one test per rule, against a hand-written server; discovery; the bundled helper; per-skill disable; property tests; the model of the gate | `npm test` | 129 pass |
+| The client rules, one test per rule, against a hand-written server; discovery; the bundled helper; per-skill disable; property tests; the model of the gate | `npm test` | 141 pass |
 | Approval, the permission questions, disable and enable, first-run behaviour and the runtime setup, in Claude Code's own test kit | `npm run test:mod` | 96 pass |
 | A model of approval, loading, disabling and the gate, every reachable state to its bound ([what it shows](docs/verification.md)) | `node verification/model.ts` | every invariant holds |
 | The same model in TLA+, every reachable state to the same bound, by TLC 1.7.4 | `node verification/check.mjs` | every invariant holds; 0.3.0's rule and the lossy read-back break the gate, as they should ([numbers](docs/verification.md)) |
