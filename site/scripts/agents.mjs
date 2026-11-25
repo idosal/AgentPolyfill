@@ -53,7 +53,7 @@ const HOSTS = [
   { name: 'OpenCode', command: 'opencode', addKey: 'addOpenCode', config: 'opencode.json', form: 'V2 server plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
   { name: 'Muse Code', command: 'muse', addKey: 'addMuse', form: 'Plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
 ]
-// Pi's source installs and examples, for the Markdown served to agents.
+// Pi's installs and examples, for the Markdown served to agents.
 const PI_FORMS = {
   'mcp-events': {
     path: 'polyfills/events/pi/extension',
@@ -69,15 +69,20 @@ const PI_FORMS = {
   },
   'ard-discovery': {
     path: 'polyfills/ard/pi/extension',
-    add: 'pi install ./polyfills/ard/pi/extension',
+    add: 'git clone https://github.com/idosal/AgentPolyfill.git\ncd AgentPolyfill\npi install ./polyfills/ard/pi/extension',
   },
 }
-const INSTALL_PI = [
-  'git clone https://github.com/idosal/AgentPolyfill.git',
-  'cd AgentPolyfill',
-  ...Object.values(PI_FORMS).map(({ path }) => `pi install ./${path}`),
-]
-const PI_INSTALL_NOTES = 'Nothing for Pi is published to npm or Pi\'s package gallery. There is no bundle: install each extension separately. Pi cannot install one folder of a git repository, so use a local clone. Each extension is bundled, with nothing to build. Pi loads each path where it is; keep the clone and run `git pull` there to update it. For one run without installing, use `pi -e ./polyfills/<polyfill>/pi/extension`. Remove it from the same folder with `pi remove ./polyfills/<polyfill>/pi/extension` (`<polyfill>` is `events`, `skills`, `server-cards` or `ard`). Data stays in `mcp-events/` and `mcp-skills/` in Pi\'s agent folder (`~/.pi/agent`, or `PI_CODING_AGENT_DIR`); delete those to remove it. Added servers stay in `mcp.json`; undo with `pi mcp remove <name>`.'
+const INSTALL_PI = ['pi install git:github.com/idosal/AgentPolyfill']
+const PI_INSTALL_NOTES = [
+  'The command installs Events, Skills and Server Cards together. Pi clones the repository into its agent folder (under `~/.pi/agent/git/`) and loads the three extensions from there. Nothing is published to npm or Pi\'s package gallery, and nothing is built.',
+  'Update installed packages with `pi update --extensions`. Remove all three and Pi\'s copy of the repository with `pi remove git:github.com/idosal/AgentPolyfill`. For one run of all three without installing, use `pi -e git:github.com/idosal/AgentPolyfill`.',
+  'ARD is left out for the same reason it isn\'t in the Claude Code bundle: its search sends the words of your request to a registry after asking each time. Install it on its own from a clone.',
+  'The clone path also works for any one form alone. Replace `<form>` with `events`, `skills`, `server-cards` or `ard`:',
+  '```bash\ngit clone https://github.com/idosal/AgentPolyfill.git\ncd AgentPolyfill\npi install ./polyfills/<form>/pi/extension\n```',
+  'Pi loads a local path where it is, so keep the clone. From the same folder, use `pi -e ./polyfills/<form>/pi/extension` for one run without installing, or `pi remove ./polyfills/<form>/pi/extension` to remove a local install.',
+  'Use one way per form, not both: Pi tells packages apart by repository address or local path, so a form installed both ways loads twice.',
+  'Data stays in `mcp-events/` and `mcp-skills/` in Pi\'s agent folder (`~/.pi/agent`, or `PI_CODING_AGENT_DIR`); delete those to remove it. Added servers stay in `mcp.json`; undo with `pi mcp remove <name>`.',
+].join('\n\n')
 const PI_APPS_LIMIT = 'Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`, so an extension cannot get an App\'s UI through Pi. Its terminal could draw one in principle, but no Pi Apps form is built or tested.'
 // Muse Code's installs and examples, for the Markdown served to agents. Muse
 // installs the Codex plugins from this repository's marketplace.
@@ -124,6 +129,10 @@ const OPENCODE_INSTALL_NOTES = 'Nothing for OpenCode is published to npm. There 
 const OPENCODE_APPS_LIMIT = 'Apps has no OpenCode form. OpenCode has no MCP Apps support: a plugin cannot read a `ui://` resource or a tool\'s `_meta` over OpenCode\'s connection, and there is no place to draw in the conversation. The desktop app\'s experimental panels can embed a web view, but an OpenCode Apps form was only assessed, not built.'
 // Each host's own installs and examples, where they differ from home.json's.
 const FORMS = { Pi: PI_FORMS, OpenCode: OPENCODE_FORMS, 'Muse Code': MUSE_FORMS }
+
+// T3 Code is not a host forms load into: it runs Codex, Claude Code and other agents for you.
+const T3_ADD = 'codex mcp add mcp-events-t3 -- node "$PWD/AgentPolyfill/polyfills/events/t3/plugin/dist/server.js"'
+const T3_NOTE = 'T3 Code (0.1.11, the version tested) is an app that runs the Codex, Claude Code, OpenCode and other agents on your machine from one interface; it has no plugin layer or MCP client of its own, so install the plugins above for the agent you use in it. What follows was checked with Codex as the agent. Apps: T3 Code shows MCP Apps itself, so the Apps polyfill should not be used there. Skills, Server Cards and ARD: their tools work, but with Codex the one question each asks before its consequential step (an MCP elicitation form: "Load it", "Add it", "Send the search") is cancelled by T3 Code without being shown, because it shows only forms it can answer with Approve or Decline; the step is refused as if you had said no, and nothing is approved for you (tried live with Skills; Server Cards and ARD were not run in T3 Code). Events: use the T3 form, mcp-events-t3, for Codex threads only, added to Codex from a clone (`' + T3_ADD + '`), then Restart agent session in T3 Code; T3 Code tells it which thread it serves, its watcher outlives the agent\'s sessions and T3 Code itself, and an event wakes the thread through T3 Code\'s own `t3 thread send`. The Codex Events plugin should not be used in T3 Code: its wake runs a turn the thread does not show. Claude Code threads cannot use the T3 form, since T3 Code does not tell Claude Code\'s servers which thread they serve. Not run live in T3 Code: anything with Claude Code or OpenCode as the agent, the watch_event approval prompt in a thread whose mode asks, Server Cards and ARD. Remove the T3 form with `codex mcp remove mcp-events-t3` and `node <clone>/polyfills/events/t3/plugin/dist/server.js --stop`; its data stays in `~/.codex/mcp-events-t3`. Details: https://github.com/idosal/AgentPolyfill/blob/main/docs/t3-code.md'
 
 function hostTable() {
   return ['| Host | Form | Polyfills |', '|---|---|---|', ...HOSTS.map(({ name, form, polyfills }) => `| ${name} | ${form} | ${polyfills} |`)].join('\n')
@@ -361,7 +370,7 @@ ${INSTALL_CODEX.join('\n')}
 
 Apps isn't in Codex yet, and Codex has no bundle.
 
-**Pi** (1.6.0, the version tested; Node 22 or newer). From a clone:
+**Pi** (1.6.0, the version tested; Node 22 or newer). In a terminal:
 
 \`\`\`bash
 ${INSTALL_PI.join('\n')}
@@ -381,6 +390,8 @@ ${OPENCODE_INSTALL_NOTES}
 
 ${OPENCODE_APPS_LIMIT}
 
+**T3 Code.** ${T3_NOTE}
+
 **Muse Code** (Meta's terminal coding agent; 1.4.25, the version tested, on macOS; Node 20 or newer). Muse installs the Codex plugins from this repository's marketplace. In a terminal:
 
 \`\`\`bash
@@ -395,7 +406,7 @@ Beyond MCP, ARD is a draft. Every search asks you first and goes to a registry y
 
 - **Claude Code:** \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`; it isn't in the bundle.
 - **Codex:** \`codex plugin add ard-discovery@agent-polyfill\`.
-- **Pi:** \`pi install ./polyfills/ard/pi/extension\` from the clone (included in the commands above).
+- **Pi:** \`pi install ./polyfills/ard/pi/extension\` from a clone; it is left out of the one-line install.
 - **OpenCode:** \`${OPENCODE_FORMS['ard-discovery'].add}\` (included in the commands above).
 - **Muse Code:** \`muse plugins install ard-discovery@agent-polyfill\`, then \`muse plugins approve ard-discovery\` (included in the commands above). In Muse it has no registry search, because a search must ask you first.
 
@@ -461,8 +472,9 @@ Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A
 
 - **Claude Code 2.1.329 or newer:** every MCP polyfill, the \`agent-polyfill\` bundle, from a terminal: \`${INSTALL_CLI}\`. At the prompt of a \`claude\` session it is \`${INSTALL}\`. Start a new session for the plugins to load. ARD is separate: \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`.
 - **Codex 0.170 or newer (Node 20 or newer):** from a terminal: \`${INSTALL_CODEX.join(' && ')}\`. ARD is separate: \`codex plugin add ard-discovery@agent-polyfill\`. There is no bundle.
-- **Pi 1.6.0 (the version tested; Node 22 or newer):** use the clone commands below.
+- **Pi 1.6.0 (the version tested; Node 22 or newer):** one line installs Events, Skills and Server Cards together; the commands are below.
 - **OpenCode 2.4 or newer (tested with 2.4.1; Git; no Node):** one \`opencode plugin add\` per polyfill, from GitHub, after Pi's below.
+- **T3 Code:** not a host of its own here; see the T3 Code paragraph below.
 - **Muse Code 1.4.25 (the version tested, on macOS; Node 20 or newer):** use the Muse commands below.
 
 Pi:
@@ -512,6 +524,8 @@ OpenCode's shipped permission rules allow every action. Each polyfill puts its o
 | ARD | \`ARD_DISCOVERY_DISABLED=1\` | \`ARD_DISCOVERY_ASK_BY_DEFAULT=0\` |
 
 Each also takes the plugin options \`{"off": true}\` and \`{"askByDefault": false}\`, in the object form of its entry in \`plugins\`.
+
+${T3_NOTE}
 
 In Muse Code, the plugins are the Codex plugins, run with \`--host=muse\`. Muse gives a plugin no way to put a question to the person: its MCP client offers no elicitation, and a tool call that isn't read-only, or a hook's \`ask\`, goes to Muse's approval judge, a model that may approve with nobody asked. So starting or stopping a watch (Events) and loading a skill (Skills) wait for you to type the phrase the answer gives, which names what it approves, such as \`watch tickets ticket.created 4821\` or \`load github git-workflow 4821\`. Only a message of yours that is exactly that phrase approves it; it is good for that one question, in that session, for 15 minutes. Server Cards and ARD write nothing: they give you the \`muse mcp add …\` command, which you run yourself, in a terminal or after \`!\` at the Muse prompt. Skills doesn't offer "show me its SKILL.md first".
 

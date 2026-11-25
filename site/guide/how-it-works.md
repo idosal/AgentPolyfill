@@ -33,8 +33,11 @@ host ships one of these extensions, turn that polyfill off:
   `/config` for Server Cards and ARD).
 - **Codex:** remove the plugin
   (`codex plugin remove mcp-events@agent-polyfill`).
-- **Pi:** remove the extension (`pi remove ./polyfills/events/pi/extension`
-  from your clone), or use its own setting (`MCP_EVENTS_OFF=1`,
+- **Pi:** `pi remove git:github.com/idosal/AgentPolyfill` removes Events,
+  Skills and Server Cards together and Pi's copy of the repository. For a
+  local install, use `pi remove ./polyfills/<form>/pi/extension` from the
+  same clone (`events`, `skills`, `server-cards` or `ard`). To turn off one
+  form, use its own setting (`MCP_EVENTS_OFF=1`,
   `MCP_SKILLS_OFF=1`, `MCP_SERVER_CARDS_DISABLED=1`, `ARD_DISCOVERY_DISABLED=1`).
 - **OpenCode:** remove the plugin (`opencode plugin remove` with the text you
   added it with), or use its own setting (`MCP_EVENTS_OFF=1`,
@@ -122,31 +125,36 @@ TypeScript that Pi loads into its own process, and Pi's MCP support is itself
 a built-in extension, which keeps its connections to itself. In OpenCode, a
 plugin's server part runs inside the OpenCode server, once per project folder,
 and calls its V2 plugin API (`ctx`); TUI and desktop parts draw in the two
-clients. Muse Code is built like Codex: a plugin brings MCP servers, skills
-and hooks shaped like Claude Code's, and other programs can drive a session
+clients. T3 Code is different again: it isn't a host plugins load into, but
+an app that runs Codex, Claude Code and other agents (OpenCode among them)
+for you, so most of its column is "through the agent", and that agent's
+column then applies. What it adds of its own is a way to message a thread,
+and the thread's id in the environment of the MCP servers Codex starts for
+it. Muse Code is built like Codex: a plugin brings MCP servers, skills and
+hooks shaped like Claude Code's, and other programs can drive a session
 through its session protocol (`muse serve`, and `muse attach --stdio` behind
 two experimental launch gates).
 
-| What a polyfill needs | Claude Code (a mod) | Codex (a plugin, or an app-server client) | Pi (an extension) | OpenCode (a V2 server plugin) | Muse Code (a plugin) |
-|---|---|---|---|---|---|
-| Add tools the model can call | `$.tool.register` | An MCP server in the plugin, or `dynamicTools` for an app-server client | `pi.registerTool`. Tool names are shared by every extension, and the first one registered under a name wins. | `ctx.tool.transform`, in a namespace of the plugin's (the model sees `<namespace>_<name>`) | An MCP server in the plugin (stdio or HTTP) |
-| Draw its own UI | `ui.render` hooks | No. The desktop app shows a server's MCP App; nothing draws in the terminal. | Yes: custom components, overlays, `pi.registerToolRenderer`, images (Kitty, iTerm2), and mouse input in its default fullscreen mode | TUI slots and routes (terminal text), and, experimentally, desktop panels with an embedded web view | No. A hook's `systemMessage` only flashes in the status line. |
-| Ask the person | A permission hook that answers "ask" | MCP elicitation, from the plugin's MCP server | `ctx.ui.confirm`, `select`, `input`; relayed to the client in RPC mode, unavailable in print and JSON modes | `ctx.permission.assert`, under OpenCode's permission rules, with actions a plugin names itself. OpenCode's default rule allows every action; the polyfills turn that into `ask` for their own actions with an `evaluate` hook (`ctx.permission.hook`). | No. Its MCP client offers no elicitation, and a hook's `ask`, like any tool call that isn't read-only, goes to the approval judge, a model that may approve with nobody asked. A session-protocol client gets `userInput/request`. |
-| Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `pi.sendMessage(…, { triggerTurn: true })`, shown as the extension's own message | `ctx.session.synthetic` with `resume: true`, stored as synthetic rather than the user's | Only behind two experimental launch gates: `muse attach --stdio`, then `session/resume` and `turn/start`. By default, no. |
-| Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives | The extension runs in that session (`ctx.sessionManager.getSessionId()`) | The tool executor's `sessionID` | `MUSE_SESSION_ID` in each stdio server's environment; `session_id` in a hook's input. A `tools/call` carries none. |
-| Know the person wrote | The `prompt.submit` hook | `turn_trigger` in the turn metadata of a tool call | The `input` event, with its source | `ctx.session.hook('prompt')`, which a synthetic message doesn't run | The `UserPromptSubmit` hook: it runs for the person's messages, not for a turn Muse or a model starts |
-| Add skills | The Skills mod lists served skills in Claude's skill listing ([Skills form](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/README.md)) | A plugin's skills folder, read when the plugin loads; `~/.agents/skills` | `resources_discover` returns skill folders, read at start and at `/reload` | `ctx.skill.transform`, with no file, but with the skill's text given when it is listed | A plugin's skills; `~/.config/muse/skills/<folder>/SKILL.md` and `~/.agents/skills/<folder>/SKILL.md`, one folder down only |
-| Gate a tool call | Permission hooks that allow, deny or ask | Hooks that can deny, not ask | `tool_call` handlers that can block, and ask with `ctx.ui`, for the model's calls and codemode's nested calls | `ctx.tool.hook('execute.before')`, which can refuse a call or put it to the permission rules first, for the model's calls and Code Mode's | `PreToolUse` hooks that can deny; their `ask` goes to the approval judge |
-| Add a server | `claude mcp add` | `codex mcp add` | `pi mcp add` (saved), `pi.registerMcpServer` (this session, connected at once) | `ctx.mcp.transform` (in memory; a plugin keeps what it added and adds it again on each load) | `muse mcp add`, `muse mcp add-json` |
-| Call a server's tool over the host's connection, with its sign-in | `$.mcp.call(server, tool, args)` | `mcpServer/tool/call` | Indirectly: an MCP tool is a Pi tool (`mcp__<server>__<tool>`), callable with `ctx.executeTool` | No | No |
-| Ask whether the host would use a server | `$.mcp.connect(server)` | `mcpServerStatus/list` (start-up and sign-in state) | No. An extension reads `mcp.json` itself. | `ctx.mcp.list()` (connected, pending, disabled, failed, needs sign-in) | No. A session-protocol client has `mcpServer/readInventory` (state and tool names). |
-| Read a resource over the host's connection | Only indirectly, by calling the built-in `ReadMcpResourceTool`. You get text or a saved file, without the resource's `_meta`. | `mcpServer/resource/read`, with `_meta` | Only indirectly, through Pi's `read_mcp_resource` tool, which leaves out `ui://` resources | No. The model's `opencode_read_mcp_resource` tool reads one; a plugin can only see that call (`ctx.tool.hook`). | No. Muse gives the model no tool that reads a resource. |
-| Send any other MCP method | No | No. Codex's MCP client has a generic `send_custom_request`, but `app-server` doesn't expose it. | No. Pi's `McpClient` has `request(method, params)`, but the MCP extension doesn't expose its clients. | No. OpenCode's client sends `events/*` for itself. | No |
-| See what a server advertised | No | Mostly: capabilities (including `extensions`) and `serverInfo` are in `mcpServerStatus/list`. The negotiated protocol revision isn't. | No | No | No |
-| Receive a server's notifications | No | Only from OpenAI's hosted apps server. `mcpServer/event/stream/*` refuses any other server. Elicitation requests are relayed. | No | No. OpenCode takes Events push notifications itself, for its automations; a plugin sees only OpenCode's own events (`mcp.tools.changed` and the like). | No. `notifications/tools/list_changed` is ignored. |
-| See a tool's `_meta`, its `outputSchema`, or a result as the server sent it | No | Not checked yet | A result's `structuredContent` reaches `tool_result` hooks and codemode; a tool's `_meta` doesn't | Not checked yet | No. The model and hooks get only a result's text. |
-| Declare a client extension to servers | No | Only Codex's own client (the terminal or the desktop app) can, and its declaration goes to every server. A plugin or the config can't. | No. Pi's `McpClient` takes capabilities from its caller, but the MCP extension sets none for others. | No. OpenCode's own client declares Events to every server. | No. Muse's client declares no capabilities at all. |
-| Protocol revision of the host's own connection | 2026-07-28 back to 2024-11-05 | 2025-06-18 (2026-07-28 behind a feature flag that is off) | Up to 2025-11-25 | Not checked yet | 2025-06-18 |
+| What a polyfill needs | Claude Code (a mod) | Codex (a plugin, or an app-server client) | Pi (an extension) | OpenCode (a V2 server plugin) | T3 Code (an app that runs Codex, Claude Code and other agents; no plugins of its own) | Muse Code (a plugin) |
+|---|---|---|---|---|---|---|
+| Add tools the model can call | `$.tool.register` | An MCP server in the plugin, or `dynamicTools` for an app-server client | `pi.registerTool`. Tool names are shared by every extension, and the first one registered under a name wins. | `ctx.tool.transform`, in a namespace of the plugin's (the model sees `<namespace>_<name>`) | Through the agent: a Codex plugin or MCP server, a Claude Code mod. T3 Code adds its own `t3-code` server to every thread. | An MCP server in the plugin (stdio or HTTP) |
+| Draw its own UI | `ui.render` hooks | No. The desktop app shows a server's MCP App; nothing draws in the terminal. | Yes: custom components, overlays, `pi.registerToolRenderer`, images (Kitty, iTerm2), and mouse input in its default fullscreen mode | TUI slots and routes (terminal text), and, experimentally, desktop panels with an embedded web view | No. It shows a server's MCP App itself. A mod asking for its pane's focus ends the turn. | No. A hook's `systemMessage` only flashes in the status line. |
+| Ask the person | A permission hook that answers "ask" | MCP elicitation, from the plugin's MCP server | `ctx.ui.confirm`, `select`, `input`; relayed to the client in RPC mode, unavailable in print and JSON modes | `ctx.permission.assert`, under OpenCode's permission rules, with actions a plugin names itself. OpenCode's default rule allows every action; the polyfills turn that into `ask` for their own actions with an `evaluate` hook (`ctx.permission.hook`). | The agent's approvals, shown in the thread. An MCP elicitation only if T3 Code can answer it with Approve or Decline; any other form is cancelled unseen. | No. Its MCP client offers no elicitation, and a hook's `ask`, like any tool call that isn't read-only, goes to the approval judge, a model that may approve with nobody asked. A session-protocol client gets `userInput/request`. |
+| Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `pi.sendMessage(…, { triggerTurn: true })`, shown as the extension's own message | `ctx.session.synthetic` with `resume: true`, stored as synthetic rather than the user's | `t3 thread send <thread> -`, on the machine it runs on, with no sign-in. `codex queue` reaches T3 Code's app server, but the thread doesn't show the turn. | Only behind two experimental launch gates: `muse attach --stdio`, then `session/resume` and `turn/start`. By default, no. |
+| Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives | The extension runs in that session (`ctx.sessionManager.getSessionId()`) | The tool executor's `sessionID` | `T3CODE_THREAD_ID` in the environment of Codex's stdio MCP servers (not documented); not set for Claude Code's | `MUSE_SESSION_ID` in each stdio server's environment; `session_id` in a hook's input. A `tools/call` carries none. |
+| Know the person wrote | The `prompt.submit` hook | `turn_trigger` in the turn metadata of a tool call | The `input` event, with its source | `ctx.session.hook('prompt')`, which a synthetic message doesn't run | No: Codex's turn metadata has no `turn_trigger` there | The `UserPromptSubmit` hook: it runs for the person's messages, not for a turn Muse or a model starts |
+| Add skills | The Skills mod lists served skills in Claude's skill listing ([Skills form](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/README.md)) | A plugin's skills folder, read when the plugin loads; `~/.agents/skills` | `resources_discover` returns skill folders, read at start and at `/reload` | `ctx.skill.transform`, with no file, but with the skill's text given when it is listed | Through the agent; it lists the agent's skills in its composer | A plugin's skills; `~/.config/muse/skills/<folder>/SKILL.md` and `~/.agents/skills/<folder>/SKILL.md`, one folder down only |
+| Gate a tool call | Permission hooks that allow, deny or ask | Hooks that can deny, not ask | `tool_call` handlers that can block, and ask with `ctx.ui`, for the model's calls and codemode's nested calls | `ctx.tool.hook('execute.before')`, which can refuse a call or put it to the permission rules first, for the model's calls and Code Mode's | Through the agent | `PreToolUse` hooks that can deny; their `ask` goes to the approval judge |
+| Add a server | `claude mcp add` | `codex mcp add` | `pi mcp add` (saved), `pi.registerMcpServer` (this session, connected at once) | `ctx.mcp.transform` (in memory; a plugin keeps what it added and adds it again on each load) | Through the agent (`codex mcp add`, `claude mcp add`), then **Restart agent session** | `muse mcp add`, `muse mcp add-json` |
+| Call a server's tool over the host's connection, with its sign-in | `$.mcp.call(server, tool, args)` | `mcpServer/tool/call` | Indirectly: an MCP tool is a Pi tool (`mcp__<server>__<tool>`), callable with `ctx.executeTool` | No | Only through the agent (a Claude Code mod's `$.mcp.call`) | No |
+| Ask whether the host would use a server | `$.mcp.connect(server)` | `mcpServerStatus/list` (start-up and sign-in state) | No. An extension reads `mcp.json` itself. | `ctx.mcp.list()` (connected, pending, disabled, failed, needs sign-in) | No | No. A session-protocol client has `mcpServer/readInventory` (state and tool names). |
+| Read a resource over the host's connection | Only indirectly, by calling the built-in `ReadMcpResourceTool`. You get text or a saved file, without the resource's `_meta`. | `mcpServer/resource/read`, with `_meta` | Only indirectly, through Pi's `read_mcp_resource` tool, which leaves out `ui://` resources | No. The model's `opencode_read_mcp_resource` tool reads one; a plugin can only see that call (`ctx.tool.hook`). | No (it reads an MCP App's `ui://` resource itself) | No. Muse gives the model no tool that reads a resource. |
+| Send any other MCP method | No | No. Codex's MCP client has a generic `send_custom_request`, but `app-server` doesn't expose it. | No. Pi's `McpClient` has `request(method, params)`, but the MCP extension doesn't expose its clients. | No. OpenCode's client sends `events/*` for itself. | No | No |
+| See what a server advertised | No | Mostly: capabilities (including `extensions`) and `serverInfo` are in `mcpServerStatus/list`. The negotiated protocol revision isn't. | No | No | No | No |
+| Receive a server's notifications | No | Only from OpenAI's hosted apps server. `mcpServer/event/stream/*` refuses any other server. Elicitation requests are relayed. | No | No. OpenCode takes Events push notifications itself, for its automations; a plugin sees only OpenCode's own events (`mcp.tools.changed` and the like). | No | No. `notifications/tools/list_changed` is ignored. |
+| See a tool's `_meta`, its `outputSchema`, or a result as the server sent it | No | Not checked yet | A result's `structuredContent` reaches `tool_result` hooks and codemode; a tool's `_meta` doesn't | Not checked yet | No (it reads `_meta.ui` itself, for MCP Apps) | No. The model and hooks get only a result's text. |
+| Declare a client extension to servers | No | Only Codex's own client (the terminal or the desktop app) can, and its declaration goes to every server. A plugin or the config can't. | No. Pi's `McpClient` takes capabilities from its caller, but the MCP extension sets none for others. | No. OpenCode's own client declares Events to every server. | No | No. Muse's client declares no capabilities at all. |
+| Protocol revision of the host's own connection | 2026-07-28 back to 2024-11-05 | 2025-06-18 (2026-07-28 behind a feature flag that is off) | Up to 2025-11-25 | Not checked yet | The agent's | 2025-06-18 |
 
 The row that matters most is "send any other MCP method". Because no host
 has it, each polyfill that speaks an extension's protocol (Events, Skills,
@@ -422,6 +430,31 @@ the live server.
   app's experimental panels can embed a web view, but a plugin can't read a
   `ui://` resource or a tool's `_meta` over OpenCode's connection, and there
   is no place to draw in the conversation itself (a tool-result renderer).
+
+### In T3 Code
+
+T3 Code passes MCP through to the agent it runs, so the four changes are the
+agents' to make. These are T3 Code's own, and [T3 Code](https://github.com/idosal/AgentPolyfill/blob/main/docs/t3-code.md)
+has the details:
+
+- **Show an MCP elicitation form as the server wrote it.** T3 Code shows a
+  form only when it can answer it with Approve or Decline, and cancels any
+  other without showing it (`CodexMcpElicitation.ts`). The confirmations of
+  the Codex Skills, Server Cards and ARD forms ("Load it", "Add it", "Send the
+  search") are cancelled that way, so those steps never happen in T3 Code.
+  Showing a form's fields and returning what the person picks would fix it;
+  at the least, a form it can't show should leave a notice in the thread.
+- **Document `T3CODE_THREAD_ID`, and set it for every provider's MCP
+  servers.** Codex's stdio servers get it; Claude Code's don't. It's how a
+  server knows which thread it serves, which the T3 Events form needs; with
+  it set for Claude Code, the same server would serve Claude Code threads.
+- **Show a turn something else started.** A turn Codex starts from its own
+  queue (as `codex queue` puts one there) runs in T3 Code's app server but
+  doesn't appear in the thread. A turn a Claude Code mod starts in an idle
+  session (`$.prompt.submit`) wasn't checked live.
+- **Let a mod's pane fail softly.** When a Claude Code mod asks for its
+  pane's focus, T3 Code ends the turn. Answering the request as "nowhere to
+  show it" would let the mod say so and carry on.
 
 ### In Muse Code
 

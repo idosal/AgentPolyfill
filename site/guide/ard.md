@@ -39,7 +39,9 @@ install it by name.
 
 In Pi, name the registry or set `ARD_DISCOVERY_REGISTRY`. Every search asks
 in a Pi dialog, showing the exact query and endpoint; without a UI it is
-refused. Pi has no bundle; this extension is installed separately too.
+refused. For the same reason, ARD is left out of
+`pi install git:github.com/idosal/AgentPolyfill`, which installs Events,
+Skills and Server Cards together. Install ARD separately from a clone.
 
 In OpenCode, name the registry or set `ARD_DISCOVERY_REGISTRY`; with neither,
 nothing is sent. Every search is put to OpenCode's permission rules and asked
@@ -103,10 +105,14 @@ it finds, Codex shows you a form, and the server is added only if you accept.
 ### In Pi
 
 Pi 1.6.0 (the version tested), with Node 22 or newer. Nothing for Pi is
-published to npm or Pi's package gallery; install from a clone. The extension
-is bundled, with nothing to build. For one run without installing, use
+published to npm or Pi's package gallery. ARD is installed on its own from
+a clone: `pi install git:github.com/idosal/AgentPolyfill` installs Events,
+Skills and Server Cards, leaving ARD out for the same reason as the Claude
+Code bundle. Its search sends the words of your request to a registry after
+asking each time. The extension is bundled, with nothing to build.
+For one run without installing, use
 `pi -e ./polyfills/ard/pi/extension`. Pi loads the path where it is, so keep
-the clone; `git pull` there updates it. Remove it from the same folder with
+the clone. Remove it from the same folder with
 `pi remove ./polyfills/ard/pi/extension`. Servers you added stay in
 `mcp.json`; remove one with `pi mcp remove <name>`.
 
@@ -363,6 +369,16 @@ In Claude Code, in `/config`, under the plugin:
 - **Not tried yet:** ARD in OpenCode's TUI and in OpenCode Desktop, and
   Windows by hand (CI runs the tests there). The live runs didn't add a
   server through it; additions are covered by its tests in OpenCode.
+
+### In T3 Code
+
+T3 Code runs Codex, Claude Code or OpenCode for you, and this polyfill's
+forms for them load there. With Codex, the question it asks before sending a registry search ("Send the search") is
+an MCP elicitation form, and T3 Code shows such a form only when it can
+answer it with Approve or Decline; it cancels this one without showing it, so
+the step is refused as if you had said no. Nothing is approved for you.
+Not run live in T3 Code.
+[T3 Code](https://github.com/idosal/AgentPolyfill/blob/main/docs/t3-code.md) has the details.
 
 ### In Muse Code
 

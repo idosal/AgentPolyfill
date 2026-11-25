@@ -150,6 +150,12 @@ from an app always asks.
 The design notes list the rest, with what Claude Code could add to remove each:
 [`docs/DESIGN.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/docs/DESIGN.md).
 
+### In T3 Code
+
+[T3 Code](https://github.com/pingdotgg/t3code) shows MCP Apps itself, for
+Codex and for Claude Code 2.1.301 or newer, on desktop, web and phone. Don't
+use this polyfill for Claude Code sessions run from T3 Code.
+
 ## Spec
 
 Where it departs from MCP Apps 2026-01-26:

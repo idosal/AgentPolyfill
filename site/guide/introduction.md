@@ -38,10 +38,13 @@ a new extension, without waiting on one company's roadmap.
 | [Apps](./apps) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | `mcp-apps-cli` | not yet | not available | not available | not available |
 | [ARD](./ard) (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | `ard-discovery` | `ard-discovery` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi) | [plugin](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/opencode) | [`ard-discovery`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/muse) (no registry search) |
 
-The Pi forms were tested with Pi 1.6.0 and need Node 22 or newer. Nothing for
-Pi is published to npm or Pi's package gallery. Install the extensions from
-a clone, with nothing to build; [Getting started](./getting-started#pi) has
-the steps.
+The Pi forms were tested with Pi 1.6.0 and need Node 22 or newer.
+`pi install git:github.com/idosal/AgentPolyfill` installs Events, Skills and
+Server Cards together. Pi clones the repository under `~/.pi/agent/git/`
+and loads them from there, with nothing to build. Nothing for Pi is
+published to npm or Pi's package gallery. A clone is the alternative for
+one form, and the way to install ARD separately;
+[Getting started](./getting-started#pi) has the steps.
 
 The OpenCode forms need OpenCode 2.4 or newer and were tested with 2.4.1.
 OpenCode runs them itself, so they need no Node. Nothing for OpenCode is
@@ -138,7 +141,9 @@ by searching an ARD registry you choose, and hands the cards to
 add tool, `ard_add_mcp_server`.
 A search sends the words of your request to that
 registry, so every search asks you first and names where it's going. That's
-also why it isn't part of the `agent-polyfill` bundle; install it by name.
+also why it isn't part of the Claude Code `agent-polyfill` bundle or Pi's
+one-line install. Install it by name in Claude Code or Codex, or from a
+clone in Pi.
 Pi's recorded live run showed domain discovery and an approved search of the
 repository's demo registry. It did not complete the add step: the model
 asked in chat instead of calling the add tool. Addition is covered by tests
@@ -186,6 +191,16 @@ Hosts add extensions all the time, so check the matrix for today's picture.
 - **If you write specs,** a polyfill can be the client half of the two
   implementations an extension needs to reach Stable:
   [For spec authors](./spec-authors).
+
+## T3 Code
+
+[T3 Code](https://github.com/pingdotgg/t3code) isn't a host the polyfills
+load into: it's an app that runs Codex, Claude Code, OpenCode and other
+agents for you. Their plugins load in its threads. Checked with Codex, there
+are two differences: it shows MCP Apps itself, and with
+Codex it cancels, unseen, the question Skills, Server Cards and ARD ask
+before their consequential step. Events has a T3 form, for Codex threads
+only. [Getting started](./getting-started#t3-code) has the install.
 
 ## Before you install
 
