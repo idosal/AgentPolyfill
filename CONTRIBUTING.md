@@ -51,6 +51,7 @@ polyfills/<extension>/
   claude-code/   the Claude Code adapter
   codex/         the Codex adapter
   pi/            the Pi adapter
+  muse/          the Muse Code form's docs (its plugin is codex/'s folder)
 ```
 
 - `<extension>` is the extension's short name: `apps`, `events`, `skills`,
@@ -67,6 +68,7 @@ polyfills/<extension>/
 | Claude Code | mod (plugin) | `polyfills/<extension>/claude-code/` |
 | Codex | plugin | `polyfills/<extension>/codex/` |
 | Pi | extension | `polyfills/<extension>/pi/` |
+| Muse Code | plugin | `polyfills/<extension>/muse/` for its README, SECURITY.md and docs; the code and tests are in `codex/` |
 
 The Apps polyfill, [`polyfills/apps/claude-code`](polyfills/apps/claude-code),
 is a complete example of one adapter. Inside an adapter's folder:
@@ -90,6 +92,7 @@ is a complete example of one adapter. Inside an adapter's folder:
   | Claude Code | Copied on install; carries `.claude-plugin/plugin.json`. |
   | Codex | Copied on install; carries `.codex-plugin/plugin.json`, which can sit beside another host's manifest. |
   | Pi | A separate `pi/extension/` folder with a manifest and one bundled file. Pi loads the local path in place, so the clone must stay. |
+  | Muse Code | The Codex plugin folder, with `.muse-plugin/plugin.json` beside `.codex-plugin/plugin.json`. Muse reads the Codex marketplace and copies the folder on install. Its manifest starts the same bundle with `--host=muse`, and each hook is one bundled script, because Muse trusts a hook by its script file. |
 
 - **A marketplace plugin's name** is unique in this repository. The same
   name is used in the marketplace entries, in release tags and in the
@@ -133,6 +136,11 @@ It states:
     The current forms need Pi 1.6.0 (the version tested) and Node 22 or
     newer. Nothing for Pi is published to npm or Pi's package gallery.
     For one run, use `pi -e ./polyfills/<extension>/pi/extension`.
+  - In Muse Code:
+    `muse plugins marketplace add agent-polyfill https://github.com/idosal/AgentPolyfill`,
+    then `muse plugins install <plugin>@agent-polyfill` and
+    `muse plugins approve <plugin>`. The current forms were tested with Muse
+    Code 1.4.25 and need Node 20 or newer.
   - Then what else it needs, and every step and question a new user meets
     between installation and the extension working, with what happens when
     they say no. Anything beyond "install, add a server, ask" needs a reason.
@@ -198,6 +206,13 @@ steps and keep the installable folder at `polyfills/<extension>/pi/extension`.
 removal, and say what data remains. Add the form to the root README's Pi
 column; Apps has no Pi form.
 
+For Muse Code, the marketplace is the Codex one: a Codex plugin folder with a
+`.muse-plugin/plugin.json` is installed by Muse under the same name. Document
+`muse plugins install <plugin>@agent-polyfill` and `muse plugins approve`,
+removal with `muse plugins remove <plugin> --delete-data`, and what data
+remains. Check the folder with `muse plugins validate <folder> --json`
+(compatibility `full`). Add the form to the root README's Muse Code column.
+
 ### 5. Add its CI
 
 Every push and pull request runs [`ci.yml`](.github/workflows/ci.yml). It
@@ -212,7 +227,8 @@ checks that:
 Plugins listed in the marketplaces are included in those checks
 automatically. Pi forms need their own workflow; see
 [`pi-events-test.yml`](.github/workflows/pi-events-test.yml) and
-[`pi-skills-test.yml`](.github/workflows/pi-skills-test.yml).
+[`pi-skills-test.yml`](.github/workflows/pi-skills-test.yml). The Muse Code
+forms' tests are part of each Codex form's suite, so its workflow runs them.
 
 Add the polyfill's own tests as `.github/workflows/<plugin>-test.yml`,
 filtered to its folder. Copy
@@ -256,6 +272,8 @@ one `core/` with these forms:
 - `claude-code/`: a Claude Code mod.
 - `codex/`: a Codex plugin.
 - `pi/`: a Pi extension, installed from `pi/extension/`.
+- `muse/`: the Muse Code form's docs. Muse installs the Codex plugin's
+  folder, which carries a Muse manifest too.
 
 1. **Find the host's way in.** What can third-party code do there? It may run
    code inside the host or beside it, call tools, ask the user, or start a

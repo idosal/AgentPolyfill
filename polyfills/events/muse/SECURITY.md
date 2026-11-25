@@ -1,0 +1,123 @@
+# Security
+
+Report a problem privately, as the [repository's SECURITY.md](../../../SECURITY.md)
+says. This page is about mcp-events in Muse Code: the Codex plugin's folder
+and bundle, started by its Muse manifest with `--host=muse`. Everything the
+[Codex form's SECURITY.md](../codex/SECURITY.md) says about the Events client
+(what a server can and can't make it do, webhooks, the relay, sizes) holds
+here. What follows is what differs in Muse.
+
+## The boundary
+
+Muse's own approvals decide what Muse does: with an event, as with anything
+else in the session. Receiving an event gives Muse no permission it didn't
+already have.
+
+This plugin's one consequential step is starting a watch: from then on a
+server's events come into the session. Muse can't be relied on to ask you
+first:
+
+- **No elicitation.** Its MCP client offers none.
+- **The judge.** A tool call that isn't read-only goes to Muse's approval judge,
+  a model that can approve it with nobody asked. A hook's `ask` goes to that
+  judge too.
+
+So a watch waits for your own typed yes:
+
+- **The question.** The first `watch_event` answers with the question, and
+  starts nothing. It gives the server, the event type, the filters and your
+  note, each in full. Any character that shows nothing, or that changes how the
+  text around it reads, is written out (`\u{…}`). A watch whose filters or note
+  are too long to show whole is refused before anything is asked. So is one
+  that holds a value Muse's settings keep secret, which the question would have
+  to hide.
+- **The phrase.** The question ends with a phrase, `watch <code>`, with a
+  four-digit code made for it. The plugin's `UserPromptSubmit` hook approves
+  the question only when a message of yours is exactly that phrase, in the same
+  session, within 15 minutes.
+- **Who can type it.** Muse runs that hook for your own messages. It doesn't run
+  it for a turn Muse's timers start, so the model can't send the phrase itself.
+  The next `watch_event` for the same question starts the watch, once. Another
+  watch needs its own yes.
+- **Where it's kept.** The record of the question is the plugin's own
+  (`muse-confirm.json` in its data folder, private to you).
+
+What this doesn't protect against: the phrase doesn't name the watch. You rely
+on Muse showing you the question as the answer gives it. After you type the
+phrase, the hook's note in Muse's status line names what you approved.
+
+`unwatch_event` stops a watch. It isn't read-only, so Muse's approval treats
+it as it does any such call. It needs no typed yes, as in every form.
+
+## What it reads
+
+- **Servers.** It reads `mcpServers` in Muse's user settings
+  (`~/.config/muse/settings.json`). That list can hold header values you wrote.
+  The plugin uses them to connect, as Muse does, and takes known secret values
+  out of its log and of anything it shows.
+- **Never** Muse's sign-in store, or any token Muse keeps. A server you signed
+  in to with `muse mcp login` is left out.
+- **Never a project's config:** not a project's `.mcp.json`, and no command
+  from one.
+- **Commands it starts.** It starts a local server's command only as your user
+  settings name it, as Muse itself would. It runs `muse` only for
+  `muse config status --json` and, in wake mode, `muse attach --stdio`. It never
+  runs it through a shell, and passes it none of the plugin's own settings.
+- **Organisation-managed Muse.** If `muse config status` shows a defaults or
+  policy plane, or can't be read, the plugin reaches no server, as the Codex
+  form does with a managed Codex config.
+
+## What it honours
+
+- **A server switched off** (`enabled: false`) is left out.
+- **The plugin's MCP server off.** With it not turned on in Muse (rejected with
+  `muse plugins reject`, or never approved), the hook does nothing: it adds
+  nothing and writes nothing.
+- **An untrusted workspace.** Muse starts no MCP server there, this one
+  included.
+- **`MCP_EVENTS_OFF`** in the plugin's settings file: no tools, and the hook
+  does nothing.
+
+## What is stored
+
+Everything is in the data folder Muse gives the plugin
+(`~/.local/share/muse/plugins/data/mcp-events`), private to your user. It
+holds:
+
+- each session's watches and stored events, as in Codex;
+- where the hook's hand-over stands;
+- a stamp of when you last wrote;
+- the waiting typed-yes questions;
+- in wake mode, batches waiting after an attach failed.
+
+`muse plugins remove mcp-events --delete-data` removes it.
+
+## Waking through `muse attach` (opt-in, experimental)
+
+Off unless you set `MCP_EVENTS_MUSE_WAKE` to `attach` in the plugin's settings
+file and start `muse` with `MUSE_EXPERIMENTAL_TUI_MSP_CLIENT=1` and
+`MUSE_EXPERIMENTAL_TUI_SESSION_PROCESS=1`.
+
+- **What those gates expose.** With them on, any local process of your user
+  can attach to the session as a second driver and start turns, with no
+  prompt. Muse runs the `UserPromptSubmit` hook for such a turn as for one you
+  typed, so that process could also type a `watch` phrase. That's Muse's
+  behaviour, not this plugin's, and it's why waking is off by default.
+- **What the plugin itself does.** It starts only the turns that carry a batch,
+  held to the wake limits (once a minute per watch, 30 times an hour, then one
+  notice until you next write).
+
+## What it does not protect against
+
+- What Muse does about an event. That's its approvals' call.
+- A program of yours that can already drive your session, when the gates are
+  on.
+- A model that shows you a different question than the one the answer gave.
+  The phrase only approves the question the plugin recorded, but it doesn't
+  name it.
+
+## Reporting a vulnerability
+
+Privately, through the repository's Security tab, as
+[`SECURITY.md`](../../../SECURITY.md) says. Name the host (Muse Code) and its
+version.

@@ -81,8 +81,8 @@ manifest and one bundled file, with nothing to build. Pi loads the local
 paths where they are, so keep the clone; `git pull` in it brings the next
 version. Start `pi` to use them.
 
-**Muse Code** (Meta's terminal agent, 1.4.25 or newer; Node 20 or newer). In
-a terminal:
+**Muse Code** (Meta's terminal agent; 1.4.25, the version tested; Node 20 or
+newer). In a terminal:
 
 ```
 muse plugins marketplace add agent-polyfill https://github.com/idosal/AgentPolyfill
@@ -90,9 +90,11 @@ muse plugins install mcp-events@agent-polyfill
 muse plugins approve mcp-events
 ```
 
-The same for `mcp-skills`, `mcp-server-cards` and `ard-discovery`. Muse holds
-a plugin's servers and hooks back until you approve them, and again after each
-update. What works differently there, and why:
+The same for `mcp-skills`, `mcp-server-cards` and `ard-discovery`; Muse has no
+bundle. Muse holds a plugin's servers and hooks back until you approve them,
+and again after each update. To remove one, `muse plugins remove <name>
+--delete-data`. Skills' stubs stay in `~/.config/muse/skills/mcp-skills-served--*`
+until you delete them. What works differently there, and why:
 [AgentPolyfill in Muse Code](docs/muse.md).
 
 There are [more ways to install](#more-ways-to-install) further down.
@@ -101,11 +103,11 @@ There are [more ways to install](#more-ways-to-install) further down.
 
 | Extension | Spec | Claude Code | Codex | Pi | Muse Code |
 |---|---|---|---|---|---|
-| Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code) | [`mcp-events`](polyfills/events/codex) | [`mcp-events`](polyfills/events/pi) | [`mcp-events`](polyfills/events/codex#in-muse-code) (at your next message) |
-| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | [`mcp-skills`](polyfills/skills/claude-code) | [`mcp-skills`](polyfills/skills/codex) | [`mcp-skills`](polyfills/skills/pi) | [`mcp-skills`](polyfills/skills/codex#in-muse-code) |
-| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) | [`mcp-server-cards`](polyfills/server-cards/pi) | [`mcp-server-cards`](polyfills/server-cards/codex#in-muse-code) |
+| Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code) | [`mcp-events`](polyfills/events/codex) | [`mcp-events`](polyfills/events/pi) | [`mcp-events`](polyfills/events/muse) (at your next message) |
+| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | [`mcp-skills`](polyfills/skills/claude-code) | [`mcp-skills`](polyfills/skills/codex) | [`mcp-skills`](polyfills/skills/pi) | [`mcp-skills`](polyfills/skills/muse) |
+| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) | [`mcp-server-cards`](polyfills/server-cards/pi) | [`mcp-server-cards`](polyfills/server-cards/muse) |
 | Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet | not available | not yet |
-| ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) | [`ard-discovery`](polyfills/ard/pi) | [`ard-discovery`](polyfills/ard/codex#in-muse-code) (no registry search) |
+| ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) | [`ard-discovery`](polyfills/ard/pi) | [`ard-discovery`](polyfills/ard/muse) (no registry search) |
 
 All of them are early. Here is what each one does, and where it stops:
 
@@ -151,11 +153,12 @@ where these forms run.
 
 **In Muse Code** the same plugins as in Codex run with less from the host. An
 event reaches the session with your next message, not by waking it (an
-experimental opt-in does wake it). Muse gives a plugin no way to ask you, so
-you approve a served skill by typing a short phrase, and you add a server
-yourself, with the `muse mcp add` command Server Cards gives you. ARD has no
-registry search there. [AgentPolyfill in Muse Code](docs/muse.md) explains
-each of these.
+experimental opt-in does wake it). Muse gives a plugin no way to ask you, and
+its approval judge is a model. So you approve a watch or a served skill by
+typing the short phrase the answer gives (`watch 4821`, `load 4821`). You add a
+server yourself, with the `muse mcp add` command Server Cards gives you. ARD
+has no registry search there. No Muse run used a real model.
+[AgentPolyfill in Muse Code](docs/muse.md) explains each of these.
 
 **Beyond MCP**, `ard-discovery` adds
 [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91,
@@ -557,6 +560,9 @@ problem privately.
   - `codex/`: plugins for Events, Skills, Server Cards and ARD.
   - `pi/`: extensions for Events, Skills, Server Cards and ARD, each with
     an installable `extension/` folder and its own README and SECURITY.md.
+  - `muse/`: the Muse Code forms of Events, Skills, Server Cards and ARD:
+    their README, SECURITY.md and docs. The installable folder is the Codex
+    plugin's, with a `.muse-plugin/plugin.json` beside its Codex manifest.
 - **Marketplaces.**
   [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) lists
   everything for Claude Code, including the two plugins in

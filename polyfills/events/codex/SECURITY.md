@@ -171,31 +171,8 @@ only by you:
 
 ## In Muse Code
 
-The same plugin runs in Muse Code ([AgentPolyfill in Muse Code](../../../docs/muse.md)).
-What changes there:
-
-- **Session.** A watch belongs to the session Muse names in `MUSE_SESSION_ID`.
-  The helper serves only that session, and its tool calls carry no other id.
-- **State and settings.** Both live in the plugin's data folder that Muse gives
-  it (`~/.local/share/muse/plugins/data/mcp-events`). Settings come from
-  `settings.json` there, because Muse passes the plugin no environment
-  variables. That file can't move the state (`MCP_EVENTS_STATE` is ignored in
-  it).
-- **Delivery.** The `UserPromptSubmit` hook hands the model the session's new
-  events with your next message. What it adds is the same text a Codex wake
-  carries: the watch, the event ids and your note, and nothing the server
-  wrote. With `MCP_EVENTS_WAKE_VALUES=1`, a few short fields go in too, with
-  the known secrets taken out, as in Codex.
-- **One script per hook.** Muse trusts a hook by its one script file, so the
-  hook is bundled into a single file (`muse/hooks/user-prompt-submit.mjs`) with
-  nothing it loads from elsewhere.
-- **Waking through `muse attach` (opt-in, experimental).** It needs Muse
-  started with `MUSE_EXPERIMENTAL_TUI_MSP_CLIENT=1` and
-  `MUSE_EXPERIMENTAL_TUI_SESSION_PROCESS=1`. With those on, any local process
-  of your user can attach to the session and start turns in it, without being
-  asked. That is Muse's behaviour, not this plugin's, and it's why waking is
-  off unless you turn it on. The plugin runs `muse` with no shell, passes it
-  none of its own settings, and starts only the turn that carries the batch.
+The same plugin runs in Muse Code. What differs there is in
+[its Muse security notes](../muse/SECURITY.md).
 
 ## Reporting a vulnerability
 

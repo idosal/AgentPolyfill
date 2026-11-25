@@ -47,13 +47,16 @@ Open a pull request that adds one object to the `polyfills` array:
   | Claude Code | `"Claude Code"` |
   | Codex | `"Codex"` |
   | Pi | `"Pi"` |
+  | Muse Code | `"Muse Code"` |
 
   Other hosts are welcome too.
 - **`summary`**: one plain sentence.
 - **`repository`** and **`install`**: where it lives, and the command or steps
   that install it. For a Pi extension, say if it needs a clone and give the
-  local path used with `pi install`. The repository's README states the spec
-  revision, its limits and what it sends where.
+  local path used with `pi install`. For a Muse Code plugin, give its
+  marketplace and the `muse plugins install` and `muse plugins approve` lines.
+  The repository's README states the spec revision, its limits and what it
+  sends where.
 - **`maintainer`**: your GitHub handle.
 - **`contract`**: where it stands on this project's
   [contract](../docs/polyfill-contract.md), as you state it:
@@ -73,6 +76,13 @@ installable extension in `extension/`. They cover Events, Skills, Server
 Cards and ARD; Apps has no Pi form. Nothing for Pi here is published to npm
 or Pi's package gallery. The [root README](../README.md#install) has the
 tested clone-and-install steps.
+
+This repository's Muse Code forms are the Codex plugin folders, each with a
+`.muse-plugin/plugin.json`. Their docs are in `polyfills/<polyfill>/muse/`.
+They cover Events, Skills, Server Cards and ARD; Apps has no Muse form. Muse
+installs them from this repository's marketplace with
+`muse plugins install <name>@agent-polyfill`, then `muse plugins approve
+<name>`.
 
 ## What gets listed
 

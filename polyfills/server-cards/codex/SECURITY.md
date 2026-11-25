@@ -179,20 +179,8 @@ only commands it runs are `codex mcp get`, `codex mcp add` and
 
 ## In Muse Code
 
-The same plugin runs in Muse Code ([AgentPolyfill in Muse Code](../../../docs/muse.md)).
-Muse's MCP client offers no form, and a tool call that isn't read-only goes to
-Muse's approval judge, a model that may approve it with nobody asked. So in
-Muse, `add_mcp_server` writes nothing and runs nothing but `muse mcp get` to
-check the name. It answers with the `muse mcp add …` command for you to run
-yourself.
-
-- **What you see is what runs.** Each word that needs it is quoted for a POSIX
-  shell, so the command you see is the one that runs, including the URL and
-  every header.
-- **Secrets stay references.** A secret is `--bearer-token-env-var VAR` or a
-  header whose whole value is `${VAR}`, never a value.
-- **The checks don't change.** A card shown in this session, the URL it gives,
-  a name not taken, and the URL and markup rules all apply as in Codex.
+The same plugin runs in Muse Code. What differs there is in
+[its Muse security notes](../muse/SECURITY.md).
 
 ## Undoing an addition
 

@@ -1,6 +1,6 @@
 ---
 name: create-polyfill
-description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, Pi, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod, extension or gateway server; or to change or review an existing polyfill. Not for JavaScript or browser polyfills.
+description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, Pi, Muse Code, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod, extension or gateway server; or to change or review an existing polyfill. Not for JavaScript or browser polyfills.
 ---
 
 # Create a polyfill
@@ -225,6 +225,21 @@ How a polyfill is built depends on what the host lets third-party code do.
   tested with Pi 1.6.0 and require Node 22 or newer. Install from a local
   clone with `pi install ./polyfills/<polyfill>/pi/extension`; nothing for
   Pi is published to npm or Pi's package gallery.
+- **Muse Code:** a plugin that is the Codex plugin's folder with a
+  `.muse-plugin/plugin.json` beside its Codex manifest (Muse reads the Codex
+  marketplace), and docs in `polyfills/<polyfill>/muse/`. Read the existing
+  Muse forms' README, SECURITY.md and `docs/conformance.md` before writing
+  part 3.
+  - **No way to ask.** Muse gives a plugin no way to ask the person: its MCP
+    client offers no elicitation, and a non-read-only tool call or a hook's
+    `ask` goes to its approval judge, a model. So a consequential step waits
+    for a phrase the person types, read by a `UserPromptSubmit` hook
+    (`polyfills/events/codex/src/muse-confirm.ts`), or is a command the person
+    runs.
+  - **No environment.** Muse passes plugin servers and hooks no environment
+    variables; settings go in a file in the plugin's data folder.
+  - **Tested with** Muse Code 1.4.25, Node 20 or newer, checked with
+    `muse plugins validate <folder> --json`.
 - **Another host with an in-process extension layer:** read its extension API
   for the installed version and build the route table from that. Do not assume
   it matches Claude Code's.

@@ -6,7 +6,7 @@ and it reads the files the skill refers to as it needs them. You approve each
 skill once.
 
 Also available for Claude Code: [mcp-skills for Claude Code](../claude-code/README.md).
-The same plugin folder is also the Muse Code form: see [In Muse Code](#in-muse-code).
+The same plugin folder is also the Muse Code form: [mcp-skills for Muse Code](../muse/README.md).
 
 It implements the client side of the MCP Skills extension
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md),
@@ -42,27 +42,9 @@ You need:
 
 ## In Muse Code
 
-The same folder installs in [Muse Code](../../../docs/muse.md) (1.4.25 or newer):
-
-```bash
-muse plugins marketplace add agent-polyfill https://github.com/idosal/AgentPolyfill
-muse plugins install mcp-skills@agent-polyfill
-muse plugins approve mcp-skills
-```
-
-There it works differently:
-
-- **The list.** The servers come from Muse's settings. The served skills are
-  listed in Muse's own skill folder, `~/.config/muse/skills`, as
-  `mcp-skills:<server>:<name>`.
-- **Your yes is typed.** Muse gives a plugin no way to ask you, so `load_skill`
-  answers with the question and a phrase such as `load 4821`. Only a message of
-  yours that is exactly that phrase approves the skill. Then the next
-  `load_skill` loads it. An approval is kept as in Codex: the same unchanged
-  skill loads without the question afterwards.
-
-[AgentPolyfill in Muse Code](../../../docs/muse.md) has the details and the
-limits.
+The same folder installs in Muse Code: [mcp-skills for Muse Code](../muse/README.md)
+has the install steps, what works differently there and why, its limits, and
+its security notes.
 
 ## Try it
 
