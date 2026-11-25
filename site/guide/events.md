@@ -14,6 +14,9 @@ Final). The forms fill these gaps:
 - **Claude Code:** no native Events support yet; the polyfill is a mod (plugin).
 - **Codex:** no Events support for your own servers; the polyfill is a plugin.
 - **Pi:** no native Events support in Pi 1.6.0; the polyfill is an extension.
+- **OpenCode:** OpenCode 2.4 takes push events for its automations, but
+  doesn't poll, take webhooks or watch for a session; the polyfill is a
+  plugin.
 - **Muse Code:** the polyfill is the Codex plugin, which Muse installs from
   the same marketplace.
 
@@ -40,6 +43,10 @@ codex plugin add mcp-events@agent-polyfill
 git clone https://github.com/idosal/AgentPolyfill.git
 cd AgentPolyfill
 pi install ./polyfills/events/pi/extension
+```
+
+```bash [OpenCode]
+opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/events/opencode/plugin'
 ```
 
 ```bash [Muse Code]
@@ -69,6 +76,19 @@ so keep the clone; `git pull` there updates it. To remove it, run
 events stay in `mcp-events/` in Pi's agent folder (`~/.pi/agent`, or
 `PI_CODING_AGENT_DIR`); delete that folder too to remove them.
 
+**In OpenCode** (2.4 or newer; tested with 2.4.1), OpenCode runs the plugin
+itself, so you don't need Node. The plugin isn't on npm: the command fetches
+it from GitHub, with Git, and adds it to `plugins` in your global
+`~/.config/opencode/opencode.json`, so it runs in every project from the next
+time OpenCode opens one. A commit in place of `main` pins one version. From a
+clone, put the folder `polyfills/events/opencode/plugin` in `plugins` in an
+`opencode.json` instead. To remove it, run `opencode plugin remove` with the
+same text; OpenCode's downloaded copy stays in `~/.cache/opencode/npm/` (a
+`git-AgentPolyfill-…` folder), which you can delete. Watches, events and the
+log stay in `~/.local/share/opencode/mcp-events/` (or `MCP_EVENTS_STATE`);
+delete that folder too to remove them. The "Allow always" answers it kept
+stay in OpenCode's plugin storage (OpenCode's own database).
+
 **In Muse Code** (1.4.25, the version tested, on macOS only, with Node 20 or
 newer), Muse holds the plugin's MCP server and hook until you run
 `muse plugins approve mcp-events`, and again after each update. Then start
@@ -81,6 +101,7 @@ The sections below name the host where behavior differs. Full guides by host:
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi)
+- [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/opencode)
 - [Muse Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/muse)
 
 ## Try it
@@ -101,6 +122,12 @@ codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
+```jsonc [OpenCode]
+{
+  "mcp": { "feeds": { "type": "remote", "url": "https://event-feeds.idosalomon.workers.dev/mcp", "oauth": false } }
+}
+```
+
 ```bash [Muse Code]
 muse mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 ```
@@ -114,10 +141,13 @@ Start your host in the same folder:
 - **Pi:** `pi`. Ask "Watch for new earthquakes from the feeds server and tell
   me where each one was." Confirm the watch in Pi's dialog; stop it with
   "Stop watching the earthquakes."
+- **OpenCode:** `opencode`, with that entry in the project's `opencode.json`
+  or the global one. OpenCode asks you before the watch starts.
 - **Muse Code:** `muse`, in a workspace you trust. Ask "Watch for new
   earthquakes from the feeds server and tell me where each one was." The
   answer gives a phrase such as `watch 4821`; send exactly that phrase to
-  start the watch. New events reach Muse with your next message.
+  start the watch. New events reach Muse with your next message. Stopping it
+  waits for its own phrase, such as `unwatch 3307`.
 
 For the button demo, ask:
 
@@ -126,7 +156,8 @@ For the button demo, ask:
 The agent makes a private button page with the server's `new_demo_button`
 tool, gives you its link, and watches it. Open the link and press the button:
 a few seconds later the idle session wakes by itself and answers (in Claude
-Code, under a "Prompt from the mcp-events plugin" line). The same server also offers `hn.comment`
+Code, under a "Prompt from the mcp-events plugin" line; in OpenCode's TUI,
+under `◈ mcp-events: new events`). The same server also offers `hn.comment`
 (new comments in a Hacker News thread), `hn.story`, `npm.release`,
 `github.release` and `usgs.earthquake`, all delivered by poll. Its source is in
 [`servers/event-feeds`](https://github.com/idosal/AgentPolyfill/tree/main/servers/event-feeds).
@@ -211,6 +242,37 @@ session and resumes with it; a local (stdio) watch resumes only in the same
 folder. The [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/live-run.md)
 shows approval, an idle session waking, the answer and stopping the watch.
 
+### In OpenCode
+
+OpenCode loads the plugin into its server once per project folder. The
+plugin reads your MCP servers from OpenCode's own configuration and connects
+to each the first time one of its tools is called. Its six tools are in
+OpenCode's `mcp_events` namespace (`mcp_events_watch_event` and so on), and a
+watch belongs to the session it was started in.
+
+When the model calls `mcp_events_watch_event`, OpenCode asks you first,
+naming the server and the event type, and again before a watch is stopped.
+OpenCode's shipped rules allow every action, so the plugin makes its two
+actions ask by default. "Allow always" keeps your answer for that server and
+event type in this project. A `deny` or `ask` rule you write wins, and with
+nobody there to answer, as in a scheduled run, OpenCode refuses the question,
+so no watch starts unattended. The plugin option `askByDefault: false` (or
+`MCP_EVENTS_ASK_BY_DEFAULT=0`) leaves watches to OpenCode's rules alone,
+under whose default a watch starts without a prompt. In OpenCode 2.4.1's TUI
+the question says only "Call tool mcp_events_watch": the server and event
+type are on the model's call line just above it, and "Always allow" lists
+the pattern it would save. OpenCode Desktop names them in the prompt itself.
+
+After yes, an event wakes an idle session with a message from the plugin
+that starts with `[mcp-events]` and carries none of what the server sent; the
+model reads the event with `mcp_events_get_event`. The TUI shows that
+message as `◈ mcp-events: new events`. OpenCode Desktop starts the turn too,
+but shows no entry for the message, so the turn appears with no visible
+cause. Watches are kept on disk and resume when OpenCode next opens the
+project. The [live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md)
+shows the question, an idle session waking and the answer, through OpenCode's
+server, in its TUI and in OpenCode Desktop.
+
 ### In Muse Code
 
 Muse gives a plugin no way to ask you, and a tool call that isn't read-only
@@ -219,7 +281,9 @@ asked. So `watch_event` starts nothing at first. Its answer gives a phrase
 such as `watch 4821`. Only a message of yours that is exactly that phrase
 approves the watch: Muse runs the plugin's `UserPromptSubmit` hook for your
 messages, not for a turn its timers start. The phrase is good for that one
-question, in that session, for 15 minutes.
+question, in that session, for 15 minutes. `unwatch_event` works the same
+way: its answer names the watch and gives a phrase such as `unwatch 3307`,
+and the watch stops only after you send it.
 
 New events reach the model with your next message, as a context block from
 the hook that starts
@@ -289,6 +353,13 @@ In Pi, servers offering Events over stdio or Streamable HTTP work with
 push, poll or webhook delivery. Credentials must be in Pi's configuration;
 Pi's stored sign-ins cannot be used. See [Pi's limits](#limits).
 
+In OpenCode, every server in your OpenCode configuration that declares the
+Events extension works, with push, poll or webhook delivery. A remote server
+works with the headers in its OpenCode configuration. A server OpenCode signs
+in to with OAuth (`opencode mcp auth`) doesn't, and the plugin never reads
+OpenCode's stored credentials; `mcp_events_list_event_types` names each
+server it left alone, and why. See [OpenCode's limits](#limits).
+
 In Muse Code, the plugin reads the servers in `mcpServers` in
 `~/.config/muse/settings.json`, which can hold header values you wrote. It
 never reads Muse's sign-in store or a project's `.mcp.json`. It skips a
@@ -320,6 +391,16 @@ provides the public address. Webhook delivery needs a connection carrying
 credentials. The setup command below is for Claude Code; Pi's
 [relay instructions](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/README.md#webhook-delivery-the-relay)
 link to the shared setup and trade-offs.
+
+OpenCode uses the same relay client: a relay of your own, the public relay
+(`MCP_EVENTS_RELAY=public`), or your own forwarder (`MCP_EVENTS_PUBLIC_URL`),
+set in the environment OpenCode starts in. Deliveries are taken by the
+plugin's receiver inside OpenCode's server, only when signed with the watch's
+secret, and only from a subscription on a connection that carries your
+credentials. In a live run, a webhook through the public relay woke an
+OpenCode session.
+[OpenCode's README](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/README.md#webhook-delivery)
+points to the shared setup.
 
 Some servers deliver only by webhook, and a webhook needs a public https
 address, which Claude Code on your machine does not have. A relay is that
@@ -373,6 +454,17 @@ In the interactive terminal and RPC mode, for as long as the session stays
 open. RPC clients relay the extension's dialogs. Print and JSON modes can
 list and read events but cannot start a watch.
 
+### In OpenCode
+
+The plugin runs inside OpenCode's server, which loads a project's plugins
+when something uses that project: the TUI (`opencode`), OpenCode Desktop, or
+another client of the server (`opencode serve`). Until then a saved watch
+doesn't run; events from the meantime arrive when it resumes. An event wakes
+an idle session in the TUI and in OpenCode Desktop; Desktop shows no entry
+for the wake itself. Tried live through the server's API, in the TUI and in
+OpenCode Desktop 2.4.1. CI runs the tests on Linux, macOS and Windows; it
+hasn't been tried by hand on Windows.
+
 ### In Muse Code
 
 In a `muse` session in a workspace you trust. Events reach the model with
@@ -385,6 +477,16 @@ In Pi, set environment variables before starting `pi`. `MCP_EVENTS_OFF=1`
 turns the extension off. It cannot detect native Events support; remove it
 or use that switch when Pi supports Events itself. The full
 [Pi settings table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/README.md#settings)
+lists its controls.
+
+In OpenCode, set environment variables in the environment OpenCode starts
+in, or plugin options in the object form of the plugin's entry in `plugins`
+(`{ "package": "…", "options": { "askByDefault": false } }`).
+`MCP_EVENTS_OFF=1`, or the option `off`, turns the plugin off, and
+`MCP_EVENTS_ASK_BY_DEFAULT=0`, or `askByDefault: false`, leaves watches to
+OpenCode's rules alone. If OpenCode comes to watch every event type for a
+session, by push, poll and webhook, turn the plugin off or remove it. The full
+[OpenCode settings table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/README.md#settings)
 lists its controls.
 
 In Muse Code, environment variables don't work: Muse passes the plugin's
@@ -463,6 +565,39 @@ Environment variables, for example in the `env` block of
 - **Off with Pi's MCP support.** With `--no-mcp`, `-builtin:mcp` in the
   extension settings, or a replacement MCP extension, Events stands down too.
 
+### In OpenCode
+
+- **Its own connection.** OpenCode gives a plugin neither its sign-in nor a
+  way to send `events/*` over its own connection. Servers OpenCode signs in
+  to with OAuth (`opencode mcp auth`) are out of reach, and a local server
+  that offers events runs twice.
+- **Two ways to take push events.** OpenCode has part of Events itself: its
+  automations take push events, but it doesn't poll or take webhooks, and it
+  skips event types whose schemas it can't check (it skipped both of the
+  fixture server's types, valid under the SEP). A plugin can't ask which
+  types it took, so the plugin watches every type, push included, and tells
+  the model to use a watch or an automation for an event type, not both.
+  Nothing enforces it: with both set up, an event wakes the session twice.
+  That's a stated departure from rule 4 of
+  [the contract](./build-a-polyfill#the-contract), which has a polyfill stand
+  down where the host is native. OpenCode Console's `console_watch` tools,
+  for a signed-in workspace, weren't tried.
+- **Watches resume when OpenCode opens the project**, not when its server
+  starts. Events from the meantime aren't lost.
+- **The wake reaches the model as a user message.** OpenCode stores it as
+  synthetic, but sends it in the user's role; its first line says it was
+  sent by the plugin, not typed by you.
+- **Limited wakes.** By default a watch wakes at most once a minute, and a
+  session at most 30 times an hour. Past that it is told once, and waits
+  until you write.
+- **A watch's note and filter are plain text.** One holding a control or
+  hidden character, a note over 500 characters or `arguments` over 2,000 is
+  refused, and the model is told to write it again.
+- **The plugin keeps its own "Allow always".** Taking a saved approval back
+  in OpenCode doesn't take it back from the plugin; an `ask` rule does. An
+  `allow` rule you write doesn't skip the question by itself, since the
+  plugin can't tell it from OpenCode's default.
+
 ### In Muse Code
 
 - **No wake by default.** New events reach the model with your next
@@ -537,6 +672,31 @@ Pi's own client also connects to the suite's server. See
 [Pi's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/conformance.md).
 An AI reviewer who did not build the Pi forms reviewed them, and checked
 the fixes again. They have not been audited by a person.
+
+### In OpenCode
+
+Starting or stopping a watch is put to OpenCode's permission rules, and
+asked about by default. The plugin never answers a prompt and never turns
+anything into `allow`. Receiving an event grants nothing, but OpenCode's
+shipped default allows the model's other actions, so what it does after a
+wake isn't asked about unless your rules say so. The wake carries no event
+content; payloads reach the model as tool results, from
+`mcp_events_get_event` or `mcp_events_recent_events`. Webhooks are verified,
+wakes are capped, and the plugin never reads OpenCode's stored credentials.
+See [OpenCode's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/SECURITY.md).
+
+The shared client's clause table applies in OpenCode: the form bundles that
+client unchanged (with `MCP_EVENTS_PRE_STANDARD=off`, 80 clauses met and 6
+not applicable). The upstream suite's Events scenarios were run against that
+client in the Claude Code and Codex forms, not through OpenCode. The form's
+own tests run it in OpenCode 2.4.1 with a scripted model, against the fixture
+events server: listing, poll, push and webhook delivery, a wake with no
+payload, a watch resumed after a restart, and the permission question. See
+[OpenCode's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/docs/conformance.md).
+Live, with a real model, AgentPolyfill's event-feeds server by poll and a
+webhook through the public relay each woke an idle session.
+An AI reviewer who did not build the OpenCode forms reviewed them. They have
+not been audited by a person.
 
 ### In Muse Code
 

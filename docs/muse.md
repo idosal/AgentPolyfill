@@ -16,7 +16,7 @@ with no `muse login`.
 
 | Polyfill | Muse form | What works | How Muse differs |
 |---|---|---|---|
-| Events | [`mcp-events`](../polyfills/events/muse/README.md) | Watches on the servers in your Muse settings, by poll, push or webhook. New events reach the session **with your next message**. | A watch starts after you type its phrase (`watch 4821`). Nothing wakes an idle session, except with an experimental opt-in. |
+| Events | [`mcp-events`](../polyfills/events/muse/README.md) | Watches on the servers in your Muse settings, by poll, push or webhook. New events reach the session **with your next message**. | A watch starts, and stops, after you type its phrase (`watch 4821`, `unwatch 3307`). Nothing wakes an idle session, except with an experimental opt-in. |
 | Skills | [`mcp-skills`](../polyfills/skills/muse/README.md) | Served skills in Muse's skill list as `mcp-skills:<server>:<name>`, loaded after your yes, checked against the server's digests. | You say yes by typing the phrase (`load 4821`). No "show me its SKILL.md first". |
 | Server Cards | [`mcp-server-cards`](../polyfills/server-cards/muse/README.md) | Finds the MCP servers a domain publishes, and checks each card. | It writes nothing: for the server you pick, it gives you the `muse mcp add …` command, which **you run yourself**. |
 | ARD | [`ard-discovery`](../polyfills/ard/muse/README.md) | Finds servers through a domain's `ard.json`, then works as Server Cards does. | **No registry search.** A search must ask you before it sends your words to someone else's service. |
@@ -80,8 +80,8 @@ So the forms rely on two things only you can do:
 - **Type your own message.** Muse runs a plugin's `UserPromptSubmit` hook for
   your messages. It doesn't run it for a turn that Muse's own timers start, so a
   model can't write that message for you.
-  - **Events and Skills** answer a watch or a load with the question, which
-    ends with a phrase (`watch 4821`, `load 4821`).
+  - **Events and Skills** answer a watch, a stop or a load with the question,
+    which ends with a phrase (`watch 4821`, `unwatch 3307`, `load 4821`).
   - Only a message of yours that is exactly that phrase approves it. It must
     come in the same session, within 15 minutes.
   - The next call goes ahead, once.
@@ -124,8 +124,8 @@ on, an outside program can join a live terminal session and start a turn in it.
 > **With these gates on, any program you run can drive your Muse session.**
 > Any local process running as your user can attach to the session as a
 > second driver and start turns in it, without asking you. Muse treats such a
-> turn like one you typed, so that process could also type a `watch` or `load`
-> phrase. Turn the gates on only on a machine where you trust everything that
+> turn like one you typed, so that process could also type a `watch`,
+> `unwatch` or `load` phrase. Turn the gates on only on a machine where you trust everything that
 > runs as you.
 
 ## Settings
@@ -215,7 +215,8 @@ records its runs:
   repository as a marketplace, approve, and serve their tools in a session.
 - **Events.**
   - A watch waited for its phrase, started after it, and its event reached the
-    model with the next prompt.
+    model with the next prompt. (Stopping one waits for its own phrase; that is
+    covered by the tests, not the live run.)
   - With the plugin's server rejected, the hook stayed silent.
   - In a terminal session with both gates on, an event started a turn in the
     idle session.

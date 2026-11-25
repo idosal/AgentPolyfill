@@ -5,8 +5,7 @@ show up in Pi's skill list next to your own, Pi loads one when a task calls
 for it, and it reads the files the skill refers to as it needs them. You
 approve each skill once.
 
-Also available for Claude Code: [mcp-skills for Claude Code](../claude-code/README.md),
-and for Codex: [mcp-skills for Codex](../codex/README.md).
+Also available for Claude Code, Codex and OpenCode: [mcp-skills for Claude Code](../claude-code/README.md), [mcp-skills for Codex](../codex/README.md), [mcp-skills for OpenCode](../opencode/README.md).
 
 It implements the client side of the MCP Skills extension
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md),

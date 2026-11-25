@@ -255,7 +255,7 @@ const server = serve({
             if ('pending' in typed) return { text: watchPendingText(question, typed.pending), isError: true };
             log(`[${thread.slice(0, 8)}] the user typed the yes to this watch`);
         }
-        // Stopping one waits for a typed yes too, as every form asks before it (OpenCode's rule); a watch
+        // Stopping one waits for a typed yes too, as the OpenCode form asks before a stop; a watch
         // that isn't there is refused by the call itself, with nobody asked.
         const stopping = onMuse && name === 'unwatch_event' ? s.manager.watches.find((w) => w.id === args.watch) : undefined;
         if (stopping) {

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "The client side of MCP Events (SEP-3415) shared by the Claude Code and Codex polyfills: the Events client, watches, webhooks, the relay client, the event store and the wake gate. Each polyfill bundles it into its own plugin folder.",
+  "description": "The client side of MCP Events (SEP-3415) shared by the Claude Code, Codex, Pi and OpenCode polyfills: the Events client, watches, webhooks, the relay client, the event store and the wake gate. Each polyfill bundles it into its own plugin folder.",
   "engines": {
     "node": ">=20"
   },

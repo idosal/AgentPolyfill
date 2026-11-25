@@ -1,7 +1,7 @@
 # Security
 
-This covers `ard-discovery` for Codex. The Claude Code form has its own:
-[SECURITY.md](../claude-code/SECURITY.md).
+This covers `ard-discovery` for Codex. The other forms have their own:
+[Claude Code](../claude-code/SECURITY.md), [Pi](../pi/SECURITY.md), [OpenCode](../opencode/SECURITY.md).
 
 This plugin finds MCP servers through Agentic Resource Discovery (ARD v0.91):
 in a domain's `ard.json`, and by asking an ARD registry, a service someone

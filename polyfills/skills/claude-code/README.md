@@ -5,7 +5,7 @@ They show up in Claude's skill listing, Claude loads one when a task calls for
 it, and it reads the files the skill refers to as it needs them. Nothing is
 installed locally, and you approve each skill once.
 
-Also available for Codex: [mcp-skills for Codex](../codex/README.md).
+Also available for Codex, Pi and OpenCode: [mcp-skills for Codex](../codex/README.md), [mcp-skills for Pi](../pi/README.md), [mcp-skills for OpenCode](../opencode/README.md).
 
 It implements the client side of the MCP Skills extension
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md),

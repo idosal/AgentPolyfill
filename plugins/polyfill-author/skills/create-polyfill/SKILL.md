@@ -1,6 +1,6 @@
 ---
 name: create-polyfill
-description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, Pi, Muse Code, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod, extension or gateway server; or to change or review an existing polyfill. Not for JavaScript or browser polyfills.
+description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, Pi, OpenCode, Muse Code, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod, extension or gateway server; or to change or review an existing polyfill. Not for JavaScript or browser polyfills.
 ---
 
 # Create a polyfill
@@ -225,6 +225,15 @@ How a polyfill is built depends on what the host lets third-party code do.
   tested with Pi 1.6.0 and require Node 22 or newer. Install from a local
   clone with `pi install ./polyfills/<polyfill>/pi/extension`; nothing for
   Pi is published to npm or Pi's package gallery.
+- **OpenCode:** a V2 server plugin in `polyfills/<polyfill>/opencode/`, with
+  its bundle and `package.json` in `plugin/`; OpenCode runs it inside its own
+  server, once per project folder. Read the existing OpenCode forms' README,
+  SECURITY.md and `docs/conformance.md` before writing part 3. Events,
+  Skills, Server Cards and ARD have OpenCode forms; Apps does not. The forms
+  need OpenCode 2.4 or newer and were tested with 2.4.1, the version pinned
+  in `tools/opencode`. Install with
+  `opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/<polyfill>/opencode/plugin'`;
+  nothing for OpenCode is published to npm.
 - **Muse Code:** a plugin that is the Codex plugin's folder with a
   `.muse-plugin/plugin.json` beside its Codex manifest (Muse reads the Codex
   marketplace), and docs in `polyfills/<polyfill>/muse/`. Read the existing
