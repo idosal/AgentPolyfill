@@ -44,8 +44,10 @@ To remove it: `muse plugins remove mcp-server-cards --delete-data`.
 
 ## How you say yes
 
-**Muse offers plugins no approval dialog.** In the other hosts, the polyfills
-ask you through a prompt the host draws itself, which the model can't answer:
+**Muse offers plugins no approval dialog.** In the other hosts, in a mode that
+asks, the polyfills ask you through a prompt the host draws itself, which the
+model can't answer (with approvals off in Claude Code or Codex, a watch isn't
+asked):
 
 - **Claude Code:** its permission dialog.
 - **Codex:** its approval prompt, or an MCP form.

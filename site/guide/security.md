@@ -306,18 +306,19 @@ rely on the judge. Each consequential step waits for something only you can
 do: type a phrase, or run a command.
 
 - **Events:** starting a watch waits for a phrase you type, such as
-  `watch tickets ticket.created 4821`, and stopping one waits for its own, such as
-  `unwatch tickets ticket.created 3307`.
-  The question gives the server, the event type, the filters and your note
-  in full, with any hidden character written out. Only a message of yours
-  that is exactly the phrase approves it, in the same session, within 15
-  minutes. Muse runs the plugin's `UserPromptSubmit` hook for your messages,
-  not for a turn Muse or a model starts, so the model can't send the phrase. Each
-  phrase approves only its own verb. The phrase names the server and the
-  event type, so you type the names of what you approve; for the filters and
-  the note, you rely on Muse showing you the question as the answer gives it. New
-  events reach the model with your next message, as a context block whose
-  first line says the plugin sent it, with nothing the server wrote.
+  `watch tickets ticket.created 4821`, and stopping one waits for its own,
+  such as `unwatch tickets ticket.created 3307`. The question gives the
+  server, the event type, the filters and your note in full, with any hidden
+  character written out. Only a message of yours that is exactly the phrase
+  approves it, in the same session, within 15 minutes. Muse runs the plugin's
+  `UserPromptSubmit` hook for your messages, and none of the ways a model can
+  put text into a session ran it when each was checked, so the model can't
+  send the phrase. Each phrase approves only its own verb. The phrase names
+  the server and the event type, so you type the names of what you approve;
+  for the filters and the note, you rely on Muse showing you the question as
+  the answer gives it. New events reach the model with your next message, as a
+  context block whose first line says the plugin sent it, with nothing the
+  server wrote.
 - **Skills:** a load waits for its phrase the same way, such as `load github git-workflow 4821`. After that the
   approval is kept as in Codex, bound to the skill's URI, its server and its
   digests, and asked again when they change. "Show me its SKILL.md first"

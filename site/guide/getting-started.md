@@ -372,10 +372,11 @@ goes to the same judge. So the forms work this way:
 
 - **Events and Skills:** starting or stopping a watch, and loading a skill,
   wait for a phrase you type, which names what it approves, such as
-  `watch tickets ticket.created 4821` or `load github git-workflow 4821`. Only a message of yours that is
-  exactly that phrase approves it. Muse runs the plugin's `UserPromptSubmit`
-  hook for your messages, not for a turn Muse or a model starts. The phrase is good
-  for that one question, in that session, for 15 minutes.
+  `watch tickets ticket.created 4821` or `load github git-workflow 4821`. Only
+  a message of yours that is exactly that phrase approves it. Muse runs the
+  plugin's `UserPromptSubmit` hook for your messages, and none of the ways a
+  model can put text into a session ran it when each was checked. The phrase
+  is good for that one question, in that session, for 15 minutes.
 - **Server Cards and ARD:** "add" writes nothing. It gives you the
   `muse mcp add …` command, which you run yourself, in a terminal or after
   `!` at the Muse prompt.

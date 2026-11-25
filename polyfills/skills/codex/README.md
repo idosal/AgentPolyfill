@@ -45,7 +45,11 @@ You need:
 This folder also holds the Muse Code form: its own manifest
 (`.muse-plugin/plugin.json`) and bundles (`muse/`), built from
 [`../muse`](../muse) with this form's sources unchanged. This form's bundle is
-the same with or without it. [mcp-skills for Muse Code](../muse/README.md) has the
+the same with or without it, and Codex doesn't read the Muse manifest or
+anything in `muse/`: installed into a throwaway Codex home, the plugin gives
+Codex the same skills, MCP server and tools as without them, and no hooks
+([`tools/muse/codex-ignores-muse.mjs`](../../../tools/muse/codex-ignores-muse.mjs),
+run with Codex 0.172.0). [mcp-skills for Muse Code](../muse/README.md) has the
 install steps, what works differently there and why, its limits, and its
 security notes.
 

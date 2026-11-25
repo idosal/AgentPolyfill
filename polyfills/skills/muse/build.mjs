@@ -17,9 +17,18 @@ const { build } = createRequire(resolve(root, '..', 'codex', 'package.json'))('e
 const mod = resolve(root, '..', 'codex', 'mod', 'muse');
 const out = process.argv[2] ? resolve(process.argv[2]) : undefined;
 
-/** The Codex form's files get the Muse stubs module in place of their own. */
-const museStubs = {
-    name: 'muse-stubs',
+/**
+ * THE ONE SWAP. The Codex form's app.ts writes its stubs with `syncStubs` from ../codex/src/stubs.ts,
+ * nested two folders deep under ~/.agents/skills/mcp-skills-served. Muse lists a SKILL.md only one
+ * folder below its skill folder, so in this bundle, and only here, the Codex form's own files get
+ * src/stubs.ts instead: the same module, with `syncStubs` replaced by the flat Muse writer
+ * (muse.ts syncFlatStubs, folders named mcp-skills-served--…). Imports from src/ get the real
+ * module. The Codex sources, and the Codex bundle built from them, are untouched.
+ * test/muse-test.ts "the stub writers are where they belong" fails if this bundle holds the Codex
+ * writer, or the Codex bundle holds the Muse one.
+ */
+const swapCodexStubWriter = {
+    name: 'swap-codex-stub-writer',
     setup(b) {
         b.onResolve({ filter: /(^|\/)stubs\.ts$/ }, (args) => {
             const target = resolve(args.resolveDir, args.path);
@@ -40,5 +49,5 @@ const common = {
     banner: { js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);' },
     logLevel: 'info'
 };
-await build({ ...common, entryPoints: ['src/helper.ts'], entryNames: '[name]', outdir: out ?? join(mod, 'dist'), plugins: [museStubs] });
+await build({ ...common, entryPoints: ['src/helper.ts'], entryNames: '[name]', outdir: out ?? join(mod, 'dist'), plugins: [swapCodexStubWriter] });
 await build({ ...common, entryPoints: ['src/muse-prompt-hook.ts'], outfile: out ? join(out, 'user-prompt-submit.mjs') : join(mod, 'hooks', 'user-prompt-submit.mjs') });

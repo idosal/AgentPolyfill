@@ -1,0 +1,58 @@
+# Codex ignores the Muse Code forms' files in its plugin folders. Muse installs from this
+# repository's Codex marketplace, so each of the four Codex plugin folders also holds a Muse
+# manifest (.muse-plugin/plugin.json) and the Muse form's bundles, hooks and skill (muse/).
+# tools/muse/codex-ignores-muse.mjs installs the four plugins into a throwaway Codex home, from
+# this repository as a local marketplace, with the Codex release the Codex forms are tested with
+# (no sign-in, no model), and checks with Codex's app server that Codex loads only what each
+# Codex manifest names: its skills/ skills, its .mcp.json server with the Codex bundle's tools,
+# no hooks, and no other server. On any change in those plugin folders or the marketplace.
+
+name: "Muse forms: Codex reads none of their files"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/events/codex/plugin/**"
+      - "polyfills/skills/codex/mod/**"
+      - "polyfills/server-cards/codex/plugin/**"
+      - "polyfills/ard/codex/plugin/**"
+      - ".agents/plugins/marketplace.json"
+      - "tools/muse/**"
+      - ".github/workflows/muse-codex-test.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see the job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/events/codex/plugin/**"
+      - "polyfills/skills/codex/mod/**"
+      - "polyfills/server-cards/codex/plugin/**"
+      - "polyfills/ard/codex/plugin/**"
+      - ".agents/plugins/marketplace.json"
+      - "tools/muse/**"
+      - ".github/workflows/muse-codex-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: muse-codex-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The Codex release the Codex forms are tested with (codex-events-test.yml).
+  CODEX_VERSION: 0.172.0
+
+jobs:
+  codex:
+    name: Codex ignores .muse-plugin and muse/
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: Codex
+        run: npm install -g --no-audit --no-fund "@openai/codex@$CODEX_VERSION"
+      - run: node tools/muse/codex-ignores-muse.mjs

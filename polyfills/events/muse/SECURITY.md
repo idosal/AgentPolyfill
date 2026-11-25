@@ -11,12 +11,15 @@ here. What follows is what differs in Muse.
 ## The boundary
 
 **Plainly:** Muse offers plugins no approval dialog. Where Claude Code, Codex,
-Pi and OpenCode show you a prompt the host draws itself, which the model can't
-answer, here consent is a phrase you type, checked by the plugin's
-`UserPromptSubmit` hook. That holds because Muse runs the hook only for messages
-you type; each way a model can put text into a session was [tried](docs/live-run.md#what-can-send-the-phrase), and none
-ran it. The weaker part: you read the question as the model relays it, so the
-phrase names what it approves.
+Pi and OpenCode, in a mode that asks, show you a prompt the host draws itself,
+which the model can't answer (with approvals off in Claude Code or Codex, a
+watch isn't asked), here consent is a phrase you type, checked by the plugin's
+`UserPromptSubmit` hook. That holds because Muse ran the hook for the messages
+you typed, and none of the ways a model can put text into a session (scheduled
+prompts, monitors, subagents, other sessions, goals, workflows) ran it when
+each was [checked](docs/live-run.md#what-can-send-the-phrase). The weaker
+part: you read the question as the model relays it, so the phrase names what
+it approves.
 
 Muse's own approvals decide what Muse does: with an event, as with anything
 else in the session. Receiving an event gives Muse no permission it didn't
@@ -48,12 +51,11 @@ So a watch waits for your own typed yes:
   asked: its name couldn't be typed plainly. The plugin's `UserPromptSubmit` hook approves
   the question only when a message of yours is exactly that phrase, in the same
   session, within 15 minutes.
-- **Who can type it.** Muse runs that hook for your own messages. It doesn't run
-  it for a turn Muse or a model starts, so the model can't send the phrase
-  itself. Each way a model can put text into a session was tried, and none ran
-  the hook ([live runs](docs/live-run.md#what-can-send-the-phrase)).
-  The next `watch_event` for the same question starts the watch, once. Another
-  watch needs its own yes.
+- **Who can type it.** Muse ran that hook for your own messages. None of the
+  ways a model can put text into a session ran it when each was tried ([live
+  runs](docs/live-run.md#what-can-send-the-phrase)), so the model can't send
+  the phrase itself by any of them. The next `watch_event` for the same
+  question starts the watch, once. Another watch needs its own yes.
 - **Where it's kept.** The record of the question is the plugin's own
   (`muse-confirm.json` in its data folder, private to you).
 
