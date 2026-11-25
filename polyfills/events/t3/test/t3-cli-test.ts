@@ -3,15 +3,20 @@
 // and no sign-in. It runs when T3_CLI names T3 Code's `dist/bin.mjs` (CI installs the
 // release the polyfill was tested with); otherwise it is skipped.
 //
-// No agent CLI of this machine's is ever found or run. When T3 Code starts, it checks the
-// agent CLIs it finds on PATH (claude, codex, opencode and the others) by running them, and
-// a throwaway HOME doesn't keep an agent from reaching what it keeps elsewhere (the macOS
-// Keychain). So T3 Code gets a PATH of a folder of this test's own, holding only `node`,
-// then /usr/bin and /bin. (Node's own folder is not on it: npm installs global commands,
-// agent CLIs among them, beside `node`.) Afterwards the file fails if T3 Code reports any
-// agent CLI installed, or if anything was written to the throwaway HOME. (On Linux, in CI, a
-// ~/.local appeared with no agent CLI found, so the XDG folders are set to folders of the
-// test's own outside HOME: an empty HOME still means nothing else wrote there.)
+// No agent CLI or other signed-in tool of this machine's is ever found or run. When T3 Code
+// starts, it runs the agent CLIs it finds (claude, codex, opencode and the others) to check
+// them, and `gh` to get a GitHub token; a throwaway HOME doesn't keep them from what they keep
+// elsewhere (the macOS Keychain). It looks for them on PATH, and it adds the PATH a login
+// shell prints (its `SHELL`, else the account's shell): a system profile alone puts
+// /usr/local/bin there on macOS, and on Linux CI runners /usr/bin holds `gh`. So:
+//   - PATH is one folder of this test's own, holding links to only node, sh, tar (the launcher
+//     unpacks with it) and ps. Not Node's own folder: npm installs global commands, agent CLIs
+//     among them, beside `node`.
+//   - SHELL is a stand-in, in a folder of its own, that runs what it is given with /bin/sh and
+//     no startup file, so the login shell's PATH is that same PATH.
+// Afterwards the file fails if T3 Code reports any agent CLI installed, or if anything was
+// written to the throwaway HOME (T3 Code itself writes nothing there; a tool that ran would,
+// `gh` its ~/.local/state/gh, which is how CI showed this was needed).
 //
 // The `t3` package is a launcher: on first use it downloads that version's T3 Code into
 // T3CODE_HOME. That happens once, before the tests, and a failed download fails the file
@@ -19,28 +24,35 @@
 
 import { strict as assert } from 'node:assert';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync } from 'node:fs';
-import { join, sep } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 import { findT3, sendMessage } from '../src/waker.ts';
 import { cleanup, temp, waitFor } from './harness.ts';
 
 const cli = process.env.T3_CLI;
-const skip = cli ? false : 'set T3_CLI to the t3 package\'s dist/bin.mjs to run this';
+// On macOS T3 Code also adds launchd's PATH, which a test can't set; if there is one, it isn't run.
+const launchdPath = process.platform === 'darwin' ? (spawnSync('/bin/launchctl', ['getenv', 'PATH'], { encoding: 'utf8' }).stdout ?? '').trim() : '';
+const skip = !cli ? 'set T3_CLI to the t3 package\'s dist/bin.mjs to run this' : launchdPath ? 'launchd sets a PATH on this machine (launchctl getenv PATH), which T3 Code would search for agent CLIs' : false;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const home = temp();
 const bin = join(home, 'bin');
 mkdirSync(bin);
 symlinkSync(process.execPath, join(bin, 'node'));
-const xdg = join(home, 'xdg');
+for (const tool of ['sh', 'tar', 'ps']) {
+    const at = ['/bin', '/usr/bin'].map((d) => join(d, tool)).find((p) => existsSync(p));
+    assert.ok(at, `${tool} is in /bin or /usr/bin`);
+    symlinkSync(at, join(bin, tool));
+}
+// Named `sh`, so that T3 Code speaks POSIX shell to it.
+const shell = join(home, 'shell', 'sh');
+mkdirSync(join(home, 'shell'));
+writeFileSync(shell, '#!/bin/sh\n# A login shell that reads no startup file: run the last argument (the command) with /bin/sh.\nwhile [ $# -gt 1 ]; do shift; done\nexec /bin/sh -c "$1"\n', { mode: 0o755 });
 const env = {
-    PATH: [bin, '/usr/bin', '/bin'].join(':'),
+    PATH: bin,
+    SHELL: shell,
     HOME: join(home, 'home'),
-    XDG_CONFIG_HOME: join(xdg, 'config'),
-    XDG_DATA_HOME: join(xdg, 'data'),
-    XDG_STATE_HOME: join(xdg, 'state'),
-    XDG_CACHE_HOME: join(xdg, 'cache'),
     T3CODE_HOME: join(home, 't3'),
     T3CODE_TELEMETRY_ENABLED: 'false',
     T3CODE_NO_BROWSER: '1',
@@ -63,21 +75,6 @@ const providers = () => {
         }
     }
     return found;
-};
-
-/**
- * What T3 Code itself writes in the XDG folders (Linux), named one by one. Anything else there
- * fails the file: an agent CLI writes its own folder there too (opencode, for one).
- */
-const T3_XDG: string[] = [];
-/** The XDG folders' contents, two levels down: `data/<name>`, `cache/<name>`. Names only. */
-const xdgEntries = () => {
-    const out = new Set<string>();
-    for (const f of existsSync(xdg) ? readdirSync(xdg, { recursive: true }) : []) {
-        const parts = String(f).split(sep).slice(0, 2);
-        if (parts.length === 2) out.add(parts.join('/'));
-    }
-    return [...out].sort();
 };
 
 let server: ChildProcess | undefined;
@@ -112,7 +109,7 @@ async function stopServer() {
 
 before(
     () => {
-        if (!cli) return;
+        if (skip || !cli) return;
         const r = spawnSync(process.execPath, [cli, '--version'], { env, encoding: 'utf8', timeout: 540000, killSignal: 'SIGKILL' });
         if (r.status !== 0) {
             const said = `${r.stderr ?? ''}${r.stdout ?? ''}`.trim().split('\n').slice(-3).join(' / ');
@@ -124,15 +121,13 @@ before(
 
 after(async () => {
     try {
-        if (cli) {
+        if (!skip) {
             // T3 Code checks its providers when it starts; let it finish before judging what it found.
             if (server) await waitFor(() => providers().length >= 2, 30000, 'T3 Code to record which agent CLIs it found').catch(() => undefined);
             await stopServer();
             const seen = providers().filter((p) => p.installed !== false);
             assert.deepEqual(seen, [], `T3 Code found an agent CLI on the test's PATH: ${JSON.stringify(seen)}`);
-            assert.deepEqual(readdirSync(env.HOME, { recursive: true }), [], 'something wrote to the throwaway HOME (an agent CLI ran?)');
-            const other = xdgEntries().filter((e) => !T3_XDG.includes(e));
-            assert.deepEqual(other, [], 'something other than T3 Code wrote to the XDG folders (an agent CLI ran?)');
+            assert.deepEqual(readdirSync(env.HOME, { recursive: true }), [], 'something wrote to the throwaway HOME (a tool of this machine ran?)');
         }
     } finally {
         try {
