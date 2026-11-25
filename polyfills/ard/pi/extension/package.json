@@ -1,0 +1,13 @@
+{
+  "name": "ard-discovery-pi",
+  "version": "0.1.0",
+  "type": "module",
+  "keywords": [
+    "pi-package"
+  ],
+  "pi": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  }
+}

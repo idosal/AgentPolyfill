@@ -8,8 +8,16 @@ aside: false
 AgentPolyfill is a community project by
 [Ido Salomon](https://github.com/idosal): polyfills for agent protocols. They
 bring more of MCP to the clients you already use, before those clients
-support it. Today that's four MCP extensions and one open draft beyond MCP,
-in Claude Code and Codex.
+support it. Today that's four MCP extensions and one open draft beyond MCP.
+What runs in each host:
+
+- **Claude Code:** Events, Skills, Server Cards, Apps and ARD.
+- **Codex:** Events, Skills, Server Cards and ARD.
+- **Pi:** Events, Skills, Server Cards and ARD, as Pi extensions. Apps has no
+  Pi form.
+
+See [Getting started](/guide/getting-started) for installation. Nothing for Pi
+is published to npm or Pi's package gallery; install from a repository clone.
 
 ## Not affiliated
 
@@ -31,7 +39,7 @@ polyfill that ships third-party code includes its notices in its folder.
 
 ## Source
 
-The plugins, their docs and this site are in one repository:
+The plugins and extensions, their docs and this site are in one repository:
 [github.com/idosal/AgentPolyfill](https://github.com/idosal/AgentPolyfill). This
 site is built with VitePress from the `site/` folder, from the repository's own
 READMEs, with a launch video and one recording per polyfill made for the site.
