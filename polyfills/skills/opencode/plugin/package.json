@@ -1,0 +1,14 @@
+{
+  "name": "mcp-skills-opencode",
+  "version": "0.1.1",
+  "private": true,
+  "description": "MCP Skills (SEP-2640) for OpenCode: the skills your MCP servers serve, in OpenCode's skill list, loaded after you allow it.",
+  "type": "module",
+  "main": "./server.js",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/idosal/AgentPolyfill.git",
+    "directory": "polyfills/skills/opencode/plugin"
+  }
+}

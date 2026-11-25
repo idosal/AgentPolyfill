@@ -145,14 +145,32 @@ plugin's form: choose **Add it**. Neon Docs needs no sign-in. Run
 | `discover_mcp_servers(domain)` | Reads the domain's catalogs and every card they list, and reports each card, valid or refused. Read-only. |
 | `add_mcp_server(identifier, url, domain?, remote?, name?, values?)` | Adds a server shown in this session, after your accept in the form. `url` must be the URL the server will connect to. |
 
-### Native discovery in Copilot
+### Copilot's own catalogue
 
-Copilot 1.0.115 has a discovery of its own: a built-in `discover-resources`
-skill with `catalog_search` and `catalog_select` tools, which search a remote
-catalogue GitHub runs (it handles `application/mcp-server-card+json`). That is
-a search of someone's catalogue, not SEP-2127's discovery from a domain: the
-runtime has no `ai-catalog` handling. So this plugin doesn't stand down for
-it, and the two don't overlap.
+Copilot 1.0.115 has a discovery of its own, and it does read Server Cards. What
+was checked, in the runtime Copilot unpacks (in its cache folder, 25 November
+2026):
+
+- **A built-in skill, `discover-resources`** (`builtin-skills/discover-resources/SKILL.md`),
+  whose `catalog_search` and `catalog_select` tools search a catalogue Copilot
+  is given (its "catalog authority"), for public MCP servers and skills.
+- **An experimental SDK API** (`copilot-sdk/generated/rpc.d.ts`): `catalog.search`,
+  and `mcp.planInstall`, which plans an install from a candidate that search
+  returned, or from a card supplied by URL or as data. It accepts the Server
+  Card media type, `application/mcp-server-card+json`.
+
+What wasn't seen: discovery from a domain, SEP-2127's way in. Neither the
+runtime's JavaScript nor the SDK's types mention the AI Catalog or a
+`.well-known` path, and the skill sends a capability query, not a domain.
+Copilot's compiled core couldn't be searched as text, so that isn't proof.
+Not run: the skill wasn't listed by `copilot skill list` when signed out, and
+neither the skill nor the API was tried. Whether Copilot's install planning
+applies SEP-2127's rules to a card also wasn't checked.
+
+So the two do different things: Copilot searches a catalogue for a task, and
+this plugin reads what a domain publishes. The plugin doesn't stand down for
+Copilot's catalogue. If Copilot comes to read a domain's catalog itself, turn
+the plugin off ([below](#when-copilot-supports-server-cards-itself)).
 
 ### What differs between the forms
 
@@ -184,10 +202,13 @@ The plugin reads these from the environment Copilot starts in.
 
 ### When Copilot supports Server Cards itself
 
-Copilot has no Server Card support to detect yet. When it ships, uninstall the
-plugin, disable it (`copilot plugin disable mcp-server-cards@agent-polyfill`),
-or set `MCP_SERVER_CARDS_DISABLED=1`. The server then registers no tools and
-fetches nothing.
+Copilot reads Server Cards from its own catalogue ([above](#copilots-own-catalogue)),
+but not from a domain, which is SEP-2127's discovery, so there is nothing to
+stand down for yet, and the plugin has nothing to detect. When Copilot reads a
+domain's catalog itself, uninstall the plugin, disable it
+(`copilot plugin disable mcp-server-cards@agent-polyfill`), or set
+`MCP_SERVER_CARDS_DISABLED=1`. The server then registers no tools and fetches
+nothing.
 
 ## Limits
 

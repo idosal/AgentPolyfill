@@ -5,8 +5,7 @@ show up in Pi's skill list next to your own, Pi loads one when a task calls
 for it, and it reads the files the skill refers to as it needs them. You
 approve each skill once.
 
-Also available for Claude Code: [mcp-skills for Claude Code](../claude-code/README.md),
-and for Codex: [mcp-skills for Codex](../codex/README.md).
+Also available for Codex and OpenCode: [mcp-skills for Codex](../codex/README.md), [mcp-skills for OpenCode](../opencode/README.md). Claude Code needs no polyfill for this: it lists skills from MCP servers itself, in beta from 2.1.332 ([changelog](https://code.claude.com/docs/en/changelog)).
 
 It implements the client side of the MCP Skills extension
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md),
@@ -16,9 +15,27 @@ shares its client logic, in [`../core`](../core/). Details are in
 
 ## Install
 
-Nothing is published to npm or Pi's package gallery yet, so install it from a
-clone of this repository. You need **Pi 1.6.0**, the version it was tested
-with, and **Node 22 or newer**, which Pi needs anyway:
+Install the Pi forms of Events, Skills and Server Cards together:
+
+```bash
+pi install git:github.com/idosal/AgentPolyfill
+```
+
+You need **Pi 1.6.0**, the version tested, and **Node 22 or newer**. Pi clones
+the repository into its agent folder (under `~/.pi/agent/git/`) and loads
+the three extensions from there. Nothing is published to npm or Pi's package
+gallery, and nothing is built.
+
+Update installed packages with `pi update --extensions`. Remove all three
+and Pi's copy of the repository with
+`pi remove git:github.com/idosal/AgentPolyfill`. For one run of all three
+without installing:
+
+```bash
+pi -e git:github.com/idosal/AgentPolyfill
+```
+
+To install only Skills, use a clone:
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
@@ -26,20 +43,23 @@ cd AgentPolyfill
 pi install ./polyfills/skills/pi/extension
 ```
 
-Or, to try it for one run without installing:
+Pi loads the local path where it is, so keep the clone. From the same folder,
+`pi remove ./polyfills/skills/pi/extension` removes that local install;
+`pi -e ./polyfills/skills/pi/extension` runs it once without installing.
+Use one way per form: Pi tells packages apart by repository address or local
+path, so a form installed both ways loads twice.
 
-```bash
-pi -e ./polyfills/skills/pi/extension
-```
+[ARD](../../ard/pi/README.md#install) is left out of the one-line install,
+as it is from the Claude Code bundle: its search sends the words of your
+request to a registry after asking each time. Install it separately from a
+clone.
 
-The extension is one folder, [`extension/`](extension/): a manifest and one
-bundled file, with nothing to build or install alongside it. Pi loads it from
-where it is, so keep the clone; `git pull` in it brings the next version.
-
-To remove it, run `pi remove ./polyfills/skills/pi/extension` from the same
-folder. The served skills leave Pi's list with it. Your approvals
-and the stubs are in `mcp-skills/` in Pi's agent folder (`~/.pi/agent`, or
-`PI_CODING_AGENT_DIR`); delete that folder too to remove them.
+Removing Skills takes its served skills out of Pi's list. Removal leaves
+watches and events in `mcp-events/`, and approvals and skill stubs in
+`mcp-skills/`, in Pi's agent folder (`~/.pi/agent`, or
+`PI_CODING_AGENT_DIR`); delete those folders too to remove that data.
+Servers you added stay in `mcp.json`; remove one with
+`pi mcp remove <name>`.
 
 ## Try it
 
@@ -270,8 +290,7 @@ extension's App ([output](docs/evidence/conformance.txt)). On Pi:
 From this folder (`polyfills/skills/pi` in the repository):
 
 ```bash
-(cd ../core && npm ci)         # the shared Skills client
-(cd ../claude-code && npm ci)  # the test fixtures the tests reuse
+(cd ../core && npm ci)         # the shared Skills client; the tests use its fixtures (../core/test-fixtures)
 npm ci                         # Pi 1.6.0 itself is a devDependency: the tests run it
 npm test
 npm run typecheck

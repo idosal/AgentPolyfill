@@ -3,7 +3,7 @@
 Codex can watch events on your MCP servers ("tell me when a deploy fails")
 and act when one fires, even while the session sits idle with nobody typing.
 
-Also available for Claude Code: [mcp-events for Claude Code](../claude-code/README.md).
+Also available for Claude Code, Pi and OpenCode: [mcp-events for Claude Code](../claude-code/README.md), [mcp-events for Pi](../pi/README.md), [mcp-events for OpenCode](../opencode/README.md).
 
 This plugin implements the client side of the MCP Events extension,
 [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
@@ -22,7 +22,8 @@ and the second installs the plugin. The install is one small folder,
 
 You need:
 
-- **Codex 0.170 or newer.**
+- **Codex 0.170 or newer**, and 0.172 or newer for an event to wake your
+  session ([Where it runs](#where-it-runs)).
 - **Node 20 or newer** on the PATH Codex runs with. Webhook delivery through a
   relay needs Node 22 or newer.
 
@@ -84,6 +85,9 @@ your session, and what happens when something is missing or you say no.
    shows it). If you run Codex without the daemon (`--no-daemon`, or with `-c`
    overrides or `--profile`, which make the TUI run its own server), see
    [Where it runs](#where-it-runs).
+   The plugin wakes a session only once a turn you started in Codex's own app
+   has called one of its tools. That is how it knows the wake will be shown
+   ([Where it runs](#where-it-runs)). Asking for the watch is such a turn.
 6. **A server that delivers only by webhook** also needs a relay: a public
    https address that holds deliveries
    ([Webhook delivery](#webhook-delivery-the-relay)). Without one, a watch on
@@ -226,6 +230,7 @@ The relay's own documentation is in
 | `codex exec` | Yes | No: the session, and the helper with it, end with the run |
 | The TUI without the daemon (`--no-daemon`, `-c`, `--profile`) | Yes | Not tested. `codex queue` then has no daemon to resume the session on, so the message is expected to wait in its queue |
 | The ChatGPT desktop app (Work chats) | Yes: a watch is set and stores its events | No: its chats are not local Codex sessions, which is all `codex queue` reaches. Ask for `recent_events` |
+| T3 Code, or another app that runs Codex through an app server of its own | Yes: a watch is set and stores its events | No: the plugin can't tell that the app would show the wake, so it doesn't wake the session there. `list_watches` says so. In T3 Code, [mcp-events for T3 Code](../t3/README.md) wakes a thread instead ([Limits](#limits)) |
 | The IDE extension | Not tested | Not tested |
 
 It's tested live in the Codex TUI 0.172.0 on macOS. The tests also run on
@@ -254,7 +259,7 @@ differ:
 | | Claude Code | Codex |
 |---|---|---|
 | What runs | A mod: a hooks module inside Claude Code, and a helper process it starts | A plugin: a helper that Codex starts as an MCP server for each session |
-| Needs | Claude Code 2.1.326 or newer; Node 20 or newer, or Bun | Codex 0.170 or newer; Node 20 or newer on the PATH Codex runs with |
+| Needs | Claude Code 2.1.326 or newer; Node 20 or newer, or Bun | Codex 0.170 or newer (0.172 or newer to wake a session); Node 20 or newer on the PATH Codex runs with |
 | No Node on the machine | `/mcp-events setup` fetches Bun (macOS and Linux) | Codex reports that the `mcp-events` server failed to start; the plugin downloads nothing |
 | Who a watch belongs to | The project folder. One session per project runs the watches | The Codex session that set it (`_meta.threadId`). One process per session runs them |
 | Asking before a tool runs | Claude Code asks the first time Claude uses each tool, in the default permission mode | `watch_event` and `unwatch_event` go through Codex's approval; the four tools that only read run without asking |
@@ -320,6 +325,41 @@ The changes both hosts would need are in
   "check my watches" also does it. Seen live: asked "What are you watching?",
   Codex answered from memory and called nothing. The change in Codex: start a
   resumed session's plugin servers when it opens, as for a new session.
+- **A wake only where Codex's own app shows it.** `codex queue` runs the wake
+  in whichever app server has the session open. Codex's own TUI shows that
+  turn. An app that runs Codex through an app server of its own, as T3 Code
+  does, may not show a turn it didn't start. In T3 Code, the turn ran and was
+  never shown. So the plugin wakes a session only while the latest of the
+  session's turns that called its tools was one you started in Codex's own
+  app.
+  - **How it tells.** Codex sends what started each turn with every call
+    (`x-codex-turn-metadata.turn_trigger`, from the app's `turnTrigger`).
+    These count, each where it is set (Codex 0.172):
+    - `user`, typed in the TUI (`codex-rs/tui/src/chatwidget/input_submission.rs`);
+    - `composer`, sent in the ChatGPT desktop app. It's the app's default
+      for a message, read from the installed app and from its sessions'
+      records, not run with this version;
+    - `exec`, a `codex exec` run (`codex-rs/exec/src/lib.rs`);
+    - `realtime`, voice (`codex-rs/core/src/session/realtime_handoff.rs`).
+  - **What stops the wakes.** Any other call. That covers a turn that names
+    nothing, as another app's app server sends (T3 Code sets no trigger) and
+    a Codex before 0.172 does. It also covers a trigger the plugin doesn't
+    count: a goal, an automation, a review, or an app's own name for its
+    turns. The session then isn't woken until your next turn. Its watches
+    still store every event, `list_watches` and `watch_event` say why, and
+    `recent_events` reads what came.
+  - **What leaves it as it was.** Only a turn the queue started, which Codex
+    marks `queue` in any app server (`codex-rs/ext/queue/src/service.rs`).
+  - **When waking starts again.** Once a turn you start in Codex's own app
+    calls one of the plugin's tools, what waited is handed over.
+  - **What it can't tell apart.** An app that marks its own turns `user`,
+    as the TUI does, is taken for Codex's own.
+  - **In T3 Code** this form doesn't wake a thread. Use
+    [mcp-events for T3 Code](../t3/README.md) there, which wakes a thread
+    through T3 Code itself, as a message the thread shows. The change in
+    Codex that would remove this limit is a turn metadata field naming the
+    app the session is open in, or a `codex queue` that doesn't leave a
+    message for an app server whose app may not show it.
 - **The ChatGPT desktop app.** In the ChatGPT desktop app, a watch records
   events but can't wake the chat: its threads aren't local Codex sessions
   that `codex queue` can reach. Ask for recent events. Waking works in the
@@ -330,7 +370,8 @@ The changes both hosts would need are in
   told once that events are waiting, and isn't woken again for an hour, or
   until, sooner, you write to it and Codex calls one of the plugin's tools in
   that turn. Telling that you wrote depends on the turn metadata Codex 0.172
-  sends with each call (`turn_trigger`: `user`, `exec`, or voice). With an
+  sends with each call (`turn_trigger`: `user`, `composer`, `exec`, or
+  `realtime`). With an
   older Codex, or a turn it marks otherwise, the pause ends only after its
   hour. With the session open in two windows, only a turn in the window that
   runs its watches counts. That's the window whose `list_watches` shows them

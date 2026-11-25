@@ -7,14 +7,15 @@
 //   node tools/bundle-notices.mjs polyfills/events/claude-code [--check]
 //   node tools/bundle-notices.mjs polyfills/events/codex --plugin plugin [--check]
 //   node tools/bundle-notices.mjs polyfills/events/pi --plugin extension --entry src/index.ts [--check]
-//   node tools/bundle-notices.mjs polyfills/events/copilot --plugin plugin --entry src/extension.ts \
-//       --bundle plugin/extensions/mcp-events/extension.mjs [--check]
 //
 // --plugin names the installed folder when it is not mod/ (a Codex plugin's, a
-// Pi extension's). --entry names the bundle's entry when it is not src/helper.ts.
-// --bundle names the bundled file in the header when it isn't <plugin>/dist/<entry>.js
-// (a Copilot extension's). The packages a host gives its extensions are never bundled:
-// Pi's own, and the SDK Copilot provides (@github/copilot-sdk, @microsoft/copilot-sdk).
+// Pi extension's, an OpenCode plugin's). --entry names the bundle's entry when
+// it is not src/helper.ts. --bundle names the bundle when it is not the entry's
+// name under dist/ (an OpenCode plugin's is server.js):
+//
+//   node tools/bundle-notices.mjs polyfills/events/opencode --plugin plugin --entry src/plugin.ts --bundle server.js
+//   node tools/bundle-notices.mjs polyfills/events/copilot --plugin plugin --entry src/extension.ts --bundle extensions/mcp-events/extension.mjs
+//
 // --check fails if the file on disk differs from what it would write.
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -27,21 +28,20 @@ const { build } = await import(pathToFileURL(createRequire(join(folder, 'package
 const check = process.argv.includes('--check');
 const pluginAt = process.argv.indexOf('--plugin');
 const plugin = pluginAt > 0 && process.argv[pluginAt + 1] ? process.argv[pluginAt + 1] : 'mod';
-const entryAt = process.argv.indexOf('--entry');
-const entry = entryAt > 0 && process.argv[entryAt + 1] ? process.argv[entryAt + 1] : 'src/helper.ts';
-// What the bundle is called in the file's header: <plugin>/dist/<entry>.js, unless --bundle names it.
-const bundleAt = process.argv.indexOf('--bundle');
-const bundled = bundleAt > 0 && process.argv[bundleAt + 1]
-    ? process.argv[bundleAt + 1]
-    : `${plugin}/${entry.replace(/^src\//, 'dist/').replace(/\.ts$/, '.js')}`;
-const what = bundleAt > 0 ? 'The extension' : 'The helper';
+const option = (name) => {
+    const at = process.argv.indexOf(name);
+    return at > 0 && process.argv[at + 1] ? process.argv[at + 1] : undefined;
+};
+const entry = option('--entry') ?? 'src/helper.ts';
+const bundled = option('--bundle') ?? `${entry.replace(/^src\//, 'dist/').replace(/\.ts$/, '.js')}`;
 const LICENSE_FILE = /^(licen[cs]e|copying|notice|unlicense|copyright)/i;
 
 // The same entry and resolution as the polyfill's build.mjs, without writing a bundle.
 const { metafile } = await build({
     absWorkingDir: folder,
     entryPoints: [entry],
-    // Packages the host gives its extensions stay out, as each polyfill's build.mjs leaves them:
+    // A Pi extension leaves Pi's own packages to Pi, as its build.mjs does.
+    // Packages a host gives its extensions stay out, as each polyfill's build.mjs leaves them:
     // Pi's own, and the SDK Copilot provides.
     external: ['@earendil-works/*', '@github/copilot-sdk', '@github/copilot-sdk/*', '@microsoft/copilot-sdk', '@microsoft/copilot-sdk/*'],
     platform: 'node',
@@ -71,9 +71,9 @@ const entries = [...packages.entries()]
 
 const seen = new Set();
 const out = [
-    `Third-party software bundled into ${bundled}`,
+    `Third-party software bundled into ${plugin}/${bundled}`,
     '',
-    `${what} bundles the npm packages below. Each is listed with the licence`,
+    'The helper bundles the npm packages below. Each is listed with the licence',
     'its package.json names and the licence and notice files it ships.',
     ''
 ];
@@ -91,7 +91,7 @@ const target = join(folder, plugin, 'THIRD_PARTY_LICENSES.txt');
 if (check) {
     const current = existsSync(target) ? readFileSync(target, 'utf8') : '';
     if (current !== text) {
-        console.error(`${target} is out of date: run node tools/bundle-notices.mjs ${process.argv[2]}${plugin === 'mod' ? '' : ` --plugin ${plugin}`}${entryAt > 0 ? ` --entry ${entry}` : ''}`);
+        console.error(`${target} is out of date: run node tools/bundle-notices.mjs ${process.argv.slice(2).filter((a) => a !== '--check').join(' ')}`);
         process.exit(1);
     }
     console.log(`${target}: up to date (${seen.size} packages)`);

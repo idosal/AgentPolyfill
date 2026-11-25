@@ -10,7 +10,7 @@
 
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -19,7 +19,7 @@ import { Pi, PI_BIN, temp, waitFor, type Rule } from './pi-rpc.ts';
 
 const EXTENSION = fileURLToPath(new URL('../extension/dist/index.js', import.meta.url));
 const HTTP_FIXTURE = fileURLToPath(new URL('../../../events/pi/test/http-fixture.ts', import.meta.url));
-const SKILLS_FIXTURE = fileURLToPath(new URL('../../claude-code/test/fixture-skills-server.ts', import.meta.url));
+const SKILLS_FIXTURE = fileURLToPath(new URL('../../core/test-fixtures/fixture-skills-server.ts', import.meta.url));
 /** A test credential, made up for this test. */
 const TOKEN = 'test-token-for-the-fixture';
 
@@ -30,13 +30,18 @@ const RULES: Rule[] = [
 
 type Logged = { method?: string; auth: boolean; session: string | null; client: string | null };
 const stops: (() => Promise<void> | void)[] = [];
+// The folders these tests make, removed when they end, passed or failed: one holds the sign-in Pi
+// keeps (mcp-auth.json, with tokens the fixture issued), and none is left behind.
+const made: string[] = [];
 after(async () => {
     for (const s of stops.reverse()) await s();
+    for (const d of made) rmSync(d, { recursive: true, force: true });
 });
 
 /** The HTTP front, serving one skill, behind a fixed token or OAuth. */
 async function server(mode: 'token' | 'oauth') {
     const dir = temp('mcp-skills-http-');
+    made.push(dir);
     const s = skill('git-workflow', {}, { description: 'Branching and commit conventions.' });
     const scenario = join(dir, 'scenario.json');
     writeFileSync(scenario, JSON.stringify(scenarioOf([s])));
@@ -57,6 +62,7 @@ async function server(mode: 'token' | 'oauth') {
 /** An isolated Pi home and agent directory, with `open` and `xdg-open` standing in for the browser: they follow the sign-in page's redirects, as a person approving it would. */
 function home(servers: Record<string, unknown>) {
     const dir = temp('mcp-skills-home-');
+    made.push(dir);
     const agentDir = join(dir, 'agent');
     const homeDir = join(dir, 'home');
     const bin = join(dir, 'bin');

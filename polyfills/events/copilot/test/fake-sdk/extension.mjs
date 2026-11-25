@@ -10,6 +10,11 @@
 //                  {t:'event', type, data, agentId?}             a session event
 //                  {t:'sendReply', id, ok | error | hang}        how Copilot answers a send
 //                  {t:'sendMode', mode: 'ok'|'error'|'hang'|'manual'}  how later sends are answered
+//                  {t:'uiMode', mode: 'yes'|'no'|'cancel'|'none'}   how later dialogs are answered
+//   to the test:   {t:'asked', kind, message, options}             a dialog was shown (session.ui)
+//
+// session.ui answers as FAKE_UI says (default 'yes'): 'yes' picks the last option (or true), 'no'
+// the first (or false), 'cancel' null, and 'none' throws, as the SDK does where the host can't ask.
 //
 // listConfigured() answers FAKE_COPILOT_CONFIGURED_FILE's contents, or FAKE_COPILOT_CONFIGURED (JSON),
 // or fails when it is "error" or unset.
@@ -17,6 +22,14 @@ import { createInterface } from 'node:readline';
 
 const out = (m) => process.stdout.write(JSON.stringify(m) + '\n');
 let sendMode = process.env.FAKE_SEND_MODE || 'ok';
+let uiMode = process.env.FAKE_UI || 'yes';
+const dialog = (kind, message, options) => {
+    out({ t: 'asked', kind, message, options });
+    if (uiMode === 'none') throw new Error('Elicitation is not supported by the host');
+    if (uiMode === 'cancel') return null;
+    if (kind === 'confirm') return uiMode === 'yes';
+    return uiMode === 'yes' ? options[options.length - 1] : options[0];
+};
 let n = 0;
 const waitingSends = new Map();
 
@@ -46,6 +59,14 @@ export async function joinSession(config = {}) {
             });
         },
         async log() {},
+        ui: {
+            async select(message, options) {
+                return dialog('select', message, options);
+            },
+            async confirm(message) {
+                return dialog('confirm', message);
+            }
+        },
         rpc: {
             mcp: {
                 async listConfigured() {
@@ -79,6 +100,7 @@ export async function joinSession(config = {}) {
         } else if (m.t === 'event') {
             for (const l of [...listeners]) if (l.type === m.type || l.type === '*') l.fn({ type: m.type, data: m.data, ...(m.agentId ? { agentId: m.agentId } : {}) });
         } else if (m.t === 'sendMode') sendMode = m.mode;
+        else if (m.t === 'uiMode') uiMode = m.mode;
         else if (m.t === 'sendReply') {
             const w = waitingSends.get(m.id);
             waitingSends.delete(m.id);

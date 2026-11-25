@@ -60,6 +60,17 @@ adds only what its own session showed.
 Stand-down is manual: `ARD_DISCOVERY_DISABLED=1` registers no tools (A-14),
 and `copilot plugin disable ard-discovery@agent-polyfill` stops the plugin.
 
+## Against someone else's server (contract rule 3)
+
+- **Domain discovery: met.** `ard_discover` read buildkite.com's own
+  published `ard.json` and AI Catalog, which Buildkite wrote, in Copilot CLI
+  1.0.115 (below).
+- **Registry search: not met.** It has been run only against this
+  repository's own [demo registry](../../claude-code/README.md#demo-registry),
+  on 127.0.0.1, in the tests and in Copilot. No public ARD registry that takes
+  an unauthenticated search was found, as for the other forms. The registry
+  client is the shared one, whose rules the shared registry tests cover.
+
 ## Proof
 
 Run from `polyfills/ard/copilot`, with Node.js 20 or newer:
@@ -81,8 +92,9 @@ tests**, none failed or skipped. The tests need loopback access.
 | Total | 123 |
 
 **In Copilot itself,** 25 November 2026, Copilot CLI 1.0.115 on macOS, with an
-isolated `HOME` and `COPILOT_HOME`, no GitHub sign-in, and a scripted model on
-this machine:
+isolated `HOME` and `COPILOT_HOME`, no GitHub sign-in, and a scripted stand-in
+model on this machine (it called the tools the script named; it wasn't a model
+choosing them):
 
 - Installed from a clone of this repository as a marketplace, beside
   `mcp-events` and `mcp-server-cards`; uninstalled the same way (what stays

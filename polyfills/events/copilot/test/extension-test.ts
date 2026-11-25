@@ -82,6 +82,87 @@ describe('robustness', () => {
     });
 });
 
+describe('asking before a watch (ask by default)', () => {
+    test("each watch is put to the user in the extension's own dialog, after Copilot's tool prompt: it names the server, event type, filters and note, says its events start turns, and offers \"Don't watch it\" first", async () => {
+        const w = world();
+        const e = await startExtension(w, newSession(), { MCP_EVENTS_WAKE_GAP_S: '0' });
+        try {
+            const tools = (await e.joined).tools;
+            // Copilot's own prompt still comes first: watch_event doesn't skip it.
+            assert.equal(tools.find((t) => t.name === 'watch_event')!.skipPermission, false);
+            const r = await e.call('watch_event', { server: 'tickets', event: 'ticket.created', arguments: { priority: 'high' }, note: 'tell me the title' });
+            assert.equal(r.isError, false, r.text);
+            assert.equal(e.asked.length, 1);
+            const q = e.asked[0]!;
+            assert.equal(q.kind, 'select');
+            assert.deepEqual(q.options, ["Don't watch it", 'Watch it']);
+            assert.match(q.message, /^mcp-events: start a watch\? Copilot wants to watch "ticket\.created" on the MCP server "tickets" with the filters \{"priority":"high"\}\. When it fires: "tell me the title"\. Its events will start turns in this session by themselves, while you are away too/);
+            await untilActive(e);
+            // Copilot shows the turns its wakes start, so Codex's rule (wait for a call from Codex's own
+            // app) doesn't hold them, and nothing in Codex's words reaches this session.
+            const watches = await e.call('list_watches');
+            assert.doesNotMatch(r.text + watches.text, /Codex|codex queue/);
+            // Reading needs no question.
+            await e.call('list_event_types');
+            assert.equal(e.asked.length, 1);
+        } finally {
+            await e.stop();
+        }
+    });
+
+    test('declined, closed, or where Copilot can\'t ask anyone (copilot -p): nothing is watched, and the server is sent nothing', async () => {
+        const w = world();
+        const e = await startExtension(w, newSession(), { FAKE_UI: 'no' });
+        try {
+            const no = await e.call('watch_event', { server: 'tickets', event: 'ticket.created' });
+            assert.equal(no.isError, true);
+            assert.match(no.text, /The user did not confirm the watch, so nothing is watched/);
+            e.uiMode('cancel');
+            const closed = await e.call('watch_event', { server: 'tickets', event: 'ticket.created' });
+            assert.match(closed.text, /The user did not confirm the watch/);
+            e.uiMode('none');
+            const nobody = await e.call('watch_event', { server: 'tickets', event: 'ticket.created' });
+            assert.equal(nobody.isError, true);
+            assert.match(nobody.text, /A watch needs the user to confirm it, and Copilot can't ask anyone here/);
+            // Nothing was subscribed or streamed on the server.
+            assert.ok(!w.fixtureMethods().some((m) => /^events\/(subscribe|stream|poll)$/.test(m)), w.fixtureMethods().join(', '));
+            assert.match(w.log(), /declined by the user/);
+        } finally {
+            await e.stop();
+        }
+    });
+
+    test('MCP_EVENTS_ASK_BY_DEFAULT=0 leaves it to Copilot\'s permission rules: no question of its own', async () => {
+        const w = world();
+        const e = await startExtension(w, newSession(), { MCP_EVENTS_ASK_BY_DEFAULT: '0', FAKE_UI: 'no' });
+        try {
+            const r = await e.call('watch_event', { server: 'tickets', event: 'ticket.created' });
+            assert.equal(r.isError, false, r.text);
+            assert.equal(e.asked.length, 0);
+        } finally {
+            await e.stop();
+        }
+    });
+
+    test('a watch the question could not show in full, or whose filters hold a configured secret, is refused before anyone is asked; hidden characters are shown written out', async () => {
+        const w = world();
+        const e = await startExtension(w, newSession(), { FAKE_UI: 'no' });
+        try {
+            const long = await e.call('watch_event', { server: 'tickets', event: 'ticket.created', note: 'x'.repeat(501) });
+            assert.match(long.text, /its note is longer than the 500 characters the question shows/);
+            const wide = await e.call('watch_event', { server: 'tickets', event: 'ticket.created', arguments: { q: 'y'.repeat(1001) } });
+            assert.match(wide.text, /its filters are longer than the 1000 characters/);
+            assert.equal(e.asked.length, 0);
+            await e.call('watch_event', { server: 'tickets', event: 'ticket.created', note: 'title\u202eevil\u{e0041}' });
+            assert.equal(e.asked.length, 1);
+            assert.match(e.asked[0]!.message, /title\\u\{202e\}evil\\u\{e0041\}/);
+            assert.doesNotMatch(e.asked[0]!.message, /[\u202e]|[\u{e0000}-\u{e0fff}]/u);
+        } finally {
+            await e.stop();
+        }
+    });
+});
+
 describe('waking', () => {
     test('past the hour\'s wakes the session is told once and paused; only the person writing lifts it, not another automation turn', async () => {
         const w = world();

@@ -1,0 +1,31 @@
+{
+  "name": "mcp-events-opencode",
+  "private": true,
+  "version": "0.1.2",
+  "type": "module",
+  "description": "An OpenCode plugin that adds MCP Events (SEP-3415) for the event types OpenCode doesn't watch itself (poll and webhook): an event wakes the idle session that asked for it.",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "node --test --test-concurrency=1 --no-warnings \"test/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "0.28.2",
+    "typescript": "^5.9.3"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idosal/AgentPolyfill.git",
+    "directory": "polyfills/events/opencode"
+  }
+}

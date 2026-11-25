@@ -1,0 +1,31 @@
+{
+  "name": "ard-discovery-opencode",
+  "private": true,
+  "version": "0.1.1",
+  "type": "module",
+  "description": "Agentic Resource Discovery (ARD v0.91 draft) for OpenCode: find MCP servers by domain or by asking a registry you choose, and add one once OpenCode's permission rules allow it.",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "node --test --test-concurrency=1 --no-warnings \"test/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "0.28.2",
+    "typescript": "^5.9.3"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idosal/AgentPolyfill.git",
+    "directory": "polyfills/ard/opencode"
+  }
+}

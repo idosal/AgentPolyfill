@@ -98,6 +98,7 @@ export type World = ReturnType<typeof world>;
 
 type Json = Record<string, unknown>;
 export type Sent = { id: number; options: { prompt: string; source?: string; mode?: string } };
+export type Asked = { kind: 'select' | 'confirm'; message: string; options?: string[] };
 
 /** The extension, as Copilot runs it, and the session it joined. */
 export class Extension {
@@ -105,6 +106,8 @@ export class Extension {
     readonly exited: Promise<number | null>;
     readonly joined: Promise<{ tools: { name: string; skipPermission: boolean; description: string; parameters: Json }[]; hooks: string[] }>;
     readonly sent: Sent[] = [];
+    /** The dialogs the extension showed (session.ui), in order. */
+    readonly asked: Asked[] = [];
     stderr = '';
     #id = 0;
     #waiting = new Map<number, (m: Json) => void>();
@@ -124,6 +127,7 @@ export class Extension {
             }
             if (m.t === 'joined') joined(m as never);
             else if (m.t === 'send') this.sent.push(m as unknown as Sent);
+            else if (m.t === 'asked') this.asked.push(m as unknown as Asked);
             else if (typeof m.id === 'number') this.#waiting.get(m.id)?.(m);
         });
     }
@@ -165,6 +169,11 @@ export class Extension {
 
     sendMode(mode: 'ok' | 'error' | 'hang'): void {
         this.child.stdin!.write(JSON.stringify({ t: 'sendMode', mode }) + '\n');
+    }
+
+    /** How the person answers the extension's dialogs from now on: 'none' is a host that can't ask (copilot -p). */
+    uiMode(mode: 'yes' | 'no' | 'cancel' | 'none'): void {
+        this.child.stdin!.write(JSON.stringify({ t: 'uiMode', mode }) + '\n');
     }
 
     /** Ends the extension as Copilot does when the session ends: SIGTERM. */

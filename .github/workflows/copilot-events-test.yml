@@ -73,7 +73,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - name: Third-party notices for the bundle are up to date
-        run: node ../../../tools/bundle-notices.mjs . --plugin plugin --entry src/extension.ts --bundle plugin/extensions/mcp-events/extension.mjs --check
+        run: node ../../../tools/bundle-notices.mjs . --plugin plugin --entry src/extension.ts --bundle extensions/mcp-events/extension.mjs --check
       - run: npm test
 
   copilot:

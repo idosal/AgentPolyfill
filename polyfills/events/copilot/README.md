@@ -49,7 +49,11 @@ permissions ("skip tool permission prompts, register hooks"). It uses them for
 two things: its four tools that only read (`list_event_types`, `list_watches`,
 `get_event`, `recent_events`) run without Copilot's prompt, and its
 instructions reach the model at the session's start. `watch_event` and
-`unwatch_event` always go through Copilot's prompt.
+`unwatch_event` always go through Copilot's prompt, and then the plugin asks
+you about each watch itself, in a Copilot dialog: Copilot's prompt can approve
+a call without you, in assisted mode or with everything allowed, and a watch
+lets a server start turns. `MCP_EVENTS_ASK_BY_DEFAULT=0` turns that question
+off.
 
 For one run without installing:
 `copilot --experimental --plugin-dir ./AgentPolyfill/polyfills/events/copilot/plugin`.
@@ -278,8 +282,13 @@ plugin works there. Seen in VS Code 1.147.0, signed in to GitHub
   the extension's join waits for the first message. If the chat is closed
   first, the join is refused, and the log says "Copilot did not let this
   extension join the session".
+- **The plugin's own question before a watch wasn't seen there.** It came
+  after the VS Code run. VS Code's harness shows an extension's dialog during
+  a turn (from its source), which is when a watch is asked about.
 - **It needs a GitHub Copilot sign-in.** VS Code's harness has no offline
-  mode (from its source).
+  mode (from its source). In the run, the user signed in themselves, in a
+  throwaway VS Code profile made for it and deleted after
+  ([how](docs/live-run.md#in-vs-code)).
 - **A form from an extension** is shown during a turn and declined while the
   session is idle (from VS Code's source). This plugin asks nothing through
   forms.
@@ -309,7 +318,7 @@ the hand-over and the wake limits are the same code.
 | What runs | A mod inside Claude Code, and a helper process | A helper Codex starts as an MCP server for each session | An extension Copilot starts for the session in the foreground |
 | Needs | Claude Code 2.1.326+; Node 20+ or Bun | Codex 0.170+; Node 20+ | Copilot CLI 1.0.115+ in experimental mode; no Node of your own |
 | Who a watch belongs to | The project folder | The Codex session (`_meta.threadId`) | The Copilot session the extension joined |
-| Asking before a tool runs | The first time Claude uses each tool | `watch_event`, `unwatch_event` go through Codex's approval | The same two through Copilot's tool prompt; once, the elevated-permissions question |
+| Asking before a tool runs | The first time Claude uses each tool | `watch_event`, `unwatch_event` go through Codex's approval | The same two through Copilot's tool prompt, and a watch then asks in the plugin's own dialog; once, the elevated-permissions question |
 | How a wake arrives | `$.prompt.submit` | `codex queue --thread <id> … --resume`, an input message | `session.send`, an automation turn |
 | After 30 wakes in an hour | Not woken again until you send a message | Not again for an hour, or until your own turn calls a plugin tool | Not again until you send a message (Copilot marks the plugin's own messages, so yours are told apart) |
 | Servers it reads | Claude Code's scopes, and only servers it uses | `config.toml` | The servers Copilot says it uses, read from `mcp-config.json` and trusted workspace files |
@@ -326,6 +335,7 @@ don't need any of them to start.
 | Variable | What it does |
 |---|---|
 | `MCP_EVENTS_OFF=1` | Installed, and doing nothing (no tools, no hooks). |
+| `MCP_EVENTS_ASK_BY_DEFAULT=0` | No question of the plugin's own before a watch; Copilot's permission rules alone decide. On by default. |
 | `MCP_EVENTS_PRE_STANDARD` | `off` refuses servers that advertise events only in the form from before the standard. A comma-separated list of server names allows that form for those servers only. |
 | `MCP_EVENTS_SERVERS` / `MCP_EVENTS_SKIP` | Only these server names, or never these. |
 | `MCP_EVENTS_CONFIG` | A servers file of your own (`{"mcpServers": …}`) instead of Copilot's. |
@@ -453,7 +463,8 @@ set work in motion, as often as the [wake limit](#limits) allows.
 
 A watch belongs to the Copilot session that set it, and another session sees
 none of its watches or events. Starting and stopping a watch go through
-Copilot's tool prompt. The plugin never reads Copilot's stored credentials,
+Copilot's tool prompt, and a watch also asks you in the plugin's own dialog,
+even where Copilot would allow the call by itself. The plugin never reads Copilot's stored credentials,
 and it leaves alone servers that sign in through Copilot. Details, what is
 stored, and how to report a vulnerability are in [`SECURITY.md`](SECURITY.md).
 
@@ -500,7 +511,7 @@ npm ci
 npm test                  # Node 22.18 or newer runs the TypeScript tests
 npm run typecheck
 npm run build             # plugin/extensions/mcp-events/extension.mjs; a test fails when it is stale
-node ../../../tools/bundle-notices.mjs . --plugin plugin --entry src/extension.ts --bundle plugin/extensions/mcp-events/extension.mjs
+node ../../../tools/bundle-notices.mjs . --plugin plugin --entry src/extension.ts --bundle extensions/mcp-events/extension.mjs
 ```
 
 - [`plugin/`](plugin/) is what gets installed, all of it: the manifest

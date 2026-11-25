@@ -27,7 +27,7 @@ import { THREAD_ID } from '../../codex/src/waker.ts';
 import { copilotHome, readCopilotServers, type Configured } from './copilot-config.ts';
 import { VERSION } from './version.ts';
 import { isThePersons, sendWake, type Sender } from './waker.ts';
-import { COPILOT, INSTRUCTIONS, TOOLS } from './words.ts';
+import { askByDefaultOff, COPILOT, INSTRUCTIONS, TOOLS, unshowable, WATCH_CHOICES, watchQuestion } from './words.ts';
 
 type Json = Record<string, unknown>;
 
@@ -36,6 +36,8 @@ export type JoinedSession = Sender & {
     sessionId: string;
     on(type: string, handler: (event: { type: string; data?: Json; agentId?: unknown }) => void): () => void;
     rpc?: { mcp?: { listConfigured?: () => Promise<{ servers: Configured[] }> } };
+    /** Copilot's dialogs; each throws where the host can't ask anyone (copilot -p, say). */
+    ui?: { select?: (message: string, options: string[]) => Promise<string | null> };
 };
 export type ToolResult = string | { textResultForLlm: string; resultType: 'success' | 'failure' };
 // The forms every Copilot release with extensions takes: a `tools` array and the hooks by name.
@@ -250,12 +252,42 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
                 env,
                 connectTimeoutMs: timeout,
                 label: 'copilot session',
-                wakeName: 'session.send'
+                wakeName: 'session.send',
+                // Copilot shows the turn session.send starts (the CLI's TUI; VS Code with the turn id
+                // waker.ts sets), so Codex's rule of waiting for a call from its own app doesn't apply.
+                hostShowsWakes: true
             });
             s.start();
         }
         return s;
     };
+
+    /** Puts a watch to the person; undefined when they said yes, else why there is no watch. */
+    const askToWatch = askByDefaultOff(env.MCP_EVENTS_ASK_BY_DEFAULT)
+        ? undefined
+        : async (p: Json, ts: ThreadSession): Promise<string | undefined> => {
+              const asked = { server: String(p.server ?? ''), event: String(p.event ?? ''), arguments: p.arguments, note: p.note };
+              const why = unshowable(asked);
+              if (why) return `The watch is not started: ${why}.`;
+              const q = watchQuestion(asked, ts.budget);
+              // The question shows what is used, or there is no watch: one whose filters or note hold a
+              // value the MCP configuration keeps secret can't be shown as it is.
+              if (secrets.scrub(q) !== q) return 'The watch is not started: its filters or note hold a value your MCP configuration keeps secret, which the question to the user would have to hide.';
+              const choices = [WATCH_CHOICES.no, WATCH_CHOICES.yes];
+              let answer: string | null;
+              try {
+                  if (!session?.ui?.select) throw new Error('this Copilot offers extensions no dialogs');
+                  answer = await session.ui.select(q, choices);
+              } catch (e) {
+                  log(`could not ask about a watch (${describeError(e)}); nothing is watched`);
+                  return "A watch needs the user to confirm it, and Copilot can't ask anyone here (copilot -p, say). Start the watch in an interactive session, or set MCP_EVENTS_ASK_BY_DEFAULT=0 to leave it to Copilot's permission rules.";
+              }
+              if (answer !== WATCH_CHOICES.yes) {
+                  log(`watch of ${oneLine(asked.server, 40)}/${oneLine(asked.event, 80)} declined by the user`);
+                  return 'The user did not confirm the watch, so nothing is watched. Ask them before trying again.';
+              }
+              return undefined;
+          };
 
     const toResult = (a: { text: string; isError?: true }): ToolResult => (a.isError ? { textResultForLlm: a.text, resultType: 'failure' } : a.text);
 
@@ -287,6 +319,14 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
                     if (!ts.manager.owner) ts.start();
                     // The model's arguments: only a plain object is read; the tools check each field.
                     const input = typeof args === 'object' && args !== null && !Array.isArray(args) ? args : {};
+                    // A watch lets a server's events start turns while nobody is there, so the person
+                    // says yes to each one, in the extension's own dialog, after Copilot's tool prompt.
+                    // Copilot's prompt alone isn't enough: in assisted mode (an organisation can make it
+                    // the default) or with everything allowed, Copilot may approve the call itself.
+                    if (t.name === 'watch_event' && askToWatch) {
+                        const refused = await askToWatch(input, ts);
+                        if (refused) return toResult({ text: refused, isError: true });
+                    }
                     try {
                         return toResult(await ts.call(t.name, input));
                     } catch (e) {

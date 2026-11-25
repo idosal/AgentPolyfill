@@ -11,17 +11,29 @@ bring more of MCP to the clients you already use, before those clients
 support it. Today that's four MCP extensions and one open draft beyond MCP.
 What runs in each host:
 
-- **Claude Code:** Events, Skills, Server Cards, Apps and ARD.
+- **Claude Code:** Events, Server Cards, Apps and ARD. Skills needs no
+  polyfill there: Claude Code lists skills from MCP servers itself, in beta
+  from 2.1.332.
 - **Codex:** Events, Skills, Server Cards and ARD.
 - **Pi:** Events, Skills, Server Cards and ARD, as Pi extensions. Apps has no
   Pi form.
-- **Copilot CLI:** Events, Server Cards and ARD, as Copilot CLI plugins (Events
-  is an extension, in Copilot's experimental mode). Copilot has Skills and
-  Apps built in.
+- **OpenCode:** Events, Skills, Server Cards and ARD, as OpenCode plugins.
+  Apps has no OpenCode form.
+- **Copilot CLI:** Events, Server Cards and ARD, as Copilot CLI plugins.
+  Events is a Copilot extension and needs Copilot's experimental mode. Skills
+  and Apps have no Copilot form: Copilot CLI has Skills over MCP built in, and
+  VS Code's Copilot harness draws MCP Apps.
 
-See [Getting started](/guide/getting-started) for installation. Nothing for Pi
-is published to npm or Pi's package gallery; install from a repository clone.
-The Copilot CLI plugins install from a clone too, added as a marketplace.
+See [Getting started](/guide/getting-started) for installation. In Pi,
+`pi install git:github.com/idosal/AgentPolyfill` installs Events, Skills and
+Server Cards together. A clone is the alternative for one form, and the way
+to install ARD separately: its search sends your request's words to a registry
+after asking each time, so it is left out as it is from the Claude Code bundle.
+Nothing for Pi is published to npm or Pi's package gallery.
+Nothing for OpenCode is published to npm either; OpenCode installs each plugin
+from the repository on GitHub, with Git.
+In Copilot CLI, add a clone of the repository as a marketplace and install
+each plugin from it; that is the install that was tested.
 
 ## Not affiliated
 

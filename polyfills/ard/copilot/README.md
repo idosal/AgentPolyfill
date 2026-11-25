@@ -30,8 +30,9 @@ the request, or set `ARD_DISCOVERY_REGISTRY`. With neither, a search is
 refused and nothing is sent. Copilot shows you a form before every search,
 naming the registry and the exact query.
 
-ARD is a draft, not an MCP specification. The revision this plugin follows is
-in [Spec and conformance](#spec-and-conformance).
+ARD is a draft (v0.91) published by the ards-project on GitHub, not an MCP
+specification. The revision this plugin follows is in
+[Spec and conformance](#spec-and-conformance).
 
 ## Install
 
@@ -99,7 +100,8 @@ with these differences:
 
 - Copilot asks before each of the plugin's tools runs ("Do you want to use
   this tool?"), as for any MCP tool, and then the plugin's form asks about the
-  search or the add. Seen live in the TUI, against the demo registry:
+  search or the add. Seen in the TUI, with a scripted stand-in model, against
+  the demo registry:
 
   ```
   ard-discovery needs information.
@@ -144,6 +146,10 @@ Copilot doesn't read ARD yet. When it does, uninstall the plugin, disable it
   returns can be added yet (the Claude Code form's
   [findings](../claude-code/README.md#findings-to-report-upstream)).
 - **Two questions per search or add:** Copilot's tool prompt, then the form.
+- **Search was run only against this repository's demo registry.** No public
+  ARD registry that takes an unauthenticated search was found (contract rule 3
+  is met for domain discovery, not for search: see
+  [conformance](docs/conformance.md#against-someone-elses-server-contract-rule-3)).
 - **A public name that resolves to a private address isn't caught,** as in
   mcp-server-cards.
 - **The limits of adding a server** are
@@ -183,9 +189,10 @@ as Copilot starts it: consent, what is sent, what a registry may say, hidden
 characters, and the add flow. One rule isn't met, as in every form: S-3, the
 live comparison of a card with the server.
 
-In Copilot CLI 1.0.115 itself, `ard_discover` read buildkite.com's catalogs,
-and a search against the demo registry on 127.0.0.1 went out only after
-Copilot's tool prompt and **Send the search** in the plugin's form. The MCP
+In Copilot CLI 1.0.115 itself, with a scripted stand-in model, `ard_discover`
+read buildkite.com's catalogs, and a search against the demo registry on
+127.0.0.1 went out only after Copilot's tool prompt and **Send the search** in
+the plugin's form. Search has been run against no registry but that one. The MCP
 conformance suite has no Server Card or ARD scenarios.
 
 ## Development

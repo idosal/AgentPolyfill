@@ -3,7 +3,7 @@
 Claude can watch events on your MCP servers ("tell me when a deploy fails")
 and act when one fires, even while the session sits idle with nobody typing.
 
-Also available for Codex: [mcp-events for Codex](../codex/README.md).
+Also available for Codex, Pi and OpenCode: [mcp-events for Codex](../codex/README.md), [mcp-events for Pi](../pi/README.md), [mcp-events for OpenCode](../opencode/README.md).
 
 This mod implements the client side of the MCP Events extension,
 [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
@@ -58,8 +58,7 @@ fetched Bun for you, see [The mod's own runtime](#the-mods-own-runtime) first.
 ### The mod's own runtime
 
 The mod's helper is JavaScript, so it needs Node or Bun, and Claude Code comes
-with neither. On a machine that has neither, `/mcp-events setup` fetches one.
-It works the same way as in the mcp-skills mod:
+with neither. On a machine that has neither, `/mcp-events setup` fetches one:
 
 - **Only when you ask, and only after you say yes.** The command counts only
   when you type it at the prompt, or send it from your own Remote Control. It
@@ -96,8 +95,11 @@ helper, as it can already run code through its own hooks.
 
 Not yet run as one sequence: the download, the check and the unpacking are
 tested with stand-ins for the machine (`mod/hooks/setup.test.ts`), but the
-download itself hasn't been run from this mod. The same code in the mcp-skills
-mod was run in parts against the real release.
+download itself hasn't been run from this mod. The same code was run in parts
+against the real release in the mcp-skills mod for Claude Code. That mod has
+since been removed from this repository (Claude Code lists MCP skills itself);
+it and that record are in history, at commit `ed2279a6`
+([its README's limits](https://github.com/idosal/AgentPolyfill/blob/ed2279a6/polyfills/skills/claude-code/README.md#limits)).
 
 ## Try it
 

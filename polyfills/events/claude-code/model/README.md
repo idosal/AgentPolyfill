@@ -350,8 +350,14 @@ after four, and two wakes an hour.
 | `Heard` | `#queue` returns ok: a batch is marked handed over (`Delivery.ack`), then counts as a wake (`WakeBudget.woke`, which clears the record in the same write); the notice pauses waking (`WakeBudget.pause`, which sets `pausedAt`). A helper ending between the two leaves the record, as one ending before it heard back does |
 | `Lift` | `WakeBudget.gate` on a paused budget once `pausedAt + liftAfterMs` has passed: no longer paused, and the hour's wakes forgotten. The gate is asked on each stored event and before each hand-over; the model lets it come at any time the helper runs |
 | `HelperDies`, `HelperStarts` | the helper ends (Codex closed its input, or it was killed), and a new `ThreadSession` reads `wakes.json` and `delivered.pos`. `noticeHanded` on disk makes it start paused (`ThreadSession.start`, from 0.1.5; the constructor before); then a recorded batch is marked handed over and counted as a wake, at the time the new helper starts (`ThreadSession.start`) |
-| `CallIn(person, trigger)` | a `tools/call` (`codex/src/helper.ts`): `isThePersons` on `x-codex-turn-metadata.turn_trigger`, and if so `ThreadSession.spoke`, `WakeBudget.spoke`. `person` is whether the person started the turn; `trigger` is what Codex says started it: on the person's turns `user`, `exec`, `realtime` or `voice`, or no metadata (`"none"`, a Codex before 0.172); on other turns `queue` (a wake, this plugin's among them), a trigger neither rule names (`hook`), or no metadata |
+| `CallIn(person, trigger)` | a `tools/call` (`codex/src/helper.ts`): `isThePersons` on `x-codex-turn-metadata.turn_trigger`, and if so `ThreadSession.spoke`, `WakeBudget.spoke`. `person` is whether the person started the turn; `trigger` is what Codex says started it: on the person's turns `user`, `composer`, `exec` or `realtime` (`voice` until 0.1.7), or no metadata (`"none"`, a Codex before 0.172); on other turns `queue` (a wake, this plugin's among them), a trigger neither rule names (`hook`), or no metadata |
 | `local` | whether `codex queue` can reach the session at all |
+
+From 0.1.7, `Take` has one more condition, which the model doesn't have. No hand-over is made
+unless the latest call from a turn the queue didn't start was from a turn the person started in
+Codex's own app (`shown-by.json`, `codex/src/meta.ts` `shownBy`). A condition on a step
+only takes behaviours away, and each property below is about what must never happen, so each
+still holds with it.
 
 `init` is 0.1.3, the session reachable or not. `initUnrecorded` is 0.1.2: no record of the
 hand-over, a timeout a failure like any other, and a notice whose `codex queue` failed still kept

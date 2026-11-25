@@ -60,8 +60,13 @@ and words ([`src/host.ts`](../src/host.ts)).
 
 Stand-down is manual: `MCP_SERVER_CARDS_DISABLED=1` registers no tools (E-8),
 and `copilot plugin disable mcp-server-cards@agent-polyfill` stops the
-plugin. Nothing detects native support; disable or uninstall the plugin when
-Copilot has it.
+plugin. Nothing detects native support. Copilot 1.0.115 reads Server Cards
+from a catalogue of its own, through an experimental API and a built-in
+skill, but nothing seen in it discovers them from a domain, which is what this
+plugin does (what was checked, and what wasn't, is in the
+[README](../README.md#copilots-own-catalogue)). So the plugin doesn't stand
+down for it. Disable or uninstall it when Copilot reads a domain's catalog
+itself.
 
 ## Proof
 

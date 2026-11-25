@@ -47,7 +47,24 @@ server could. How often is bounded (below), not prevented.
   - "Register hooks" is one hook, `onSessionStart`, which gives the session
     the plugin's instructions. It changes nothing you type.
 - **Before each `watch_event` and `unwatch_event`,** Copilot's tool prompt, as
-  for any tool that changes something.
+  for any tool that changes something. Copilot's permission rules apply to
+  them as to any tool: the plugin doesn't skip that prompt for either.
+- **Then, before each watch, the plugin's own question,** in a Copilot dialog
+  (`session.ui.select`): the server, the event type, the filters and the note,
+  shown whole (a character that shows as nothing is written out as `\u{…}`),
+  and that the watch's events will start turns while you're away, at most as
+  often as the wake limits allow. **Don't watch it** comes first, and only
+  **Watch it** starts the watch. A watch whose filters or note are too long
+  to show in full, or hold a value your configuration keeps secret, is refused
+  before you're asked. Where Copilot can't ask anyone (`copilot -p`, say), no
+  watch starts.
+  - Why a second question: Copilot's prompt isn't always a person. In
+    assisted mode, which an organisation can make the default, an LLM review
+    approves the calls it judges safe, and allow-all approves everything. A
+    watch hands a server a way to start turns, so the person says yes to it.
+  - `MCP_EVENTS_ASK_BY_DEFAULT=0` turns the plugin's question off. Copilot's
+    permission rules alone then decide, and in a session that allows tools
+    without asking, a watch starts without a question.
 
 The plugin asks for no environment variables (`requestedEnvironmentVariables`),
 so Copilot's stripping of sensitive variables from extensions holds.

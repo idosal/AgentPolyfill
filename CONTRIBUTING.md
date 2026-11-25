@@ -13,9 +13,10 @@ host are welcome.
 
 ## Adding a polyfill
 
-A polyfill implements the client side of one published MCP extension inside
-one host that hasn't shipped it, and does nothing once the host supports the
-extension itself. Each one is a folder in this repository.
+A polyfill implements the client side of one published extension inside one
+host that hasn't shipped it, and does nothing once the host supports the
+extension itself. The extension is an MCP extension, or a spec for agents
+published outside MCP, such as ARD. Each one is a folder in this repository.
 
 ### 1. Meet the contract
 
@@ -51,6 +52,7 @@ polyfills/<extension>/
   claude-code/   the Claude Code adapter
   codex/         the Codex adapter
   pi/            the Pi adapter
+  opencode/      the OpenCode adapter
   copilot/       the GitHub Copilot CLI adapter
 ```
 
@@ -68,14 +70,16 @@ polyfills/<extension>/
 | Claude Code | mod (plugin) | `polyfills/<extension>/claude-code/` |
 | Codex | plugin | `polyfills/<extension>/codex/` |
 | Pi | extension | `polyfills/<extension>/pi/` |
+| OpenCode | V2 server plugin | `polyfills/<extension>/opencode/` |
 | Copilot CLI | plugin; for Events, an extension inside it | `polyfills/<extension>/copilot/` |
 
 The Apps polyfill, [`polyfills/apps/claude-code`](polyfills/apps/claude-code),
 is a complete example of one adapter. Inside an adapter's folder:
 
 - **The installable plugin or extension goes in a subfolder** (`mod/` in the
-  Apps polyfill; `extension/` in a Pi form). It holds the host's manifest and
-  only what the plugin or extension runs.
+  Apps polyfill; `extension/` in a Pi form; `plugin/` in an OpenCode or a
+  Copilot form).
+  It holds the host's manifest and only what the plugin or extension runs.
   Tests, build scripts, benchmarks and design notes go beside it, not in it.
   If the plugin's own top folder holds a `package.json`, Claude Code runs
   `npm install` there when someone installs it, so keep any `package.json`
@@ -91,7 +95,9 @@ is a complete example of one adapter. Inside an adapter's folder:
   |---|---|
   | Claude Code | Copied on install; carries `.claude-plugin/plugin.json`. |
   | Codex | Copied on install; carries `.codex-plugin/plugin.json`, which can sit beside another host's manifest. |
-  | Pi | A separate `pi/extension/` folder with a manifest and one bundled file. Pi loads the local path in place, so the clone must stay. |
+  | Pi | A separate `pi/extension/` folder with a manifest and one bundled file. The Git install loads the three extensions from Pi's copy of the repository under `~/.pi/agent/git/`. A local install loads its path in place, so that clone must stay. |
+  | OpenCode | A separate `opencode/plugin/` folder: one bundled file, `server.js`, the bundle's licence notices where it holds other packages' code, and a small `package.json` that names it, which `opencode plugin add` installs from GitHub. OpenCode runs it inside its own server, once per project folder. |
+  | Copilot CLI | A separate `copilot/plugin/` folder with `plugin.json`: an MCP server's `.mcp.json` and bundle, or for Events `extensions/mcp-events/extension.mjs`, and the bundle's licence notices. A marketplace added from a clone loads it in place; one added from GitHub is copied. |
 
 - **A marketplace plugin's name** is unique in this repository. The same
   name is used in the marketplace entries, in release tags and in the
@@ -130,17 +136,31 @@ It states:
     `/plugin install <plugin>@agent-polyfill`.
   - In Codex:
     `codex plugin marketplace add idosal/AgentPolyfill && codex plugin add <plugin>@agent-polyfill`.
-  - In Pi: clone `https://github.com/idosal/AgentPolyfill.git`, enter
-    `AgentPolyfill`, then `pi install ./polyfills/<extension>/pi/extension`.
+  - In Pi: lead with `pi install git:github.com/idosal/AgentPolyfill`, which
+    installs Events, Skills and Server Cards together. For one form alone,
+    clone `https://github.com/idosal/AgentPolyfill.git`, enter `AgentPolyfill`,
+    then `pi install ./polyfills/<extension>/pi/extension`; keep the clone.
+    ARD uses this separate install because its search sends the words of
+    your request to a registry, after asking each time, the same reason it
+    is left out of the Claude Code bundle.
     The current forms need Pi 1.6.0 (the version tested) and Node 22 or
-    newer. Nothing for Pi is published to npm or Pi's package gallery.
-    For one run, use `pi -e ./polyfills/<extension>/pi/extension`.
+    newer. Nothing for Pi is published to npm or Pi's package gallery, and
+    nothing is built on install. For one run without installing, use
+    `pi -e git:github.com/idosal/AgentPolyfill` for all three, or
+    `pi -e ./polyfills/<extension>/pi/extension` from a clone for one.
+  - In OpenCode:
+    `opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/<extension>/opencode/plugin'`,
+    and `opencode plugin remove` with the same text to remove it. Then, from
+    a clone, the plugin's folder in `plugins` in `opencode.json`. The current
+    forms need OpenCode 2.4 or newer (tested with 2.4.1) and Git. Nothing for
+    OpenCode is published to npm.
   - In Copilot CLI: clone the repository, run
     `copilot plugin marketplace add ./AgentPolyfill`, then
     `copilot plugin install <plugin>@agent-polyfill` (tested with 1.0.115;
     Events needs `copilot --experimental`). From GitHub,
     `copilot plugin marketplace add idosal/AgentPolyfill` works once the
-    plugins are on the default branch.
+    plugins are on the default branch. `copilot plugin uninstall
+    <plugin>@agent-polyfill` removes one.
   - Then what else it needs, and every step and question a new user meets
     between installation and the extension working, with what happens when
     they say no. Anything beyond "install, add a server, ask" needs a reason.
@@ -160,8 +180,9 @@ If a contract rule isn't met yet, the README says so.
 ### 4. Add it to the marketplace
 
 Each host that has a marketplace has its own marketplace file in this
-repository (Pi has none; see the end of this step). For Claude Code, add an
-entry to [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json):
+repository (Pi and OpenCode have none; see the end of this step; Copilot's
+is `.github/plugin/marketplace.json`). For Claude
+Code, add an entry to [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json):
 
 ```json
 {
@@ -190,20 +211,6 @@ For Codex, add an entry to
 }
 ```
 
-For Copilot CLI, add an entry to
-[`.github/plugin/marketplace.json`](.github/plugin/marketplace.json), which
-Copilot reads before `.claude-plugin/marketplace.json` (so Copilot users see
-only the plugins that run there). Keep its `version` equal to the plugin's:
-
-```json
-{
-  "name": "<plugin>",
-  "description": "…",
-  "version": "<the plugin.json version>",
-  "source": "./polyfills/<extension>/copilot/<plugin subfolder>"
-}
-```
-
 In Claude Code, add the plugin's name to the `dependencies` of the
 `agent-polyfill` plugin
 ([`plugins/agent-polyfill/.claude-plugin/plugin.json`](plugins/agent-polyfill/.claude-plugin/plugin.json)),
@@ -212,13 +219,39 @@ which installs every polyfill in one step, and to the list in its
 match. Add the polyfill to the table in the [README](README.md) as well, in
 its host's column.
 
-For Pi, there is no marketplace file or bundle here, and nothing is
-published to npm or Pi's package gallery. Document the clone-and-install
-steps and keep the installable folder at `polyfills/<extension>/pi/extension`.
-`pi install git:...` installs a whole repository, not one subfolder. Include
-`pi remove ./polyfills/<extension>/pi/extension` from the same clone for
-removal, and say what data remains. Add the form to the root README's Pi
-column; Apps has no Pi form.
+For Pi, list a new form's `./polyfills/<extension>/pi/extension/dist/index.js`
+in the root [`package.json`](package.json)'s `pi.extensions` to include it
+in `pi install git:github.com/idosal/AgentPolyfill`. ARD is left out on
+purpose because its search sends your request's words to a registry after
+asking each time. There is no Pi marketplace file here, and nothing is
+published to npm or Pi's package gallery.
+
+Document `pi update --extensions` to update installed packages and
+`pi remove git:github.com/idosal/AgentPolyfill` to remove all three forms
+and Pi's copy of the repository. Keep the local install as an alternative,
+with `pi remove ./polyfills/<extension>/pi/extension` from the same clone
+for removal. Use one way per form: Pi tells packages apart by repository
+address or local path, so a form installed both ways loads twice. Say what
+data remains: `mcp-events/` and `mcp-skills/` in Pi's agent folder, and
+added servers in `mcp.json`. Add the form to the root README's Pi column;
+Apps has no Pi form.
+
+For OpenCode, there is no marketplace file or bundle here either, and
+nothing is published to npm. `opencode plugin add` installs a form straight
+from its folder on GitHub, so keep the installable folder at
+`polyfills/<extension>/opencode/plugin`. Include `opencode plugin remove`
+with the same text for removal, and say what data remains, in the plugin's
+own folders and in OpenCode's plugin storage. Add the form to the root
+README's OpenCode column; Apps has no OpenCode form.
+
+For Copilot CLI, add an entry to
+[`.github/plugin/marketplace.json`](.github/plugin/marketplace.json), with
+the same name, a description and the version, and
+`"source": "./polyfills/<extension>/copilot/plugin"`. Say what data remains:
+`~/.copilot/mcp-events/` for Events, added servers in `mcp-config.json`, and
+the marketplace entry Copilot keeps until
+`copilot plugin marketplace remove agent-polyfill`. Add the form to the root
+README's Copilot column; Copilot has Skills and Apps built in.
 
 ### 5. Add its CI
 
@@ -235,6 +268,15 @@ Plugins listed in the marketplaces are included in those checks
 automatically. Pi forms need their own workflow; see
 [`pi-events-test.yml`](.github/workflows/pi-events-test.yml) and
 [`pi-skills-test.yml`](.github/workflows/pi-skills-test.yml).
+
+OpenCode forms need their own workflow too, `opencode-<extension>-test.yml`;
+copy [`opencode-events-test.yml`](.github/workflows/opencode-events-test.yml).
+It runs on Linux, macOS and Windows, installs the OpenCode pinned in
+[`tools/opencode`](tools/opencode), checks that the committed
+`plugin/server.js` is what the sources build and, where the bundle holds
+other packages' code, that its licence notices are up to date, and runs the
+tests in a real OpenCode, in a throwaway home with a scripted stand-in for a
+model, so no model, key or account is used.
 
 Add the polyfill's own tests as `.github/workflows/<plugin>-test.yml`,
 filtered to its folder. Copy
@@ -275,11 +317,14 @@ adapter beside the others. Events and Skills are the examples
 ([`polyfills/events`](polyfills/events), [`polyfills/skills`](polyfills/skills)):
 one `core/` with these forms:
 
-- `claude-code/`: a Claude Code mod.
+- `claude-code/`: a Claude Code mod (Events has one; Skills doesn't, because
+  Claude Code lists served skills itself).
 - `codex/`: a Codex plugin.
-- `pi/`: a Pi extension, installed from `pi/extension/`.
-- `copilot/`: a Copilot CLI plugin, installed from `copilot/plugin/`
-  (Events only; Copilot has Skills built in).
+- `pi/`: a Pi extension, listed in the root `pi.extensions` for the Git
+  install, or installed on its own from `pi/extension/` in a clone.
+- `opencode/`: an OpenCode plugin, installed from `opencode/plugin/`.
+- `copilot/`: a Copilot CLI plugin, installed from `copilot/plugin/` (Events
+  only; Copilot has Skills built in).
 
 1. **Find the host's way in.** What can third-party code do there? It may run
    code inside the host or beside it, call tools, ask the user, or start a

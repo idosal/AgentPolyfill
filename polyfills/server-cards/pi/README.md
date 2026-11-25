@@ -4,9 +4,9 @@ Name a company, and Pi finds the MCP servers its domain publishes. Ask it to
 add one, choose **Add it** in Pi's question, and the server goes into Pi's
 own MCP configuration and connects in the current session.
 
-Also available for [Claude Code](../claude-code/README.md) and
-[Codex](../codex/README.md). All three use the same card, discovery and
-configuration modules.
+Also available for Claude Code, Codex and OpenCode: [mcp-server-cards for Claude Code](../claude-code/README.md), [mcp-server-cards for Codex](../codex/README.md), [mcp-server-cards for OpenCode](../opencode/README.md).
+All four use the same card and discovery modules, and all but OpenCode the
+same configuration modules.
 
 > What MCP servers does neon.com publish?
 
@@ -20,9 +20,27 @@ your words to a third party.
 
 ## Install
 
-Nothing is published to npm or Pi's package gallery yet, so install it from a
-clone of this repository. You need **Pi 1.6.0**, the version it was tested
-with, and **Node 22 or newer**, which Pi needs anyway:
+Install the Pi forms of Events, Skills and Server Cards together:
+
+```bash
+pi install git:github.com/idosal/AgentPolyfill
+```
+
+You need **Pi 1.6.0**, the version tested, and **Node 22 or newer**. Pi clones
+the repository into its agent folder (under `~/.pi/agent/git/`) and loads
+the three extensions from there. Nothing is published to npm or Pi's package
+gallery, and nothing is built.
+
+Update installed packages with `pi update --extensions`. Remove all three
+and Pi's copy of the repository with
+`pi remove git:github.com/idosal/AgentPolyfill`. For one run of all three
+without installing:
+
+```bash
+pi -e git:github.com/idosal/AgentPolyfill
+```
+
+To install only Server Cards, use a clone:
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
@@ -30,19 +48,22 @@ cd AgentPolyfill
 pi install ./polyfills/server-cards/pi/extension
 ```
 
-Or, to try it for one run without installing:
+Pi loads the local path where it is, so keep the clone. From the same folder,
+`pi remove ./polyfills/server-cards/pi/extension` removes that local install;
+`pi -e ./polyfills/server-cards/pi/extension` runs it once without installing.
+Use one way per form: Pi tells packages apart by repository address or local
+path, so a form installed both ways loads twice.
 
-```bash
-pi -e ./polyfills/server-cards/pi/extension
-```
+[ARD](../../ard/pi/README.md#install) is left out of the one-line install,
+as it is from the Claude Code bundle: its search sends the words of your
+request to a registry after asking each time. Install it separately from a
+clone.
 
-The extension is one folder, [`extension/`](extension/): a manifest and one
-bundled file, with nothing to build or install alongside it. Pi loads it from
-where it is, so keep the clone; `git pull` in it brings the next version.
-
-To remove it, run `pi remove ./polyfills/server-cards/pi/extension` from the same
-folder. Servers you added stay in `mcp.json`;
-remove one with `pi mcp remove <name>`.
+Removal leaves watches and events in `mcp-events/`, and approvals and skill
+stubs in `mcp-skills/`, in Pi's agent folder (`~/.pi/agent`, or
+`PI_CODING_AGENT_DIR`); delete those folders too to remove that data.
+Servers you added stay in `mcp.json`; remove one with
+`pi mcp remove <name>`.
 
 It works beside the ARD Pi form, which reads AI Catalogs too and names its
 own add tool `ard_add_mcp_server` (Pi's tool names are shared by every

@@ -62,10 +62,17 @@ Tests are in `test/extension-test.ts` and `test/units-test.ts`.
   one that doesn't run the watches leaves the pause to the one that does.
   This is main's takeover fix in the Codex form's `threads.ts`, which this
   form shares; its two tests here run two extension processes on one session.
+- **Asking before a watch.** After Copilot's tool prompt, the plugin asks
+  about each watch in its own dialog, naming the server, event type, filters
+  and note; only **Watch it** starts it. Declined, closed, or where Copilot
+  can't ask (`copilot -p`): no watch, and the server is sent nothing. A watch
+  the question can't show whole is refused before anyone is asked.
+  `MCP_EVENTS_ASK_BY_DEFAULT=0` leaves it to Copilot's rules. Four tests, and
+  the live run in the TUI.
 - **Stand-down.** `MCP_EVENTS_OFF=1` joins the session with no tools and no
   hooks.
 
-Run with `npm test` on 25 November 2026 (Node 22.23.1): **45 tests**, none
+Run with `npm test` on 25 November 2026 (Node 22.23.1): **49 tests**, none
 failed: `spec-test.ts` (SEP rules end to end), `extension-test.ts` (joining,
 waking, two processes, which servers), `units-test.ts` and `plugin-test.ts`
 (the installed folder and its one import).

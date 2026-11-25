@@ -8,6 +8,8 @@ These are third-party plugins and extensions that run with your permissions.
 None of them reads the host's stored credentials. They have been reviewed by
 an AI reviewer that did not build them, and not audited by a person. The Pi
 forms had an independent AI review, fixes and a check of those changes too.
+The OpenCode forms had fixes from a security review, and their live runs were
+repeated after them.
 
 ## Reporting a problem
 
@@ -26,10 +28,10 @@ What a server sends (an event payload, a skill's text, an app's HTML) is data
 from that server, and receiving it grants nothing. A polyfill never
 auto-approves an action or reads the host's stored credentials.
 
-In Claude Code, event payloads and skill text reach Claude as tool results;
+In Claude Code, event payloads reach Claude as tool results;
 context an app sets goes with your next prompt
 (see [Apps](#apps)). Whatever Claude does next goes through Claude Code's normal
-permissions. A polyfill never reads the host's stored credentials. Events, Apps and Skills connect only
+permissions. A polyfill never reads the host's stored credentials. Events and Apps connect only
 to servers Claude Code itself uses in the session, asking Claude Code for its
 verdict on each one. Server Cards connects to no server: it reads public
 documents and adds a server to Claude Code's own config, only when you press
@@ -40,17 +42,17 @@ documents and adds a server to Claude Code's own config, only when you press
 Each polyfill's own `SECURITY.md` describes what it checks and what it does
 not protect against, in each host:
 
-| Polyfill | Claude Code | Codex | Pi | Copilot CLI |
-|---|---|---|---|---|
-| Events | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/SECURITY.md) |
-| Skills | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md) | built into Copilot |
-| Server Cards | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/SECURITY.md) |
-| Apps | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md) | not available | not available | built into Copilot for graphical hosts |
-| ARD | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/copilot/SECURITY.md) |
+| Polyfill | Claude Code | Codex | Pi | OpenCode | Copilot CLI |
+|---|---|---|---|---|---|
+| Events | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/SECURITY.md) |
+| Skills | no polyfill: built into Claude Code, in beta from 2.1.332 | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/SECURITY.md) | no polyfill: built into Copilot CLI |
+| Server Cards | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/SECURITY.md) |
+| Apps | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md) | not available | not available | not available | no polyfill: built into VS Code's Copilot harness; none in the terminal |
+| ARD | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/copilot/SECURITY.md) |
 
 The following per-polyfill summaries describe the Claude Code forms;
-[Pi's security notes](#in-pi) and [Copilot CLI's](#in-copilot-cli) follow
-them.
+[Pi's security notes](#in-pi), [OpenCode's](#in-opencode) and
+[Copilot CLI's](#in-copilot-cli) follow them.
 
 ### Events
 
@@ -85,19 +87,12 @@ lists each finding of the review of 24 November 2026 and where it stands.
 
 ### Skills
 
-- A skill is loaded only after you approved it, in Claude Code's own permission
-  dialog, and your approval is bound to its content: a changed skill is asked
-  about again.
-- A loaded skill and its files reach Claude only after their size and SHA-256
-  digest matched the server's entry. A skill's frontmatter grants nothing.
-- Where nobody can be asked (`claude -p`), an unapproved skill can make Claude
-  only read and search while it is loaded.
-- A skill you approved whose instructions are harmful is not stopped by the mod:
-  what Claude does next goes through Claude Code's ordinary permissions.
-- A skill you disabled is not offered, loaded or read, whatever a rule or mode
-  allows, until you enable it again; Claude cannot enable it.
-
-[Skills `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/SECURITY.md)
+There is no Skills polyfill for Claude Code: Claude Code lists skills from MCP
+servers itself, in beta from 2.1.332 ([Skills](./skills#claude-code)). That is
+Claude Code's own feature, and this project doesn't describe or vouch for how
+it handles a served skill. The Skills forms for
+[Codex](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md),
+[Pi](#in-pi) and [OpenCode](#in-opencode) have their own accounts.
 
 ### Server Cards
 
@@ -191,25 +186,117 @@ tokens. Server Cards and ARD keep their discovery state in memory; servers
 you add stay in `mcp.json`. See [Turning one off](./getting-started#turning-one-off)
 for off switches, uninstalling and removing saved data.
 
+## In OpenCode
+
+OpenCode's own security model is the boundary: a plugin runs inside
+OpenCode's server with the same access as any other plugin there, and
+OpenCode's shipped permission rules allow every action. Each polyfill puts
+its own actions to those rules with `ctx.permission.assert` and asks you by
+default: an `evaluate` hook turns OpenCode's `allow` into `ask` for those
+actions only. It never turns anything into `allow` and never answers a
+prompt; a `deny` or `ask` rule you write wins, and with nobody there to
+answer, OpenCode refuses the question. An `allow` rule you write doesn't skip
+the question, since the plugin can't tell it from OpenCode's default. With
+`askByDefault: false` (or the form's `…_ASK_BY_DEFAULT=0`), OpenCode's rules
+alone decide, and under their default nothing is asked. Where a form saves an
+"Allow always", the plugin keeps its own record of it, so taking it back in
+OpenCode doesn't make it ask again; an `ask` or `deny` rule for the action
+does.
+
+OpenCode 2.4.1's TUI shows a polyfill's request as only "Call tool
+`<action>`", without the resource or metadata it carries; you read the details
+on the model's call line above it. OpenCode Desktop shows the action and its
+resource (seen for Events and Skills).
+
+- **Events:** starting or stopping a watch is `mcp_events_watch` or
+  `mcp_events_unwatch` on `<server>:<event type>`. "Allow always" covers that
+  server and event type in that project, and is saved only when both names
+  are plain, so an event type a server named `*` can't stand for all of its
+  types. A watch's note or filter holding a control or hidden character, or
+  too long, is refused before you're asked. The wake is a synthetic message:
+  OpenCode stores it as synthetic, not as yours, but sends it to the model in
+  the user's role, so by default it carries no event content, and its first
+  line says the plugin sent it. The payload arrives as a tool result when the model
+  reads it. Wakes are limited to once a minute per watch and 30 an hour per
+  session; past that, the session is told once and waits until you write.
+  Under OpenCode's default, what the model does after a wake isn't asked
+  about. With both a watch and one of OpenCode's automations for an event
+  type, an event wakes the session twice: the plugin tells the model to use
+  one, and can't see an automation.
+- **Skills:** OpenCode's skill list holds only a served skill's name, the
+  server's description marked with the server, and the plugin's note; none of
+  its text. A load is `mcp_skills_load` on
+  `<server>:<uri>@sha256:<manifest digest>`: "Allow always" covers that skill
+  as it is now, a changed skill is asked about again, and one the server
+  generates is asked about every time. The text reaches the model only after
+  its size, digest and frontmatter match the server's entry, fenced and
+  marked as the server's. X8 is met: once a session loaded a served skill,
+  OpenCode's own read of another server's resource is asked about per call,
+  naming both servers, by either of its names, in subagents and after a
+  restart. Its read of a file inside a loaded skill's folder is refused in
+  favour of `mcp_skills_read_skill_file`, which checks the file (V4). There
+  is no way to show you `SKILL.md` before you decide, and what the model does
+  after a load goes through OpenCode's rules, whose default allows it.
+- **Server Cards:** an addition is `mcp_server_cards_add` on `<name>=<url>`,
+  asked every time; "Allow always" saves nothing. Only a card a tool showed
+  in this session is added, at the URL it gives, and never over a server
+  OpenCode already has. The server goes into OpenCode's MCP servers, kept in
+  the plugin's storage for that project, and OpenCode connects it with its
+  own client and sign-in; your configuration files aren't written. A card
+  that needs a secret isn't added: the answer gives the `opencode.json` entry
+  with `{env:VAR}` where the secret goes. In the TUI, the call line shows the
+  name and URL, not the headers or the undo; an addition from OpenCode
+  Desktop wasn't tried. The model can still edit `opencode.json` itself,
+  unless your rules ask about edits.
+- **ARD:** no registry is selected by default. Each search is `ard_search` on
+  the registry hosts, asked every time; nothing is saved. A registry a
+  referral names is asked about before the query goes there, and one that
+  isn't allowed gets nothing. In the TUI that prompt shows only "Call tool
+  ard_search", and nothing on screen names the referred registry: reject a
+  prompt you can't read. ARD wasn't tried in the TUI or in OpenCode Desktop.
+  Adding uses the Server Cards code, under the same actions.
+- **Apps:** no OpenCode form is built.
+
+Events and Skills connect only to servers in your OpenCode configuration,
+with what it holds. They open their own connections and never read
+OpenCode's stored credentials, OAuth tokens included, so a server you signed
+in to with `opencode mcp auth` isn't used. Their logs have secrets taken out.
+
+Events stores watches, webhook secrets and payloads in
+`~/.local/share/opencode/mcp-events/`, readable only by you; Skills keeps a
+log in `~/.local/share/opencode/mcp-skills/`, and no skill content anywhere.
+"Allow always" answers, the skills each session loaded, and the servers
+Server Cards and ARD added are in OpenCode's plugin storage (its own
+database). See [Turning one off](./getting-started#turning-one-off) for off
+switches, uninstalling and removing saved data.
+
 ## In Copilot CLI
 
-Copilot's own prompts are the boundary. The Events plugin is an extension, a
-child process Copilot starts for the session; Server Cards and ARD are MCP
-servers in plugins. Each form's tools that act (`watch_event`,
-`unwatch_event`, `add_mcp_server`, `ard_search`) go through Copilot's tool
-prompt, and adding a server or sending a registry search also asks in
-Copilot's form. Nothing is approved for you.
+The Events plugin is an extension, a child process Copilot starts for the
+session; Server Cards and ARD are MCP servers in plugins. Each form's tools
+that act (`watch_event`, `unwatch_event`, `add_mcp_server`, `ard_search`) go
+through Copilot's tool prompt. That prompt can be answered without you: in
+Copilot's "assisted" mode an LLM reviews the call, and an organisation can
+make that mode the default; allow-all approves every call. So each form then
+asks its own question, and nothing is approved for you: Events in a Copilot
+dialog, by default, and Server Cards and ARD in the plugin's form.
 
 - **Events:** the first session asks once whether the extension may have
   elevated permissions ("skip tool permission prompts, register hooks"). It
   uses them only so its four tools that only read (`list_event_types`,
   `list_watches`, `get_event`, `recent_events`) skip Copilot's prompt, and to
-  give the session its instructions. A payload reaches Copilot only as a tool
-  result. The wake carries nothing the server wrote, and goes in as an
-  automation turn, which Copilot gives no human authority; its first line
-  says the plugin sent it. A watch belongs to the session that set it. In a
-  session that allows tools without asking (`--allow-all-tools`, `--yolo`), a
-  server you watch can set work in motion, as often as the wake limits allow.
+  give the session its instructions. `watch_event` and `unwatch_event` go
+  through Copilot's prompt; then, before a watch starts, the plugin asks
+  you, naming the server, the event type, the filters and the note, and
+  saying that events will start turns; **Don't watch it** comes first. Where
+  nobody can be asked (`copilot -p`), the watch is refused.
+  `MCP_EVENTS_ASK_BY_DEFAULT=0` turns that question off, leaving Copilot's
+  rules alone to decide. A payload reaches Copilot only as a tool result. The
+  wake carries nothing the server wrote, and goes in as an automation turn,
+  which Copilot gives no human authority; its first line says the plugin sent
+  it. A watch belongs to the session that set it. In a session that allows
+  tools without asking (`--allow-all-tools`, `--yolo`), a server you watch
+  can set work in motion, as often as the wake limits allow.
 - **Server Cards:** only "Add it" in the form writes a server, through
   `copilot mcp add`, with no shell, into `~/.copilot/mcp-config.json`. The
   form names the server, host, URL, headers, the file and the undo command.
@@ -220,7 +307,8 @@ Copilot's form. Nothing is approved for you.
 - **ARD:** no registry is selected by default. Every search names the exact
   query and the registry in the form; only "Send the search" sends it.
   `ard_search` is marked not read-only, since it sends your words to a third
-  party. Adding uses the Server Cards form's checks and its own form.
+  party and Copilot's default mode runs read-only tools without asking.
+  Adding uses the Server Cards form's checks and its own form.
 - **Skills and Apps:** built into Copilot; there is no Copilot form.
 
 Copilot declines a form where nobody can be asked: in `copilot -p`, even
@@ -236,6 +324,23 @@ by you. Server Cards and ARD store nothing on disk; servers you add stay in
 [Turning one off](./getting-started#turning-one-off) for off switches,
 uninstalling and removing saved data.
 
+## In T3 Code
+
+T3 Code runs Codex, Claude Code or OpenCode, so their plugins' security
+notes apply. Two things differ:
+
+- **The T3 Events form** ([SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/t3/SECURITY.md))
+  is an MCP server Codex starts and a watcher that keeps running after T3
+  Code closes, until no thread has a watch, connecting to your servers with
+  the credentials in your Codex configuration. It wakes a thread with T3
+  Code's `t3 thread send`; the turn runs in the thread's own permission mode.
+  It talks to its server over a socket in a folder only you can open, and
+  reads no stored credentials, Codex's or T3 Code's.
+- **Questions that are cancelled.** With Codex, T3 Code cancels any MCP
+  elicitation it can't answer with Approve or Decline, without showing it.
+  The Skills, Server Cards and ARD questions are such forms, so their steps
+  are refused; none is approved for you.
+
 ## What was checked, and how
 
 - **Tests.** A test for each client rule of Events and Skills. For Server Cards
@@ -246,9 +351,6 @@ uninstalling and removing saved data.
   - Events: a model of delivery and of waking, in Quint and in TLA+, simulated,
     and model-checked with TLC to small, stated bounds. TLC checks the model,
     not the code, and says nothing past its bounds.
-  - Skills: a model of approval, loading and the gate, every reachable state to
-    its bound, by an explorer of its own and, in TLA+, by TLC. The model is
-    checked, not the code.
   - Apps: a TLA+ model of which server a view's app comes from and what it may
     make happen, checked with TLC within stated bounds; what TLC reports is
     exhaustive within them and says nothing past them.
@@ -256,6 +358,7 @@ uninstalling and removing saved data.
   build them. The Events, Apps, Server Cards and ARD `SECURITY.md` files record
   a review on 24 November 2026 and what became of its findings. No person has
   audited any of them. The Pi forms had a separate independent AI review,
-  followed by fixes and a check of the changes.
+  followed by fixes and a check of the changes. The OpenCode forms had fixes
+  from a security review, and their live runs were repeated after them.
 
 Each `SECURITY.md` says what was considered, not that nothing is left.
