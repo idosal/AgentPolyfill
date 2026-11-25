@@ -1,6 +1,6 @@
 {
   "name": "mcp-events-opencode",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "MCP Events (SEP-3415) for OpenCode: watch events on your MCP servers, by push, poll or webhook, and wake the session when one fires.",
   "type": "module",

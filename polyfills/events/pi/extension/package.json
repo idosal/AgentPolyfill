@@ -1,6 +1,6 @@
 {
   "name": "mcp-events",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP Events (SEP-3415) for Pi: watch events on your MCP servers, and an event wakes the idle session that asked for it.",
   "type": "module",
   "keywords": ["pi-package"],

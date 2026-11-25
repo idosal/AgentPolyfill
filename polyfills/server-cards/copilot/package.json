@@ -1,0 +1,31 @@
+{
+  "name": "mcp-server-cards-copilot",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "MCP Server Cards (SEP-2127) for GitHub Copilot CLI: the build and tests of the plugin in plugin/.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "node build.mjs --tests && node --test --test-reporter=spec \"test/.build/*.test.mjs\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "0.28.2",
+    "typescript": "^5.9.3"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idosal/AgentPolyfill.git",
+    "directory": "polyfills/server-cards/copilot"
+  }
+}

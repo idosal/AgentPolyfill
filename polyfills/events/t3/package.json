@@ -1,7 +1,7 @@
 {
   "name": "mcp-events-t3",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "MCP Events (SEP-3415) for T3 Code threads: Codex in a T3 Code thread can watch events on your MCP servers, and an event starts a turn in the idle thread that asked for it, through T3 Code's own `t3 thread send`.",
   "engines": {

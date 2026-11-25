@@ -8,7 +8,7 @@
 // puts a few short payload fields back in the wake message.)
 
 import type { SpoolRecord } from './store.ts';
-import { KEY, TOKEN } from './untrusted.ts';
+import { KEY, NAME, TOKEN } from './untrusted.ts';
 
 export const LINE_PREFIX = '[mcp-events]';
 
@@ -48,6 +48,15 @@ export function summarize(data: Record<string, unknown> | undefined, n = 6): { t
  * triage fields of the payload, and how to get the rest. The payload is the server's data, shown
  * the way a tool result would be: flattened, shortened, and never as this plugin's own words.
  */
+/**
+ * An event type's name as a wake or a notice shows it. The name is the server's text, and those
+ * messages start a turn, so it is shown only when it reads as a name (ticket.created, hn.comment),
+ * as the tools show names. Any other is left out; list_watches and get_event give it, as tool results.
+ */
+export function shownEvent(name: string | undefined): string {
+    return name && NAME.test(name) ? name : 'an event type whose name is not a plain name (list_watches shows it)';
+}
+
 export function formatRecord(r: SpoolRecord): string {
     if (r.kind === 'notice') return `${LINE_PREFIX} ${oneLine(r.text, 300)}`;
     const { text, more } = summarize(r.data);
@@ -95,8 +104,9 @@ export function formatBatch(records: SpoolRecord[], o: { values?: boolean } = {}
         // The note is what Claude wrote when it set the watch; the newest is the one in force.
         const noted = events.findLast((r) => r.note)?.note;
         const note = noted ? ` Note saved with this watch: "${oneLine(noted, 160)}".` : '';
+        const event = shownEvent(first.event);
         lines.push(
-            `${LINE_PREFIX} ${oneLine(first.server, 40)} · ${oneLine(first.event, 80)}: ${events.length} new event${events.length === 1 ? '' : 's'} [${events.length === 1 ? 'event' : 'events'} ${someIds(ids)}; watch ${watch}; ${how}].${note}`
+            `${LINE_PREFIX} ${oneLine(first.server, 40)} · ${event}: ${events.length} new event${events.length === 1 ? '' : 's'} [${events.length === 1 ? 'event' : 'events'} ${someIds(ids)}; watch ${watch}; ${how}].${note}`
         );
     }
     return lines;

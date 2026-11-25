@@ -35,6 +35,8 @@ extension's `core/`. Host results are recorded separately:
   checked with Pi 1.6.0.
 - **OpenCode:** the third table gives its conformance and live-run
   evidence, checked with OpenCode 2.4.1.
+- **Copilot CLI:** the fourth table gives its conformance and live-run
+  evidence, checked with Copilot CLI 1.0.115.
 
 ## What each one has been checked against
 
@@ -91,6 +93,24 @@ scripted stand-in for a model, on Linux, macOS and Windows. The live runs
 used OpenCode's free models through its server's API; Events, Skills and
 Server Cards were also run in its TUI, and Events and Skills in OpenCode
 Desktop.
+
+### Copilot CLI
+
+| Polyfill | Client rules and conformance | Recorded live run |
+|---|---|---|
+| Events | The shared client's clause table holds. The Events scenarios in conformance PR #541 pass 17 of 17 checks, end to end through the bundled extension. hookbench's reference server passes 7 of 7, and this repository's event-feeds 3 of 3. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/docs/conformance.md). | The Copilot CLI terminal, with a scripted model: a watch set through Copilot's tool prompt, an event while the session was idle, the session waking and reading it, against a local fixture server. The same in VS Code 1.147.0's Copilot harness: a message from the plugin, then the turn. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/docs/live-run.md). |
+| Skills | Built into Copilot: Copilot CLI 1.0.115 declares it to every server. No Copilot form. | None. |
+| Server Cards | Shared rules and Copilot-specific tests, 114 in all; S-3, comparison with the live server, is not met. The suite has no Server Card scenarios. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/docs/conformance.md). | Installed from a clone; neon.com's Neon and Neon Docs found; after Copilot's tool prompt and "Add it", `neon-docs` written with `copilot mcp add`. In `copilot -p`, with `--yolo` too, Copilot declined the form and nothing was written. In VS Code 1.147.0's Copilot harness, an add through VS Code's tool prompt and the plugin's form, which VS Code shows as one paragraph. |
+| ARD (v0.91 draft, beyond MCP) | Shared ARD and Server Cards rules, with Copilot's questions and add flow tested over stdio as Copilot starts the server, 124 tests in all. No upstream ARD conformance run. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/copilot/docs/conformance.md). | buildkite.com's catalogs read; a search of the repository's demo registry on 127.0.0.1 sent only after Copilot's tool prompt and "Send the search". No other registry was searched, and no server was added through ARD. In VS Code, the server loaded, and no search was run. |
+| Apps | Built into Copilot for graphical hosts (VS Code's Copilot harness); none in the terminal. No Copilot form. | None. |
+
+The Copilot CLI runs used a scripted model on the machine, with no GitHub
+sign-in. None of them shows how a model of GitHub's choosing uses the tools
+in Copilot CLI, and an install from GitHub, rather than from a clone, isn't
+covered. In VS Code 1.147.0's Copilot harness, the person testing signed in
+with their own GitHub account, in a throwaway VS Code profile since deleted,
+and the model was GitHub's Claude Haiku 4.5. The question Events now asks
+before a watch came after that run and hasn't been seen in VS Code.
 
 ## What a polyfill can tell you about a spec
 

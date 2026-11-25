@@ -1,7 +1,8 @@
 // What runs the helper, and `/mcp-events setup`, the mod's own copy of Bun for a machine with no
 // Node and no Bun: run by `claude plugin test mod` against the engine itself, with stand-ins for the
 // machine beneath it (the programs it can run, the files it sees) and for the helper. Adapted from
-// the mcp-skills mod's tests of the same mechanism (polyfills/skills/claude-code/mod/hooks/gates.test.ts).
+// the removed mcp-skills mod's tests of the same mechanism (in history at commit ed2279a6:
+// polyfills/skills/claude-code/mod/hooks/gates.test.ts).
 
 import { expect, mock, test } from 'claude-code/testing'
 import type { EngineInterface, On } from 'claude-code'
@@ -356,7 +357,7 @@ test("/mcp-events setup remove deletes the mod's own copy", async ($, on) => {
 
 // ---- The fetch itself, with a release pinned to bytes the test holds (the real one is pinned to the real archive).
 
-test('the pinned release names an https file and a SHA-256 for each platform it is offered on, the same as the mcp-skills mod pins', () => {
+test('the pinned release names an https file and a SHA-256 for each platform it is offered on, the same as the removed mcp-skills mod pinned', () => {
   expect(BUN.base).toBe(`https://github.com/oven-sh/bun/releases/download/bun-v${BUN.version}/`)
   expect(Object.keys(BUN.assets).sort()).toEqual(['darwin-arm64', 'darwin-x64', 'linux-arm64', 'linux-arm64-musl', 'linux-x64', 'linux-x64-musl'])
   for (const asset of Object.values(BUN.assets)) {

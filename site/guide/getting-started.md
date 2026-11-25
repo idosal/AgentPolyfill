@@ -175,6 +175,43 @@ yourself, in the global configuration or a project's `opencode.json`:
 
 OpenCode loads it the next time it opens the project.
 
+### GitHub Copilot CLI
+
+Copilot CLI 1.0.115 (the version tested). From a clone of this repository,
+add it as a marketplace and install the plugins you want:
+
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+copilot plugin marketplace add ./AgentPolyfill
+copilot plugin install mcp-events@agent-polyfill
+copilot plugin install mcp-server-cards@agent-polyfill
+copilot plugin install ard-discovery@agent-polyfill
+```
+
+This install, from a clone, is the one tested. Copilot loads a plugin from a
+local marketplace where it is, without copying it, so keep the clone;
+`git pull` in it brings the next version. Once these plugins are on the
+repository's default branch,
+`copilot plugin marketplace add idosal/AgentPolyfill` adds the same
+marketplace from GitHub, and Copilot keeps its own copy. That install hasn't
+been tested yet.
+
+There is no Copilot bundle. Events is a Copilot extension, and Copilot loads
+extensions only in its experimental mode: start it with
+`copilot --experimental`, or, per Copilot's help, run `/settings experimental on` once (the runs here used `--experimental`). Server
+Cards and ARD are MCP servers in plugins and need no experimental mode.
+`ard-discovery`, for ARD (a draft from outside MCP), carries its own add tool;
+installing `mcp-server-cards` beside it is optional. Copilot has Skills over
+MCP and MCP Apps built in, so there is no Copilot form of those
+([why](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/README.md#skills-and-apps-in-copilot)).
+
+To try one for a single run without installing, replace `<polyfill>` with
+`events`, `server-cards` or `ard`:
+
+```bash
+copilot --experimental --plugin-dir ./AgentPolyfill/polyfills/<polyfill>/copilot/plugin
+```
+
 ### T3 Code
 
 [T3 Code](https://github.com/pingdotgg/t3code) runs the Codex, Claude Code
@@ -314,6 +351,51 @@ Each OpenCode form's README has the rest:
 [Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/opencode) and
 [ARD discovery](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/opencode).
 
+### In Copilot CLI
+
+| | Copilot CLI | What else it needs |
+|---|---|---|
+| Events | 1.0.115 or newer, in experimental mode | Nothing else: Copilot runs the extension with its own Node. An open session. The first session asks once whether the extension may have elevated permissions. A new watch needs someone to answer the plugin's question. |
+| Server Cards, ARD | 1.0.115 or newer | Node 20 or newer on your `PATH`. Adding a server or sending a registry search needs Copilot's form, so it works in the interactive session only. |
+| Skills | built in | Copilot CLI 1.0.115 declares Skills over MCP to every server; there is no Copilot form. |
+| Apps | built in for graphical hosts | VS Code's Copilot harness turns MCP Apps on (from its source; no app was drawn there); the terminal draws none. There is no Copilot form. |
+
+Copilot asks before each of the plugins' tools that act (`watch_event`,
+`unwatch_event`, `add_mcp_server`, `ard_search`), as for any tool. Copilot can
+approve a call without you, though: in assisted mode (an LLM review, which an
+organisation can make the default) or with allow-all. So each plugin asks its own question after
+Copilot's prompt. Before a watch starts, Events asks in a Copilot dialog,
+naming the server, the event type, the filters and the note, and
+saying that events will start turns; **Don't watch it** comes first. Server
+Cards and ARD ask in the plugin's form before adding a server or sending a
+search. Where nobody can be asked (`copilot -p`), a watch is refused, and
+Copilot declines the form, even with `--yolo`. To leave watches to Copilot's
+rules alone, set `MCP_EVENTS_ASK_BY_DEFAULT=0` in the environment Copilot
+starts in. `ard_search` is marked not read-only, because VS Code's Copilot
+harness runs read-only tools without asking (Copilot CLI 1.0.115 asked before
+them).
+
+Events opens its own connection to a server, so a local (stdio) server runs
+twice. It reads only the servers Copilot enables for the session.
+`copilot --acp` loads no extensions, and `copilot -p` ends the session with
+the prompt, so nothing is woken there. A server that Server Cards or ARD adds
+connects after `/mcp reload`, or in the next session.
+
+The Copilot CLI runs used a scripted model on the machine, with no GitHub
+sign-in. In VS Code 1.147.0's Copilot harness, Events was run end to end: a
+wake shows as a message from the plugin, then the turn. Server Cards added a
+server there, through VS Code's tool prompt and then the plugin's form, which
+VS Code shows as one paragraph. ARD's server loaded there, but no search was
+run through it. For that run, the person testing signed in with their own
+GitHub account, in a throwaway VS Code profile since deleted, and the model
+was GitHub's Claude Haiku 4.5. The Events question came after that run and
+hasn't been seen in VS Code.
+
+Each Copilot form's README has the rest:
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/copilot),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/copilot) and
+[ARD discovery](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/copilot).
+
 ### In T3 Code
 
 T3 Code 0.1.11 is the version tested, with Codex 0.172.0.
@@ -356,6 +438,10 @@ pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 {
   "mcp": { "feeds": { "type": "remote", "url": "https://event-feeds.idosalomon.workers.dev/mcp" } }
 }
+```
+
+```bash [Copilot CLI]
+copilot mcp add --transport=http feeds https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
 :::
@@ -401,6 +487,17 @@ For the demo button:
   wake 30 times an hour. Watches resume when OpenCode next opens the project.
   The [OpenCode live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md#public-infrastructure)
   records a demo button pressed on this server and the idle session woken.
+- **Copilot CLI:** start `copilot --experimental`. The first session asks
+  once whether the extension may have elevated permissions; choose **Yes**.
+  A watch asks twice: Copilot's tool prompt for `watch_event`, then the
+  plugin's dialog, which names the server, the event type, the filters and
+  the note and says events will start turns; choose **Watch it**. Press the
+  button: a few seconds later the idle session starts a turn by itself, reads
+  the event and tells you what you typed. The wake's first line says the
+  plugin sent it, not you. The
+  [Copilot live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/docs/live-run.md),
+  with a scripted model, records a watch set through Copilot's tool prompt,
+  an idle wake and the read, against a local ticket server.
 
 [More on Events](./events)
 
@@ -499,6 +596,12 @@ Then add **Neon Docs** (no sign-in):
   in a terminal. Ask OpenCode to remove Neon Docs to take it out again
   (`server_cards_remove_mcp_server`). The [OpenCode live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md#in-opencodes-tui)
   added Neon Docs in the TUI, and OpenCode connected it.
+- **Copilot CLI:** ask "Add Neon Docs". Copilot asks before it runs each of
+  the plugin's tools, then shows the plugin's form, naming the host, URL,
+  headers, the file it writes and the undo command: choose **Add it**. Run
+  `/mcp reload` (or start a new session) to use it.
+  `copilot mcp remove neon-docs` removes it again. For a server that needs
+  sign-in, Copilot offers it when it first connects (`/mcp auth <name>`).
 
 [More on Server Cards](./server-cards)
 
@@ -553,6 +656,23 @@ unauthenticated search was found. Addition is covered by tests in real
 OpenCode with a scripted model and a local server.
 [More on ARD](./ard)
 
+### ARD in Copilot CLI
+
+Ask "What does buildkite.com list in its ard.json?", then "Add it". Copilot
+asks before it runs each tool, then shows the plugin's form. Accept it, run
+`/mcp reload`, and sign in when Copilot asks (`/mcp auth buildkite`). To
+search, name a registry in your request or set `ARD_DISCOVERY_REGISTRY`:
+there is no default registry. Before every search, the form names the
+registry and the exact query; only "Send the search" sends it.
+
+In Copilot CLI 1.0.115, with a scripted model, `ard_discover` read
+buildkite.com's catalogs, and a search of the repository's demo registry on
+127.0.0.1 went out only after Copilot's tool prompt and **Send the search**.
+No other registry was searched. No server was added through ARD in that run;
+its add step is the Server Cards form's, covered here by tests that run the
+plugin's server as Copilot starts it.
+[More on ARD](./ard)
+
 ### Apps
 
 Apps runs in Claude Code. Availability in each host is listed in the
@@ -589,6 +709,11 @@ configuration works with Events and Skills:
   (`opencode mcp auth`) is out of reach; the polyfill's list tool names each
   server it left alone, and why. The headers in a server's OpenCode
   configuration work. The plugins never read OpenCode's stored credentials.
+- **Copilot CLI:** Events can't use a server you sign in to through Copilot
+  (`/mcp auth`, OAuth). A header in `mcp-config.json` works, written out or
+  from `${VAR}`, except variables Copilot strips from extensions
+  (`GITHUB_TOKEN`, for one). The plugin never reads Copilot's stored
+  credentials.
 
 Server Cards is different: it adds a server to the host's own config, and the
 host connects it with its own sign-in. [How it works](./how-it-works) says
@@ -681,3 +806,20 @@ never in your configuration files, so they go with the plugin, but its list
 of them stays in that storage and comes back if you install it again: ask
 OpenCode to remove each one first (`server_cards_remove_mcp_server` or
 `ard_remove_mcp_server`).
+
+In Copilot CLI, set the off switch in the environment Copilot starts in, or
+disable or uninstall the plugin:
+
+| | Off without uninstalling | Remove |
+|---|---|---|
+| Events | `MCP_EVENTS_OFF=1`, or `copilot plugin disable mcp-events@agent-polyfill` | `copilot plugin uninstall mcp-events@agent-polyfill` |
+| Server Cards | `MCP_SERVER_CARDS_DISABLED=1`, or `copilot plugin disable mcp-server-cards@agent-polyfill` | `copilot plugin uninstall mcp-server-cards@agent-polyfill` |
+| ARD discovery | `ARD_DISCOVERY_DISABLED=1`, or `copilot plugin disable ard-discovery@agent-polyfill` | `copilot plugin uninstall ard-discovery@agent-polyfill` |
+
+Before you uninstall Events, stop the watches you want ended on their
+servers: a webhook watch has a subscription that otherwise lasts until the
+server expires it. Uninstalling leaves Events' data in `~/.copilot/mcp-events/`
+(or under `COPILOT_HOME`); delete that folder to remove stored watches and
+events. Servers added through Server Cards or ARD stay in
+`~/.copilot/mcp-config.json`; remove each with `copilot mcp remove <name>`.
+The marketplace stays until `copilot plugin marketplace remove agent-polyfill`.

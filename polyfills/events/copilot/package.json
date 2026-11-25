@@ -1,0 +1,33 @@
+{
+  "name": "mcp-events-copilot",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A GitHub Copilot CLI plugin that adds MCP Events (SEP-3415): Copilot can watch events on your MCP servers, and an event wakes the idle session that asked for it.",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "node --test --no-warnings \"test/*-test.ts\"",
+    "typecheck": "tsc --noEmit -p .",
+    "build": "node build.mjs",
+    "interop": "node --no-warnings test/interop/run.ts",
+    "live": "sh test/live/run.sh",
+    "conformance": "node --no-warnings test/conformance-driver.ts --suite"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "0.28.2",
+    "typescript": "^5.9.3"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idosal/AgentPolyfill.git",
+    "directory": "polyfills/events/copilot"
+  }
+}

@@ -53,6 +53,12 @@ pi install git:github.com/idosal/AgentPolyfill
 opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/server-cards/opencode/plugin'
 ```
 
+```bash [Copilot CLI]
+git clone https://github.com/idosal/AgentPolyfill.git
+copilot plugin marketplace add ./AgentPolyfill
+copilot plugin install mcp-server-cards@agent-polyfill
+```
+
 :::
 
 ### In Claude Code
@@ -125,12 +131,25 @@ your configuration files. Its list of them stays in OpenCode's plugin storage
 (OpenCode's own database) and comes back if you install it again; remove a
 server with `server_cards_remove_mcp_server` first to drop it from the list.
 
+### In Copilot CLI
+
+Copilot CLI 1.0.115 (the version tested), with Node 20 or newer on your
+`PATH`. The plugin is an MCP server, so it needs no experimental mode. The
+install from a clone is the one tested; Copilot loads the plugin where it is,
+so keep the clone. Once it is on the repository's default branch,
+`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace
+from GitHub; that hasn't been tested. Start a new Copilot session afterwards.
+Remove it with `copilot plugin uninstall mcp-server-cards@agent-polyfill`.
+Servers you added stay in `~/.copilot/mcp-config.json`; remove one with
+`copilot mcp remove <name>`.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi)
 - [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/opencode)
+- [Copilot CLI](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/copilot)
 
 ## Try it
 
@@ -140,6 +159,7 @@ Nothing to set up. Start your host:
 - **Codex:** `codex`.
 - **Pi:** `pi`.
 - **OpenCode:** `opencode`.
+- **Copilot CLI:** `copilot`.
 
 Ask:
 
@@ -153,6 +173,9 @@ Then add **Neon Docs** (no sign-in):
   saved and registered for the current session, without a restart.
 - **OpenCode:** ask "Add Neon Docs", then allow it when OpenCode asks. It is
   in OpenCode's MCP servers at once, and OpenCode connects it.
+- **Copilot CLI:** ask "Add Neon Docs". Copilot's tool prompt comes first,
+  then the plugin's form: choose "Add it". Run `/mcp reload` (or start a new
+  session) to use it. `copilot mcp remove neon-docs` removes it again.
 
 For one behind a sign-in, ask about
 buildkite.com; once it's added, the host asks you to sign in (in Claude Code,
@@ -239,6 +262,22 @@ OpenCode asks. A card that needs a secret isn't added: the answer gives you
 the entry for `opencode.json`, with `{env:VAR}` where the secret goes, and
 the variable to set.
 
+### In Copilot CLI
+
+`discover_mcp_servers` reads the domain's AI Catalog and checks each card;
+Copilot asks before it runs, as for any MCP tool. Ask to add one it found:
+Copilot asks before `add_mcp_server` runs, and then the plugin asks in
+Copilot's form, with "Don't add it" first and "Add it". The form names the
+server, host, URL, headers, the file it writes (`~/.copilot/mcp-config.json`,
+for all your projects) and the undo command, `copilot mcp remove <name>`.
+
+Only "Add it" writes, with `copilot mcp add`. Copilot connects the server
+after `/mcp reload`, or in your next session; if it needs a sign-in, Copilot
+offers it then (`/mcp auth <name>`). The plugin never reads Copilot's stored
+credentials. Where nobody can be asked (`copilot -p`, even with
+`--allow-all-tools` or `--yolo`), Copilot declines the form, and nothing is
+written.
+
 ### A domain that redirects
 
 Some domains answer with a redirect to another domain: `neon.tech` sends its
@@ -261,6 +300,9 @@ alone, under whose default a server is added without a prompt. Set a
 variable in the environment OpenCode starts in, and an option in the object
 form of the plugin's entry in `plugins`.
 
+In Copilot CLI, `MCP_SERVER_CARDS_DISABLED=1` registers no tools and fetches
+nothing.
+
 In Claude Code, in `/config`, under the plugin:
 
 | Setting | Default | What it does |
@@ -279,6 +321,10 @@ In OpenCode, `server_cards_discover_mcp_servers` reads and checks the cards,
 `server_cards_add_mcp_server` adds one after OpenCode's rules allow it, and
 `server_cards_remove_mcp_server` removes one it added. There is no
 `present_server_cards` tool in the OpenCode form.
+
+In Copilot CLI, the tools are `discover_mcp_servers` and `add_mcp_server`,
+which adds a server only after your accept in the form. There is no
+`present_server_cards` tool in the Copilot form either.
 
 The table below is for Claude Code.
 
@@ -352,6 +398,25 @@ in the same catalogs, and local (stdio) servers, which cards do not describe.
   not caught.
 - **Not tried yet:** an addition from OpenCode Desktop, and Windows by hand
   (CI runs the tests there).
+
+### In Copilot CLI
+
+- **No live card comparison.** S-3 is not met: the plugin can't send
+  `server/discover` over Copilot's connection.
+- **Two questions for one add.** Copilot asks before every MCP tool call,
+  and the form is the plugin's own question. "Don't ask again" on Copilot's
+  prompt removes the first; the form stays.
+- **New servers need `/mcp reload`,** or a new session.
+- **Interactive sessions only.** Copilot declines the form in `copilot -p`,
+  even with `--yolo`, so adding works only in the interactive session.
+- **DNS is not checked for private addresses.** A public name that resolves
+  to a private address isn't caught. Redirects are checked hop by hop.
+- **In VS Code, the form is one paragraph.** In VS Code 1.147.0's Copilot
+  harness an add worked: VS Code's tool prompt, then the plugin's form
+  ("Your answer", **Don't add it** first), then **Add it** wrote the server.
+  VS Code runs the question's lines together in one paragraph. For that run,
+  the person testing signed in with their own GitHub account, in a throwaway
+  VS Code profile since deleted, with GitHub's Claude Haiku 4.5 as the model.
 
 ### In T3 Code
 
@@ -458,6 +523,22 @@ and connected.
 An AI reviewer who did not build the OpenCode forms reviewed them. They have
 not been audited by a person.
 
+### In Copilot CLI
+
+Discovery sends plain GETs without cookies or credentials. Every addition
+needs Copilot's tool prompt and then "Add it" in the form, and is written with
+`copilot mcp add`, with no shell; nothing a card says is read as one of its
+options. A card's secret becomes a `${VAR}` reference, never a value. The
+plugin never reads Copilot's stored credentials, and stores nothing on disk.
+See [Copilot's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/SECURITY.md).
+
+[Copilot's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/docs/conformance.md)
+records the shared client rules and the Copilot-specific checks (114 tests);
+S-3 remains unmet. In Copilot CLI 1.0.115, with a scripted model, the plugin
+found Neon and Neon Docs on neon.com and, after Copilot's tool prompt and
+**Add it**, wrote `neon-docs` with `copilot mcp add`. In `copilot -p`, with
+`--yolo` too, Copilot declined the form and nothing was written.
+
 ## When the host supports Server Cards itself
 
 - **Claude Code:** there is no Server Card support to detect yet. When it
@@ -467,6 +548,15 @@ not been audited by a person.
   extension or set `MCP_SERVER_CARDS_DISABLED=1` when it ships.
 - **OpenCode:** 2.4.1 has no Server Card support to detect. When it ships,
   set `MCP_SERVER_CARDS_DISABLED=1` or remove the plugin.
+- **Copilot CLI:** 1.0.115 doesn't read Server Cards from a domain, so there
+  is nothing to detect yet. Its SDK types declare a catalogue API that
+  accepts the card media type (`mcp.planInstall`), and a built-in
+  `discover-resources` skill searches a catalogue Copilot is given; neither
+  was run, and neither is SEP-2127's discovery from a domain, so the plugin
+  doesn't stand down for them. When Copilot reads a domain's catalog,
+  uninstall the plugin, disable it
+  (`copilot plugin disable mcp-server-cards@agent-polyfill`), or set
+  `MCP_SERVER_CARDS_DISABLED=1`.
 
 ## More
 

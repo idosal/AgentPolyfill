@@ -1,7 +1,7 @@
 # SEP-3415 client conformance, in T3 Code
 
-How this client (mcp-events for T3 Code, 0.1.0, tested in T3 Code 0.1.11 with
-Codex 0.172.0) stands against the **Final** text of SEP-3415
+How this client (mcp-events for T3 Code, 0.1.1; 0.1.0 was tested in T3 Code 0.1.11
+with Codex 0.172.0) stands against the **Final** text of SEP-3415
 (`seps/3415-events-extension.md` in `modelcontextprotocol/modelcontextprotocol`,
 as fetched on 24 November 2026), the same revision as the other forms.
 

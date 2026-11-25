@@ -14,6 +14,7 @@
 // name under dist/ (an OpenCode plugin's is server.js):
 //
 //   node tools/bundle-notices.mjs polyfills/events/opencode --plugin plugin --entry src/plugin.ts --bundle server.js
+//   node tools/bundle-notices.mjs polyfills/events/copilot --plugin plugin --entry src/extension.ts --bundle extensions/mcp-events/extension.mjs
 //
 // --check fails if the file on disk differs from what it would write.
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -40,7 +41,9 @@ const { metafile } = await build({
     absWorkingDir: folder,
     entryPoints: [entry],
     // A Pi extension leaves Pi's own packages to Pi, as its build.mjs does.
-    external: ['@earendil-works/*'],
+    // Packages a host gives its extensions stay out, as each polyfill's build.mjs leaves them:
+    // Pi's own, and the SDK Copilot provides.
+    external: ['@earendil-works/*', '@github/copilot-sdk', '@github/copilot-sdk/*', '@microsoft/copilot-sdk', '@microsoft/copilot-sdk/*'],
     platform: 'node',
     format: 'esm',
     target: 'node20',

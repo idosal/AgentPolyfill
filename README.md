@@ -111,6 +111,35 @@ Each line adds one plugin to your global `opencode.json`; OpenCode has no
 bundle. OpenCode runs the plugins itself, so you don't need Node. They load
 the next time OpenCode opens a project.
 
+**GitHub Copilot CLI** (1.0.115, the version tested). From a clone, added as a
+marketplace:
+
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+copilot plugin marketplace add ./AgentPolyfill
+copilot plugin install mcp-events@agent-polyfill
+copilot plugin install mcp-server-cards@agent-polyfill
+```
+
+Beyond MCP, ARD (a draft published by the ards-project on GitHub; every search
+asks you first and goes to a registry you choose):
+
+```bash
+copilot plugin install ard-discovery@agent-polyfill
+```
+
+That is the install that was tested. Copilot loads a local marketplace's
+plugins where they are, so keep the clone. Once these plugins are on the
+default branch, `copilot plugin marketplace add idosal/AgentPolyfill` adds the
+same marketplace from GitHub; that hasn't been tested yet. Events is a Copilot
+extension, and Copilot loads extensions only in its experimental mode: start
+it with `copilot --experimental` (Copilot's help also names
+`/settings experimental on`; the runs here used `--experimental`). Copilot
+runs Events with its own Node. Server Cards and ARD are MCP servers: they need
+no experimental mode, and need Node 20 or newer on your `PATH`. Copilot has Skills over MCP
+and MCP Apps built in, so there is no Copilot form of those
+([why](polyfills/events/copilot/README.md#skills-and-apps-in-copilot)).
+
 **T3 Code** (0.1.11, the version tested). T3 Code runs the Codex and Claude
 Code you have, so install the plugins above for the agent you use in it. For
 Events in Codex threads, add the T3 form from a clone instead of the Codex
@@ -128,13 +157,13 @@ There are [more ways to install](#more-ways-to-install) further down.
 
 ## Polyfills
 
-| Extension | Spec | Claude Code | Codex | Pi | OpenCode |
-|---|---|---|---|---|---|
-| Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code) | [`mcp-events`](polyfills/events/codex) | [`mcp-events`](polyfills/events/pi) | [`mcp-events`](polyfills/events/opencode) |
-| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | built into Claude Code, in beta from 2.1.332 ([changelog](https://code.claude.com/docs/en/changelog)) | [`mcp-skills`](polyfills/skills/codex) | [`mcp-skills`](polyfills/skills/pi) | [`mcp-skills`](polyfills/skills/opencode) |
-| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) | [`mcp-server-cards`](polyfills/server-cards/pi) | [`mcp-server-cards`](polyfills/server-cards/opencode) |
-| Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet | not available | not available |
-| ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) | [`ard-discovery`](polyfills/ard/pi) | [`ard-discovery`](polyfills/ard/opencode) |
+| Extension | Spec | Claude Code | Codex | Pi | OpenCode | Copilot CLI |
+|---|---|---|---|---|---|---|
+| Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code) | [`mcp-events`](polyfills/events/codex) | [`mcp-events`](polyfills/events/pi) | [`mcp-events`](polyfills/events/opencode) | [`mcp-events`](polyfills/events/copilot) |
+| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | built into Claude Code, in beta from 2.1.332 ([changelog](https://code.claude.com/docs/en/changelog)) | [`mcp-skills`](polyfills/skills/codex) | [`mcp-skills`](polyfills/skills/pi) | [`mcp-skills`](polyfills/skills/opencode) | built into Copilot |
+| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) | [`mcp-server-cards`](polyfills/server-cards/pi) | [`mcp-server-cards`](polyfills/server-cards/opencode) | [`mcp-server-cards`](polyfills/server-cards/copilot) |
+| Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet | not available | not available | built into Copilot for graphical hosts (VS Code); none in the terminal |
+| ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) | [`ard-discovery`](polyfills/ard/pi) | [`ard-discovery`](polyfills/ard/opencode) | [`ard-discovery`](polyfills/ard/copilot) |
 
 T3 Code isn't a column here: it's an app that runs Codex, Claude Code and
 other agents for you, so what works in it is mostly what works in those, with
@@ -161,7 +190,12 @@ All of them are early. Here is what each one does, and where it stops:
   it to the model in the user's role, and OpenCode Desktop shows no entry for
   it, so the turn starts with no visible cause. OpenCode's own automations
   also take push events, so use a watch or an automation for an event type,
-  not both.
+  not both. In Copilot, Events needs experimental mode. `watch_event` goes
+  through Copilot's tool prompt, then asks in the plugin's own dialog, naming
+  the server, event type, filters and note, with "Don't watch it" first. An
+  event then wakes the idle session with a turn Copilot marks as an
+  automation, whose first line says the plugin sent it; VS Code's Copilot
+  harness shows it as a message from the plugin, then the turn.
 - **Skills.** In Codex, Pi and OpenCode, skills an MCP server serves show up
   next to your own, load only after you say yes to each one, and are checked
   against the server's digests. Claude Code needs no polyfill for Skills: it
@@ -190,7 +224,9 @@ All of them are early. Here is what each one does, and where it stops:
   that skill as it is now; a changed skill is asked about again. OpenCode
   meets X8: once a session has loaded a served skill, OpenCode's own resource
   read of another server is asked about, per call, naming both servers,
-  including in Code Mode and in subagents.
+  including in Code Mode and in subagents. Copilot needs no polyfill for
+  Skills: Copilot CLI 1.0.115 declares Skills over MCP to every server (seen in its `initialize`; no served skill was listed or loaded in Copilot)
+  ([how it's switched](polyfills/events/copilot/README.md#skills-and-apps-in-copilot)).
 - **Server Cards.** Name a company and the agent finds the MCP servers its domain
   publishes, checks each card against the schema, and adds the one you pick
   to the host's own configuration. The host then connects it with its own
@@ -203,7 +239,11 @@ All of them are early. Here is what each one does, and where it stops:
   saves nothing). Once you allow it, the server is in OpenCode's MCP servers
   at once and OpenCode connects it. It belongs to the project it was added
   in: the plugin keeps it in its OpenCode storage, adds it again each time it
-  loads there, and writes no configuration file.
+  loads there, and writes no configuration file. In Copilot, after Copilot's
+  tool prompt, the plugin's form names the server, URL, headers, file and
+  undo command; only "Add it" runs `copilot mcp add`, and the server connects
+  after `/mcp reload`. Copilot declines the form in `copilot -p`, even with
+  `--yolo`.
 - **Apps.** A server's app opens right under the tool call in the terminal
   and answers the mouse and keyboard: real pixels in iTerm2, kitty and
   Ghostty, text cells everywhere else. This form runs in Claude Code. No Pi
@@ -211,7 +251,9 @@ All of them are early. Here is what each one does, and where it stops:
   `_meta`, so an extension can't get an App's UI. No OpenCode form is built:
   OpenCode 2.4.1 has no MCP Apps support, a plugin can't read a `ui://`
   resource or a tool's `_meta` over OpenCode's connection, and there is no
-  place in the conversation for a plugin to draw.
+  place in the conversation for a plugin to draw. Copilot needs no form:
+  VS Code's Copilot harness turns MCP Apps on itself (from its source; no app was drawn there), and Copilot CLI's
+  terminal draws none.
 
 Events, Skills and Apps can't reach servers behind OAuth yet, in any host
 where these forms run.
@@ -225,7 +267,7 @@ and OpenCode forms carry the Server Cards checks and add step themselves). A
 search sends the words of your request to that registry, so every search asks
 you first and names where it's going. That's also why it isn't part of the
 Claude Code `agent-polyfill` bundle or Pi's one-line install. Install it by
-name in Claude Code or Codex, from a clone in Pi, and with its own
+name in Claude Code, Codex or Copilot, from a clone in Pi, and with its own
 `opencode plugin add` in OpenCode.
 
 In Pi, `ard_search` asks "Don't send it" or "Send the search", naming the
@@ -250,6 +292,17 @@ OpenCode asked; it added no server. Adding is covered by tests in a real
 OpenCode with a scripted model and a local server. ARD wasn't tried in
 OpenCode's TUI or in OpenCode Desktop.
 
+In Copilot, each `ard_search` goes through Copilot's tool prompt, then the
+plugin's form, which names the registry endpoint and the exact query; only
+"Send the search" sends. `ard_search` is marked not read-only, so a host that
+runs read-only tools unasked, as VS Code's Copilot harness did, doesn't run it
+unasked. There is no default registry: name one or
+set `ARD_DISCOVERY_REGISTRY`. `add_mcp_server` adds a server as the Copilot
+Server Cards form does. In Copilot CLI, with a scripted stand-in model,
+`ard_discover` read buildkite.com's `ard.json` and a search went to the
+repository's demo registry after the form; search has been run against no
+other registry.
+
 The supported hosts don't implement these extensions themselves yet, apart
 from Skills in Claude Code (a beta, from 2.1.332) and part of Events in
 OpenCode. On 23 November 2026 the official
@@ -259,7 +312,10 @@ isn't in the matrix). Codex doesn't support Events for your own servers, or
 Skills (openai/codex#48000). OpenCode 2.4's own client takes Events by push,
 for its automations; it doesn't poll or take webhooks, and it skips event
 types whose schemas it can't check. It doesn't support Skills, Server Cards
-or Apps. Hosts add extensions all the time, so check the
+or Apps. Copilot has Skills over MCP and MCP Apps (in graphical hosts)
+itself, and its SDK's types declare a catalogue API that accepts Server Cards (not run), but nothing seen in it reads them from a domain
+([what was checked](polyfills/server-cards/copilot/README.md#copilots-own-catalogue)).
+Hosts add extensions all the time, so check the
 matrix for today's picture. Claude Code's
 [changelog](https://code.claude.com/docs/en/changelog) lists skills from MCP
 servers, as a beta, in 2.1.332 (25 November 2026).
@@ -299,9 +355,16 @@ pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 }
 ```
 
+**Copilot CLI** (start it with `copilot --experimental`):
+
+```bash
+copilot mcp add --transport=http feeds https://event-feeds.idosalomon.workers.dev/mcp
+```
+
 In Pi, you can ask "Watch for new earthquakes from the feeds server and tell
 me where each one was", then confirm the watch in its dialog. In OpenCode,
-allow the watch when OpenCode asks.
+allow the watch when OpenCode asks. In Copilot, allow `watch_event` at
+Copilot's prompt, then choose "Watch it" in the plugin's question.
 
 The same server also offers new comments in a Hacker News thread, new npm and
 GitHub releases, and earthquakes. Its source is in
@@ -319,6 +382,7 @@ and ask a question one of its skills covers.
 - **OpenCode:** the served skills are in OpenCode's skill list as
   `mcp-skills:huggingface:<name>`. Ask a question, then allow the load when
   OpenCode asks.
+- **Copilot CLI:** nothing to install: Copilot has Skills over MCP built in.
 
 **Codex:**
 
@@ -356,6 +420,9 @@ once it's added, sign in through the host.
   server at once. Run `opencode mcp auth <name>` for sign-in, and ask OpenCode
   to remove Neon Docs to take it away again
   (`server_cards_remove_mcp_server`).
+- **Copilot CLI:** after Copilot's tool prompt, choose "Add it" in the
+  plugin's form, then `/mcp reload`; `/mcp auth <name>` signs in, and
+  `copilot mcp remove neon-docs` removes it.
 
 ### Apps: an MCP App's interface, in the terminal
 
@@ -416,6 +483,10 @@ polyfill off:
   was added with), or use `MCP_EVENTS_OFF=1`, `MCP_SKILLS_OFF=1`,
   `MCP_SERVER_CARDS_DISABLED=1` or `ARD_DISCOVERY_DISABLED=1`, or the plugin
   option `off`, for the corresponding form.
+- **Copilot CLI:** disable or uninstall the plugin
+  (`copilot plugin disable mcp-events@agent-polyfill`), or use
+  `MCP_EVENTS_OFF=1`, `MCP_SERVER_CARDS_DISABLED=1` or
+  `ARD_DISCOVERY_DISABLED=1`.
 
 Each README says how.
 
@@ -449,6 +520,12 @@ Each host lets outside code in, in a different way.
   open their own MCP connections; Server Cards and ARD add servers to
   OpenCode's MCP configuration in memory, and OpenCode connects them with its
   own client.
+- **GitHub Copilot CLI** runs plugins with MCP servers, and, in experimental
+  mode, extensions: a process that joins the session, registers tools, starts
+  a turn with `session.send`, opens dialogs, and calls a server's tools or
+  reads its resources over Copilot's own connection. VS Code's Copilot harness
+  runs the same runtime and loads the same extensions. Events opens its own
+  MCP connections; Server Cards and ARD add servers with `copilot mcp add`.
 
 That's the host half of almost any extension. The protocol half is missing.
 None of these hosts lets a plugin or extension send an extension's own
@@ -465,12 +542,12 @@ with its own sign-in.
 Four small, generic changes would address the limit in each host. None of
 them names an extension:
 
-| Change | Claude Code today | Codex today | Pi today | OpenCode today |
-|---|---|---|---|---|
-| Send any MCP method over the host's connection | missing | missing (its client can, internally) | missing (its client can, internally) | missing (its client sends `events/*` for itself) |
-| Read what the server advertised | missing | mostly there | missing | missing |
-| Deliver a server's notifications to the plugin | missing | only for OpenAI's hosted apps server | missing | missing (its client takes Events push for its automations only) |
-| Raw tool results; declare a client extension | missing | declaring only by Codex's own client | `structuredContent` reaches hooks; tool `_meta` and declaring are missing | raw results not checked; declaring only by OpenCode's own client, for Events |
+| Change | Claude Code today | Codex today | Pi today | OpenCode today | Copilot today |
+|---|---|---|---|---|---|
+| Send any MCP method over the host's connection | missing | missing (its client can, internally) | missing (its client can, internally) | missing (its client sends `events/*` for itself) | missing (tool calls and resource reads only) |
+| Read what the server advertised | missing | mostly there | missing | missing | missing (instructions only) |
+| Deliver a server's notifications to the plugin | missing | only for OpenAI's hosted apps server | missing | missing (its client takes Events push for its automations only) | `list_changed` only |
+| Raw tool results; declare a client extension | missing | declaring only by Codex's own client | `structuredContent` reaches hooks; tool `_meta` and declaring are missing | raw results not checked; declaring only by OpenCode's own client, for Events | raw tool results; declaring only by Copilot itself |
 
 The first two are enough for Events (by poll and webhook) and Skills to work
 with every server you've signed in to, with one additional change in Pi:
@@ -543,6 +620,50 @@ each extension needs, and the questions they raise about permissions are in
   tests on Linux, macOS and Windows). The
   [live-run record](tools/opencode/live-run.md) has what was run.
 
+### Limits in Copilot
+
+- Everything Events needs from Copilot is in its extension API, which is
+  experimental: extensions load only in experimental mode, and the API may
+  change in any release. Tested on Copilot CLI 1.0.115. `copilot --acp`
+  loads no extensions, and `copilot -p` ends the session with the prompt, so
+  nothing is woken there.
+- Events can't use a sign-in through Copilot. A header in `mcp-config.json`
+  works, written out or from `${VARIABLE}`, except variables Copilot keeps
+  from extensions. Its separate connection means a local (stdio) server
+  runs twice.
+- Events reads only the servers Copilot enables for the session, from
+  `mcp-config.json` and a trusted project's `.mcp.json` or
+  `.github/mcp.json`. Servers a plugin brings, `--additional-mcp-config` and
+  the built-in GitHub server are listed as unavailable. A server you switch
+  off with `/mcp disable` stops its watches until a session has it again.
+- Events needs an open session; `copilot --resume` picks watches up from
+  their cursors. The wake limits are the same as in the other forms.
+- Each watch asks you in the plugin's own dialog, after Copilot's tool
+  prompt, because Copilot's prompt isn't always a person: in assisted mode
+  (which an organisation can make the default) an LLM review approves calls,
+  and allow-all approves everything. Where Copilot can't ask anyone
+  (`copilot -p`), no watch starts. `MCP_EVENTS_ASK_BY_DEFAULT=0` leaves it to
+  Copilot's rules.
+- Server Cards and ARD add a server with `copilot mcp add`; it connects
+  after `/mcp reload` or in the next session. Copilot declines their form in
+  `copilot -p`, even with `--yolo`, so adding works in the interactive
+  session only. ARD's search was run only against the repository's demo
+  registry. They don't compare a card with the live server (S-3), as in
+  the other forms
+  ([Server Cards](polyfills/server-cards/copilot/docs/conformance.md),
+  [ARD](polyfills/ard/copilot/docs/conformance.md)).
+- In VS Code's Copilot harness (1.147.0), signed in by the user in a
+  throwaway profile, Events was run end to end; a wake looks like a typed
+  message whose first line names the plugin. The plugin's own watch question
+  came later and wasn't seen there. Server Cards added a server there,
+  through VS Code's tool prompt and then the plugin's form, which VS Code
+  shows as one paragraph. ARD's server loaded there, but no search was run
+  through it.
+
+The Copilot CLI runs used a scripted stand-in model, with no GitHub sign-in;
+the VS Code run used GitHub's Claude Haiku 4.5
+([live runs](polyfills/events/copilot/docs/live-run.md)).
+
 ## In T3 Code
 
 [T3 Code](https://github.com/pingdotgg/t3code) (0.1.11) is an app (desktop,
@@ -584,8 +705,9 @@ What T3 Code would need to change is in
 ## Other hosts
 
 We haven't found a documented way for third-party code to send requests over
-the host's MCP connection in Cursor or VS Code, and ChatGPT runs no
-third-party code on the client side. For those, the only polyfill would be a
+the host's MCP connection in Cursor or in VS Code's own chat, and ChatGPT runs
+no third-party code on the client side. (VS Code's Copilot harness is another
+matter: it runs Copilot CLI's runtime, and the Copilot forms run there.) For those, the only polyfill would be a
 gateway: an MCP server that presents an extension as plain tools. That's a
 weaker form (for Events, the model would have to poll, and nothing would wake
 it), and none is shipped here: we built one for Grok Bot and left it out.
@@ -647,6 +769,7 @@ with these forms:
 - `codex/`: a Codex plugin.
 - `pi/`: a Pi extension.
 - `opencode/`: an OpenCode plugin.
+- `copilot/`: a Copilot CLI plugin (Events only; Copilot has Skills built in).
 
 Bringing one to a new host means writing a new adapter. Find how the host lets
 a plugin reach the wire (a connection of its own, a tool call, a way to wake
@@ -699,6 +822,14 @@ it loads), which needs a change in OpenCode. The Events page lists the
 clauses its tests check end to end in a real OpenCode, and its departure
 from rule 4 ([Skills](polyfills/skills/opencode/docs/conformance.md),
 [Events](polyfills/events/opencode/docs/conformance.md)).
+
+In Copilot, Events passes all 17 checks of the upstream Events client
+scenarios end to end through the bundled extension, and its tests check the
+SEP's rules through the extension as Copilot starts it. Its live runs in
+Copilot CLI used a scripted stand-in model
+([Events](polyfills/events/copilot/docs/conformance.md),
+[Server Cards](polyfills/server-cards/copilot/docs/conformance.md),
+[ARD](polyfills/ard/copilot/docs/conformance.md)).
 
 If your extension needs a client in a host that doesn't have one, open an
 issue, or build it with the `create-polyfill` skill.
@@ -788,6 +919,18 @@ added; their list stays in that storage and comes back if you install the
 plugin again, unless you remove each server first
 (`server_cards_remove_mcp_server` or `ard_remove_mcp_server`).
 
+**GitHub Copilot CLI.** With the marketplace added (Copilot reads
+`.github/plugin/marketplace.json`), `copilot plugin install <name>@agent-polyfill`
+installs one (`mcp-events`, `mcp-server-cards` or `ard-discovery`), and
+`copilot plugin uninstall <name>@agent-polyfill` removes it. Copilot has no
+bundle. For one run without installing, from a clone:
+`copilot --experimental --plugin-dir ./AgentPolyfill/polyfills/<polyfill>/copilot/plugin`.
+Uninstalling leaves Events' data in `~/.copilot/mcp-events/` and the servers
+Server Cards or ARD added in `~/.copilot/mcp-config.json`
+(`copilot mcp remove <name>`); the marketplace stays until
+`copilot plugin marketplace remove agent-polyfill`. Each form's README has
+the details.
+
 ### If you installed `mcp-skills` in Claude Code
 
 The marketplace no longer lists `mcp-skills` for Claude Code, and from
@@ -816,12 +959,20 @@ permissions:
   a skill load, a registry search or a server addition) to OpenCode's
   permission rules and makes it ask by default. It never answers for you;
   OpenCode's rules remain the boundary.
+- **Copilot CLI:** a plugin, and for Events an extension, a child process of
+  Copilot's. Copilot's own prompts are the boundary, and its rules apply to
+  every tool. It can approve a call without you, in assisted mode (an LLM
+  review, which an organisation can make the default) or with allow-all, so
+  each polyfill asks before its consequential step itself: a
+  watch in the plugin's dialog, a registry search or a server addition in the
+  plugin's form. It never answers for you.
 - **T3 Code:** the plugins of the agent it runs, as above. The T3 Events form
   is an MCP server Codex starts, plus a watcher of its own that keeps running
   after T3 Code closes, until no thread has a watch.
 
 None reads the host's stored credentials, including Pi's `mcp-auth.json`
-or `auth.json` and OpenCode's OAuth tokens. Each polyfill's `SECURITY.md`
+or `auth.json`, OpenCode's OAuth tokens, and Copilot's `config.json`, OAuth
+store or keychain entries. Each polyfill's `SECURITY.md`
 says what it checks and what it doesn't protect against.
 [`SECURITY.md`](SECURITY.md) says how to report a problem privately.
 
@@ -839,6 +990,8 @@ says what it checks and what it doesn't protect against.
   - `opencode/`: plugins for Events, Skills, Server Cards and ARD, each with
     an installable `plugin/` folder (one bundled `server.js` and a
     `package.json`) and its own README and SECURITY.md.
+  - `copilot/`: Copilot CLI plugins for Events, Server Cards and ARD, each
+    with an installable `plugin/` folder and its own README and SECURITY.md.
   - `t3/`: the Events form for T3 Code
     ([`polyfills/events/t3`](polyfills/events/t3)), an MCP server for Codex
     threads in T3 Code.
@@ -856,6 +1009,8 @@ says what it checks and what it doesn't protect against.
   OpenCode's forms are installed from their folders on GitHub with
   `opencode plugin add`; none is published to npm, and there is no
   marketplace file for them.
+  [`.github/plugin/marketplace.json`](.github/plugin/marketplace.json) lists
+  the Copilot CLI plugins.
 - **[`tools/opencode`](tools/opencode):** the pinned OpenCode, the scripted
   stand-in for a model and the harness the OpenCode forms' tests run in, and
   the [record of their live runs](tools/opencode/live-run.md).

@@ -15,8 +15,9 @@
 //   - only the copy of the pinned version is ever run: a folder of any other version, whoever put
 //     it there, is never run, not even to ask its version, and is deleted by the next setup.
 //
-// The same mechanism as the mcp-skills mod's (polyfills/skills/claude-code/mod/hooks/runtime.ts),
-// with that last point made stricter.
+// The same mechanism as the mcp-skills mod for Claude Code had, with that last point made
+// stricter. That mod was removed from the repository (Claude Code lists MCP skills itself); it is
+// in history at commit ed2279a6: polyfills/skills/claude-code/mod/hooks/runtime.ts.
 //
 // It needs `curl` and `unzip`, as Bun's own installer does.
 

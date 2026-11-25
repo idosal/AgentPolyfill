@@ -96,8 +96,10 @@ helper, as it can already run code through its own hooks.
 Not yet run as one sequence: the download, the check and the unpacking are
 tested with stand-ins for the machine (`mod/hooks/setup.test.ts`), but the
 download itself hasn't been run from this mod. The same code was run in parts
-against the real release in the mcp-skills mod for Claude Code, which has
-since been removed from this repository.
+against the real release in the mcp-skills mod for Claude Code. That mod has
+since been removed from this repository (Claude Code lists MCP skills itself);
+it and that record are in history, at commit `ed2279a6`
+([its README's limits](https://github.com/idosal/AgentPolyfill/blob/ed2279a6/polyfills/skills/claude-code/README.md#limits)).
 
 ## Try it
 

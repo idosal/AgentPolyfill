@@ -1,6 +1,6 @@
 # SEP-3415 client conformance, in Pi
 
-How this client (the Pi form of mcp-events, 0.1.0, on Pi 1.6.0) stands
+How this client (the Pi form of mcp-events, 0.1.1, on Pi 1.6.0) stands
 against the **Final** text of SEP-3415 (`seps/3415-events-extension.md` in
 `modelcontextprotocol/modelcontextprotocol`, as fetched on 24 November 2026),
 the same revision as the Claude Code and Codex forms.

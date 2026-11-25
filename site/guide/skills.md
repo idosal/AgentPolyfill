@@ -1,5 +1,5 @@
 ---
-description: mcp-skills adds the client side of the MCP Skills extension (SEP-2640) to Codex, Pi and OpenCode. Skills your MCP servers serve are listed, approved once, loaded, and checked against the server's digests. Install and limits are listed per host. Claude Code lists skills from MCP servers itself, in beta.
+description: mcp-skills adds the client side of the MCP Skills extension (SEP-2640) to Codex, Pi and OpenCode. Skills your MCP servers serve are listed, approved once, loaded, and checked against the server's digests. Install and limits are listed per host. Claude Code lists skills from MCP servers itself, in beta, and Copilot CLI has Skills over MCP built in.
 ---
 
 # Skills
@@ -13,7 +13,8 @@ the MCP **Skills** extension, `io.modelcontextprotocol/skills`
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md),
 Final). The Codex, Pi and OpenCode forms below supply MCP Skills support those
 hosts haven't shipped natively yet (for Codex, openai/codex#48000). Claude Code
-has its own, in beta: see [Claude Code](#claude-code).
+has its own, in beta: see [Claude Code](#claude-code). Copilot CLI has Skills
+over MCP built in: see [Copilot CLI](#copilot-cli).
 
 <Recording
   cut="skills"
@@ -47,6 +48,15 @@ mod's own store in your Claude Code configuration folder; its log was in the
 plugin's data folder, which uninstalling leaves in place.
 [What it kept on your machine](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/skills/README.md)
 has the rest.
+
+## Copilot CLI
+
+There is no Copilot form, on purpose. Copilot CLI 1.0.115 has Skills over MCP
+built in: it declares `io.modelcontextprotocol/skills` to every server it
+connects (seen in its `initialize`), and VS Code 1.147.0's Copilot harness has
+it on by default (from its source). No served skill was listed or loaded in
+Copilot. A polyfill would be a second client
+([why](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/README.md#skills-and-apps-in-copilot)).
 
 ## Install
 

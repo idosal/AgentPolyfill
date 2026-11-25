@@ -61,6 +61,16 @@ export type ThreadOptions = {
     connectTimeoutMs?: number;
     /** How long the pause past the hour's wakes lasts when the person never writes. Default an hour. */
     liftAfterMs?: number;
+    /** What the session is called in the store's claim (another host that runs this class names its own). Default "codex thread". */
+    label?: string;
+    /** What hands the message over, in the log. Default "codex queue". */
+    wakeName?: string;
+    /**
+     * The host shows a turn a wake starts, whatever app the session is open in (Copilot: its own
+     * session.send, with a turn id VS Code shows). Then no call has to say so first, and the shown
+     * gate below never holds a wake. Default false: Codex's rule (meta.ts, shownBy) applies.
+     */
+    hostShowsWakes?: boolean;
 };
 
 const PAUSE_LIFTS_AFTER_MS = 3600 * 1000;
@@ -77,6 +87,8 @@ export class ThreadSession {
     readonly #wake: Wake;
     readonly #log: (s: string) => void;
     readonly #batchMs: number;
+    readonly #wakeName: string;
+    readonly #hostShowsWakes: boolean;
     readonly #values: boolean;
     #delivery?: Delivery;
     #timer?: NodeJS.Timeout;
@@ -107,8 +119,10 @@ export class ThreadSession {
         this.#wake = o.wake;
         this.#log = (s) => o.log(`[${id.slice(0, 8)}] ${s}`);
         this.#batchMs = Number(env.MCP_EVENTS_BATCH_MS ?? 1000);
+        this.#wakeName = o.wakeName ?? 'codex queue';
+        this.#hostShowsWakes = o.hostShowsWakes === true;
         this.#values = env.MCP_EVENTS_WAKE_VALUES === '1';
-        this.project = new ProjectState(o.base, `codex thread ${id}`, { dir: join(o.base, 'threads', id) });
+        this.project = new ProjectState(o.base, `${o.label ?? 'codex thread'} ${id}`, { dir: join(o.base, 'threads', id) });
         this.spool = new Spool(o.base, id);
         this.#shownFile = join(this.project.dir, 'shown-by.json');
         // How often events may wake this session. Kept with its events, so a helper that restarts carries on counting.
@@ -148,12 +162,17 @@ export class ThreadSession {
             if (handed) {
                 this.#delivery.ack(handed.upto);
                 this.budget.woke(handed.watches);
-                this.#log('a batch handed to codex queue by a helper that ended before it heard back counts as handed over');
+                this.#log(`a batch handed to ${this.#wakeName} by a helper that ended before it heard back counts as handed over`);
             }
             if (this.manager.watches.length) this.#log(`runs ${this.manager.watches.length} watch(es)`);
             if (this.#delivery.pending) this.announce();
         }
         return owner;
+    }
+
+    /** Whether a wake would be seen: the host always shows one, or a call said Codex's own app shows this session. */
+    #shows(): boolean {
+        return this.#hostShowsWakes || this.shownBy === 'codex';
     }
 
     /** Which app shows this session, as the latest call that said so left it (any process's). */
@@ -190,13 +209,13 @@ export class ThreadSession {
 
     async call(name: string, input: Record<string, unknown>): Promise<ToolAnswer> {
         const answer = await this.#tools.call(name, input);
-        const held = !this.unwakeable && this.shownBy !== 'codex';
+        const held = !this.unwakeable && !this.#shows();
         if ((name === 'list_watches' || name === 'watch_event') && !answer.isError && held) return { ...answer, text: `${answer.text}\n\n${notShown(this.shownBy)}` };
         if (name === 'list_watches' && this.unwakeable) return { ...answer, text: `${answer.text}\n\nThis chat can't be woken: it isn't a local Codex session, which is all codex queue reaches (a ChatGPT desktop-app chat, say). Its watches still store every event: recent_events and get_event read them. Waking works in the Codex TUI.` };
         if (name === 'list_watches' && this.lastWakeError && this.#unanswered === 'batch')
-            return { ...answer, text: `${answer.text}\n\nThe last wake's codex queue did not answer (${this.lastWakeError}), so it may not have woken this session. Its events count as handed over and are not handed over again; recent_events lists them.` };
+            return { ...answer, text: `${answer.text}\n\nThe last wake's ${this.#wakeName} did not answer (${this.lastWakeError}), so it may not have woken this session. Its events count as handed over and are not handed over again; recent_events lists them.` };
         if (name === 'list_watches' && this.lastWakeError && this.#unanswered === 'notice')
-            return { ...answer, text: `${answer.text}\n\nThe codex queue that was to tell this session that waking had stopped did not answer (${this.lastWakeError}), so the session may not have been told. Waking stays paused; the events that wait are stored, handed over once the pause ends, and recent_events lists them.` };
+            return { ...answer, text: `${answer.text}\n\nThe ${this.#wakeName} that was to tell this session that waking had stopped did not answer (${this.lastWakeError}), so the session may not have been told. Waking stays paused; the events that wait are stored, handed over once the pause ends, and recent_events lists them.` };
         if (name === 'list_watches' && this.lastWakeError) return { ...answer, text: `${answer.text}\n\nWaking this session failed the last time it was tried (${this.lastWakeError}); it is tried again.` };
         return answer;
     }
@@ -236,7 +255,7 @@ export class ThreadSession {
         if (r.ok) {
             this.lastWakeError = undefined;
             this.#retryMs = 0;
-            if (!r.resumed) this.#log('codex queue took the message but could not resume the session; it runs when the session is next opened');
+            if (!r.resumed) this.#log(`${this.#wakeName} took the message but could not resume the session; it runs when the session is next opened`);
         } else if (r.maybe) {
             // It may have queued the message: a batch counts as handed over, never handed over again;
             // the notice counts as given. list_watches says so, as it may not have reached the session.
@@ -276,7 +295,7 @@ export class ThreadSession {
             // No call has said that Codex's own app shows this session: a wake could run where nobody
             // sees it. The events wait, stored, and no wake is counted; a call that says so starts it.
             const by = this.shownBy;
-            if (by !== 'codex') {
+            if (!this.#shows()) {
                 if (!this.#heldLogged) this.#log(`not waking the session: ${by === 'unmarked' ? "the last of its turns that called the plugin wasn't one the user started in Codex's own app" : "no turn the user started in Codex's own app has called the plugin yet"}; the events are stored`);
                 this.#heldLogged = true;
                 return;

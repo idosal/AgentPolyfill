@@ -47,18 +47,19 @@ polyfills/<extension>/
   codex/         the Codex adapter
   pi/            the Pi adapter
   opencode/      the OpenCode adapter
+  copilot/       the GitHub Copilot CLI adapter
 ```
 
 - `<extension>` is the extension's short name: `apps`, `events`, `skills`,
   `server-cards`, `ard`.
 - `core/` holds what does not depend on the host; each host folder holds its
   adapter. Events and Skills use this layout. Apps has no Pi or OpenCode
-  form.
+  form. Skills and Apps have no Copilot form: Copilot has them built in.
 
 Inside an adapter's folder, the installable form goes in a subfolder (`mod/`
-in the Apps polyfill, `extension/` in Pi, `plugin/` in OpenCode), holding
-the host's manifest and only what it runs; tests, build scripts, benchmarks
-and design notes go beside it. The folder is self-contained, so code from
+in the Apps polyfill, `extension/` in Pi, `plugin/` in OpenCode and Copilot
+CLI), holding the host's manifest and only what it runs; tests, build
+scripts, benchmarks and design notes go beside it. The folder is self-contained, so code from
 `core/` reaches it by bundling, never by an import from outside it.
 Installation differs by host:
 
@@ -73,6 +74,9 @@ Installation differs by host:
   `plugins` in `opencode.json`. The folder holds one bundled file,
   `server.js`, and a small `package.json` that names it, plus licence notices
   where the bundle holds other packages' code (the Events and Skills forms).
+- **Copilot CLI:** loads a plugin from a local marketplace where it is,
+  without copying it, so the clone must stay. From a marketplace on GitHub,
+  Copilot keeps its own copy.
 
 One plugin folder can carry both `.claude-plugin/plugin.json` and
 `.codex-plugin/plugin.json`. The plugin's name is unique in the repository, and
@@ -128,6 +132,13 @@ Install instructions depend on the host:
   removal. [Getting started](./getting-started#opencode) has the tested
   steps; `tools/opencode/install-check.ts` repeats the install from GitHub in
   a throwaway home.
+- **Copilot CLI:** `copilot plugin marketplace add idosal/AgentPolyfill`,
+  then `copilot plugin install <plugin>@agent-polyfill`. Until the plugin is
+  on the repository's default branch, the tested install is from a clone:
+  `copilot plugin marketplace add ./AgentPolyfill`. Say if it needs
+  experimental mode (every Copilot extension does).
+  [Getting started](./getting-started#github-copilot-cli) has the tested
+  steps.
 
 ### 4. List it for its host
 
@@ -144,6 +155,9 @@ Install instructions depend on the host:
 - **OpenCode:** there is no marketplace file and no bundle. Each plugin is
   installed from GitHub by its folder's path, so the install line in its
   README is its listing. Nothing is published to npm.
+- **Copilot CLI:** add an entry to `.github/plugin/marketplace.json` (Copilot
+  found the marketplace there when a clone was added as a marketplace). Keep
+  its `version` equal to the plugin's.
 
 Then add it to the polyfills table in the repository's README, in its host's
 column.
@@ -162,6 +176,7 @@ depending on every polyfill. Add the polyfill's own tests as a workflow in
   a real OpenCode, the release pinned in `tools/opencode`, in a throwaway
   home with a scripted stand-in for a model, on Linux, macOS and Windows,
   and checks that the committed `plugin/server.js` is what its sources build.
+- **Copilot CLI:** `copilot-<extension>-test.yml`.
 
 A polyfill that ships built files also gets a release workflow, run on its
 own tags, `<plugin>-v<version>`.
@@ -200,6 +215,8 @@ beside the others. Events and Skills share one `core/`, with these forms:
 - **Pi:** an extension in `pi/`, with the installable bundle in `extension/`.
 - **OpenCode:** a V2 server plugin in `opencode/`, with the bundle in
   `plugin/`.
+- **Copilot CLI:** a plugin in `copilot/`, installed from `plugin/` (Events
+  has one; Skills doesn't, because Copilot has Skills built in).
 
 1. **Find the host's way in.** What can third-party code do there: run code
    inside the host or beside it, call tools, ask the user, start a turn in an

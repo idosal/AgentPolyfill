@@ -1,0 +1,157 @@
+// Copilot's side of an addition: the plan a card gives, and the command that writes it.
+//
+// Copilot reads your MCP servers from $COPILOT_HOME/mcp-config.json (~/.copilot), for all your
+// projects, and `copilot mcp add` writes there. Unlike Codex, it takes everything a card can ask
+// for: streamable HTTP and SSE, any header, and `${VAR}` references, which Copilot expands from
+// its environment when it connects (seen live in 1.0.115) and `copilot mcp add` writes as they
+// are. So the plan is the shared one (configure.ts planAdd), as Claude Code's is: a secret is a
+// `${VAR}` named for this card alone, never a value. `copilot mcp add` contacts no server and
+// starts no sign-in; a server behind OAuth asks for it when Copilot first connects (/mcp auth).
+
+import { spawn } from 'node:child_process'
+import { homedir } from 'node:os'
+import { accessSync, constants, statSync } from 'node:fs'
+import { delimiter, isAbsolute, join } from 'node:path'
+import { hasMarkup, type ServerCard } from '../../claude-code/mod/hooks/card'
+import { planAdd, type Plan } from '../../claude-code/mod/hooks/configure'
+import type { Ran, Run } from '../../codex/src/codex'
+
+/** The names planAdd makes (a slug of the card's title or name, or of the one the model gives): never a leading "-". */
+export const SAFE_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/
+
+export type CopilotPlan = Plan & {
+  /** `copilot mcp add` arguments */
+  addArgs: string[]
+  /** what is written, as the entry Copilot keeps in mcp-config.json */
+  json: string
+}
+
+export type CopilotPlanResult = { plan: CopilotPlan } | { missing: { input: string; description?: string; choices?: string[] }[] } | { error: string }
+
+/** The card's remote as a Copilot entry: planAdd's checks (inputs, `$`, the URL rules, no private remote from a public card). */
+export const planForCopilot = (card: ServerCard, remoteIndex: number, values: Record<string, string>, name: string | undefined, fromLocal: boolean): CopilotPlanResult => {
+  const planned = planAdd(card, remoteIndex, values, name, 'user', fromLocal)
+  if (!('plan' in planned)) return planned
+  const p = planned.plan
+  // One value per header: a card that sets one twice (in any letter case) would show one value in
+  // the form and have Copilot keep another (as the Codex form refuses it).
+  const seen = new Set<string>()
+  for (const h of p.headers) {
+    if (seen.has(h.name.toLowerCase())) return { error: `The card sets the header ${h.name} twice.` }
+    seen.add(h.name.toLowerCase())
+  }
+  // A header is shown in the form as it is: no markup a host could render as something else
+  // (security review C4, as in the Codex form).
+  for (const h of p.headers)
+    if (hasMarkup(h.value.replace(/\$\{[A-Z0-9_]+\}/g, '')))
+      return { error: `The header ${h.name} holds \`, <, > or a square bracket (${h.value}), which could show as something else in the form.` }
+  // What reaches the command line, checked again here whatever planAdd guarantees: the name is a
+  // slug and the URL an http(s) address, so neither can be read as an option, and every option
+  // is written `--option=value`, so a header (whose name may legally start with "-") is always
+  // that option's value (seen with Copilot 1.0.115: `--header -x: v` is refused as an unknown
+  // argument, `--header=-x: v` is taken whole). The command runs with no shell.
+  if (!SAFE_NAME.test(p.name)) return { error: `The server name "${p.name}" is not a plain name (letters, digits and dashes).` }
+  if (!/^https?:\/\//.test(p.url)) return { error: `The URL ${p.url} is not an http(s) address.` }
+  if (p.transport !== 'http' && p.transport !== 'sse') return { error: `The transport ${p.transport} is not one Copilot adds for a remote.` }
+  const headers = Object.fromEntries(p.headers.map(h => [h.name, h.value]))
+  return {
+    plan: {
+      ...p,
+      addArgs: ['mcp', 'add', `--transport=${p.transport}`, ...p.headers.map(h => `--header=${h.name}: ${h.value}`), p.name, p.url],
+      json: JSON.stringify({ [p.name]: { type: p.transport, url: p.url, ...(p.headers.length ? { headers } : {}), tools: ['*'] } }, null, 2),
+    },
+  }
+}
+
+/** Copilot's home: COPILOT_HOME, else ~/.copilot. */
+export const copilotHome = (env: NodeJS.ProcessEnv = process.env) => env.COPILOT_HOME?.trim() || join(env.HOME || homedir(), '.copilot')
+/** The file Copilot keeps your MCP servers in. */
+export const configPath = (env: NodeJS.ProcessEnv = process.env) => join(copilotHome(env), 'mcp-config.json')
+
+/** An absolute path to an executable file, or undefined. */
+const executable = (path: string | undefined) => {
+  if (!path || !isAbsolute(path)) return undefined
+  try {
+    accessSync(path, constants.X_OK)
+    return statSync(path).isFile() ? path : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Where `copilot` is: the one that started this server (COPILOT_CLI_PATH), then each absolute PATH
+ * entry, then the usual install places. Only absolute paths to an executable file: the command runs
+ * in the session's folder, so an empty or relative PATH entry (which would find a `copilot` in the
+ * repository) is skipped, and no bare name is left for the system to look up.
+ */
+export const copilotCandidates = (env: NodeJS.ProcessEnv = process.env): string[] => {
+  const onPath = (env.PATH ?? '').split(delimiter).filter(d => d && isAbsolute(d)).map(d => join(d, 'copilot'))
+  const all = [env.COPILOT_CLI_PATH, ...onPath, ...(env.HOME && isAbsolute(env.HOME) ? [join(env.HOME, '.local/bin/copilot')] : []), '/opt/homebrew/bin/copilot', '/usr/local/bin/copilot']
+  return [...new Set(all.map(executable).filter((p): p is string => !!p))]
+}
+
+const runOnce = (bin: string, args: readonly string[], cwd: string | undefined, timeoutMs: number) =>
+  new Promise<Ran | { failure: string }>(resolve => {
+    let child: ReturnType<typeof spawn>
+    try {
+      // No shell: a card's text never meets a command line parser.
+      child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'], env: process.env, ...(cwd ? { cwd } : {}) })
+    } catch (err) {
+      return resolve({ failure: err instanceof Error ? err.message : String(err) })
+    }
+    let stdout = ''
+    let stderr = ''
+    const timer = setTimeout(() => child.kill('SIGKILL'), timeoutMs)
+    child.stdout!.on('data', d => (stdout += d))
+    child.stderr!.on('data', d => (stderr += d))
+    child.on('error', err => {
+      clearTimeout(timer)
+      resolve({ failure: err.message })
+    })
+    child.on('close', code => {
+      clearTimeout(timer)
+      resolve({ exitCode: code ?? -1, stdout, stderr })
+    })
+  })
+
+/**
+ * Runs `copilot`, in the session's folder (COPILOT_SESSION_CWD, which Copilot gives its MCP
+ * servers), so that `copilot mcp get` sees the workspace's servers as the session does.
+ */
+export function copilotRunner(env: NodeJS.ProcessEnv = process.env): Run {
+  let found: string | undefined
+  const cwd = env.COPILOT_SESSION_CWD || undefined
+  return async (args, opts) => {
+    const timeoutMs = opts?.timeoutMs ?? 60_000
+    if (found) return runOnce(found, args, cwd, timeoutMs)
+    let failure = ''
+    for (const bin of copilotCandidates(env)) {
+      const r = await runOnce(bin, args, cwd, timeoutMs)
+      if ('failure' in r) {
+        failure = r.failure
+        continue
+      }
+      found = bin
+      return r
+    }
+    return { failure: failure || 'copilot was not found' }
+  }
+}
+
+/** Taken unless Copilot says there is no server of that name; unknown counts as taken. */
+export async function isNameTaken(run: Run, name: string): Promise<boolean> {
+  const r = await run(['mcp', 'get', name])
+  if ('failure' in r) return true
+  return !(r.exitCode !== 0 && /Server "[^"]*" not found/i.test(r.stdout + r.stderr))
+}
+
+export type Written = { ok: true } | { ok: false; error: string }
+
+/** Writes the entry with `copilot mcp add`. */
+export async function writeEntry(run: Run, plan: CopilotPlan): Promise<Written> {
+  const r = await run(plan.addArgs, { timeoutMs: 60_000 })
+  if ('failure' in r) return { ok: false, error: `could not run copilot (${r.failure})` }
+  if (r.exitCode !== 0) return { ok: false, error: `copilot mcp add failed: ${(r.stderr || r.stdout).trim().slice(0, 600)}` }
+  return { ok: true }
+}

@@ -164,6 +164,10 @@ for each host:
   project folder. It installs from GitHub by its folder's path
   (`opencode plugin add`, with Git) or from a clone; nothing is published to
   npm.
+- **Copilot CLI:** a plugin in `copilot/`, installed from `plugin/` (Events
+  has one, which holds a Copilot extension; Skills doesn't, because Copilot
+  has Skills over MCP built in). It installs from a clone added as a
+  marketplace.
 
 The Pi examples are
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi),
@@ -181,6 +185,12 @@ and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/openco
 Apps has no OpenCode form. OpenCode has no MCP Apps support, and a plugin
 can't read a `ui://` resource or a tool's `_meta` over OpenCode's connection;
 that was looked into, not built.
+
+The Copilot CLI examples are
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/copilot),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/copilot)
+and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/copilot).
+Skills and Apps have no Copilot form: Copilot has them built in.
 
 Bringing a polyfill to another host is a new adapter: find how the host lets
 it reach the wire (a connection of its own, a tool call, a way to wake an idle
@@ -214,6 +224,19 @@ states its departure from rule 4. Their READMEs, `SECURITY.md` and
 a scripted model, and live runs in
 [`tools/opencode/live-run.md`](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md).
 ARD's live runs did not add a server; addition was checked by its tests.
+
+The Copilot CLI forms show the same from another side. Only an extension can
+start a turn (`session.send`), so Events is an extension and needs Copilot's
+experimental mode; Server Cards and ARD are MCP servers in plugins and don't.
+Events needs its own connection and cannot use Copilot's sign-in. Copilot's
+own tool prompt comes before each tool that acts. Copilot can approve a call
+without the person, in assisted mode (an LLM review, which an organisation can
+make the default) or with allow-all, so each form asks its own question after
+it: Events in a Copilot dialog, by default, and Server Cards and ARD in a form
+before adding a server or sending a search. Each has an off switch because
+native support cannot be detected. Their READMEs, `SECURITY.md` and
+`docs/conformance.md` (and Events' `docs/live-run.md`) record what was
+checked. The live runs in Copilot CLI used a scripted model on the machine.
 
 ## Your own, listed in the community directory
 
