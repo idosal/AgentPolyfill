@@ -46,7 +46,12 @@ export function copilotHome(env: NodeJS.ProcessEnv = process.env): string {
 /** What Copilot says about one configured server (`session.rpc.mcp.listConfigured()`). */
 export type Configured = { name: string; enabled: boolean; source?: string; sourcePlugin?: string };
 
-/** Strict JSON, as Copilot reads it; the `//` comment lines Copilot writes at the top of config.json are dropped first. */
+/**
+ * Strict JSON, as Copilot reads it, with any `//` comment lines dropped first. Only MCP server files
+ * are read: mcp-config.json, a trusted project's .mcp.json or .github/mcp.json, and a file you name in
+ * MCP_EVENTS_CONFIG. Never Copilot's config.json (it lists signed-in accounts), its OAuth store or the
+ * keychain.
+ */
 function readJson(path: string): Json | undefined {
     const text = readFileSync(path, 'utf8')
         .split('\n')
