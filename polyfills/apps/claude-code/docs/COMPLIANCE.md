@@ -192,8 +192,7 @@ The invariants, in plain words:
 Results with TLC 1.7.4 on Temurin 21, `-workers auto`; state files under 150 MB, or 400 MB for ConsentRules and
 ConsentAsk, whose queue of states yet to visit peaks at about 130 and 160 MB
 with CI's four workers (a run past its cap counts as failed), deleted after
-each run. The counts are TLC's final distinct-state counts
-(0.1.2's table took a progress line for some). With several workers the
+each run. The counts are TLC's final distinct-state counts. With several workers the
 reported depth can differ by one from run to run, and for a violated
 configuration the states explored up to the first violation found vary too;
 the numbers below are one run's.
@@ -219,12 +218,11 @@ the numbers below are one run's.
 | Witness* | each outcome (a run, a message, a link, a save) | reachable, so the consent invariants don't hold for want of anything happening |
 
 `node model/check.mjs` runs all 24 configurations; every one gives what it
-should. The configurations 0.1.2 had keep their bounds; ReopenTraffic and
-RaceGen are new. A larger one (2 calls of one server, each opened twice, with
-traffic) passed 150 MB of state files and was dropped.
+should. A larger one (2 calls of one server, each opened twice, with
+traffic) passes 150 MB of state files and isn't run.
 
-What the model found, both fixed in 0.1.2 with a test each that fails on
-0.1.1:
+What the `...Before` configurations show, and what prevents each (from
+0.1.2 for the first two, from 0.1.3 for the others), each with tests:
 
 1. **An app's own traffic was never re-checked.** After a view opened, its
    app's reads and calls of app-only tools went to the server over the
@@ -236,11 +234,6 @@ What the model found, both fixed in 0.1.2 with a test each that fails on
    could close a reopened view's page (the view then stood live with no page),
    or arrive before its page existed and leave that page running unseen. They
    now go one at a time per id.
-
-The two windows 0.1.2 documented as reachable, closed in 0.1.3, each in
-the model first (the invariant that failed with the documented exception
-now holds without it), then in the code, each with tests that fail on
-0.1.2:
 
 3. **A request reached a server just after Claude Code stopped using it.**
    0.1.2 kept a yes 5 s and reused it to discover and open views, read an

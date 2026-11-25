@@ -273,15 +273,15 @@ do.
 - **Claude Code:** neither is possible.
 - **Codex:** its own client can declare extensions; a plugin can't add to that
   list. Letting a plugin's manifest, or the config, add extension ids would
-  close it. Raw results we haven't checked yet.
+  close it. Raw results: not checked.
 - **Pi:** a result's `structuredContent` already reaches `tool_result` hooks;
   a tool's `_meta` doesn't, and an extension can't add to the capabilities
   Pi's client declares. An extension id in an extension's package manifest,
   added to what Pi's client declares, would close the second.
 - **OpenCode:** its own client declares Events; a plugin can't add an
   extension id. A field in a server's configuration, which a plugin's
-  `ctx.mcp.transform` could set, would close it. Raw results we haven't
-  checked yet.
+  `ctx.mcp.transform` could set, would close it. Raw results: not
+  checked.
 - **Antigravity:** neither. Its App declares `io.modelcontextprotocol/ui`
   itself, and its `PostToolUse` hook gets no result.
 - **Copilot:** the same: its runtime declares its own extensions (Skills and
@@ -619,12 +619,6 @@ no third-party code on the client side. (VS Code's Copilot harness is another
 matter: it runs Copilot CLI's runtime, and the Copilot forms run there.) For those, the only polyfill would be a
 gateway: an MCP server that presents an extension as plain tools. That's a
 weaker form (for Events, the model would have to poll, and nothing would wake
-it), and none is shipped here: we built one for Grok Bot and left it out.
+it), and none is shipped here.
 Bringing a polyfill to another host is
 [welcome](./build-a-polyfill#an-existing-polyfill-in-another-host).
-
-We also built forms for Muse Code, Grok Build, Grok Bot and OpenClaw that
-aren't shipped: the host gave a plugin no way to do what the spec asks of a
-client, the form only worked through a workaround, or the form isn't
-finished yet. [Hosts and forms we built and don't ship](https://github.com/idosal/AgentPolyfill/blob/main/docs/hosts-not-shipped.md)
-says what was missing in each and what would change the answer.

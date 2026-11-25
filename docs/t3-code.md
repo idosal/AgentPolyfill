@@ -93,7 +93,7 @@ mechanism through; the Codex and Claude Code columns of that page then apply.
 
 ## The shape: which case applies
 
-There are three possible cases. Here is what each turned out to be.
+There are three possible cases. Here is which holds.
 
 **(a) T3 Code has its own plugin layer: no.** There is nothing to load a
 `polyfills/<ext>/t3` plugin into, as there is in OpenCode or Pi.

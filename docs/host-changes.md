@@ -174,15 +174,15 @@ do.
 - **Claude Code:** neither is possible.
 - **Codex:** its own client can declare extensions; a plugin can't add to that
   list. Letting a plugin's manifest, or the config, add extension ids would
-  close it. Raw results we haven't checked yet.
+  close it. Raw results: not checked.
 - **Pi:** a result's `structuredContent` already reaches `tool_result` hooks;
   a tool's `_meta` doesn't, and an extension can't add to the capabilities
   Pi's client declares. An extension id in an extension's package manifest,
   added to what Pi's client declares, would close the second.
 - **OpenCode:** its own client declares Events; a plugin can't add an
   extension id. A field in a server's configuration, which a plugin's
-  `ctx.mcp.transform` could set, would close it. Raw results we haven't
-  checked yet.
+  `ctx.mcp.transform` could set, would close it. Raw results: not
+  checked.
 - **Antigravity:** neither. Its App declares `io.modelcontextprotocol/ui`
   itself, and its `PostToolUse` hook gets no result.
 - **Copilot:** the same: its runtime declares its own extensions (Skills and

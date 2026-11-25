@@ -114,7 +114,7 @@ In Claude Code itself (2.1.329):
 
 | | |
 |---|---|
-| The mod's `session.start` hook, which Claude Code awaits before the first prompt | 145 ms in a `-p` run, 350 ms in a terminal session (six tools registered at once; the first version registered them one after another and took 690 ms) |
+| The mod's `session.start` hook, which Claude Code awaits before the first prompt | 145 ms in a `-p` run, 350 ms in a terminal session (six tools registered at once) |
 | One tool call, hooks module → helper → back | 4 ms |
 | Taking a batch of events and submitting it as a prompt | 3 ms before the turn starts |
 | The catalog's `prompt.compose` hook, per request, with Claude Code's own composition beneath it | 8 to 35 ms |

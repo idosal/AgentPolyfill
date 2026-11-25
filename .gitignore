@@ -17,3 +17,4 @@ polyfills/apps/claude-code/bench/bursts.py
 polyfills/apps/claude-code/bench/shown.py
 polyfills/apps/claude-code/bench/scenarios/*
 !polyfills/apps/claude-code/bench/scenarios/bloom-scene.json
+docs/hosts-not-shipped.md

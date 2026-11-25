@@ -25,8 +25,8 @@ Each is written in [Quint](https://quint-lang.org) (`delivery.qnt`, `wake.qnt`, 
   traces Quint generates (random runs from every init, and every scenario) in the TLA+ models
   with TLC: all 3,357 traces (603 of `wake.qnt`, 333 of `delivery.qnt`, 1,204 of `relay.qnt`,
   1,217 of `wakeCodex.qnt`; 122,601 steps) are behaviours of the TLA+ models. That checks one direction (what Quint can do, TLA+ can do), on
-  samples. For the other, each counterexample TLC found on 0.5.0's models, and on
-  `wakeCodex.qnt`, was also replayed as a scenario in the Quint file, and Quint reproduced it;
+  samples. For the other, each counterexample TLC gives on 0.5.0's models, and on
+  `wakeCodex.qnt`, is also a scenario in the Quint file, and Quint reproduces it;
   the rest is by reading. The TLA+ is written by hand because Quint's
   own translation (`quint compile --target tlaplus`) needs Apalache.
 - **All of it checks the models, not the code.** That a model says what the code does is by
@@ -207,8 +207,8 @@ from an initial state, counting that state as 1. Where TLC finds a violation it 
 | `WebhookSeenForgotten` | webhook, 1 event, clock at 0, 2 sessions, 2 deliveries | `AtMostOnce` | holds (violated on 0.5.0's model) | 365,472 | 29 |
 | `PollCarriedTwice` | poll, 1 event, 3 sessions | `AtMostOnce` | holds (violated on 0.5.0's model, which settled one session at a time) | 6,071 | 24 |
 
-The last five lie within the bounds of the ones above them; they are kept as the places where
-TLC found the cases below.
+The last five lie within the bounds of the ones above them; they are kept as the shortest runs
+of the cases below.
 
 `relay.qnt`, 0.7.0 (`CAP` 4 deliveries a mailbox, 6 genuine deliveries; junk at any time):
 
@@ -251,15 +251,13 @@ Without its constraint, the push run finds `handOverTwice` first (it is as short
 run passed the state folder's limit before finding anything. Each trace TLC gives here is the
 scenario's fault, by the same steps or fewer.
 
-### What TLC found in 0.5.0's models, and what 0.5.1 changed
+### Three cases random simulation does not reach
 
-On 0.5.0's models TLC found three cases that random simulation had not
-reached (the runs below; of 300 random runs of `wake.qnt` from `init`, of up to 40 steps, not
-one reached the notice at all). Each was replayed as a Quint scenario on that model, and Quint
-reproduced it. Two were in the code too, by reading, and 0.5.1 fixes them; the third was in the
-model only, and the model now does as the code does. The scenarios are now `noticeOnceTest`,
-`seenKeptTest` (with `seenKeptWebhookTest`) and `carriedOnceTest`, which show each case not
-happening.
+On 0.5.0's models TLC gives three cases that random simulation does not
+reach (the runs below; of 300 random runs of `wake.qnt` from `init`, of up to 40 steps, not
+one reaches the notice at all). Each is also a Quint scenario: `noticeOnceTest`,
+`seenKeptTest` (with `seenKeptWebhookTest`) and `carriedOnceTest` show each case not
+happening from 0.5.1.
 
 1. **The notice that waking stopped could be given twice** (`OneNotice`, `wake.qnt`). Shortest
    trace (18 states): two batches handed over and acknowledged, at 0 and at 1, the hour's two
@@ -267,7 +265,7 @@ happening.
    the helper dies before the `/ack`; the next helper, told of it by the hooks module, did not
    know it was the notice (its `/ack` has no `taken`, and a notice does not move the position),
    so it neither paused waking nor marked it given, and its next `/take` handed the notice over
-   again: one more turn past the limit each time the helper died there. **Fixed in 0.5.1**: the
+   again: one more turn past the limit each time the helper died there. **From 0.5.1**: the
    budget keeps on disk (`noticeHanded` in `wakes.json`) that the notice was handed over, and an
    ack at the position the notice left, while that is set, pauses waking as the first helper's
    ack would have (`src/wake.ts`, `/ack` in `src/helper.ts`; test: `test/wake-test.ts`, "the
@@ -280,7 +278,7 @@ happening.
    session's spool), in memory only; the first session is taken off the list; the helper
    restarts, and neither the saved watch, nor its own spool, nor the list has the event, so the
    next poll stores and shows it again. In the code, `#recover` saved the watch only after
-   `project.unlist(...)`: a stop between the two, or a failed save, did the same. **Fixed in
+   `project.unlist(...)`: a stop between the two, or a failed save, did the same. **From
    0.5.1**: `#recover` saves the watch first, and takes sessions off the list only once that
    save succeeded (`src/watcher.ts`; test: `test/recovery-test.ts`, "seen ids read in an
    earlier session's spool are saved before it is taken off the list; ..."). In the model:
@@ -291,18 +289,18 @@ happening.
    the third settled the second first (taking off the list, with it, the record that the event
    was handed over), then carried the event from the first, still listed, and showed it again.
    The code never did this: `#recover` reads every listed session and works out what to carry
-   before it takes any off the list, and takes them off together. **The model now does the
+   before it takes any off the list, and takes them off together. **The model does the
    same**: `Settle` takes every listed earlier session off at once, once what waited there is
    here or was handed over.
 
 With 0.5.1 in the model, `AtMostOnce` holds at every bound above (`Poll`, `Push`, `Webhook`,
 `WebhookTwo` and `WebhookLying`).
 
-### What Quint's simulation found, and its scenarios
+### The `...Before` scenarios
 
 Against 0.4.1 (`initBefore` and the per-mode `...Before` inits), each a scenario in the file:
 
-| Scenario | Invariant broken | What happens | Fixed in 0.5.0 by |
+| Scenario | Invariant broken | What happens | What prevents it, from 0.5.0 |
 | --- | --- | --- | --- |
 | `handOverTwiceBeforeTest` | `AtMostOnce` | The helper dies after the hooks module submitted a batch and before the ack; the next helper hands the same batch over again. | The hooks module acknowledges what it last submitted, with the spool it came from, before the next take (`mod/hooks/register.ts`, `/ack` in `src/helper.ts`). |
 | `storedTwiceBeforeTest` | `AtMostOnce` | The helper dies between writing an event to the spool and saving the watch; the server sends it again and it is written again. | A starting helper counts the events in its own and listed spools as seen (`#recover`). |
@@ -310,17 +308,13 @@ Against 0.4.1 (`initBefore` and the per-mode `...Before` inits), each a scenario
 | `refusedAsOldBeforeTest` | `NoAckBeforeStore`, `CursorSafe` | A delivery that could not be stored stays at the relay; one signed more than ten minutes later is taken; on the next connection the first is refused as a replay and acknowledged, so its event is lost (`docs/conformance.md`, B1 of 0.4.1). | The replay memory refuses by id alone, up to 1,000 ids over 8 days, then by a floor (`ReplayGuard`, `src/webhooks.ts`). |
 | `twiceBeforeTest` (`wake.qnt`) | `WithinHour`, `Gap` | A helper that died between the submit and the ack left the next helper with no record of that wake, so it handed the batch over again and counted one wake for two. | The batch the hooks module is told of is counted (the same change as `handOverTwice`). |
 
-Random simulation of 0.4.1 found the first three of `delivery.qnt` within seconds; it did not
+Random simulation of 0.4.1 finds the first three of `delivery.qnt` within seconds; it does not
 find the fourth in 10,000 runs of up to 50 steps, which is why every case is also a scenario.
 
-Against 0.5.0's models (`quint run`): in 20,000 runs of up to 60 steps each,
-`Safety` (all five invariants) held for poll, push and webhook through an honest relay, and
-`AtMostOnce` and `NothingForged` held with the lying relay; `StrictAtMostOnce` was broken, by
-the documented case. In 30,000 runs of `wake.qnt` of up to 40 steps, none of the three wake
-invariants broke. TLC found three cases these runs missed (above). Against 0.5.1's models, at the CI job's sizes:
+With `quint run`, at the CI job's sizes:
 5,000 runs of up to 60 steps for each of poll, push and webhook (`Safety`) and for the lying
 relay (`AtMostOnce`, `NothingForged`), and 10,000 of `wake.qnt` of up to 40 steps (`Kept`): no
-violation. Against 0.7.0's `relay.qnt`: 5,000 runs of up to 30 steps from `init`
+violation. `relay.qnt`: 5,000 runs of up to 30 steps from `init`
 (`NoCrossRefusal`) and from `migrating` (`NoCrossRefusalAtOwn`): no violation.
 
 ## `wakeCodex.qnt`: how often events wake a Codex session
@@ -499,7 +493,7 @@ a `codex queue` timeout does; and the person is seen in every `user.message` wit
 source, not in a tool call's turn metadata, so the pause can end at the person's message itself.
 `copilot/test/extension-test.ts` checks both on the code.
 
-### What TLC found in mcp-events for Codex 0.1.2
+### The cases the 0.1.2 configurations show
 
 **A wake that `codex queue` took, and that the helper never heard of, is not counted**
 (`Gap`, `WithinHour`, `AtMostOnce`; fixed in 0.1.3). Shortest trace (`WakeCodexGap`, 8 states):
@@ -536,10 +530,10 @@ paused, with no notice given and the person's message passed over, until the pau
 (`staleNoticeTest`). 0.1.3 clears it when `codex queue` says it failed (`WakeBudget.dropNotice`),
 and the notice is tried again (`noticeFailedTest`).
 
-**What TLC found in the first form of that fix.** The fix first made the person's call clear
-`noticeHanded` (`WakeBudget.spoke`). TLC found `QuietAfterNotice` broken by it (17 states): the
-person speaks while the notice's `codex queue` runs, Codex takes the notice (the session is told,
-after the person's call, that waking stopped), and the helper dies before it hears so. The record
-of the notice was gone, so the new helper did not start paused, and woke the session at once. A
-notice in `codex queue` is now cleared only by its answer, and a helper that starts before the
-answer counts it as given (`noticeInFlightTest`).
+**A notice in `codex queue` is cleared only by its answer** (`QuietAfterNotice`). If the
+person's call cleared `noticeHanded` (`WakeBudget.spoke`), this run would break it (17 states):
+the person speaks while the notice's `codex queue` runs, Codex takes the notice (the session is
+told, after the person's call, that waking stopped), and the helper dies before it hears so. With
+the record of the notice gone, the new helper would not start paused, and would wake the session
+at once. So a helper that starts before the answer counts the notice as given
+(`noticeInFlightTest`).
