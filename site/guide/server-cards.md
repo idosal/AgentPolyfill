@@ -1,12 +1,12 @@
 ---
-description: mcp-server-cards adds the client side of MCP Server Cards (SEP-2127) to Claude Code and Codex. The agent finds the MCP servers a domain publishes, checks each card, and adds the one you pick to the host's own config.
+description: mcp-server-cards adds the client side of MCP Server Cards (SEP-2127). The agent finds the MCP servers a domain publishes, checks each card, and adds the one you pick to the host's own config. Install and limits are listed per host.
 ---
 
 # Server Cards
 
-`mcp-server-cards` lets Claude find the MCP servers a domain publishes, and
-connect Claude Code to one. Name a company, and Claude reads that domain's
-catalog, fetches each Server Card it lists, checks the card against the schema,
+In Claude Code, `mcp-server-cards` lets Claude find the MCP servers a domain
+publishes, and connect Claude Code to one. Name a company, and Claude reads
+that domain's catalog, fetches each Server Card it lists, checks the card against the schema,
 and shows you what it found. Under the result there is a list of the servers you
 can add, each with an **Add** button.
 
@@ -15,8 +15,8 @@ if you had typed `claude mcp add`. Claude Code then connects it with its own
 sign-in, so servers behind OAuth work. Nothing is installed besides that
 configuration entry, and the polyfill never sees a token.
 
-It adds the client side of the MCP **Server Cards** extension, which neither
-Claude Code nor Codex supports by itself yet:
+The host forms below add the client side of the MCP **Server Cards**
+extension, which these hosts don't support natively yet:
 
 - [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md),
   Final. The extension's stage is Beta, so it can still change.
@@ -45,6 +45,12 @@ codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add mcp-server-cards@agent-polyfill
 ```
 
+```bash [Pi]
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+pi install ./polyfills/server-cards/pi/extension
+```
+
 :::
 
 ### In Claude Code
@@ -64,23 +70,49 @@ Codex 0.170 or newer, with Node 20 or newer. The same discovery and checks,
 and a server is added to Codex's config only after you choose "Add it" in
 Codex's own form.
 
-The sections below describe the Claude Code plugin. Where the Codex plugin
-differs, its README says so:
-[`polyfills/server-cards/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex).
+### In Pi
+
+Pi 1.6.0 (the version tested), with Node 22 or newer. Nothing for Pi is
+published to npm or Pi's package gallery; install from a clone. The extension
+is bundled, with nothing to build. For one run without installing, use
+`pi -e ./polyfills/server-cards/pi/extension`. Pi loads the path where it is,
+so keep the clone; `git pull` there updates it. Remove it from the same
+folder with `pi remove ./polyfills/server-cards/pi/extension`. Servers you
+added stay in `mcp.json`; remove one with `pi mcp remove <name>`.
+
+The sections below name the host where behavior differs. Full guides by host:
+
+- [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/claude-code)
+- [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex)
+- [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi)
 
 ## Try it
 
-Nothing to set up. Start `claude` or `codex` and ask:
+Nothing to set up. Start your host:
+
+- **Claude Code:** `claude`.
+- **Codex:** `codex`.
+- **Pi:** `pi`.
+
+Ask:
 
 > What MCP servers does neon.com publish?
 
-Then add **Neon Docs** (no sign-in): press **Add** in Claude Code, or choose
-"Add it" in Codex's own form. For one behind a sign-in, ask about
+Then add **Neon Docs** (no sign-in):
+
+- **Claude Code:** press **Add**.
+- **Codex:** choose "Add it" in Codex's own form.
+- **Pi:** ask "Add Neon Docs", then choose "Add it" in Pi's dialog. It is
+  saved and registered for the current session, without a restart.
+
+For one behind a sign-in, ask about
 buildkite.com; once it's added, the host asks you to sign in (in Claude Code,
 through `/mcp`). In Claude Code, `claude mcp remove neon-docs -s local`
 removes it again.
 
 ## Using it, step by step
+
+### In Claude Code
 
 1. **Ask.** For example "connect Claude Code to Buildkite", or "what MCP servers
    does neon.com publish?".
@@ -114,6 +146,21 @@ removes it again.
    such as `${MCP_EXAMPLE__TOKEN_4GQXEC3IVEMVBYCQ}`, and Claude tells you its
    name. Set that environment variable and restart Claude Code.
 
+### In Pi
+
+`discover_mcp_servers` reads the domain's AI Catalog and checks each card.
+Ask to add one it found: `add_mcp_server` asks a Pi dialog with "Don't add
+it" and "Add it". It names the host, URL, headers, the file it writes
+(`~/.pi/agent/mcp.json`, or `mcp.json` under `PI_CODING_AGENT_DIR`) and the
+undo command, `pi mcp remove <name>`.
+
+Only "Add it" runs Pi's own `pi mcp add` and registers the server for the
+session. A saved entry and a successful connection are separate results;
+check `/mcp` if connection fails. For sign-in, use `/mcp` or
+`pi mcp login <name>`. The extension never reads Pi's stored credentials.
+Print and JSON modes cannot ask, so additions are refused. RPC clients
+relay the dialog to you.
+
 ### A domain that redirects
 
 Some domains answer with a redirect to another domain: `neon.tech` sends its
@@ -127,7 +174,9 @@ decision, and the polyfill never uses `extensionsInfo`.
 
 ## Settings
 
-In `/config`, under the plugin:
+In Pi, `MCP_SERVER_CARDS_DISABLED=1` registers no tools and fetches nothing.
+
+In Claude Code, in `/config`, under the plugin:
 
 | Setting | Default | What it does |
 |---|---|---|
@@ -137,6 +186,12 @@ In `/config`, under the plugin:
 
 ## The tools
 
+In Pi, `discover_mcp_servers` reads and checks the cards, and `add_mcp_server`
+asks before running `pi mcp add` and registering the server for the session.
+There is no `present_server_cards` tool in the Pi form.
+
+The table below is for Claude Code.
+
 | Tool | What it does |
 |---|---|
 | `discover_mcp_servers(domain)` | Reads the domain's catalogs and every card they list; reports each card, valid or refused. Read-only. |
@@ -144,6 +199,8 @@ In `/config`, under the plugin:
 | `present_server_cards` | For other plugins only, never the model, so that a plugin which finds cards another way (`ard-discovery`) has them checked, shown and added here. |
 
 ## Limits
+
+### In Claude Code
 
 - **The card is not compared with the live server.** SEP-2127 says a client
   SHOULD check a card's claims against the live connection; this rule is not
@@ -165,7 +222,27 @@ Not in it: ARD (in [`ard-discovery`](./ard)), verifying AI Catalog trust
 manifests and signatures (no card is ever called verified), other artifact types
 in the same catalogs, and local (stdio) servers, which cards do not describe.
 
+### In Pi
+
+- **No live card comparison.** S-3 is not met: the card is not compared with
+  the live server through `server/discover`.
+- **Streamable HTTP only.** Pi 1.6.0 does not support SSE. Secret variables in
+  URLs are refused; secret headers use generated environment references,
+  which you set before restarting Pi. Header values starting with `!` are
+  refused because Pi would execute them as commands.
+- **DNS is not checked for private addresses.** Literal private addresses
+  and private host spellings are blocked, including at redirects; public
+  names that resolve to private addresses are not caught.
+- **No atomic add-if-absent.** Existing names are checked before and after
+  the question, but another process could write the same name before Pi's
+  write.
+- **Discover again after a session change.** New, resumed, forked and
+  reloaded sessions forget shown cards. Disabled or replaced MCP support,
+  or a failed connection, can prevent added tools from becoming available.
+
 ## Security
+
+### In Claude Code
 
 The polyfill reads documents that strangers publish on the web, and turns one of
 them into an entry in your Claude Code MCP configuration. What a catalog or card
@@ -207,10 +284,34 @@ audit: its findings SC1 to SC7 are fixed and tested.
 The full account:
 [`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md).
 
-## When Claude Code supports Server Cards itself
+### In Pi
 
-Claude Code has no Server Card support to detect yet. When it ships, turn on the
-`disabled` setting: the polyfill then registers nothing and fetches nothing.
+Discovery sends plain GETs without cookies or credentials. Every addition
+needs "Add it" in the extension's dialog and uses Pi's own command to write
+the checked server to `mcp.json`. A card cannot supply a command to execute;
+the extension never reads `mcp-auth.json`, `auth.json` or any stored
+credential. Pi runs tools without asking unless a permission extension asks;
+the polyfill supplies its own add question, and its `readOnlyHint`
+annotations let permission extensions distinguish discovery from addition.
+See [Pi's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md).
+An AI reviewer who did not build the Pi forms reviewed them, and checked
+the fixes again. They have not been audited by a person.
+
+[Pi's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/docs/conformance.md)
+records the shared client rules and Pi-specific checks; S-3 remains unmet.
+There is no upstream Server Cards scenario run to report. The
+[live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/docs/live-run.md)
+records neon.com's servers being listed, the add question, and Neon Docs
+saved in `mcp.json` and connected for the session. It does not establish a
+completed Neon Docs tool call.
+
+## When the host supports Server Cards itself
+
+- **Claude Code:** there is no Server Card support to detect yet. When it
+  ships, turn on the `disabled` setting: the polyfill then registers nothing
+  and fetches nothing.
+- **Pi:** native support cannot be detected automatically. Remove the
+  extension or set `MCP_SERVER_CARDS_DISABLED=1` when it ships.
 
 ## More
 

@@ -12,6 +12,8 @@ Two skills, in one plugin, walk an agent through the work:
   protocol's extension rules expect, starting by checking whether an existing
   slot or proposal already covers it.
 
+In Claude Code, install the authoring plugin:
+
 ```
 /plugin install polyfill-author --marketplace idosal/AgentPolyfill
 ```
@@ -135,13 +137,39 @@ independent implementations that interoperate, and a conformance scenario.
 A polyfill is one folder per extension: the host-neutral part (the protocol,
 the spec's client rules and their tests) in `core/`, and one adapter beside it
 for each host, which wires that core into what the host lets third-party code
-do. Events and Skills are built that way: one `core/`, a `claude-code/` mod and
-a `codex/` plugin. Bringing one to another host is a new adapter: find how the
-host lets a plugin reach the wire (a connection of its own, a tool call, a way
-to wake an idle session), meet the contract there, say what that host cannot
-do, and add the plugin to that host's marketplace.
+do. Events and Skills are built that way, with one `core/` and an adapter
+for each host:
+
+- **Claude Code:** a mod in `claude-code/`.
+- **Codex:** a plugin in `codex/`.
+- **Pi:** an extension in `pi/`, with a manifest and bundled file in
+  `extension/`. It installs from a local clone; nothing for Pi is published
+  to npm or Pi's package gallery.
+
+The Pi examples are
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi),
+[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi)
+and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi).
+Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`;
+its terminal could draw an App in principle, but nothing is built or tested.
+
+Bringing a polyfill to another host is a new adapter: find how the host lets
+it reach the wire (a connection of its own, a tool call, a way to wake an idle
+session), meet the contract there, say what that host cannot do, and document
+installation. Add a marketplace entry where that host uses one.
 [Contributing](./contributing#bringing-a-polyfill-to-another-host) has the
 steps; `create-polyfill` covers it too ("polyfill MCP Apps in Codex").
+
+The Pi forms show why the host's API and the evidence need their own account.
+Events and Skills need their own connections and cannot use Pi's sign-in;
+the Skills form can meet X8 with Pi's `tool_call` hook, including codemode's
+nested calls. Each form asks before its consequential step, since Pi has no
+tool approval prompt unless a permission extension asks. Each has an off
+switch because native support cannot be detected. Their READMEs,
+`SECURITY.md`, `docs/conformance.md` and `docs/live-run.md` record what was
+checked. ARD's live run did not complete the add step; addition was checked
+in real Pi with a scripted model and a local server.
 
 ## Your own, listed in the community directory
 

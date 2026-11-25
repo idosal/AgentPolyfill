@@ -34,6 +34,10 @@ Apps isn't in Codex yet. Codex gives a plugin no way to draw in its terminal,
 and its terminal doesn't declare MCP Apps to servers, which no plugin can
 change ([How it works](./how-it-works#how-a-plugin-plugs-in-today)).
 
+Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`,
+so an extension cannot get an App's UI through Pi. Pi's terminal could draw
+one in principle, but no Pi Apps form is built or tested.
+
 The plugin is one zip, attached to a release of the repository and checked
 against the SHA-256 in the repository's marketplace file before Claude Code
 unpacks it. It carries a small helper program for each platform and needs

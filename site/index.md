@@ -3,11 +3,11 @@ layout: home
 markdownStyles: false
 titleTemplate: false
 title: AgentPolyfill
-description: "Polyfills for agent protocols: bring more of MCP to the clients you already use. Plugins add Apps, Skills, Events, Server Cards and ARD to Claude Code and Codex."
+description: "Polyfills for agent protocols: bring more of MCP to the clients you already use. See which polyfills each host can run."
 hero:
   name: AgentPolyfill
   text: Polyfills for agent protocols
-  tagline: Bring more of MCP to the clients you already use. Plugins add Apps, Skills, Events, Server Cards and ARD to Claude Code and Codex.
+  tagline: Bring more of MCP to the clients you already use. Find Apps, Skills, Events, Server Cards and ARD for your host below.
   image:
     light: /mark-light.svg
     dark: /mark-dark.svg

@@ -24,7 +24,8 @@ Every polyfill meets [the contract](./build-a-polyfill#the-contract): one
 published extension and nothing else, a named spec revision, a test for each
 client rule plus a run against a server someone else wrote, a stand-down, stated
 limits, and server content treated as untrusted data. The `create-polyfill`
-skill walks an agent through building one to that contract:
+skill walks an agent through building one to that contract. In Claude Code,
+install the authoring plugin:
 
 ```
 /plugin install polyfill-author --marketplace idosal/AgentPolyfill
@@ -35,27 +36,35 @@ plugin covers that case: a polyfill never adds behaviour of its own.
 
 ### 2. Put it in its folder
 
-Each extension has one folder, and one plugin that serves every host it
-supports:
+Each extension has one folder, with an adapter and installable form for each
+host it supports:
 
 ```
 polyfills/<extension>/
   core/          the host-neutral logic and its tests of the spec's rules
   claude-code/   the Claude Code adapter
   codex/         the Codex adapter
+  pi/            the Pi adapter
 ```
 
 - `<extension>` is the extension's short name: `apps`, `events`, `skills`,
   `server-cards`, `ard`.
-- `core/` holds what does not depend on the host; `claude-code/` and `codex/`
-  each hold the adapter for that host.
+- `core/` holds what does not depend on the host; each host folder holds its
+  adapter. Events and Skills use this layout. Apps has no Pi form.
 
-Inside an adapter's folder, the installable plugin goes in a subfolder (`mod/`
-in the Apps polyfill), holding the host's manifest and only what the plugin
-runs; tests, build scripts, benchmarks and design notes go beside it. The
-plugin folder is self-contained: Claude Code and Codex copy only that folder,
-so code from `core/` reaches it by bundling, never by an import from outside
-it. One plugin folder can carry both `.claude-plugin/plugin.json` and
+Inside an adapter's folder, the installable form goes in a subfolder (`mod/`
+in the Apps polyfill, `extension/` in Pi), holding the host's manifest and
+only what it runs; tests, build scripts, benchmarks and design notes go beside
+it. The folder is self-contained, so code from `core/` reaches it by
+bundling, never by an import from outside it. Installation differs by host:
+
+- **Claude Code:** copies only the plugin folder.
+- **Codex:** copies only the plugin folder.
+- **Pi:** loads `extension/` from its local path; it is not copied. The
+  folder holds a manifest and one bundled file, with nothing for the user
+  to build. The clone must stay in place.
+
+One plugin folder can carry both `.claude-plugin/plugin.json` and
 `.codex-plugin/plugin.json`. The plugin's name is unique in the repository, and
 an extension keeps one name in every host. No large files in git: nothing over
 about 1 MB unless the plugin or its tests cannot work without it. The repository
@@ -73,21 +82,35 @@ For someone who has never seen the repository:
   that turns it off.
 - **Limits:** what it cannot do on this host, and for each limit the host change
   that would remove it (added to `docs/host-changes.md` too).
-- **Requirements, install and use:** the one-line install first (in Claude
-  Code `/plugin install <plugin> --marketplace idosal/AgentPolyfill`; in Codex
-  `codex plugin marketplace add idosal/AgentPolyfill && codex plugin add <plugin>@agent-polyfill`), then every
-  step and question a new user meets between that line and the extension
-  working, with what happens when they say no.
+- **Requirements, install and use:** the tested install steps first, then
+  every step and question a new user meets before the extension works,
+  with what happens when they say no. Include how to disable and uninstall it,
+  and what data remains.
 - **Privacy and security:** what it sends where, and what it stores.
 
-### 4. Add it to the marketplace
+Install instructions depend on the host:
 
-Each host has its own marketplace file. For Claude Code, add an entry to
-`.claude-plugin/marketplace.json`, add the plugin's name to the `dependencies`
-of the `agent-polyfill` plugin and to the list in its README (CI fails until the
-two lists match). For Codex, add an entry to `.agents/plugins/marketplace.json`
-(a `local` source with the plugin folder's path). Then add it to the polyfills
-table in the repository's README, in its host's column.
+- **Claude Code:** `/plugin install <plugin> --marketplace idosal/AgentPolyfill`.
+- **Codex:** `codex plugin marketplace add idosal/AgentPolyfill && codex plugin add <plugin>@agent-polyfill`.
+- **Pi:** clone the repository, then
+  `pi install ./polyfills/<extension>/pi/extension`. State Pi 1.6.0 as the
+  tested version and Node 22 or newer as the requirement. Nothing for Pi is
+  published to npm or Pi's package gallery; don't offer a package install.
+  [Getting started](./getting-started#pi) has the tested steps.
+
+### 4. List it for its host
+
+- **Claude Code:** add an entry to `.claude-plugin/marketplace.json`, add the
+  plugin's name to the `dependencies` of the `agent-polyfill` plugin and to
+  the list in its README (CI fails until the two lists match).
+- **Codex:** add an entry to `.agents/plugins/marketplace.json` (a `local`
+  source with the plugin folder's path).
+- **Pi:** document the local `extension/` install path. There is no Pi
+  bundle, and none of these forms is published to npm or Pi's package
+  gallery.
+
+Then add it to the polyfills table in the repository's README, in its host's
+column.
 
 ### 5. Add its CI
 
@@ -100,6 +123,8 @@ ships built files also gets a release workflow, run on its own tags,
 
 ### 6. Before you open the pull request
 
+For a Claude Code form, validate its marketplace and plugin:
+
 ```bash
 claude plugin validate .
 claude plugin validate polyfills/<extension>/<host>/<plugin subfolder>
@@ -107,6 +132,10 @@ claude plugin validate polyfills/<extension>/<host>/<plugin subfolder>
 
 Run the polyfill's tests, and do one recorded run in the real host against a
 server you did not write. Say in the pull request what you ran and what you saw.
+Keep a live run separate from tests with a scripted model. For example, Pi's
+ARD live run showed discovery and registry-search approval but did not
+complete an addition; its add flow is covered by real-Pi tests with a
+scripted model and a local server.
 
 The full text, with the marketplace entry's format and the workflow files to
 copy, is
@@ -114,13 +143,16 @@ copy, is
 
 ## Bringing a polyfill to another host
 
-An extension keeps one folder and one plugin name; each host gets an adapter
-beside the others. Events and Skills are the examples: one `core/`, a
-`claude-code/` mod and a `codex/` plugin.
+An extension keeps one folder and one polyfill name; each host gets an adapter
+beside the others. Events and Skills share one `core/`, with these forms:
+
+- **Claude Code:** a mod in `claude-code/`.
+- **Codex:** a plugin in `codex/`.
+- **Pi:** an extension in `pi/`, with the installable bundle in `extension/`.
 
 1. **Find the host's way in.** What can third-party code do there: run code
-   inside the host or beside it (Claude Code mods; a Codex plugin's MCP server
-   and skills), call tools, ask the user, start a turn in an idle session? Each
+   inside the host or beside it, call tools, ask the user, start a turn in an
+   idle session? [How it works](./how-it-works) lists each host's APIs. Each
    wire need of the extension is reached one of those ways, or it is a limit,
    written down with the host change that would remove it. The
    `create-polyfill` skill walks through this for a named host.
@@ -128,13 +160,14 @@ beside the others. Events and Skills are the examples: one `core/`, a
    host's adapter, move it into `polyfills/<extension>/core/` first, with its
    rule tests, in its own pull request.
 3. **Write the adapter** in `polyfills/<extension>/<host>/`: a self-contained
-   plugin folder with that host's manifest, `core/` bundled into it, the host's
-   own tests beside it.
+   installable folder with that host's manifest, `core/` bundled into it,
+   the host's own tests beside it.
 4. **Meet the contract in that host:** its own README with that host's install
-   line, requirements, limits and stand-down, its own `SECURITY.md`, and a
+   steps, requirements, limits and stand-down, its own `SECURITY.md`, and a
    recorded run in the real host against a server you did not write.
-5. **List it** in that host's marketplace file, add its CI, and add it to the
-   README's table in that host's column.
+5. **Document installation** for that host and list it in its marketplace
+   file where one is used. Add its CI and add it to the README's table in that
+   host's column. Say plainly where a form is not published.
 
 ## Listing a polyfill in the community directory
 
