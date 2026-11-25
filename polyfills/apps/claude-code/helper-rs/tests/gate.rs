@@ -383,6 +383,104 @@ fn probe_log(w: &World, log: &str) -> (Vec<String>, Vec<u32>) {
     (lines, pids)
 }
 
+/// A stand-in server of one revision (`gate-server.mjs revision`): `modern`
+/// (2026-07-28 only), `legacy` (the 2025 revisions only) or `dual`. Over
+/// stdio the helper starts it; over HTTP the test does, stopped on drop.
+struct RevisionServer {
+    config: Value,
+    child: Option<Child>,
+}
+
+impl RevisionServer {
+    fn start(w: &World, log: &str, serves: &str, http: bool) -> Self {
+        let log = w.marker(log).to_string_lossy().into_owned();
+        if !http {
+            return RevisionServer { config: json!({"command": "node", "args": [gate_server(), "revision", log, serves]}), child: None };
+        }
+        let mut child = Command::new("node")
+            .args([gate_server(), "revision".into(), log, serves.into(), "http".into()])
+            .env_clear()
+            .env("PATH", std::env::var("PATH").unwrap_or_default())
+            .env("HOME", w.root.join("home"))
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("node");
+        let mut port = String::new();
+        BufReader::new(child.stdout.take().unwrap()).read_line(&mut port).unwrap();
+        let url = format!("http://127.0.0.1:{}/mcp", port.trim());
+        RevisionServer { config: json!({"type": "http", "url": url}), child: Some(child) }
+    }
+}
+
+impl Drop for RevisionServer {
+    fn drop(&mut self) {
+        if let Some(child) = &mut self.child {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+    }
+}
+
+/// What a revision server logged: one JSON object per message.
+fn revision_log(w: &World, log: &str) -> Vec<Value> {
+    let text = std::fs::read_to_string(w.marker(log)).unwrap_or_default();
+    text.lines().filter_map(|l| serde_json::from_str(l).ok()).collect()
+}
+
+// Issue #5: a server that serves only revision 2026-07-28 refused the
+// helper's `initialize` (a handshake that revision doesn't have), so its
+// views never opened. The helper now asks `server/discover` first and speaks
+// 2026-07-28 in its own form (no `initialize`; each request names the
+// revision in its `_meta`, and over HTTP in MCP-Protocol-Version too); a
+// server that doesn't know `server/discover` gets the 2025 handshake at
+// 2025-11-25, never at a revision that has no handshake. Either way the
+// server is told the client renders MCP Apps.
+#[test]
+fn the_helper_speaks_each_servers_revision_in_that_revisions_form() {
+    for http in [false, true] {
+        for serves in ["modern", "legacy", "dual"] {
+            let case = format!("{serves} over {}", if http { "HTTP" } else { "stdio" });
+            let tag = format!("{}{}", &serves[..2], if http { "ht" } else { "st" });
+            let w = World::new(&tag);
+            let server = RevisionServer::start(&w, "revision", serves, http);
+            w.claude_json(json!({"probe": server.config.clone()}), json!({}));
+            let helper = Helper::start(&w);
+            let answer = helper.post("/discover", &json!({"server": "probe"}));
+            assert_eq!(answer["ok"], true, "{case}: {answer}");
+            assert_eq!(answer["tools"]["show"]["resourceUri"], "ui://probe/view.html", "{case}: {answer}");
+
+            let sent: Vec<Value> = revision_log(&w, "revision").into_iter().filter(|m| m["method"] != "GET").collect();
+            let methods: Vec<&str> = sent.iter().map(|m| m["method"].as_str().unwrap_or_default()).collect();
+            if serves == "legacy" {
+                assert_eq!(methods, ["server/discover", "initialize", "notifications/initialized", "tools/list"], "{case}");
+                let initialize = &sent[1];
+                assert_eq!(initialize["initialize"], "2025-11-25", "{case}: {initialize}");
+                assert_eq!(initialize["apps"], true, "{case}: {initialize}");
+                let list = &sent[3];
+                assert_eq!(list["envelope"], Value::Null, "{case}: {list}");
+                if http {
+                    assert_eq!(list["header"], "2025-11-25", "{case}: {list}");
+                }
+            } else {
+                assert_eq!(methods, ["server/discover", "tools/list"], "{case}");
+                for message in &sent {
+                    assert_eq!(message["envelope"], "2026-07-28", "{case}: {message}");
+                    assert_eq!(message["apps"], true, "{case}: {message}");
+                    if http {
+                        assert_eq!(message["header"], "2026-07-28", "{case}: {message}");
+                    }
+                }
+            }
+            // One yes covers the connection, its probe and any fallback; one more the tools/list.
+            assert_eq!(helper.said("check").len(), 2, "{case}");
+            drop(helper);
+            drop(server);
+        }
+    }
+}
+
 #[cfg(unix)]
 fn alive(pid: u32) -> bool {
     Command::new("kill").args(["-0", &pid.to_string()]).stderr(Stdio::null()).status().is_ok_and(|s| s.success())
