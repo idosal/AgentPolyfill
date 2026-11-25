@@ -18,9 +18,9 @@ Final). The forms fill these gaps:
   doesn't poll, take webhooks or watch for a session; the polyfill is a
   plugin.
 - **Antigravity:** the polyfill is a plugin for the App and the CLI
-  (`agy`). These builds were run in CLI 1.5.17; their App runs are still to
-  come. The IDE documents no plugin hooks, so the forms aren't supported
-  there, and their gated calls are refused.
+  (`agy`). These builds were run in App 2.35.1 and CLI 1.5.17. The IDE
+  documents no plugin hooks, so the forms aren't supported there, and their
+  gated calls are refused.
 - **Copilot CLI:** no Events support in Copilot CLI 1.0.115; the polyfill is
   a plugin holding a Copilot extension, so it needs experimental mode.
 

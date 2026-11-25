@@ -111,8 +111,8 @@ Each line adds one plugin to your global `opencode.json`; OpenCode has no
 bundle. OpenCode runs the plugins itself, so you don't need Node. They load
 the next time OpenCode opens a project.
 
-**Google Antigravity** (CLI 1.5.17, the version these builds were tested in;
-App 2.35.1 ran earlier builds; Node 20 or newer on your `PATH`). Nothing for
+**Google Antigravity** (App 2.35.1 and CLI 1.5.17, the versions these builds
+were tested in; Node 20 or newer on your `PATH`). Nothing for
 Antigravity is published to its Marketplace. Install from a clone, with the
 Antigravity CLI: `agy plugin install` needs it, and the App doesn't ship
 `agy`.
