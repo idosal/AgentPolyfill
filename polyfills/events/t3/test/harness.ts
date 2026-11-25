@@ -27,7 +27,14 @@ export const temp = () => {
     return dir;
 };
 export function cleanup(): void {
-    for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
+    // A removal that still fails (something is writing there) leaves the folder rather than failing the tests.
+    for (const dir of made.splice(0)) {
+        try {
+            rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+        } catch {
+            // left in the temporary directory
+        }
+    }
 }
 // Also when a test file ends any other way: a failure, an uncaught error, a timeout.
 process.on('exit', cleanup);
@@ -193,11 +200,25 @@ export async function startServer(w: World, thread: string | undefined, extra: R
 
 /** Runs `server --stop` in the world, ending its watcher. */
 export function stopWatcher(w: World, entry = SERVER): Promise<string> {
-    return new Promise((done) => {
+    return new Promise<string>((done) => {
         const c = spawn(process.execPath, [...(entry.endsWith('.ts') ? ['--no-warnings'] : []), entry, '--stop'], { env: w.env(undefined), stdio: ['ignore', 'pipe', 'ignore'] });
         let out = '';
         c.stdout!.on('data', (d) => (out += d));
         c.on('close', () => done(out));
+    }).then(async (out) => {
+        // Until every watcher this world started has ended: one still stopping writes to the state folder.
+        const pids = new Set([...watcherLog(w).matchAll(/\[watcher (\d+)\]/g)].map((m) => Number(m[1])));
+        const alive = (pid: number) => {
+            try {
+                process.kill(pid, 0);
+                return true;
+            } catch {
+                return false;
+            }
+        };
+        const end = Date.now() + 12000;
+        while ([...pids].some(alive) && Date.now() < end) await sleep(100);
+        return out;
     });
 }
 
