@@ -160,8 +160,8 @@ It states:
   - In Antigravity: from the same clone,
     `agy plugin install ./polyfills/<extension>/antigravity/plugin`, which
     needs the Antigravity CLI (the App doesn't ship `agy`). The current forms
-    need Node 20 or newer on `PATH`. These builds were run in CLI v1.5.17;
-    earlier builds ran in App v2.35.1 (ARD in the CLI only). The IDE
+    need Node 20 or newer on `PATH`. These builds were run in App v2.35.1
+    and CLI v1.5.17. The IDE
     documents no plugin hooks, so the forms aren't supported there. Nothing
     is published to Antigravity's Marketplace. Remove one with
     `agy plugin uninstall <plugin>`.
