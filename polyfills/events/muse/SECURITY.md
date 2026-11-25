@@ -31,23 +31,30 @@ So a watch waits for your own typed yes:
   are too long to show whole is refused before anything is asked. So is one
   that holds a value Muse's settings keep secret, which the question would have
   to hide.
-- **The phrase.** The question ends with a phrase, `watch <code>`, with a
-  four-digit code made for it. The plugin's `UserPromptSubmit` hook approves
+- **The phrase.** The question ends with a phrase,
+  `watch <server> <event type> <code>` (`watch tickets ticket.created 4821`), with a four-digit code
+  made for it. It names the server and the event type, so you type the names
+  of what you approve. A watch whose server or event type has anything but
+  letters, digits and `._:/@+-` in its name is refused before anything is
+  asked: its name couldn't be typed plainly. The plugin's `UserPromptSubmit` hook approves
   the question only when a message of yours is exactly that phrase, in the same
   session, within 15 minutes.
 - **Who can type it.** Muse runs that hook for your own messages. It doesn't run
-  it for a turn Muse's timers start, so the model can't send the phrase itself.
+  it for a turn Muse or a model starts, so the model can't send the phrase
+  itself. Each way a model can put text into a session was tried, and none ran
+  the hook ([live runs](docs/live-run.md#what-can-send-the-phrase)).
   The next `watch_event` for the same question starts the watch, once. Another
   watch needs its own yes.
 - **Where it's kept.** The record of the question is the plugin's own
   (`muse-confirm.json` in its data folder, private to you).
 
-What this doesn't protect against: the phrase doesn't name the watch. You rely
-on Muse showing you the question as the answer gives it. After you type the
-phrase, the hook's note in Muse's status line names what you approved.
+What this doesn't protect against: the phrase names the server and the event
+type, not the filters or the note. For those, you rely on Muse showing you the
+question as the answer gives it. After you type the phrase, the hook's note in
+Muse's status line names what you approved.
 
 Stopping a watch waits for a typed yes the same way, with its own phrase,
-`unwatch <code>`. The first `unwatch_event` answers with a question that names
+`unwatch <server> <event type> <code>` (`unwatch tickets ticket.created 3307`). The first `unwatch_event` answers with a question that names
 the watch, its server, its event type and its note, and stops nothing. Each
 phrase approves only its own verb: a `watch` phrase can't stop a watch, and an
 `unwatch` phrase can't start one. A call for a watch that isn't there is
@@ -116,9 +123,10 @@ file and start `muse` with `MUSE_EXPERIMENTAL_TUI_MSP_CLIENT=1` and
 - What Muse does about an event. That's its approvals' call.
 - A program of yours that can already drive your session, when the gates are
   on.
-- A model that shows you a different question than the one the answer gave.
-  The phrase only approves the question the plugin recorded, but it doesn't
-  name it.
+- A model that shows you a different question than the one the answer gave,
+  for a watch on the same server and event type. The phrase only approves the
+  question the plugin recorded, and names its server and event type, but not
+  its filters or note.
 
 ## Reporting a vulnerability
 

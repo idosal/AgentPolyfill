@@ -15,7 +15,7 @@ export { digest, Fixture, scenarioOf, sizeOf, skill, skillMd, type Entry, type S
 export const temp = (): string => mkdtempSync(join(tmpdir(), 'mcp-skills-codex-test-'));
 
 /** How the person answers each question, in order; past the list, every question is answered "no". */
-export type Answers = (Decision | Asked)[] | ((message: string, choices: Decision[]) => Asked);
+export type Answers = (Decision | Asked)[] | ((message: string, choices: Decision[], subject?: readonly string[]) => Asked);
 
 export type Started = {
     app: App;
@@ -39,9 +39,9 @@ export async function startApp(servers: Record<string, Fixture>, o: { answers?: 
     await app.start();
     const questions: Started['questions'] = [];
     let answers = o.answers ?? [];
-    const ask = async (message: string, choices: Decision[]): Promise<Asked> => {
+    const ask = async (message: string, choices: Decision[], subject?: readonly string[]): Promise<Asked> => {
         questions.push({ message, choices });
-        if (typeof answers === 'function') return answers(message, choices);
+        if (typeof answers === 'function') return answers(message, choices, subject);
         const next = answers[0];
         answers = answers.slice(1);
         if (next === undefined) return { decision: 'no' };

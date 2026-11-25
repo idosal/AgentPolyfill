@@ -64,7 +64,8 @@ muse mcp add huggingface --url https://huggingface.co/mcp
 2. **Next session.** Muse lists them as `mcp-skills:huggingface:<name>`. Ask
    something one of them covers.
 3. **The load.** Muse calls `load_skill`, and the answer is the question for
-   you, with a phrase such as `load 4821`. Send a message that is exactly that
+   you, with a phrase that names the server and the skill, such as
+   `load huggingface <skill> 4821`. Send a message that is exactly that
    phrase. Muse calls `load_skill` again, and the skill loads, marked with the
    server it came from.
 
@@ -85,10 +86,10 @@ muse mcp add huggingface --url https://huggingface.co/mcp
 
   So the first `load_skill` answers with the question, as the Codex form asks
   it: the skill, the server, the URI, the files, and the server's description.
-  It ends with a phrase, `load <code>`. The plugin's `UserPromptSubmit` hook
+  It ends with a phrase, `load <server> <skill> <code>`. The plugin's `UserPromptSubmit` hook
   approves the load only when a message of yours is exactly that phrase, in the
   same session, within 15 minutes. Muse runs that hook for your messages, not
-  for a turn its timers start, so the model can't send it. The next `load_skill`
+  for a turn Muse or a model starts, so the model can't send it. The next `load_skill`
   loads the skill.
 - **After a yes.** An approval is kept as in Codex: the same skill, unchanged,
   loads without the question afterwards. A changed one is asked about again.

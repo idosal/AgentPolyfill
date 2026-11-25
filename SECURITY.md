@@ -44,8 +44,8 @@ elicitation, and a tool call that isn't read-only, or a hook's "ask", goes to
 its approval judge, a model that can approve with nobody asked. So no Muse
 polyfill leaves its consequential step to that judge:
 - **Events and Skills.** Starting or stopping a watch, and loading a skill,
-  wait for a phrase you type (`watch 4821`, `unwatch 3307`, `load 4821`),
-  which only a message of your own satisfies.
+  wait for a phrase you type, which names what it approves
+  (`watch tickets ticket.created 4821`, `load github git-workflow 4821`). Only a message of your own satisfies it.
 - **Server Cards and ARD.** An addition is a `muse mcp add` command you run
   yourself.
 - **No search.** ARD has no registry search in Muse.

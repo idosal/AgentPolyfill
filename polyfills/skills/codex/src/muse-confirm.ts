@@ -1,5 +1,5 @@
 // mcp-skills in Muse: where the plugin keeps its state, and the person's yes to a load, typed as
-// a message of their own (`load <code>`; the shared mechanism is mcp-events' muse-confirm.ts). On
+// a message of their own (`load <server> <skill> <code>`; the shared mechanism is mcp-events' muse-confirm.ts). On
 // its own so the UserPromptSubmit hook bundles nothing else.
 
 import { homedir } from 'node:os';
@@ -18,7 +18,7 @@ export function museStoreDir(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 /** What the person types to load a skill: the whole message, nothing else. */
-export const confirmPhrase = (code: string) => typedPhrase('load', code);
+export const confirmPhrase = (code: string, server: string, skill: string) => typedPhrase('load', code, [server, skill]);
 
 /**
  * The question to the person, in Muse. The first time, it is recorded for this session with a new
@@ -27,8 +27,8 @@ export const confirmPhrase = (code: string) => typedPhrase('load', code);
  * first" is never offered: Muse has no way to show the person text the model doesn't see.
  */
 export function museAsk(dir: string, session: string | undefined, now: () => number = Date.now): Ask {
-    return async (message) => {
-        const r = askTyped(dir, session, 'load', message, now());
+    return async (message, _choices, subject = []) => {
+        const r = askTyped(dir, session, 'load', message, now(), subject);
         if ('approved' in r) return { decision: 'load' };
         if ('unavailable' in r) return { unavailable: r.unavailable };
         return {

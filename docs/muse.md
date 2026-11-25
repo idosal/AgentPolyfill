@@ -16,8 +16,8 @@ with no `muse login`.
 
 | Polyfill | Muse form | What works | How Muse differs |
 |---|---|---|---|
-| Events | [`mcp-events`](../polyfills/events/muse/README.md) | Watches on the servers in your Muse settings, by poll, push or webhook. New events reach the session **with your next message**. | A watch starts, and stops, after you type its phrase (`watch 4821`, `unwatch 3307`). Nothing wakes an idle session, except with an experimental opt-in. |
-| Skills | [`mcp-skills`](../polyfills/skills/muse/README.md) | Served skills in Muse's skill list as `mcp-skills:<server>:<name>`, loaded after your yes, checked against the server's digests. | You say yes by typing the phrase (`load 4821`). No "show me its SKILL.md first". |
+| Events | [`mcp-events`](../polyfills/events/muse/README.md) | Watches on the servers in your Muse settings, by poll, push or webhook. New events reach the session **with your next message**. | A watch starts, and stops, after you type its phrase, which names the server and the event type (`watch tickets ticket.created 4821`). Nothing wakes an idle session, except with an experimental opt-in. |
+| Skills | [`mcp-skills`](../polyfills/skills/muse/README.md) | Served skills in Muse's skill list as `mcp-skills:<server>:<name>`, loaded after your yes, checked against the server's digests. | You say yes by typing the phrase, which names the server and the skill (`load github git-workflow 4821`). No "show me its SKILL.md first". |
 | Server Cards | [`mcp-server-cards`](../polyfills/server-cards/muse/README.md) | Finds the MCP servers a domain publishes, and checks each card. | It writes nothing: for the server you pick, it gives you the `muse mcp add …` command, which **you run yourself**. |
 | ARD | [`ard-discovery`](../polyfills/ard/muse/README.md) | Finds servers through a domain's `ard.json`, then works as Server Cards does. | **No registry search.** A search must ask you before it sends your words to someone else's service. |
 
@@ -78,10 +78,17 @@ sending a search to a registry. Muse gives a plugin no way to ask you:
 So the forms rely on two things only you can do:
 
 - **Type your own message.** Muse runs a plugin's `UserPromptSubmit` hook for
-  your messages. It doesn't run it for a turn that Muse's own timers start, so a
-  model can't write that message for you.
+  your messages. It doesn't run it for anything a model can put into a
+  session: a scheduled prompt, a monitor's output, a subagent's task or result,
+  a message from another session, a goal's or a workflow's turn. So a model
+  can't write that message for you
+  ([how that was checked](../polyfills/events/muse/docs/live-run.md#what-can-send-the-phrase)).
   - **Events and Skills** answer a watch, a stop or a load with the question,
-    which ends with a phrase (`watch 4821`, `unwatch 3307`, `load 4821`).
+    which ends with a phrase that names what it approves (`watch tickets ticket.created 4821`,
+    `unwatch tickets ticket.created 3307`, `load github git-workflow 4821`).
+  - So even if the question you were shown wasn't the one the plugin asked,
+    you type the names of what you say yes to. A name that can't be typed
+    plainly (anything but letters, digits and `._:/@+-`) isn't asked about.
   - Only a message of yours that is exactly that phrase approves it. It must
     come in the same session, within 15 minutes.
   - The next call goes ahead, once.
@@ -189,7 +196,7 @@ doesn't say which extensions its MCP client supports.
 
 ## Host changes that would help
 
-These are Muse's lines in [what hosts would need to change](host-changes.md#in-muse-code):
+The main ones, from Muse's lines in [what hosts would need to change](host-changes.md#in-muse-code), which has the rest:
 
 1. **A way for a plugin to ask you.** MCP elicitation in Muse's client, or a
    hook `ask` that always reaches you, not the judge, and shows the hook's
@@ -211,18 +218,25 @@ records its runs:
 [Server Cards](../polyfills/server-cards/muse/docs/live-run.md),
 [ARD](../polyfills/ard/muse/docs/live-run.md). In short:
 
-- **Install.** All four validate with compatibility `full`, install from the
-  repository as a marketplace, approve, and serve their tools in a session.
+- **What can send the phrase.** Nothing a model can put into a session ran
+  the plugins' `UserPromptSubmit` hook: scheduled prompts, monitor output,
+  subagent tasks, results and messages, peer-session messages, goal and
+  workflow turns. Only a message the person typed did.
+- **Install.** All four validate with compatibility `full`, install from a
+  local copy of this branch as a marketplace, approve, and serve their tools in
+  a session. The GitHub URL above can only be checked once the Muse manifests
+  are on `main`.
 - **Events.**
   - A watch waited for its phrase, started after it, and its event reached the
-    model with the next prompt. (Stopping one waits for its own phrase; that is
-    covered by the tests, not the live run.)
+    model with the next prompt. (Since then the phrase also names the server
+    and the event type, and stopping a watch waits for its own phrase. Both
+    are covered by the tests, not by a live run.)
   - With the plugin's server rejected, the hook stayed silent.
   - In a terminal session with both gates on, an event started a turn in the
     idle session.
 - **Skills.**
   - Hugging Face's 25 skills were listed in Muse's skill list.
-  - A load waited for `load <code>`, then loaded and was verified.
+  - A load waited for its phrase, then loaded and was verified.
 - **Server Cards.** It discovered neon.com's two servers. The command it gave
   for Neon Docs, run as a person would run it, added the server, and Muse
   connected it next session.

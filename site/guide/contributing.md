@@ -46,13 +46,16 @@ polyfills/<extension>/
   codex/         the Codex adapter
   pi/            the Pi adapter
   opencode/      the OpenCode adapter
+  muse/          the Muse Code form's docs (its plugin is codex/'s folder)
 ```
 
 - `<extension>` is the extension's short name: `apps`, `events`, `skills`,
   `server-cards`, `ard`.
 - `core/` holds what does not depend on the host; each host folder holds its
-  adapter. Events and Skills use this layout. Apps has no Pi or OpenCode
-  form.
+  adapter. Events and Skills use this layout. Apps has no Pi, OpenCode or
+  Muse Code form.
+- `muse/` holds no code of its own: only the Muse Code form's README,
+  `SECURITY.md` and docs. Its code and tests are in `codex/`.
 
 Inside an adapter's folder, the installable form goes in a subfolder (`mod/`
 in the Apps polyfill, `extension/` in Pi, `plugin/` in OpenCode), holding
@@ -71,6 +74,11 @@ Installation differs by host:
   `plugins` in `opencode.json`. The folder holds one bundled file,
   `server.js`, and a small `package.json` that names it, plus licence notices
   where the bundle holds other packages' code (the Events and Skills forms).
+- **Muse Code:** reads the Codex marketplace and copies the Codex plugin
+  folder on install. That folder carries `.muse-plugin/plugin.json` beside
+  `.codex-plugin/plugin.json`. Its manifest starts the same bundle with
+  `--host=muse`, and each hook is one bundled script, because Muse trusts a
+  hook by its script file.
 
 One plugin folder can carry both `.claude-plugin/plugin.json` and
 `.codex-plugin/plugin.json`. The plugin's name is unique in the repository, and
@@ -114,6 +122,14 @@ Install instructions depend on the host:
   removal. [Getting started](./getting-started#opencode) has the tested
   steps; `tools/opencode/install-check.ts` repeats the install from GitHub in
   a throwaway home.
+- **Muse Code:**
+  `muse plugins marketplace add agent-polyfill https://github.com/idosal/AgentPolyfill`,
+  then `muse plugins install <plugin>@agent-polyfill` and
+  `muse plugins approve <plugin>`. State Muse Code 1.4.25 as the tested
+  version and Node 20 or newer as the requirement. Give removal with
+  `muse plugins remove <plugin> --delete-data`, and say what data remains.
+  The form's README goes in `polyfills/<extension>/muse/`.
+  [Getting started](./getting-started#muse-code) has the tested steps.
 
 ### 4. List it for its host
 
@@ -128,6 +144,9 @@ Install instructions depend on the host:
 - **OpenCode:** there is no marketplace file and no bundle. Each plugin is
   installed from GitHub by its folder's path, so the install line in its
   README is its listing. Nothing is published to npm.
+- **Muse Code:** the marketplace is the Codex one. A Codex plugin folder
+  with a `.muse-plugin/plugin.json` is installed by Muse under the same
+  name, so its Codex entry lists it. There is no Muse bundle.
 
 Then add it to the polyfills table in the repository's README, in its host's
 column.
@@ -146,6 +165,10 @@ depending on every polyfill. Add the polyfill's own tests as a workflow in
   a real OpenCode, the release pinned in `tools/opencode`, in a throwaway
   home with a scripted stand-in for a model, on Linux, macOS and Windows,
   and checks that the committed `plugin/server.js` is what its sources build.
+- **Muse Code:** no workflow of its own. The Muse tests are part of each
+  Codex form's suite (`test/muse-test.ts` in Events and Skills, the M- tests
+  in `test/adapter.test.ts` in Server Cards and ARD), so
+  `codex-<extension>-test.yml` runs them.
 
 A polyfill that ships built files also gets a release workflow, run on its
 own tags, `<plugin>-v<version>`.
@@ -161,6 +184,11 @@ claude plugin validate polyfills/<extension>/<host>/<plugin subfolder>
 
 For an OpenCode form, run `npm run check` in its folder: it fails when the
 committed `plugin/server.js` isn't what the sources build.
+
+For a Muse Code form, check the Codex plugin folder with
+`muse plugins validate <folder> --json`: it should report compatibility
+`full`. It also warns `multiple-manifests`, because the folder holds the
+Codex manifest too.
 
 Run the polyfill's tests, and do one recorded run in the real host against a
 server you did not write. Say in the pull request what you ran and what you saw.
@@ -183,6 +211,8 @@ beside the others. Events and Skills share one `core/`, with these forms:
 - **Pi:** an extension in `pi/`, with the installable bundle in `extension/`.
 - **OpenCode:** a V2 server plugin in `opencode/`, with the bundle in
   `plugin/`.
+- **Muse Code:** the Codex plugin folder, with a Muse manifest beside the
+  Codex one; `muse/` holds the form's docs.
 
 1. **Find the host's way in.** What can third-party code do there: run code
    inside the host or beside it, call tools, ask the user, start a turn in an
@@ -195,7 +225,11 @@ beside the others. Events and Skills share one `core/`, with these forms:
    rule tests, in its own pull request.
 3. **Write the adapter** in `polyfills/<extension>/<host>/`: a self-contained
    installable folder with that host's manifest, `core/` bundled into it,
-   the host's own tests beside it.
+   the host's own tests beside it. A host that reads another host's plugins
+   and marketplace can share that host's folder instead, with its own
+   manifest beside the other one: the Muse Code forms are the Codex plugin
+   folders with a `.muse-plugin/plugin.json`, and the same bundle told which
+   host it is in.
 4. **Meet the contract in that host:** its own README with that host's install
    steps, requirements, limits and stand-down, its own `SECURITY.md`, and a
    recorded run in the real host against a server you did not write.

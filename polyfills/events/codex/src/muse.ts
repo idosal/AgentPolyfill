@@ -109,7 +109,7 @@ export function readMuseServers(env: NodeJS.ProcessEnv = process.env, log: (s: s
  * and hidden characters written out (the Pi form's `visible`). `wakes`: the limits, where events
  * start turns (MCP_EVENTS_MUSE_WAKE=attach); otherwise they come with the person's messages.
  */
-export function museWatchQuestion(p: { server: string; event: string; arguments?: unknown; note?: string }, wakes?: { gapMs: number; perHour: number }): string {
+export function museWatchQuestion(p: { server: string; event: string; arguments?: unknown; note?: string; maxAgeMs?: number }, wakes?: { gapMs: number; perHour: number }): string {
     const args = p.arguments && typeof p.arguments === 'object' && Object.keys(p.arguments).length ? ` with the filters ${visible(JSON.stringify(p.arguments))}` : '';
     const limits = wakes ? [wakes.gapMs > 0 ? `at most once every ${Math.round(wakes.gapMs / 1000)} s per watch` : '', wakes.perHour > 0 ? `${wakes.perHour} times an hour` : ''].filter(Boolean) : [];
     const how = wakes
@@ -119,6 +119,7 @@ export function museWatchQuestion(p: { server: string; event: string; arguments?
         'mcp-events: start a watch?',
         `Muse wants to watch ${visible(JSON.stringify(p.event))} on the MCP server ${visible(JSON.stringify(p.server))}${args}.`,
         ...(p.note ? [`When it fires: ${visible(JSON.stringify(p.note))}`] : []),
+        ...(p.maxAgeMs ? [`When it resumes after a break, it asks for events at most ${p.maxAgeMs} ms old.`] : []),
         '',
         `${how} You can stop it at any time by asking Muse to stop the watch.`
     ].join('\n');

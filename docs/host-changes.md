@@ -45,7 +45,7 @@ gates).
 | Ask the person | A permission hook that answers "ask" | MCP elicitation, from the plugin's MCP server | `ctx.ui.confirm`, `select`, `input`; relayed to the client in RPC mode, unavailable in print and JSON modes | `ctx.permission.assert`, under OpenCode's permission rules, with actions a plugin names itself. OpenCode's default rule allows every action; the polyfills turn that into `ask` for their own actions with an `evaluate` hook (`ctx.permission.hook`). | No. Its MCP client offers no elicitation, and a hook's `ask`, like any tool call that isn't read-only, goes to the approval judge, a model that may approve with nobody asked. A session-protocol client gets `userInput/request`. |
 | Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `pi.sendMessage(…, { triggerTurn: true })`, shown as the extension's own message | `ctx.session.synthetic` with `resume: true`, stored as synthetic rather than the user's | Only behind two experimental launch gates: `muse attach --stdio`, then `session/resume` and `turn/start`. By default, no. |
 | Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives | The extension runs in that session (`ctx.sessionManager.getSessionId()`) | The tool executor's `sessionID` | `MUSE_SESSION_ID` in each stdio server's environment; `session_id` in a hook's input. A `tools/call` carries none. |
-| Know the person wrote | The `prompt.submit` hook | `turn_trigger` in the turn metadata of a tool call | The `input` event, with its source | `ctx.session.hook('prompt')`, which a synthetic message doesn't run | The `UserPromptSubmit` hook: it runs for the person's messages, not for a turn Muse's timers start |
+| Know the person wrote | The `prompt.submit` hook | `turn_trigger` in the turn metadata of a tool call | The `input` event, with its source | `ctx.session.hook('prompt')`, which a synthetic message doesn't run | The `UserPromptSubmit` hook: it runs for the person's messages, not for a turn Muse or a model starts |
 | Add skills | The Skills mod lists served skills in Claude's skill listing ([Skills form](../polyfills/skills/claude-code/README.md)) | A plugin's skills folder, read when the plugin loads; `~/.agents/skills` | `resources_discover` returns skill folders, read at start and at `/reload` | `ctx.skill.transform`, with no file, but with the skill's text given when it is listed | A plugin's skills; `~/.config/muse/skills/<folder>/SKILL.md` and `~/.agents/skills/<folder>/SKILL.md`, one folder down only |
 | Gate a tool call | Permission hooks that allow, deny or ask | Hooks that can deny, not ask | `tool_call` handlers that can block, and ask with `ctx.ui`, for the model's calls and codemode's nested calls | `ctx.tool.hook('execute.before')`, which can refuse a call or put it to the permission rules first, for the model's calls and Code Mode's | `PreToolUse` hooks that can deny; their `ask` goes to the approval judge |
 | Add a server | `claude mcp add` | `codex mcp add` | `pi mcp add` (saved), `pi.registerMcpServer` (this session, connected at once) | `ctx.mcp.transform` (in memory; a plugin keeps what it added and adds it again on each load) | `muse mcp add`, `muse mcp add-json` |
@@ -342,6 +342,12 @@ the live server.
   consent step, or giving a session's own plugins a verified sender for
   `muse session-message send` (refused today as `sender_unverified`), would
   give Events real wake.
+- **Say where a prompt came from.** A plugin's `UserPromptSubmit` hook input
+  has no field for it. Today only the person's own messages run that hook (a
+  scheduled prompt, a monitor's output, a subagent, another session, a goal or
+  a workflow doesn't), and the typed yes of Events and Skills relies on that.
+  A source field (typed, attached client, or other) would let a plugin check it
+  rather than rely on it.
 - **The four changes above, in Muse's session protocol.** A generic MCP request
   next to `mcpServer/readInventory`, the server's capabilities and
   notifications, and a tool result's `structuredContent` and `_meta` passed to

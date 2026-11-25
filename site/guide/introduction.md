@@ -74,7 +74,7 @@ All of them are early. Here is what each one does, and where it stops:
   type, push included, and tells the model to use a watch or an automation,
   not both: a stated departure from the contract's rule 4. In Muse Code, a
   watch starts, and stops, only after you type the phrase the answer gives,
-  such as `watch 4821`. New events reach the model with your next message;
+  such as `watch tickets ticket.created 4821`. New events reach the model with your next message;
   nothing wakes an idle session unless you turn on an experimental opt-in.
 - **Skills.** Skills an MCP server serves show up next to your own, load only
   after you say yes to each one, and are checked against the server's
@@ -93,7 +93,7 @@ All of them are early. Here is what each one does, and where it stops:
   loaded, OpenCode's own read of another server's resource asks first, naming
   both servers, including from Code Mode and in subagents.
   In Muse Code, a load waits until you type the phrase the answer gives,
-  such as `load 4821`, because Muse gives a plugin no way to ask you.
+  such as `load github git-workflow 4821`, because Muse gives a plugin no way to ask you.
 - **Server Cards.** Name a company and the agent finds the MCP servers its
   domain publishes, checks each card against the schema, and adds the one you
   pick to the host's own configuration. The host then connects it with its own

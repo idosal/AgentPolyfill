@@ -145,9 +145,9 @@ Start your host in the same folder:
   or the global one. OpenCode asks you before the watch starts.
 - **Muse Code:** `muse`, in a workspace you trust. Ask "Watch for new
   earthquakes from the feeds server and tell me where each one was." The
-  answer gives a phrase such as `watch 4821`; send exactly that phrase to
+  answer gives a phrase such as `watch feeds usgs.earthquake 4821`; send exactly that phrase to
   start the watch. New events reach Muse with your next message. Stopping it
-  waits for its own phrase, such as `unwatch 3307`.
+  waits for its own phrase, such as `unwatch feeds usgs.earthquake 3307`.
 
 For the button demo, ask:
 
@@ -278,11 +278,13 @@ server, in its TUI and in OpenCode Desktop.
 Muse gives a plugin no way to ask you, and a tool call that isn't read-only
 goes to Muse's approval judge, a model that may approve it with nobody
 asked. So `watch_event` starts nothing at first. Its answer gives a phrase
-such as `watch 4821`. Only a message of yours that is exactly that phrase
+that names the server and the event type, such as `watch tickets ticket.created 4821`. Only a
+message of yours that is exactly that phrase
 approves the watch: Muse runs the plugin's `UserPromptSubmit` hook for your
-messages, not for a turn its timers start. The phrase is good for that one
+messages, not for a turn Muse or a model starts. The phrase is good for that one
 question, in that session, for 15 minutes. `unwatch_event` works the same
-way: its answer names the watch and gives a phrase such as `unwatch 3307`,
+way: its answer names the watch and gives a phrase such as
+`unwatch tickets ticket.created 3307`,
 and the watch stops only after you send it.
 
 New events reach the model with your next message, as a context block from
@@ -702,8 +704,8 @@ not been audited by a person.
 
 A watch starts only after you send its phrase yourself, so Muse's approval
 judge can't start one with nobody asked. The phrase counts only in a message
-of yours: Muse runs the plugin's hook for your messages, not for a turn its
-timers start. The context block that hands over new events says it was sent
+of yours: Muse runs the plugin's hook for your messages, not for a turn Muse or a model
+starts. The context block that hands over new events says it was sent
 by the plugin, not typed by you. The experimental wake weakens this: with
 its gates on, any local process of the same user can attach to the session,
 start turns and type the phrases.

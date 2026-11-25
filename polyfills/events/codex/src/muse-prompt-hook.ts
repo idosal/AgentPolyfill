@@ -5,8 +5,9 @@
 // model what is new for this session, as context added to the message: by default the events the
 // helper stored since the last hand-over (it records how far it got), and any batch waiting in the
 // session's inbox (where waking through `muse attach` failed). It also stamps the time, which tells
-// the helper the person is back. A message that is exactly the `watch <code>` a watch_event asked
-// for approves that watch (muse-confirm.ts), and the same for `unwatch <code>`; the model is told so.
+// the helper the person is back. A message that is exactly the `watch <server> <event> <code>` a
+// watch_event asked for approves that watch (muse-confirm.ts), and the same for `unwatch …`; the
+// model is told so.
 //
 // A turn the plugin itself started (waking through `muse attach`, experimental) begins with
 // "[mcp-events]": that is not the person speaking, so it is not stamped. It prints nothing when

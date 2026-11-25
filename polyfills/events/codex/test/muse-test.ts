@@ -109,7 +109,7 @@ const WATCH = { server: 'tickets', event: 'ticket.created', note: 'tell me' };
 /** A watch as it goes in Muse: asked, the person types the phrase, asked again; then until it is active. */
 async function watchActive(h: Helper, w: World, args: Record<string, unknown> = WATCH): Promise<string> {
     const asked = await call(h, 'watch_event', args);
-    const phrase = /exactly: (watch \d{4})/.exec(asked.text)?.[1];
+    const phrase = /exactly: (watch \S+ \S+ \d{4})$/m.exec(asked.text)?.[1];
     assert.ok(phrase, asked.text);
     assert.match((JSON.parse(w.say(phrase).out) as { hookSpecificOutput: { additionalContext: string } }).hookSpecificOutput.additionalContext, /they approve "mcp-events: start a watch\?"/);
     const r = await call(h, 'watch_event', args);
@@ -225,6 +225,21 @@ describe("the person's yes, typed", () => {
             rmSync(dir, { recursive: true, force: true });
         }
     });
+
+    test('a phrase names what it approves; a name that cannot be typed plainly is not asked about', () => {
+        const dir = temp('mcp-events-muse-confirm-');
+        const s = randomUUID();
+        try {
+            const r = askTyped(dir, s, 'watch', 'Q1', Date.now(), ['tickets', 'ticket.created']) as { pending: string; code: string };
+            assert.equal(r.pending, `watch tickets ticket.created ${r.code}`);
+            assert.equal(confirmFromPrompt(dir, s, `watch ${r.code}`), undefined, 'the code alone');
+            assert.equal(confirmFromPrompt(dir, s, `watch tickets ticket.updated ${r.code}`), undefined, 'another event type');
+            assert.deepEqual(confirmFromPrompt(dir, s, `Watch  TICKETS ticket.created  ${r.code}`), { verb: 'watch', summary: 'Q1' }, 'case and spacing aside');
+            for (const odd of ['tick ets', 'tickets\u200b', 'tíckets', '', '-rf', 'x'.repeat(65)]) assert.ok('unavailable' in askTyped(dir, s, 'watch', 'Q2', Date.now(), ['srv', odd]), JSON.stringify(odd));
+        } finally {
+            rmSync(dir, { recursive: true, force: true });
+        }
+    });
 });
 
 describe('the inbox and the UserPromptSubmit hook', () => {
@@ -314,12 +329,15 @@ describe('the helper in Muse', () => {
             assert.equal(asked.isError, true);
             assert.match(asked.text, /^The watch is not started yet\. Muse gives this plugin no way to ask the person/);
             assert.match(asked.text, /Muse wants to watch "ticket\.created" on the MCP server "tickets"\.\nWhen it fires: "tell me"/);
-            const phrase = /exactly: (watch \d{4})/.exec(asked.text)![1]!;
+            const phrase = /exactly: (watch tickets ticket\.created \d{4})$/m.exec(asked.text)?.[1];
+            assert.ok(phrase, `the phrase names the server and the event type: ${asked.text}`);
             const watchesFile = join(w.data, 'threads', w.session, 'watches.json');
             assert.ok(!existsSync(watchesFile) || !readFileSync(watchesFile, 'utf8').includes('ticket.created'), 'nothing watched yet');
             // The model calling again without the person's yes starts nothing.
             assert.match((await call(h, 'watch_event', WATCH)).text, /not started yet/);
             assert.equal(w.say(`sure, ${phrase}`).out, '', 'only the exact phrase');
+            assert.equal(w.say(phrase.replace(' tickets ticket.created', '')).out, '', 'the code alone is not the phrase');
+            assert.equal(w.say(phrase.replace('tickets', 'other')).out, '', 'nor is the code with another name');
             const out = JSON.parse(w.say(phrase).out);
             assert.equal(out.systemMessage, 'mcp-events: you approved: mcp-events: start a watch?');
             const r = await call(h, 'watch_event', WATCH);
@@ -358,7 +376,7 @@ describe('the helper in Muse', () => {
             assert.equal(asked.isError, true);
             assert.match(asked.text, /^The watch is not stopped yet\./);
             assert.match(asked.text, new RegExp(`Muse wants to stop the watch "${watch}" of "ticket\\.created" on the MCP server "tickets"\\.\\nIts note: "tell me"`));
-            const phrase = /exactly: (unwatch \d{4})/.exec(asked.text)![1]!;
+            const phrase = /exactly: (unwatch tickets ticket\.created \d{4})$/m.exec(asked.text)![1]!;
             assert.match((await call(h, 'list_watches')).text, new RegExp(watch), 'still running');
             assert.match((JSON.parse(w.say(phrase).out) as { hookSpecificOutput: { additionalContext: string } }).hookSpecificOutput.additionalContext, /Call unwatch_event again/);
             const r = await call(h, 'unwatch_event', { watch });
@@ -372,7 +390,7 @@ describe('the helper in Muse', () => {
         }
     });
 
-    test('a watch the question cannot show whole is refused before anyone is asked; an unknown event type is refused by the call itself', async () => {
+    test('a watch the question cannot show whole is refused before anyone is asked; so is an unknown server or event type', async () => {
         const w = museWorld();
         const h = await startMuse(w.env());
         try {
@@ -380,7 +398,11 @@ describe('the helper in Muse', () => {
             assert.match((await call(h, 'watch_event', { ...WATCH, note: 'x'.repeat(600) })).text, /^The watch is not started: its note is longer than the 500 characters/);
             const unknown = await call(h, 'watch_event', { server: 'tickets', event: 'no.such.event' });
             assert.equal(unknown.isError, true);
+            assert.match(unknown.text, /^The watch is not started: server "tickets" has no event type by that name\. It has: ticket\.created/);
             assert.doesNotMatch(unknown.text, /exactly: watch/);
+            const nowhere = await call(h, 'watch_event', { server: 'nowhere', event: 'ticket.created' });
+            assert.match(nowhere.text, /^The watch is not started: no MCP server by that name offers events\. Known: tickets/);
+            assert.match(museWatchQuestion({ ...WATCH, maxAgeMs: 60000 }), /When it resumes after a break, it asks for events at most 60000 ms old\./, 'maxAgeMs is in the question');
         } finally {
             await h.stop();
             rmSync(w.dir, { recursive: true, force: true });
