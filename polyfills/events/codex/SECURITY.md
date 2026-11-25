@@ -133,6 +133,22 @@ instructions to the model, are what tell it apart from what you typed.
 - **It listens on nothing**, unless a webhook watch uses
   `MCP_EVENTS_PUBLIC_URL`. That opens a local receiver on 127.0.0.1 for your
   own forwarder. It downloads nothing.
+- **A wake runs only where Codex's own app shows it.** `codex queue` runs the
+  wake in whichever app server has the session open. An app that runs Codex
+  through an app server of its own, as T3 Code does, may not show that turn.
+  In a session with full access, actions could then run that nobody sees in
+  the app.
+  - So the plugin wakes a session only while the latest of the session's turns
+    that called its tools was one you started in Codex's own app. It tells
+    from that turn's `turn_trigger`, the same allowlist as above.
+  - A call whose turn names no trigger stops the wakes. That covers another
+    app's app server, since T3 Code sets none, and a Codex before 0.172. A turn
+    the queue started, or any other trigger, changes nothing.
+  - The latest call's answer is kept in `threads/<session id>/shown-by.json`,
+    so it holds for a helper that starts later and for the window that runs
+    the watches.
+  - Events are still stored, nothing is handed over and no wake is counted,
+    and `list_watches` and `watch_event` say why.
 - **A chat it can't reach isn't tried again.** In the ChatGPT desktop app, a
   watch records events but can't wake the chat: its threads aren't local
   Codex sessions that `codex queue` can reach. Ask for recent events. Waking
@@ -146,8 +162,8 @@ instructions to the model, are what tell it apart from what you typed.
 Everything is in `$CODEX_HOME/mcp-events/` (or `MCP_EVENTS_STATE`), readable
 only by you:
 
-- each session's watches, with their cursors and webhook secrets
-  (`threads/<session id>/`);
+- each session's watches, with their cursors and webhook secrets, and
+  whether its latest call came from Codex's own app (`threads/<session id>/`);
 - each session's events (`sessions/<session id>/`), removed two weeks after
   the last one;
 - the servers found to have no events, for a day;
@@ -157,6 +173,10 @@ only by you:
 
 - **A server you configured that sends misleading events.** They are its
   data, and Codex may act on them within your approval policy.
+- **An app that marks its turns as Codex's own do.** `turnTrigger` is set by
+  the app that starts the turn. An app that runs Codex itself and sets it to
+  `user` is taken for the TUI, and a wake there runs as `codex queue` makes it
+  run, shown or not.
 - **Someone who can read your files.** The state folder holds webhook secrets
   and payloads, as your Codex home holds your sessions.
 - **A relay operator reading webhook payloads.** Webhooks are signed, not
