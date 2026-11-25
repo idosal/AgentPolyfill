@@ -35,8 +35,8 @@ it:
   pages don't say whether uninstalling the plugin removes that store.
 - **A log, and a note of which of your servers serve skills,** in the plugin's
   data folder: `~/.claude/plugins/data/` followed by the plugin's folder, or
-  the same under `CLAUDE_CONFIG_DIR`. If you had set `MCP_SKILLS_STATE`, the
-  log is in the folder it names.
+  the same under `CLAUDE_CONFIG_DIR`. If you had set `MCP_SKILLS_STATE`, both
+  are in the folder it names.
 - **A copy of Bun,** in the `runtime` folder of that data folder, only if you
   ran `/mcp-skills setup`. `/mcp-skills setup remove` deletes it.
 
