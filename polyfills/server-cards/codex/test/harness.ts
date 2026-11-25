@@ -55,6 +55,42 @@ console.error('fake codex: unknown command ' + args.join(' ')); process.exit(2)
 
 export type Fake = { dir: string; bin: string; state: string; log: string; calls: () => string[][]; entries: () => Record<string, any> }
 
+// The stand-in for muse (1.4.25): "mcp get NAME --json", as it answers. The Muse form never
+// writes, so anything else is recorded and refused.
+const FAKE_MUSE = `#!/usr/bin/env node
+const fs = require('node:fs')
+const state = process.env.FAKE_MUSE_STATE
+const args = process.argv.slice(2)
+fs.appendFileSync(process.env.FAKE_MUSE_LOG, JSON.stringify(args) + '\\n')
+if (args[0] === 'mcp' && args[1] === 'get') {
+  const s = fs.existsSync(state) ? JSON.parse(fs.readFileSync(state, 'utf8')) : {}
+  if (s[args[2]]) { console.log(JSON.stringify({ name: args[2], ...s[args[2]] })); process.exit(0) }
+  console.log(JSON.stringify({ error: { kind: 'not_found', name: args[2] } })); process.exit(1)
+}
+console.error('fake muse: not expected: ' + args.join(' ')); process.exit(2)
+`
+
+/** A stand-in muse, as "muse" in a folder of its own (put first on PATH). */
+export function fakeMuse(): Fake & { path: string } {
+  const dir = mkdtempSync(join(tmpdir(), 'muse-polyfill-test-'))
+  after(() => rmSync(dir, { recursive: true, force: true }))
+  const bin = join(dir, 'muse')
+  writeFileSync(bin, FAKE_MUSE)
+  chmodSync(bin, 0o755)
+  const state = join(dir, 'state.json')
+  const log = join(dir, 'calls.log')
+  writeFileSync(log, '')
+  return {
+    dir,
+    bin,
+    state,
+    log,
+    path: `${dir}:${process.env.PATH ?? ''}`,
+    calls: () => readFileSync(log, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l)),
+    entries: () => (existsSync(state) ? JSON.parse(readFileSync(state, 'utf8')) : {}),
+  }
+}
+
 export function fakeCodex(): Fake {
   const dir = mkdtempSync(join(tmpdir(), 'codex-polyfill-test-'))
   // A throwaway CODEX_HOME: removed when the test that made it ends.
@@ -118,8 +154,8 @@ const yesOf = (schema: any): Record<string, unknown> => {
 }
 
 /** The built server on stdio, and a client that answers its forms with `answer`. */
-export function startServer(serverFile: string, opts: { env?: Record<string, string>; elicitation?: boolean; answer?: Answer; protocol?: string } = {}) {
-  const child: ChildProcess = spawn(process.execPath, [serverFile], {
+export function startServer(serverFile: string, opts: { env?: Record<string, string>; elicitation?: boolean; answer?: Answer; protocol?: string; args?: string[] } = {}) {
+  const child: ChildProcess = spawn(process.execPath, [serverFile, ...(opts.args ?? [])], {
     env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', ...(opts.env ?? {}) },
     stdio: ['pipe', 'pipe', 'pipe'],
   })
@@ -203,6 +239,40 @@ export function bundleChecks(root: string, plugin: string, marketplacePath: stri
     mkdirSync(installed)
     cpSync(join(root, 'plugin'), installed, { recursive: true })
     const s = startServer(join(installed, 'dist', 'server.mjs'))
+    try {
+      await s.ready
+      const list = await s.request('tools/list', {})
+      assert.deepEqual(list.result.tools.map((t: { name: string }) => t.name), tools)
+    } finally {
+      s.stop()
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+}
+
+/**
+ * The Muse manifest beside the Codex one: the same plugin, the same bundle told it is in Muse
+ * (Muse resolves the path against the plugin folder), a skill outside skills/ (Codex lists every
+ * SKILL.md there), and a copy of the folder started that way lists the Muse tools.
+ */
+export function museChecks(root: string, plugin: string, tools: string[]) {
+  test('the Muse manifest names the same plugin and the same bundle, with --host=muse, and its files are in the folder', async () => {
+    const muse = JSON.parse(readFileSync(join(root, 'plugin', '.muse-plugin', 'plugin.json'), 'utf8'))
+    const codex = JSON.parse(readFileSync(join(root, 'plugin', '.codex-plugin', 'plugin.json'), 'utf8'))
+    assert.equal(muse.schemaVersion, 1)
+    assert.equal(muse.name, plugin)
+    assert.equal(muse.version, codex.version)
+    assert.deepEqual(muse.compat, { source: 'native', manifestDir: '.muse-plugin' })
+    assert.deepEqual(muse.capabilities.mcpServers, [{ id: plugin, transport: 'stdio', command: ['node', 'dist/server.mjs', '--host=muse'] }])
+    for (const s of muse.capabilities.skills) {
+      assert.ok(existsSync(join(root, 'plugin', s.path)), s.path)
+      assert.ok(!s.path.startsWith('skills/'), s.path)
+    }
+    const dir = mkdtempSync(join(tmpdir(), `${plugin}-muse-install-`))
+    const installed = join(dir, 'cached plugin')
+    mkdirSync(installed)
+    cpSync(join(root, 'plugin'), installed, { recursive: true })
+    const s = startServer(join(installed, 'dist', 'server.mjs'), { args: ['--host=muse'], elicitation: false })
     try {
       await s.ready
       const list = await s.request('tools/list', {})
