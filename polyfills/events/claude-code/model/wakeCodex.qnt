@@ -20,10 +20,11 @@ module wakeCodex {
   pure val PENDING = 2    // the model's bound: events stored and not yet handed over, at most
 
   // What Codex says started the turn a call is made in (`x-codex-turn-metadata.turn_trigger`, as
-  // Codex 0.172 sends it); "none" is a call with no turn metadata (a Codex before 0.172). The
+  // Codex 0.172 sends it; "composer" is the ChatGPT desktop app's, in place of 0.1.6's "voice");
+  // "none" is a call with no turn metadata (a Codex before 0.172). The
   // person's own turns carry one of the first four, or nothing on an older Codex. Other turns carry
   // "queue" (a wake, this plugin's among them), a trigger neither list knows ("hook"), or nothing.
-  pure val PERSONS_TRIGGERS = Set("user", "exec", "realtime", "voice", "none")
+  pure val PERSONS_TRIGGERS = Set("user", "composer", "exec", "realtime", "none")
   pure val OTHER_TRIGGERS = Set("queue", "hook", "none")
 
   // wakes.json: when the session was woken within the hour, when the watch last started a wake,
@@ -67,7 +68,7 @@ module wakeCodex {
   // src/meta.ts. 0.1.1 on: only the triggers on the allowlist. 0.1.0: anything but a trigger on its
   // denylist ("queue" among them), and a call with no turn metadata at all.
   pure def isThePersons(allow: bool, trigger: str): bool =
-    if (allow) Set("user", "exec", "realtime", "voice").contains(trigger) else trigger != "queue"
+    if (allow) Set("user", "composer", "exec", "realtime").contains(trigger) else trigger != "queue"
   // Until when a pause (or notice) at t keeps the session from being woken, if nobody speaks.
   pure def quietFrom(lift: int, t: int): int = if (lift > 0) t + lift else 1000
   // WakeBudget.pause: waking stops; where the pause lifts by itself, it counts from now.

@@ -16,20 +16,40 @@
 // wake: a stored event is handed over at most once, and the hourly cap holds across
 // restarts and takeovers. Such an event may go unannounced; it is still stored, for
 // recent_events.
+//
+// A session is woken only while the plugin can tell that the app showing it shows a turn the wake
+// starts (meta.ts, shownBy): `codex queue` runs it in whichever app server has the session open, and
+// an app that runs Codex through an app server of its own may not show a turn it didn't start. Each
+// call that says so is recorded in <state>/threads/<id>/shown-by.json, by any process; the latest
+// one wins, and the one running the watches reads it before each hand-over. Until it says Codex's
+// own app, events are stored and nothing is handed over.
 
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { EventsConnection } from '../../core/src/events-client.ts';
 import { Delivery, type Batch } from '../../core/src/delivery.ts';
 import { LINE_PREFIX } from '../../core/src/format.ts';
-import { ProjectState, Spool } from '../../core/src/store.ts';
+import { ProjectState, Spool, writeAtomic } from '../../core/src/store.ts';
 import { createTools, type ToolAnswer, type Unavailable } from '../../core/src/tools.ts';
 import { secrets } from '../../core/src/untrusted.ts';
 import { WakeBudget, wakeLimits } from '../../core/src/wake.ts';
 import { WatchManager } from '../../core/src/watcher.ts';
+import type { ShownBy } from './meta.ts';
 import type { QueueResult, Wake } from './waker.ts';
 
 /** The first line of every wake: the message lands in the conversation as input, so it says whose it is. */
 export const WAKE_HEADER = `${LINE_PREFIX} (Sent by the mcp-events plugin, not typed by the user.)`;
+
+/** Why a session isn't woken, while no call has said that Codex's own app shows it. */
+export function notShown(by: ShownBy | undefined): string {
+    return (
+        (by === 'unmarked'
+            ? "This session isn't woken by events: the last of its turns that called the plugin wasn't one you started in Codex's own app (it named nothing that started it, or something the plugin doesn't count, such as a goal or an automation), so the plugin can't tell that the app this session is open in shows a turn that a wake starts. "
+            : "This session isn't woken by events yet: no turn you started in Codex's own app has called the plugin. ") +
+        "Codex's TUI and the ChatGPT desktop app say what started each turn (Codex 0.172 or newer). An app that runs Codex through an app server of its own (T3 Code, say) doesn't, and codex queue would run the wake inside that app, which may not show it. " +
+        "The watches still store every event: recent_events and get_event read them. Waking starts again once a turn you start in Codex's own app (the TUI, the desktop app, codex exec, or by voice) calls one of the plugin's tools."
+    );
+}
 
 export type ThreadOptions = {
     base: string;
@@ -76,6 +96,10 @@ export class ThreadSession {
      * which is not a local Codex session). Its events are still stored and readable; it is not tried again.
      */
     unwakeable?: string;
+    /** Where the latest call that said which app shows this session left it (shown-by.json); written by any process. */
+    readonly #shownFile: string;
+    /** Whether the log has said that waking waits for Codex's own app, since it last changed. */
+    #heldLogged = false;
 
     constructor(id: string, o: ThreadOptions) {
         const env = o.env ?? process.env;
@@ -86,6 +110,7 @@ export class ThreadSession {
         this.#values = env.MCP_EVENTS_WAKE_VALUES === '1';
         this.project = new ProjectState(o.base, `codex thread ${id}`, { dir: join(o.base, 'threads', id) });
         this.spool = new Spool(o.base, id);
+        this.#shownFile = join(this.project.dir, 'shown-by.json');
         // How often events may wake this session. Kept with its events, so a helper that restarts carries on counting.
         // Past the hour's wakes the pause lifts when the person's own turn calls a tool, or by itself
         // after an hour: Codex shows the plugin the person only through a call's turn metadata.
@@ -131,8 +156,42 @@ export class ThreadSession {
         return owner;
     }
 
+    /** Which app shows this session, as the latest call that said so left it (any process's). */
+    get shownBy(): ShownBy | undefined {
+        try {
+            const by = (JSON.parse(readFileSync(this.#shownFile, 'utf8')) as { by?: unknown }).by;
+            return by === 'codex' || by === 'unmarked' ? by : undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * A call said which app shows this session (meta.ts, shownBy), or, with `undefined`, nothing about
+     * it. Recorded for every process; once it is Codex's own app, events that waited are handed over.
+     */
+    shown(by: ShownBy | undefined): void {
+        if (!by || this.shownBy === by) return;
+        try {
+            writeAtomic(this.#shownFile, JSON.stringify({ by, at: new Date().toISOString() }) + '\n');
+        } catch {
+            // Not saved: this call counts for nothing, and waking stays as it was.
+            return;
+        }
+        this.#heldLogged = false;
+        this.#log(by === 'codex' ? "a turn the user started in Codex's own app called the plugin: the session may be woken" : "a turn the user didn't start in Codex's own app called the plugin (no trigger, as from another app's app server or a Codex before 0.172, or one not counted): the session isn't woken");
+        if (by === 'codex' && this.manager.owner && this.#delivery?.pending) this.announce();
+    }
+
+    /** Another process's call may have said, since a hand-over was held, that Codex's own app shows the session. */
+    recheck(): void {
+        if (this.#heldLogged && this.manager.owner && this.#delivery?.pending && this.shownBy === 'codex') this.announce();
+    }
+
     async call(name: string, input: Record<string, unknown>): Promise<ToolAnswer> {
         const answer = await this.#tools.call(name, input);
+        const held = !this.unwakeable && this.shownBy !== 'codex';
+        if ((name === 'list_watches' || name === 'watch_event') && !answer.isError && held) return { ...answer, text: `${answer.text}\n\n${notShown(this.shownBy)}` };
         if (name === 'list_watches' && this.unwakeable) return { ...answer, text: `${answer.text}\n\nThis chat can't be woken: it isn't a local Codex session, which is all codex queue reaches (a ChatGPT desktop-app chat, say). Its watches still store every event: recent_events and get_event read them. Waking works in the Codex TUI.` };
         if (name === 'list_watches' && this.lastWakeError && this.#unanswered === 'batch')
             return { ...answer, text: `${answer.text}\n\nThe last wake's codex queue did not answer (${this.lastWakeError}), so it may not have woken this session. Its events count as handed over and are not handed over again; recent_events lists them.` };
@@ -212,6 +271,14 @@ export class ThreadSession {
             if (!batch.lines.length) {
                 delivery.ack(batch.upto);
                 if (delivery.pending) again = this.#batchMs;
+                return;
+            }
+            // No call has said that Codex's own app shows this session: a wake could run where nobody
+            // sees it. The events wait, stored, and no wake is counted; a call that says so starts it.
+            const by = this.shownBy;
+            if (by !== 'codex') {
+                if (!this.#heldLogged) this.#log(`not waking the session: ${by === 'unmarked' ? "the last of its turns that called the plugin wasn't one the user started in Codex's own app" : "no turn the user started in Codex's own app has called the plugin yet"}; the events are stored`);
+                this.#heldLogged = true;
                 return;
             }
             const gate = this.budget.gate(batch.watches);
