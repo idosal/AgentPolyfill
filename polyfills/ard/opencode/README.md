@@ -93,8 +93,9 @@ You need **OpenCode 2.4** (the V2 plugin API; tested with 2.4.1).
   ([`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui)). The call
   line names the query and the registry; a referred registry's host is in
   the request only.
-- **Not tried yet:** Windows, the desktop app as a client, and a live
-  registry search.
+- **Not tried yet:** Windows by hand (CI runs the tests there), OpenCode
+  Desktop, and a public registry: none that takes an unauthenticated search
+  was found; searches were run against the repository's demo registry.
 
 ## Security
 

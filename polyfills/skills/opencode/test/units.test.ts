@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { Listed } from '../../core/src/skills.ts';
 import { skillIds } from '../src/app.ts';
 import { stateDir } from '../src/plugin.ts';
@@ -43,7 +43,7 @@ test('plugin/server.js is what the sources build', () => {
 });
 
 test('the bundle loads on its own and exports a V2 plugin', async () => {
-    const mod = (await import(join(ROOT, 'plugin', 'server.js'))) as { default: { id: string; setup: unknown } };
+    const mod = (await import(pathToFileURL(join(ROOT, 'plugin', 'server.js')).href)) as { default: { id: string; setup: unknown } };
     assert.equal(mod.default.id, 'mcp-skills');
     assert.equal(typeof mod.default.setup, 'function');
 });

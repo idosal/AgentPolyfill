@@ -6,10 +6,10 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
-const B = (await import(join(ROOT, 'plugin', 'server.js'))) as any
+const B = (await import(pathToFileURL(join(ROOT, 'plugin', 'server.js')).href)) as any
 const SCHEMA = 'https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json'
 const card = (remotes: unknown[]) => B.readCard({ $schema: SCHEMA, name: 'com.example/docs', version: '1.0.0', description: 'Docs.', remotes }).card
 

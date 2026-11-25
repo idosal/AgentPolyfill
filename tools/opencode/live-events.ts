@@ -15,11 +15,12 @@
 
 import { randomUUID } from 'node:crypto';
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { REPO, sleep, World, type Message } from './harness.ts';
 
 const model = process.argv[2] ?? 'opencode/qwen4-max-free';
-const out = process.argv[3] ?? join(process.env.TMPDIR ?? '/tmp', `opencode-live-events-${Date.now()}`);
+const out = process.argv[3] ?? join(tmpdir(), `opencode-live-events-${Date.now()}`);
 mkdirSync(out, { recursive: true });
 const transcript = join(out, 'transcript.md');
 const say = (s: string) => {

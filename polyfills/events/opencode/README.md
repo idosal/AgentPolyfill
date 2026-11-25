@@ -189,8 +189,16 @@ remove it.
   mcp_events_watch". The details are on the model's call line just above it, and
   "Always allow" lists the pattern it would save. Checked in the TUI
   ([`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui)).
-- **Not tried yet:** Windows, the desktop app as a client, and a public
-  server that delivers events by poll or webhook.
+- **In OpenCode Desktop** (2.4.1, tried live): the plugin runs in the app's
+  own server, and the permission prompt names the action and the server and
+  event type. An event woke the idle session and the model answered, but the
+  app shows no entry for the wake message itself, so the turn starts with no
+  visible cause (the TUI shows it as `◈ mcp-events: new events`).
+- **Tried live against public infrastructure:** AgentPolyfill's event-feeds
+  server by poll (a demo button pressed woke the session), and a webhook
+  through the public relay
+  ([`live-run.md`](../../../tools/opencode/live-run.md#public-infrastructure)).
+- **Not tried yet:** Windows by hand (CI runs the tests there).
 
 [What hosts would need to change](../../../docs/host-changes.md) covers these
 gaps for each host.

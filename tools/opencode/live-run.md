@@ -7,8 +7,9 @@ real model, OpenCode's free `opencode/deepseek-v4.1-flash-free`, and real
 public servers: Hugging Face's MCP server (skills) and neon.com and
 buildkite.com (Server Cards, ARD). Events used the fixture events server,
 since no public server delivers events by poll. Every plugin action had an
-`ask` rule, and each request was answered "once". Not tried: the desktop app
-as a client.
+`ask` rule, and each request was answered "once". Also run: events from
+public infrastructure ([below](#public-infrastructure)) and OpenCode Desktop
+([below](#in-opencode-desktop)).
 
 ## What happened
 
@@ -101,6 +102,60 @@ showed it skips both fixture event types ("skipping MCP event type with a
 schema that can't be checked"), which is why the plugin no longer leaves push
 to OpenCode. In that run the free model's usage limit was reached after the
 Events part.
+
+## Public infrastructure
+
+[`live-events.ts`](live-events.ts), with OpenCode's free models
+(`opencode/big-pickle`; another free model's first request failed upstream
+with "Model is unavailable" in one run):
+
+- **Poll, from a public server.** AgentPolyfill's event-feeds server
+  (`https://event-feeds.idosalomon.workers.dev/mcp`). The model made a demo
+  button with the server's own `new_demo_button` tool and watched
+  `demo.button` for its channel. The script pressed the button as its page
+  does (`POST /api/press`); the idle session woke, the model read the press
+  with the server's `read_event_text`, and answered: *The press's message was
+  "Pressed by the OpenCode live run."*
+- **Webhook, through the public relay** (`MCP_EVENTS_RELAY=public`). The
+  plugin's log: *webhooks of deploys arrive through the public relay at
+  https://mcp-events-public-relay.idosalomon.workers.dev*. The fixture's
+  webhook-only `deploy.finished` was posted, signed, to the relay, the plugin
+  collected it, and the session woke: *The billing service finished
+  deploying.*
+
+No public ARD registry that takes an unauthenticated search was found
+(25 November 2026), so `ard_search` was run against the demo registry only.
+
+## In OpenCode Desktop
+
+OpenCode Desktop 2.4.1 (`opencode-desktop-mac-arm64.zip` from the release,
+signed and notarized by Anomaly Innovations), run with
+`OPENCODE_DESKTOP_TEST_ROOT` set, which puts its own data and its server's
+XDG folders in a throwaway folder; the plugins in that folder's global
+`opencode.json`; sessions opened with its `opencode://new-session` link. Its
+server is its own (`opencode-cli serve --service`, from the test root).
+
+- **The permission prompt shows the request**, not only the action:
+
+  ```
+  Permission required
+  mcp_events_watch
+  tickets:ticket.created                        Deny  Allow always  Allow once
+  ```
+
+  and for a skill, `mcp_skills_load` with
+  `huggingface:skill://huggingface-local-models/SKILL.md@sha256:c7091c9d…`.
+- **Events.** After "Allow once" the watch started; an event on the fixture
+  woke the idle session and the model answered *A new ticket was created:
+  "Desktop app check: printer on fire."* The app shows no entry for the wake
+  message itself: the turn appears with no visible cause.
+- **Skills.** The model used OpenCode's own Skill tool, got the plugin's
+  note, loaded the Hugging Face skill after "Allow once", and answered from
+  it.
+- **Not finished:** a Server Cards addition from the desktop app (the screen
+  locked before its prompt was sent).
+- The app made `~/Documents/Default Project` on first start, outside the test
+  root (removed afterwards).
 
 ## In OpenCode's TUI
 
