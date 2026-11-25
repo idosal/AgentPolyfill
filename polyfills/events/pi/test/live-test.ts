@@ -3,14 +3,24 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { temp } from './pi-rpc.ts';
+import { temp as tempDir } from './pi-rpc.ts';
 
 const LIVE = fileURLToPath(new URL('../live/', import.meta.url));
 const MARK = '.agentpolyfill-live-run.json';
+// The folders these tests make, removed when they end, passed or failed.
+const made: string[] = [];
+const temp = (prefix: string) => {
+    const d = tempDir(prefix);
+    made.push(d);
+    return d;
+};
+after(() => {
+    for (const d of made) rmSync(d, { recursive: true, force: true });
+});
 
 test('--new-agent-dir makes an empty folder marked for live runs, and a run of any form refuses an unmarked one', () => {
     const dir = join(temp('live-'), 'agent');
@@ -50,7 +60,7 @@ test("Pi's own agent folder is refused even when marked; an mcp.json a run didn'
         writeMcpJson(fresh, { mcpServers: {} });
         writeFileSync(join(fresh, 'mcp.json'), JSON.stringify({ mcpServers: { docs: { url: 'https://user:pw@docs.example/mcp?token=abc', headers: { Authorization: 'Bearer secret' } }, local: { command: 'node', env: { KEY: 'secret' } } } }));
         const printed = mcpServersAfter(fresh);
-        assert.equal(printed, 'docs: https://docs.example/mcp\nlocal: a local command');
+        assert.equal(printed, 'docs: https://docs.example\nlocal: a local command');
         writeMcpJson(fresh, { mcpServers: {} });
     } finally {
         process.env.HOME = before;

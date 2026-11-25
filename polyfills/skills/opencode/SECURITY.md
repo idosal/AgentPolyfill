@@ -67,8 +67,10 @@ the plugin's `evaluate` hook turns that `allow` into `ask`, unless you chose
 `askByDefault` to `false`. It never turns anything into `allow`, and a
 configured `deny` is settled before it runs. With nobody there to answer,
 OpenCode refuses the question. "Allow always" is kept by the plugin, from
-OpenCode's own permission events, only for a request of its own and only as
-the patterns that request offered to save: a cross-server read offers none.
+OpenCode's own permission events, only for a request of its own, from a
+session of this project (OpenCode sends every project's permission events to
+every project's plugins), and only as the patterns that request offered to
+save: a cross-server read offers none.
 
 ### What OpenCode's own resource read may do
 

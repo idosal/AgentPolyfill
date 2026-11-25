@@ -33,10 +33,23 @@ export const LOADED_KEY = (session: string) => `loaded/${session}`;
 
 type LoadedSkill = { server: string; uri: string };
 
-/** Whether `uri` is a file of the skill whose SKILL.md is `skillUri` (in its folder). */
+/** A URI with its scheme and authority in lower case, as URIs compare them: SKILL://Git-Workflow/… is skill://git-workflow/…. */
+const caseless = (uri: string) => uri.replace(/^([A-Za-z][A-Za-z0-9+.-]*:\/\/[^/]*)/, (m) => m.toLowerCase());
+
+/** Whether `uri` is a file of the skill whose SKILL.md is `skillUri` (in its folder), with scheme and authority compared without case. */
 export function inSkill(skillUri: string, uri: string): boolean {
-    const root = rootOf(skillUri);
-    return root !== undefined && (uri === skillUri || uri.startsWith(`${root}/`));
+    const skill = caseless(skillUri);
+    const file = caseless(uri);
+    const root = rootOf(skill);
+    return root !== undefined && (file === skill || file.startsWith(`${root}/`));
+}
+/**
+ * Whether a URI's path has a `.` or `..` segment, or an encoded dot or slash: one that may name a
+ * loaded skill's file without starting with its folder (`skill://srv/skills/x/../haiku/FORMS.md`).
+ */
+export function oddPath(uri: string): boolean {
+    const path = uri.replace(/^[A-Za-z][A-Za-z0-9+.-]*:\/\/[^/]*/, '');
+    return /(^|\/)\.\.?(\/|$)/.test(path) || /%2e|%2f|%5c/i.test(path);
 }
 /** How many parents up a subagent's session is checked. */
 const MAX_DEPTH = 8;
@@ -168,6 +181,10 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
         const uri = typeof input.uri === 'string' ? input.uri : '';
         const held = await loadedSkills(event.sessionID);
         const own = held.find((h) => h.server === input.server && inSkill(h.uri, uri));
+        if (!own && oddPath(uri) && held.some((h) => h.server === input.server)) {
+            log(`a read of ${input.server}'s ${oneLine(uri, 200)} through OpenCode's resource tool, with a dot or encoded path segment, after one of its skills loaded: refused`);
+            throw new Error(`mcp-skills: ${uri} has a "." or ".." segment or an encoded dot or slash, on the MCP server ${JSON.stringify(input.server)}, which a loaded skill came from, so it may name one of that skill's files. Read a skill's file with ${TOOL.read}, which checks it against the skill's manifest; for anything else, ask for the resource by its plain URI.`);
+        }
         if (own) {
             log(`a read of ${input.server}'s ${oneLine(uri, 200)} through OpenCode's resource tool, inside a loaded skill: refused`);
             throw new Error(`mcp-skills: ${uri} is a file of the skill ${own.uri}, loaded from the MCP server ${JSON.stringify(input.server)}. Read it with ${TOOL.read} (server ${JSON.stringify(input.server)}, skill ${JSON.stringify(own.uri)}, and its path), which checks it against the skill's manifest; OpenCode's resource tool does not.`);

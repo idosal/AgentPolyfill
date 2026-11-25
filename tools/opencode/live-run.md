@@ -237,6 +237,12 @@ On 25 November 2026, at the branch `claude/opencode-polyfill-1b603a`
 global `opencode.json` listed no plugins. Nothing was published; the only
 network use was the Git fetch.
 
+After the forms reached main (`9faa746c`), the same check from `#main`: each
+of the four installed from GitHub and loaded, and was removed. The README's
+line, run as written in a shell (`opencode plugin add
+'github:idosal/AgentPolyfill#main::path:polyfills/events/opencode/plugin'`),
+installed main's committed `server.js` byte for byte (version 0.1.0).
+
 ## To repeat
 
 ```bash
