@@ -10,9 +10,12 @@
 #   Claude Code  --strict-mcp-config with only the two fixture servers, --setting-sources
 #                project, a fresh project folder; the fixture's tools are allowed by rule
 #                (--allowedTools), Claude Code's own resource tools are left to its defaults.
-#   Codex        a throwaway HOME and CODEX_HOME with only your Codex sign-in (auth.json)
-#                copied in, never read; `codex exec -s read-only`.
-# Your own ~/.claude settings, ~/.codex config and MCP servers are not used.
+#                Claude Code uses the sign-in it already has, as `claude -p` always does.
+#   Codex        a throwaway HOME and CODEX_HOME; `codex exec -s read-only`. You sign in
+#                to Codex inside that home yourself: the script prints the command and
+#                waits. Codex signs out of it and the home is deleted at the end.
+# This script never copies, reads or passes on a credential, and has no option to.
+# Your own Claude Code settings, Codex config and MCP servers are not used.
 #
 # Usage: probe/run.sh <out-dir> [claude|codex|both]
 #   NODE22   a Node 22.18+ binary for the fixture (default: node on PATH)
@@ -23,7 +26,21 @@ mkdir -p "$1"; OUT="$(cd "$1" && pwd)"
 WHICH="${2:-both}"
 NODE="${NODE22:-$(command -v node)}"
 BASE="$(cd "$(mktemp -d)" && pwd -P)"
-trap 'pkill -f "$BASE/" 2>/dev/null || true; rm -rf "$BASE"' EXIT
+cleanup() {
+    [ -d "$BASE/codex/codex" ] && HOME="$BASE/codex/home" CODEX_HOME="$BASE/codex/codex" codex logout < /dev/null > /dev/null 2>&1 || true
+    pkill -f "$BASE/" 2>/dev/null || true
+    rm -rf "$BASE"
+}
+trap cleanup EXIT
+
+# The person signs in to Codex inside the throwaway home, with Codex's own login.
+codex_sign_in() { # <HOME> <CODEX_HOME>
+    HOME="$1" CODEX_HOME="$2" codex login status < /dev/null > /dev/null 2>&1 && return
+    { : < /dev/tty; } 2> /dev/null || { echo "Codex needs you to sign in: run this in a terminal." >&2; exit 1; }
+    printf '\nSign in to Codex inside the throwaway home. In another terminal, run:\n\n  HOME=%q CODEX_HOME=%q codex login\n\nThen press Enter here.\n' "$1" "$2" > /dev/tty
+    read -r _ < /dev/tty || true
+    HOME="$1" CODEX_HOME="$2" codex login status < /dev/null > /dev/null 2>&1 || { echo "Codex isn't signed in there; stopping." >&2; exit 1; }
+}
 
 FOLLOW="Call the docs server's TOOL tool once, then follow the resource link it returns and read the linked resource, using whatever tools you have. Do not run shell commands, code or scripts, and do not decode anything yourself. Then report: the tools you called, exactly what each returned to you (verbatim, abbreviate anything over 300 characters), and what the linked resource contains (if it is an image, which colours are where; if you cannot actually see an image, say so)."
 RAW="Call the docs server's text_link tool once. Then reply with the exact raw tool result you received, verbatim, and say whether you can see a URI, name, title, description, MIME type, size and annotations for a linked resource. Do not call any other tool."
@@ -51,7 +68,7 @@ fi
 
 if [ "$WHICH" != claude ]; then
     D="$BASE/codex"; mkdir -p "$D/home" "$D/codex" "$D/project"
-    cp "${CODEX_AUTH_FROM:-$HOME/.codex}/auth.json" "$D/codex/auth.json"; chmod 600 "$D/codex/auth.json"
+    codex_sign_in "$D/home" "$D/codex"
     cat > "$D/codex/config.toml" <<TOML
 model_reasoning_effort = "low"
 

@@ -1,8 +1,10 @@
 # The resource-links polyfill for Codex (polyfills/resource-links/codex, plugin
 # mcp-resource-links), on any change in its folder, in the core it uses
-# (polyfills/resource-links/core), or in the shared notices tool:
+# (polyfills/resource-links/core), in the probes (polyfills/resource-links/probe), or in
+# the shared notices tool:
 # - the rules, the hook, the plugin's server and its reader, with a typecheck of the
-#   adapter and the core, on Linux, macOS and Windows;
+#   adapter and the core, on Linux, macOS and Windows; this includes the check that no
+#   script in the polyfill names a host's stored credentials;
 # - the bundle is what src/ builds, and its notices are up to date;
 # - the plugin's manifests are valid JSON.
 # The plugin isn't in a marketplace yet; when it is, add the marketplace check the
@@ -16,6 +18,7 @@ on:
     paths:
       - "polyfills/resource-links/codex/**"
       - "polyfills/resource-links/core/**"
+      - "polyfills/resource-links/probe/**"
       - "tools/bundle-notices.mjs"
       - ".github/workflows/codex-resource-links-test.yml"
   # Pull requests from forks; a branch of this repository is checked by its
@@ -24,6 +27,7 @@ on:
     paths:
       - "polyfills/resource-links/codex/**"
       - "polyfills/resource-links/core/**"
+      - "polyfills/resource-links/probe/**"
       - "tools/bundle-notices.mjs"
       - ".github/workflows/codex-resource-links-test.yml"
 

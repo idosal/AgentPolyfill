@@ -196,8 +196,10 @@ plugin follows, and where:
 
 [`live/runs/proof/`](live/runs/proof/), made by
 [`live/take-proof.sh`](live/take-proof.sh) on Codex 0.172.0 (macOS), in a
-throwaway Codex home with only the sign-in copied in, and the fixture server
-as `docs` and `other`:
+throwaway Codex home, with the fixture server as `docs` and `other`. That run
+was made with the Codex sign-in file copied into the throwaway home. The
+script no longer does that: it has you sign in there yourself
+([how](live/README.md#signing-in)).
 
 | Screen | What happens |
 |---|---|
