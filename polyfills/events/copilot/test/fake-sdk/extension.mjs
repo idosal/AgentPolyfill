@@ -1,4 +1,4 @@
-// A stand-in for `@microsoft/copilot-sdk/extension`, the module Copilot provides to an extension.
+// A stand-in for `@github/copilot-sdk/extension`, the module Copilot provides to an extension.
 // joinSession() reports what the extension registered, and the test drives the session over this
 // process's stdin and stdout (one JSON object per line), which a real extension leaves to the SDK:
 //

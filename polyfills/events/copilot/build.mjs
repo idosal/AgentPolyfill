@@ -1,7 +1,7 @@
 // Bundles the extension, with the shared Events client (../core) and the session code it shares
 // with the Codex form (../codex/src/threads.ts), into plugin/extensions/mcp-events/extension.mjs, so
 // the installed plugin folder runs on its own, with no node_modules. Copilot runs it with its own
-// Node and provides @microsoft/copilot-sdk, which stays out of the bundle. The output is committed;
+// Node and provides its SDK (imported as @github/copilot-sdk), which stays out of the bundle. The output is committed;
 // test/plugin-test.ts fails when it is stale.
 //
 //   node build.mjs           build plugin/extensions/mcp-events/extension.mjs
@@ -23,7 +23,7 @@ await build({
     bundle: true,
     minify: true,
     sourcemap: false,
-    external: ['@microsoft/copilot-sdk', '@microsoft/copilot-sdk/*'],
+    external: ['@github/copilot-sdk', '@github/copilot-sdk/*', '@microsoft/copilot-sdk', '@microsoft/copilot-sdk/*'],
     // Bundled CommonJS dependencies (cross-spawn) still require Node builtins.
     banner: { js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);' },
     logLevel: 'info'

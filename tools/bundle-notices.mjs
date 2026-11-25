@@ -12,7 +12,7 @@
 // --plugin names the installed folder when it is not mod/ (a Codex plugin's).
 // --bundle names the bundled file in the header, when it is not <plugin>/dist/helper.js.
 // --entry names the bundle's entry when it is not src/helper.ts (a Copilot extension's). The
-// SDK Copilot provides to its extensions (@microsoft/copilot-sdk) is never bundled.
+// SDK Copilot provides to its extensions (@github/copilot-sdk, @microsoft/copilot-sdk) is never bundled.
 // --check fails if the file on disk differs from what it would write.
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -37,7 +37,7 @@ const LICENSE_FILE = /^(licen[cs]e|copying|notice|unlicense|copyright)/i;
 const { metafile } = await build({
     absWorkingDir: folder,
     entryPoints: [entry],
-    external: ['@microsoft/copilot-sdk', '@microsoft/copilot-sdk/*'],
+    external: ['@github/copilot-sdk', '@github/copilot-sdk/*', '@microsoft/copilot-sdk', '@microsoft/copilot-sdk/*'],
     platform: 'node',
     format: 'esm',
     target: 'node20',

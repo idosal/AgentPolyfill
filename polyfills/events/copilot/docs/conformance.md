@@ -16,7 +16,7 @@ CAP-4), 6 not applicable, none missing.**
 
 What this file adds: which rules this form's own tests check end to end,
 through the extension as Copilot starts it (a child process with `SESSION_ID`,
-joining through a stand-in for `@microsoft/copilot-sdk/extension`), against
+joining through a stand-in for `@github/copilot-sdk/extension`), against
 the fixture events server, and the upstream suite's run through it.
 
 ## Checked end to end in this form

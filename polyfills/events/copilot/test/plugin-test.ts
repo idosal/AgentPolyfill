@@ -25,8 +25,8 @@ test('the committed extension is what the sources build', () => {
     assert.ok(readFileSync(join(out, 'extension.mjs')).equals(readFileSync(BUNDLE)), 'plugin/extensions/mcp-events/extension.mjs is stale: run npm run build');
 });
 
-test('the SDK Copilot provides is imported, not bundled; nothing else is imported from outside Node', () => {
+test('the SDK Copilot provides is imported, not bundled, by the name both Copilot CLI and VS Code\'s Copilot harness resolve; nothing else is imported from outside Node', () => {
     const text = readFileSync(BUNDLE, 'utf8');
     const imports = [...text.matchAll(/from\s*"([^"]+)"/g)].map((m) => m[1]!).filter((s) => !s.startsWith('node:'));
-    assert.deepEqual([...new Set(imports)], ['@microsoft/copilot-sdk/extension']);
+    assert.deepEqual([...new Set(imports)], ['@github/copilot-sdk/extension']);
 });

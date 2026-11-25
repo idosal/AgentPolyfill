@@ -31,7 +31,7 @@ import { COPILOT, INSTRUCTIONS, TOOLS } from './words.ts';
 
 type Json = Record<string, unknown>;
 
-/** The part of `@microsoft/copilot-sdk/extension` this uses. */
+/** The part of the SDK's `joinSession` (`@github/copilot-sdk/extension`) this uses. */
 export type JoinedSession = Sender & {
     sessionId: string;
     on(type: string, handler: (event: { type: string; data?: Json; agentId?: unknown }) => void): () => void;

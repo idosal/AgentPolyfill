@@ -26,7 +26,7 @@ the host: a plugin brings MCP servers, skills and hooks, and other programs
 can drive Codex from outside through `app-server`, an experimental JSON-RPC
 API. The Codex column names that API's methods. Copilot runs an *extension*
 (`extension.mjs`, in a plugin or a folder of your own) as a child process that
-joins the session with `joinSession()` from `@microsoft/copilot-sdk/extension`,
+joins the session with `joinSession()` from `@github/copilot-sdk/extension`,
 which Copilot provides. Extensions are experimental: they load only with
 `--experimental`. The Copilot column names that SDK's calls.
 

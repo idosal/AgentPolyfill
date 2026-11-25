@@ -1,5 +1,5 @@
 // Runs the extension the way Copilot does (a child process with SESSION_ID set, joining the
-// session through `@microsoft/copilot-sdk/extension`), with a stand-in for that module
+// session through `@github/copilot-sdk/extension`), with a stand-in for that module
 // (test/fake-sdk) that the test drives: tool calls, the session's messages, and how Copilot answers
 // `session.send`. The MCP server is the fixture events server of the Claude Code form, written by
 // hand from SEP-3415 and sharing no code with the client.

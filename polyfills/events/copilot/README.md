@@ -449,7 +449,7 @@ node ../../../tools/bundle-notices.mjs . --plugin plugin --entry src/extension.t
   waking and who counts as you (`waker.ts`) and what it says (`words.ts`). The
   rest is [`../core`](../core) and the Codex form's `threads.ts`.
 - `test/` runs the extension as Copilot does, with a stand-in for
-  `@microsoft/copilot-sdk/extension` (`test/fake-sdk/`) that the tests drive,
+  `@github/copilot-sdk/extension` (`test/fake-sdk/`) that the tests drive,
   against the Claude Code form's fixture events server (written from the SEP,
   sharing no code with the client). `test/interop/run.ts` runs the interop,
   `test/conformance-driver.ts` the upstream suite, and `test/live/run.sh` the
