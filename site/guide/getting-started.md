@@ -96,8 +96,8 @@ pi install git:github.com/idosal/AgentPolyfill
 
 Pi clones the repository into its agent folder (under `~/.pi/agent/git/`)
 and loads the three extensions from there. Nothing is published to npm or
-Pi's package gallery, and nothing is built. These steps were tested from a
-clean, isolated Pi 1.6.0 against this repository on GitHub. Start `pi` to use them.
+Pi's package gallery, and nothing is built. Checked in Pi 1.6.0. Start `pi`
+to use them.
 
 Update installed packages with `pi update --extensions`. To try all three
 for one run without installing:
@@ -152,8 +152,7 @@ opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/server-car
 opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/ard/opencode/plugin'
 ```
 
-These steps were tested from a clean, isolated OpenCode, installing from
-GitHub. There is no OpenCode bundle or single install for every polyfill.
+Checked in OpenCode 2.4.1. There is no OpenCode bundle or single install for every polyfill.
 Apps has no OpenCode form. ARD carries the Server Cards code and its own add
 tool; installing `mcp-server-cards` beside it is optional.
 
@@ -177,8 +176,8 @@ OpenCode loads it the next time it opens the project.
 
 ### Antigravity
 
-The forms are plugins for Google Antigravity's App and CLI (`agy`). These
-builds were run in App 2.35.1 and CLI 1.5.17. The IDE documents no plugin hooks, so the forms
+The forms are plugins for Google Antigravity's App and CLI (`agy`). Checked
+in App 2.35.1 and CLI 1.5.17. The IDE documents no plugin hooks, so the forms
 aren't supported there, and their gated calls are refused. The plugins'
 hooks run `node`, so Node 20 or newer must be on `PATH`. Nothing is
 published to Antigravity's Marketplace. Installing needs the Antigravity CLI:
@@ -227,11 +226,12 @@ This install, from a clone, is the one tested. Copilot loads a plugin from a
 local marketplace where it is, without copying it, so keep the clone;
 `git pull` in it brings the next version. From GitHub,
 `copilot plugin marketplace add idosal/AgentPolyfill` adds the same
-marketplace, and Copilot keeps its own copy; that was checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code.
+marketplace, and Copilot keeps its own copy. Checked in Copilot CLI 1.0.105.
+Not checked in 1.0.115, in the interactive TUI, or in VS Code.
 
 There is no Copilot bundle. Events is a Copilot extension, and Copilot loads
 extensions only in its experimental mode: start it with
-`copilot --experimental`, or, per Copilot's help, run `/settings experimental on` once (the runs here used `--experimental`). Server
+`copilot --experimental`, or, per Copilot's help, run `/settings experimental on` once (not checked). Server
 Cards and ARD are MCP servers in plugins and need no experimental mode.
 `ard-discovery`, for ARD (a draft from outside MCP), carries its own add tool;
 installing `mcp-server-cards` beside it is optional. Copilot has Skills over
@@ -260,8 +260,7 @@ codex mcp add mcp-events-t3 -- node "$PWD/AgentPolyfill/polyfills/events/t3/plug
 Then use **Restart agent session** in T3 Code. To remove it, run
 `codex mcp remove mcp-events-t3` and
 `node AgentPolyfill/polyfills/events/t3/plugin/dist/server.js --stop`; its data
-stays in `~/.codex/mcp-events-t3` until you delete it. These steps were tried
-in a fresh Codex home.
+stays in `~/.codex/mcp-events-t3` until you delete it.
 
 ## Requirements
 
@@ -269,7 +268,7 @@ in a fresh Codex home.
 
 | | Claude Code | What else it needs | Where it has run |
 |---|---|---|---|
-| Events | 2.1.326 or newer | Node 20 or newer, or Bun (webhook delivery through a relay needs Node 22 or newer, or Bun); `/mcp-events setup` can fetch Bun for the mod alone on macOS and Linux. A terminal session, or one an app keeps open. | Tested live on macOS; its tests also run on Linux and Windows |
+| Events | 2.1.326 or newer | Node 20 or newer, or Bun (webhook delivery through a relay needs Node 22 or newer, or Bun); `/mcp-events setup` can fetch Bun for the mod alone on macOS and Linux. A terminal session, or one an app keeps open. | Checked on macOS; its tests also run on Linux and Windows |
 | Server Cards, ARD | 2.1.329 or newer | Nothing else: no helper process, no Node, no account. To add a server, the `claude` command, found on your `PATH` or in the usual install folders. | |
 | Apps | 2.1.329 or newer | Nothing else, not even Node: the plugin carries a small helper program for each platform. A Chromium-based browser (Chrome, Edge, Chromium, Brave); clicking into views needs Claude Code's fullscreen layout. | macOS, Linux (x64 or Arm64) and Windows x64; Windows hasn't been used in a Claude Code session yet |
 
@@ -341,11 +340,11 @@ Each Pi form's README has the rest:
 
 Each one runs inside OpenCode's own server, once per project folder, so it
 works the same from the TUI (`opencode`), OpenCode Desktop or a client of
-`opencode serve`. All four were run with a real model against OpenCode's
-server; Events, Skills and Server Cards in the TUI too; Events and Skills in
-OpenCode Desktop 2.4.1. Server Cards and ARD weren't tried in OpenCode
-Desktop, and ARD wasn't tried in the TUI. The tests run in OpenCode 2.4.1 on
-Linux, macOS and Windows; Windows hasn't been tried by hand.
+`opencode serve`. All four were checked against OpenCode's server; Events,
+Skills and Server Cards in the TUI too; Events and Skills in OpenCode Desktop
+2.4.1. Not checked: Server Cards and ARD in OpenCode Desktop, and ARD in the
+TUI. The tests run in OpenCode 2.4.1 on Linux, macOS and Windows; Windows
+was not checked beyond the tests.
 
 OpenCode's shipped permission rules allow every action. Each polyfill puts
 its own actions to those rules and asks you by default: starting or stopping
@@ -370,7 +369,7 @@ each addition and each search is asked about on its own.
 In OpenCode 2.4.1's TUI, the prompt for a polyfill's action says only "Call
 tool `<action>`", such as "Call tool mcp_events_watch"; the details are on the
 model's call line just above it. OpenCode Desktop shows the action and its
-resource (seen for Events and Skills). After a wake or a load, what the model
+resource (checked for Events and Skills). After a wake or a load, what the model
 does goes through OpenCode's rules as usual, and their default allows it.
 
 Events and Skills each open their own connection to a server: a local server
@@ -391,7 +390,7 @@ Each OpenCode form's README has the rest:
 | Events | CLI v1.5.17 (these builds); App v2.35.1 (earlier builds) | Node 20 or newer on `PATH`. A watch needs an answer in the approval card. Waking an idle App conversation needs the sidecar on; CLI conversations get new events at their next model call. |
 | Skills | CLI v1.5.17 (these builds); App v2.35.1 (earlier builds) | Node 20 or newer on `PATH`. Loading a new or changed skill needs an answer in the approval card. |
 | Server Cards | CLI v1.5.17 (these builds); App v2.35.1 (earlier builds) | Node 20 or newer on `PATH`. An addition needs an answer in the approval card. |
-| ARD | CLI v1.5.17 (the version run; not run in the App) | Node 20 or newer on `PATH`. An addition or a registry search needs an answer in the approval card. |
+| ARD | CLI v1.5.17 (not checked in the App) | Node 20 or newer on `PATH`. An addition or a registry search needs an answer in the approval card. |
 | Apps | no form | The App renders MCP Apps itself (v2.34.0 and later); the CLI and IDE show text only. |
 
 Antigravity documents no MCP elicitation, and its MCP client cancels every
@@ -413,8 +412,8 @@ Whether `--dangerously-skip-permissions` also skips `force_ask` hasn't been
 checked. In CLI 1.5.17 a `PreToolUse` hook that fails makes the call fail.
 
 The IDE documents no plugin hooks, so the forms aren't supported there, and
-their gated calls are refused. A webhook watch wasn't run, and these builds
-haven't been run in the App yet.
+their gated calls are refused. A webhook watch was not checked, and these
+builds have not been checked in the App yet.
 
 Each Antigravity form's README has the rest:
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity),
@@ -429,7 +428,7 @@ Each Antigravity form's README has the rest:
 | Events | 1.0.115 or newer, in experimental mode | Nothing else: Copilot runs the extension with its own Node. An open session. The first session asks once whether the extension may have elevated permissions. A new watch needs someone to answer the plugin's question. |
 | Server Cards, ARD | 1.0.115 or newer | Node 20 or newer on your `PATH`. Adding a server or sending a registry search needs Copilot's form, so it works in the interactive session only. |
 | Skills | built in | Copilot CLI 1.0.115 declares Skills over MCP to every server; there is no Copilot form. |
-| Apps | built in for graphical hosts | VS Code's Copilot harness turns MCP Apps on (from its source; no app was drawn there); the terminal draws none. There is no Copilot form. |
+| Apps | built in for graphical hosts | VS Code's Copilot harness turns MCP Apps on (from its source; not checked in VS Code); the terminal draws none. There is no Copilot form. |
 
 Copilot asks before each of the plugins' tools that act (`watch_event`,
 `unwatch_event`, `add_mcp_server`, `ard_search`), as for any tool. Copilot can
@@ -452,15 +451,11 @@ twice. It reads only the servers Copilot enables for the session.
 the prompt, so nothing is woken there. A server that Server Cards or ARD adds
 connects after `/mcp reload`, or in the next session.
 
-The Copilot CLI runs used a scripted model on the machine, with no GitHub
-sign-in. In VS Code 1.147.0's Copilot harness, Events was run end to end: a
-wake shows as a message from the plugin, then the turn. Server Cards added a
-server there, through VS Code's tool prompt and then the plugin's form, which
-VS Code shows as one paragraph. ARD's server loaded there, but no search was
-run through it. For that run, the person testing signed in with their own
-GitHub account, in a throwaway VS Code profile since deleted, and the model
-was GitHub's Claude Haiku 4.5. The Events question came after that run and
-hasn't been seen in VS Code.
+Checked in VS Code 1.147.0's Copilot harness: Events end to end, where a
+wake shows as a message from the plugin, then the turn; and Server Cards
+adding a server, through VS Code's tool prompt and then the plugin's form,
+which VS Code shows as one paragraph. ARD's server loads there. Not checked
+in VS Code: an ARD search, and the Events watch question.
 
 Each Copilot form's README has the rest:
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/copilot),
@@ -477,7 +472,7 @@ T3 Code 0.1.11 is the version tested, with Codex 0.172.0.
 | Skills, Server Cards, ARD | the plugins of the agent you use | With Codex, the question each asks before loading, adding or searching is cancelled by T3 Code without being shown, so that step doesn't happen. |
 | Apps | T3 Code shows MCP Apps itself | Nothing: don't use the Apps polyfill there. |
 
-Not run live in T3 Code: anything with Claude Code or OpenCode as the agent,
+Not checked in T3 Code: anything with Claude Code or OpenCode as the agent,
 the approval prompt for `watch_event` in a thread whose mode asks, Server
 Cards and ARD. [T3 Code](https://github.com/idosal/AgentPolyfill/blob/main/docs/t3-code.md) has the details.
 
@@ -550,9 +545,8 @@ For the demo button:
   wake 30 times an hour. Past that it is told once and waits until you
   write; events stay stored. Ask "Stop watching the earthquakes" to stop.
   A local (stdio) watch resumes only when you resume the session in the same
-  folder. The [Pi live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/live-run.md)
-  records a confirmed watch, idle wake, event read, answer and stop against
-  a local ticket server.
+  folder. Checked in Pi 1.6.0: a confirmed watch, an idle wake, the event
+  read, the answer and the stop.
 - **OpenCode:** the entry goes in `mcp` in `opencode.json`, the project's or
   your global one. The agent makes a private button page, gives you its link,
   and watches it. OpenCode asks before the watch starts, naming the server
@@ -565,20 +559,19 @@ For the demo button:
   shows no entry for it, so the turn starts with no visible cause. By
   default, a watch can wake the session once a minute and the session can
   wake 30 times an hour. Watches resume when OpenCode next opens the project.
-  The [OpenCode live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md#public-infrastructure)
-  records a demo button pressed on this server and the idle session woken.
+  Checked in OpenCode 2.4.1: a demo button pressed on this server wakes the
+  idle session.
 - **Antigravity:** try the same question. A watch asks in Antigravity's
   approval card, through the plugin's `force_ask`. New events reach the
   conversation at its next model call, through the plugin's `PreInvocation`
-  hook (seen live in the CLI; Antigravity's plugins page doesn't list
+  hook (checked in CLI 1.5.17; Antigravity's plugins page doesn't list
   `PreInvocation` among plugin hooks), as fixed text with a count and the
   plugin's own watch ids. An idle App conversation wakes only with the
   sidecar on ([Install](#antigravity)); CLI conversations can't be woken. The
-  feeds demo wasn't run in Antigravity: the [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/live-run.md)
-  used the repository's local deploys demo. It records, in CLI 1.5.17, a
-  watch approved and one declined, and delivery at the next turn; with
-  earlier builds, an idle App conversation woken by the sidecar and a wake
-  during a running turn.
+  feeds demo was not checked in Antigravity. Checked in CLI 1.5.17: a watch
+  approved and one declined, and delivery at the next turn. Checked in the
+  App with earlier builds: an idle conversation woken by the sidecar, and a
+  wake during a running turn.
 - **Copilot CLI:** start `copilot --experimental`. The first session asks
   once whether the extension may have elevated permissions; choose **Yes**.
   A watch asks twice: Copilot's tool prompt for `watch_event`, then the
@@ -586,10 +579,8 @@ For the demo button:
   the note and says events will start turns; choose **Watch it**. Press the
   button: a few seconds later the idle session starts a turn by itself, reads
   the event and tells you what you typed. The wake's first line says the
-  plugin sent it, not you. The
-  [Copilot live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/docs/live-run.md),
-  with a scripted model, records a watch set through Copilot's tool prompt,
-  an idle wake and the read, against a local ticket server.
+  plugin sent it, not you. Checked in Copilot CLI 1.0.115: a watch set
+  through Copilot's tool prompt, an idle wake and the read.
 
 [More on Events](./events)
 
@@ -632,8 +623,8 @@ agy mcp add huggingface https://huggingface.co/mcp
 - **Antigravity:** in the App, add the server under Customizations >
   Installed > MCP Servers. Served skills appear as placeholder folders in
   `~/.gemini/config/skills/`, which Antigravity documents reading before
-  each turn. In a live run of earlier builds the plugin listed Hugging Face's
-  25 skills and loaded one after approval.
+  each turn. Checked with earlier builds: listing Hugging Face's skills and
+  loading one after approval.
 
 Then ask a question one of its skills covers:
 
@@ -647,9 +638,9 @@ the model sees it. Your yes is kept for that skill with exactly those files;
 a change asks again. While a served skill is loaded, reaching another MCP
 server asks "mcp-skills: reach another MCP server?", naming both servers
 (SEP-2640 X8). Skills a server adds mid-session appear after `/reload`.
-The [Pi live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/docs/live-run.md)
-used Hugging Face's server, loaded two skills after approval, read reference
-files and answered from them; a second run previewed each skill first.
+Checked in Pi 1.6.0 with Hugging Face's server: loading two skills after
+approval, reading reference files and answering from them, and previewing a
+skill first.
 
 In OpenCode, loading takes two steps: OpenCode's skill tool returns a short
 note from the plugin, then the model calls `mcp_skills_load_skill`, and
@@ -660,10 +651,10 @@ model's call line above it, and "Always allow" shows the pattern it would
 save, bound to the skill's digest. "Allow always" covers that skill as it is
 now; a changed skill asks again. While a served skill is loaded, OpenCode's
 own read of another server's resource is asked about, naming both servers
-(SEP-2640 X8). The [OpenCode live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md)
-loaded two Hugging Face skills after OpenCode asked, and answered from them.
-In that run, under OpenCode's default rules, the model also ran a command a
-loaded skill described, without a prompt.
+(SEP-2640 X8). Checked in OpenCode 2.4.1: loading two Hugging Face skills
+after OpenCode asked, and answering from them. Under OpenCode's default
+rules, the model can also run a command a loaded skill describes, without a
+prompt.
 
 In Antigravity the question is the approval card, yes or no, for a new or
 changed skill. An approved, unchanged skill skips the plugin's question and
@@ -693,7 +684,7 @@ Then add **Neon Docs** (no sign-in):
   `~/.pi/agent/mcp.json`) and `pi mcp remove <name>` to undo it. Only "Add
   it" runs `pi mcp add` and registers the server for the session, so it
   connects without a restart. Decline or close the dialog and nothing is
-  added. This was shown in the [Pi live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/docs/live-run.md).
+  added. Checked in Pi 1.6.0.
   For a server that needs sign-in, use `/mcp` or `pi mcp login <name>`.
 - **OpenCode:** ask "Add Neon Docs". OpenCode asks; in the TUI the prompt
   says only "Call tool mcp_server_cards_add", with "Allow once" and "Reject",
@@ -702,8 +693,8 @@ Then add **Neon Docs** (no sign-in):
   connects it. It isn't written to your configuration files. For a server
   behind a sign-in, add it the same way, then run `opencode mcp auth <name>`
   in a terminal. Ask OpenCode to remove Neon Docs to take it out again
-  (`server_cards_remove_mcp_server`). The [OpenCode live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md#in-opencodes-tui)
-  added Neon Docs in the TUI, and OpenCode connected it.
+  (`server_cards_remove_mcp_server`). Checked in OpenCode 2.4.1's TUI with
+  Neon Docs.
 - **Antigravity:** approve the addition in Antigravity's approval card. The
   plugin then writes the server to `~/.gemini/config/mcp_config.json`. A card
   that needs a secret can't be added: Antigravity's personal
@@ -731,11 +722,9 @@ the host, URL, headers, configuration file and undo command, just as for
 Server Cards. It has a different tool name because Pi shares tool names
 across extensions and keeps the first registration under a name.
 
-The [Pi live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/docs/live-run.md)
-read buildkite.com's `ard.json` and searched the repository's demo registry
-after approval. **It did not complete the add step:** the model asked in
-chat instead of calling `ard_add_mcp_server`. Addition is covered by tests
-in real Pi with a scripted model and a local server.
+Checked in Pi 1.6.0: reading buildkite.com's `ard.json`, and a search of the
+repository's demo registry after approval. Adding is checked by the form's
+tests only.
 [More on ARD](./ard)
 
 ### ARD in OpenCode
@@ -749,23 +738,21 @@ about on its own. A registry a referral names is asked about in a prompt of
 its own before the query goes there; rejected, it gets nothing.
 
 In OpenCode's TUI, a prompt for a plugin's action says only "Call tool
-`<action>`" (seen for the other three plugins; ARD wasn't tried there). Since
+`<action>`" (checked for the other three plugins; ARD was not checked there). Since
 nothing is saved, a search's prompt would offer only "Allow once" and
 "Reject", as for Server Cards. The query and the registry you named are on
 the model's call line above it, but **nothing on screen names a registry a
 referral names**, so reject a prompt you can't read. OpenCode Desktop shows a plugin action's
-resource in its prompt, here the registry's host; ARD wasn't tried there
+resource in its prompt, here the registry's host; ARD was not checked there
 either.
 
 Adding a result is a separate question through `ard_add_mcp_server`, under
 the same action as a Server Cards addition (`mcp_server_cards_add`).
 
-The [OpenCode live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md)
-read buildkite.com's `ard.json`, and sent a search to the repository's demo
-registry after OpenCode asked. It returned Buildkite's and Netlify's servers,
-each confirmed by its publisher's catalog. No public registry that takes an
-unauthenticated search was found. Addition is covered by tests in real
-OpenCode with a scripted model and a local server.
+Checked in OpenCode 2.4.1: reading buildkite.com's `ard.json`, and a search
+of the repository's demo registry after OpenCode asked. No public registry
+that takes an unauthenticated search was found. Adding is checked by the
+form's tests only.
 [More on ARD](./ard)
 
 ### ARD in Antigravity
@@ -775,7 +762,7 @@ needs no other polyfill installed. There is no default registry: name one in
 your request, or set `ARD_DISCOVERY_REGISTRY` in the environment Antigravity
 starts in. Every registry search, and every addition, is put to you in
 Antigravity's approval card. An addition writes
-`~/.gemini/config/mcp_config.json`. ARD was run in the App and the CLI.
+`~/.gemini/config/mcp_config.json`. Checked in the App and the CLI.
 [More on ARD](./ard)
 
 ### ARD in Copilot CLI
@@ -787,12 +774,11 @@ search, name a registry in your request or set `ARD_DISCOVERY_REGISTRY`:
 there is no default registry. Before every search, the form names the
 registry and the exact query; only "Send the search" sends it.
 
-In Copilot CLI 1.0.115, with a scripted model, `ard_discover` read
-buildkite.com's catalogs, and a search of the repository's demo registry on
-127.0.0.1 went out only after Copilot's tool prompt and **Send the search**.
-No other registry was searched. No server was added through ARD in that run;
-its add step is the Server Cards form's, covered here by tests that run the
-plugin's server as Copilot starts it.
+Checked in Copilot CLI 1.0.115: `ard_discover` reading buildkite.com's
+catalogs, and a search of the repository's demo registry going out only
+after Copilot's tool prompt and **Send the search**. No other registry was
+checked. The add step is the Server Cards form's, and is checked by the
+form's tests only.
 [More on ARD](./ard)
 
 ### Apps

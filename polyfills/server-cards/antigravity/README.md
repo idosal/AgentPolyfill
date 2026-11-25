@@ -16,11 +16,7 @@ the Antigravity App and the CLI (`agy`). It isn't supported in the Antigravity
 IDE, which documents no plugin hooks: an addition there is refused. The
 revisions it follows are in [Spec and conformance](#spec-and-conformance).
 
-**Run live on 25 November 2026** in the Antigravity App 2.35.1 and CLI 1.5.17
-with a real model, against neon.com's published Server Card: in both, an
-addition approved, one declined and one sent around the hook refused; in the
-CLI, the approved one while Antigravity wrote the same file. See
-[What was checked live](#what-was-checked-live).
+Checked in Antigravity App 2.35.1 and CLI 1.5.17.
 
 ARD isn't in this plugin. Its `/.well-known/ard.json` and its registry search
 are in [`ard-discovery` for Antigravity](../../ard/antigravity/README.md),
@@ -34,7 +30,7 @@ starts the plugin's MCP server with `node` (it falls back to its own Node for
 that), and runs the plugin's approval hook with `node`, which has no such
 fallback.
 
-From a clone of this repository (the sequence checked on 25 November 2026):
+From a clone of this repository:
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
@@ -65,10 +61,10 @@ That removes the plugin's folder. It leaves:
 
 ### Where it runs
 
-| Surface | Supported | Run live |
+| Surface | Supported | Checked |
 |---|---|---|
-| Antigravity CLI 1.5.17 (macOS) | yes | these builds: an addition approved (while Antigravity wrote the same file), one declined, one around the hook refused |
-| Antigravity App 2.35.1 (macOS) | yes | these builds: an addition approved (the card showed the whole question), one declined, one around the hook refused. Earlier builds: a written entry connected |
+| Antigravity CLI 1.5.17 (macOS) | yes | an addition approved (while Antigravity wrote the same file), one declined, one around the hook refused |
+| Antigravity App 2.35.1 (macOS) | yes | an addition approved (the card shows the whole question), one declined, one around the hook refused, a written entry connected |
 | Antigravity IDE | no | Antigravity documents no plugin hooks for the IDE, so there is no question and no ticket: every addition there is refused |
 
 ## Try it
@@ -87,7 +83,7 @@ To undo: delete the server in Customizations > Installed > MCP Servers, or remov
 ```
 
 The CLI's card shows the first two lines and hides the rest ("⋯ (5 lines
-hidden)"), so those two say what is written and where (seen live).
+hidden)"), so those two say what is written and where (CLI 1.5.17).
 
 Approve it, and the entry is written. For a server behind a sign-in, such as
 Buildkite's, Antigravity then shows **Authenticate** next to it in
@@ -182,7 +178,7 @@ Antigravity column.
 | An editor connected to `agy acp` gets the tool's name and arguments, not the question. | The arguments say the name, URL, header names and file; the card's provenance and undo aren't shown there. | The hook's `reason` in ACP's permission request. |
 | No plugin hooks in the IDE. | The plugin doesn't work in the Antigravity IDE: an addition there is refused. | Plugin hooks in the IDE. |
 | The personal `mcp_config.json` reads no `${VAR}`. | A card that needs a secret (an API key) can't be added this way; you add it by hand. | `${VAR}` in the personal file. |
-| No plugin API for adding a server. | The plugin writes the file itself, in one step, keeping the rest. A file with comments is refused; a write by another program at the very same moment could lose one of the two (one made while the question was open was kept, seen live). | A plugin API for adding a server. |
+| No plugin API for adding a server. | The plugin writes the file itself, in one step, keeping the rest. A file with comments is refused; a write by another program at the very same moment could lose one of the two (one made while the question is open is kept; checked in CLI 1.5.17). | A plugin API for adding a server. |
 | The plugin can't use Antigravity's MCP connection. | The card isn't compared with the live server (rule S-3). | Extension requests over the host's own connection. |
 | The plugin's server isn't told which project you're in. | A project's own `.agents/mcp_config.json` isn't checked for a name clash. | The project in the hook or the call. |
 | A `PreToolUse` hook that fails makes the call fail (CLI 1.5.17). | If Node isn't on `PATH` or the hook crashes, the addition fails; nothing is written. | Documented hook failure behaviour. |
@@ -191,35 +187,11 @@ Antigravity column.
 Also, as in the Codex form: a public name that resolves to a private address
 isn't caught (redirects are checked).
 
-## What was checked live
+## What was checked
 
-The record, and how it was made, is
-[the Antigravity live-run record](../../events/antigravity/docs/live-run.md#server-cards).
-
-With these builds, in the real Antigravity CLI 1.5.17 with a real model:
-
-- "discover the MCP servers neon.com publishes, then add its docs server":
-  `discover_mcp_servers` got Antigravity's own question, then the addition
-  got the plugin's. While that card was open, `agy mcp add` wrote another
-  server to `mcp_config.json`. Approved: both entries are in the file. The
-  model passed `name`, `headers` and `file` in its first call.
-- Declined: nothing written.
-- The same call through `call_mcp_tool`: "Nothing was written: Antigravity's
-  approval for this call didn't reach the plugin ... The hook runs only when
-  the tool is called by its own name, mcp_mcp-server-cards_cards_add_mcp_server,
-  not through call_mcp_tool."
-
-In the App 2.35.1, with these builds: the approval card showed the plugin's
-whole question above the tool name, joined into one paragraph, and greyed out
-the "always allow" choices; approved, `neon-docs` was written; the `neon`
-server (`mcp.neon.tech`) declined with a note, nothing written; an addition
-through `call_mcp_tool` refused, nothing written.
-
-With the earlier builds, in App 2.35.1 and CLI 1.5.16: an approved addition
-was connected by the App; a declined one over `agy acp` wrote nothing;
-headless `agy -p` denied the call nobody could answer.
-
-Not checked yet: a server behind a sign-in (Authenticate) after an addition.
+Checked in Antigravity CLI 1.5.17 and App 2.35.1, against neon.com's
+published Server Card. Not checked: a server behind a sign-in (Authenticate)
+after an addition.
 
 ## Security
 
@@ -248,7 +220,7 @@ The same revisions as the other forms:
   `19208af2f8`.
 
 The client rules table, with this form's tests, and the proof (124 tests: 90
-shared rule tests and 34 of this form's own, plus the live runs) are in
+shared rule tests and 34 of this form's own) are in
 [docs/conformance.md](docs/conformance.md). The MCP conformance suite has no
 Server Card scenarios.
 

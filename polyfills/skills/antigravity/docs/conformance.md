@@ -5,10 +5,9 @@ Rule IDs follow the [Codex table](../../codex/docs/conformance.md). This table
 describes Antigravity adapter 0.1.0. It does not claim full conformance.
 
 “Met” describes this adapter's tested behavior. “Limit” identifies a host or
-implementation boundary; “not met” is an unmet rule. The live runs in
-Antigravity (below, and [the record](../../../events/antigravity/docs/live-run.md#skills))
-showed the host delivering the hooks, the tool names and `overwrite` as this
-table assumes.
+implementation boundary; “not met” is an unmet rule. Antigravity delivers the
+hooks, the tool names and `overwrite` as this table assumes (checked in CLI
+1.5.17 and App 2.35.1).
 
 Test references:
 
@@ -26,7 +25,7 @@ shared core and reusable Codex functions; no copy of the core is maintained.
 
 ## Capability negotiation and representation
 
-| ID | Client rule | Status and evidence |
+| ID | Client rule | Status and tests |
 |---|---|---|
 | C1 | Send Skills requests only after a declaration, with resources. | Met. rules C1 checks missing, misplaced, invalid and legacy declarations. The hook checks the declaration on its independent connection too. |
 | C2 | Require `directoryRead: true` before directory requests. | Met. rules C2, C2/Y4. |
@@ -48,7 +47,7 @@ shared core and reusable Codex functions; no copy of the core is maintained.
 
 ## Identity and names
 
-| ID | Client rule | Status and evidence |
+| ID | Client rule | Status and tests |
 |---|---|---|
 | U1, U2 | Key identity by server and URI. | Met. rules U1/U2/U3, U1; approvals, shared metadata, held entries and every file call keep both. |
 | U3 | Materialized paths encode origin and URI. | Met. No content materialized; even metadata stubs encode both. adapter S-1/S-2. |
@@ -60,7 +59,7 @@ shared core and reusable Codex functions; no copy of the core is maintained.
 
 ## Reading, caching and verification
 
-| ID | Client rule | Status and evidence |
+| ID | Client rule | Status and tests |
 |---|---|---|
 | D1 | Reading SKILL.md through another route does not load it. | Met. rules D1/V4, X10/R3. Only a gated load creates a held entry. |
 | D2 | Such reads are ordinary resource reads. | Met. The plugin does not alter host resource tools; nested file text is explicitly ordinary supporting content. rules X10/R3. |
@@ -79,14 +78,14 @@ shared core and reusable Codex functions; no copy of the core is maintained.
 
 ## Security and consent
 
-| ID | Client rule | Status and evidence |
+| ID | Client rule | Status and tests |
 |---|---|---|
 | X1 | Treat server content as untrusted. | Met. rules X1/X3/X4; verification X1. Descriptions are cleaned; content is origin-tagged and fenced with random markers, hidden characters are counted. |
 | X2 | Treat skills as higher risk than ordinary tools. | Met. A new version requires `force_ask` before any text read; adapter E-1/E-2. |
 | X3, X4 | Tag origin and distinguish from local skills. | Met. rules X1/X3/X4, adapter S-1. |
 | X5 | Ignore permission-widening fields; require explicit per-skill consent before execution on its behalf. | Limit. Loading requires consent and frontmatter grants nothing (rules X5, X10/R3). Subsequent actions use host permissions; the plugin cannot enforce stricter execution policy across host tools. Native skill provenance is needed. |
 | X6 | A's skill does not read from B. | Met within the plugin. rules X6; identity includes server on every call. |
-| X8 | Gate cross-origin reads with per-call consent naming both origins. | **Not met.** Once a conversation holds a served skill, the hook answers `force_ask` to Antigravity's `read_resource` from any other server, naming both (shared-fixes X8, through the bundle's hook). Antigravity shows no question for that answer and the read goes ahead (seen live: in CLI 1.5.17's auto mode the hook's `force_ask` logged and the other server served the read 0.6 s later; in its default mode, `request-review`, 1.2 s later; in App 2.35.1's Default preset, 1.7 s later). So it doesn't depend on the approval mode. The plugin doesn't refuse such reads instead (it never denies another server's call); no opt-in setting for that is built. It can't tell which skill caused a read, as in Pi and OpenCode. Host change: honour `force_ask` for every tool, or expose active-skill provenance on resource reads. |
+| X8 | Gate cross-origin reads with per-call consent naming both origins. | **Not met.** Once a conversation holds a served skill, the hook answers `force_ask` to Antigravity's `read_resource` from any other server, naming both (shared-fixes X8, through the bundle's hook). Antigravity shows no question for that answer and the read goes ahead (CLI 1.5.17 in its auto mode and in its default mode, `request-review`; App 2.35.1 in its Default preset). So it doesn't depend on the approval mode. The plugin doesn't refuse such reads instead (it never denies another server's call); no opt-in setting for that is built. It can't tell which skill caused a read, as in Pi and OpenCode. Host change: honour `force_ask` for every tool, or expose active-skill provenance on resource reads. |
 | X10 | Never honor `allowed-tools` or equivalent permission grants. | Met. rules X10/R3; stubs have only name and description. |
 | X11 | Served resources gain no authority; user policy decides loading. | Limit. Content is a tool result; host rules can govern the tools, and plugin settings can exclude servers (verification Settings skip). No effective per-skill policy API is available; hiding a local stub does not revoke a load. |
 | R3 | Reading nested SKILL.md as a file is not activation. | Met. rules X10/R3. |
@@ -99,12 +98,12 @@ shared core and reusable Codex functions; no copy of the core is maintained.
 
 ## Host integration and protocol metadata
 
-| ID | Client rule | Status and evidence |
+| ID | Client rule | Status and tests |
 |---|---|---|
 | H1 | Guideline: surface enabled skills, provenance, inspection and enable/disable. | Limit. Stubs expose served skills; tests verify shape, not live host discovery. Server allow/skip settings work, but per-skill host policy and private inspection need host APIs. |
 | C3 | Beta-page rule: request metadata on 2026-07-28. | Met. rules C3 checks protocol version and this adapter's clientInfo on Skills/resource requests. |
 
-## Adapter checks and external evidence
+## Adapter checks
 
 The hook tests use the actual shared gate without modifications. The matcher
 test checks the eager names, `read_resource`, and excludes `call_mcp_tool`
@@ -113,7 +112,6 @@ replayed or mismatched ticket. A hook input it can't read gets `allow` and
 nothing else, with exit zero (in CLI 1.5.17 a hook that exits non-zero fails
 the call); the plugin's own call then carries no ticket and the server
 refuses it. Supporting reads get `allow` tickets, never plugin questions.
-What Antigravity itself does with these answers is in the live section.
 
 `B-1` compares the committed bundle with a fresh build. `B-2` checks manifest
 fields and copies only `plugin/` to a temporary folder, then lists tools and
@@ -128,63 +126,33 @@ npm ci
 npm test
 ```
 
-The checked run on 25 November 2026 (the builds from `a5bb64ce`), with
-Node.js 22.23.1, passed **69 tests**, with none failed or skipped: 37
-client-rule tests (`client-rules.test.ts`), 19 adapter tests
+`npm test` runs **69 tests**: 37 client-rule tests (`client-rules.test.ts`), 19 adapter tests
 (`adapter.test.ts`: config, placeholders, the gate, the matcher, the bundle),
 8 verification tests (`verification.test.ts`) and 5 in `shared-fixes.test.ts`
 (media types, control characters, secrets cleaned then scrubbed in the
 question, placeholders, listings and answers, URL query values, placeholder
 permissions, and rule X8). `agy plugin validate --strict` passes for `plugin/`.
 
-### Live, 25 November 2026
+### In Antigravity
 
-How the runs were made: [the record](../../../events/antigravity/docs/live-run.md#how-the-runs-were-made).
+Checked in Antigravity CLI 1.5.17 and App 2.35.1, against a local skills
+server (this repository's fixture). Interop: Hugging Face's public MCP server
+(`https://huggingface.co/mcp`), a server this project didn't write, in App
+2.35.1 and CLI 1.5.16.
 
-With these builds, in the real Antigravity CLI 1.5.17 and App 2.35.1 with a
-real model, against a local skills server (this repository's fixture,
-serving one skill in five versions):
-
-- a new skill's load asked (the card showed the question's first two lines);
-  approved, its text came back verified;
-- the server then served a changed version: the load asked again;
-- an unchanged approved version got only Antigravity's own question;
-- a declined load: the server got no file read;
-- a load through `call_mcp_tool`: refused, no ticket;
-- rule X8: as in the table, the hook asked and neither the CLI nor the App
-  showed it;
-- in the App: the plugin's whole question shown, "always allow" greyed out; a
-  changed version approved and loaded, another declined (no file read), a
-  load through `call_mcp_tool` refused.
-
-With the earlier builds, in App 2.35.1 and CLI 1.5.16, against Hugging Face's
-public MCP server (`https://huggingface.co/mcp`, no account, a server this
-project didn't write): `list_skills` wrote 25 placeholder folders, and a fresh
-conversation found the right one by itself; a headless load nobody could
-answer was denied; a load approved over `agy acp`, and one in the App's card
-(which showed the plugin's question), came back verified.
-
-Not run: the IDE (not supported).
+Not checked: the IDE (not supported).
 
 ### Upstream suite
 
 The MCP conformance suite's four Skills client scenarios
 (`sep-2640-client-no-prefetch`, `-verify-digest`, `-verify-size`,
 `-verify-frontmatter`), at `c8625de3118c2d5dc0561696cddeb0baaf124f2c` (the
-revision the other forms used), run on 25 November 2026 and again with the
-builds from `a5bb64ce`: **all four pass**. The suite's client is
+same revision as the other forms): **all four pass**. The suite's client is
 `test/interop.ts`, which runs this form's hook handlers in-process (a
 `force_ask` taken as the person's yes) and this form's MCP server code; it
 isn't Antigravity. In the three verify
 scenarios the suite serves a tampered `SKILL.md`; the plugin refuses each (a
 digest mismatch, a size mismatch, a frontmatter mismatch) and loads nothing.
-The record is [evidence/conformance.txt](evidence/conformance.txt).
-
-The first run failed the three verify scenarios before testing anything: the
-plugin read a skill's entry with `skills/get` only, and the suite's fixture
-answers `skills/list` alone. It now takes the entry from the server's listing,
-as the core's load does, and asks `skills/get` only for a skill the listing
-doesn't hold.
 
 ```bash
 CONFORMANCE_DIR=<checkout of modelcontextprotocol/conformance at c8625de, dependencies installed> bash test/conformance.sh

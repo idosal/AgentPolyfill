@@ -154,8 +154,9 @@ Copilot CLI 1.0.115 (the version tested), with Node 20 or newer on your
 `PATH`. The plugin is an MCP server, so it needs no experimental mode. The
 install from a clone is the one tested; Copilot loads the plugin where it is,
 so keep the clone. From GitHub,
-`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace;
-that was checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code. Start a new Copilot session afterwards.
+`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace.
+Checked in Copilot CLI 1.0.105. Not checked in 1.0.115, in the interactive
+TUI, or in VS Code. Start a new Copilot session afterwards.
 Remove it with `copilot plugin uninstall mcp-server-cards@agent-polyfill`.
 Servers you added stay in `~/.copilot/mcp-config.json`; remove one with
 `copilot mcp remove <name>`.
@@ -433,8 +434,8 @@ in the same catalogs, and local (stdio) servers, which cards do not describe.
   fetch code it bundles: addresses named directly are refused, at every
   redirect hop too, but a public name that resolves to a private address is
   not caught.
-- **Not tried yet:** an addition from OpenCode Desktop, and Windows by hand
-  (CI runs the tests there).
+- **Not checked yet:** an addition from OpenCode Desktop, and Windows outside
+  CI (CI runs the tests there).
 
 ### In Antigravity
 
@@ -460,12 +461,11 @@ in the same catalogs, and local (stdio) servers, which cards do not describe.
   even with `--yolo`, so adding works only in the interactive session.
 - **DNS is not checked for private addresses.** A public name that resolves
   to a private address isn't caught. Redirects are checked hop by hop.
-- **In VS Code, the form is one paragraph.** In VS Code 1.147.0's Copilot
-  harness an add worked: VS Code's tool prompt, then the plugin's form
-  ("Your answer", **Don't add it** first), then **Add it** wrote the server.
-  VS Code runs the question's lines together in one paragraph. For that run,
-  the person testing signed in with their own GitHub account, in a throwaway
-  VS Code profile since deleted, with GitHub's Claude Haiku 4.5 as the model.
+- **In VS Code, the form is one paragraph.** Checked in VS Code 1.147.0's
+  Copilot harness: an add goes through VS Code's tool prompt, then the
+  plugin's form ("Your answer", **Don't add it** first), and **Add it**
+  writes the server. VS Code runs the question's lines together in one
+  paragraph.
 
 ### In T3 Code
 
@@ -474,7 +474,7 @@ forms for them load there. With Codex, the question it asks before adding a serv
 an MCP elicitation form, and T3 Code shows such a form only when it can
 answer it with Approve or Decline; it cancels this one without showing it, so
 the step is refused as if you had said no. Nothing is approved for you.
-Not run live in T3 Code.
+Not checked in T3 Code.
 [T3 Code](https://github.com/idosal/AgentPolyfill/blob/main/docs/t3-code.md) has the details.
 
 ## Security
@@ -511,12 +511,12 @@ test kit (two rules are met by design, and the one about the live server is not
 met); the live catalogs and
 cards of Buildkite, GitHub, Hugging Face, Neon, Netlify, Notion, Context7, Exa,
 Supabase and Zapier (ten of the eleven cards valid, Zapier's refused, and ajv
-with the official schema gives the same verdict on all eleven); and runs in the
-real host. Adding a server end to end in the real host (added, then connected
-and used) is the run still to record; the recording at the top of this page
-shows **Add** pressed and the server written to the config, not connected. The MCP conformance suite has no Server Card scenarios. An independent
-security review for the launch (24 November 2026), by an AI session, not a human
-audit: its findings SC1 to SC7 are fixed and tested.
+with the official schema gives the same verdict on all eleven). Adding a
+server end to end in Claude Code (added, then connected and used) was not
+checked; the recording at the top of this page shows **Add** pressed and the
+server written to the config, not connected. The MCP conformance suite has no
+Server Card scenarios. An AI reviewer that did not build it reviewed it, and
+no person has audited it; what the review found is fixed and tested.
 
 The full account:
 [`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md).
@@ -536,11 +536,10 @@ the fixes again. They have not been audited by a person.
 
 [Pi's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/docs/conformance.md)
 records the shared client rules and Pi-specific checks; S-3 remains unmet.
-There is no upstream Server Cards scenario run to report. The
-[live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/docs/live-run.md)
-records neon.com's servers being listed, the add question, and Neon Docs
-saved in `mcp.json` and connected for the session. It does not establish a
-completed Neon Docs tool call.
+There is no upstream Server Cards scenario run to report. Checked in Pi
+1.6.0: neon.com's servers listed, the add question, and Neon Docs saved in
+`mcp.json` and connected for the session. Not checked: a completed Neon Docs
+tool call.
 
 ### In OpenCode
 
@@ -560,15 +559,12 @@ about edits. See
 [OpenCode's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/opencode/docs/conformance.md)
 records 28 rules: 26 met, 1 met with a stated exception (I-4: an SSE remote
 is refused), and 1 not met, S-3, the check against the live server. Its tests
-run the plugin in OpenCode 2.4.1, in a throwaway home, against a local web
-with a catalog, two cards and a small MCP server, with a scripted model; CI
-runs them on Linux, macOS and Windows. There is no upstream Server Cards
-scenario run to report. The
-[live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md)
-records neon.com's two cards found, Neon Docs added after OpenCode asked and
-connected, with its four tools in the model's tools, and, in one run, its
-`search_docs` tool called with results. In the TUI too, Neon Docs was added
-and connected.
+run the plugin in OpenCode 2.4.1; CI runs them on Linux, macOS and Windows.
+There is no upstream Server Cards scenario run to report. Checked in
+OpenCode 2.4.1: neon.com's two cards found, Neon Docs added after OpenCode
+asked and connected, with its four tools in the model's tools, and its
+`search_docs` tool called with results. Adding and connecting Neon Docs was
+also checked in the TUI.
 An AI reviewer who did not build the OpenCode forms reviewed them. They have
 not been audited by a person.
 
@@ -599,10 +595,10 @@ See [Copilot's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/po
 
 [Copilot's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/docs/conformance.md)
 records the shared client rules and the Copilot-specific checks (114 tests);
-S-3 remains unmet. In Copilot CLI 1.0.115, with a scripted model, the plugin
-found Neon and Neon Docs on neon.com and, after Copilot's tool prompt and
-**Add it**, wrote `neon-docs` with `copilot mcp add`. In `copilot -p`, with
-`--yolo` too, Copilot declined the form and nothing was written.
+S-3 remains unmet. Checked in Copilot CLI 1.0.115: the plugin finds Neon and
+Neon Docs on neon.com and, after Copilot's tool prompt and **Add it**,
+writes `neon-docs` with `copilot mcp add`. In `copilot -p`, with `--yolo`
+too, Copilot declines the form and nothing is written.
 
 ## When the host supports Server Cards itself
 
@@ -620,7 +616,7 @@ found Neon and Neon Docs on neon.com and, after Copilot's tool prompt and
   is nothing to detect yet. Its SDK types declare a catalogue API that
   accepts the card media type (`mcp.planInstall`), and a built-in
   `discover-resources` skill searches a catalogue Copilot is given; neither
-  was run, and neither is SEP-2127's discovery from a domain, so the plugin
+  was checked, and neither is SEP-2127's discovery from a domain, so the plugin
   doesn't stand down for them. When Copilot reads a domain's catalog,
   uninstall the plugin, disable it
   (`copilot plugin disable mcp-server-cards@agent-polyfill`), or set

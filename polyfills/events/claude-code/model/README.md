@@ -28,14 +28,14 @@ Each is written in [Quint](https://quint-lang.org) (`delivery.qnt`, `wake.qnt`, 
   samples. For the other, each counterexample TLC found on 0.5.0's models, and on
   `wakeCodex.qnt`, was also replayed as a scenario in the Quint file, and Quint reproduced it;
   the rest is by reading. The TLA+ is written by hand because Quint's
-  own translation (`quint compile --target tlaplus`) needs Apalache, which was not installed.
+  own translation (`quint compile --target tlaplus`) needs Apalache.
 - **All of it checks the models, not the code.** That a model says what the code does is by
   reading; the tables below say what stands for what.
 
 Run them, from `polyfills/events/claude-code`:
 
 ```bash
-TLA2TOOLS=/path/to/tla2tools.jar node model/check.mjs     # TLC 1.7.4 (run here on Java 21)
+TLA2TOOLS=/path/to/tla2tools.jar node model/check.mjs     # TLC 1.7.4 (checked on Java 21)
 TLA2TOOLS=/path/to/tla2tools.jar node model/conform.mjs   # also needs Quint (QUINT=...)
 quint test model/delivery.qnt --backend typescript         # the counterexamples, as scenarios
 quint run model/delivery.qnt --init webhook --invariant Safety --max-samples 20000 --max-steps 60 --backend typescript
@@ -182,8 +182,8 @@ sets by default). The webhook model grows fast: with 2 events and the clock from
 session, 2 deliveries), TLC passed 22 million distinct states (on 0.5.0's model) and was
 stopped at that limit.
 
-Results on an Apple M1 Max (32 GB, macOS 15.4.1), TLC 1.7.4 on Temurin 21, one worker (so
-the search is breadth first exactly and a trace is a shortest one), 24 November 2026. The
+Results with TLC 1.7.4 on Temurin 21, one worker (so the search is breadth first exactly
+and a trace is a shortest one). The
 `delivery.qnt` and `wake.qnt` runs are of 0.5.1's models, which 0.6.0 and 0.7.0 leave as they
 are; the `relay.qnt` runs are of 0.7.0's. The `wakeCodex.qnt` runs (of mcp-events for Codex
 0.1.3, and 0.1.2's defects) are in [its own section](#wakecodexqnt-checked). "States"
@@ -241,7 +241,7 @@ TLC found the cases below.
 | `PollBeforeStranded` | as `Poll` | `NoneStranded` | violated (`strandedBeforeTest`) | 123 | 6 |
 | `WebhookBeforeB1`, `WebhookBeforeB1Cursor` | webhook, 2 events, clock 0 to 3, 1 session, 2 deliveries, constrained to runs with no forger, crash, close, lapse, loss or hand-over | `NoAckBeforeStore`; `CursorSafe` | violated (`refusedAsOldBeforeTest`, B1) | 403,642; 416,514 | 17; 17 |
 
-**0.6.0, P3 of the security review, found:**
+**0.6.0, one mailbox for the project's watches:**
 
 | Configuration | Bounds | Invariant | Result | States | Depth |
 | --- | --- | --- | --- | --- | --- |
@@ -253,7 +253,7 @@ scenario's fault, by the same steps or fewer.
 
 ### What TLC found in 0.5.0's models, and what 0.5.1 changed
 
-On 0.5.0's models (24 November 2026) TLC found three cases that random simulation had not
+On 0.5.0's models TLC found three cases that random simulation had not
 reached (the runs below; of 300 random runs of `wake.qnt` from `init`, of up to 40 steps, not
 one reached the notice at all). Each was replayed as a Quint scenario on that model, and Quint
 reproduced it. Two were in the code too, by reading, and 0.5.1 fixes them; the third was in the
@@ -313,7 +313,7 @@ Against 0.4.1 (`initBefore` and the per-mode `...Before` inits), each a scenario
 Random simulation of 0.4.1 found the first three of `delivery.qnt` within seconds; it did not
 find the fourth in 10,000 runs of up to 50 steps, which is why every case is also a scenario.
 
-Against 0.5.0's models (`quint run`, 24 November 2026): in 20,000 runs of up to 60 steps each,
+Against 0.5.0's models (`quint run`): in 20,000 runs of up to 60 steps each,
 `Safety` (all five invariants) held for poll, push and webhook through an honest relay, and
 `AtMostOnce` and `NothingForged` held with the lying relay; `StrictAtMostOnce` was broken, by
 the documented case. In 30,000 runs of `wake.qnt` of up to 40 steps, none of the three wake
@@ -361,7 +361,7 @@ still holds with it.
 
 `init` is 0.1.3, the session reachable or not. `initUnrecorded` is 0.1.2: no record of the
 hand-over, a timeout a failure like any other, and a notice whose `codex queue` failed still kept
-as handed over. `initBefore` is 0.1.3 with CX1's fix (the security review) taken out: 0.1.0's rule,
+as handed over. `initBefore` is 0.1.3 with the allowlist of the person's triggers taken out: 0.1.0's rule,
 under which a call with no turn metadata, or with a trigger its denylist did not name, was the
 person's, and 0.1.0's pause, which lifted only on such a call. `initShortLift` is 0.1.3 with a
 pause that lifts after a quarter of an hour. In TLA+ the constants `ALLOW`, `LIFT` and `RECORD`
@@ -396,7 +396,7 @@ say which.
   `OnlyUnheardSkipped` allows skips its batch (its events are still stored, for `recent_events`).
   0.1.2 kept `NothingLost` by being at least once, and broke `Gap`, `WithinHour` and `AtMostOnce`
   for it ([below](#what-tlc-found-in-mcp-events-for-codex-012)).
-- **`NeverRetried`**, a documented limit (the review of 0.1.2): no `codex queue` is run for a
+- **`NeverRetried`**, a documented limit: no `codex queue` is run for a
   session after it answered "no rollout found". It does not hold, and is not meant to:
   `unwakeable` is kept in memory, so a new helper tries once more, and is refused again.
 
@@ -406,7 +406,7 @@ helper processes with the same session open, a second window (below); a `codex q
 than that is not modelled); a record that cannot be written (the batch is then not handed over);
 the retries' back-off and the timers (every step may come at any time instead); a batch of blank
 lines; a pause saved by a version before 0.1.1, with no `pausedAt` (it counts from when it is
-first read); `MCP_EVENTS_WAKES_PER_HOUR=0`. Taken as given, as the review does: Codex marks a turn
+first read); `MCP_EVENTS_WAKES_PER_HOUR=0`. Taken as given: Codex marks a turn
 it started from the queue `queue`, never one of the person's triggers, and neither the model nor a
 hook can set `_meta`; a `codex queue` that answers that it failed did not queue the message.
 
@@ -417,7 +417,7 @@ budget from disk. The code makes the second window's helper fit that, and its te
 over reads `wakes.json` again first (`WakeBudget.reload` in `ThreadSession.start`), as does its
 event store before giving an id. Before 0.1.5 a takeover went by what it had read when it first
 saw the session, and handed a recorded batch over again; and the person's call in the other window
-saved that stale count over the record (the review's EVH1). Each test fails on 0.1.3.
+saved that stale count over the record. Each test fails on 0.1.3.
 
 ### `wakeCodex.qnt`, checked
 
@@ -444,8 +444,7 @@ the hour's wakes times the gap lets more wakes into an hour; the code's lift is 
   die between `codex queue` taking a batch and the helper hearing so. A run under it says nothing
   about that step. No 0.1.3 configuration uses it.
 
-TLC 1.7.4 on Homebrew OpenJDK 23, one worker, 24 November 2026 (the counts do not depend on the
-Java):
+TLC 1.7.4 on OpenJDK 23, one worker (the counts do not depend on the Java):
 
 | Configuration | Bounds | Invariants | Result | States | Depth |
 | --- | --- | --- | --- | --- | --- |
@@ -456,7 +455,7 @@ Java):
 | `WakeCodexStale` | as `WakeCodexHour` | `NoStalePause` | violated: [found in 0.1.2](#what-tlc-found-in-mcp-events-for-codex-012) | 4,422 | 16 |
 | `WakeCodexSkipped` | 0.1.3; as `WakeCodexHour` | `NothingLost` | violated, as documented (at most once) | 31 | 4 |
 | `WakeCodexRetried` | 0.1.3; as `WakeCodexHour` | `NeverRetried` | violated, as documented | 192 | 7 |
-| `WakeCodexBefore`, `WakeCodexBeforeHour` | 0.1.3 with CX1's fix taken out; as `WakeCodexHour` | `OnlyThePerson`; `WithinHour` | violated (`deniedBeforeTest`) | 65; 21,827 | 5; 15 |
+| `WakeCodexBefore`, `WakeCodexBeforeHour` | 0.1.3 with 0.1.0's rule and pause; as `WakeCodexHour` | `OnlyThePerson`; `WithinHour` | violated (`deniedBeforeTest`) | 65; 21,827 | 5; 15 |
 | `WakeCodexShortLift` | 0.1.3 with the pause lifting after a quarter of an hour; as `WakeCodexHour` | `WithinHour` | violated (`shortLiftTest`) | 58,560 | 18 |
 
 0.1.2's configurations must find its defects again, so that the check is seen to need what 0.1.3
@@ -464,8 +463,8 @@ changed. `WakeCodexStale`'s trace (16 states) is two wakes, the notice's `codex 
 and the helper restarting: it starts paused, though the session was never told; with the person
 writing in between (`staleNoticeTest`) their message is passed over too. `WakeCodexSkipped`'s
 (4 states) is a batch whose `codex queue` timed out: counted as handed over, and never shown.
-The last three must find a violation so that the check is seen to need what CX1 fixed and the
-lift's length. `WakeCodexBefore`'s trace is CX1 as the review found it, in 5 states: a first
+The last three must find a violation so that the check is seen to need the allowlist and the
+lift's length. `WakeCodexBefore`'s trace, in 5 states: a first
 wake counted (here after a timeout), then a call from a turn the person did not start, with no
 turn metadata (or a `hook` trigger), starts the hour again. `WakeCodexBeforeHour`'s (15 states): two wakes, such a
 call, and a third wake at once. `WakeCodexShortLift`'s (18 states): two wakes, the notice, the

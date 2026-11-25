@@ -188,9 +188,7 @@ model:
 - **Chrome for Testing,** if you accept the download, comes from Google over
   HTTPS with no digest or signature check of the archive. It is updated daily
   without asking again.
-- **Windows** hasn't been used in a real Claude Code session yet.
-
-[docs/DESIGN.md](docs/DESIGN.md) describes the isolation in detail.
+- **Windows.** Not checked in a Claude Code session yet.
 
 ## Reporting
 

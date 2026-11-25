@@ -9,10 +9,9 @@ the same revision as the Claude Code and Codex forms.
 client ([`../../core`](../../core)), which this form bundles unchanged.** The
 clause-by-clause table, with the code and the test for each of the 86
 client-side clauses, is the Claude Code form's
-[`docs/conformance.md`](../../claude-code/docs/conformance.md). Its tests, its
-run of the upstream conformance suite (17 of 17 Events client scenarios) and
-the interop runs in the Codex form's [`docs/interop.md`](../../codex/docs/interop.md)
-drive that same client. The result there holds here: **with
+[`docs/conformance.md`](../../claude-code/docs/conformance.md). Its tests and
+its result in the upstream conformance suite (17 of 17 Events client
+scenarios) are for that same client. The result there holds here: **with
 `MCP_EVENTS_PRE_STANDARD=off`, 80 met and 6 not applicable; by default 78
 met, 2 met with a documented exception (CAP-2 and CAP-4), 6 not applicable,
 none missing.**
@@ -23,9 +22,8 @@ real OpenCode, and what is different in OpenCode.
 ## Checked end to end in this form
 
 [`test/e2e.test.ts`](../test/e2e.test.ts) runs the bundled plugin in OpenCode
-2.4.1, in a throwaway home, against the Claude Code form's fixture events
-server (written from the SEP, sharing no code with the client), with a scripted
-model.
+2.4.1, against the Claude Code form's fixture events server (written from the
+SEP, sharing no code with the client).
 
 | Clauses | What | Test |
 |---|---|---|
@@ -38,10 +36,10 @@ model.
 | SEC-3 | receipt is not authorization: watches are put to OpenCode's permission rules, and ask by default | "a watch is put to OpenCode's permission rules", "asks by default" |
 | (sign-in) | a server that needs a sign-in this client can't do is named, and its configured header never shows | "a server that needs a sign-in" |
 
-Live, with a real model ([`live-run.md`](../../../../tools/opencode/live-run.md)):
-AgentPolyfill's public event-feeds server by poll, and a webhook through the
-public relay, each waking an idle session; and, against the fixture server,
-an event waking a session in OpenCode's TUI and in OpenCode Desktop.
+Also checked in OpenCode 2.4.1: AgentPolyfill's public event-feeds server by
+poll, and a webhook through the public relay, each waking an idle session;
+and, against the fixture server, an event waking a session in OpenCode's TUI
+and in OpenCode Desktop.
 
 ## Different in OpenCode
 
@@ -59,7 +57,7 @@ an event waking a session in OpenCode's TUI and in OpenCode Desktop.
 Events itself: its client takes push events for its automations, which can
 start a prompt in a session. It doesn't poll, take webhooks, or watch for a
 session, and it skips an event type whose schemas it can't turn into a checker
-(it skipped both of the fixture server's types, valid under the SEP). A plugin
+(it skips both of the fixture server's types, valid under the SEP). A plugin
 can't ask which types OpenCode accepts. So this plugin keeps its own client for
 every event type, push included, and when it lists event types or watches one
 by push it tells the model that an automation is the other way, and to use one
@@ -68,8 +66,7 @@ only says so. `MCP_EVENTS_OFF=1` turns the plugin off.
 
 OpenCode Console, for a signed-in workspace, has `console_watch` tools that can
 also wake a session on events of the workspace's MCP servers on Console. They
-weren't tried here (they need a Console sign-in); the plugin doesn't look for
-them.
+aren't checked here; the plugin doesn't look for them.
 
 ## The upstream conformance suite
 

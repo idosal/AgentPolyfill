@@ -190,7 +190,7 @@ allows that), so treat the folder as you treat your Codex home.
 
 ## Full access
 
-`--dangerously-bypass-approvals-and-sandbox` wasn't run. From Codex 0.172's
+Not checked with `--dangerously-bypass-approvals-and-sandbox`. From Codex 0.172's
 source (`codex-mcp/src/elicitation.rs`), under the approval policy it sets:
 
 - a form with fields is declined, unless Codex's "full-access form input" is

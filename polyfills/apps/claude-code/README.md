@@ -58,8 +58,8 @@ You need:
   a mod, Claude Code's plugin hooks module.
 - **macOS** (Apple Silicon or Intel), **Linux** (x64 or Arm64, any
   distribution) or **Windows** x64. Windows is new: its helper passes the same
-  checks on GitHub's Windows machines, but it hasn't yet been used in a Claude
-  Code session on Windows, so please report what you see.
+  checks in CI on Windows. Not checked in a Claude Code session on Windows, so
+  please report what you see.
 - **Chrome**, or another Chromium-based browser (Edge, Chromium, Brave). Views
   run in a headless copy of it. If none is installed, the plugin offers, once,
   to download Chrome for Testing's headless shell from Google (about 100 MB,
@@ -126,8 +126,6 @@ an MCP tool, the hooks start a helper for the session (`helper-rs/`, a Rust
 binary, 8–10 MB). The helper reads the app's UI from its server, runs it in
 headless Chrome behind an MCP Apps host page, and streams it back as pictures
 or cells. Your clicks and keys go the other way.
-[`docs/DESIGN.md`](docs/DESIGN.md) has the details and measurements, and
-[`helper-rs/PORT.md`](helper-rs/PORT.md) covers the helper.
 
 ## Settings
 
@@ -182,9 +180,8 @@ Or remove it with `claude plugin uninstall mcp-apps-cli@agent-polyfill`.
   and never used sleeps after 10 minutes.
 - **Cells** are one character each, so wide characters show as `?`.
 
-[`docs/DESIGN.md`](docs/DESIGN.md) lists the rest, with what Claude Code
-could add to remove each. [What hosts would need to change](../../../docs/host-changes.md)
-also covers what Apps needs from a host.
+[What hosts would need to change](../../../docs/host-changes.md) covers what
+Apps needs from a host.
 
 ## Security
 
@@ -263,7 +260,6 @@ try a local build, run `claude --plugin-dir mod`.
 
 Releases are built on GitHub Actions
 ([`mcp-apps-cli-release.yml`](../../../.github/workflows/mcp-apps-cli-release.yml)).
-See [Packaging and releasing](docs/DESIGN.md#packaging-and-releasing).
 
 ## Licence
 

@@ -29,13 +29,13 @@ the fixture events server, and the upstream suite's run through it.
 | PUSH-1, STATE-1, DEDUP-1 | one `events/stream` per watch; the client's own registry; dedup by eventId; the wake through `session.send` as an automation turn | `test/spec-test.ts` "PUSH-1, STATE-1, DEDUP-1" |
 | PUSH-2 | unwatch cancels the stream | `test/spec-test.ts` "PUSH-2" |
 | POLL-1, POLL-2, POLL-5 | polled at the recommended interval, with the cursor passed back | `test/spec-test.ts` "POLL-1, POLL-2, POLL-5" |
-| STATE-1, PUSH-11 | a resumed session's watch starts again by itself, from the saved cursor; what came meanwhile arrives once | `test/spec-test.ts` "STATE-1, PUSH-11"; live: [`live-run.md`](live-run.md) "Resumed" |
+| STATE-1, PUSH-11 | a resumed session's watch starts again by itself, from the saved cursor; what came meanwhile arrives once | `test/spec-test.ts` "STATE-1, PUSH-11" |
 | WH-1, WH-12, RX-1, RX-7 | a fresh `whsec_` secret per subscription; only signed deliveries taken; https except on loopback for tests | `test/spec-test.ts` "WH-1, WH-12 (dev), RX-1, RX-7" |
 | WH (no address) | a webhook-only type with no public address is refused, with the choices | `test/spec-test.ts` "a webhook-only event type with no public address" |
 | SEC-1, SEC-2 | payloads reach the model only as tool results; the wake carries no server text | `test/spec-test.ts` "SEC-1, SEC-2" |
 | SEC-2 | an event type named with a sentence is watched, but its name stays out of the wake | `test/spec-test.ts` "SEC-2: an event type whose name is a sentence" |
-| PUSH-14 | a subscription the server ends is removed, and the session told | interop: hookbench "termination" ([`interop.md`](interop.md)) |
-| RH-1, RH-4 | `Mcp-Name` and `Mcp-Param-*` on Streamable HTTP | interop: hookbench "routing headers" |
+| PUSH-14 | a subscription the server ends is removed, and the session told | `test/interop/run.ts` hookbench "termination" |
+| RH-1, RH-4 | `Mcp-Name` and `Mcp-Param-*` on Streamable HTTP | `test/interop/run.ts` hookbench "routing headers" |
 
 ## What is different in Copilot
 
@@ -67,38 +67,40 @@ Tests are in `test/extension-test.ts` and `test/units-test.ts`.
   and note; only **Watch it** starts it. Declined, closed, or where Copilot
   can't ask (`copilot -p`): no watch, and the server is sent nothing. A watch
   the question can't show whole is refused before anyone is asked.
-  `MCP_EVENTS_ASK_BY_DEFAULT=0` leaves it to Copilot's rules. Four tests, and
-  the live run in the TUI.
+  `MCP_EVENTS_ASK_BY_DEFAULT=0` leaves it to Copilot's rules. Four tests.
 - **Stand-down.** `MCP_EVENTS_OFF=1` joins the session with no tools and no
   hooks.
 
-Run with `npm test` on 25 November 2026 (Node 22.23.1): **49 tests**, none
-failed: `spec-test.ts` (SEP rules end to end), `extension-test.ts` (joining,
-waking, two processes, which servers), `units-test.ts` and `plugin-test.ts`
-(the installed folder and its one import).
+`npm test` runs **49 tests**: `spec-test.ts` (SEP rules end to end),
+`extension-test.ts` (joining, waking, two processes, which servers),
+`units-test.ts` and `plugin-test.ts` (the installed folder and its one
+import).
 
 ## The upstream conformance suite
 
 The official Events client scenarios are in the conformance suite's open pull
 request
 [modelcontextprotocol/conformance#541](https://github.com/modelcontextprotocol/conformance/pull/541),
-at its head `c8625de3118c2d5dc0561696cddeb0baaf124f2c`, the commit the other
-forms ran. `test/conformance-driver.ts` is what the suite starts as the client:
-the bundled extension with a throwaway `COPILOT_HOME` whose `mcp-config.json`
-names the suite's server, driven as the model would (`list_event_types`, then
-`watch_event` for every type), ended with SIGTERM as Copilot ends it.
+at its head `c8625de3118c2d5dc0561696cddeb0baaf124f2c`, the same commit as
+the other forms. `test/conformance-driver.ts` is what the suite starts as the
+client: the bundled extension with a `COPILOT_HOME` of its own whose
+`mcp-config.json` names the suite's server, driven as the model would
+(`list_event_types`, then `watch_event` for every type), ended with SIGTERM as
+Copilot ends it.
 
-Run on 25 November 2026, macOS, Node 22.23, the suite installed with
-`npm ci --ignore-scripts`:
+To run it, check the suite out at that commit, install it with
+`npm ci --ignore-scripts`, and:
 
 ```
 MCP_CONFORMANCE_SUITE_DIR=<suite checkout> npm run conformance
-events-client-no-extension   Passed: 1/1, 0 failed, 0 warnings
-events-client-poll           Passed: 10/10, 0 failed, 0 warnings
-events-client-push           Passed: 3/3, 0 failed, 0 warnings
-events-client-webhook        Passed: 3/3, 0 failed, 0 warnings
-[driver] extension (end to end): all 4 scenarios passed
 ```
+
+| Scenario | Checks | Met |
+|---|---|---|
+| `events-client-no-extension` | 1 | 1 |
+| `events-client-poll` | 10 | 10 |
+| `events-client-push` | 3 | 3 |
+| `events-client-webhook` | 3 | 3 |
 
 17 of 17 checks. **The one allowance**, as in the other forms: in the webhook
 scenario the suite's stand-in server is plain http on this machine and asks

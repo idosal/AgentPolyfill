@@ -27,21 +27,17 @@ in the row.
 - `rules`: [`test/client-rules-test.ts`](../test/client-rules-test.ts), the
   extension's App against a hand-written server that shares no code with it
   (`npm test`, 38 tests).
-- `hardening`: [`test/hardening-test.ts`](../test/hardening-test.ts), from the
-  security review: what was shown against what is loaded, loads asked for at
-  once, cancelled calls, a server's media type, control characters, secrets,
-  a `skills/get` answer that can't be used (`npm test`, 9 tests).
+- `hardening`: [`test/hardening-test.ts`](../test/hardening-test.ts): what
+  was shown against what is loaded, loads asked for at once, cancelled calls,
+  a server's media type, control characters, secrets, a `skills/get` answer
+  that can't be used (`npm test`, 9 tests).
 - `pi`: [`test/pi-test.ts`](../test/pi-test.ts), the extension in a real Pi
-  1.6.0 in RPC mode, with a scripted model and its own agent folder and home
-  (`npm test`, 8 tests).
+  1.6.0 (`npm test`, 8 tests).
 - `connection`: [`test/connection-test.ts`](../test/connection-test.ts), a
   server behind a token and one behind OAuth (`npm test`).
 - `conformance`: the official MCP conformance suite's four SEP-2640 client
   scenarios, run against the extension's App with
-  [`test/conformance/run.sh`](../test/conformance/run.sh)
-  ([output](evidence/conformance.txt)).
-- `live`: a real Pi and a real model against Hugging Face's public server
-  ([`live-run.md`](live-run.md)).
+  [`test/conformance/run.sh`](../test/conformance/run.sh).
 
 The logic of the rules (entries, verification, the held entry, limits) is the
 shared core, [`../core/src/skills.ts`](../../core/src/skills.ts), which the
@@ -94,7 +90,7 @@ extension adds.
 | D1 | A read of a `SKILL.md` by another route is not a load. | met | Only `load_skill` loads. Pi reading the stub (its `read` tool, or `/skill:`), or Pi's own `read_mcp_resource`, loads nothing and opens nothing; the stub's body says to call `load_skill`. `rules` D1/V4; `pi` "/skill: loads it after the user approves it" |
 | D2 | Return such content as an ordinary resource read. | met | The extension does not touch Pi's resource tool's results |
 | D3 | Relative references resolve against the skill's root. | met | `rules` D3 |
-| V1, V2 | Verify each file against its digest; never use unverified content. | met | `rules` E2/V1/V2; `conformance` verify-digest; `live` (two skills, two reference files, each matched its digest) |
+| V1, V2 | Verify each file against its digest; never use unverified content. | met | `rules` E2/V1/V2; `conformance` verify-digest |
 | V3 | Recover from staleness with `skills/get`. | met | Pi lists a server once, at the start, so each load first reads the entry with `skills/get`, and the person is asked about it as it is now. A server whose `skills/get` answer can't be used is taken at its listing's word, for a skill it listed; the load is held to that entry. `rules` V3; `hardening` (the `skills/get` fallback) |
 | V4 | While acting on a skill, resolve its files only to the held entry's URIs. | met | `read_skill_file` resolves against the entry loaded in this session. Pi's own `read_mcp_resource` (on a server you set to `"exposure": "direct"`) is refused, through Pi's `tool_call` hook, for a file under a loaded skill's root, and points the model to `read_skill_file`. `rules` D1/V4, V4/V5/Y1/Y3; `pi` V4 |
 | V5 | A read of an unlisted file is a verification failure. | met | Not requested at all. `rules` V4/V5/Y1/Y3 |
@@ -121,7 +117,7 @@ extension adds.
 | R3 | A nested `SKILL.md` read as a file is plain text. | met | `rules` X10/R3 |
 | R4, X12 | A nested skill needs its own consent. | met | Asked about on its own, and the question says it is nested. `rules` R4/X12 |
 | X13a | Show the origin server. | met | Everywhere |
-| X13b | Let users inspect a skill before it is loaded. | met | "Show me its SKILL.md first" in the question; shown to you, not to the model. What is loaded is held to what you were shown: a skill with digests by them, and a generated skill, which has none, is loaded from that same read. Loads asked for at once (a codemode script runs its calls in parallel) are taken one after another, so each showing is the one its load follows. `rules` X13; `hardening`; `live` (shown first, then loaded) |
+| X13b | Let users inspect a skill before it is loaded. | met | "Show me its SKILL.md first" in the question; shown to you, not to the model. What is loaded is held to what you were shown: a skill with digests by them, and a generated skill, which has none, is loaded from that same read. Loads asked for at once (a codemode script runs its calls in parallel) are taken one after another, so each showing is the one its load follows. `rules` X13; `hardening` |
 | X13c | MAY gate loading per skill. | met | Always |
 | X14 | A kept approval is bound to every `uri` and `digest`, revoked when they change; a `"dynamic"` skill cannot be covered. | met | Also bound to where the server is. What is loaded is the set you were asked about. `rules` X14 (two tests) |
 | X15 | A disk cache: integrity, outside every skill-discovery path, origin kept. | met | No skill content is cached on disk. The stubs, which Pi reads as a skill folder, hold the listing's name and description and the extension's own words, and are rewritten from the server's listing at each start. `rules` X15 |

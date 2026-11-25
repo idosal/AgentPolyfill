@@ -21,10 +21,10 @@ against that same code.
 **Where a rule is checked:** `shared` (the Claude Code form's `mod/tests`, and
 for fetching the Codex form's `test/adapter.test.ts`), `e2e`
 ([`test/e2e.test.ts`](../test/e2e.test.ts): the bundled plugin in OpenCode
-2.4.1, in a throwaway home, against a local web with a catalog, cards and a
-small MCP server), `units` ([`test/units.test.ts`](../test/units.test.ts)), and
-`live` (a real model and neon.com's catalog,
-[`live-run.md`](../../../../tools/opencode/live-run.md)).
+2.4.1, against a local web with a catalog, cards and a small MCP server), and
+`units` ([`test/units.test.ts`](../test/units.test.ts)).
+
+Also checked in OpenCode 2.4.1 against neon.com's catalog.
 
 **Summary:** 28 rules. 26 met, 1 met with a stated exception (I-4), 1 not met
 (S-3). S-3 (a SHOULD: check a card against the live server) needs a change in
@@ -34,7 +34,7 @@ OpenCode.
 
 | # | Rule | State | How, and where checked |
 |---|---|---|---|
-| D-1 | Attempt `https://{domain}/.well-known/ai-catalog.json` | met | `shared`; `e2e`; `live` |
+| D-1 | Attempt `https://{domain}/.well-known/ai-catalog.json` | met | `shared`; `e2e` |
 | D-2 | Honour `rel="ai-catalog"` links | met | `shared` |
 | D-3 | Select entries of type `application/mcp-server-card+json` | met | `shared`; `e2e` |
 | D-4 | Fetch a `url` entry's card with `Accept: application/mcp-server-card+json` | met | `shared` |
@@ -61,7 +61,7 @@ OpenCode.
 | # | Rule | State | How, and where checked |
 |---|---|---|---|
 | P-1 | Never replace a server the person has | met | A name OpenCode's configuration has, from any source, is refused before the question and again after. `e2e` |
-| P-2 | A person approves every addition | met | Put to OpenCode's rules as `mcp_server_cards_add` on `<name>=<url>`, nothing saved, and asked by default: the plugin turns OpenCode's default `allow` into `ask` for its own two actions. A configured `deny` is final; nobody present is a no. With `askByDefault: false`, OpenCode's rules alone decide. `e2e` ("an add is put to OpenCode's permission rules", "asks by default"); `live` |
+| P-2 | A person approves every addition | met | Put to OpenCode's rules as `mcp_server_cards_add` on `<name>=<url>`, nothing saved, and asked by default: the plugin turns OpenCode's default `allow` into `ask` for its own two actions. A configured `deny` is final; nobody present is a no. With `askByDefault: false`, OpenCode's rules alone decide. `e2e` ("an add is put to OpenCode's permission rules", "asks by default") |
 | P-3 | Add only what was shown, as shown | met | A card a discovery showed in this session, at the URL it yields. `e2e` |
 
 ## Caching, transport and trust

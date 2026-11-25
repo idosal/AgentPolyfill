@@ -54,7 +54,7 @@ const RUNS = [
   ["PollBeforeStranded.cfg", "MCDelivery.tla", "NoneStranded"],
   ["WebhookBeforeB1.cfg", "MCDelivery.tla", "NoAckBeforeStore"],
   ["WebhookBeforeB1Cursor.cfg", "MCDelivery.tla", "CursorSafe"],
-  // 0.6.0, P3: one mailbox for a project's watches.
+  // 0.6.0: one mailbox for a project's watches.
   ["RelayShared.cfg", "Relay.tla", "NoCrossRefusal"],
   // wakeCodex.qnt, mcp-events for Codex 0.1.3 (README.md, "wakeCodex.qnt").
   ["WakeCodexKept.cfg", "MCWakeCodex.tla", "holds"],
@@ -71,7 +71,7 @@ const RUNS = [
   // counted as handed over); a session codex queue cannot reach is tried once more by a new helper.
   ["WakeCodexSkipped.cfg", "MCWakeCodex.tla", "NothingLost"],
   ["WakeCodexRetried.cfg", "MCWakeCodex.tla", "NeverRetried"],
-  // CX1's fix taken out, and a pause that lifts too soon: the check must see what each is for.
+  // 0.1.0's rule and pause, and a pause that lifts too soon: the check must see what each is for.
   ["WakeCodexBefore.cfg", "MCWakeCodex.tla", "OnlyThePerson"],
   ["WakeCodexBeforeHour.cfg", "MCWakeCodex.tla", "WithinHour"],
   ["WakeCodexShortLift.cfg", "MCWakeCodex.tla", "WithinHour"],

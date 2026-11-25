@@ -56,9 +56,9 @@ and the plugin adds no policy of its own beyond asking you.
   - **Who decides:** you, in the form, which names the server, the URL, the
     headers, the file and the undo command, with a required choice whose first
     option is **Don't add it**.
-  - **Where nobody can be asked,** Copilot declines the form. Seen in
-    `copilot -p` with `--allow-all-tools` and with `--yolo`: allowing tools
-    doesn't answer a form.
+  - **Where nobody can be asked,** Copilot declines the form. Checked in
+    Copilot CLI 1.0.115, in `copilot -p` with `--allow-all-tools` and with
+    `--yolo`: allowing tools doesn't answer a form.
   - **Copilot's modes and the form.** The form is the plugin's own question,
     not Copilot's tool prompt. In the interactive session, `--yolo`,
     `--allow-all-tools` and allow-all skip Copilot's tool prompt; whether
@@ -74,7 +74,7 @@ and the plugin adds no policy of its own beyond asking you.
     as taken.
   - **When `copilot mcp add` fails,** up to 600 characters of its error
     output go back to Copilot's model with the failure, so you can see why,
-    with the entry to add by hand. What 1.0.115 prints there was recorded
+    with the entry to add by hand. What 1.0.115 prints there was checked
     only for a name that exists (it names the server and how to remove it).
   - **Secrets:** never a value. A card's secret becomes a `${VAR}` reference,
     named for that card alone, which Copilot expands from its environment when

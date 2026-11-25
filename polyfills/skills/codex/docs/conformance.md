@@ -33,10 +33,9 @@ not met, X8, needs a change in Codex; the row says which.
   server spoken to as Codex speaks to it, its questions answered as Codex
   answers them.
 - `conformance`: the official MCP conformance suite's four SEP-2640 client
-  scenarios ([output](evidence/conformance.txt)).
+  scenarios ([`test/conformance/run.sh`](../test/conformance/run.sh)).
 - `real`: every skill and file of Hugging Face's public server
-  ([output](evidence/interop-real.txt)).
-- `live`: a real Codex session ([`live/`](../live/)).
+  (`npm run interop:real`).
 
 The logic of the rules (entries, verification, the held entry, limits) is the
 shared core, [`../core/src/skills.ts`](../../core/src/skills.ts), which the
@@ -105,7 +104,7 @@ adapter adds.
 
 | Id | Rule | Status | How, and where checked |
 |---|---|---|---|
-| X1 | Treat served skill content as untrusted input. | met | Fenced with a marker made per answer. A skill or file URI holding anything but printable ASCII is refused (control characters from 0.1.1, the rest from 0.1.2; security review SK1, SK4); descriptions lose every default-ignorable code point; the SKILL.md shown to you before a load has control characters removed and each run of hidden (default-ignorable) characters shown with its count (SK6), between marker lines with a per-preview id, each of its lines marked (SK5); a loaded skill or file that holds hidden characters tells the model how many (SK6). `rules` X1/X3/X4, `unsafe` |
+| X1 | Treat served skill content as untrusted input. | met | Fenced with a marker made per answer. A skill or file URI holding anything but printable ASCII is refused (control characters from 0.1.1, the rest from 0.1.2); descriptions lose every default-ignorable code point; the SKILL.md shown to you before a load has control characters removed and each run of hidden (default-ignorable) characters shown with its count, between marker lines with a per-preview id, each of its lines marked; a loaded skill or file that holds hidden characters tells the model how many. `rules` X1/X3/X4, `unsafe` |
 | X2 | Treat served skills as a higher-risk surface than tools. | met | A skill needs your own yes before anything of it is fetched |
 | X3, X4 | Tag content with its server; never present it as a local skill. | met | The stub's description and body, the question, the loaded text and every file say which server. `rules` X1/X3/X4 |
 | X5 | No host-side code execution from a served skill without explicit per-skill approval: (a) declarative fields ignored; (b) the gate applies to code execution while acting on the skill. | exception | (a) No frontmatter field has any effect, and none reaches a stub. (b) A skill is loaded only after you choose "Load it" in Codex's form (or approved it before, unchanged); with nobody to ask, it is not loaded. After the yes, commands go through Codex's approvals as for any skill. **Limit:** the plugin cannot gate Codex's tools itself, so a skill loaded with your yes is not held to more than your Codex approvals. `rules` X5, `helper` |
@@ -139,6 +138,6 @@ Not rules of the extension, but what makes the rules hold in Codex:
 
 | What | How, and where checked |
 |---|---|
-| The question is not answered by Codex in your place (in Codex 0.172's source, `codex-mcp/src/elicitation.rs`; full access not tried live) | A form with a required choice; only "Load it" in an accepted form counts. `helper` (decline, empty answer, unknown choice, error, no elicitation) |
+| The question is not answered by Codex in your place (in Codex 0.172's source, `codex-mcp/src/elicitation.rs`; not checked with full access) | A form with a required choice; only "Load it" in an accepted form counts. `helper` (decline, empty answer, unknown choice, error, no elicitation) |
 | It stands down when Codex declares the extension itself | The stubs are removed and the tools refuse. `helper` |
-| The installed folder runs on its own | `helper` (the bundle is what `src/` builds and imports nothing outside the folder), and a live install from the marketplace |
+| The installed folder runs on its own | `helper` (the bundle is what `src/` builds and imports nothing outside the folder), and [`test/install-test.ts`](../test/install-test.ts) |

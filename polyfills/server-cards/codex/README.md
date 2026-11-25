@@ -39,7 +39,7 @@ session afterwards.
 
 You need:
 
-- Codex CLI 0.170.0 or newer (tested with 0.170.0 and 0.172.0). Plugins are on
+- Codex CLI 0.170.0 or newer (checked in 0.170.0 and 0.172.0). Plugins are on
   by default.
 - Node.js 20 or newer on your `PATH`. The plugin is one JavaScript file with
   no dependencies, [`plugin/dist/server.mjs`](plugin/dist/server.mjs), which
@@ -69,9 +69,9 @@ run `codex mcp login buildkite` in a terminal.
    does neon.com publish?".
 2. **Codex calls `discover_mcp_servers`.** It reads the domain's
    `/.well-known/ai-catalog.json` and the `rel="ai-catalog"` links on its home
-   page, then fetches and checks each card. The tool is read-only. In the live
-   runs, Codex called it, and `add_mcp_server`, without an approval prompt of
-   its own: the plugin's form is the question.
+   page, then fetches and checks each card. The tool is read-only. Codex calls
+   it, and `add_mcp_server`, without an approval prompt of its own: the
+   plugin's form is the question. Checked in Codex CLI 0.172.0.
 3. **Codex tells you what it found:** each server's card, the URL it connects
    to, and whether the card is valid. A refused card says why, and nothing
    refused can be added.
@@ -136,12 +136,8 @@ run `codex mcp login buildkite` in a terminal.
 
 ### Which Codex modes ask you
 
-Checked live on 24 November 2026, with the plugin's server loaded and Neon
-Docs added to a throwaway `CODEX_HOME`. The first `codex exec` runs used Codex
-0.170.0, and the rest 0.172.0. "App-server" is the API the TUI and the desktop
-app run on. There, a client stood in for the person and answered after two
-seconds. The on-request, auto-review and bypass rows were checked again with
-the required-choice form.
+Checked in Codex CLI 0.172.0, and `codex exec` in 0.170.0 too. "App-server"
+is the API the TUI and the desktop app run on.
 
 | Mode | The form | What the plugin does |
 |---|---|---|
@@ -151,7 +147,7 @@ the required-choice form.
 | `--ask-for-approval never` | declined by Codex, without asking | nothing is written |
 | Granular approvals with `mcp_elicitations = false` | declined by Codex, without asking | nothing is written |
 | `codex exec`, with or without `--approve-for-me` | declined or closed by Codex (nobody to ask) | nothing is written |
-| `--dangerously-bypass-approvals-and-sandbox` (and its app-server form: `never` with full access) | shown to you where the client takes form input in that mode (seen: app-server, a user's thread, `openai/standard-form-input` declared); declined otherwise (seen: `codex exec`, and app-server without one of those) | adds only on your **Add it**; otherwise nothing is written. With the earlier empty form, Codex accepted it by itself in about 20 ms |
+| `--dangerously-bypass-approvals-and-sandbox` (and its app-server form: `never` with full access) | shown to you where the client takes form input in that mode (checked: app-server, a user's thread, `openai/standard-form-input` declared); declined otherwise (checked: `codex exec`, and app-server without one of those) | adds only on your **Add it**; otherwise nothing is written |
 
 The form is the consent. It is one required choice, **Don't add it** or
 **Add it**, and only **Add it** adds.
@@ -289,8 +285,8 @@ These are the rows where Codex differs:
 
 | # | Rule | Source | Test | State |
 |---|---|---|---|---|
-| P-1 | Never replace a server the person has | the polyfills' own (security review SC2) | E-6 | met: a name `codex mcp get` knows, or can't rule out, is refused before the person is asked, and again before writing |
-| P-2 | A person approves every addition | the polyfills' own (security review SC4) | E-3, E-4, E-11 | met: an MCP elicitation form naming the server, URL, headers, file and undo, with a required choice. Only **Add it** adds. No form, a decline, a close, or an accept without that choice adds nothing. Codex 0.172 doesn't answer such a form by itself, even under `--dangerously-bypass-approvals-and-sandbox`; see [Which Codex modes ask you](#which-codex-modes-ask-you) |
+| P-1 | Never replace a server the person has | the polyfills' own | E-6 | met: a name `codex mcp get` knows, or can't rule out, is refused before the person is asked, and again before writing |
+| P-2 | A person approves every addition | the polyfills' own | E-3, E-4, E-11 | met: an MCP elicitation form naming the server, URL, headers, file and undo, with a required choice. Only **Add it** adds. No form, a decline, a close, or an accept without that choice adds nothing. Codex 0.172 doesn't answer such a form by itself, even under `--dangerously-bypass-approvals-and-sandbox`; see [Which Codex modes ask you](#which-codex-modes-ask-you) |
 | P-3 | Add only what was shown, as shown | the polyfills' own | E-6 | met: a card a tool showed in this session, at the URL it yields |
 | I-2 | Handle `isSecret` values securely | schema.ts, `Input` | C-2, C-3, E-8 | met: an environment variable's name, never a value. A secret in a URL, or mixed into a header, is refused |
 | I-3 | Choose a remote by its `supportedProtocolVersions` | schema.ts, `Remote` | C-6 | met, with Codex's revisions |
@@ -298,7 +294,7 @@ These are the rows where Codex differs:
 | S-1 | HTTPS for cards; plain HTTP only for local development | discovery.md | F-1, F-3 | met, for every redirect hop too |
 | N-1 | No step from a public origin to a local or private address | the polyfills' own | F-1 | met for documents and, here, for redirects |
 | N-2 | Bounded answers | the polyfills' own | F-4, F-6 | 512 KiB per answer, read no further; five redirects |
-| V-3 | No text that displays as something else | the polyfills' own (security reviews SC1 and, for these forms, C1) | X-4, X-5, X-6, A-24, A-25, A-26, P-6, P-7, O-9, O-10, C-7, E-3, E-9, E-10 | met. Control and invisible characters are refused, and characters that show as nothing (a soft hyphen, variation selectors, tag characters) are taken out of everything shown, and a header value that would be written holding one is refused. A URL from a card or a finder also may hold no `` ` ``, `<`, `>` or square bracket outside an IPv6 host, so a host that renders the form as Markdown can't show a link text in place of the URL. This is in the shared core, so the Claude Code form has it too. A URL may not name a user before its host (`https://good.example@evil.example/`) or hold a backslash (`https://evil.example\@good.example/`). Either one shows one host and connects to another (C3), and the form names the host on its own line. A card's fixed header value holds no markup either (C4) |
+| V-3 | No text that displays as something else | the polyfills' own | X-4, X-5, X-6, A-24, A-25, A-26, P-6, P-7, O-9, O-10, C-7, E-3, E-9, E-10 | met. Control and invisible characters are refused, and characters that show as nothing (a soft hyphen, variation selectors, tag characters) are taken out of everything shown, and a header value that would be written holding one is refused. A URL from a card or a finder also may hold no `` ` ``, `<`, `>` or square bracket outside an IPv6 host, so a host that renders the form as Markdown can't show a link text in place of the URL. This is in the shared core, so the Claude Code form has it too. A URL may not name a user before its host (`https://good.example@evil.example/`) or hold a backslash (`https://evil.example\@good.example/`). Either one shows one host and connects to another, and the form names the host on its own line. A card's fixed header value holds no markup either |
 
 ### Proof
 
@@ -310,37 +306,10 @@ These are the rows where Codex differs:
     command and a web on 127.0.0.1.
   - 2 check the bundle: it is byte-identical to a fresh build, and a copy of
     `plugin/` alone starts and lists its tools.
-- **The real host,** 24 November 2026, with the user's own Codex login and the
-  plugin's server, and every add going to a throwaway `CODEX_HOME`:
-  - `codex exec` (0.170.0): `discover_mcp_servers` returned Neon and Neon Docs
-    for neon.com, and Buildkite for buildkite.com, all valid.
-  - Through app-server (0.172.0), as the TUI runs: the add of Neon Docs
-    (`https://neon.com/docs/mcp`) put the form to the client, which accepted
-    after two seconds. `codex mcp get neon-docs` then showed it, and
-    `codex mcp remove neon-docs` removed it.
-  - Each approval mode in the [table above](#which-codex-modes-ask-you), and
-    the on-request, auto-review and bypass ones again with the
-    required-choice form: the person's **Add it** came back through Codex and
-    added the server.
-  - Installed from this repository's marketplace into a throwaway
-    `CODEX_HOME` (`codex plugin marketplace add`,
-    `codex plugin add mcp-server-cards@agent-polyfill`): both servers started
-    and listed their tools.
-  - The sign-in step, with the real `codex mcp add` (0.172.0) against a local
-    server that advertises OAuth: the entry was in `config.toml` when
-    "Detected OAuth support" was printed, and the command was stopped before
-    any registration request.
-  - A live server that needs a sign-in, Buildkite, added the same way through
-    [`ard-discovery`](../../ard/codex/README.md#proof), which runs this add:
-    the entry was written, `codex mcp add` was stopped at its sign-in, and the
-    result said `codex mcp login buildkite`.
-- **Not yet run in the real host:** a live card with headers, and the form as
-  the TUI or the desktop app draws it. In these runs the client answering the
-  form was a script on app-server, the API both of them use. So the question
-  reached the client exactly as recorded, but how it looks on screen wasn't
-  seen. The headers path (`codex app-server` `config/value/write`) was checked
-  by hand against a throwaway `CODEX_HOME`, and is tested with the stand-in
-  `codex` (E-8). None of the live cards found has headers.
+- **The real host:** Checked in Codex CLI 0.170.0 and 0.172.0. Not checked: a
+  card with headers from a public server, and the form as the TUI or the
+  desktop app draws it. The headers path (`codex app-server`
+  `config/value/write`) is tested with the stand-in `codex` (E-8).
 - **Upstream conformance:** the MCP conformance suite has no Server Card
   scenarios.
 

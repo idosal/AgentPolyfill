@@ -304,9 +304,9 @@ rows where Codex differs.
 | D-9 | The same `identifier` names the same artifact | AI Catalog | D-6 | met |
 | V-1 | A card conforms to the schema: the v1 `$schema` URL, a reverse-DNS `name`, `version`, a `description` of 100 characters or fewer, remotes, inputs | schema.ts and schema.json | V-1 to V-5 | met: an invalid card is refused, never repaired |
 | V-2 | `version` is one version, not a range | schema.ts, `ServerCard.version` | V-3 | met (see Findings) |
-| P-1 | Never replace a server the person has | the polyfill's own, from the security review (SC2) | B-8, U-4 | met. For Claude's add, a name taken in any scope is refused. The picker uses the next free name and says so |
-| P-2 | A person approves every addition Claude asks for | the polyfill's own, from the security review (SC4, its re-check, and M1) | B-9, B-13, B-14, B-15 | met. A hook-made ask names the server, URL, headers, scope and undo. No rule or auto mode answers it, and it is refused with nobody to ask. Only Claude's own call is taken: a call from another plugin is refused, at the check and at the run. The add runs only for a call that was put to a person, and only as it was put (the same URL, scope and name). A check made before its card was shown is refused |
-| V-3 | No text that displays as something else | the polyfill's own, from the security review. SEP-2127 says cards are untrusted ("Clients MUST NOT treat Server Card contents as authoritative") | X-1, X-2, X-3, X-4, X-5, X-6, A-21, A-24, A-25, A-26, P-6, P-7, O-9, O-10, U-5 | A card is refused if any string in it, key or value, holds a C0 or C1 control, DEL, or an invisible format or bidirectional mark. A remote URL must be printable ASCII, with no `` ` ``, `<`, `>` or square brackets outside an IPv6 host, so Markdown or HTML can't show a link text in its place (security review of the Codex forms, C1). The same goes for the URL a variable fills in, `websiteUrl`, `repository.url`, card and registry URLs, and a hand-over's `listedIn`. None of them may name a user before the host (an `@`, as in `https://good.example@evil.example/`) or hold a backslash (`https://evil.example\@good.example/`). Either one shows one host and connects to another (C3). The picker shows the host on its own line, and Claude's add names it. Every value Claude gives is held to the same rules. Everything shown passes a plain-text filter, which also takes out characters that show as nothing (a soft hyphen, variation selectors, tag characters); those don't get a card refused, but a header value that would be written holding one is refused. A card carries no command or environment (remotes only), so none can reach `claude mcp add` that way |
+| P-1 | Never replace a server the person has | the polyfill's own | B-8, U-4 | met. For Claude's add, a name taken in any scope is refused. The picker uses the next free name and says so |
+| P-2 | A person approves every addition Claude asks for | the polyfill's own | B-9, B-13, B-14, B-15 | met. A hook-made ask names the server, URL, headers, scope and undo. No rule or auto mode answers it, and it is refused with nobody to ask. Only Claude's own call is taken: a call from another plugin is refused, at the check and at the run. The add runs only for a call that was put to a person, and only as it was put (the same URL, scope and name). A check made before its card was shown is refused |
+| V-3 | No text that displays as something else | the polyfill's own. SEP-2127 says cards are untrusted ("Clients MUST NOT treat Server Card contents as authoritative") | X-1, X-2, X-3, X-4, X-5, X-6, A-21, A-24, A-25, A-26, P-6, P-7, O-9, O-10, U-5 | A card is refused if any string in it, key or value, holds a C0 or C1 control, DEL, or an invisible format or bidirectional mark. A remote URL must be printable ASCII, with no `` ` ``, `<`, `>` or square brackets outside an IPv6 host, so Markdown or HTML can't show a link text in its place. The same goes for the URL a variable fills in, `websiteUrl`, `repository.url`, card and registry URLs, and a hand-over's `listedIn`. None of them may name a user before the host (an `@`, as in `https://good.example@evil.example/`) or hold a backslash (`https://evil.example\@good.example/`). Either one shows one host and connects to another. The picker shows the host on its own line, and Claude's add names it. Every value Claude gives is held to the same rules. Everything shown passes a plain-text filter, which also takes out characters that show as nothing (a soft hyphen, variation selectors, tag characters); those don't get a card refused, but a header value that would be written holding one is refused. A card carries no command or environment (remotes only), so none can reach `claude mcp add` that way |
 | C-1 | Respect `Cache-Control` | discovery.md, Caching and Denial of Service (SHOULD) | C-1, C-3 | met |
 | C-2 | Send the `ETag` back as `If-None-Match`, and accept `304` | discovery.md (SHOULD) | C-1, C-2, C-4 | met |
 | C-3 | Avoid unnecessary polling | discovery.md (SHOULD) | by design: fetches happen only for a tool call, or once per site per session after a WebFetch | met |
@@ -366,45 +366,28 @@ in this session. A URL is never taken from the conversation.
   - The picker is drawn on the terminal, desktop, VS Code and mobile
     surfaces, and a press of **Add** is followed to the exact `claude mcp add`
     it runs.
-- **Independent security review** for the launch (24 November 2026), by an AI
-  session, not a human audit. Its findings SC1 to SC7 are fixed and tested
-  (V-3, P-1, P-2, A-21 to A-23, X-1 to X-3). Its re-checks found narrow paths
-  around the SC4 ask, and those are fixed and tested too: a check made before
-  the card was shown (B-14), a call from another plugin (B-13), and a run
-  that differs from what was approved (B-15). B-13 tests that such a call is
+- **No audit by a person.** The polyfill was reviewed by an AI reviewer.
+- **A limit of one test:** B-13 tests that a call from another plugin is
   refused for coming from another plugin. The test kit gives such a call
   nobody to ask, so it can't show whether a real host would.
-- **Earlier reviews:** two read-only review rounds by a second agent (Codex),
-  on 2026-11-24. The first found 18 issues. The second checked the fixes and
-  found 9 incomplete and 7 more issues. All of them are fixed, and each has a
-  test: those marked "Review findings" and "Second review pass".
-- **Documents someone else wrote:** the catalogs and cards live on 2026-11-24
-  from Buildkite, GitHub, Hugging Face, Neon, Netlify, Notion, Context7, Exa,
-  Supabase and Zapier.
+- **Documents someone else wrote:** the catalogs and cards published on
+  2026-11-24 by Buildkite, GitHub, Hugging Face, Neon, Netlify, Notion,
+  Context7, Exa, Supabase and Zapier.
   - Ten of the eleven cards are valid. Zapier's is refused.
   - ajv, run with the official `schema.json`, gives the same verdict on all
     eleven.
   - Snapshots are in [`mod/tests/fixtures.ts`](mod/tests/fixtures.ts).
-- **The real host** (Claude Code 2.1.329 CLI, 2.1.330 engine):
-  - `discover_mcp_servers` returned the cards for buildkite.com,
-    huggingface.co, neon.com, and neon.tech (which redirects to neon.com).
-  - A subagent's WebFetch of a Buildkite docs page set off discovery of
-    buildkite.com.
-  - With `ard-discovery` loaded beside it, `present_server_cards` read
-    buildkite.com's `ard.json` for that plugin. It checked the results of two
-    registry searches against their publishers, and confirmed Netlify through
-    `netlify.com/.well-known/ard.json`.
-- **Not yet run in the real host:** adding a server end to end, by
-  `add_mcp_server` or by the picker's **Add**. Claude Code's auto-mode
-  permission check stopped the tool call, as it should for a configuration
-  change. A person pressing **Add**, or approving the call, is the run still
-  to record.
+- **Checked in Claude Code 2.1.329** (CLI, 2.1.330 engine):
+  `discover_mcp_servers`, discovery after a WebFetch, and
+  `present_server_cards` called by `ard-discovery`.
+- **Not checked in Claude Code:** adding a server end to end, by
+  `add_mcp_server` or by the picker's **Add**.
 - **Upstream conformance:** the MCP conformance suite has no Server Card
   scenarios (`modelcontextprotocol/conformance` at `96a6f9478b`).
 
 ### Findings to report upstream
 
-Found on 24 November 2026, and not yet reported:
+Not yet reported upstream:
 
 - **specVersion.** AI Catalog v0.9 says implementations of the release
   candidate use `"0.9"`, and that consumers "should not assume compatibility"

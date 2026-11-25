@@ -25,8 +25,7 @@ so it's a separate plugin, [`ard-discovery`](../../ard/copilot/README.md).
 
 ## Install
 
-From a clone of this repository (the install that was tested, on Copilot CLI
-1.0.115):
+From a clone of this repository (checked in Copilot CLI 1.0.115):
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
@@ -38,15 +37,13 @@ Copilot loads a plugin from a local marketplace where it is, without copying
 it, so keep the clone; `git pull` in it brings the next version.
 From GitHub, `copilot plugin marketplace add idosal/AgentPolyfill` adds the
 same marketplace (Copilot reads its `.github/plugin/marketplace.json`), and
-Copilot keeps its own copy. That was checked on 25 November 2026 with Copilot
-CLI 1.0.105, in an isolated home with no sign-in: the three plugins installed
-from GitHub, byte-identical to main, and loaded
-([the record](docs/live-run.md#installed-from-github)). It wasn't checked on
-1.0.115, in the interactive TUI, or in VS Code. Start a new Copilot session afterwards.
+Copilot keeps its own copy. Checked in Copilot CLI 1.0.105. Not checked in
+1.0.115, in the interactive TUI, or in VS Code. Start a new Copilot session
+afterwards.
 
 You need:
 
-- GitHub Copilot CLI 1.0.115 or newer (tested with 1.0.115). This plugin is an
+- GitHub Copilot CLI 1.0.115 or newer (checked in 1.0.115). This plugin is an
   MCP server in a plugin, so it needs **no** experimental mode.
 - Node.js 20 or newer on your `PATH`. The plugin is one JavaScript file with
   no dependencies, [`plugin/dist/server.mjs`](plugin/dist/server.mjs), which
@@ -119,7 +116,7 @@ plugin's form: choose **Add it**. Neon Docs needs no sign-in. Run
      up.
    - Where nobody can be asked (`copilot -p`), Copilot declines the form, so
      nothing is written. That holds with `--allow-all-tools` and with `--yolo`
-     (seen live): allowing tools doesn't answer a form.
+     (checked in Copilot CLI 1.0.115): allowing tools doesn't answer a form.
    - The plugin adds only a card a tool showed in this session, at the URL
      that card gives, and only if no server of that name exists
      (`copilot mcp get`, run in your session's folder so a project's servers
@@ -151,8 +148,8 @@ plugin's form: choose **Add it**. Neon Docs needs no sign-in. Run
 ### Copilot's own catalogue
 
 Copilot 1.0.115 has a discovery of its own, and its SDK's types say it accepts
-Server Cards; nothing of it was run. What was checked, in the runtime Copilot
-unpacks (in its cache folder, 25 November 2026):
+Server Cards. None of it was run. What the runtime Copilot 1.0.115 unpacks
+holds:
 
 - **A built-in skill, `discover-resources`** (`builtin-skills/discover-resources/SKILL.md`),
   whose `catalog_search` and `catalog_select` tools search a catalogue Copilot
@@ -162,13 +159,12 @@ unpacks (in its cache folder, 25 November 2026):
   returned, or from a card supplied by URL or as data. It accepts the Server
   Card media type, `application/mcp-server-card+json`.
 
-What wasn't seen: discovery from a domain, SEP-2127's way in. Neither the
+What it doesn't hold: discovery from a domain, SEP-2127's way in. Neither the
 runtime's JavaScript nor the SDK's types mention the AI Catalog or a
 `.well-known` path, and the skill sends a capability query, not a domain.
-Copilot's compiled core couldn't be searched as text, so that isn't proof.
-Not run: the skill wasn't listed by `copilot skill list` when signed out, and
-neither the skill nor the API was tried. Whether Copilot's install planning
-applies SEP-2127's rules to a card also wasn't checked.
+Copilot's compiled core can't be searched as text, so that isn't proof.
+Not checked: the skill and the API in use, and whether Copilot's install
+planning applies SEP-2127's rules to a card.
 
 So the two do different things: Copilot searches a catalogue for a task, and
 this plugin reads what a domain publishes. The plugin doesn't stand down for
@@ -234,14 +230,12 @@ for every host.
 - **A public name that resolves to a private address isn't caught,** because
   Node's `fetch` resolves names itself. Redirects are checked hop by hop.
 - **In VS Code, the form shows as one paragraph.** VS Code 1.147.0's Copilot
-  harness runs the plugin from the same `~/.copilot` (in the run, a throwaway
-  one: the user's real `~/.copilot` was neither read nor written), and an add
-  worked there ([the record](docs/live-run.md#in-vs-code)):
-  `add_mcp_server` stopped at VS Code's tool prompt, then VS Code showed the
+  harness runs the plugin from the same `~/.copilot`, and an add works there:
+  `add_mcp_server` stops at VS Code's tool prompt, then VS Code shows the
   plugin's form ("Your answer", the question, **Don't add it** first), and
-  **Add it** wrote the server. It runs the question's lines (server, URL,
-  headers, file, undo) together in one paragraph. VS Code's own chat (the
-  Local harness) has MCP elicitation too.
+  **Add it** writes the server. It runs the question's lines (server, URL,
+  headers, file, undo) together in one paragraph. Checked in VS Code 1.147.0.
+  VS Code's own chat (the Local harness) has MCP elicitation too.
 
 ## Security
 
@@ -278,12 +272,9 @@ names, secrets, headers, failure, stand-down and hidden characters. One rule
 isn't met, as in the other forms: S-3, the live comparison of a card with the
 server.
 
-In Copilot CLI 1.0.115 itself ([the record](docs/live-run.md)), the plugin was installed from a clone as a
-marketplace, found Neon and Neon Docs on neon.com, and after Copilot's tool
-prompt and **Add it** in the plugin's form, wrote `neon-docs` with
-`copilot mcp add`. In `copilot -p`, with `--yolo` too, Copilot declined the
-form and nothing was written. The MCP conformance suite has no Server Card
-scenarios, so there is no upstream run to report.
+Checked in Copilot CLI 1.0.115, installed from a clone as a marketplace. The
+MCP conformance suite has no Server Card scenarios, so there is no upstream
+run to report.
 
 ## Development
 

@@ -1,7 +1,7 @@
-// Tests written for the findings of the security review of 24 November 2026 that concern the
-// client: what is redacted (E3), what a relay may hand over (E4), which relay a saved mailbox key
-// is for (E5), and collecting again from a relay that sends what it holds once per connection.
-// The wake limit and the wake message (E1, E2) are in wake-test.ts; the relay's own are in mod/relay/test.
+// Tests of the client's hardening: what is redacted, what a relay may hand over, which relay a
+// saved mailbox key is for, and collecting again from a relay that sends what it holds once per
+// connection. The wake limit and the wake message are in wake-test.ts; the relay's own are in
+// mod/relay/test.
 
 import assert from 'node:assert/strict';
 import { readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -48,7 +48,7 @@ function fakeRelay(onMessage: (m: { t: string; n?: number; hook?: string; seqs?:
     return { socket, sent, connections: () => connections };
 }
 
-describe('E3: what a server sends back is not shown, wherever in the event it puts it', () => {
+describe('what a server sends back is not shown, wherever in the event it puts it', () => {
     test("a secret in an event's id is taken out of get_event and recent_events", async () => {
         const token = 'tok_live_9f8e7d6c5b4a3210';
         // A local server's environment values are among the secrets this process knows.
@@ -72,7 +72,7 @@ describe('E3: what a server sends back is not shown, wherever in the event it pu
     });
 });
 
-describe('E4: what a relay hands over is bounded here, not on its word', () => {
+describe('what a relay hands over is bounded here, not on its word', () => {
     test('a delivery over 256 KiB is refused however it arrived, correctly signed or not', async () => {
         const got: string[] = [];
         const hook: Hook = { secret: newSecret(), onEvent: (o: Occurrence) => void got.push(o.eventId) };
@@ -146,7 +146,7 @@ describe('E4: what a relay hands over is bounded here, not on its word', () => {
     });
 });
 
-describe('E5: a mailbox key is for the relay it was made for', () => {
+describe('a mailbox key is for the relay it was made for', () => {
     test('a saved key that does not say which relay it is for is not shown to any; one for another relay is not either', () => {
         const dir = temp();
         const file = join(dir, 'relay-mailbox.json');
@@ -162,7 +162,7 @@ describe('E5: a mailbox key is for the relay it was made for', () => {
     });
 });
 
-describe('P3: one mailbox per MCP server', () => {
+describe('one mailbox per MCP server', () => {
     test("each server has a mailbox key of its own; the project's key from before 0.7.0 is kept, for its relay, until it is dropped", () => {
         const dir = temp();
         const file = join(dir, 'relay-mailbox.json');

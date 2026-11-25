@@ -153,9 +153,6 @@ from an app always asks.
   never used sleeps after 10 minutes.
 - **Cells** are one character each: wide characters show as `?`.
 
-The design notes list the rest, with what Claude Code could add to remove each:
-[`docs/DESIGN.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/docs/DESIGN.md).
-
 ### In T3 Code
 
 [T3 Code](https://github.com/pingdotgg/t3code) shows MCP Apps itself, for
@@ -204,9 +201,8 @@ bounds, the server gate checked over every case, and property-based tests.
   requests that carry its per-session token, on a local endpoint only you can
   open.
 
-It has had no audit by a person. On 24 November 2026 an AI reviewer, outside the
-sessions that wrote the code, read it and ran reproductions; its findings, and
-where each stands, are listed in
+It has had no audit by a person. An AI reviewer that did not build it
+reviewed it; its findings, and where each stands, are listed in
 [`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md),
 with what isn't protected.
 

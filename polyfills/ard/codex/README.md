@@ -51,7 +51,7 @@ is enough, and `codex plugin list` shows it. Start a new Codex session
 afterwards. It works on its own. Installing
 [`mcp-server-cards`](../../server-cards/codex/README.md) beside it is optional.
 
-You need Codex CLI 0.170.0 or newer (tested with 0.170.0 and 0.172.0) and
+You need Codex CLI 0.170.0 or newer (checked in 0.170.0 and 0.172.0) and
 Node.js 20 or newer on your `PATH`. Nothing else: no account, no key.
 
 To remove it, run `codex plugin remove ard-discovery@agent-polyfill`.
@@ -243,11 +243,11 @@ the rows where Codex differs:
 |---|---|---|---|---|
 | Q-1 | Say where the query went | this plugin's own | A-1, A-5 | met: the tool's description names the registry, and every result names each one asked |
 | Q-2 | The person chooses the registry | this plugin's own | A-5, A-7 | met: none is set by default. A registry named in the request is used, or the one in `ARD_DISCOVERY_REGISTRY`. With neither, the search is refused before any form, and nothing is sent |
-| Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own (security review M2) | A-3, A-4, A-11 | met: a form naming the exact endpoints and the query, with a required choice. Only **Send the search** sends. Codex 0.172 doesn't answer such a form by itself, even under `--dangerously-bypass-approvals-and-sandbox` |
-| Q-4 | What is sent is what was shown | this plugin's own (security review R1, and C1 for markup) | A-6, A-9, A-12, A-13 | met: the query is at most 300 characters, on one line, with no invisible characters (tag characters among them) or direction marks, and no `` ` ``, `<`, `>` or square brackets. The registry, named or set, is at most 200 characters, with no spaces, control characters, invisible characters or direction marks |
+| Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own | A-3, A-4, A-11 | met: a form naming the exact endpoints and the query, with a required choice. Only **Send the search** sends. Codex 0.172 doesn't answer such a form by itself, even under `--dangerously-bypass-approvals-and-sandbox` |
+| Q-4 | What is sent is what was shown | this plugin's own | A-6, A-9, A-12, A-13 | met: the query is at most 300 characters, on one line, with no invisible characters (tag characters among them) or direction marks, and no `` ` ``, `<`, `>` or square brackets. The registry, named or set, is at most 200 characters, with no spaces, control characters, invisible characters or direction marks |
 | Q-5 | The query goes only where the form said | this plugin's own | mcp-server-cards F-5 | met: a redirect to another origin, or one that would turn the `POST` into a `GET`, isn't followed |
 | Q-6 | A registry's own words are shown as one line, with nothing hidden | this plugin's own | L-1 to L-4, A-14 | met: its error messages, the referrals it names, and each result's name and description are one line, capped, with control and invisible characters out. A result whose identifier holds one is skipped |
-| V-3 | No URL that displays as something else | the polyfills' own (security review C1) | A-8, A-10; mcp-server-cards X-4, X-5, P-6, P-7, O-9, O-10 (run here) | met: a result's card URL, its card's remote URL, a registry URL a catalog names, and where a result was found may hold no `` ` ``, `<`, `>` or square bracket outside an IPv6 host. Such a result is refused and never put in a form. Nor may they, or a registry the request names, name a user before the host (C3). A search to such a registry is refused before the form |
+| V-3 | No URL that displays as something else | the polyfills' own | A-8, A-10; mcp-server-cards X-4, X-5, P-6, P-7, O-9, O-10 (run here) | met: a result's card URL, its card's remote URL, a registry URL a catalog names, and where a result was found may hold no `` ` ``, `<`, `>` or square bracket outside an IPv6 host. Such a result is refused and never put in a form. Nor may they, or a registry the request names, name a user before the host. A search to such a registry is refused before the form |
 | D-1 | Domain discovery reads `ard.json`, which needs no `specVersion` | §5.1 | A-2 | met |
 | H-3 | A search result is confirmed only by its publisher's own catalog | the polyfills' own | mcp-server-cards O-2 to O-4, O-8 (run here) | met |
 
@@ -261,29 +261,8 @@ the rows where Codex differs:
     and a local registry on 127.0.0.1.
   - 2 bundle checks: it is byte-identical to a fresh build, and a copy of
     `plugin/` alone starts and lists its tools.
-- **The real host,** 24 November 2026, with the user's own Codex login, the
-  plugin's server, and every add going to a throwaway `CODEX_HOME`:
-  - `codex exec` (0.172.0): `ard_discover` for buildkite.com read
-    `ai-catalog.json` and `ard.json` (one entry each) and returned Buildkite's
-    valid card.
-  - Through app-server (0.172.0), as the TUI runs, against the
-    [demo registry](../claude-code/README.md#demo-registry) on 127.0.0.1, so
-    no query left the machine:
-    - `ard_search` put the form to the client, naming
-      `http://127.0.0.1:9031/search` and the query. On the accept (after two
-      seconds), it returned Buildkite and Netlify, both confirmed by their
-      publishers.
-    - `add_mcp_server` for Buildkite, by identifier, put its own form
-      ("confirmed by buildkite.com's own catalog"). On the accept,
-      `codex mcp add` wrote the entry and was stopped at its sign-in, and the
-      result said to run `codex mcp login buildkite`.
-      `codex mcp remove buildkite` removed it.
-  - Installed from this repository's marketplace into a throwaway
-    `CODEX_HOME`: the server started and listed `ard_discover`, `ard_search`
-    and `add_mcp_server`.
-  - Not run: a search of Hugging Face Discover from Codex. The Claude Code
-    form's run found that every result it returns is refused as not a Server
-    Card.
+- **The real host:** Checked in Codex CLI 0.172.0. Not checked against
+  Hugging Face Discover.
 - **Upstream conformance:** the MCP conformance suite has no Server Card or
   ARD scenarios.
 

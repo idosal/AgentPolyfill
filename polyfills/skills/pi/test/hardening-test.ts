@@ -1,4 +1,4 @@
-// What the security review of the Pi form found, each held by a test: a
+// Hardening of the Pi form, each point held by a test: a
 // generated skill that changes between the preview and the load (the core
 // loads the read that was shown), two loads at once (taken one after the
 // other), a call that is cancelled while the person is asked or while it

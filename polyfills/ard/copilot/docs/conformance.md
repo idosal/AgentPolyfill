@@ -40,7 +40,7 @@ whose add flow this plugin bundles.
 |---|---|---|---|
 | Q-1: Say where the query went | met | The answer lists each endpoint contacted and its result or failure. The search tool's description says the query goes to a third party and that a registry's order is relevance, not trust. | Registry R-3; A-5, A-16 |
 | Q-2: The person chooses the registry | met | No registry ships with the plugin. A `registry` argument comes before `ARD_DISCOVERY_REGISTRY`. With neither, the search is refused before any form or request, and Copilot is told to ask the person. | A-7 |
-| Q-3: Every search is put to the person first, naming the query and the registry | met | Copilot's tool prompt before `ard_search` runs (unless the person allowed it), then the plugin's MCP elicitation form naming the endpoints and the exact query, and saying up to three referrals may receive it too. **Don't send it** comes first; only **Send the search** sends. No form support, decline, close, or a missing or different choice sends nothing. Copilot declines forms where nobody can be asked (`copilot -p`, with `--yolo` too, seen with the Server Cards form). `ard_search` is marked not read-only, since it sends the person's words to a third party: VS Code's Copilot harness ran a read-only tool without asking (`discover_mcp_servers`, from the Server Cards plugin; Copilot CLI 1.0.115 asked before it), and a search must not be one of them. `ard_search` itself was never run in VS Code. | A-3, A-4, A-11, A-19 |
+| Q-3: Every search is put to the person first, naming the query and the registry | met | Copilot's tool prompt before `ard_search` runs (unless the person allowed it), then the plugin's MCP elicitation form naming the endpoints and the exact query, and saying up to three referrals may receive it too. **Don't send it** comes first; only **Send the search** sends. No form support, decline, close, or a missing or different choice sends nothing. Copilot declines forms where nobody can be asked (`copilot -p`, with `--yolo` too; checked in Copilot CLI 1.0.115 with the Server Cards form). `ard_search` is marked not read-only, since it sends the person's words to a third party: VS Code 1.147.0's Copilot harness runs a read-only tool without asking (Copilot CLI 1.0.115 asks before it), and a search must not be one of them. Not checked: `ard_search` in VS Code. | A-3, A-4, A-11, A-19 |
 | Q-4: What is sent is what was shown | met | The query is trimmed, shown and sent whole, at most 300 characters. Control characters, line breaks, direction marks, characters that show as nothing (tag characters, variation selectors, a soft hyphen, a blank Braille pattern: the shared `HIDDEN` set), backticks, angle brackets and square brackets are refused. A registry, named or set, is at most 200 characters, with no whitespace or hidden characters, and names no user before its host. | A-4, A-6, A-9, A-10, A-12, A-15, A-17 |
 | Q-5: The query goes only where the form said | met | A search is never redirected to another origin, nor turned into a GET. Referrals are separate searches under the allowance the form states. | Registry R-3; F-5 in the [Codex form's tests](../../../server-cards/codex/test/adapter.test.ts), same fetch module |
 | Q-6: A registry's own words are shown as one line, with nothing hidden | met | A registry's error text, a referral it won't follow, and result names and descriptions are one line, with hidden characters out and lengths capped. A result whose identifier holds a control or hidden character is skipped. | A-16, A-18; Registry L-1 to L-4 |
@@ -62,9 +62,9 @@ and `copilot plugin disable ard-discovery@agent-polyfill` stops the plugin.
 
 ## Against someone else's server (contract rule 3)
 
-- **Domain discovery: met.** `ard_discover` read buildkite.com's own
-  published `ard.json` and AI Catalog, which Buildkite wrote, in Copilot CLI
-  1.0.115 (below).
+- **Domain discovery: met.** `ard_discover` reads buildkite.com's own
+  published `ard.json` and AI Catalog, which Buildkite wrote. Checked in
+  Copilot CLI 1.0.115.
 - **Registry search: not met.** It has been run only against this
   repository's own [demo registry](../../claude-code/README.md#demo-registry),
   on 127.0.0.1, in the tests and in Copilot. No public ARD registry that takes
@@ -80,8 +80,7 @@ npm ci
 npm test
 ```
 
-The checked run on 25 November 2026, with Node.js 22.23.1, passed **124
-tests**, none failed or skipped. The tests need loopback access.
+`npm test` runs **124 tests**. They need loopback access.
 
 | Tests | Count |
 |---|---:|
@@ -91,38 +90,22 @@ tests**, none failed or skipped. The tests need loopback access.
 | Bundle: the committed bundle is what the sources build; the installed folder | 2 |
 | Total | 124 |
 
-**In Copilot itself** ([the record](live-run.md)), 25 November 2026, Copilot CLI 1.0.115 on macOS, with an
-isolated `HOME` and `COPILOT_HOME`, no GitHub sign-in, and a scripted stand-in
-model on this machine (it called the tools the script named; it wasn't a model
-choosing them):
+Checked in Copilot CLI 1.0.115, on macOS, installed from a clone of this
+repository as a marketplace: domain discovery, and search against the
+[demo registry](../../claude-code/README.md#demo-registry) on 127.0.0.1. In
+VS Code 1.147.0's Copilot harness, the plugin's MCP server starts and
+connects.
 
-- Installed from a clone of this repository as a marketplace, beside
-  `mcp-events` and `mcp-server-cards`; uninstalled the same way (what stays
-  behind is in the [README](../README.md#uninstall)).
-- `ard_discover` for buildkite.com read `ai-catalog.json` and `ard.json` (one
-  entry each) and returned Buildkite's valid card.
-- In the TUI, against the [demo registry](../../claude-code/README.md#demo-registry)
-  on 127.0.0.1, so no query left the machine: Copilot's tool prompt, then the
-  form. **Send the search** posted the query, and the result listed Buildkite
-  and Netlify, both confirmed by their publishers.
-- A search with no registry named or set was refused, naming
-  `ARD_DISCOVERY_REGISTRY`, and nothing was sent.
-
-**In VS Code's Copilot harness** (VS Code 1.147.0, in the throwaway VS Code profile of [mcp-events' VS Code run](../../../events/copilot/docs/live-run.md#in-vs-code)), the plugin's MCP
-server was started and connected. No search or add was run through it there.
-The add form is the Server Cards form, which VS Code showed and answered in
-that harness (the [Server Cards Copilot proof](../../../server-cards/copilot/docs/conformance.md#proof));
-the search form is the same kind of request (an MCP elicitation form).
-
-What this evidence doesn't establish:
+Not checked:
 
 - A search sent to a public registry from Copilot, or an add through
   `ard_search` in Copilot itself (both covered by the tests over stdio).
-- A search or an add through this plugin in VS Code.
-- An install from GitHub on 1.0.115, in the interactive TUI, or in VS Code.
-  It was checked with Copilot CLI 1.0.105, in an isolated home with no
-  sign-in: the three plugins installed from GitHub, byte-identical to main,
-  and loaded ([the record](live-run.md#installed-from-github)).
+- A search or an add through this plugin in VS Code. The add form is the
+  Server Cards form, which VS Code shows
+  (the [Server Cards Copilot proof](../../../server-cards/copilot/docs/conformance.md#proof));
+  the search form is the same kind of request (an MCP elicitation form).
+- An install from GitHub in 1.0.115, in the interactive TUI, or in VS Code.
+  Checked in Copilot CLI 1.0.105.
 - A DNS check, trust manifests or signatures (ARD P-1 and R-8 above).
 - An upstream conformance pass: the MCP conformance suite has no Server Card
   or ARD scenarios.

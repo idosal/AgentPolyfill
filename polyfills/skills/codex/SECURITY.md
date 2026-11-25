@@ -169,7 +169,7 @@ The question is a form with a required choice. In Codex 0.172's source
 (`codex-mcp/src/elicitation.rs`), Codex accepts a form by itself only when it
 has no fields, so it doesn't answer this one in your place: not under full
 access, and not by its automatic reviewer. That is a reading of the source;
-full access was not tried live (see below). Only "Load it", chosen by you,
+it's not checked with full access (see below). Only "Load it", chosen by you,
 loads the skill. Everything else is a no: a decline, a cancelled or dismissed
 form, an answer without that choice, an error, or a Codex that can't ask at
 all.
@@ -240,7 +240,7 @@ tokens.
   through Codex's ordinary approvals, as they would for text from a tool
   result. Choose "Show me its SKILL.md first" for a skill you don't know.
 - **Full access** (`--dangerously-bypass-approvals-and-sandbox`, or the
-  approval policy `never` with full access). Not tried live. In the source of
+  approval policy `never` with full access). Not checked. In the source of
   Codex 0.172, a form with a required field is then either shown to you or
   declined, never accepted for you. But once a skill is loaded, nothing else is
   asked, so its text can drive any tool.

@@ -136,8 +136,7 @@ Install instructions depend on the host:
   plugin, so no Node. Nothing is published to npm. Give the clone's form too,
   the folder in `plugins` in `opencode.json`, and say what stays after
   removal. [Getting started](./getting-started#opencode) has the tested
-  steps; `tools/opencode/install-check.ts` repeats the install from GitHub in
-  a throwaway home.
+  steps; `tools/opencode/install-check.ts` repeats the install from GitHub.
 - **Antigravity:** clone the repository, then
   `agy plugin install ./polyfills/<extension>/antigravity/plugin`, which
   needs the Antigravity CLI (the App doesn't ship `agy`). State Node 20 or
@@ -147,7 +146,8 @@ Install instructions depend on the host:
 - **Copilot CLI:** `copilot plugin marketplace add idosal/AgentPolyfill`,
   then `copilot plugin install <plugin>@agent-polyfill`. From a clone,
   `copilot plugin marketplace add ./AgentPolyfill` is the install tested with
-  1.0.115; from GitHub, the install was checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code. Say if it needs
+  1.0.115; the install from GitHub was checked in Copilot CLI 1.0.105, and
+  not in 1.0.115, in the interactive TUI, or in VS Code. Say if it needs
   experimental mode (every Copilot extension does).
   [Getting started](./getting-started#github-copilot-cli) has the tested
   steps.
@@ -188,9 +188,8 @@ depending on every polyfill. Add the polyfill's own tests as a workflow in
 - **Codex:** `codex-<extension>-test.yml`.
 - **Pi:** `pi-<extension>-test.yml`.
 - **OpenCode:** `opencode-<extension>-test.yml`. It runs the form's tests in
-  a real OpenCode, the release pinned in `tools/opencode`, in a throwaway
-  home with a scripted stand-in for a model, on Linux, macOS and Windows,
-  and checks that the committed `plugin/server.js` is what its sources build.
+  OpenCode itself, the release pinned in `tools/opencode`, on Linux, macOS
+  and Windows, and checks that the committed `plugin/server.js` is what its sources build.
 - **Copilot CLI:** `copilot-<extension>-test.yml`.
 
 A polyfill that ships built files also gets a release workflow, run on its
@@ -208,12 +207,8 @@ claude plugin validate polyfills/<extension>/<host>/<plugin subfolder>
 For an OpenCode form, run `npm run check` in its folder: it fails when the
 committed `plugin/server.js` isn't what the sources build.
 
-Run the polyfill's tests, and do one recorded run in the real host against a
+Run the polyfill's tests, and run it once in the real host against a
 server you did not write. Say in the pull request what you ran and what you saw.
-Keep a live run separate from tests with a scripted model. For example, Pi's
-ARD live run showed discovery and registry-search approval but did not
-complete an addition; its add flow is covered by real-Pi tests with a
-scripted model and a local server.
 
 The full text, with the marketplace entry's format and the workflow files to
 copy, is
@@ -249,7 +244,7 @@ beside the others. Events and Skills share one `core/`, with these forms:
    the host's own tests beside it.
 4. **Meet the contract in that host:** its own README with that host's install
    steps, requirements, limits and stand-down, its own `SECURITY.md`, and a
-   recorded run in the real host against a server you did not write.
+   run in the real host against a server you did not write.
 5. **Document installation** for that host and list it in its marketplace
    file where one is used. Add its CI and add it to the README's table in that
    host's column. Say plainly where a form is not published.

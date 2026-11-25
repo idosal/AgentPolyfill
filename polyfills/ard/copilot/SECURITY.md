@@ -35,10 +35,10 @@ What is particular to Copilot:
   errors, result names and descriptions) reach the answer as one line each,
   with such characters taken out. Both are main's shared checks
   (`registry.ts`).
-- **Where nobody can be asked,** Copilot declines the form. That was seen
-  with the Server Cards plugin's add form, in `copilot -p` with
-  `--allow-all-tools` and with `--yolo`; the search form is the same kind of
-  request (an MCP elicitation form), and wasn't tried there itself.
+- **Where nobody can be asked,** Copilot declines the form. Checked in
+  Copilot CLI 1.0.115 with the Server Cards plugin's add form, in `copilot -p`
+  with `--allow-all-tools` and with `--yolo`. Not checked with the search
+  form, which is the same kind of request (an MCP elicitation form).
 - **Copilot's modes and the form.** In the interactive session, `--yolo`,
   `--allow-all-tools` and allow-all skip Copilot's tool prompt; whether
   Copilot still shows the form there, and what autopilot mode does with it,

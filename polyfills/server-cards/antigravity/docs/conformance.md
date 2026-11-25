@@ -66,11 +66,11 @@ which this form's `npm test` runs against the same sources; the others are in
 
 | # | Rule | Source | Test | State |
 |---|---|---|---|---|
-| P-1 | Never replace a server the person has | the polyfills' own (security review SC2) | W-4, E-4 | met: a name in `mcp_config.json`, in any case, or a file that can't be read, is refused before the question and again before writing |
-| P-2 | A person approves every addition | the polyfills' own (security review SC4) | E-1, E-2, E-3, E-8, E-11, G-1, G-4, G-5, G-7, G-8 | met: `force_ask` whose first two lines name the server, URL, header names and file, and a one-use ticket for that entry (an hour at most, removed when the turn ends). Without the ticket nothing is written; a call through `call_mcp_tool` gets none. Seen live in CLI 1.5.17 (approved, declined, refused) |
+| P-1 | Never replace a server the person has | the polyfills' own | W-4, E-4 | met: a name in `mcp_config.json`, in any case, or a file that can't be read, is refused before the question and again before writing |
+| P-2 | A person approves every addition | the polyfills' own | E-1, E-2, E-3, E-8, E-11, G-1, G-4, G-5, G-7, G-8 | met: `force_ask` whose first two lines name the server, URL, header names and file, and a one-use ticket for that entry (an hour at most, removed when the turn ends). Without the ticket nothing is written; a call through `call_mcp_tool` gets none. Checked in CLI 1.5.17 |
 | P-3 | Add only what was shown, as shown | the polyfills' own | E-3, E-4, E-7 | met: a card a tool showed in the last hour, at the URL it yields |
-| P-4 | What the call's arguments say is what is written | the integrator's brief (an editor over `agy acp` shows only the arguments) | E-10 | met: `name`, `url`, `headers` (names) and `file` must match the entry, at the hook and again at the server |
-| G-1 | The hook never denies or alters another server's call | the integrator's brief | G-3, E-5, H-1 | met: the matcher takes this plugin's eager `add_mcp_server` only; anything else, or input it can't read, gets `allow` and nothing else, without opening the state folder |
+| P-4 | What the call's arguments say is what is written | the polyfills' own (an editor over `agy acp` shows only the arguments) | E-10 | met: `name`, `url`, `headers` (names) and `file` must match the entry, at the hook and again at the server |
+| G-1 | The hook never denies or alters another server's call | the polyfills' own | G-3, E-5, H-1 | met: the matcher takes this plugin's eager `add_mcp_server` only; anything else, or input it can't read, gets `allow` and nothing else, without opening the state folder |
 | N-3 | Values from the person's configuration are never shown | the polyfills' own | W-5 | met: a config that isn't JSON is refused without the parser's message, which can quote the file |
 | — | Servers another plugin found (`present_server_cards`) | the Claude Code form's own | — | not in this form: Antigravity's ARD plugin carries its own `add_mcp_server` |
 
@@ -83,9 +83,8 @@ npm ci
 npm test
 ```
 
-The checked run on 25 November 2026 (the builds from `a5bb64ce`), with
-Node.js 22.23.1, passed **124 tests**, with none failed or skipped. They need
-loopback access for their local web server, and use a throwaway `HOME`.
+`npm test` runs **124 tests**. They need loopback access for their local web
+server, and use a temporary `HOME`.
 
 - **90 shared rule tests:** `card`, `configure`, `discover`, `format` and
   `offer` from [`claude-code/mod/tests`](../../claude-code/mod/tests).
@@ -101,24 +100,12 @@ loopback access for their local web server, and use a throwaway `HOME`.
 `agy plugin validate --strict` passes for `plugin/` (Antigravity CLI 1.5.17;
 its one note is that there's no logo).
 
-### Live, 25 November 2026
+### In Antigravity
 
-How the runs were made, and the full record:
-[the Antigravity live-run record](../../../events/antigravity/docs/live-run.md#server-cards).
+Checked in Antigravity CLI 1.5.17 and App 2.35.1, against neon.com's
+published Server Card.
 
-With these builds, in the real CLI 1.5.17 with a real model, against neon.com's
-published Server Card: an addition approved while `agy mcp add` wrote another
-server to the same file (both kept); one declined (nothing written); one
-through `call_mcp_tool` (refused, nothing written). In the real App 2.35.1:
-the card showed the plugin's whole question and greyed out "always allow";
-an addition approved and written, one declined with a note (nothing
-written), one through `call_mcp_tool` refused.
-
-With the earlier builds, in App 2.35.1 and CLI 1.5.16: an approved addition
-the App then connected; headless `agy -p` denied the call nobody could
-answer.
-
-Not run: the IDE (not supported), and a server
-behind a sign-in after an addition.
+Not checked: the IDE (not supported), and a server behind a sign-in after an
+addition.
 
 The MCP conformance suite has no Server Card scenarios.

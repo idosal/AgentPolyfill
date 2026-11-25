@@ -46,7 +46,7 @@ The mod kept no skill content and no tokens.
 
 ## History
 
-The form's source, tests and records are in the repository's history. A
+The form's source and tests are in the repository's history. A
 commit that has them is
 [`ed2279a6`](https://github.com/idosal/AgentPolyfill/tree/ed2279a6a2979b90a3bb1a8673f34ee92cac87f6/polyfills/skills/claude-code)
 (a link into history: that folder is not in the repository now).
@@ -57,5 +57,4 @@ What moved out of it, because the other forms use it:
 |---|---|
 | `polyfills/skills/claude-code/test/harness.ts` (the fixture and the skill builders) | [`polyfills/skills/core/test-fixtures/harness.ts`](../../skills/core/test-fixtures/harness.ts) |
 | `polyfills/skills/claude-code/test/fixture-skills-server.ts` | [`polyfills/skills/core/test-fixtures/fixture-skills-server.ts`](../../skills/core/test-fixtures/fixture-skills-server.ts) |
-| `polyfills/skills/claude-code/tools/pty-drive.py` | [`polyfills/skills/core/tools/pty-drive.py`](../../skills/core/tools/pty-drive.py) |
 | `polyfills/skills/claude-code/docs/conformance.md` (the rule ids and text; the Claude Code results went with the form) | [`polyfills/skills/core/docs/sep-2640-client-rules.md`](../../skills/core/docs/sep-2640-client-rules.md) |

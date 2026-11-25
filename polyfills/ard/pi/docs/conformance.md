@@ -84,9 +84,9 @@ behavior. The suite does not load both forms together to test coexistence.
 
 ## Proof
 
-`npm test` in `polyfills/ard/pi`, with Node.js 22.22.1, passed **140 tests**
-on 25 November 2026, with no failures or skips. The suite needs permission
-to listen on loopback. The count is:
+`npm test` in `polyfills/ard/pi` runs **140 tests**. Checked with Node.js
+22.22.1 and Pi 1.6.0. The suite needs permission to listen on loopback. The
+count is:
 
 | Tests | Count |
 |---|---:|
@@ -104,11 +104,9 @@ their original IDs and names; they are not the Claude Code registration or
 UI tests.
 
 The real host tests run **Pi 1.6.0**, pinned in
-[`package.json`](../package.json), with a
-[scripted model](../test/brain.ts) and
-[isolated home and agent directories](../test/pi-rpc.ts). Their
+[`package.json`](../package.json). Their
 [local fixture](../../../server-cards/pi/test/harness.ts) serves both
-well-known catalogs, a card, a registry endpoint and MCP. No paid model or
+well-known catalogs, a card, a registry endpoint and MCP. No model account or
 external registry is needed for these tests.
 
 - In `ard.test.ts`, `RPC ARD registry search and addition: yes`,
@@ -124,7 +122,7 @@ external registry is needed for these tests.
   `RPC: ard_discover then add, answer Don't add it; actual Pi CLI and connection`,
   and `RPC: ard_discover then add, answer undefined; actual Pi CLI and connection`
   load a copy of `extension/` on its own. They check acceptance, decline and
-  closing the question. Acceptance writes the isolated configuration and
+  closing the question. Acceptance writes the configuration and
   connects without a reload; the test checks Pi's `initialize` request uses
   protocol version `2025-11-25` and waits for `tools/list`. Decline and close
   leave no configuration file or MCP connection.
@@ -142,25 +140,16 @@ external registry is needed for these tests.
   `bundle: committed extension/dist/index.js is byte-identical to a fresh build`.
   It builds into a temporary directory and checks the extension manifest too.
 
-### Recorded live run
+### Not checked
 
-[`live-run.md`](live-run.md) records Pi 1.6.0 with `gpt-6.2-sol` through
-`openai-codex` on 24 November 2026. It read buildkite.com's published
-`ard.json` and AI Catalog. A search of the repository's local demo registry
-then showed the endpoint and exact query in the extension's question before
-the script answered **Send the search**. The record reports one search and
-publisher-confirmed Buildkite and Netlify results.
+Checked in Pi 1.6.0: reading buildkite.com's published `ard.json` and AI
+Catalog, and a search of the repository's local demo registry. The accepted
+additions above are against a local MCP fixture.
 
-That run stopped at the model's chat question about adding. It did not call
-`ard_add_mcp_server`, and its `mcp.json` remained empty. The accepted additions
-above are evidence from real Pi with a scripted model and a local MCP fixture.
-
-### What was not run
-
-No independent public-registry interoperability run or upstream conformance
-run is claimed for Pi. The automated registry and MCP server are repository
-fixtures; the live registry was the repository's demo. The recorded live
-run did not complete an addition or OAuth sign-in. No live card comparison,
+No independent public-registry interoperability check or upstream conformance
+pass is claimed for Pi. The registry and MCP server in the tests are
+repository fixtures. Not checked: an addition outside the local fixtures, or
+OAuth sign-in. No live card comparison,
 DNS-resolution protection, atomic CLI add-if-absent, or automatic detection
 of native ARD support is implemented or tested. The row-specific test limits
 above also apply; a passing total does not establish those missing checks.

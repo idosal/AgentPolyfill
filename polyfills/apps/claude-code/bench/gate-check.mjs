@@ -1,6 +1,6 @@
 // The helper never starts, connects to or sends anything to a server Claude
-// Code would not use under that name (the security review's A1, kept as a
-// check). Each world is a fake home and project in a temporary folder; the
+// Code would not use under that name. Each world is a fake home and
+// project in a temporary folder; the
 // project's .mcp.json plants stdio entries that leave a marker file when they
 // start, and remote entries that point at a local address recording what it
 // is sent. The helper is started there as the mod starts it and asked to

@@ -104,7 +104,8 @@ This repository's Copilot CLI forms are in `polyfills/<polyfill>/copilot/`,
 with the installable plugin in `plugin/`. They cover Events, Server Cards and
 ARD; Copilot has Skills and Apps built in. Its marketplace is
 `.github/plugin/marketplace.json`, installed from a clone (tested with 1.0.115) or from GitHub
-(checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code). The [root README](../README.md#install) has
+(checked in Copilot CLI 1.0.105; not checked in 1.0.115, in the interactive
+TUI, or in VS Code). The [root README](../README.md#install) has
 the steps.
 
 ## What gets listed

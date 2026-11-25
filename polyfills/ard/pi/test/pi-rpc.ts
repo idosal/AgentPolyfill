@@ -45,7 +45,7 @@ export type PiOptions = {
     args?: string[];
     /** Another Pi to run: the path of its cli.js. Default: the one in devDependencies. */
     piBin?: string;
-    /** A real model instead of the scripted stand-in: a provider and model id Pi knows (from models.json in the agent directory). */
+    /** Another model in place of the one brain.ts registers: a provider and model id Pi knows (from models.json in the agent directory). */
     model?: { provider: string; id: string };
 };
 

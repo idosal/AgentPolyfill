@@ -19,16 +19,15 @@ MCP extension's source, and the Pi forms' tests, run in Pi itself), and
 OpenCode against the V2 plugin API of 2.4.1 (`@opencode/plugin`'s
 declarations, a running OpenCode, and its source on `dev` at `b0cda20`),
 T3 Code against 0.1.11 (its source at commit `5a156a2a`, and the T3
-Events form's live run in it, with Codex 0.172.0), and Copilot CLI against npm
+Events form running in it, with Codex 0.172.0), and Copilot CLI against npm
 `@github/copilot` 1.0.115 (the SDK its extensions get, its unpacked runtime,
-and live runs with a scripted model) and `github/copilot-sdk` at `03056de9`.
+and the forms running in it) and `github/copilot-sdk` at `03056de9`.
 VS Code's Copilot harness runs Copilot's runtime, so the Copilot column holds
 there too, except where a row says otherwise. Of the forms, Events (a wake)
-and a Server Cards add were run in VS Code 1.147.0; ARD's server only loaded
-there.
+and a Server Cards add were checked in VS Code 1.147.0; ARD's server only
+loads there.
 Google Antigravity is closed source: we checked it against its documentation
-(read on 2026-11-25) and in live runs of CLI v1.5.17 (and v1.5.16 before it
-updated itself that day) and App v2.35.1.
+(read on 2026-11-25) and in CLI v1.5.17, CLI v1.5.16 and App v2.35.1.
 
 ## How a plugin plugs in today
 
@@ -57,13 +56,13 @@ that SDK's calls.
 | What a polyfill needs | Claude Code (a mod) | Codex (a plugin, or an app-server client) | Pi (an extension) | OpenCode (a V2 server plugin) | Antigravity (a plugin) | Copilot (an extension) | T3 Code (an app that runs Codex, Claude Code and other agents; no plugins of its own) |
 |---|---|---|---|---|---|---|---|
 | Add tools the model can call | `$.tool.register` | An MCP server in the plugin, or `dynamicTools` for an app-server client | `pi.registerTool`. Tool names are shared by every extension, and the first one registered under a name wins. | `ctx.tool.transform`, in a namespace of the plugin's (the model sees `<namespace>_<name>`) | An MCP server in the plugin's `mcp_config.json` | `joinSession({ tools })`, or an MCP server in a plugin (not experimental) | Through the agent: a Codex plugin or MCP server, a Claude Code mod. T3 Code adds its own `t3-code` server to every thread. |
-| Draw its own UI | `ui.render` hooks | No. The desktop app shows a server's MCP App; nothing draws in the terminal. | Yes: custom components, overlays, `pi.registerToolRenderer`, images (Kitty, iTerm2), and mouse input in its default fullscreen mode | TUI slots and routes (terminal text), and, experimentally, desktop panels with an embedded web view | Only as an MCP App: the App shows a server's views itself (v2.34.0 and later). The CLI and IDE show text. | MCP Apps turned on in VS Code's harness (from its source; no app was drawn there); canvases in graphical hosts, per the SDK's types (not tried); nothing drawn in the terminal | No. It shows a server's MCP App itself. A mod asking for its pane's focus ends the turn. |
-| Ask the person | A permission hook that answers "ask" | MCP elicitation, from the plugin's MCP server | `ctx.ui.confirm`, `select`, `input`; relayed to the client in RPC mode, unavailable in print and JSON modes | `ctx.permission.assert`, under OpenCode's permission rules, with actions a plugin names itself. OpenCode's default rule allows every action; the polyfills turn that into `ask` for their own actions with an `evaluate` hook (`ctx.permission.hook`). | A `PreToolUse` hook that answers `force_ask`: Antigravity's approval card, yes or no. Its MCP client declares elicitation but cancels every request (seen live). | An extension's `session.ui.select`, `confirm`, `input` (shown in the TUI, during a turn in VS Code; they throw where nobody can be asked); MCP elicitation from a plugin's MCP server, declined in `copilot -p`, even with `--yolo` | The agent's approvals, shown in the thread. An MCP elicitation only if T3 Code can answer it with Approve or Decline; any other form is cancelled unseen. |
-| Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `pi.sendMessage(…, { triggerTurn: true })`, shown as the extension's own message | `ctx.session.synthetic` with `resume: true`, stored as synthetic rather than the user's | `agentapi send-message <conversation_id>`, from a plugin's sidecar, in the App only (seen live). Sidecars are off until you turn each one on. | `session.send({ prompt, source: "automation-…" })`, marked as carrying no human authority. VS Code's harness shows such a turn only when it carries a `clientTurnId`, and then as a plain message | `t3 thread send <thread> -`, on the machine it runs on, with no sign-in. `codex queue` reaches T3 Code's app server, but the thread doesn't show the turn. |
+| Draw its own UI | `ui.render` hooks | No. The desktop app shows a server's MCP App; nothing draws in the terminal. | Yes: custom components, overlays, `pi.registerToolRenderer`, images (Kitty, iTerm2), and mouse input in its default fullscreen mode | TUI slots and routes (terminal text), and, experimentally, desktop panels with an embedded web view | Only as an MCP App: the App shows a server's views itself (v2.34.0 and later). The CLI and IDE show text. | MCP Apps turned on in VS Code's harness (from its source; not checked there); canvases in graphical hosts, per the SDK's types (not checked); nothing drawn in the terminal | No. It shows a server's MCP App itself. A mod asking for its pane's focus ends the turn. |
+| Ask the person | A permission hook that answers "ask" | MCP elicitation, from the plugin's MCP server | `ctx.ui.confirm`, `select`, `input`; relayed to the client in RPC mode, unavailable in print and JSON modes | `ctx.permission.assert`, under OpenCode's permission rules, with actions a plugin names itself. OpenCode's default rule allows every action; the polyfills turn that into `ask` for their own actions with an `evaluate` hook (`ctx.permission.hook`). | A `PreToolUse` hook that answers `force_ask`: Antigravity's approval card, yes or no. Its MCP client declares elicitation but cancels every request (checked). | An extension's `session.ui.select`, `confirm`, `input` (shown in the TUI, during a turn in VS Code; they throw where nobody can be asked); MCP elicitation from a plugin's MCP server, declined in `copilot -p`, even with `--yolo` | The agent's approvals, shown in the thread. An MCP elicitation only if T3 Code can answer it with Approve or Decline; any other form is cancelled unseen. |
+| Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `pi.sendMessage(…, { triggerTurn: true })`, shown as the extension's own message | `ctx.session.synthetic` with `resume: true`, stored as synthetic rather than the user's | `agentapi send-message <conversation_id>`, from a plugin's sidecar, in the App only (checked). Sidecars are off until you turn each one on. | `session.send({ prompt, source: "automation-…" })`, marked as carrying no human authority. VS Code's harness shows such a turn only when it carries a `clientTurnId`, and then as a plain message | `t3 thread send <thread> -`, on the machine it runs on, with no sign-in. `codex queue` reaches T3 Code's app server, but the thread doesn't show the turn. |
 | Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives | The extension runs in that session (`ctx.sessionManager.getSessionId()`) | The tool executor's `sessionID` | Not for an MCP server. Hooks get `conversationId`, and a `PreToolUse` hook can add it to the call's arguments (`overwrite`). | The extension joins one session (`SESSION_ID`); a tool handler gets `sessionId` | `T3CODE_THREAD_ID` in the environment of Codex's stdio MCP servers (not documented); not set for Claude Code's |
-| Know the person wrote | The `prompt.submit` hook | `turn_trigger` in the turn metadata of a tool call | The `input` event, with its source | `ctx.session.hook('prompt')`, which a synthetic message doesn't run | Partly: hooks get `lastUserInput`; a sidecar's message arrives as a system message, not as the person's (seen live) | A `user.message` session event with no `source`; a turn an extension starts carries its own | No: Codex's turn metadata has no `turn_trigger` there |
-| Add skills | A mod can add to the text of the session's skill listing (`prompt.attachment`), as the Skills mod did before it was removed. From 2.1.332 Claude Code lists skills from MCP servers itself, in beta ([changelog](https://code.claude.com/docs/en/changelog)). | A plugin's skills folder, read when the plugin loads; `~/.agents/skills` | `resources_discover` returns skill folders, read at start and at `/reload` | `ctx.skill.transform`, with no file, but with the skill's text given when it is listed | A plugin's `skills/` (read-only, replaced on update); `~/.gemini/config/skills/`, documented as read again before each turn (not checked live) | A plugin's `skills` folder; skills an MCP server serves, natively (SEP-2640, declared to every server in 1.0.115's `initialize`; no served skill was listed or loaded) | Through the agent; it lists the agent's skills in its composer |
-| Gate a tool call | Permission hooks that allow, deny or ask | Hooks that can deny, not ask | `tool_call` handlers that can block, and ask with `ctx.ui`, for the model's calls and codemode's nested calls | `ctx.tool.hook('execute.before')`, which can refuse a call or put it to the permission rules first, for the model's calls and Code Mode's | `PreToolUse` hooks that allow, deny, ask or `force_ask`, and rewrite arguments (`overwrite`). A lazily loaded MCP tool, the default, is seen as `call_mcp_tool`, whatever its server; an eager one as `mcp_<server>_<tool>` (seen live). In CLI 1.5.17 a `PreToolUse` hook that fails makes the call fail, and a `force_ask` on the built-in `read_resource` is ignored. | In its default mode, Copilot CLI 1.0.115 asks before each tool call, read-only ones included; VS Code's Copilot harness ran a read-only tool without asking. Assisted mode (an LLM review, which an organisation can make the default) or allow-all approve without the person. An extension's `onPreToolUse` hook can allow, deny or ask (after the elevated-permission question) | Through the agent |
+| Know the person wrote | The `prompt.submit` hook | `turn_trigger` in the turn metadata of a tool call | The `input` event, with its source | `ctx.session.hook('prompt')`, which a synthetic message doesn't run | Partly: hooks get `lastUserInput`; a sidecar's message arrives as a system message, not as the person's (checked) | A `user.message` session event with no `source`; a turn an extension starts carries its own | No: Codex's turn metadata has no `turn_trigger` there |
+| Add skills | A mod can add to the text of the session's skill listing (`prompt.attachment`), as the Skills mod did before it was removed. From 2.1.332 Claude Code lists skills from MCP servers itself, in beta ([changelog](https://code.claude.com/docs/en/changelog)). | A plugin's skills folder, read when the plugin loads; `~/.agents/skills` | `resources_discover` returns skill folders, read at start and at `/reload` | `ctx.skill.transform`, with no file, but with the skill's text given when it is listed | A plugin's `skills/` (read-only, replaced on update); `~/.gemini/config/skills/`, documented as read again before each turn (not checked) | A plugin's `skills` folder; skills an MCP server serves, natively (SEP-2640, declared to every server in 1.0.115's `initialize`; no served skill was listed or loaded) | Through the agent; it lists the agent's skills in its composer |
+| Gate a tool call | Permission hooks that allow, deny or ask | Hooks that can deny, not ask | `tool_call` handlers that can block, and ask with `ctx.ui`, for the model's calls and codemode's nested calls | `ctx.tool.hook('execute.before')`, which can refuse a call or put it to the permission rules first, for the model's calls and Code Mode's | `PreToolUse` hooks that allow, deny, ask or `force_ask`, and rewrite arguments (`overwrite`). A lazily loaded MCP tool, the default, is seen as `call_mcp_tool`, whatever its server; an eager one as `mcp_<server>_<tool>` (checked). In CLI 1.5.17 a `PreToolUse` hook that fails makes the call fail, and a `force_ask` on the built-in `read_resource` is ignored. | In its default mode, Copilot CLI 1.0.115 asks before each tool call, read-only ones included; VS Code's Copilot harness ran a read-only tool without asking. Assisted mode (an LLM review, which an organisation can make the default) or allow-all approve without the person. An extension's `onPreToolUse` hook can allow, deny or ask (after the elevated-permission question) | Through the agent |
 | Add a server | `claude mcp add` | `codex mcp add` | `pi mcp add` (saved), `pi.registerMcpServer` (this session, connected at once) | `ctx.mcp.transform` (in memory; a plugin keeps what it added and adds it again on each load) | `agy mcp add` and `agy mcp remove` (in CLI 1.5.17's own help, not in Antigravity's docs); the App ships no `agy`, so a plugin edits `~/.gemini/config/mcp_config.json` | `copilot mcp add` (saved to `mcp-config.json`), connected after `/mcp reload` or in the next session; an extension can call `session.rpc.mcp.reload` | Through the agent (`codex mcp add`, `claude mcp add`), then **Restart agent session** |
 | Call a server's tool over the host's connection, with its sign-in | `$.mcp.call(server, tool, args)` | `mcpServer/tool/call` | Indirectly: an MCP tool is a Pi tool (`mcp__<server>__<tool>`), callable with `ctx.executeTool` | No | No. Only an MCP App view can call its own server's tools. | `session.rpc.mcp.callTool({ serverName, toolName, arguments })` (experimental) | Only through the agent (a Claude Code mod's `$.mcp.call`) |
 | Ask whether the host would use a server | `$.mcp.connect(server)` | `mcpServerStatus/list` (start-up and sign-in state) | No. An extension reads `mcp.json` itself. | `ctx.mcp.list()` (connected, pending, disabled, failed, needs sign-in) | No | `session.rpc.mcp.listConfigured()` (enabled after trust and policy) and `list()` (status). Not how to reach it | No |
@@ -73,7 +72,7 @@ that SDK's calls.
 | Receive a server's notifications | No | Only from OpenAI's hosted apps server. `mcpServer/event/stream/*` refuses any other server. Elicitation requests are relayed. | No | No. OpenCode takes Events push notifications itself, for its automations; a plugin sees only OpenCode's own events (`mcp.tools.changed` and the like). | No. None are documented. | Only `tools`, `resources` and `prompts` `list_changed`, as session events. Elicitation requests are relayed | No |
 | See a tool's `_meta`, its `outputSchema`, or a result as the server sent it | No | Not checked yet | A result's `structuredContent` reaches `tool_result` hooks and codemode; a tool's `_meta` doesn't | Not checked yet | No. `PostToolUse` gets the call and any error, not the result. | `callTool` returns the MCP result; not checked for `_meta` on the model's own calls | No (it reads `_meta.ui` itself, for MCP Apps) |
 | Declare a client extension to servers | No | Only Codex's own client (the terminal or the desktop app) can, and its declaration goes to every server. A plugin or the config can't. | No. Pi's `McpClient` takes capabilities from its caller, but the MCP extension sets none for others. | No. OpenCode's own client declares Events to every server. | No. The App declares the Apps extension itself. | Only Copilot's own runtime (it declares Skills and Tasks to every server). A plugin can't | No |
-| Protocol revision of the host's own connection | 2026-07-28 back to 2024-11-05 | 2025-06-18 (2026-07-28 behind a feature flag that is off) | Up to 2025-11-25 | Not checked yet | Not checked yet | `server/discover` at 2026-07-28 first, then `initialize` at 2025-11-25 (1.0.115, seen live) | The agent's |
+| Protocol revision of the host's own connection | 2026-07-28 back to 2024-11-05 | 2025-06-18 (2026-07-28 behind a feature flag that is off) | Up to 2025-11-25 | Not checked yet | Not checked yet | `server/discover` at 2026-07-28 first, then `initialize` at 2025-11-25 (checked in 1.0.115) | The agent's |
 
 The row that matters most is "send any other MCP method". Because no host
 has it, each polyfill that speaks an extension's protocol (Events, Skills,
@@ -356,8 +355,8 @@ the live server.
   the wait.
 - **Every event type, and poll and webhook, in OpenCode's own Events client.**
   It takes push only, and skips an event type whose schemas it can't turn into
-  a checker (`pattern`, `format` and the SEP's `x-mcp-content` among what made
-  it skip the fixture server's types). With every valid schema, poll and
+  a checker (`pattern`, `format` and the SEP's `x-mcp-content` are among what
+  makes it skip a type). With every valid schema, poll and
   webhook, and a way to watch for a session, not only an automation, the
   Events polyfill could stand down entirely. Until then a plugin can't ask
   which event types OpenCode accepts (`opencode_list_mcp_events` is the
@@ -379,7 +378,7 @@ the live server.
 - **Support MCP elicitation,** so a server can ask you something in the
   host's own form. Antigravity's MCP client declares it (`form` and `url`)
   but answers every request with `cancel` without showing anything, in the
-  App and the CLI (seen live, App v2.35.1, CLI v1.5.16). Today a polyfill
+  App and the CLI (checked in App v2.35.1 and CLI v1.5.16). Today a polyfill
   asks through a `PreToolUse` hook that answers `force_ask`: a yes or no,
   with no other choices. A hook sees a lazily loaded MCP tool (the default)
   as Antigravity's own `call_mcp_tool`, whatever its server, so the
@@ -389,7 +388,7 @@ the live server.
 - **Honour a hook's `force_ask` on host tools.** In CLI 1.5.17 (its auto
   mode and its default mode, `request-review`) and App 2.35.1 (its Default
   preset), a `force_ask` on the built-in `read_resource` is ignored: no card,
-  and the read goes ahead (seen live, the hook's decision logged). That is
+  and the read goes ahead (checked). That is
   why the Skills polyfill can't meet SEP-2640's X8 in Antigravity.
 - **Show a hook's whole question, and pass its `reason` to editors.** The
   App's approval card shows a `force_ask` hook's question; the CLI's shows
@@ -401,7 +400,7 @@ the live server.
   are refused.
 - **Document plugin `PreInvocation` hooks.** The plugins page lists
   `PreToolUse`, `PostToolUse`, `SessionStart` and `Stop` for plugins. A
-  plugin's `PreInvocation` hook runs in CLI 1.5.17 (seen live), and Events
+  plugin's `PreInvocation` hook runs in CLI 1.5.17 (checked), and Events
   delivers at the next model call through it.
 - **Let something other than a sidecar send a message to a conversation.**
   `agentapi send-message` is on a sidecar's `PATH`, in the App only, and
@@ -439,7 +438,7 @@ details:
 - **Show a turn something else started.** A turn Codex starts from its own
   queue (as `codex queue` puts one there) runs in T3 Code's app server but
   doesn't appear in the thread. A turn a Claude Code mod starts in an idle
-  session (`$.prompt.submit`) wasn't checked live.
+  session (`$.prompt.submit`) wasn't checked.
 - **Let a mod's pane fail softly.** When a Claude Code mod asks for its
   pane's focus, T3 Code ends the turn. Answering the request as "nowhere to
   show it" would let the mod say so and carry on.
@@ -466,7 +465,7 @@ details:
   only when it carries a `clientTurnId`, and then looks like a message the
   person typed. Without the turn id it runs but isn't shown at all, so a
   woken session answers where nobody sees it. The Events polyfill sends one
-  with every wake (seen in VS Code 1.147.0).
+  with every wake (checked in VS Code 1.147.0).
 - **Let a tool ask the person in every mode.** Assisted mode (an LLM review,
   which an organisation can make the default) or allow-all approve calls
   without the person, and VS Code's Copilot harness runs read-only tools

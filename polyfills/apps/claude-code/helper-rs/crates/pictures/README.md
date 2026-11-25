@@ -131,8 +131,8 @@ versions can change the screenshot; its metadata and hash are saved beside it.
 
 ## Timings
 
-Measured on 2026-11-18, Apple M1 Max (arm64), macOS 15.4.1, Rust 1.100.0 release
-with the workspace optimization profile, Node 22.23.1. Both runners used the
+Measured on one machine, with Rust 1.100.0 release with the workspace
+optimization profile, and Node 22.23.1. Both runners used the
 same **2192×1152 Chrome screenshot**, 149,292 PNG bytes, 48 terminal rows
 (eight bands), palette enabled. The screenshot contains flat cards, antialiased
 text, gradient bars and a table; it is a local benchmark page, not a production

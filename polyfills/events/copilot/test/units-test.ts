@@ -37,7 +37,7 @@ describe('a server entry', () => {
         assert.deepEqual([...missing], ['NOPE']);
     });
 
-    test('$VAR and ${VAR:-default} are expanded as Copilot 1.0.115 expands them (seen live), and an unset ${VAR} is left as written', () => {
+    test('$VAR and ${VAR:-default} are expanded as Copilot 1.0.115 expands them, and an unset ${VAR} is left as written', () => {
         const missing = new Set<string>();
         assert.equal(expand('a $Q b ${Q} ${NOPE:-dflt} ${EMPTY:-e} ${Q:-x}', { Q: 'qv', EMPTY: '' }, missing), 'a qv b qv dflt e qv');
         assert.deepEqual([...missing], []);

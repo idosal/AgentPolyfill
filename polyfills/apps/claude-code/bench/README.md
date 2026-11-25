@@ -104,8 +104,7 @@ must be up for the last two.
 
 Every check here runs the Node helper by default, and the binary
 `MCP_APPS_CLI_HELPER` names instead: the Rust helper
-(`../mod/helper/bin/<os>-<arch>/mcp-apps-cli-helper`, see
-`../helper-rs/PORT.md`). Real sessions (`session.py`) run whichever helper
+(`../mod/helper/bin/<os>-<arch>/mcp-apps-cli-helper`). Real sessions (`session.py`) run whichever helper
 the plugin picks, the Rust one where it carries a binary; set
 `MCP_APPS_CLI_HELPER=node` to compare.
 - `node leak-check.mjs`: a helper ended outright, with views open, leaves no
@@ -165,5 +164,5 @@ pictures a second, and CPU of the helper and its Chrome. Environment:
 | the same with `DRIVER_TERM=ghostty` | about 16 pictures a second |
 | `PAUSE=1 DRIVER_TERM=ghostty node helper-driver.mjs 6 3202 studio3d show_threejs_scene scenarios/bloom-scene.json` | 38% CPU in sight, 0% paused, about 90 pictures in 6 s on return |
 
-The reference machine is an Apple Silicon Mac; numbers are for comparing
-before and after a change on one machine, not across machines.
+The numbers are for comparing before and after a change on one machine, not
+across machines.

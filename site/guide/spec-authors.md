@@ -15,15 +15,15 @@ shipped the extension yet, used by real people against real servers. Each one
 here names the spec revision it implements. Events and Skills have a test for
 every client rule and run against servers their authors didn't write. Skills
 passes the official conformance suite's Skills client scenarios in the Codex,
-Pi and Antigravity forms; no run is recorded for the OpenCode form. The
+Pi and Antigravity forms; the suite was not run for the OpenCode form. The
 shared Events client passes the Events client scenarios proposed
 upstream (still an open pull request in the conformance suite); the Pi
 end-to-end run has limits listed below. Apps checks the spec requirement by
-requirement in its design notes. Whether a polyfill counts as an independent
+requirement in its compliance page. Whether a polyfill counts as an independent
 implementation for a given SEP is up to that extension's maintainers.
 
 Events and Skills share their protocol code and its tests in each
-extension's `core/`. Host results are recorded separately:
+extension's `core/`. Host results are listed separately:
 
 - **Claude Code:** the first table below gives its results.
 - **Codex:** each form's README gives its results:
@@ -31,15 +31,13 @@ extension's `core/`. Host results are recorded separately:
   [Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex),
   [Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex)
   and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex).
-- **Pi:** the second table gives its conformance and live-run evidence,
-  checked with Pi 1.6.0.
-- **OpenCode:** the third table gives its conformance and live-run
-  evidence, checked with OpenCode 2.4.1.
-- **Antigravity:** the fourth table gives its conformance pages and live-run
-  evidence: these builds in CLI v1.5.17, earlier builds also in App
-  v2.35.1.
-- **Copilot CLI:** the fifth table gives its conformance and live-run
-  evidence, checked with Copilot CLI 1.0.115.
+- **Pi:** the second table gives its results, checked in Pi 1.6.0.
+- **OpenCode:** the third table gives its results, checked in OpenCode
+  2.4.1.
+- **Antigravity:** the fourth table gives its results: these builds checked
+  in CLI v1.5.17, earlier builds also in App v2.35.1.
+- **Copilot CLI:** the fifth table gives its results, checked in Copilot CLI
+  1.0.115.
 
 ## What each one has been checked against
 
@@ -67,68 +65,63 @@ the Server Cards discovery doc.
 
 ### Pi
 
-| Polyfill | Client rules and conformance | Recorded live run |
+| Polyfill | Client rules and conformance | Checked in Pi 1.6.0 |
 |---|---|---|
-| Events | The shared client's clause table holds. The Events scenarios in conformance PR #541 pass 17 of 17 checks with the shared client as Pi runs it. End to end through real Pi: 11 checks pass, none fail, 6 cannot be evaluated because Pi's own client also connects to the suite's server. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/conformance.md). | A real model, a confirmed watch, idle session, event wake, read, answer and stop, against a local fixture server. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/live-run.md). |
-| Skills | 53 rules met, 6 met with a stated exception, 1 not applicable, none unmet. The official suite's four SEP-2640 client scenarios pass against the Pi form's client. X8 is met, including codemode's nested calls. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/docs/conformance.md). | Hugging Face's public server: two skills loaded after approval, reference files read, and an answer from them. A second run previewed each `SKILL.md` before loading. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/docs/live-run.md). |
-| Server Cards | Shared rules and Pi-specific tests; S-3, comparison with the live server, is not met. No upstream Server Card scenarios were run. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/docs/conformance.md). | neon.com's catalog listed; the add question answered "Add it"; Neon Docs saved in `mcp.json` and connected for the session. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/docs/live-run.md). |
-| ARD (v0.91 draft, beyond MCP) | Shared ARD and Server Cards rules, with Pi's questions and add flow tested in real Pi using a scripted model and a local server. No upstream ARD conformance run. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/docs/conformance.md). | buildkite.com's `ard.json` read and a search of the repository's demo registry approved before sending. **The add step was not completed:** the model asked in chat instead of calling `ard_add_mcp_server`. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/docs/live-run.md). |
+| Events | The shared client's clause table holds. The Events scenarios in conformance PR #541 pass 17 of 17 checks with the shared client as Pi runs it. End to end through real Pi: 11 checks pass, none fail, 6 cannot be evaluated because Pi's own client also connects to the suite's server. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/conformance.md). | A confirmed watch, an idle session, the event wake, the read, the answer and the stop. |
+| Skills | 53 rules met, 6 met with a stated exception, 1 not applicable, none unmet. The official suite's four SEP-2640 client scenarios pass against the Pi form's client. X8 is met, including codemode's nested calls. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/docs/conformance.md). | Hugging Face's public server: two skills loaded after approval, reference files read, and an answer from them; each `SKILL.md` previewed before loading. |
+| Server Cards | Shared rules and Pi-specific tests; S-3, comparison with the live server, is not met. No upstream Server Card scenarios were run. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/docs/conformance.md). | neon.com's catalog listed; the add question answered "Add it"; Neon Docs saved in `mcp.json` and connected for the session. |
+| ARD (v0.91 draft, beyond MCP) | Shared ARD and Server Cards rules, with Pi's questions and add flow covered by the form's tests. No upstream ARD conformance run. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/docs/conformance.md). | buildkite.com's `ard.json` read, and a search of the repository's demo registry approved before sending. Adding is checked by the form's tests only. |
 | Apps | No Pi form is built or tested. | None. |
 
 The Events end-to-end result is not a full conformance pass: one unevaluable
 check makes the poll scenario report a failure even though none of its checks
-failed. The shared-client run covers all 17 checks. The live runs above used
-Pi's RPC mode; scripts answered the dialogs. They do not establish how the
-selectors appear in the terminal UI.
+failed. The shared-client run covers all 17 checks. The third column was
+checked in Pi's RPC mode. Not checked: how the selectors appear in the
+terminal UI.
 
 ### OpenCode
 
-| Polyfill | Client rules and conformance | Recorded live run |
+| Polyfill | Client rules and conformance | Checked in OpenCode 2.4.1 |
 |---|---|---|
-| Events | The shared client, bundled unchanged; its clause table holds (with `MCP_EVENTS_PRE_STANDARD=off`, 80 clauses met and 6 not applicable). The upstream Events scenarios were run against that client in the Claude Code and Codex forms, not through OpenCode. The form's own tests check listing, poll, push and webhook delivery, resuming after a restart and the permission question in OpenCode. It departs from contract rule 4: it watches push events that OpenCode's automations also take. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/docs/conformance.md). | A real model and the fixture events server: a watch asked about, an idle session woken, the answer. AgentPolyfill's event-feeds server by poll, and a webhook through the public relay, each waking a session. Also in the TUI and in OpenCode Desktop. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md). |
-| Skills | 60 rules: 54 met, 4 met with a stated exception, 1 not applicable, and 1 not met, X13b (letting you read a skill before it loads), which needs a change in OpenCode. X8 is met, also from a Code Mode program, in subagents and after a restart; so is V4. No official-suite run is recorded. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/docs/conformance.md). | Hugging Face's public server: its 25 skills in OpenCode's list, two loaded after OpenCode asked, each bound to its digest, reference files read and an answer from them; the X8 question from a Code Mode program. A skill also loaded in the TUI and in OpenCode Desktop. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md). |
-| Server Cards | 28 rules: 26 met, 1 met with a stated exception (I-4: an SSE remote is refused), and 1 not met, S-3, comparison with the live server. No upstream Server Card scenarios were run. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/opencode/docs/conformance.md). | neon.com's two cards found; Neon Docs added after OpenCode asked, connected, and its `search_docs` tool called. Also added and connected in the TUI. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md). |
-| ARD (v0.91 draft, beyond MCP) | 19 rules: 17 met, 1 partly met (R-8, as in the other forms), and 1 met with a stated exception (Q-3: the TUI's prompt doesn't name a referred registry). Adding is tested in OpenCode with a scripted model and a local server. No upstream ARD conformance run. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/opencode/docs/conformance.md). | buildkite.com's `ard.json` read, and a search of the repository's demo registry sent after OpenCode asked. **No server was added through it.** ARD wasn't tried in the TUI or in OpenCode Desktop. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md). |
+| Events | The shared client, bundled unchanged; its clause table holds (with `MCP_EVENTS_PRE_STANDARD=off`, 80 clauses met and 6 not applicable). The upstream Events scenarios were run against that client in the Claude Code and Codex forms, not through OpenCode. The form's own tests check listing, poll, push and webhook delivery, resuming after a restart and the permission question in OpenCode. It departs from contract rule 4: it watches push events that OpenCode's automations also take. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/docs/conformance.md). | A watch asked about, an idle session woken, the answer. AgentPolyfill's event-feeds server by poll, and a webhook through the public relay, each waking a session. Also in the TUI and in OpenCode Desktop. |
+| Skills | 60 rules: 54 met, 4 met with a stated exception, 1 not applicable, and 1 not met, X13b (letting you read a skill before it loads), which needs a change in OpenCode. X8 is met, also from a Code Mode program, in subagents and after a restart; so is V4. The official suite was not run. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/docs/conformance.md). | Hugging Face's public server: its 25 skills in OpenCode's list, two loaded after OpenCode asked, each bound to its digest, reference files read and an answer from them; the X8 question from a Code Mode program. Loading a skill also in the TUI and in OpenCode Desktop. |
+| Server Cards | 28 rules: 26 met, 1 met with a stated exception (I-4: an SSE remote is refused), and 1 not met, S-3, comparison with the live server. No upstream Server Card scenarios were run. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/opencode/docs/conformance.md). | neon.com's two cards found; Neon Docs added after OpenCode asked, connected, and its `search_docs` tool called. Also added and connected in the TUI. |
+| ARD (v0.91 draft, beyond MCP) | 19 rules: 17 met, 1 partly met (R-8, as in the other forms), and 1 met with a stated exception (Q-3: the TUI's prompt doesn't name a referred registry). Adding is covered by the form's tests. No upstream ARD conformance run. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/opencode/docs/conformance.md). | buildkite.com's `ard.json` read, and a search of the repository's demo registry sent after OpenCode asked. Adding is checked by the form's tests only. Not checked in the TUI or in OpenCode Desktop. |
 | Apps | No OpenCode form: OpenCode has no MCP Apps support, and a plugin can't read a `ui://` resource or a tool's `_meta` over OpenCode's connection. | None. |
 
-The tests run each form in OpenCode 2.4.1, in a throwaway home, with a
-scripted stand-in for a model, on Linux, macOS and Windows. The live runs
-used OpenCode's free models through its server's API; Events, Skills and
-Server Cards were also run in its TUI, and Events and Skills in OpenCode
-Desktop.
+The tests run each form in OpenCode 2.4.1 on Linux, macOS and Windows.
+Events, Skills and Server Cards were also checked in its TUI, and Events and
+Skills in OpenCode Desktop.
 
 ### Antigravity
 
-| Polyfill | Client rules and conformance | Recorded live run |
+| Polyfill | Client rules and conformance | Checked in Antigravity |
 |---|---|---|
-| Events | The Events scenarios in conformance PR #541 (suite at `c8625de`) pass 17 of 17 checks, through the form's MCP server and its real hook, with the watch question approved as a person would. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/conformance.md), [record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/evidence/conformance.txt). | Against the repository's local deploys demo, whose Events support is Mastra's. In CLI 1.5.17 and App 2.35.1: a watch approved and one declined, and a call around the hook refused; in the CLI the event delivered at the next turn through the plugin's `PreInvocation` hook; in the App an idle conversation woken by the sidecar. With earlier builds: a wake during a running turn. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/live-run.md). |
-| Skills | The official suite's four SEP-2640 client scenarios pass (suite at `c8625de`). X8 is not met in Antigravity (CLI or App). [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/conformance.md), [record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/evidence/conformance.txt). | In CLI 1.5.17 and App 2.35.1, against a local skills server: a new skill's load approved, a changed one asked again, and a load declined. With earlier builds, Hugging Face's server: its 25 skills listed, and one loaded after approval in the App and over `agy acp`. |
-| Server Cards | [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/antigravity/docs/conformance.md). | In CLI 1.5.17 and App 2.35.1, with neon.com's real Server Card: an addition approved and one declined. Earlier builds were also run over `agy acp`. |
+| Events | The Events scenarios in conformance PR #541 (suite at `c8625de`) pass 17 of 17 checks, through the form's MCP server and its real hook. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/conformance.md). | Against the repository's local deploys demo, whose Events support is Mastra's. In CLI 1.5.17 and App 2.35.1: a watch approved and one declined, and a call around the hook refused; in the CLI the event delivered at the next turn through the plugin's `PreInvocation` hook; in the App an idle conversation woken by the sidecar. With earlier builds: a wake during a running turn. |
+| Skills | The official suite's four SEP-2640 client scenarios pass (suite at `c8625de`). X8 is not met in Antigravity (CLI or App). [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/conformance.md). | In CLI 1.5.17 and App 2.35.1: a new skill's load approved, a changed one asked again, and a load declined. With earlier builds, Hugging Face's server: its 25 skills listed, and one loaded after approval in the App and over `agy acp`. |
+| Server Cards | [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/antigravity/docs/conformance.md). | In CLI 1.5.17 and App 2.35.1, with neon.com's real Server Card: an addition approved and one declined. Earlier builds were also checked over `agy acp`. |
 | ARD (v0.91 draft, beyond MCP) | [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/antigravity/docs/conformance.md). | In CLI 1.5.17 and App 2.35.1, against Hugging Face's own registry: a search approved and one declined. |
 | Apps | No form: the App renders MCP Apps itself (v2.34.0 and later). | None. |
 
-The live runs were on 25 November 2026, on macOS, with a throwaway HOME the
-user signed in to themselves. They did not cover a webhook watch,
+Not checked: a webhook watch,
 `--dangerously-skip-permissions` against `force_ask`, or these builds in the
 App. The IDE documents no plugin hooks, so the forms aren't supported there,
 and their gated calls are refused.
 
 ### Copilot CLI
 
-| Polyfill | Client rules and conformance | Recorded live run |
+| Polyfill | Client rules and conformance | Checked in Copilot |
 |---|---|---|
-| Events | The shared client's clause table holds. The Events scenarios in conformance PR #541 pass 17 of 17 checks, end to end through the bundled extension. hookbench's reference server passes 7 of 7, and this repository's event-feeds 3 of 3. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/docs/conformance.md). | The Copilot CLI terminal, with a scripted model: a watch set through Copilot's tool prompt, an event while the session was idle, the session waking and reading it, against a local fixture server. The same in VS Code 1.147.0's Copilot harness: a message from the plugin, then the turn. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/docs/live-run.md). |
+| Events | The shared client's clause table holds. The Events scenarios in conformance PR #541 pass 17 of 17 checks, end to end through the bundled extension. hookbench's reference server passes 7 of 7, and this repository's event-feeds 3 of 3. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/docs/conformance.md). | In the Copilot CLI terminal: a watch set through Copilot's tool prompt, an event while the session was idle, the session waking and reading it. The same in VS Code 1.147.0's Copilot harness: a message from the plugin, then the turn. |
 | Skills | Built into Copilot: Copilot CLI 1.0.115 declares it to every server. No Copilot form. | None. |
-| Server Cards | Shared rules and Copilot-specific tests, 114 in all; S-3, comparison with the live server, is not met. The suite has no Server Card scenarios. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/docs/conformance.md). | Installed from a clone; neon.com's Neon and Neon Docs found; after Copilot's tool prompt and "Add it", `neon-docs` written with `copilot mcp add`. In `copilot -p`, with `--yolo` too, Copilot declined the form and nothing was written. In VS Code 1.147.0's Copilot harness, an add through VS Code's tool prompt and the plugin's form, which VS Code shows as one paragraph. |
-| ARD (v0.91 draft, beyond MCP) | Shared ARD and Server Cards rules, with Copilot's questions and add flow tested over stdio as Copilot starts the server, 124 tests in all. No upstream ARD conformance run. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/copilot/docs/conformance.md). | buildkite.com's catalogs read; a search of the repository's demo registry on 127.0.0.1 sent only after Copilot's tool prompt and "Send the search". No other registry was searched, and no server was added through ARD. In VS Code, the server loaded, and no search was run. |
+| Server Cards | Shared rules and Copilot-specific tests, 114 in all; S-3, comparison with the live server, is not met. The suite has no Server Card scenarios. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/docs/conformance.md). | Installed from a clone; neon.com's Neon and Neon Docs found; after Copilot's tool prompt and "Add it", `neon-docs` written with `copilot mcp add`. In `copilot -p`, with `--yolo` too, Copilot declines the form and nothing is written. In VS Code 1.147.0's Copilot harness, an add through VS Code's tool prompt and the plugin's form, which VS Code shows as one paragraph. |
+| ARD (v0.91 draft, beyond MCP) | Shared ARD and Server Cards rules, with Copilot's questions and add flow tested over stdio as Copilot starts the server, 124 tests in all. No upstream ARD conformance run. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/copilot/docs/conformance.md). | buildkite.com's catalogs read; a search of the repository's demo registry sent only after Copilot's tool prompt and "Send the search". No other registry was checked. Adding is checked by the form's tests only. In VS Code, the server loads; no search was checked. |
 | Apps | Built into Copilot for graphical hosts (VS Code's Copilot harness); none in the terminal. No Copilot form. | None. |
 
-The Copilot CLI runs used a scripted model on the machine, with no GitHub
-sign-in. None of them shows how a model of GitHub's choosing uses the tools
-in Copilot CLI. An install from GitHub, rather than from a clone, was checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code. In VS Code 1.147.0's Copilot harness, the person testing signed in
-with their own GitHub account, in a throwaway VS Code profile since deleted,
-and the model was GitHub's Claude Haiku 4.5. The question Events now asks
-before a watch came after that run and hasn't been seen in VS Code.
+Not checked in Copilot CLI: how a model of GitHub's choosing uses the tools.
+An install from GitHub, rather than from a clone, was checked in Copilot CLI
+1.0.105, and not in 1.0.115, in the interactive TUI, or in VS Code. Not
+checked in VS Code: the question Events asks before a watch.
 
 ## What a polyfill can tell you about a spec
 

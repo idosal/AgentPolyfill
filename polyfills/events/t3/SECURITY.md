@@ -33,9 +33,9 @@ The other difference from a tool result is timing. An event arrives without
 anyone asking, and wakes an idle thread. In a thread whose mode approves
 actions without asking (**Full access**), an event from a server can lead to
 actions without a prompt, as a tool result from the same server could. How
-often is bounded (below), not prevented. In our isolated install, a thread
-started with `t3 thread start` ran in the project's default mode, which was
-Full access: check the mode of a thread you leave watching.
+often is bounded (below), not prevented. In a fresh install of T3 Code
+0.1.11, a thread started with `t3 thread start` runs in the project's default
+mode, which is Full access: check the mode of a thread you leave watching.
 
 T3 Code shows the wake as a message in the thread, as it shows anything sent
 with `t3 thread send`. What it hands the agent starts with a line of T3
@@ -75,7 +75,7 @@ instructions given to the model, are what tell it apart from what you typed.
   - **On macOS and Linux** that is `MCP_EVENTS_T3_BIN` if set (a full path),
     else the first `t3` on PATH, else `~/.local/bin/t3`, where T3 Code's own
     installer puts it. It's started directly.
-  - **On Windows** (not tried) only `t3.exe`, or Node with the package's
+  - **On Windows** (not checked) only `t3.exe`, or Node with the package's
     `dist/bin.mjs`, is run, never a `.cmd` or `.bat`.
 - **Starting and stopping a watch ask first.** `watch_event` and
   `unwatch_event` aren't marked read-only, so Codex, in T3 Code, asks in the
@@ -119,7 +119,7 @@ and the servers Codex started for it end with it.
   it's `watcher.sock` in the state folder, or, when that path is too long for a
   socket, a folder of your own in the temporary directory (made `0700`, and
   refused if it belongs to someone else or others can enter it). On Windows
-  (not tried) it's a named pipe.
+  (not checked) it's a named pipe.
 - **Any process of yours can ask the watcher anything**, for any thread:
   set or stop a watch, read a thread's events. It can already do more than
   that: T3 Code lets the machine's own user message any thread with

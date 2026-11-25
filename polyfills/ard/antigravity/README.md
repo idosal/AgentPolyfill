@@ -14,20 +14,15 @@ Also available for [Claude Code](../claude-code/README.md) and
 [`mcp-server-cards` for Antigravity](../../server-cards/antigravity/README.md),
 and this plugin checks, shows and adds what it finds with the same code.
 
-**Run live on 25 November 2026** in the Antigravity App 2.35.1 and CLI 1.5.17
-with a real model, against a registry someone else runs (Hugging Face's own):
-in both, a search approved and sent only to that registry, one declined, one
-sent around the hook refused. The earlier builds also read buildkite.com's
-`ard.json`. An ARD addition hasn't been run in the App (it is the same add as
-`mcp-server-cards`, which has). Details in
-[docs/conformance.md](docs/conformance.md#live-25-november-2026).
+Checked in Antigravity App 2.35.1 and CLI 1.5.17, against a registry someone
+else runs (Hugging Face's own). Not checked: an ARD addition in the App (it is
+the same add as `mcp-server-cards`, which was).
 
 ## Install
 
 You need the Antigravity CLI (`agy`) to install a plugin from a folder: the
 App doesn't ship it. Node 20 or newer on your `PATH` (Antigravity runs the
-plugin's hook with `node`). From a clone of this repository (the sequence
-checked on 25 November 2026):
+plugin's hook with `node`). From a clone of this repository:
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
@@ -54,10 +49,10 @@ hour, and tickets), which you delete by hand.
 
 ### Where it runs
 
-| Surface | Supported | Run live |
+| Surface | Supported | Checked |
 |---|---|---|
-| Antigravity CLI 1.5.17 (macOS) | yes | these builds: a search of Hugging Face's registry approved, one declined, one around the hook refused. Earlier builds: `ard_discover` for buildkite.com, a search over `agy acp` |
-| Antigravity App 2.35.1 (macOS) | yes | these builds: a search of Hugging Face's registry approved (the card showed the whole question), one declined, one around the hook refused |
+| Antigravity CLI 1.5.17 (macOS) | yes | a search of Hugging Face's registry approved, one declined, one around the hook refused; `ard_discover` for buildkite.com |
+| Antigravity App 2.35.1 (macOS) | yes | a search of Hugging Face's registry approved (the card shows the whole question), one declined, one around the hook refused |
 | Antigravity IDE | no | Antigravity documents no plugin hooks for the IDE, so there is no question and no ticket: every search and addition there is refused |
 
 ## How it works
@@ -145,8 +140,8 @@ published by the ards-project on GitHub, at
 (SEP-2127, Final) with the AI Catalog v0.9 for the cards it finds.
 
 [docs/conformance.md](docs/conformance.md) has this form's own client rules
-table (every ARD rule, with the test in this form's suite), the proof (115
-tests: 102 shared rule tests and 13 of this form's own) and the live runs.
+table (every ARD rule, with the test in this form's suite) and the proof (115
+tests: 102 shared rule tests and 13 of this form's own).
 The MCP conformance suite has no ARD scenarios.
 
 ## Development

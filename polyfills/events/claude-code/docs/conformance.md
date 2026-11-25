@@ -17,11 +17,9 @@ only as the top-level `events` capability of the earlier design sketch, which
 is what ChatGPT reads, is used. That is against CAP-2 and CAP-4 below for such
 a server, and for no other. `MCP_EVENTS_PRE_STANDARD=off` removes it.
 
-How the table was made: every normative statement that binds a client or a
-webhook receiver was listed, the code for each was read, and small probes were
-run where reading was not conclusive. Verdicts: MET, or N/A (optional and not
-used, or it cannot arise in this design). The upstream conformance suite is a
-separate thing; see the end.
+The table lists every normative statement that binds a client or a webhook
+receiver. Verdicts: MET, or N/A (optional and not used, or it cannot arise in
+this design). The upstream conformance suite is a separate thing; see the end.
 
 ## The clauses
 
@@ -29,7 +27,7 @@ separate thing; see the end.
 
 | Id | Section | Quote | Code | Test | Verdict |
 | --- | --- | --- | --- | --- | --- |
-| CAP-1 | Capability Negotiation | "A client MAY declare the same identifier with an empty settings object" | `src/events-client.ts` | no test (seen on the wire in a probe) | MET |
+| CAP-1 | Capability Negotiation | "A client MAY declare the same identifier with an empty settings object" | `src/events-client.ts` | no test | MET |
 | CAP-2 | Fallback | "A client MUST NOT send them to a server that has not advertised the extension" | `src/events-client.ts`; `src/watcher.ts`; `src/helper.ts` | spec-test "with the form from before the standard turned off, no events/* request goes to a server that has not advertised the extension"; e2e "a server that advertises events only in the form from before the standard… is used, unless that form is turned off" | MET with `MCP_EVENTS_PRE_STANDARD=off`. **By default not met for a server of the earlier form** (it advertised a top-level `events` capability, not the extension); met for every other server |
 | CAP-3 | Specification, Backward Compat | "defined for protocol revision `2026-07-28` and later" | `src/events-client.ts` | e2e same test (legacy-revision part) | MET (N6) |
 | CAP-4 | Backward Compat | "That key is not part of this extension" | `src/events-client.ts` | spec-test "no events/* request…", "a pre-standard server the user named…" | MET with `MCP_EVENTS_PRE_STANDARD=off`. **By default that key is read**, where the extension's own is absent (deliberate; the form ChatGPT reads) |
@@ -158,7 +156,7 @@ Met by reading the code, and not held there by a test:
 - **`HeaderMismatch` on `events/unsubscribe`** (list again, retry once).
 - **Over real Streamable HTTP**, the routing headers, abort-as-cancel and the
   three-heartbeat rule are tested with a stand-in `fetch`, not through the
-  SDK's transport. The interop runs do go over real HTTP against Mastra's
+  SDK's transport. The interop tests do go over real HTTP against Mastra's
   server (`test/interop/deploys.ts`, `test/interop/sign-in.ts`), and it does
   not validate those headers.
 - Also untested: reconnect jitter; `notifications/events/error` keeps the
@@ -189,7 +187,7 @@ conforming server's events.
 | B9 | Error policy: `-32601` and `-32602` end the subscription; `NotFound`/`Unsupported` re-list and restart at most once per 60 s per watch, reusing the stored cursor. | `src/watcher.ts` | See note N1. |
 | B10 | The relay and its protocol: mailbox per key (from 0.7.0 one key, so one mailbox, per MCP server and project; the project's one mailbox of earlier versions is emptied into them and forgotten), WebSocket subprotocol, access key, 7-day retention, 30-day idle retirement, 410 tombstones, 500-delivery / 16 MiB queue with 503 + `Retry-After`, dedup keyed on (hook, `webhook-id`, digest) rather than `webhook-id` alone, `/healthz`. | `mod/relay/src/*`, `src/relay.ts`; `src/webhooks.ts` | The SEP leaves the proxy-to-client channel "implementation-defined", so this is permitted, but none of it is SEP-defined. |
 | B11 | A lasting (relay) subscription is kept, not unsubscribed, when the session ends. | `src/watcher.ts` | Permitted: unsubscribe is optional. |
-| B12 | Private request `_meta` key `dev.mcp-events-plugin/streamKey`. | `src/events-client.ts` | Stripped before sending (checked on the wire over stdio; no test asserts it). |
+| B12 | Private request `_meta` key `dev.mcp-events-plugin/streamKey`. | `src/events-client.ts` | Stripped before sending (no test asserts it). |
 | B13 | Unknown control-envelope `type` is acknowledged 200 and ignored; `list_changed` is acted on wherever it arrives, opted in or not. | `src/webhooks.ts`; `src/events-client.ts` | Harmless. |
 | B14 | One session per project runs the watches; spool, hand-over to Claude Code, tools. Each session that runs them is listed for the project; the next one takes over what listed sessions stored and never handed over. The hooks module acknowledges a submitted batch, or the notice that waking stopped, again before the next take, and the helper counts it: a wake, or the notice given (from 0.5.1, the budget keeps on disk that the notice was handed over). A starting helper saves the seen ids it read in listed sessions' spools before it takes them off the list (0.5.1). | `src/store.ts`, `src/delivery.ts`, `src/tools.ts`, `src/watcher.ts`, `mod/hooks/register.ts` | Application layer, which the SEP leaves open. |
 | B15 | **On by default:** servers of the form from before the standard (top-level `events` key; error codes -32011..-32015 read as the SEP's), unless `MCP_EVENTS_PRE_STANDARD=off` or a list that leaves the server out. Opt-in: `MCP_EVENTS_DEV` (http on loopback, webhook without credentials). | `src/events-client.ts`; `src/helper.ts`; `src/watcher.ts`; `src/relay.ts`; `src/tunnel.ts` | The first is against CAP-2 and CAP-4 for such a server; see the top of this page. |
@@ -223,15 +221,15 @@ dead stream at twice the heartbeat, where the Final text says three times).
 folder), from a checkout of the suite named in `MCP_CONFORMANCE_SUITE_DIR`.
 That checkout is code this repository does not hold: read it before you run it.
 
-**Result, 24 November 2026, on 0.5.0: 17 of 17 pass** (not run again on 0.5.1, 0.6.0 or 0.7.0, whose
-changes, to the wake budget's notice, the order of a starting helper's writes, the runtime the
-helper runs on and the relay mailbox each server's addresses are in, are outside what these
-scenarios reach), unmodified, at the pull request's
-head `c8625de3118c2d5dc0561696cddeb0baaf124f2c`, on Node 22.23.1, macOS 15 on
-Apple Silicon. 0.4.1 passed 15: in `events-client-push` the stand-in's
+**Result on 0.5.0: 17 of 17 pass**, unmodified, at the pull request's head
+`c8625de3118c2d5dc0561696cddeb0baaf124f2c`. Not checked on 0.5.1, 0.6.0 or
+0.7.0, whose changes, to the wake budget's notice, the order of a starting
+helper's writes, the runtime the helper runs on and the relay mailbox each
+server's addresses are in, are outside what these scenarios reach. 0.4.1
+passed 15: in `events-client-push` the stand-in's
 `notifications/events/active` carries no `heartbeatMs`, so the client waited
-its own 60 seconds before treating the silent stream as dead, and inside the
-9-second run it never reconnected. `sep-3415-client-stream-reconnect-with-cursor`
+its own 60 seconds before treating the silent stream as dead, and the scenario
+ended before it reconnected. `sep-3415-client-stream-reconnect-with-cursor`
 was a warning, and `sep-3415-client-null-cursor-not-replayed` a failure for
 want of a reconnect to grade (the suite: "Not testable"). B5 above is the
 change.
@@ -244,6 +242,6 @@ change.
 | `events-client-webhook` | 3 | 3 | 3 |
 
 The webhook scenario runs with the client's testing switch (`MCP_EVENTS_DEV`)
-on, as its stand-in is plain http on this machine and asks for no credentials,
+on, as its stand-in is plain http on the local machine and asks for no credentials,
 and the client subscribes by webhook only to an https address on an
 authenticated connection.

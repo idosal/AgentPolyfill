@@ -110,28 +110,24 @@ the object form of the plugin's entry in `plugins`:
 
 - The limits of [`mcp-server-cards`](../../server-cards/opencode/README.md#limits)
   for adding a server.
-- **Tried live** with a real model: buildkite.com's `ard.json` read, and a
-  search sent to the repository's demo registry after OpenCode asked, which
-  returned Buildkite's and Netlify's servers, each confirmed by its
-  publisher's catalog ([`live-run.md`](../../../tools/opencode/live-run.md)).
-  CI runs the tests on Linux, macOS and Windows.
+- **Checked in OpenCode 2.4.1:** buildkite.com's `ard.json`, and a search of
+  the repository's demo registry. CI runs the tests on Linux, macOS and
+  Windows.
 - **OpenCode's TUI shows little in the prompt.** In OpenCode 2.4.1's TUI, a
   permission prompt for a plugin's own action says only "Call tool
-  `<action>`" (seen in the TUI for the other three plugins,
-  [`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui); ARD's
-  search wasn't tried there). For `ard_search`, nothing is saved, so the
+  `<action>`" (checked in the TUI for the other three plugins, not for ARD's
+  search). For `ard_search`, nothing is saved, so the
   prompt would offer "Allow once" and "Reject" only, as for Server Cards. The
   details are on the model's call line just above it: the query and the
   registry you named. **A registry a referral
   names is asked about in a prompt of its own that, in the TUI, shows only
   "Call tool ard_search"**: its host is in the request alone, and nothing on
   screen names it. The plugin can't do better in the TUI. OpenCode Desktop
-  shows a plugin action's resource in its prompt (seen for Events and
+  shows a plugin action's resource in its prompt (checked for Events and
   Skills), so there the host shows; or reject a prompt you can't read.
-- **Not tried yet:** Windows by hand (CI runs the tests there), ARD in
+- **Not checked:** Windows by hand (CI runs the tests there), ARD in
   OpenCode Desktop, and a public registry: none that takes an
-  unauthenticated search was found; searches were run against the
-  repository's demo registry.
+  unauthenticated search was found.
 
 ## Security
 
@@ -143,8 +139,8 @@ ARD v0.91 (draft), as the Claude Code form follows it: the rules are in its
 [README](../claude-code/README.md) and tested there against the same modules;
 this form's [`docs/conformance.md`](docs/conformance.md) has each rule's
 state in OpenCode and where it is tested.
-[`test/e2e.test.ts`](test/e2e.test.ts) runs this plugin in OpenCode 2.4.1, in a
-throwaway home, against a local web with an `ard.json`, a card, a small MCP
+[`test/e2e.test.ts`](test/e2e.test.ts) runs this plugin in OpenCode 2.4.1,
+against a local web with an `ard.json`, a card, a small MCP
 server and a registry: discovery; a search refused with no registry; a search
 put to OpenCode's rules, rejected (nothing sent) and approved (sent to that
 registry only); a referred registry asked about on its own and, rejected,

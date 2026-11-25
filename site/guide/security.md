@@ -6,10 +6,7 @@ description: How the AgentPolyfill polyfills treat server content, what each one
 
 These are third-party plugins and extensions that run with your permissions.
 None of them reads the host's stored credentials. They have been reviewed by
-an AI reviewer that did not build them, and not audited by a person. The Pi
-forms had an independent AI review, fixes and a check of those changes too.
-The OpenCode forms had fixes from a security review, and their live runs were
-repeated after them.
+an AI reviewer that did not build them, and not audited by a person.
 The Antigravity forms' review is in progress.
 
 ## Reporting a problem
@@ -85,7 +82,7 @@ them.
   shown to you.
 
 [Apps `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md)
-lists each finding of the review of 24 November 2026 and where it stands.
+lists each finding of its review and where it stands.
 
 ### Skills
 
@@ -167,10 +164,8 @@ reading from starting a watch, sending a query or adding a server.
   query, endpoint and allowance for up to three referrals; only "Send the
   search" sends the query. Adding has its own question through
   `ard_add_mcp_server`, separate from search consent, and uses the Server
-  Cards checks and limits. The recorded live run showed discovery and an
-  approved search of the demo registry, but did not complete an addition.
-  Addition is covered by real-Pi tests with a scripted model and a local
-  server.
+  Cards checks and limits. Checked in Pi 1.6.0: discovery and an approved
+  search of the demo registry. Adding is checked by the form's tests only.
 - **Apps:** no Pi form is built or tested.
 
 Events and Skills use only Pi's accepted MCP configuration, including a
@@ -208,7 +203,7 @@ does.
 OpenCode 2.4.1's TUI shows a polyfill's request as only "Call tool
 `<action>`", without the resource or metadata it carries; you read the details
 on the model's call line above it. OpenCode Desktop shows the action and its
-resource (seen for Events and Skills).
+resource (checked for Events and Skills).
 
 - **Events:** starting or stopping a watch is `mcp_events_watch` or
   `mcp_events_unwatch` on `<server>:<event type>`. "Allow always" covers that
@@ -248,14 +243,14 @@ resource (seen for Events and Skills).
   that needs a secret isn't added: the answer gives the `opencode.json` entry
   with `{env:VAR}` where the secret goes. In the TUI, the call line shows the
   name and URL, not the headers or the undo; an addition from OpenCode
-  Desktop wasn't tried. The model can still edit `opencode.json` itself,
+  Desktop was not checked. The model can still edit `opencode.json` itself,
   unless your rules ask about edits.
 - **ARD:** no registry is selected by default. Each search is `ard_search` on
   the registry hosts, asked every time; nothing is saved. A registry a
   referral names is asked about before the query goes there, and one that
   isn't allowed gets nothing. In the TUI that prompt shows only "Call tool
   ard_search", and nothing on screen names the referred registry: reject a
-  prompt you can't read. ARD wasn't tried in the TUI or in OpenCode Desktop.
+  prompt you can't read. ARD was not checked in the TUI or in OpenCode Desktop.
   Adding uses the Server Cards code, under the same actions.
 - **Apps:** no OpenCode form is built.
 
@@ -287,7 +282,7 @@ reads and the read-only tools pass with a ticket and then get Antigravity's
 usual MCP question, which allow rules can skip. By default that question is
 asked: in the App, its card; the interactive CLI starts in auto mode, where
 an MCP tool call still asks; and headless `agy -p` reports `request-review`
-and denies a call nobody answers (checked live). Whether
+and denies a call nobody answers (checked). Whether
 `--dangerously-skip-permissions` also skips `force_ask` hasn't been checked.
 In CLI 1.5.17, a `PreToolUse` hook that fails, times out or prints something
 that isn't JSON makes the call fail. The IDE documents no plugin hooks, so
@@ -296,12 +291,12 @@ the forms aren't supported there, and their gated calls are refused.
 - **Events:** a watch is put to you in the approval card, naming the event
   type, server, filters and note. The hook passes the conversation id to the
   call in the same ticket. New events reach the conversation at its next
-  model call, through the plugin's `PreInvocation` hook (seen live in the
-  CLI; Antigravity's plugins page doesn't list `PreInvocation` among plugin
+  model call, through the plugin's `PreInvocation` hook (checked in CLI
+  1.5.17; Antigravity's plugins page doesn't list `PreInvocation` among plugin
   hooks). It adds only fixed text with a count and the plugin's own watch
   ids, nothing a server wrote. The sidecar that wakes an idle App
   conversation is off until you turn it on; the plugin never edits
-  `~/.gemini/config/config.json`. A webhook watch wasn't run.
+  `~/.gemini/config/config.json`. A webhook watch was not checked.
 - **Skills:** loading a new or changed served skill is put to you in the
   approval card, yes or no. An approved, unchanged skill gets only
   Antigravity's usual MCP question. X8 isn't met: the plugin's hook asks before
@@ -416,10 +411,7 @@ notes apply. Two things differ:
     exhaustive within them and says nothing past them.
 - **Review.** The polyfills have been reviewed by an AI reviewer that did not
   build them. The Events, Apps, Server Cards and ARD `SECURITY.md` files record
-  a review on 24 November 2026 and what became of its findings. No person has
-  audited any of them. The Pi forms had a separate independent AI review,
-  followed by fixes and a check of the changes. The OpenCode forms had fixes
-  from a security review, and their live runs were repeated after them. The
-  Antigravity forms' review is in progress.
+  what became of the review's findings. No person has
+  audited any of them. The Antigravity forms' review is in progress.
 
 Each `SECURITY.md` says what was considered, not that nothing is left.

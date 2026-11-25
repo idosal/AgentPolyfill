@@ -1,5 +1,5 @@
-// The helper's own MCP connections follow no redirect to another origin (the
-// security review's A3). A local "server" answers the helper's first request
+// The helper's own MCP connections follow no redirect to another origin.
+// A local "server" answers the helper's first request
 // with a 307 or 308 to another local address, which records what reaches it;
 // nothing may, the server's headers least of all. For streamable HTTP a
 // redirect within the server's own origin is followed (so the check can

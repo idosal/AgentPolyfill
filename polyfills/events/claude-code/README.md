@@ -93,13 +93,9 @@ helper on a particular one, name it in `MCP_EVENTS_RUNTIME`, or set that to
 that variable too. So a folder you trust can choose the program that runs the
 helper, as it can already run code through its own hooks.
 
-Not yet run as one sequence: the download, the check and the unpacking are
+Not checked as one sequence: the download, the check and the unpacking are
 tested with stand-ins for the machine (`mod/hooks/setup.test.ts`), but the
-download itself hasn't been run from this mod. The same code was run in parts
-against the real release in the mcp-skills mod for Claude Code. That mod has
-since been removed from this repository (Claude Code lists MCP skills itself);
-it and that record are in history, at commit `ed2279a6`
-([its README's limits](https://github.com/idosal/AgentPolyfill/blob/ed2279a6/polyfills/skills/claude-code/README.md#limits)).
+download itself hasn't been run from this mod.
 
 ## Try it
 
@@ -381,11 +377,10 @@ More on the relay: [`mod/relay/README.md`](mod/relay/README.md).
 | `claude -p "…"` (one prompt, then exit) | Yes | No: the process ends with its turn |
 | Cloud sessions (Claude Code on the web) | Not supported: the mod has to start a local process | |
 
-It's tested live in Claude Code on macOS. The helper's tests also run on Linux
+Checked in Claude Code 2.1.329 on macOS. The helper's tests also run on Linux
 and Windows on every push, and the bundle is started on Node 20 and on Bun.
-But the mod hasn't been run inside Claude Code on Linux or Windows, in the
-desktop app, or in an IDE. If you try it there, an issue saying how it went is
-welcome.
+Not checked inside Claude Code on Linux or Windows, in the desktop app, or in
+an IDE. If you try it there, an issue saying how it went is welcome.
 
 ### If something doesn't work
 
@@ -423,7 +418,7 @@ differ:
 | A session you come back to | Watches pick up when Claude Code starts in the project again | A resumed session's watches start at its first call of one of the plugin's tools |
 | One prompt, then exit | `claude -p`: tools work, no wake | `codex exec`: tools work, no wake |
 | Where state is kept | The plugin's data folder | `$CODEX_HOME/mcp-events` |
-| Tested live | Claude Code on macOS | The Codex TUI 0.172.0 on macOS |
+| Checked in | Claude Code 2.1.329 on macOS | The Codex TUI 0.172.0 on macOS |
 
 ## Settings
 
@@ -530,13 +525,12 @@ default: servers that advertise events in the form from before the standard
   conformance suite's result: 17 of 17 of its Events client scenarios. Those
   scenarios are an open pull request in the suite
   (`modelcontextprotocol/conformance#541`).
-- Three interop runs against servers built on Mastra's `@mastra/mcp`
+- Three interop tests against servers built on Mastra's `@mastra/mcp`
   (`npm run interop`).
 - [`model/`](model/README.md) is a formal model, in Quint and in TLA+, of how
   events get from a server to the session and of how often they wake it. It
   says what the model found in 0.4.1, what TLC found in 0.5.0 (fixed in
   0.5.1), and what it shows of this version within small, stated bounds.
-- [`docs/live-run.md`](docs/live-run.md) is a transcript of a live session.
 
 ## Development
 
@@ -561,7 +555,7 @@ claude --plugin-dir mod   # run it from this checkout
   `tools.ts`, `delivery.ts`, `helper.ts`).
 - `test/` holds the tests, which CI runs on macOS, Linux and Windows
   ([`mcp-events-test.yml`](../../../.github/workflows/mcp-events-test.yml)). It
-  also holds the interop runs (`test/interop/deploys.ts`,
+  also holds the interop tests (`test/interop/deploys.ts`,
   `test/interop/sign-in.ts`).
 - `npm run conformance` runs the upstream conformance suite's Events client
   scenarios against the client, from a checkout of the suite

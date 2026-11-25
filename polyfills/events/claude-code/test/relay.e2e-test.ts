@@ -290,7 +290,7 @@ describe('webhook delivery through the relay', { concurrency: false }, () => {
             await relay.stop();
         }
     });
-    // P3 of 0.6.0: a project's watches shared one mailbox, so while Claude Code was closed one server's
+    // In 0.6.0 a project's watches shared one mailbox, so while Claude Code was closed one server's
     // well-formed junk to its own address could fill it, and the others' deliveries were refused.
     test("each MCP server has a mailbox of its own: while Claude Code is closed, one server's junk fills only its own, and another's deliveries are still taken", async () => {
         const relay = await startRelay({ ACCESS_KEY: ACCESS, MAX_QUEUED: '3' });

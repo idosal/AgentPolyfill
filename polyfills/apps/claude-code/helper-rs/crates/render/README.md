@@ -104,8 +104,7 @@ The generated Unicode table can be refreshed separately with
 
 ## Time per frame
 
-Measured 2026-11-18 on an Apple M1 Max (arm64), Rust 1.100.0 release and Node
-22.23.1. The input is a deterministic ray-traced 3D scene of shaded spheres over
+Measured on one machine, with Rust 1.100.0 release and Node 22.23.1. The input is a deterministic ray-traced 3D scene of shaded spheres over
 a checker plane: **100×30 cells, 1600×960 RGBA pixels, 16×32 pixels/cell (2×)**.
 Both implementations use the same PNG, options, timestamps, and persistent
 state. Both emit raster **and** styled runs. PNG decoding, scene generation,

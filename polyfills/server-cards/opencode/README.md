@@ -81,7 +81,7 @@ For a server behind a sign-in, add it the same way, then run
    `mcp_server_cards_add` on `<name>=<url>`; the request carries the host,
    URL, headers, the card and where it was listed, and how to undo it, as
    metadata. OpenCode Desktop shows a plugin action's resource in its prompt
-   (seen for Events and Skills); the TUI shows neither (see [Limits](#limits)). OpenCode's shipped rules allow every action, so the
+   (checked for Events and Skills); the TUI shows neither (see [Limits](#limits)). OpenCode's shipped rules allow every action, so the
    plugin makes its two actions ask by default, with an OpenCode `evaluate`
    hook that turns `allow` into `ask` for them and nothing else.
 4. **The server is added** with `ctx.mcp.transform`, OpenCode's way for a
@@ -140,20 +140,17 @@ When OpenCode supports Server Cards itself, turn the plugin off, or remove it
 - **No check against the live server.** The spec recommends checking a card
   against the server it describes (`server/discover`). That needs a request
   over OpenCode's connection, which a plugin can't send.
-- **Tried live** with a real model: neon.com's two cards found, Neon Docs added
-  after OpenCode asked, and connected
-  ([`live-run.md`](../../../tools/opencode/live-run.md)). CI runs the tests on
-  Linux, macOS and Windows.
+- **Checked in OpenCode 2.4.1 against neon.com's catalog.** CI runs the
+  tests on Linux, macOS and Windows.
 - **OpenCode's TUI shows little in the prompt.** In OpenCode 2.4.1's TUI, a
   permission prompt for a plugin's own action says only "Call tool
   mcp_server_cards_add", with "Allow once" and "Reject" (nothing is saved,
   so there's no "Always allow"). The details are on the model's call line just
   above it: the name, the identifier and the URL. The request's host, headers
-  and undo aren't shown. Checked in the TUI
-  ([`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui)).
-- **Not tried yet:** Windows by hand (CI runs the tests there), and an
+  and undo aren't shown.
+- **Not checked:** Windows by hand (CI runs the tests there), and an
   addition from OpenCode Desktop (its prompts show a plugin action's
-  resource, as seen for Events and Skills).
+  resource, as they do for Events and Skills).
 
 ## Security
 
@@ -170,7 +167,7 @@ follows them: the revisions and the rule-by-rule account are in its
 form's tests against the same modules; this form's
 [`docs/conformance.md`](docs/conformance.md) has each rule's state in
 OpenCode and where it is tested. [`test/e2e.test.ts`](test/e2e.test.ts)
-runs this plugin in OpenCode 2.4.1, in a throwaway home, against a local web
+runs this plugin in OpenCode 2.4.1, against a local web
 with a catalog, two cards and a small MCP server: discovery; an addition
 rejected and approved through OpenCode's rules; OpenCode connecting to the
 added server; per project; the server still there after OpenCode restarts; a

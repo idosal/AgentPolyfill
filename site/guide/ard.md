@@ -167,16 +167,17 @@ stay in `~/.gemini/config/mcp_config.json`; remove one with
 docs).
 
 This form carries the Server Cards checks and add step itself, as the Codex
-and Pi forms do; it doesn't need `mcp-server-cards` installed. It was run in
-the App (2.35.1) and the CLI (1.5.17).
+and Pi forms do; it doesn't need `mcp-server-cards` installed. Checked in
+App 2.35.1 and CLI 1.5.17.
 
 ### In Copilot CLI
 
 Copilot CLI 1.0.115 (the version tested), with Node 20 or newer on your
 `PATH`. It is an MCP server in a plugin, so it needs no experimental mode. The
 install from a clone is the one tested; keep the clone. From GitHub,
-`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace;
-that was checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code. Start a new
+`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace.
+Checked in Copilot CLI 1.0.105. Not checked in 1.0.115, in the interactive
+TUI, or in VS Code. Start a new
 Copilot session afterwards. Remove it with
 `copilot plugin uninstall ard-discovery@agent-polyfill`. Servers you added
 stay in `~/.copilot/mcp-config.json`; remove one with
@@ -206,18 +207,14 @@ Then ask to add it:
 - **Claude Code:** press **Add** under the answer.
 - **Codex:** accept Codex's form.
 - **Pi:** choose "Add it" in the extension's dialog. This add step is
-  covered by real-Pi tests with a scripted model and a local server; it was
-  **not completed in the live run**.
+  checked by the form's tests only.
 - **OpenCode:** ask OpenCode to add it, and allow it when OpenCode asks.
-  Adding through this plugin is covered by its tests in a real OpenCode,
-  with a scripted model and a local server; the live runs didn't add a
-  server through it.
+  Adding through this plugin is checked by the form's tests only.
 - **Antigravity:** approve the addition in Antigravity's approval card. The
   plugin then writes the server to `~/.gemini/config/mcp_config.json`.
 - **Copilot CLI:** after Copilot's tool prompt, accept the plugin's form.
   Run `/mcp reload`, and sign in when Copilot asks (`/mcp auth buildkite`).
-  Adding through this plugin is covered by tests that run its server as
-  Copilot starts it; the live run didn't add a server through it.
+  Adding through this plugin is checked by the form's tests only.
 
 To try search, start the demo registry from a clone of the repository (it is a
 demo, not a real registry: it reads the live catalogs of ten publishers and
@@ -232,15 +229,10 @@ It listens on `http://127.0.0.1:9011`. Ask your host:
 > My CI build failed and I don't have a tool for it. Search the registry at http://127.0.0.1:9011 for an MCP server that can check why.
 
 Claude finds Buildkite, and says buildkite.com's own catalog confirms it.
-In Pi, the recorded search returned publisher-confirmed Buildkite and
-Netlify after the extension's search question. The query stays local with
-this demo; fetching cards and checking publishers still makes public GETs.
-In OpenCode, a live search of the demo registry, sent after OpenCode asked,
-returned Buildkite's and Netlify's servers, each confirmed by its
-publisher's catalog. In Copilot CLI, with a scripted model, the search went
-out only after Copilot's tool prompt and "Send the search" in the plugin's
-form, and the result listed Buildkite and Netlify, both confirmed by their
-publishers.
+The query stays local with this demo; fetching cards and checking publishers
+still makes public GETs. This search was checked in Pi 1.6.0, OpenCode 2.4.1
+and Copilot CLI 1.0.115: it goes out only after the host's or the plugin's
+search question.
 
 ## Using it, step by step
 
@@ -303,12 +295,12 @@ and additions to OpenCode's rules alone, under whose default a search is
 sent without a prompt.
 
 One limit: OpenCode 2.4.1's TUI shows a plugin's own action as only "Call
-tool `<action>`" (seen for the other three plugins; ARD wasn't tried in the
-TUI). For a search, the model's call line just above the prompt names the
+tool `<action>`" (checked for the other three plugins; ARD was not checked
+in the TUI). For a search, the model's call line just above the prompt names the
 query and the registry you named. For a registry a referral names, nothing on
 screen names its host, so reject a prompt you can't read. OpenCode Desktop
-shows a plugin action's resource in its prompt (seen for Events and Skills),
-but ARD wasn't tried there either.
+shows a plugin action's resource in its prompt (checked for Events and
+Skills), but ARD was not checked there either.
 
 `ard_add_mcp_server` and `ard_remove_mcp_server` add or remove a server
 either tool showed, as `mcp-server-cards` does in OpenCode: asked about,
@@ -370,7 +362,7 @@ when the request names none (unset by default), and
 `copilot plugin disable ard-discovery@agent-polyfill` turns the plugin off. It
 can't detect native ARD support. Copilot 1.0.115's own discovery, a built-in
 `discover-resources` skill searching a catalogue Copilot is given (by its
-text; not run), wasn't seen to read `ard.json` or speak ARD's registry search,
+text; not checked), wasn't seen to read `ard.json` or speak ARD's registry search,
 so the plugin doesn't stand down for it.
 
 In Claude Code, in `/config`, under the plugin:
@@ -404,11 +396,9 @@ In Claude Code, in `/config`, under the plugin:
   [Server Cards](./server-cards#limits).
 - **Discover or search again after a session change.** New, resumed,
   forked and reloaded sessions forget shown cards.
-- **The live run did not add a server.** It read buildkite.com's `ard.json`
-  and searched the repository's demo registry after approval. The model then
-  asked in chat instead of calling `ard_add_mcp_server`, and `mcp.json`
-  stayed empty. Additions are covered by real-Pi tests with a scripted model
-  and a local server, not by that live run.
+- **Adding is checked by the form's tests only.** Checked in Pi 1.6.0:
+  reading buildkite.com's `ard.json`, and a search of the repository's demo
+  registry after approval.
 
 ### In OpenCode
 
@@ -419,11 +409,12 @@ In Claude Code, in `/config`, under the plugin:
   the live server. See [Server Cards](./server-cards#limits).
 - **The TUI's referral prompt.** In OpenCode's TUI, nothing on screen names
   a referred registry's host (above).
-- **No public registry was tried.** None that takes an unauthenticated
-  search was found; searches ran against the repository's demo registry.
-- **Not tried yet:** ARD in OpenCode's TUI and in OpenCode Desktop, and
-  Windows by hand (CI runs the tests there). The live runs didn't add a
-  server through it; additions are covered by its tests in OpenCode.
+- **No public registry was checked.** None that takes an unauthenticated
+  search was found; search was checked against the repository's demo
+  registry only.
+- **Not checked yet:** ARD in OpenCode's TUI and in OpenCode Desktop, and
+  Windows outside CI (CI runs the tests there). Adding is checked by the
+  form's tests only.
 
 ### In Antigravity
 
@@ -444,14 +435,12 @@ In Claude Code, in `/config`, under the plugin:
   new servers need `/mcp reload`, adding works in the interactive session
   only, and a public name that resolves to a private address isn't caught.
   See [Server Cards](./server-cards#limits).
-- **No public registry was tried.** Searches ran only against the
-  repository's demo registry on 127.0.0.1.
-- **Not run in VS Code.** In VS Code 1.147.0's Copilot harness the plugin's
-  server loaded, but no search or add was run through it there. Its add form
-  is the Server Cards form, which VS Code showed and answered there.
-- **What the live run didn't cover:** the Copilot CLI run used a scripted
-  model, and didn't add a server through `ard_search`. Adding is covered by
-  tests that run the plugin's server as Copilot starts it.
+- **No public registry was checked.** Search was checked against the
+  repository's demo registry only.
+- **Not checked in VS Code.** In VS Code 1.147.0's Copilot harness the
+  plugin's server loads, but no search or add was checked there. Its add
+  form is the Server Cards form, which was checked there.
+- **Adding is checked by the form's tests only.**
 
 ### In T3 Code
 
@@ -460,7 +449,7 @@ forms for them load there. With Codex, the question it asks before sending a reg
 an MCP elicitation form, and T3 Code shows such a form only when it can
 answer it with Approve or Decline; it cancels this one without showing it, so
 the step is refused as if you had said no. Nothing is approved for you.
-Not run live in T3 Code.
+Not checked in T3 Code.
 [T3 Code](https://github.com/idosal/AgentPolyfill/blob/main/docs/t3-code.md) has the details.
 
 ## Security
@@ -476,9 +465,9 @@ keeps no store: adding a server is `mcp-server-cards`' job, and needs you.
 - **Discovery by domain** sends no query: only plain `GET`s to that domain.
 - A public registry can't refer it to a local or private address.
 
-The launch security review (24 November 2026, by an AI session, not a human
-audit) checked that a search result can't impersonate a publisher, and its
-re-check found that searches were not each put to you; every search now is.
+A search result can't impersonate a publisher, and every search is put to
+you. An AI reviewer that did not build it reviewed it; no person has audited
+it.
 
 The full account:
 [`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md).
@@ -499,8 +488,8 @@ the fixes again. They have not been audited by a person.
 [Pi's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/docs/conformance.md)
 documents the shared ARD and Server Cards rules, Pi's questions and the
 tested add path. No upstream conformance run or independent public-registry
-run is claimed. The [live-run transcript](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/docs/live-run.md)
-shows discovery and the approved demo search, and stops before addition.
+run is claimed. Checked in Pi 1.6.0: discovery and the approved demo search.
+Adding is checked by the form's tests only.
 
 ### In OpenCode
 
@@ -518,13 +507,11 @@ catalog lists it. Fetching, showing and adding a server are as in
 [OpenCode's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/opencode/docs/conformance.md)
 records 19 rules: 17 met, 1 partly met (R-8, as in the other forms), and 1
 met with a stated exception (Q-3: the TUI's prompt doesn't name a referred
-registry). Its tests run the plugin in OpenCode 2.4.1 against a local web
-with an `ard.json`, a card, a small MCP server and a registry, with a
-scripted model; CI runs them on Linux, macOS and Windows. No upstream
-conformance run or public-registry run is claimed. The
-[live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md)
-records buildkite.com's `ard.json` read and a search of the demo registry
-sent after OpenCode asked; it added no server.
+registry). Its tests run the plugin in OpenCode 2.4.1; CI runs them on Linux, macOS
+and Windows. No upstream
+conformance run or public-registry run is claimed. Checked in OpenCode
+2.4.1: buildkite.com's `ard.json` read, and a search of the demo registry
+sent after OpenCode asked. Adding is checked by the form's tests only.
 An AI reviewer who did not build the OpenCode forms reviewed them. They have
 not been audited by a person.
 
@@ -554,10 +541,10 @@ See [Copilot's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/po
 
 [Copilot's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/copilot/docs/conformance.md)
 documents the shared ARD and Server Cards rules and Copilot's questions
-(124 tests). No upstream conformance run is claimed. In Copilot CLI 1.0.115,
-with a scripted model, `ard_discover` read buildkite.com's catalogs, and a
-search of the demo registry on 127.0.0.1 went out only after the tool prompt
-and "Send the search".
+(124 tests). No upstream conformance run is claimed. Checked in Copilot CLI
+1.0.115: `ard_discover` reading buildkite.com's catalogs, and a search of
+the demo registry going out only after the tool prompt and "Send the
+search".
 
 ## More
 

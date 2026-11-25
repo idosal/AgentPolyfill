@@ -2,7 +2,7 @@
 // (modelcontextprotocol/conformance, `client --command "<this>" --scenario <name>`), for the
 // Copilot form. It mirrors ../../codex/test/conformance-driver.ts --helper: end to end, the bundled
 // extension (plugin/extensions/mcp-events/extension.mjs) started as Copilot starts it, with a
-// throwaway COPILOT_HOME whose mcp-config.json names the suite's server and the stand-in session of
+// temporary COPILOT_HOME whose mcp-config.json names the suite's server and the stand-in session of
 // test/harness.ts. The driver calls list_event_types and watch_event as the model would, waits, and
 // ends the extension with SIGTERM as Copilot does.
 //

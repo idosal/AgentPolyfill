@@ -34,16 +34,16 @@ codex plugin add mcp-tasks@mcp-tasks-local
 ```
 
 Codex says `Added marketplace mcp-tasks-local` and `Added plugin mcp-tasks`, and
-`codex mcp list` then shows `mcp-tasks`. These steps were run as written, with
-Codex 0.172.0, in a throwaway home. What is installed is one small folder,
+`codex mcp list` then shows `mcp-tasks`. Checked in Codex 0.172.0. What is
+installed is one small folder,
 [`plugin/`](plugin/), of about 0.5 MB. Nothing else is downloaded.
 
 You need:
 
-- **Codex 0.172 or newer.** It was tested with 0.172.0.
+- **Codex 0.172 or newer.** Checked in Codex 0.172.0.
 - **Node 20 or newer** on the PATH Codex runs with.
 - **An MCP server that offers the Tasks extension** on protocol revision
-  2026-07-28, in your `config.toml`. It was tested with FastMCP 4.2.6
+  2026-07-28, in your `config.toml`. Checked with FastMCP 4.2.6
   (`fastmcp[tasks]`, tools marked `task=True`) only. Others that say they serve
   it: the Rust SDK ([rmcp PR 1020](https://github.com/modelcontextprotocol/rust-sdk/pull/1020)),
   the C# SDK's [`ModelContextProtocol.Extensions.Tasks`](https://csharp.sdk.modelcontextprotocol.io/v2/concepts/tasks/tasks.html),
@@ -150,12 +150,12 @@ what Codex declares to every MCP server it starts, the plugin's own included.
 
 - **What is proven.** Codex 0.172 declares its client extensions at
   `initialize`, from a fixed list in its source
-  (`codex-mcp/src/client_capabilities.rs`). Live, that list is empty for the
-  plugin.
+  (`codex-mcp/src/client_capabilities.rs`). Checked in Codex 0.172.0: that
+  list is empty for the plugin.
 - **With Codex's experimental `mcp_2026_07_28` feature on.** Codex first sends
   `server/discover`, declaring its capabilities in that request's `_meta`
-  (again no extensions, seen in one run by hand, on this code before 0.1.0;
-  [live-run.md](docs/live-run.md)). The plugin reads that declaration, then
+  (again no extensions; checked in Codex 0.172.0, with the plugin before
+  0.1.0). The plugin reads that declaration, then
   answers "method not found", as a server that speaks only the 2025 revisions
   does, and Codex goes on with `initialize`. The plugin also reads the
   declaration on every other request.
@@ -223,13 +223,13 @@ restart. What doesn't, and what in Codex would close each:
   alone. That form isn't wire-compatible with this extension.
 - **No upstream conformance run.** The MCP conformance suite has Tasks
   scenarios for servers only (conformance#374).
-- **Not tried yet:**
-  - Full access (`--dangerously-bypass-approvals-and-sandbox`). It wasn't run.
+- **Not checked:**
+  - Full access (`--dangerously-bypass-approvals-and-sandbox`).
     Codex 0.172's source (`codex-mcp/src/elicitation.rs`) says that there, a
     question with a required field is declined, or shown to you when Codex's
     "full-access form input" is on, and never answered for you. What
     [`SECURITY.md`](SECURITY.md) says about it is a reading of that source.
-  - The Codex desktop app, Windows and Linux. It was run in the terminal UI and
+  - The Codex desktop app, Windows and Linux. Checked in the terminal UI and
     `codex exec`, on macOS; the tests run on Linux and macOS.
 
 ## Security
@@ -262,17 +262,16 @@ protect against.
   [`../core/docs/client-rules.md`](../core/docs/client-rules.md).
 - **Conformance:** [`docs/conformance.md`](docs/conformance.md) has one row
   per client rule, with the test that checks it.
-- **Interop:** against FastMCP 4.2.6 with fastmcp-tasks 4.2.6, a server whose
-  Tasks side someone else wrote, over Streamable HTTP. There are 10 checks, in
-  `test/interop/fastmcp-interop.ts` ([`docs/interop.md`](docs/interop.md)).
+- **Interop:** FastMCP 4.2.6 with fastmcp-tasks 4.2.6, a server whose Tasks
+  side someone else wrote, over Streamable HTTP: 10 of 10, with
+  `npm run interop` (`test/interop/fastmcp-interop.ts`).
 - **Upstream suite:** it has no client scenarios for Tasks yet
   (modelcontextprotocol/conformance#374), so there is nothing to run.
-- **Live:** a real Codex 0.172.0 in a throwaway home, with a scripted model,
-  against FastMCP, by [`live/run.sh`](live/run.sh). A task completed and woke
-  the session; a task's question was answered, and another's closed, in
-  Codex's form; and `codex exec` started nothing ([`docs/live-run.md`](docs/live-run.md)).
-- **No production server tried.** The only production use we found, ZoomInfo's
-  MCP server, needs an OAuth sign-in, which this plugin can't use.
+- **The real host:** Checked in Codex 0.172.0, in the terminal UI and
+  `codex exec`.
+- **Not checked against a production server.** The only production use we
+  found, ZoomInfo's MCP server, needs an OAuth sign-in, which this plugin
+  can't use.
 
 ## Development
 
@@ -287,7 +286,6 @@ npm test            # the helper as Codex runs it, against test/fixture-tasks-se
 npm run build       # plugin/dist/helper.js (committed)
 python3 -m venv /tmp/fm && /tmp/fm/bin/pip install --require-hashes -r test/interop/requirements.txt
 MCP_TASKS_INTEROP_PYTHON=/tmp/fm/bin/python npm run interop
-MCP_TASKS_INTEROP_PYTHON=<same> live/run.sh <out dir>   # a real Codex TUI, in a throwaway home
 node ../../../tools/bundle-notices.mjs . --plugin plugin   # plugin/THIRD_PARTY_LICENSES.txt
 ```
 

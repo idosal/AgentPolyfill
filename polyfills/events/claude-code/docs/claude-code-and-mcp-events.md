@@ -31,7 +31,7 @@ clauses with the code and test for each, is in
 | Events exists on protocol revision 2026-07-28 and later | Used only there. | `e2e`: "advertises events only where the extension does not define them" |
 | The server advertises under `capabilities.extensions["io.modelcontextprotocol/events"]` | Read from there. **Outside the SEP, by default:** where that is absent, the top-level `events` key of the earlier design sketch (the form ChatGPT reads) is read too. `MCP_EVENTS_PRE_STANDARD=off` stops that, and the user is then told why such a server is left alone. | same |
 | A client MUST NOT send `events/*` to a server that has not advertised the extension | Checked on every request, including after a reconnect. With the default above, "advertised" includes the earlier form; with `MCP_EVENTS_PRE_STANDARD=off` it is the SEP's rule exactly. | `spec`: "with the form from before the standard turned off…" |
-| A client MAY declare the extension in its per-request capabilities | Declared. | interop runs |
+| A client MAY declare the extension in its per-request capabilities | Declared. | `test/interop` |
 | `events/list`, following `nextCursor` | Yes (up to 200 event types). | `e2e` |
 | On `notifications/events/list_changed`, list again (opt in with `eventsListChanged` on `subscriptions/listen`) | Opts in when the server declares `listChanged: true`, and lists again on the notice. | `spec`: "a server that says its event types change…" |
 
@@ -199,7 +199,7 @@ to.
 | Server | Delivery | Advertised | Credentials | With this mod |
 |---|---|---|---|---|
 | Servers built on Mastra's `@mastra/mcp` | push, poll, webhook | The extension, on 2026-07-28 | Whatever the server chooses | **Works** (tested; the demo server is one). |
-| Cloudflare's API server (`mcp.cloudflare.com`) | webhook only | Top-level `events` only | OAuth, or an API token in a header | **Listed and subscribed to by default**, as a server of the earlier form (`MCP_EVENTS_PRE_STANDARD=off` leaves it alone). It needs an API token in a header, and a relay, since it delivers by webhook only. Delivery of an event from the hosted server has not been observed end to end. See the note below. |
+| Cloudflare's API server (`mcp.cloudflare.com`) | webhook only | Top-level `events` only | OAuth, or an API token in a header | **Listed and subscribed to by default**, as a server of the earlier form (`MCP_EVENTS_PRE_STANDARD=off` leaves it alone). It needs an API token in a header, and a relay, since it delivers by webhook only. Not checked: delivery of an event from the hosted server, end to end. See the note below. |
 | Appwrite (`mcp.appwrite.io`) | push, webhook | Both forms | OAuth only | No: OAuth. |
 | Bird (`mcp.bird.com`) | webhook only | Not stated | OAuth only | No: OAuth. |
 | The SEP author's demo server (`metronome-mcp.fly.dev`) | push, poll, webhook | The extension, on 2026-07-28 | OAuth only | No: OAuth. |
