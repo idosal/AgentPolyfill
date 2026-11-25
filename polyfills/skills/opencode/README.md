@@ -5,7 +5,7 @@ They show up in OpenCode's own skill list, OpenCode loads one when a task
 calls for it, and it reads the files the skill refers to as it needs them.
 Loading goes through OpenCode's permission rules.
 
-Also available for Claude Code, Codex and Pi: [mcp-skills for Claude Code](../claude-code/README.md), [mcp-skills for Codex](../codex/README.md), [mcp-skills for Pi](../pi/README.md).
+Also available for Codex and Pi: [mcp-skills for Codex](../codex/README.md), [mcp-skills for Pi](../pi/README.md). Claude Code needs no polyfill for this: it lists skills from MCP servers itself, in beta from 2.1.332 ([changelog](https://code.claude.com/docs/en/changelog)).
 
 It implements the client side of the MCP Skills extension
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md),
@@ -256,7 +256,7 @@ OpenCode:
 ### Checked end to end in OpenCode
 
 [`test/e2e.test.ts`](test/e2e.test.ts) runs the plugin in OpenCode 2.4.1, in a
-throwaway home, against the Claude Code form's fixture skills server (written
+throwaway home, against the Skills forms' shared fixture server (written
 from the SEP, sharing no code with the client), with a scripted model: the
 served skill in OpenCode's skill list with none of its text; OpenCode's skill
 tool returning the note; a load put to OpenCode's rules, rejected (nothing

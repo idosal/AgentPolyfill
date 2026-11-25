@@ -27,7 +27,6 @@
       "plugin": "mcp-skills",
       "spec": "SEP-2640, Final",
       "hosts": [
-        "Claude Code",
         "Codex",
         "Pi",
         "OpenCode"
@@ -37,10 +36,10 @@
       "cut": "skills",
       "alt": "In Codex, in the ChatGPT desktop app, asked what skills the Hugging Face MCP server serves, Codex lists its 25 skills, all visible in Codex. Asked which GGUF quantization to use for a 7B model on a 16 GB Mac, Codex asks in its own form whether to load the skill huggingface-local-models from that server, saying its 4 files are each checked against the server's SHA-256 digest when read, with Do not load it, Show me its SKILL.md first, and Load it. After Load it, Codex answers from the skill: Q4_K_M.",
       "addStep": "Try it with Hugging Face's public MCP server (no sign-in):",
-      "add": "claude mcp add --transport http huggingface https://huggingface.co/mcp",
       "addCodex": "codex mcp add huggingface --url https://huggingface.co/mcp",
       "ask": "Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?",
-      "then": "- Claude Code: `/mcp-skills` lists what it serves.\n- Codex: the served skills appear in the `$` list after you ask once to list the served skills, from the next turn.\n- Pi: add the server with `pi mcp add huggingface --url https://huggingface.co/mcp`. Skills appear as `mcp-huggingface-<name>`, marked with their server. Loading one asks: \"Don't load it\", \"Show me its SKILL.md first\", or \"Load it\".\n- OpenCode: add the server with `\"mcp\": {\"huggingface\": {\"type\": \"remote\", \"url\": \"https://huggingface.co/mcp\", \"oauth\": false}}` in `opencode.json`. Skills appear in OpenCode's own skill list as `mcp-skills:huggingface:<name>`, marked with their server. Loading one takes two steps: OpenCode's skill tool returns the plugin's note, then the model calls `mcp_skills_load_skill` and OpenCode asks: \"Allow once\", \"Allow always\" or \"Reject\".",
+      "then": "- Codex: the served skills appear in the `$` list after you ask once to list the served skills, from the next turn.\n- Pi: add the server with `pi mcp add huggingface --url https://huggingface.co/mcp`. Skills appear as `mcp-huggingface-<name>`, marked with their server. Loading one asks: \"Don't load it\", \"Show me its SKILL.md first\", or \"Load it\".\n- OpenCode: add the server with `\"mcp\": {\"huggingface\": {\"type\": \"remote\", \"url\": \"https://huggingface.co/mcp\", \"oauth\": false}}` in `opencode.json`. Skills appear in OpenCode's own skill list as `mcp-skills:huggingface:<name>`, marked with their server. Loading one takes two steps: OpenCode's skill tool returns the plugin's note, then the model calls `mcp_skills_load_skill` and OpenCode asks: \"Allow once\", \"Allow always\" or \"Reject\".",
+      "note": "Claude Code needs no polyfill for this: it lists skills from MCP servers itself, in beta from 2.1.332.",
       "link": "/guide/skills"
     },
     {

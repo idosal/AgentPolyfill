@@ -58,8 +58,7 @@ fetched Bun for you, see [The mod's own runtime](#the-mods-own-runtime) first.
 ### The mod's own runtime
 
 The mod's helper is JavaScript, so it needs Node or Bun, and Claude Code comes
-with neither. On a machine that has neither, `/mcp-events setup` fetches one.
-It works the same way as in the mcp-skills mod:
+with neither. On a machine that has neither, `/mcp-events setup` fetches one:
 
 - **Only when you ask, and only after you say yes.** The command counts only
   when you type it at the prompt, or send it from your own Remote Control. It
@@ -96,8 +95,9 @@ helper, as it can already run code through its own hooks.
 
 Not yet run as one sequence: the download, the check and the unpacking are
 tested with stand-ins for the machine (`mod/hooks/setup.test.ts`), but the
-download itself hasn't been run from this mod. The same code in the mcp-skills
-mod was run in parts against the real release.
+download itself hasn't been run from this mod. The same code was run in parts
+against the real release in the mcp-skills mod for Claude Code, which has
+since been removed from this repository.
 
 ## Try it
 

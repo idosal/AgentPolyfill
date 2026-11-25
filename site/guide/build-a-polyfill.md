@@ -145,7 +145,8 @@ for each host, which wires that core into what the host lets third-party code
 do. Events and Skills are built that way, with one `core/` and an adapter
 for each host:
 
-- **Claude Code:** a mod in `claude-code/`.
+- **Claude Code:** a mod in `claude-code/` (Events has one; Skills doesn't,
+  because Claude Code lists served skills itself).
 - **Codex:** a plugin in `codex/`.
 - **Pi:** an extension in `pi/`, with a manifest and bundled file in
   `extension/`. `pi install git:github.com/idosal/AgentPolyfill` installs
