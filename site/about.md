@@ -31,7 +31,7 @@ Nothing for Pi is published to npm or Pi's package gallery.
 Nothing for OpenCode is published to npm either; OpenCode installs each plugin
 from the repository on GitHub, with Git.
 Nothing is published to Antigravity's Marketplace either; its plugins install
-from a clone.
+from a clone, with the Antigravity CLI (the App doesn't ship `agy`).
 
 ## Not affiliated
 

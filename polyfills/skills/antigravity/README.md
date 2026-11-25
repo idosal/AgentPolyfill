@@ -9,12 +9,13 @@ commit `2eb3a8e`, the same revision as the [Codex form](../codex/README.md).
 It shares [Skills core](../core/), Codex's approval store and content formatting,
 and the [Antigravity gate](../../server-cards/antigravity/src/gate.ts).
 
-**Run live on 25 November 2026** in the Antigravity CLI 1.5.17 with a real
-model, against a local skills server serving one skill in three versions: a
-new skill asked, a changed one asked again, an unchanged approved one didn't,
-a declined load read nothing, and a load sent around the hook was refused.
-The earlier builds also ran in the App 2.35.1 and against Hugging Face's
-public MCP server. Rule X8 is not met in the CLI (see [Limits](#gaps-and-the-host-changes-that-would-close-them)).
+**Run live on 25 November 2026** in the Antigravity App 2.35.1 and CLI
+1.5.17 with a real model, against a local skills server serving one skill in
+five versions: a new skill asked, a changed one asked again, an unchanged
+approved one didn't, a declined load read nothing, and a load sent around the
+hook was refused. The earlier builds also ran against Hugging Face's public
+MCP server. Rule X8 is not met: Antigravity shows no question for the
+plugin's `force_ask` on a resource read (see [Gaps](#gaps-and-the-host-changes-that-would-close-them)).
 The record: [docs/live-run.md](../../events/antigravity/docs/live-run.md#skills).
 
 ## Install
@@ -55,7 +56,7 @@ That removes the plugin's folder. It leaves:
 | Surface | Supported | Run live |
 |---|---|---|
 | Antigravity CLI 1.5.17 (macOS) | yes | these builds: new, changed and unchanged loads; a load declined; a load around the hook refused; X8 (the CLI ignores its question) |
-| Antigravity App 2.35.1 (macOS) | yes | the earlier builds: the approval card for a new skill, approved, the skill loaded. These builds: not yet |
+| Antigravity App 2.35.1 (macOS) | yes | these builds: a changed version asked and loaded, one declined, a load around the hook refused; X8 (the App ignores its question too) |
 | Antigravity IDE | no | Antigravity documents no plugin hooks for the IDE, so there is no question and no ticket: every load there is refused |
 
 ## Try it
@@ -160,9 +161,9 @@ current metadata. A skill missing from a listing can still load by URI.
    `list_skills` has no hook and asks no question.
 6. Rule X8: once a conversation holds a skill from one server, the hook
    answers `force_ask` to a `read_resource` from any other server, naming
-   both. In CLI 1.5.17 the CLI shows no question for it and the read goes
-   ahead (seen live), so this holds only where Antigravity honours the
-   question.
+   both. Antigravity shows no question for it, in the CLI 1.5.17 or the App
+   2.35.1, and the read goes ahead (seen live in both), so this holds only
+   where Antigravity honours the question.
 
 Server content is untrusted data. Descriptions are bounded, cleaned and then
 scrubbed of known secrets; loaded text is marked with its origin and fenced,
@@ -225,7 +226,7 @@ removed from a conversation by deleting the file.
 | Gap | What it means for you | Host change that closes it |
 |---|---|---|
 | No MCP elicitation (Antigravity declares it and cancels every request), so the question goes through a hook. | Loads are put to you in Antigravity's approval card; there is no private "show me SKILL.md first" (X13b). In the CLI the card shows the question's first two lines. | Elicitation shown to the person, with a preview step. |
-| The CLI shows no question for a hook's `force_ask` on `read_resource` (CLI 1.5.17). | After a skill loads, a read of another server's resource isn't put to you in the CLI (rule X8 not met there). | Honour `force_ask` for every tool. |
+| Antigravity shows no question for a hook's `force_ask` on `read_resource` (CLI 1.5.17, App 2.35.1). | After a skill loads, a read of another server's resource isn't put to you (rule X8 not met). | Honour `force_ask` for every tool. |
 | No plugin hooks in the IDE. | The plugin doesn't work in the Antigravity IDE: every load there is refused. | Plugin hooks in the IDE. |
 | Plugins can't use Antigravity's MCP connections or sign-ins. | The plugin opens its own connections; a server that needs Antigravity's sign-in is left out, and a load hook briefly opens one more connection. | Extension requests over the host's own connections. |
 | Only the personal MCP config is visible to plugins. | Servers from workspaces or other plugins aren't offered. | An approved server inventory for plugins. |
@@ -245,9 +246,9 @@ removed from a conversation by deleting the file.
 | Skill listing | Flat personal placeholder skills | Nested stubs under `~/.agents/skills/mcp-skills-served` | Pi's own skill list |
 | Consent | `force_ask`, yes/no, version-bound ticket | MCP elicitation with private preview choice | Pi's own dialog with preview |
 | Conversation | Hook tickets for load and supporting reads | Codex call metadata | Pi session |
-| X8 (another server's read after a load) | The hook asks; the CLI ignores it | Not met | Asks |
+| X8 (another server's read after a load) | The hook asks; Antigravity ignores it | Not met | Asks |
 | Stand-down | Explicit setting | Native capability declaration or setting | See the [Pi README](../pi/README.md) |
-| Live evidence | CLI 1.5.17 (these builds), App 2.35.1 (earlier builds) | Recorded terminal and exec runs | See [its docs](../pi/docs/) |
+| Live evidence | App 2.35.1 and CLI 1.5.17 | Recorded terminal and exec runs | See [its docs](../pi/docs/) |
 
 ## Security
 
@@ -264,7 +265,7 @@ the Codex form. The shared core supplies negotiation, URI handling, limits,
 pagination, manifest verification, lazy reads and held entries. Antigravity
 tests port the applicable Codex client-rule tests and add config, flat
 placeholder, gate, matcher, X8, no-elicitation and installed-bundle checks.
-X13b remains unmet, and X8 is unmet in the CLI; the table identifies the
+X13b and X8 remain unmet; the table identifies the
 other limits instead of claiming full conformance.
 
 ```bash

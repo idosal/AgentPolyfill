@@ -16,10 +16,10 @@ the Antigravity App and the CLI (`agy`). It isn't supported in the Antigravity
 IDE, which documents no plugin hooks: an addition there is refused. The
 revisions it follows are in [Spec and conformance](#spec-and-conformance).
 
-**Run live on 25 November 2026** in the Antigravity CLI 1.5.17 with a real
-model, against neon.com's published Server Card: an addition approved while
-Antigravity wrote the same file, one declined, one sent around the hook
-refused. The earlier builds also ran in the App 2.35.1. See
+**Run live on 25 November 2026** in the Antigravity App 2.35.1 and CLI 1.5.17
+with a real model, against neon.com's published Server Card: in both, an
+addition approved, one declined and one sent around the hook refused; in the
+CLI, the approved one while Antigravity wrote the same file. See
 [What was checked live](#what-was-checked-live).
 
 ARD isn't in this plugin. Its `/.well-known/ard.json` and its registry search
@@ -68,7 +68,7 @@ That removes the plugin's folder. It leaves:
 | Surface | Supported | Run live |
 |---|---|---|
 | Antigravity CLI 1.5.17 (macOS) | yes | these builds: an addition approved (while Antigravity wrote the same file), one declined, one around the hook refused |
-| Antigravity App 2.35.1 (macOS) | yes | the earlier builds: discovery, the approval card (approve and decline), a written entry connected. These builds: not yet |
+| Antigravity App 2.35.1 (macOS) | yes | these builds: an addition approved (the card showed the whole question), one declined, one around the hook refused. Earlier builds: a written entry connected |
 | Antigravity IDE | no | Antigravity documents no plugin hooks for the IDE, so there is no question and no ticket: every addition there is refused |
 
 ## Try it
@@ -209,15 +209,17 @@ With these builds, in the real Antigravity CLI 1.5.17 with a real model:
   the tool is called by its own name, mcp_mcp-server-cards_cards_add_mcp_server,
   not through call_mcp_tool."
 
-With the earlier builds, in App 2.35.1 and CLI 1.5.16: in the App, the
-approval card showed the hook's whole question above the tool name, joined
-into one paragraph, and greyed out the "always allow" choices; an approved
-addition was connected by the App; a declined one, in the App and over
-`agy acp`, wrote nothing; headless `agy -p` denied the call nobody could
-answer.
+In the App 2.35.1, with these builds: the approval card showed the plugin's
+whole question above the tool name, joined into one paragraph, and greyed out
+the "always allow" choices; approved, `neon-docs` was written; the `neon`
+server (`mcp.neon.tech`) declined with a note, nothing written; an addition
+through `call_mcp_tool` refused, nothing written.
 
-Not checked yet: the App with these builds, and a server behind a sign-in
-(Authenticate) after an addition.
+With the earlier builds, in App 2.35.1 and CLI 1.5.16: an approved addition
+was connected by the App; a declined one over `agy acp` wrote nothing;
+headless `agy -p` denied the call nobody could answer.
+
+Not checked yet: a server behind a sign-in (Authenticate) after an addition.
 
 ## Security
 

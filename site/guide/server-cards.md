@@ -134,11 +134,13 @@ server with `server_cards_remove_mcp_server` first to drop it from the list.
 ### In Antigravity
 
 Node 20 or newer on `PATH`. Nothing is published to Antigravity's
-Marketplace; install from a clone. `agy plugin install` copies the folder to
+Marketplace; install from a clone, with the Antigravity CLI (the App doesn't
+ship `agy`). `agy plugin install` copies the folder to
 `~/.gemini/config/plugins/mcp-server-cards`, which the App and the CLI both
 read. Remove it with `agy plugin uninstall mcp-server-cards`. Servers you
 added stay in `~/.gemini/config/mcp_config.json`; remove one with
-`agy mcp remove <name>`.
+`agy mcp remove <name>` (in CLI 1.5.17's own help, not in Antigravity's
+docs).
 
 The sections below name the host where behavior differs. Full guides by host:
 
@@ -176,7 +178,9 @@ Then add **Neon Docs** (no sign-in):
 For one behind a sign-in, ask about
 buildkite.com; once it's added, the host asks you to sign in (in Claude Code,
 through `/mcp`). In OpenCode, sign in with `opencode mcp auth <name>`, in a
-terminal. In Claude Code, `claude mcp remove neon-docs -s local`
+terminal. In Antigravity, use Authenticate in Customizations > Installed >
+MCP Servers (`/mcp` in the CLI); signing in after an addition hasn't been
+checked yet. In Claude Code, `claude mcp remove neon-docs -s local`
 removes it again; in OpenCode, ask for it to be removed, which OpenCode asks
 you about too.
 
@@ -261,10 +265,13 @@ the variable to set.
 ### In Antigravity
 
 Ask to add a server it found. The addition is put to you in Antigravity's
-approval card, yes or no, and the card can't be approved for good. Only a yes
-writes the server to `~/.gemini/config/mcp_config.json`; the plugin reads
-that file first to check names. Editors on `agy acp` see the tool and its
-arguments in the card, not the question.
+approval card, yes or no; the CLI's card shows the question's first two
+lines, with the URL, header names and file. The App greys out the card's
+"always allow" choices; the CLI's card still lists them. Only a yes writes
+the server to `~/.gemini/config/mcp_config.json`; the plugin reads that file
+first to check names. Editors on `agy acp` see the tool and its arguments in
+the card, not the question; the call must carry the server's name, URL,
+header names and file, so those are among the arguments.
 
 ### A domain that redirects
 
@@ -390,8 +397,10 @@ in the same catalogs, and local (stdio) servers, which cards do not describe.
   can't be added.
 - **Yes or no.** The approval card has no other choices. Editors on
   `agy acp` see the tool and its arguments, not the question.
-- **The IDE's agent wasn't run.** IDE 2.8.0 stayed signed out, and its hooks
-  page lists no plugin hooks, so the plugin probably doesn't work there.
+- **Not checked yet:** signing in to a server after an addition, and these
+  builds in the App.
+- **Not in the IDE.** The IDE documents no plugin hooks, so the forms aren't
+  supported there, and their gated calls are refused.
 
 ### In T3 Code
 
@@ -500,17 +509,19 @@ not been audited by a person.
 
 ### In Antigravity
 
-Every addition is put to you in Antigravity's approval card, and nothing is
-auto-approved: no `auto_approve`, no permission overrides. The hook leaves a
-one-use ticket for exactly that call, and the MCP server adds only with it.
-Read-only tools go through Antigravity's usual MCP approval. The plugin reads
+Every addition is put to you in Antigravity's approval card, through
+`force_ask`, and nothing is auto-approved: no `auto_approve`, no permission
+overrides. The hook leaves a one-use ticket for exactly that call, and the
+MCP server adds only with it. Read-only tools get Antigravity's usual MCP
+question, which allow rules can skip. Whether
+`--dangerously-skip-permissions` also skips `force_ask` hasn't been
+checked. The plugin reads
 `~/.gemini/config/mcp_config.json`, which can hold API keys in headers, to
 check names, and never logs or shows those values. It writes only that file,
 after your approval, and its own folder, `~/.gemini/agentpolyfill/mcp-server-cards/`.
 It never opens `~/.gemini/antigravity/mcp_oauth_tokens.json`. See
 [Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/antigravity/SECURITY.md).
-The Antigravity forms are awaiting the independent AI review the other forms
-had.
+The independent AI review of the Antigravity forms is in progress.
 
 ## When the host supports Server Cards itself
 

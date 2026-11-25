@@ -35,7 +35,8 @@ Events server was this repository's deploys demo, whose Events support is
 Mastra's (`@mastra/mcp` 2.10.0), a server this project didn't write: so these
 runs are also this form's interop run.
 
-With these builds, in the real Antigravity CLI 1.5.17 with a real model:
+With these builds, in the real Antigravity CLI 1.5.17 and App 2.35.1 with a
+real model:
 
 - a push watch, asked and approved; the event delivered once at the next
   turn by the plugin's `PreInvocation` step, which held only fixed text and
@@ -46,16 +47,20 @@ With these builds, in the real Antigravity CLI 1.5.17 with a real model:
 - refused: a call through `call_mcp_tool` with no ticket, with a forged
   ticket, with a replayed one; and, with the hook's command broken, the call
   failed in Antigravity before reaching the server;
-- another server's tool still got Antigravity's own question.
+- another server's tool still got Antigravity's own question;
+- in the App: the watch question shown whole, with "always allow" greyed
+  out; approved, an idle conversation woken by the sidecar's
+  `agentapi send-message` 4 seconds after a failing deploy, its
+  `PreInvocation` step holding only fixed text and the watch id, and the
+  agent answering from the event; a watch declined (nothing saved, no ticket
+  left); a call through `call_mcp_tool` refused.
 
-With the earlier builds, in App 2.35.1 and CLI 1.5.16: an idle App
-conversation woken by the sidecar's `agentapi send-message`, which then
-answered from the event; a wake during a running turn, held and put into that
-turn; a second conversation saw none of the first's events; `MCP_EVENTS_OFF=1`
+With the earlier builds, in App 2.35.1 and CLI 1.5.16: a wake during a
+running turn, held and put into that turn; a second conversation saw none of the first's events; `MCP_EVENTS_OFF=1`
 left no tools and no injections; after a restart, a resumed CLI conversation's
 watch delivered the events missed in between, from the server's cursor.
 
-Not run: the App with these builds, a webhook watch (the demo server refused
+Not run: a webhook watch (the demo server refused
 a plain `http` local callback; it needs an https address), and the IDE (not
 supported).
 

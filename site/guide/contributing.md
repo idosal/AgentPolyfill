@@ -134,9 +134,10 @@ Install instructions depend on the host:
   steps; `tools/opencode/install-check.ts` repeats the install from GitHub in
   a throwaway home.
 - **Antigravity:** clone the repository, then
-  `agy plugin install ./polyfills/<extension>/antigravity/plugin`. State
-  Node 20 or newer on `PATH` as the requirement, and the App and CLI versions
-  it was run with. Nothing is published to Antigravity's Marketplace.
+  `agy plugin install ./polyfills/<extension>/antigravity/plugin`, which
+  needs the Antigravity CLI (the App doesn't ship `agy`). State Node 20 or
+  newer on `PATH` as the requirement, and the App and CLI versions it was
+  run with. Nothing is published to Antigravity's Marketplace.
   [Getting started](./getting-started#antigravity) has the steps.
 
 ### 4. List it for its host

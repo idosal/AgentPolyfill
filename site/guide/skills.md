@@ -140,7 +140,8 @@ database). No skill content is kept anywhere.
 ### In Antigravity
 
 Node 20 or newer on `PATH`. Nothing is published to Antigravity's
-Marketplace; install from a clone. `agy plugin install` copies the folder to
+Marketplace; install from a clone, with the Antigravity CLI (the App doesn't
+ship `agy`). `agy plugin install` copies the folder to
 `~/.gemini/config/plugins/mcp-skills`, which the App and the CLI both read.
 Remove it with `agy plugin uninstall mcp-skills`. Its state stays in
 `~/.gemini/agentpolyfill/mcp-skills/`, and its placeholders in
@@ -189,7 +190,8 @@ the served skills, from the next turn. Start your host in the same folder:
 - **OpenCode:** `opencode`, with that entry in the project's `opencode.json`
   or the global one; served skills appear as `mcp-skills:<server>:<name>`,
   and a load takes two steps ([What to expect](#what-to-expect)).
-- **Antigravity:** `agy`, or the App. The App doesn't ship `agy`; there, add
+- **Antigravity:** `agy`, or the App. `agy mcp add` is in CLI 1.5.17's own
+  help, not in Antigravity's docs. The App doesn't ship `agy`; there, add
   the server under Customizations > Installed > MCP Servers, or in
   `~/.gemini/config/mcp_config.json`.
 
@@ -268,12 +270,16 @@ turn one served skill off, deny `mcp_skills_load` for `<server>:<uri>@*`.
 ### In Antigravity
 
 Served skills appear as placeholder folders in `~/.gemini/config/skills/`,
-which Antigravity reads before each turn. Loading one is put to you in
-Antigravity's approval card, yes or no. An approved skill loads again with no
-question while it is unchanged. Editors on `agy acp` see the tool and its
-arguments in the card, not the question. X8 isn't met, as in Codex: the
-plugin can't put a question in front of Antigravity's own resource reads, so
-the loaded skill tells the model to ask you first.
+which Antigravity documents reading before each turn. Loading a new or
+changed one is put to you in Antigravity's approval card, yes or no; the
+CLI's card shows the question's first two lines, which say whether it is new
+or changed and give its URI. An approved skill skips the plugin's question
+while it is unchanged, and gets only Antigravity's usual MCP question, which
+allow rules can skip; so do reads of its files. Editors on `agy acp` see the
+tool and its arguments in the card, not the question. X8 isn't met in the
+CLI: once a served skill is loaded, the plugin's hook asks before a
+`read_resource` from another server, naming both, but CLI 1.5.17 ignores
+that question (no card; the read goes ahead).
 
 ## Which servers work
 
@@ -393,14 +399,15 @@ protocol, no vendor extension.
 
 - **No sign-in through Antigravity.** Servers behind Antigravity's own
   sign-in can't be reached.
-- **Yes or no.** The approval card has no other choices and can't be
-  approved for good. Editors on `agy acp` see the tool and its arguments,
-  not the question.
-- **X8 isn't met.** The plugin can't put a question in front of
-  Antigravity's own resource reads; the loaded skill tells the model to ask
-  you first.
-- **The IDE's agent wasn't run.** IDE 2.8.0 stayed signed out, and its hooks
-  page lists no plugin hooks, so the plugin probably doesn't work there.
+- **Yes or no.** The approval card has no other choices. The App greys out
+  its "always allow" choices; the CLI's card still lists them. Editors on
+  `agy acp` see the tool and its arguments, not the question.
+- **X8 isn't met.** The plugin's hook asks before another server's
+  `read_resource` once a served skill is loaded, but Antigravity ignores
+  that question, in CLI 1.5.17 and App 2.35.1: no card, and the read goes
+  ahead.
+- **Not in the IDE.** The IDE documents no plugin hooks, so the forms aren't
+  supported there, and their gated calls are refused.
 
 ### In T3 Code
 
@@ -460,16 +467,19 @@ OpenCode's stored credentials. See
 
 ### In Antigravity
 
-Loading a served skill is put to you in Antigravity's approval card, and
-nothing is auto-approved: no `auto_approve`, no permission overrides. The
-hook leaves a one-use ticket for exactly that call, and the MCP server loads
-the skill only with it. Read-only tools go through Antigravity's usual MCP
-approval. The plugin writes only its own folder and its placeholders, and
-never opens a sign-in store. X8 isn't met: a cross-server read while a
-skill is loaded isn't put to you first. See
+Loading a new or changed served skill is put to you in Antigravity's
+approval card, through `force_ask`, and nothing is auto-approved: no
+`auto_approve`, no permission overrides. The hook leaves a one-use ticket for
+exactly that call, and the MCP server loads the skill only with it. An
+approved unchanged skill, skill file reads and the read-only tools pass with
+a ticket and then get Antigravity's usual MCP question, which allow rules
+can skip. Whether `--dangerously-skip-permissions` also skips `force_ask`
+hasn't been checked. The plugin writes only its own folder and its
+placeholders, and never opens a sign-in store. X8 isn't met: the hook asks
+before a cross-server read while a skill is loaded, but Antigravity (CLI
+1.5.17, App 2.35.1) ignores that question. See
 [Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/SECURITY.md).
-The Antigravity forms are awaiting the independent AI review the other forms
-had.
+The independent AI review of the Antigravity forms is in progress.
 
 ## How it is tested
 
@@ -520,10 +530,12 @@ not been audited by a person.
 ### In Antigravity
 
 [Antigravity's conformance table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/conformance.md)
-maps the client rules for this form. The live run on 25 November 2026 (App
-v2.35.1, CLI v1.5.16) approved and declined skill loads in the App and over
-`agy acp`. Against Hugging Face's server, the plugin listed its 25 skills
-and loaded one after approval. The official MCP conformance suite's four
+maps the client rules for this form. The live runs of these builds on 25
+November 2026, in App 2.35.1 and CLI 1.5.17 against a local skills server,
+approved a new skill's load, asked again for a changed one, and declined a
+load, which read nothing. Earlier builds, against Hugging
+Face's server, listed its 25 skills and loaded one after approval in the App
+and over `agy acp`. The official MCP conformance suite's four
 SEP-2640 client scenarios pass (suite at `c8625de`, 25 November 2026;
 [record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/evidence/conformance.txt)).
 

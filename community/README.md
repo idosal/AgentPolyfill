@@ -94,8 +94,8 @@ This repository's Antigravity forms are in `polyfills/<polyfill>/antigravity/`,
 with the installable plugin in `plugin/`. They cover Events, Skills, Server
 Cards and ARD; Apps has no Antigravity form, because the App shows MCP Apps
 itself. Nothing is published to Antigravity's Marketplace. Each installs from
-a clone with `agy plugin install`, as the
-[root README](../README.md#install) shows.
+a clone with `agy plugin install`, which needs the Antigravity CLI (the App
+doesn't ship `agy`), as the [root README](../README.md#install) shows.
 
 ## What gets listed
 

@@ -177,11 +177,13 @@ OpenCode loads it the next time it opens the project.
 
 ### Antigravity
 
-Google Antigravity's App, CLI (`agy`) and IDE share one plugin format. The
-forms were run in the App and the CLI; the IDE wasn't run. The plugins' hooks
-run `node`, so Node 20 or newer must be on `PATH`. Nothing is
-published to Antigravity's Marketplace. From a clone of this repository,
-install the plugins you want:
+The forms are plugins for Google Antigravity's App and CLI (`agy`). These
+builds were run in App 2.35.1 and CLI 1.5.17. The IDE documents no plugin hooks, so the forms
+aren't supported there, and their gated calls are refused. The plugins'
+hooks run `node`, so Node 20 or newer must be on `PATH`. Nothing is
+published to Antigravity's Marketplace. Installing needs the Antigravity CLI:
+`agy plugin install` is a CLI command, and the App doesn't ship `agy`. From a
+clone of this repository, install the plugins you want:
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
@@ -189,6 +191,13 @@ cd AgentPolyfill
 agy plugin install ./polyfills/events/antigravity/plugin
 agy plugin install ./polyfills/skills/antigravity/plugin
 agy plugin install ./polyfills/server-cards/antigravity/plugin
+```
+
+`ard-discovery`, for ARD (a draft from outside MCP), installs the same way,
+from the same clone. Every search asks you first and goes to a registry you
+choose:
+
+```bash
 agy plugin install ./polyfills/ard/antigravity/plugin
 ```
 
@@ -344,23 +353,33 @@ Each OpenCode form's README has the rest:
 
 | | Antigravity | What else it needs |
 |---|---|---|
-| Events | App v2.35.1, CLI v1.5.16 (the versions run) | Node 20 or newer on `PATH`. Waking an idle App conversation needs the sidecar on; CLI conversations get new events at their next model call. |
-| Skills | App v2.35.1, CLI v1.5.16 (the versions run) | Node 20 or newer on `PATH`. A skill load needs an answer in the approval card. |
-| Server Cards | App v2.35.1, CLI v1.5.16 (the versions run) | Node 20 or newer on `PATH`. An addition needs an answer in the approval card. |
-| ARD | CLI v1.5.16 (the version run; not run in the App) | Node 20 or newer on `PATH`. An addition or a registry search needs an answer in the approval card. |
+| Events | CLI v1.5.17 (these builds); App v2.35.1 (earlier builds) | Node 20 or newer on `PATH`. A watch needs an answer in the approval card. Waking an idle App conversation needs the sidecar on; CLI conversations get new events at their next model call. |
+| Skills | CLI v1.5.17 (these builds); App v2.35.1 (earlier builds) | Node 20 or newer on `PATH`. Loading a new or changed skill needs an answer in the approval card. |
+| Server Cards | CLI v1.5.17 (these builds); App v2.35.1 (earlier builds) | Node 20 or newer on `PATH`. An addition needs an answer in the approval card. |
+| ARD | CLI v1.5.17 (the version run; not run in the App) | Node 20 or newer on `PATH`. An addition or a registry search needs an answer in the approval card. |
 | Apps | no form | The App renders MCP Apps itself (v2.34.0 and later); the CLI and IDE show text only. |
 
 Antigravity documents no MCP elicitation, and its MCP client cancels every
 request without showing it. So each plugin asks through its `PreToolUse`
-hook, which answers `force_ask`: Antigravity's own approval card, which shows
-the hook's question and can't be approved for good. The hook leaves a one-use
-ticket for exactly that call, and the MCP server acts only with it. Editors
-on `agy acp` see the tool and its arguments, not the question.
+hook, which answers `force_ask`: Antigravity's own approval card, with the
+hook's question (the CLI's card shows its first two lines). The App greys
+out the card's "always allow" choices; the CLI's card still lists them. The
+hook leaves a one-use ticket for exactly that call, and the MCP server acts
+only with it. Editors on `agy acp` see the tool and its arguments, not the
+question.
 
-The IDE's agent wasn't run: IDE 2.8.0 stayed signed out, and its hooks page
-lists no plugin hooks. Without the hooks every Events call is refused, so the
-plugins probably don't work in the IDE at all. A webhook watch wasn't run
-either.
+Watches, new or changed skill loads, additions and searches ask through
+`force_ask`. The other Events tools, an approved unchanged skill load and
+skill file reads pass with a ticket and then get Antigravity's usual MCP
+question, which allow rules can skip. By default that question is asked: the
+interactive CLI starts in auto mode, where an MCP tool call still asks, and
+headless `agy -p` reports `request-review` and denies a call nobody answers.
+Whether `--dangerously-skip-permissions` also skips `force_ask` hasn't been
+checked. In CLI 1.5.17 a `PreToolUse` hook that fails makes the call fail.
+
+The IDE documents no plugin hooks, so the forms aren't supported there, and
+their gated calls are refused. A webhook watch wasn't run, and these builds
+haven't been run in the App yet.
 
 Each Antigravity form's README has the rest:
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity),
@@ -418,7 +437,8 @@ agy mcp add feeds https://event-feeds.idosalomon.workers.dev/mcp
 
 :::
 
-The Antigravity App doesn't ship `agy`. There, add the server under
+`agy mcp add` is in CLI 1.5.17's own help, not in Antigravity's docs. The
+Antigravity App doesn't ship `agy`. There, add the server under
 Customizations > Installed > MCP Servers, or in
 `~/.gemini/config/mcp_config.json`.
 
@@ -463,13 +483,17 @@ For the demo button:
   wake 30 times an hour. Watches resume when OpenCode next opens the project.
   The [OpenCode live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md#public-infrastructure)
   records a demo button pressed on this server and the idle session woken.
-- **Antigravity:** try the same question. A watch goes through
-  Antigravity's usual MCP approval. New events reach the conversation at its
-  next model call. An idle App conversation wakes only with the sidecar on
-  ([Install](#antigravity)); CLI conversations can't be woken. The feeds demo
-  wasn't run in Antigravity: the [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/live-run.md)
-  used the repository's local deploys demo, and records delivery at the next
-  turn in the CLI, an idle App conversation woken by the sidecar, and a wake
+- **Antigravity:** try the same question. A watch asks in Antigravity's
+  approval card, through the plugin's `force_ask`. New events reach the
+  conversation at its next model call, through the plugin's `PreInvocation`
+  hook (seen live in the CLI; Antigravity's plugins page doesn't list
+  `PreInvocation` among plugin hooks), as fixed text with a count and the
+  plugin's own watch ids. An idle App conversation wakes only with the
+  sidecar on ([Install](#antigravity)); CLI conversations can't be woken. The
+  feeds demo wasn't run in Antigravity: the [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/live-run.md)
+  used the repository's local deploys demo. It records, in CLI 1.5.17, a
+  watch approved and one declined, and delivery at the next turn; with
+  earlier builds, an idle App conversation woken by the sidecar and a wake
   during a running turn.
 
 [More on Events](./events)
@@ -512,9 +536,9 @@ agy mcp add huggingface https://huggingface.co/mcp
   the reason.
 - **Antigravity:** in the App, add the server under Customizations >
   Installed > MCP Servers. Served skills appear as placeholder folders in
-  `~/.gemini/config/skills/`, which Antigravity reads before each turn. In
-  the live run the plugin listed Hugging Face's 25 skills and loaded one
-  after approval.
+  `~/.gemini/config/skills/`, which Antigravity documents reading before
+  each turn. In a live run of earlier builds the plugin listed Hugging Face's
+  25 skills and loaded one after approval.
 
 Then ask a question one of its skills covers:
 
@@ -546,10 +570,12 @@ loaded two Hugging Face skills after OpenCode asked, and answered from them.
 In that run, under OpenCode's default rules, the model also ran a command a
 loaded skill described, without a prompt.
 
-In Antigravity the question is the approval card, yes or no. An approved,
-unchanged skill loads again with no question. X8 isn't met there, as in
-Codex: the plugin can't put a question in front of Antigravity's own
-resource reads, so the loaded skill tells the model to ask you first.
+In Antigravity the question is the approval card, yes or no, for a new or
+changed skill. An approved, unchanged skill skips the plugin's question and
+gets only Antigravity's usual MCP question, which allow rules can skip. X8
+isn't met: once a served skill is loaded, the plugin's hook asks before a
+`read_resource` from another server, naming both, but Antigravity (CLI
+1.5.17, App 2.35.1) ignores that question (no card; the read goes ahead).
 
 [More on Skills](./skills)
 
@@ -648,8 +674,7 @@ needs no other polyfill installed. There is no default registry: name one in
 your request, or set `ARD_DISCOVERY_REGISTRY` in the environment Antigravity
 starts in. Every registry search, and every addition, is put to you in
 Antigravity's approval card. An addition writes
-`~/.gemini/config/mcp_config.json`. ARD was run in the CLI only, not in the
-App.
+`~/.gemini/config/mcp_config.json`. ARD was run in the App and the CLI.
 [More on ARD](./ard)
 
 ### Apps
@@ -807,5 +832,5 @@ Skills' placeholders, `~/.gemini/config/skills/mcp-skills-served--*`; and,
 for Server Cards and ARD after your approval,
 `~/.gemini/config/mcp_config.json`. Delete the first two to remove what they
 stored. A server added through Server Cards or ARD stays in
-`mcp_config.json`; remove it with `agy mcp remove <name>`, or delete its
-entry from that file.
+`mcp_config.json`; remove it with `agy mcp remove <name>` (in CLI 1.5.17's
+own help, not in Antigravity's docs), or delete its entry from that file.

@@ -28,8 +28,8 @@ mode. It reads no stored credentials, Codex's or T3 Code's.
 
 These are third-party plugins and extensions that run with your permissions
 in each host. They have been reviewed by an AI reviewer that did not build
-them, and not audited by a person. The Antigravity forms are awaiting that
-review.
+them, and not audited by a person. The Antigravity forms' review is in
+progress.
 
 Pi runs tool calls without asking unless a permission extension asks. Each
 Pi polyfill asks before its consequential step: a watch, a skill load, a
@@ -50,11 +50,22 @@ TUI shows each of these questions only as "Call tool `<action>`"; the details
 are on the model's call line just above it.
 
 Each Antigravity polyfill puts its own actions to you in Antigravity's
-approval card: a server addition, a registry search or a skill load. The card
-can't be approved for good, and none auto-approves. Read-only tools and
-Events watches go through Antigravity's usual MCP approval, which by default
-asks before any MCP tool (the App's card; the CLI's default mode,
-`request-review`). They read
+approval card, through `force_ask`: an Events watch, a new or changed skill
+load, a server addition or a registry search. None auto-approves. The App
+greys out the card's "always allow" choices; the CLI's card still lists them.
+The other Events tools, an approved unchanged skill load and skill file reads
+pass with a ticket and then get Antigravity's usual MCP question, which
+allow rules can skip. By default that question is asked: unconfigured MCP
+tools default to Ask, the interactive CLI starts in auto mode, where an MCP
+tool call still asks, and headless `agy -p` reports `request-review` and
+denies a call nobody answers. Whether `--dangerously-skip-permissions` also
+skips `force_ask` hasn't been checked. In CLI 1.5.17 a `PreToolUse` hook
+that fails makes the call fail. Skills doesn't meet X8: its hook asks before
+another server's resource read while a served skill is loaded, but
+Antigravity (CLI 1.5.17, App 2.35.1) ignores that question and the read goes
+ahead. The IDE
+documents no plugin hooks, so the forms aren't supported there, and their
+gated calls are refused. The forms read
 `~/.gemini/config/mcp_config.json`, which can hold API keys in headers, but
 never log or show those values, and never open
 `~/.gemini/antigravity/mcp_oauth_tokens.json` or any other sign-in store.

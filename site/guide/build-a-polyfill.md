@@ -165,8 +165,9 @@ for each host:
   (`opencode plugin add`, with Git) or from a clone; nothing is published to
   npm.
 - **Antigravity:** a plugin in `antigravity/`, with its MCP server and hooks
-  in `plugin/`. It installs from a local clone with `agy plugin install`;
-  nothing is published to Antigravity's Marketplace.
+  in `plugin/`. It installs from a local clone with `agy plugin install`,
+  which needs the Antigravity CLI (the App doesn't ship `agy`); nothing is
+  published to Antigravity's Marketplace.
 
 The Pi examples are
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi),
@@ -232,10 +233,14 @@ each form asks through its `PreToolUse` hook, which answers `force_ask` with
 Antigravity's own approval card. An MCP server isn't told which conversation
 calls it, but hooks are, so the hook passes the conversation id to the call
 in a one-use ticket. Only the App can wake an idle conversation, through a
-sidecar the person turns on. X8 can't be met, as in Codex, and each form has
-an off switch because native support cannot be detected. Their READMEs, `SECURITY.md`,
-`docs/conformance.md` and Events' `docs/live-run.md` record what was
-checked. The IDE's agent wasn't run.
+sidecar the person turns on. X8 isn't met: the Skills hook asks before
+another server's resource read, but Antigravity ignores that question (CLI
+1.5.17, App 2.35.1).
+In CLI 1.5.17 a hook that fails makes the call fail. Each form has an off
+switch because native support cannot be detected. Their READMEs,
+`SECURITY.md`, `docs/conformance.md` and Events' `docs/live-run.md` record
+what was checked. The IDE documents no plugin hooks, so the forms aren't
+supported there, and their gated calls are refused.
 
 ## Your own, listed in the community directory
 

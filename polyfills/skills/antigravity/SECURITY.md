@@ -63,9 +63,9 @@ to you through the plugin's `PreToolUse` hook:
 - **Rule X8.** Once a conversation holds a skill from one server, the hook
   answers `force_ask` to a `read_resource` from another server, naming both,
   as the Pi and OpenCode forms ask. It can't tell which skill (or whether
-  one) asked for the read. In CLI 1.5.17 the CLI shows no question for it and
-  the read goes ahead (seen live, the hook's decision logged): there, X8 isn't
-  met.
+  one) asked for the read. Antigravity shows no question for it, in CLI
+  1.5.17 or App 2.35.1, and the read goes ahead (seen live in both, the hook's
+  decision logged): X8 isn't met.
 - **When the hook can't run.** In CLI 1.5.17 a `PreToolUse` hook that exits
   non-zero, times out or prints something that isn't JSON makes Antigravity
   fail the call (seen live). The hook always exits 0 with JSON: `allow` for a
@@ -142,8 +142,9 @@ acts on (ESC, a C1 control) is reported as a binary file, not shown.
 
 - What a skill tells the agent to do once you've loaded it: that goes through
   Antigravity's approvals, as for a skill on your disk.
-- A skill from one server reading a resource from another, in the CLI (rule
-  X8, above), or through a host tool other than `read_resource`.
+- A skill from one server reading a resource from another (rule X8, above:
+  Antigravity doesn't show the hook's question), or through a host tool other
+  than `read_resource`.
 - An approval given without reading the card.
 - Anything that can write the plugin's state folder, as above.
 

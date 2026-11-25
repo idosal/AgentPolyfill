@@ -14,11 +14,11 @@ Also available for [Claude Code](../claude-code/README.md) and
 [`mcp-server-cards` for Antigravity](../../server-cards/antigravity/README.md),
 and this plugin checks, shows and adds what it finds with the same code.
 
-**Run live on 25 November 2026** in the Antigravity CLI 1.5.17 with a real
-model, against a registry someone else runs (Hugging Face's own): a search
-approved and sent only to that registry, one declined, one sent around the
-hook refused. The earlier builds also read buildkite.com's `ard.json`. No ARD
-call has run in the App. Details in
+**Run live on 25 November 2026** in the Antigravity App 2.35.1 and CLI 1.5.17
+with a real model, against a registry someone else runs (Hugging Face's own):
+in both, a search approved and sent only to that registry, one declined, one
+sent around the hook refused. The earlier builds also read buildkite.com's
+`ard.json`. Details in
 [docs/conformance.md](docs/conformance.md#live-25-november-2026).
 
 ## Install
@@ -56,7 +56,7 @@ hour, and tickets), which you delete by hand.
 | Surface | Supported | Run live |
 |---|---|---|
 | Antigravity CLI 1.5.17 (macOS) | yes | these builds: a search of Hugging Face's registry approved, one declined, one around the hook refused. Earlier builds: `ard_discover` for buildkite.com, a search over `agy acp` |
-| Antigravity App 2.35.1 (macOS) | yes | no ARD call yet; the same approval card was checked with `mcp-server-cards` and `mcp-skills` (earlier builds) |
+| Antigravity App 2.35.1 (macOS) | yes | these builds: a search of Hugging Face's registry approved (the card showed the whole question), one declined, one around the hook refused |
 | Antigravity IDE | no | Antigravity documents no plugin hooks for the IDE, so there is no question and no ticket: every search and addition there is refused |
 
 ## How it works

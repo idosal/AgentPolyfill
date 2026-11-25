@@ -109,15 +109,16 @@ How the runs were made, and the full record:
 With these builds, in the real CLI 1.5.17 with a real model, against neon.com's
 published Server Card: an addition approved while `agy mcp add` wrote another
 server to the same file (both kept); one declined (nothing written); one
-through `call_mcp_tool` (refused, nothing written).
+through `call_mcp_tool` (refused, nothing written). In the real App 2.35.1:
+the card showed the plugin's whole question and greyed out "always allow";
+an addition approved and written, one declined with a note (nothing
+written), one through `call_mcp_tool` refused.
 
-With the earlier builds, in App 2.35.1 and CLI 1.5.16: `discover_mcp_servers`
-for neon.com (2 valid cards); an approved addition the App then connected; in
-the App the card showed the plugin's whole question and greyed out "always
-allow", and **No** wrote nothing; headless `agy -p` denied the call nobody
-could answer.
+With the earlier builds, in App 2.35.1 and CLI 1.5.16: an approved addition
+the App then connected; headless `agy -p` denied the call nobody could
+answer.
 
-Not run: the App with these builds, the IDE (not supported), and a server
+Not run: the IDE (not supported), and a server
 behind a sign-in after an addition.
 
 The MCP conformance suite has no Server Card scenarios.

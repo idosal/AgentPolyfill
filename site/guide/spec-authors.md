@@ -36,7 +36,8 @@ extension's `core/`. Host results are recorded separately:
 - **OpenCode:** the third table gives its conformance and live-run
   evidence, checked with OpenCode 2.4.1.
 - **Antigravity:** the fourth table gives its conformance pages and live-run
-  evidence, checked with App v2.35.1 and CLI v1.5.16.
+  evidence: these builds in CLI v1.5.17, earlier builds also in App
+  v2.35.1.
 
 ## What each one has been checked against
 
@@ -98,16 +99,17 @@ Desktop.
 
 | Polyfill | Client rules and conformance | Recorded live run |
 |---|---|---|
-| Events | The Events scenarios in conformance PR #541 (suite at `c8625de`) pass 17 of 17 checks, through the form's MCP server and its ticket hook. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/conformance.md), [record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/evidence/conformance.txt). | Against the repository's local deploys demo: approvals approved and declined in the App and over `agy acp`; delivery at the next turn in the CLI, an idle App conversation woken by the sidecar, and a wake during a running turn. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/live-run.md). |
-| Skills | The official suite's four SEP-2640 client scenarios pass (suite at `c8625de`). X8 is not met. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/conformance.md), [record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/evidence/conformance.txt). | Approvals approved and declined in the App and over `agy acp`. Hugging Face's server: its 25 skills listed, and one loaded after approval. |
-| Server Cards | [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/antigravity/docs/conformance.md). | Approvals approved and declined in the App and over `agy acp`. |
-| ARD (v0.91 draft, beyond MCP) | [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/antigravity/docs/conformance.md). | Run in the CLI only: approvals approved and declined. A search in the App wasn't run. |
+| Events | The Events scenarios in conformance PR #541 (suite at `c8625de`) pass 17 of 17 checks, through the form's MCP server and its real hook, with the watch question approved as a person would. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/conformance.md), [record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/evidence/conformance.txt). | Against the repository's local deploys demo, whose Events support is Mastra's. In CLI 1.5.17 and App 2.35.1: a watch approved and one declined, and a call around the hook refused; in the CLI the event delivered at the next turn through the plugin's `PreInvocation` hook; in the App an idle conversation woken by the sidecar. With earlier builds: a wake during a running turn. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/live-run.md). |
+| Skills | The official suite's four SEP-2640 client scenarios pass (suite at `c8625de`). X8 is not met in Antigravity (CLI or App). [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/conformance.md), [record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/evidence/conformance.txt). | In CLI 1.5.17 and App 2.35.1, against a local skills server: a new skill's load approved, a changed one asked again, and a load declined. With earlier builds, Hugging Face's server: its 25 skills listed, and one loaded after approval in the App and over `agy acp`. |
+| Server Cards | [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/antigravity/docs/conformance.md). | In CLI 1.5.17 and App 2.35.1, with neon.com's real Server Card: an addition approved and one declined. Earlier builds were also run over `agy acp`. |
+| ARD (v0.91 draft, beyond MCP) | [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/antigravity/docs/conformance.md). | In CLI 1.5.17 and App 2.35.1, against Hugging Face's own registry: a search approved and one declined. |
 | Apps | No form: the App renders MCP Apps itself (v2.34.0 and later). | None. |
 
-The live run was on 25 November 2026, on macOS, with a test HOME and the
-person signed in. It did not cover the IDE's agent (IDE 2.8.0 stayed signed
-out, and its hooks page lists no plugin hooks), a webhook watch, or an ARD
-search in the App.
+The live runs were on 25 November 2026, on macOS, with a throwaway HOME the
+user signed in to themselves. They did not cover a webhook watch,
+`--dangerously-skip-permissions` against `force_ask`, or these builds in the
+App. The IDE documents no plugin hooks, so the forms aren't supported there,
+and their gated calls are refused.
 
 ## What a polyfill can tell you about a spec
 
@@ -127,9 +129,10 @@ you first):
   another server to OpenCode's permission rules, per call, naming both
   servers, whatever the read is named (from a Code Mode program too), in
   subagents and after a restart.
-- **Antigravity:** can't be met yet, as in Codex. The plugin can't put a
-  question in front of Antigravity's own resource reads, so the loaded skill
-  tells the model to ask the person first.
+- **Antigravity:** not met. Once a served skill is loaded, the plugin's
+  hook asks (`force_ask`) before a `read_resource` from another server,
+  naming both servers, but Antigravity ignores that question, in CLI 1.5.17
+  and App 2.35.1: no card is shown, and the read goes ahead.
 
 ## If your extension needs a client
 

@@ -86,7 +86,7 @@ shared core and reusable Codex functions; no copy of the core is maintained.
 | X3, X4 | Tag origin and distinguish from local skills. | Met. rules X1/X3/X4, adapter S-1. |
 | X5 | Ignore permission-widening fields; require explicit per-skill consent before execution on its behalf. | Limit. Loading requires consent and frontmatter grants nothing (rules X5, X10/R3). Subsequent actions use host permissions; the plugin cannot enforce stricter execution policy across host tools. Native skill provenance is needed. |
 | X6 | A's skill does not read from B. | Met within the plugin. rules X6; identity includes server on every call. |
-| X8 | Gate cross-origin reads with per-call consent naming both origins. | **Not met in the CLI.** Once a conversation holds a served skill, the hook answers `force_ask` to Antigravity's `read_resource` from any other server, naming both (shared-fixes X8, through the bundle's hook). In CLI 1.5.17 the CLI shows no question for that answer and the read goes ahead (seen live: the hook's `force_ask` logged, the other server served the read 0.6 s later). The App is still to check. It can't tell which skill caused a read, as in Pi and OpenCode. Host change: honour `force_ask` for every tool, or expose active-skill provenance on resource reads. |
+| X8 | Gate cross-origin reads with per-call consent naming both origins. | **Not met.** Once a conversation holds a served skill, the hook answers `force_ask` to Antigravity's `read_resource` from any other server, naming both (shared-fixes X8, through the bundle's hook). Antigravity shows no question for that answer and the read goes ahead (seen live: in CLI 1.5.17 the hook's `force_ask` logged and the other server served the read 0.6 s later; in App 2.35.1, 1.7 s later). It can't tell which skill caused a read, as in Pi and OpenCode. Host change: honour `force_ask` for every tool, or expose active-skill provenance on resource reads. |
 | X10 | Never honor `allowed-tools` or equivalent permission grants. | Met. rules X10/R3; stubs have only name and description. |
 | X11 | Served resources gain no authority; user policy decides loading. | Limit. Content is a tool result; host rules can govern the tools, and plugin settings can exclude servers (verification Settings skip). No effective per-skill policy API is available; hiding a local stub does not revoke a load. |
 | R3 | Reading nested SKILL.md as a file is not activation. | Met. rules X10/R3. |
@@ -141,9 +141,9 @@ permissions, and rule X8). `agy plugin validate --strict` passes for `plugin/`.
 
 How the runs were made: [the record](../../../events/antigravity/docs/live-run.md#how-the-runs-were-made).
 
-With these builds, in the real Antigravity CLI 1.5.17 with a real model,
-against a local skills server (this repository's fixture, serving one skill
-in three versions):
+With these builds, in the real Antigravity CLI 1.5.17 and App 2.35.1 with a
+real model, against a local skills server (this repository's fixture,
+serving one skill in five versions):
 
 - a new skill's load asked (the card showed the question's first two lines);
   approved, its text came back verified;
@@ -151,7 +151,11 @@ in three versions):
 - an unchanged approved version got only Antigravity's own question;
 - a declined load: the server got no file read;
 - a load through `call_mcp_tool`: refused, no ticket;
-- rule X8: as in the table, the hook asked and the CLI didn't show it.
+- rule X8: as in the table, the hook asked and neither the CLI nor the App
+  showed it;
+- in the App: the plugin's whole question shown, "always allow" greyed out; a
+  changed version approved and loaded, another declined (no file read), a
+  load through `call_mcp_tool` refused.
 
 With the earlier builds, in App 2.35.1 and CLI 1.5.16, against Hugging Face's
 public MCP server (`https://huggingface.co/mcp`, no account, a server this
@@ -160,7 +164,7 @@ conversation found the right one by itself; a headless load nobody could
 answer was denied; a load approved over `agy acp`, and one in the App's card
 (which showed the plugin's question), came back verified.
 
-Not run: the App with these builds; the IDE (not supported).
+Not run: the IDE (not supported).
 
 ### Upstream suite
 

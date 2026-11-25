@@ -6,9 +6,9 @@ description: ard-discovery adds the consumer side of Agentic Resource Discovery 
 
 `ard-discovery` adds the consumer side of
 [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) (ARD)
-for MCP servers. ARD is a draft ("Proposal") from Google, R.V. Guha and Hugging
-Face. It is not an MCP specification, and it can still change. The plugin finds
-servers in two ways:
+for MCP servers. ARD is a draft ("Proposal") published by the ards-project
+on GitHub. It is not an MCP specification, and it can still change. The
+plugin finds servers in two ways:
 
 - **By domain.** It reads a domain's `/.well-known/ard.json` and the `rel="ard"`
   links on its pages, beside the AI Catalog.
@@ -51,8 +51,9 @@ this plugin is installed separately too.
 
 In Antigravity, name the registry or set `ARD_DISCOVERY_REGISTRY` in the
 environment Antigravity starts in; there is no default. Every search is put
-to you in Antigravity's approval card, yes or no, and the card can't be
-approved for good. The plugin is installed separately too.
+to you in Antigravity's approval card, yes or no; the App greys out its
+"always allow" choices, and the CLI's card still lists them. The plugin is
+installed separately too.
 :::
 
 It implements ARD v0.91 at commit `f073b1ea9b`: §5.1 (domain discovery), §5.3
@@ -145,15 +146,17 @@ the same code and the same permission actions.
 ### In Antigravity
 
 Node 20 or newer on `PATH`. Nothing is published to Antigravity's
-Marketplace; install from a clone. `agy plugin install` copies the folder to
+Marketplace; install from a clone, with the Antigravity CLI (the App doesn't
+ship `agy`). `agy plugin install` copies the folder to
 `~/.gemini/config/plugins/ard-discovery`, which the App and the CLI both
 read. Remove it with `agy plugin uninstall ard-discovery`. Servers you added
 stay in `~/.gemini/config/mcp_config.json`; remove one with
-`agy mcp remove <name>`.
+`agy mcp remove <name>` (in CLI 1.5.17's own help, not in Antigravity's
+docs).
 
 This form carries the Server Cards checks and add step itself, as the Codex
 and Pi forms do; it doesn't need `mcp-server-cards` installed. It was run in
-the CLI only, not in the App.
+the App (2.35.1) and the CLI (1.5.17).
 
 The sections below name the host where behavior differs. Full guides by host:
 
@@ -282,9 +285,13 @@ answer, as in a scheduled run, OpenCode refuses searches and additions.
 There is no default registry: a search names one, or uses
 `ARD_DISCOVERY_REGISTRY` from the environment Antigravity starts in. Every
 registry search, and every addition, is put to you in Antigravity's
-approval card: yes or no, and never approved for good. An addition writes
+approval card, yes or no; the CLI's card shows the question's first two
+lines, with the endpoints and the query. An addition writes
 `~/.gemini/config/mcp_config.json` only after your yes. Editors on `agy acp`
-see the tool and its arguments in the card, not the question.
+see the tool and its arguments in the card, not the question: the query and
+the registry argument, not the endpoints or the referrals. In CLI 1.5.17, a
+search of Hugging Face's own registry went to that endpoint only after the
+approval, and a declined one sent nothing.
 
 ## Settings
 
@@ -365,8 +372,8 @@ In Claude Code, in `/config`, under the plugin:
   can't be added. See [Server Cards](./server-cards#limits).
 - **Yes or no.** Editors on `agy acp` see the tool and its arguments, not
   the question.
-- **Not run in the App.** ARD was run in the CLI only; a search in the App
-  hasn't been run.
+- **Not in the IDE.** The IDE documents no plugin hooks, so the forms aren't
+  supported there, and their gated calls are refused.
 
 ### In T3 Code
 
@@ -446,14 +453,15 @@ not been audited by a person.
 ### In Antigravity
 
 Each search and each addition is put to you in Antigravity's approval card,
-and nothing is auto-approved: no `auto_approve`, no permission overrides. The
-hook leaves a one-use ticket for exactly that call, and the MCP server acts
-only with it. The plugin writes only its own folder,
+through `force_ask`, and nothing is auto-approved: no `auto_approve`, no
+permission overrides. The hook leaves a one-use ticket for exactly that call,
+and the MCP server acts only with it. Whether
+`--dangerously-skip-permissions` also skips `force_ask` hasn't been
+checked. The plugin writes only its own folder,
 `~/.gemini/agentpolyfill/ard-discovery/`, and, after your approval,
 `~/.gemini/config/mcp_config.json`. It never opens a sign-in store. See
 [Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/antigravity/SECURITY.md).
-The Antigravity forms are awaiting the independent AI review the other forms
-had.
+The independent AI review of the Antigravity forms is in progress.
 
 ## More
 

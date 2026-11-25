@@ -111,9 +111,11 @@ Each line adds one plugin to your global `opencode.json`; OpenCode has no
 bundle. OpenCode runs the plugins itself, so you don't need Node. They load
 the next time OpenCode opens a project.
 
-**Google Antigravity** (App 2.35.1 and CLI 1.5.16, the versions tested;
-Node 20 or newer on your `PATH`). Nothing for Antigravity is published to its
-Marketplace. Install from a clone:
+**Google Antigravity** (CLI 1.5.17, the version these builds were tested in;
+App 2.35.1 ran earlier builds; Node 20 or newer on your `PATH`). Nothing for
+Antigravity is published to its Marketplace. Install from a clone, with the
+Antigravity CLI: `agy plugin install` needs it, and the App doesn't ship
+`agy`.
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
@@ -121,12 +123,18 @@ cd AgentPolyfill
 agy plugin install ./polyfills/events/antigravity/plugin
 agy plugin install ./polyfills/skills/antigravity/plugin
 agy plugin install ./polyfills/server-cards/antigravity/plugin
+```
+
+Beyond MCP, ARD (a draft; every search asks you first and goes to a registry
+you choose), from the same clone:
+
+```bash
 agy plugin install ./polyfills/ard/antigravity/plugin
 ```
 
 Each line copies one plugin to `~/.gemini/config/plugins/`, which the App
-and the CLI both read. The IDE (2.8.0) wasn't run: it stayed signed out, and
-its hooks page lists no plugin hooks, which the plugins need.
+and the CLI both read. The IDE documents no plugin hooks, so the forms
+aren't supported there, and their gated calls are refused.
 
 **T3 Code** (0.1.11, the version tested). T3 Code runs the Codex and Claude
 Code you have, so install the plugins above for the agent you use in it. For
@@ -178,10 +186,13 @@ All of them are early. Here is what each one does, and where it stops:
   it to the model in the user's role, and OpenCode Desktop shows no entry for
   it, so the turn starts with no visible cause. OpenCode's own automations
   also take push events, so use a watch or an automation for an event type,
-  not both. In Antigravity, new events reach a conversation at its next
-  model call, in the App, the CLI and the IDE. In the App only, a sidecar you
-  turn on wakes an idle conversation; its message arrives as a system
-  message, not as yours.
+  not both. In Antigravity, a watch asks in Antigravity's approval card, and
+  new events reach a conversation at its next model call, through the
+  plugin's `PreInvocation` hook (seen live in the CLI; Antigravity's plugins
+  page doesn't list `PreInvocation` among plugin hooks). What it adds is fixed
+  text with a count and the plugin's own watch ids, nothing a server wrote.
+  In the App only, a sidecar you turn on wakes an idle conversation; its
+  message arrives as a system message, not as yours.
 - **Skills.** In Codex, Pi, OpenCode and Antigravity, skills an MCP server
   serves show up next to your own, load only after you say yes to each one,
   and are checked against the server's digests. Claude Code needs no
@@ -215,6 +226,10 @@ All of them are early. Here is what each one does, and where it stops:
   In Antigravity, served skills appear in its skill list as placeholder
   folders in `~/.gemini/config/skills/`, and loading a new or changed one asks
   in Antigravity's own approval card (yes or no; there's no "show me first").
+  X8 isn't met in Antigravity: once a served skill is loaded, the plugin's
+  hook asks before a read from another server, but Antigravity (CLI 1.5.17,
+  App 2.35.1) ignores that question, shows no card, and lets the read go
+  ahead.
 - **Server Cards.** Name a company and the agent finds the MCP servers its domain
   publishes, checks each card against the schema, and adds the one you pick
   to the host's own configuration. The host then connects it with its own
@@ -228,8 +243,10 @@ All of them are early. Here is what each one does, and where it stops:
   at once and OpenCode connects it. It belongs to the project it was added
   in: the plugin keeps it in its OpenCode storage, adds it again each time it
   loads there, and writes no configuration file. In Antigravity, the addition
-  asks in Antigravity's own approval card, which shows the host, URL, headers,
-  file and undo; only your approval writes `~/.gemini/config/mcp_config.json`.
+  asks in Antigravity's own approval card, whose question gives the host,
+  URL, headers, file and undo (the CLI's card shows its first two lines: the
+  URL, header names and file); only your approval writes
+  `~/.gemini/config/mcp_config.json`.
   A card that needs a secret can't be added: that file reads no `${VAR}`.
 - **Apps.** A server's app opens right under the tool call in the terminal
   and answers the mouse and keyboard: real pixels in iTerm2, kitty and
@@ -244,7 +261,8 @@ All of them are early. Here is what each one does, and where it stops:
 
 In Antigravity, which neither tells a plugin's MCP server which conversation
 calls it nor shows MCP forms, the plugins ask through its approval card from a
-`PreToolUse` hook.
+`PreToolUse` hook: before a watch, a new or changed skill load, an addition
+or a search. Their other tools get Antigravity's usual MCP question.
 
 Events, Skills and Apps can't reach servers behind OAuth yet, in any host
 where these forms run.
@@ -253,13 +271,15 @@ where these forms run.
 **Beyond MCP**, `ard-discovery` adds
 [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91,
 a draft. It finds MCP servers through a domain's `ard.json`, or by searching
-an ARD registry you choose, and hands the cards to `mcp-server-cards` (the Pi
-and OpenCode forms carry the Server Cards checks and add step themselves). A
-search sends the words of your request to that registry, so every search asks
-you first and names where it's going. That's also why it isn't part of the
-Claude Code `agent-polyfill` bundle or Pi's one-line install. Install it by
-name in Claude Code or Codex, from a clone in Pi, and with its own
-`opencode plugin add` in OpenCode.
+an ARD registry you choose, and hands the cards to `mcp-server-cards` (the
+Pi, OpenCode and Antigravity forms carry the Server Cards checks and add step
+themselves; Antigravity's has its own `add_mcp_server`). A search sends the
+words of your request to that registry, so every search asks you first and
+names where it's going. That's also why it isn't part of the Claude Code
+`agent-polyfill` bundle or Pi's one-line install. Install it by name in
+Claude Code or Codex, from a clone in Pi, with its own `opencode plugin add`
+in OpenCode, and with its own `agy plugin install` from a clone in
+Antigravity.
 
 In Pi, `ard_search` asks "Don't send it" or "Send the search", naming the
 registry endpoint and exact query. There is no default registry: name one
@@ -286,9 +306,11 @@ OpenCode's TUI or in OpenCode Desktop.
 In Antigravity, `ard_search` asks in Antigravity's approval card, naming the
 registry endpoints and exact query, and `add_mcp_server` asks separately, as
 in `mcp-server-cards`. There is no default registry. The
-[Antigravity record](polyfills/events/antigravity/docs/live-run.md) shows
-discovery for buildkite.com and a search of the repository's demo registry,
-sent only after the approval.
+[Antigravity record](polyfills/events/antigravity/docs/live-run.md) shows, in
+CLI 1.5.17, a search of Hugging Face's own registry sent to that endpoint
+only after the approval, and a declined one that sent nothing; earlier
+builds showed discovery for buildkite.com. An editor on `agy acp` shows the
+query and the registry argument, not the endpoints or the referrals.
 
 The supported hosts don't implement these extensions themselves yet, apart
 from Skills in Claude Code (a beta, from 2.1.332), part of Events in
@@ -350,9 +372,14 @@ allow the watch when OpenCode asks.
 agy mcp add feeds https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
-In Antigravity, events reach the conversation at its next turn; for an idle
-App conversation to be woken, turn on the plugin's sidecar
+`agy mcp add` is in CLI 1.5.17's own help, not in Antigravity's docs; the
+App doesn't ship `agy`. In Antigravity, approve the watch in its approval
+card. Events reach the conversation at its next turn; for an idle App
+conversation to be woken, turn on the plugin's sidecar
 ([how](polyfills/events/antigravity/README.md#enable-idle-wakes-in-the-app)).
+This demo wasn't run in Antigravity: its
+[live run](polyfills/events/antigravity/docs/live-run.md) used the
+repository's local deploys demo.
 
 The same server also offers new comments in a Hacker News thread, new npm and
 GitHub releases, and earthquakes. Its source is in
@@ -370,9 +397,10 @@ In Codex, Pi, OpenCode or Antigravity, add Hugging Face's public MCP server
 - **OpenCode:** the served skills are in OpenCode's skill list as
   `mcp-skills:huggingface:<name>`. Ask a question, then allow the load when
   OpenCode asks.
-- **Antigravity:** the served skills appear in its skill list from the turn
-  after the plugin's server starts (ask once to list the served skills to be
-  sure). Ask a question, then approve the load in Antigravity's approval card.
+- **Antigravity:** ask once to list the served skills. The plugin writes
+  them to Antigravity's skills folder, which Antigravity documents reading
+  before each turn. Ask a question, then approve the load in Antigravity's
+  approval card.
 
 **Codex:**
 
@@ -416,9 +444,11 @@ once it's added, sign in through the host.
   server at once. Run `opencode mcp auth <name>` for sign-in, and ask OpenCode
   to remove Neon Docs to take it away again
   (`server_cards_remove_mcp_server`).
-- **Antigravity:** approve the addition in its approval card; for a sign-in,
+- **Antigravity:** approve the addition in its approval card. For a sign-in,
   use Authenticate in Customizations > Installed > MCP Servers (`/mcp` in the
-  CLI), and remove the server there or with `agy mcp remove neon-docs`.
+  CLI); signing in after an addition hasn't been checked yet. Remove the
+  server there, or with `agy mcp remove neon-docs` (in CLI 1.5.17's own help,
+  not in Antigravity's docs).
 
 ### Apps: an MCP App's interface, in the terminal
 
@@ -623,16 +653,32 @@ each extension needs, and the questions they raise about permissions are in
   written in `mcp_config.json` works. Their separate connections mean a local
   (stdio) server runs twice.
 - Only App conversations can be woken, and only with the Events sidecar on;
-  CLI and IDE conversations get events at their next model call. A watch
-  restarts when its conversation next calls the plugin, after an App restart
-  or a resumed CLI conversation.
-- The approval card is yes or no. Antigravity's MCP client declares
-  elicitation but cancels every request, and an editor connected to
-  `agy acp` sees the tool and its arguments, not the plugins' question.
+  CLI conversations get events at their next model call, through the
+  plugin's `PreInvocation` hook (seen live; Antigravity's plugins page
+  doesn't list `PreInvocation` among plugin hooks). A watch restarts when its
+  conversation next calls the plugin: a resumed CLI conversation did, and got
+  the events it had missed. A webhook watch wasn't run.
+- The approval card is yes or no. The CLI's card shows the question's first
+  two lines and hides the rest, and still lists "always allow" choices,
+  which the App greys out. Antigravity's MCP client declares elicitation but
+  cancels every request, and an editor connected to `agy acp` sees the tool
+  and its arguments, not the plugins' question.
+- Watches, new or changed skill loads, additions and searches ask through
+  `force_ask`. The other Events tools, an approved unchanged skill load and
+  skill file reads pass with a ticket and then get Antigravity's usual MCP
+  question, which allow rules can skip. Whether
+  `--dangerously-skip-permissions` also skips `force_ask` hasn't been
+  checked.
+- X8 isn't met: the Skills hook asks before another server's
+  `read_resource` once a served skill is loaded, but Antigravity (CLI 1.5.17
+  and App 2.35.1) ignores that question (no card; the read goes ahead).
+- In CLI 1.5.17, a `PreToolUse` hook that fails, times out or prints
+  something that isn't JSON makes the call fail.
 - Server Cards can't add a card that needs a secret: Antigravity's personal
   `mcp_config.json` reads no `${VAR}`, and the plugin never writes one.
-- The IDE wasn't run; its hooks page lists no plugin hooks, and without them
-  the plugins refuse rather than act unasked.
+- The IDE documents no plugin hooks, so the forms aren't supported there,
+  and their gated calls are refused.
+- These builds were run in App 2.35.1 and CLI 1.5.17.
 
 ## In T3 Code
 
@@ -769,8 +815,8 @@ A polyfill can be that client-side implementation, in hosts that haven't
 shipped the extension yet, used by real people against real servers. Each one
 here names the spec revision it implements. Events and Skills have a test for
 every client rule and run against servers their authors didn't write. Skills
-passes the official conformance suite's Skills client scenarios in Codex and
-Pi, and Events passes the Events client scenarios proposed
+passes the official conformance suite's Skills client scenarios in Codex, Pi
+and Antigravity, and Events passes the Events client scenarios proposed
 upstream (still an open pull request in the conformance suite). Apps checks
 the spec requirement by requirement in its design notes. Whether a polyfill
 counts as an independent implementation for a given SEP is up to that
@@ -793,10 +839,11 @@ from rule 4 ([Skills](polyfills/skills/opencode/docs/conformance.md),
 [Events](polyfills/events/opencode/docs/conformance.md)).
 
 In Antigravity, Skills passes all four upstream client scenarios and Events
-all 17 checks (suite at `c8625de`), through each form's own MCP server and
-approval hook, and the live runs used servers this project didn't write:
-Mastra's Events server and Hugging Face's Skills server. The Antigravity
-conformance pages record the details
+all 17 checks (suite at `c8625de`): Events through its MCP server and real
+hook, Skills through its MCP server code with its hook's handlers run
+in-process (a `force_ask` taken as yes). The live runs used servers this project didn't write:
+this repository's deploys demo, whose Events support is Mastra's own
+implementation, and, with earlier builds, Hugging Face's Skills server. The Antigravity conformance pages record the details
 ([Skills](polyfills/skills/antigravity/docs/conformance.md),
 [Events](polyfills/events/antigravity/docs/conformance.md)).
 
@@ -890,7 +937,8 @@ plugin again, unless you remove each server first
 
 **Antigravity.** `agy plugin install ./polyfills/<polyfill>/antigravity/plugin`
 from the clone installs one, and `agy plugin uninstall <name>` removes it
-(`mcp-events`, `mcp-skills`, `mcp-server-cards` or `ard-discovery`). The
+(`mcp-events`, `mcp-skills`, `mcp-server-cards` or `ard-discovery`). Both
+need the Antigravity CLI; the App doesn't ship `agy`. The
 plugins' own data stays in `~/.gemini/agentpolyfill/<name>/`, Skills'
 placeholders in `~/.gemini/config/skills/mcp-skills-served--*`, and servers
 added by Server Cards or ARD in `~/.gemini/config/mcp_config.json`; each
@@ -927,10 +975,13 @@ permissions:
   OpenCode's rules remain the boundary.
 - **Antigravity:** a plugin: an MCP server and command hooks, and for Events a
   sidecar you turn on. Antigravity's own approval card is the boundary: each
-  addition, registry search and skill load asks there, and every other tool
-  goes through Antigravity's usual MCP approval. Nothing is auto-approved. The
-  plugins read `~/.gemini/config/mcp_config.json`, which can hold header
-  values, and never log or show them.
+  watch, new or changed skill load, addition and registry search asks there
+  through `force_ask`. Every other tool, an approved unchanged skill load
+  included, gets Antigravity's usual MCP question, which allow rules can
+  skip. Whether `--dangerously-skip-permissions` also skips `force_ask`
+  hasn't been checked. Nothing is auto-approved. The plugins read
+  `~/.gemini/config/mcp_config.json`, which can hold header values, and never
+  log or show them.
 - **T3 Code:** the plugins of the agent it runs, as above. The T3 Events form
   is an MCP server Codex starts, plus a watcher of its own that keeps running
   after T3 Code closes, until no thread has a watch.

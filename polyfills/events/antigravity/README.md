@@ -9,12 +9,12 @@ This plugin implements the client side of MCP Events,
 the **Final text as of 24 November 2026**, the same revision as
 [the Codex form](../codex/README.md). It bundles the same [Events client](../core).
 
-**Run live on 25 November 2026** in the Antigravity CLI 1.5.17 with a real
-model, against the [deploys demo](../claude-code/demo), whose Events support
-is Mastra's: a watch approved and one declined, the event delivered at the
-next turn, refused calls. The App's idle wake through the sidecar was run
-with the builds before these; with these builds it is still to run.
-[docs/live-run.md](docs/live-run.md) has the record.
+**Run live on 25 November 2026** in the Antigravity App 2.35.1 and CLI 1.5.17
+with a real model, against the [deploys demo](../claude-code/demo), whose
+Events support is Mastra's: in both, a watch approved and one declined, and
+calls that go around the hook refused; in the CLI the event delivered at the
+next turn; in the App an idle conversation woken by the sidecar, which then
+answered from the event. [docs/live-run.md](docs/live-run.md) has the record.
 
 ## Install
 
@@ -55,7 +55,7 @@ That removes the plugin's folder (and with it the sidecar). It leaves:
 | Surface | Supported | Run live |
 |---|---|---|
 | Antigravity CLI 1.5.17 (macOS) | yes | these builds: a watch approved and declined, delivery at the next turn, refusals, a broken hook |
-| Antigravity App 2.35.1 (macOS) | yes | the earlier builds: watches, an idle conversation woken by the sidecar, a wake during a running turn, restarts. These builds: not yet |
+| Antigravity App 2.35.1 (macOS) | yes | these builds: a watch approved, an idle conversation woken by the sidecar, one declined, a call around the hook refused. Earlier builds: a wake during a running turn, restarts |
 | Antigravity IDE | no | Antigravity documents no plugin hooks for the IDE, so there is no ticket and no question: every Events call there is refused |
 
 ### Enable idle wakes in the App
@@ -322,7 +322,7 @@ No shared source is copied or modified. This adapter sets
 | Wake budget reset | Person's turn metadata or an hour | An hour; no guessed turn origin |
 | State | `$CODEX_HOME/mcp-events` | `stateDir('mcp-events')` |
 | No-Events discovery cache | One day | Once per server process; no persistent negative cache |
-| Verified in a real host | Codex TUI | CLI 1.5.17 (these builds); App 2.35.1 (the earlier builds) |
+| Verified in a real host | Codex TUI | App 2.35.1 and CLI 1.5.17 |
 
 ## Spec and conformance
 
@@ -358,19 +358,23 @@ was made.
    call itself.
 4. **Another server's tool** still got Antigravity's own question; the hook
    never saw it.
-5. **Idle wake (App, the earlier builds).** With `mcp-events/wake` enabled,
-   the App ran the sidecar, a failing deploy woke the idle conversation, and
-   the agent read the event and the server's deploy log (each asked) and
-   answered in one line, as the watch's note asked. A wake during a running
-   turn was held and put into that turn at its next model call.
+5. **Idle wake (App, these builds).** With `mcp-events/wake` enabled, the
+   App showed the plugin's whole watch question with "always allow" greyed
+   out; approved, the conversation went idle. A failing deploy 4 seconds
+   later: the sidecar's `agentapi send-message` woke it, the hook's step held
+   only the fixed text and the watch id, and the agent read the event (each
+   call asked) and answered in one line, as the watch's note asked. A watch
+   declined in the App: nothing saved, no ticket left after the turn. (With
+   the earlier builds, a wake during a running turn was held and put into
+   that turn at its next model call.)
 6. **Recovery.** After a restart, a resumed CLI conversation's
    `list_watches` restarted its watch, and the events missed in between
    arrived at the next turn, from the server's cursor.
 7. **Elicitation:** Antigravity's MCP client declares it but answers every
    request with `cancel`, so the hook is the only way to reach you.
 
-Not run yet: the App with these builds, a webhook watch, and
-`--dangerously-skip-permissions` against the watch question.
+Not run: a webhook watch, and `--dangerously-skip-permissions` against the
+watch question.
 
 ## Development
 

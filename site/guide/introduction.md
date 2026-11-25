@@ -51,11 +51,13 @@ OpenCode runs them itself, so they need no Node. Nothing for OpenCode is
 published to npm: OpenCode installs each plugin from this repository on
 GitHub, with Git; [Getting started](./getting-started#opencode) has the steps.
 
-The Antigravity forms are plugins, in one format for the App, the CLI
-(`agy`) and the IDE. They were run with App v2.35.1 and CLI v1.5.16 (ARD in
-the CLI only), and need Node 20 or newer on `PATH`. The IDE wasn't run. Nothing is published to Antigravity's
-Marketplace; [Getting started](./getting-started#antigravity) has the
-clone-and-install steps.
+The Antigravity forms are plugins for the App and the CLI (`agy`). These
+builds were run in App v2.35.1 and CLI v1.5.17. They need Node 20 or newer on `PATH`, and the Antigravity CLI
+to install them, since the App doesn't ship `agy`. The IDE documents no
+plugin hooks, so the forms aren't supported there, and their gated calls are
+refused. Nothing is published to Antigravity's Marketplace;
+[Getting started](./getting-started#antigravity) has the clone-and-install
+steps.
 
 All of them are early. Here is what each one does, and where it stops:
 
@@ -73,10 +75,13 @@ All of them are early. Here is what each one does, and where it stops:
   OpenCode's own client takes push events for its automations, but skips
   event types whose schemas it can't check, so the polyfill watches every
   type, push included, and tells the model to use a watch or an automation,
-  not both: a stated departure from the contract's rule 4. In Antigravity, new
-  events reach the conversation at its next model call. An idle App
-  conversation wakes only through the plugin's sidecar, which you turn on;
-  CLI conversations can't be woken.
+  not both: a stated departure from the contract's rule 4. In Antigravity, a
+  watch asks in Antigravity's approval card, and new events reach the
+  conversation at its next model call, through the plugin's `PreInvocation`
+  hook (seen live in the CLI; Antigravity's plugins page doesn't list
+  `PreInvocation` among plugin hooks). An idle App conversation wakes only
+  through the plugin's sidecar, which you turn on; CLI conversations can't be
+  woken.
 - **Skills.** In Codex, Pi, OpenCode and Antigravity, skills an MCP server
   serves show up next to your own, load only after you say yes to each one,
   and are checked against the server's digests. Claude Code needs no
@@ -96,10 +101,10 @@ All of them are early. Here is what each one does, and where it stops:
   loaded, OpenCode's own read of another server's resource asks first, naming
   both servers, including from Code Mode and in subagents.
   In Antigravity, served skills appear as placeholder folders in
-  `~/.gemini/config/skills/`, and loading one is put to you in Antigravity's
-  approval card. X8 isn't met there, as in Codex: the plugin can't put a
-  question in front of Antigravity's own resource reads, so the loaded skill
-  tells the model to ask you first.
+  `~/.gemini/config/skills/`, and loading a new or changed one is put to you
+  in Antigravity's approval card. X8 isn't met: the plugin's hook asks before
+  a read from another server while a served skill is loaded, but Antigravity
+  (CLI 1.5.17, App 2.35.1) ignores that question, and the read goes ahead.
 - **Server Cards.** Name a company and the agent finds the MCP servers its
   domain publishes, checks each card against the schema, and adds the one you
   pick to the host's own configuration. The host then connects it with its own
@@ -147,8 +152,8 @@ checks and add step too.
 A search sends the words of your request to that
 registry, so every search asks you first and names where it's going. That's
 also why it isn't part of the Claude Code `agent-polyfill` bundle or Pi's
-one-line install. Install it by name in Claude Code or Codex, or from a
-clone in Pi.
+one-line install. Install it by name in Claude Code or Codex, from a clone
+in Pi or Antigravity, or with its own `opencode plugin add` in OpenCode.
 Pi's recorded live run showed domain discovery and an approved search of the
 repository's demo registry. It did not complete the add step: the model
 asked in chat instead of calling the add tool. Addition is covered by tests
@@ -160,7 +165,8 @@ OpenCode's TUI, the prompt for a registry a referral names doesn't show that
 registry. Addition is covered by tests in real OpenCode with a scripted model
 and a local server. In Antigravity, every registry search and every addition
 is put to you in Antigravity's approval card. ARD was run in Antigravity's
-CLI only, not in the App.
+App (2.35.1) and CLI (1.5.17): a search of Hugging Face's own registry went
+to that endpoint only after the approval, and a declined one sent nothing.
 
 Native support is separate from these polyfills:
 
@@ -219,8 +225,10 @@ calls without asking unless a permission extension asks; each polyfill adds
 its own question before a watch, skill load, registry search or server add.
 OpenCode's shipped permission rules allow every action; each OpenCode
 polyfill puts its own actions to those rules and asks you by default.
-In Antigravity, each polyfill asks through Antigravity's own approval card,
-which can't be approved for good.
+In Antigravity, each polyfill asks through Antigravity's own approval card
+before a watch, a new or changed skill load, an addition or a search; its
+other tools get Antigravity's usual MCP question, which allow rules can
+skip.
 Each polyfill's `SECURITY.md` says what it checks and what it doesn't protect
 against; [Security](./security) collects them.
 

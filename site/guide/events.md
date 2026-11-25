@@ -17,8 +17,10 @@ Final). The forms fill these gaps:
 - **OpenCode:** OpenCode 2.4 takes push events for its automations, but
   doesn't poll, take webhooks or watch for a session; the polyfill is a
   plugin.
-- **Antigravity:** the polyfill is a plugin, run in the App and the CLI
-  (`agy`); the IDE wasn't run.
+- **Antigravity:** the polyfill is a plugin for the App and the CLI
+  (`agy`). These builds were run in CLI 1.5.17; their App runs are still to
+  come. The IDE documents no plugin hooks, so the forms aren't supported
+  there, and their gated calls are refused.
 
 <Recording
   cut="events"
@@ -113,10 +115,11 @@ log stay in `~/.local/share/opencode/mcp-events/` (or `MCP_EVENTS_STATE`);
 delete that folder too to remove them. The "Allow always" answers it kept
 stay in OpenCode's plugin storage (OpenCode's own database).
 
-**In Antigravity** (Node 20 or newer on `PATH`), install from a clone:
-nothing is published to Antigravity's Marketplace. `agy plugin install`
-copies the folder to `~/.gemini/config/plugins/mcp-events`, which the App and
-the CLI both read. To wake an idle App conversation, the plugin's sidecar
+**In Antigravity** (Node 20 or newer on `PATH`), install from a clone, with
+the Antigravity CLI (the App doesn't ship `agy`): nothing is published to
+Antigravity's Marketplace. `agy plugin install` copies the folder to
+`~/.gemini/config/plugins/mcp-events`, which the App and the CLI both read.
+To wake an idle App conversation, the plugin's sidecar
 must be on: add `"sidecars": {"mcp-events/wake": {"enabled": true}}` to
 `~/.gemini/config/config.json`. The plugin never edits that file. To remove
 it, run `agy plugin uninstall mcp-events`. Its state is in
@@ -169,7 +172,8 @@ Start your host in the same folder:
   "Stop watching the earthquakes."
 - **OpenCode:** `opencode`, with that entry in the project's `opencode.json`
   or the global one. OpenCode asks you before the watch starts.
-- **Antigravity:** `agy`, or the App. The App doesn't ship `agy`; there, add
+- **Antigravity:** `agy`, or the App. `agy mcp add` is in CLI 1.5.17's own
+  help, not in Antigravity's docs. The App doesn't ship `agy`; there, add
   the server under Customizations > Installed > MCP Servers, or in
   `~/.gemini/config/mcp_config.json`. This demo is for trying: it wasn't run
   in Antigravity, whose live run used the repository's local deploys demo.
@@ -300,15 +304,25 @@ server, in its TUI and in OpenCode Desktop.
 
 ### In Antigravity
 
-A watch goes through Antigravity's usual MCP approval. An MCP server isn't
-told which conversation calls it, so the plugin's `PreToolUse` hook passes
-the conversation id to the call in a one-use ticket. New events reach the
-conversation at its next model call, through a `PreInvocation` hook, in the
-App and the CLI. In the App, the plugin's sidecar wakes an idle conversation
-with `agentapi send-message`, once you turn it on. CLI conversations can't be
-woken. The IDE wasn't run. The [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/live-run.md)
-records delivery at the next turn in the CLI, an idle App conversation woken
-by the sidecar, and a wake during a running turn.
+A watch asks in Antigravity's approval card: the plugin's hook answers
+`force_ask` with its own question, which names the event type, server,
+filters and note in its first two lines. The other Events tools pass with a
+ticket and then get Antigravity's usual MCP question, which allow rules can
+skip. An MCP server isn't told which conversation calls it, so the plugin's
+`PreToolUse` hook passes the conversation id to the call in a one-use
+ticket. New events reach the conversation at its next model call, through
+the plugin's `PreInvocation` hook: seen live in the CLI, though
+Antigravity's plugins page doesn't list `PreInvocation` among plugin hooks.
+What it adds is fixed text with a count and the plugin's own watch ids, with
+no event type, server name, note or payload; the model reads the events with
+`recent_events` or `get_event`. In the App, the plugin's sidecar wakes an
+idle conversation with `agentapi send-message`, once you turn it on. CLI
+conversations can't be woken. The IDE documents no plugin hooks, so the
+forms aren't supported there, and their gated calls are refused. The
+[live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/live-run.md)
+records, in CLI 1.5.17, a watch approved and one declined, and delivery at
+the next turn; with earlier builds, an idle App conversation woken by the
+sidecar and a wake during a running turn.
 
 ## What Claude can do with it
 
@@ -468,11 +482,11 @@ hasn't been tried by hand on Windows.
 
 ### In Antigravity
 
-In the App, the CLI (`agy`) and editors on `agy acp`. Only App
-conversations can be woken, and only with the sidecar on. The IDE's agent
-wasn't run: IDE 2.8.0 stayed signed out, and its hooks page lists no plugin
-hooks. Without the hooks every Events call is refused, so the plugin
-probably doesn't work in the IDE at all.
+In the App, the CLI (`agy`) and editors on `agy acp`; these builds were run
+in App 2.35.1 and CLI 1.5.17. Only App conversations
+can be woken, and only with the sidecar on. The IDE documents no plugin
+hooks, so the forms aren't supported there, and their gated calls are
+refused.
 
 ## Settings
 
@@ -603,11 +617,17 @@ Environment variables, for example in the `env` block of
 
 - **Wakes only in the App.** Only App conversations can be woken, and only
   with the sidecar on. CLI conversations get new events at their next model
-  call.
+  call, through the plugin's `PreInvocation` hook, which Antigravity's
+  plugins page doesn't list among plugin hooks.
+- **After a restart.** A watch restarts when its conversation next calls the
+  plugin: a resumed CLI conversation did, and got the events it had missed.
 - **No sign-in through Antigravity.** Servers behind Antigravity's own
   sign-in can't be reached.
-- **Not run yet:** a webhook watch, and the IDE's agent. The IDE lists no
-  plugin hooks, and without them every Events call is refused.
+- **Not run yet:** a webhook watch, the feeds demo, and these builds in the
+  App. Whether `--dangerously-skip-permissions` also skips the watch's
+  `force_ask` hasn't been checked.
+- **Not in the IDE.** The IDE documents no plugin hooks, so the forms aren't
+  supported there, and their gated calls are refused.
 
 ## Security
 
@@ -693,21 +713,26 @@ not been audited by a person.
 
 ### In Antigravity
 
-A watch goes through Antigravity's usual MCP approval, and nothing is
-auto-approved. The plugin reads `~/.gemini/config/mcp_config.json`, which
+A watch asks in Antigravity's approval card, through the plugin's
+`force_ask`, and nothing is auto-approved. The other Events tools pass with a
+ticket and then get Antigravity's usual MCP question, which allow rules can
+skip. The plugin reads `~/.gemini/config/mcp_config.json`, which
 can hold API keys in headers, to connect to your servers, and never logs or
 shows those values. It never opens `~/.gemini/antigravity/mcp_oauth_tokens.json`
 or any sign-in store, and writes only its own folder,
 `~/.gemini/agentpolyfill/mcp-events/`. See
 [Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/SECURITY.md)
 and its [conformance page](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/conformance.md).
-By default Antigravity asks before any MCP tool: the App's card, and in the
-CLI its default mode, `request-review`. The Events scenarios in conformance
-PR #541 (suite at `c8625de`, 25 November 2026) pass 17 of 17 checks, through
+By default Antigravity asks before any MCP tool: in the App, its card; the
+interactive CLI starts in auto mode, where an MCP tool call still asks; and
+headless `agy -p` reports `request-review` and denies a call nobody answers.
+In CLI 1.5.17 a `PreToolUse` hook that fails makes the call fail. Whether
+`--dangerously-skip-permissions` also skips `force_ask` hasn't been checked.
+The Events scenarios in conformance PR #541 (suite at `c8625de`, 25 November
+2026) pass 17 of 17 checks, through
 the form's MCP server and its ticket hook
 ([record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/evidence/conformance.txt)).
-The Antigravity forms are awaiting the independent AI review the other forms
-had.
+The independent AI review of the Antigravity forms is in progress.
 
 ## The mod's own runtime
 

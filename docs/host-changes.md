@@ -20,8 +20,8 @@ declarations, a running OpenCode, and its source on `dev` at `b0cda20`),
 and T3 Code against 0.1.11 (its source at commit `5a156a2a`, and the T3
 Events form's live run in it, with Codex 0.172.0).
 Google Antigravity is closed source: we checked it against its documentation
-(App v2.35.1 and CLI v1.5.16, read on 2026-11-25) and in live runs of the App
-and the CLI.
+(read on 2026-11-25) and in live runs of CLI v1.5.17 (and v1.5.16 before it
+updated itself that day) and App v2.35.1.
 
 ## How a plugin plugs in today
 
@@ -51,9 +51,9 @@ it.
 | Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `pi.sendMessage(…, { triggerTurn: true })`, shown as the extension's own message | `ctx.session.synthetic` with `resume: true`, stored as synthetic rather than the user's | `agentapi send-message <conversation_id>`, from a plugin's sidecar, in the App only (seen live). Sidecars are off until you turn each one on. | `t3 thread send <thread> -`, on the machine it runs on, with no sign-in. `codex queue` reaches T3 Code's app server, but the thread doesn't show the turn. |
 | Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives | The extension runs in that session (`ctx.sessionManager.getSessionId()`) | The tool executor's `sessionID` | Not for an MCP server. Hooks get `conversationId`, and a `PreToolUse` hook can add it to the call's arguments (`overwrite`). | `T3CODE_THREAD_ID` in the environment of Codex's stdio MCP servers (not documented); not set for Claude Code's |
 | Know the person wrote | The `prompt.submit` hook | `turn_trigger` in the turn metadata of a tool call | The `input` event, with its source | `ctx.session.hook('prompt')`, which a synthetic message doesn't run | Partly: hooks get `lastUserInput`; a sidecar's message arrives as a system message, not as the person's (seen live) | No: Codex's turn metadata has no `turn_trigger` there |
-| Add skills | A mod can add to the text of the session's skill listing (`prompt.attachment`), as the Skills mod did before it was removed. From 2.1.332 Claude Code lists skills from MCP servers itself, in beta ([changelog](https://code.claude.com/docs/en/changelog)). | A plugin's skills folder, read when the plugin loads; `~/.agents/skills` | `resources_discover` returns skill folders, read at start and at `/reload` | `ctx.skill.transform`, with no file, but with the skill's text given when it is listed | A plugin's `skills/` (read-only, replaced on update); `~/.gemini/config/skills/`, read again before each turn (seen live) | Through the agent; it lists the agent's skills in its composer |
-| Gate a tool call | Permission hooks that allow, deny or ask | Hooks that can deny, not ask | `tool_call` handlers that can block, and ask with `ctx.ui`, for the model's calls and codemode's nested calls | `ctx.tool.hook('execute.before')`, which can refuse a call or put it to the permission rules first, for the model's calls and Code Mode's | `PreToolUse` hooks that allow, deny, ask or `force_ask`, and rewrite arguments (`overwrite`). A lazily loaded MCP tool, the default, is seen as `call_mcp_tool` (seen live). | Through the agent |
-| Add a server | `claude mcp add` | `codex mcp add` | `pi mcp add` (saved), `pi.registerMcpServer` (this session, connected at once) | `ctx.mcp.transform` (in memory; a plugin keeps what it added and adds it again on each load) | `agy mcp add` (CLI 1.5.16, undocumented); the App ships no `agy`, so a plugin edits `~/.gemini/config/mcp_config.json` | Through the agent (`codex mcp add`, `claude mcp add`), then **Restart agent session** |
+| Add skills | A mod can add to the text of the session's skill listing (`prompt.attachment`), as the Skills mod did before it was removed. From 2.1.332 Claude Code lists skills from MCP servers itself, in beta ([changelog](https://code.claude.com/docs/en/changelog)). | A plugin's skills folder, read when the plugin loads; `~/.agents/skills` | `resources_discover` returns skill folders, read at start and at `/reload` | `ctx.skill.transform`, with no file, but with the skill's text given when it is listed | A plugin's `skills/` (read-only, replaced on update); `~/.gemini/config/skills/`, documented as read again before each turn (not checked live) | Through the agent; it lists the agent's skills in its composer |
+| Gate a tool call | Permission hooks that allow, deny or ask | Hooks that can deny, not ask | `tool_call` handlers that can block, and ask with `ctx.ui`, for the model's calls and codemode's nested calls | `ctx.tool.hook('execute.before')`, which can refuse a call or put it to the permission rules first, for the model's calls and Code Mode's | `PreToolUse` hooks that allow, deny, ask or `force_ask`, and rewrite arguments (`overwrite`). A lazily loaded MCP tool, the default, is seen as `call_mcp_tool`, whatever its server; an eager one as `mcp_<server>_<tool>` (seen live). In CLI 1.5.17 a `PreToolUse` hook that fails makes the call fail, and a `force_ask` on the built-in `read_resource` is ignored. | Through the agent |
+| Add a server | `claude mcp add` | `codex mcp add` | `pi mcp add` (saved), `pi.registerMcpServer` (this session, connected at once) | `ctx.mcp.transform` (in memory; a plugin keeps what it added and adds it again on each load) | `agy mcp add` and `agy mcp remove` (in CLI 1.5.17's own help, not in Antigravity's docs); the App ships no `agy`, so a plugin edits `~/.gemini/config/mcp_config.json` | Through the agent (`codex mcp add`, `claude mcp add`), then **Restart agent session** |
 | Call a server's tool over the host's connection, with its sign-in | `$.mcp.call(server, tool, args)` | `mcpServer/tool/call` | Indirectly: an MCP tool is a Pi tool (`mcp__<server>__<tool>`), callable with `ctx.executeTool` | No | No. Only an MCP App view can call its own server's tools. | Only through the agent (a Claude Code mod's `$.mcp.call`) |
 | Ask whether the host would use a server | `$.mcp.connect(server)` | `mcpServerStatus/list` (start-up and sign-in state) | No. An extension reads `mcp.json` itself. | `ctx.mcp.list()` (connected, pending, disabled, failed, needs sign-in) | No | No |
 | Read a resource over the host's connection | Only indirectly, by calling the built-in `ReadMcpResourceTool`. You get text or a saved file, without the resource's `_meta`. | `mcpServer/resource/read`, with `_meta` | Only indirectly, through Pi's `read_mcp_resource` tool, which leaves out `ui://` resources | No. The model's `opencode_read_mcp_resource` tool reads one; a plugin can only see that call (`ctx.tool.hook`). | No. An App view reads `antigravity-file://` only. | No (it reads an MCP App's `ui://` resource itself) |
@@ -62,7 +62,7 @@ it.
 | Receive a server's notifications | No | Only from OpenAI's hosted apps server. `mcpServer/event/stream/*` refuses any other server. Elicitation requests are relayed. | No | No. OpenCode takes Events push notifications itself, for its automations; a plugin sees only OpenCode's own events (`mcp.tools.changed` and the like). | No. None are documented. | No |
 | See a tool's `_meta`, its `outputSchema`, or a result as the server sent it | No | Not checked yet | A result's `structuredContent` reaches `tool_result` hooks and codemode; a tool's `_meta` doesn't | Not checked yet | No. `PostToolUse` gets the call and any error, not the result. | No (it reads `_meta.ui` itself, for MCP Apps) |
 | Declare a client extension to servers | No | Only Codex's own client (the terminal or the desktop app) can, and its declaration goes to every server. A plugin or the config can't. | No. Pi's `McpClient` takes capabilities from its caller, but the MCP extension sets none for others. | No. OpenCode's own client declares Events to every server. | No. The App declares the Apps extension itself. | No |
-| Protocol revision of the host's own connection | 2026-07-28 back to 2024-11-05 | 2025-06-18 (2026-07-28 behind a feature flag that is off) | Up to 2025-11-25 | Not checked yet | 2025-11-25 (seen live) | The agent's |
+| Protocol revision of the host's own connection | 2026-07-28 back to 2024-11-05 | 2025-06-18 (2026-07-28 behind a feature flag that is off) | Up to 2025-11-25 | Not checked yet | Not checked yet | The agent's |
 
 The row that matters most is "send any other MCP method". Because no host
 has it, each polyfill that speaks an extension's protocol (Events, Skills,
@@ -354,29 +354,40 @@ the live server.
 - **Support MCP elicitation,** so a server can ask you something in the
   host's own form. Antigravity's MCP client declares it (`form` and `url`)
   but answers every request with `cancel` without showing anything, in the
-  App and the CLI (seen live, App v2.35.1, CLI v1.5.16). Today a polyfill asks
-  through a `PreToolUse` hook that
-  answers `force_ask`: a yes or no, with no other choices. A hook sees a
-  lazily loaded MCP tool (the default) as Antigravity's own `call_mcp_tool`,
-  so every plugin that gates its tools runs its hook for every MCP call of
-  every server; a matcher on the server's name would avoid that.
-- **Pass a hook's `reason` to editors.** The App's approval card shows a
-  `force_ask` hook's question; `agy acp` sends an editor only the tool's
-  name and arguments.
+  App and the CLI (seen live, App v2.35.1, CLI v1.5.16). Today a polyfill
+  asks through a `PreToolUse` hook that answers `force_ask`: a yes or no,
+  with no other choices. A hook sees a lazily loaded MCP tool (the default)
+  as Antigravity's own `call_mcp_tool`, whatever its server, so the
+  polyfills make their gated tools eager, match only those names
+  (`mcp_<server>_<tool>`), and refuse a gated call that comes through
+  `call_mcp_tool`. A matcher on the server's name would let them stay lazy.
+- **Honour `force_ask` on every tool.** In CLI 1.5.17 and App 2.35.1 a
+  `force_ask` on the built-in `read_resource` is ignored: no card, and the
+  read goes ahead. That is why the Skills polyfill can't meet SEP-2640's X8
+  in Antigravity.
+- **Show a hook's whole question, and pass its `reason` to editors.** The
+  App's approval card shows a `force_ask` hook's question; the CLI's shows
+  its first two lines and hides the rest; `agy acp` sends an editor only the
+  tool's name and arguments.
 - **Run plugin hooks in the IDE.** Its hooks page lists workspace and global
   hooks only; the polyfills' approvals and Events delivery rest on a
-  plugin's hooks.
+  plugin's hooks, so the forms aren't supported there, and their gated calls
+  are refused.
+- **Document plugin `PreInvocation` hooks.** The plugins page lists
+  `PreToolUse`, `PostToolUse`, `SessionStart` and `Stop` for plugins. A
+  plugin's `PreInvocation` hook runs in CLI 1.5.17 (seen live), and Events
+  delivers at the next model call through it.
 - **Let something other than a sidecar send a message to a conversation.**
   `agentapi send-message` is on a sidecar's `PATH`, in the App only, and
   sidecars are off until you turn each one on. The Conversation Management
   API of App v2.35.0 has no reference page yet. A documented way to post to
-  a conversation from the CLI and the IDE would let Events wake a session
-  there.
+  a conversation from the CLI would let Events wake a CLI conversation.
 - **Read `${VAR}` in `mcp_config.json`,** as a plugin's own file can for its
   declared `variables`. Then the Server Cards polyfill could add a server
   whose card needs an API key, without ever writing the key.
-- **Add a server without editing the file,** from a plugin. The CLI has
-  `agy mcp add` (1.5.16), but the App doesn't ship `agy`.
+- **Add a server without editing the file,** from a plugin. CLI 1.5.17 has
+  `agy mcp add` and `agy mcp remove` in its own help, not in Antigravity's
+  docs, and the App doesn't ship `agy`.
 - **Support SEP-2640 natively,** or let a plugin add skills somewhere other
   than your personal skills folder. A plugin's own folder is read-only and is
   replaced on update, so the Skills polyfill writes its entries into

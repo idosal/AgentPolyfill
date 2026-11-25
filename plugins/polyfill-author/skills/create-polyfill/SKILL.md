@@ -256,8 +256,10 @@ How a polyfill is built depends on what the host lets third-party code do.
   in `plugin/`. Read the existing Antigravity forms' README, SECURITY.md and
   `docs/conformance.md` before writing part 3. Events, Skills, Server Cards
   and ARD have Antigravity forms; Apps does not, as the App shows MCP Apps
-  itself. The forms were run with App v2.35.1 and CLI v1.5.16 (ARD in the
-  CLI only; the IDE not at all) and need Node 20 or newer. Install from a local clone with
+  itself. These builds were run in CLI v1.5.17; earlier builds ran in App
+  v2.35.1 (ARD in the CLI only). The IDE documents no plugin hooks, so the
+  forms aren't supported there. They need Node 20 or newer. Install from a
+  local clone with the Antigravity CLI (the App doesn't ship `agy`):
   `agy plugin install ./polyfills/<polyfill>/antigravity/plugin`; nothing is
   published to Antigravity's Marketplace.
 - **Another host with an in-process extension layer:** read its extension API

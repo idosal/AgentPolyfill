@@ -100,14 +100,17 @@ Catalog as `application/ai-registry+json`
 (`https://huggingface-hf-discover.hf.space`). Approved, the query went to
 that registry's `/search` only and three results came back, each marked not
 confirmed by its publisher. Declined: nothing sent. Through `call_mcp_tool`:
-refused, nothing sent. Public registries also answer at ardregistry.org and
-ardregistry.net.
+refused, nothing sent. The same three in the real App 2.35.1, whose card
+showed the plugin's whole question (the endpoints, the referrals, the query,
+and that the registry sees it). Public registries also answer at
+ardregistry.org and ardregistry.net.
 
 With the earlier builds, in CLI 1.5.16: `ard_discover` for buildkite.com read
 its `ard.json` (one valid card); a search over `agy acp`, against this
 repository's local demo registry, was sent only after the approval and found
 Buildkite, confirmed by its publisher.
 
-Not run: a search or addition in the App, and the IDE (not supported).
+Not run: an ARD addition in the App (the same add as `mcp-server-cards`, run
+there), and the IDE (not supported).
 
 The MCP conformance suite has no ARD or Server Card scenarios.

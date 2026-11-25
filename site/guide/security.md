@@ -10,7 +10,7 @@ an AI reviewer that did not build them, and not audited by a person. The Pi
 forms had an independent AI review, fixes and a check of those changes too.
 The OpenCode forms had fixes from a security review, and their live runs were
 repeated after them.
-The Antigravity forms are awaiting that review.
+The Antigravity forms' review is in progress.
 
 ## Reporting a problem
 
@@ -274,26 +274,39 @@ switches, uninstalling and removing saved data.
 ## In Antigravity
 
 Antigravity's own approval system is the boundary. Each form's own actions
-(an addition, a registry search, a skill load) ask by default, through a
-`PreToolUse` hook that answers `force_ask`: Antigravity's approval card,
-which shows the hook's question and can't be approved for good. Nothing is
-auto-approved: no `auto_approve`, no permission overrides. The hook leaves a
-one-use ticket for exactly that call, and the MCP server acts only with it.
-No ticket, nothing done. Read-only tools and Events watches go through
-Antigravity's usual MCP approval, which by default asks before any MCP tool:
-the App's card, and in the CLI its default mode, `request-review` (checked
-live).
+(a watch, a new or changed skill load, an addition, a registry search) ask,
+through a `PreToolUse` hook that answers `force_ask`: Antigravity's approval
+card, with the hook's question. The CLI's card shows the question's first
+two lines and hides the rest; the App greys out the card's "always allow"
+choices, and the CLI's card still lists them. Nothing is auto-approved: no
+`auto_approve`, no permission overrides. The hook leaves a one-use ticket for
+exactly that call, and the MCP server acts only with it. No ticket, nothing
+done. The other Events tools, an approved unchanged skill load, skill file
+reads and the read-only tools pass with a ticket and then get Antigravity's
+usual MCP question, which allow rules can skip. By default that question is
+asked: in the App, its card; the interactive CLI starts in auto mode, where
+an MCP tool call still asks; and headless `agy -p` reports `request-review`
+and denies a call nobody answers (checked live). Whether
+`--dangerously-skip-permissions` also skips `force_ask` hasn't been checked.
+In CLI 1.5.17, a `PreToolUse` hook that fails, times out or prints something
+that isn't JSON makes the call fail. The IDE documents no plugin hooks, so
+the forms aren't supported there, and their gated calls are refused.
 
-- **Events:** a watch goes through Antigravity's usual MCP approval. The
-  hook passes the conversation id to the call in the same ticket. New events
-  reach the conversation at its next model call. The sidecar that wakes an
-  idle App conversation is off until you turn it on; the plugin never edits
-  `~/.gemini/config/config.json`.
-- **Skills:** loading a served skill is put to you in the approval card, yes
-  or no. An approved, unchanged skill loads again with no question. X8 isn't
-  met, as in Codex: the plugin can't put a question in front of
-  Antigravity's own resource reads, so the loaded skill tells the model to
-  ask you first.
+- **Events:** a watch is put to you in the approval card, naming the event
+  type, server, filters and note. The hook passes the conversation id to the
+  call in the same ticket. New events reach the conversation at its next
+  model call, through the plugin's `PreInvocation` hook (seen live in the
+  CLI; Antigravity's plugins page doesn't list `PreInvocation` among plugin
+  hooks). It adds only fixed text with a count and the plugin's own watch
+  ids, nothing a server wrote. The sidecar that wakes an idle App
+  conversation is off until you turn it on; the plugin never edits
+  `~/.gemini/config/config.json`. A webhook watch wasn't run.
+- **Skills:** loading a new or changed served skill is put to you in the
+  approval card, yes or no. An approved, unchanged skill gets only
+  Antigravity's usual MCP question. X8 isn't met: the plugin's hook asks before
+  a `read_resource` from another server while a served skill is loaded,
+  naming both, but Antigravity (CLI 1.5.17, App 2.35.1) ignores that
+  question (no card; the read goes ahead).
 - **Server Cards:** an addition is put to you in the approval card, then
   written to `~/.gemini/config/mcp_config.json`. A card that needs a secret
   can't be added: that file reads no `${VAR}`, and the plugin never writes a
@@ -351,7 +364,6 @@ notes apply. Two things differ:
   audited any of them. The Pi forms had a separate independent AI review,
   followed by fixes and a check of the changes. The OpenCode forms had fixes
   from a security review, and their live runs were repeated after them. The
-  Antigravity forms have not been through that review yet; they are queued
-  for it.
+  Antigravity forms' review is in progress.
 
 Each `SECURITY.md` says what was considered, not that nothing is left.

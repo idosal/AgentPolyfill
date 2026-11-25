@@ -155,10 +155,13 @@ It states:
     forms need OpenCode 2.4 or newer (tested with 2.4.1) and Git. Nothing for
     OpenCode is published to npm.
   - In Antigravity: from the same clone,
-    `agy plugin install ./polyfills/<extension>/antigravity/plugin`. The
-    current forms need Node 20 or newer on `PATH` and were run with App
-    v2.35.1 and CLI v1.5.16 (ARD in the CLI only). Nothing is published to Antigravity's
-    Marketplace. Remove one with `agy plugin uninstall <plugin>`.
+    `agy plugin install ./polyfills/<extension>/antigravity/plugin`, which
+    needs the Antigravity CLI (the App doesn't ship `agy`). The current forms
+    need Node 20 or newer on `PATH`. These builds were run in CLI v1.5.17;
+    earlier builds ran in App v2.35.1 (ARD in the CLI only). The IDE
+    documents no plugin hooks, so the forms aren't supported there. Nothing
+    is published to Antigravity's Marketplace. Remove one with
+    `agy plugin uninstall <plugin>`.
   - Then what else it needs, and every step and question a new user meets
     between installation and the extension working, with what happens when
     they say no. Anything beyond "install, add a server, ask" needs a reason.
@@ -244,8 +247,9 @@ README's OpenCode column; Apps has no OpenCode form.
 
 For Antigravity, there is no marketplace file here either, and nothing is
 published to Antigravity's Marketplace. Each form installs on its own.
-Document `agy plugin install` from a clone and keep the installable folder
-at `polyfills/<extension>/antigravity/plugin`. Include
+Document `agy plugin install` from a clone, which needs the Antigravity CLI
+(the App doesn't ship `agy`), and keep the installable folder at
+`polyfills/<extension>/antigravity/plugin`. Include
 `agy plugin uninstall <plugin>` for removal, and say what data remains. Add
 the form to the root README's Antigravity column; Apps has no Antigravity
 form, because the App shows MCP Apps itself.
