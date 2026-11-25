@@ -4,8 +4,9 @@ Polyfills that other people build and keep in their own repositories, listed
 here so you can find them. Each entry points at its author's repository. The
 code isn't copied here, and this project doesn't review, build or ship it.
 Listed polyfills aren't in this repository's marketplaces or in the
-`agent-polyfill` bundle. Follow its author's install instructions, whether
-from a marketplace or a local clone.
+`agent-polyfill` bundle or Pi's one-line install. Follow its author's
+install instructions, whether from a marketplace, a Git repository or a local
+clone.
 
 The list is [`polyfills.json`](polyfills.json). It is also shown on
 [agentpolyfill.com/guide/community](https://agentpolyfill.com/guide/community).
@@ -47,12 +48,15 @@ Open a pull request that adds one object to the `polyfills` array:
   | Claude Code | `"Claude Code"` |
   | Codex | `"Codex"` |
   | Pi | `"Pi"` |
+  | OpenCode | `"OpenCode"` |
 
   Other hosts are welcome too.
 - **`summary`**: one plain sentence.
 - **`repository`** and **`install`**: where it lives, and the command or steps
-  that install it. For a Pi extension, say if it needs a clone and give the
-  local path used with `pi install`. The repository's README states the spec
+  that install it. For a Pi extension, give its tested `pi install` command;
+  if it needs a clone, include the clone steps and local path. For an
+  OpenCode plugin, give the `opencode plugin add` line, or the folder to put
+  in `plugins` in `opencode.json`. The repository's README states the spec
   revision, its limits and what it sends where.
 - **`maintainer`**: your GitHub handle.
 - **`contract`**: where it stands on this project's
@@ -70,9 +74,19 @@ for these fields.
 
 This repository's Pi forms are in `polyfills/<polyfill>/pi/`, with the
 installable extension in `extension/`. They cover Events, Skills, Server
-Cards and ARD; Apps has no Pi form. Nothing for Pi here is published to npm
-or Pi's package gallery. The [root README](../README.md#install) has the
-tested clone-and-install steps.
+Cards and ARD; Apps has no Pi form.
+`pi install git:github.com/idosal/AgentPolyfill` installs Events, Skills and
+Server Cards together. A clone is the alternative for one form, and the
+way to install ARD: its search sends the words of your request to a registry
+after asking each time, so it is left out of the one-line install as it is
+from the Claude Code bundle. Nothing for Pi here is published to npm or
+Pi's package gallery. The [root README](../README.md#install) has the steps.
+
+This repository's OpenCode forms are in `polyfills/<polyfill>/opencode/`,
+with the installable plugin in `plugin/`. They cover Events, Skills, Server
+Cards and ARD; Apps has no OpenCode form. Nothing for OpenCode here is
+published to npm: `opencode plugin add` installs each one from GitHub. The
+[root README](../README.md#install) has the tested install lines.
 
 ## What gets listed
 

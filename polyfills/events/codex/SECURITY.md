@@ -1,7 +1,7 @@
 # Security
 
-This covers mcp-events for Codex. The Claude Code form has its own:
-[SECURITY.md](../claude-code/SECURITY.md).
+This covers mcp-events for Codex. The other forms have their own:
+[Claude Code](../claude-code/SECURITY.md), [Pi](../pi/SECURITY.md), [OpenCode](../opencode/SECURITY.md).
 
 "The plugin" below means this Codex plugin: a helper process
 (`plugin/dist/helper.js`) that Codex starts as an MCP server for each session.
