@@ -4,7 +4,7 @@ Name a company, and Claude finds the MCP servers its domain publishes. Press
 **Add** under the answer, and Claude Code connects the server with its own
 sign-in.
 
-Also available for Codex: [mcp-server-cards for Codex](../codex/README.md).
+Also available for Codex, Pi and OpenCode: [mcp-server-cards for Codex](../codex/README.md), [mcp-server-cards for Pi](../pi/README.md), [mcp-server-cards for OpenCode](../opencode/README.md).
 
 > What MCP servers does buildkite.com publish?
 

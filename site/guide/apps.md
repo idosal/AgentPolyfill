@@ -38,6 +38,12 @@ Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`,
 so an extension cannot get an App's UI through Pi. Pi's terminal could draw
 one in principle, but no Pi Apps form is built or tested.
 
+Apps has no OpenCode form. OpenCode 2.4.1 has no MCP Apps support of its own,
+and its TUI draws only terminal text. OpenCode Desktop's experimental panels
+can embed a web view, but a plugin can't read a `ui://` resource or a tool's
+`_meta` over OpenCode's connection, and there is no place in the
+conversation to draw a view. That was looked into, not built.
+
 The plugin is one zip, attached to a release of the repository and checked
 against the SHA-256 in the repository's marketplace file before Claude Code
 unpacks it. It carries a small helper program for each platform and needs
