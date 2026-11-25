@@ -9,7 +9,7 @@ import { plainText } from './consent'
 import { noteOpenFailed } from './browser'
 import { noteMainScreenView } from './fullscreen'
 import { sendPartial } from './stream'
-import { userAgent } from './settings'
+import { structuredFromText, userAgent } from './settings'
 
 /** Escape for the app. Claude Code never hands a Client Escape: it takes the keyboard back. */
 const ESCAPE = { kind: 'key', key: 'escape' } as const
@@ -878,6 +878,9 @@ async function openViewNow($: EngineInterface, call: ViewCall, early: boolean, p
       streaming: call.input === undefined,
       partialInput: partial,
       toolResult: call.result,
+      // The person's exception for this server, off by default (the
+      // "Structured results from text" setting; helper-rs/src/policy.rs).
+      structuredFromText: structuredFromText(call.server),
       cols: view.cols,
       maxRows: view.maxRows,
       theme: call.theme,

@@ -11,6 +11,10 @@
 // - what the server received: no `initialize` for 2026-07-28, every request
 //   naming that revision in MCP-Protocol-Version; `initialize` at 2025-11-25
 //   otherwise.
+// And issue #6's setting: the view is given the model's call's result as
+// Claude Code records it (one text block of the structuredContent's JSON).
+// Opened with "Structured results from text" on (the modern server here), it
+// gets structuredContent back; without it (dual), it gets the text alone.
 //
 //   MCP_APPS_CLI_HELPER=<binary> MCP_SDK_V2=<folder> node revision-check.mjs
 //
@@ -40,13 +44,16 @@ const URI = "ui://revision/app";
 // A view that speaks the MCP Apps protocol by hand: ui/initialize, then a
 // call to its app-only tool; it shows what came back.
 const app = (name) => `<!doctype html><html><body style="margin:0;font:16px sans-serif;background:#fff">
-<h1>Revision ${name}</h1><p id="stamp">waiting</p><script>
+<h1>Revision ${name}</h1><p id="stamp">waiting</p><p id="result">no result</p><script>
 const send = (m) => parent.postMessage(m, "*");
 addEventListener("message", (e) => {
   const m = e.data;
   if (m?.id === 1 && m.result) {
     send({ jsonrpc: "2.0", method: "ui/notifications/initialized", params: {} });
     send({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "stamp", arguments: {} } });
+  }
+  if (m?.method === "ui/notifications/tool-result") {
+    document.getElementById("result").textContent = "result sc " + (m.params?.structuredContent?.n ?? "none");
   }
   if (m?.id === 2) {
     const r = m.result ?? {};
@@ -56,8 +63,12 @@ addEventListener("message", (e) => {
 send({ jsonrpc: "2.0", id: 1, method: "ui/initialize", params: { protocolVersion: "2026-01-26", appInfo: { name: "revision", version: "1" }, appCapabilities: {} } });
 </script></body></html>`;
 
-function register(server, name, schema) {
-  server.registerTool("show", { description: "Has a UI", inputSchema: schema, _meta: { ui: { resourceUri: URI } } }, async () => ({ content: [{ type: "text", text: "shown" }] }));
+function register(server, name, schema, out) {
+  server.registerTool(
+    "show",
+    { description: "Has a UI", inputSchema: schema, ...(out ? { outputSchema: out } : {}), _meta: { ui: { resourceUri: URI } } },
+    async () => ({ content: [{ type: "text", text: "shown" }], ...(out ? { structuredContent: { n: 7 } } : {}) }),
+  );
   server.registerTool(
     "stamp",
     { description: "For the app", inputSchema: schema, _meta: { ui: { resourceUri: URI, visibility: ["app"] } } },
@@ -99,7 +110,7 @@ function fetchFace(handler) {
   };
 }
 
-const factory = (name) => () => register(new v2.McpServer({ name, version: "1.0.0" }), name, z.object({}));
+const factory = (name) => () => register(new v2.McpServer({ name, version: "1.0.0" }), name, z.object({}), z.object({ n: z.number() }));
 const sessions = new Map();
 const urls = {
   modern: await listen("modern", fetchFace(v2.createMcpHandler(factory("modern"), { legacy: "reject" }))),
@@ -175,13 +186,18 @@ for (const name of ["modern", "dual", "legacy"]) {
   const found = await post("/discover", { server: name });
   check(`${name}: /discover finds the tool's UI`, found.ok && found.tools?.show?.resourceUri === URI && found.appOnly?.includes("stamp"), JSON.stringify(found).slice(0, 160));
   const viewId = `v-${name}`;
-  const opened = await post("/open", { viewId, gen: 1, server: name, toolName: "show", toolInput: {}, toolResult: { content: [{ type: "text", text: "shown" }] }, cols: 60, maxRows: 8, theme: "light", mode: "cells" });
+  // Claude Code's record of a result with structuredContent: its JSON as text.
+  const opened = await post("/open", { viewId, gen: 1, server: name, toolName: "show", toolInput: {}, toolResult: '{"n":7}', structuredFromText: name === "modern", cols: 60, maxRows: 8, theme: "light", mode: "cells" });
   check(`${name}: a view opens`, opened.ok === true, JSON.stringify(opened).slice(0, 160));
   const deadline = Date.now() + 20_000;
   while (!rowsOf(viewId).some((r) => r.includes(`stamp ${name}`)) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 100));
   const rows = rowsOf(viewId);
   check(`${name}: its frame shows the app`, rows.some((r) => r.includes(`Revision ${name}`)), JSON.stringify(rows.join("|").trim().slice(0, 80)));
   check(`${name}: the app-only call came back whole`, rows.some((r) => r.includes(`stamp ${name} meta ${name}-meta`)), JSON.stringify(rows.find((r) => r.includes("stamp"))?.trim()));
+  if (name !== "legacy") {
+    const want = name === "modern" ? "result sc 7" : "result sc none";
+    check(`${name}: the first result's structuredContent ${name === "modern" ? "from its text (setting on)" : "absent (setting off)"}`, rows.some((r) => r.includes(want)), JSON.stringify(rows.find((r) => r.includes("result"))?.trim()));
+  }
   await post("/close", { viewId, gen: 1 });
   const got = received[name];
   const methods = got.map((m) => m.method);

@@ -107,7 +107,9 @@ must be up for the last two.
   revisions, and 1.x serving the 2025 ones. Each gets `/discover`, a view
   opened and drawn, and an app-only call from the view, and the check reads
   what each server received: no `initialize` and 2026-07-28 on every request
-  for the first two, `initialize` at 2025-11-25 for the third. `<folder>`
+  for the first two, `initialize` at 2025-11-25 for the third. It also
+  checks the "Structured results from text" setting (issue #6): on for one
+  server, off for another. `<folder>`
   holds the 2.4.0 SDK (`npm install --prefix <folder>
   @modelcontextprotocol/server@2.4.0 zod@4.6.7`). It needs the Rust helper
   (`MCP_APPS_CLI_HELPER`): the Node one speaks only the 2025 revisions.

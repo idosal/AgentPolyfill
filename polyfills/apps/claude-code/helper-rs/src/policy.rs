@@ -194,23 +194,81 @@ pub fn build_csp(csp: &Value) -> String {
     ].iter().map(|s| s.trim()).collect::<Vec<_>>().join("; ")
 }
 
-pub fn normalize_result(result: &Value, structured: bool) -> Value {
+/// A tool's result as a view gets it (`ui/notifications/tool-result`, or the
+/// answer to its own `tools/call`): a CallToolResult made only of what came.
+///
+/// For the model's call that is the record Claude Code hands a plugin's
+/// `tool.run` hook: for an MCP tool, the result as the model reads it (a
+/// string or content blocks; a result with `structuredContent` comes as one
+/// text block of that object's JSON, its `content` and `_meta` left out). For
+/// a view's own call it is `$.mcp.call`'s answer (`content`, `isError` and the
+/// server's `structuredContent`, no `_meta`). A result that is a CallToolResult
+/// already (it has `content`) is passed on as it is, every field of it;
+/// anything else becomes its text. Nothing is made up: up to 0.1.4 a text
+/// block that parsed to a JSON object was taken back as `structuredContent`,
+/// a guess from what the model reads that a view couldn't tell from the
+/// server's own (issue #6). What a view doesn't get is a limit of the host
+/// (docs/host-changes.md, change 4).
+pub fn normalize_result(result: &Value) -> Value {
     if result.is_null() || result == &json!(false) || result == &json!("") || result == &json!(0) { return Value::Null; }
-    let mut call = match result {
+    match result {
         Value::String(text) => json!({"content": [{"type": "text", "text": text}]}),
         Value::Array(_) => json!({"content": result}),
         _ if result["content"].is_array() => result.clone(),
-        _ => return json!({"content": [{"type": "text", "text": result.to_string()}], "structuredContent": result}),
-    };
-    if structured && call["structuredContent"].is_null() && !call["isError"].as_bool().unwrap_or(false) {
-        let texts: Vec<_> = call["content"].as_array().into_iter().flatten().filter(|b| b["type"] == "text").collect();
-        if texts.len() == 1 {
-            if let Ok(parsed) = serde_json::from_str::<Value>(texts[0]["text"].as_str().unwrap_or("")) {
-                if parsed.is_object() { call["structuredContent"] = parsed; }
-            }
+        _ => json!({"content": [{"type": "text", "text": result.to_string()}]}),
+    }
+}
+
+/// The one exception to `normalize_result`, which the person makes for a
+/// server on purpose (the mod's "Structured results from text" setting, off
+/// by default, one server at a time; docs/polyfill-contract.md, section 1):
+/// for that server's tools with an `outputSchema`, the model's call's result
+/// gets back the `structuredContent` Claude Code wrote out as JSON text. Only
+/// when that text is all there is (one text block, no `structuredContent`,
+/// not an error), it is a JSON object, and it fits `schema` as far as a
+/// shallow check goes ([`fits`]). The `content` stays the JSON text, and
+/// `_meta` stays absent. A server whose text is JSON but which sent no
+/// `structuredContent` gets one all the same: that is the risk the person
+/// takes on for that server.
+pub fn structured_from_text(call: &mut Value, schema: &Value) {
+    if !schema.is_object() || !call["structuredContent"].is_null() || call["isError"] == json!(true) { return; }
+    let Some([block]) = call["content"].as_array().map(Vec::as_slice) else { return };
+    if block["type"] != "text" { return; }
+    let Ok(parsed) = serde_json::from_str::<Value>(block["text"].as_str().unwrap_or("")) else { return };
+    if parsed.is_object() && fits(&parsed, schema) { call["structuredContent"] = parsed; }
+}
+
+/// Whether `value` fits `schema` at its top level: the schema's `type` (if
+/// it says one) is `object`, every `required` property is there, each
+/// property it declares with a `type` has that type, and with
+/// `additionalProperties: false` no other property is. Nothing deeper.
+fn fits(value: &Value, schema: &Value) -> bool {
+    fn is(value: &Value, kind: &str) -> bool {
+        match kind {
+            "string" => value.is_string(),
+            "number" => value.is_number(),
+            "integer" => value.is_i64() || value.is_u64() || value.as_f64().is_some_and(|f| f.fract() == 0.0),
+            "boolean" => value.is_boolean(),
+            "object" => value.is_object(),
+            "array" => value.is_array(),
+            "null" => value.is_null(),
+            _ => false,
         }
     }
-    call
+    fn has_type(value: &Value, declared: &Value) -> bool {
+        match declared {
+            Value::String(kind) => is(value, kind),
+            Value::Array(kinds) => kinds.iter().filter_map(Value::as_str).any(|kind| is(value, kind)),
+            _ => true,
+        }
+    }
+    let Some(object) = value.as_object() else { return false };
+    if !schema["type"].is_null() && !has_type(value, &schema["type"]) { return false; }
+    let properties = schema["properties"].as_object();
+    let required = schema["required"].as_array().into_iter().flatten().filter_map(Value::as_str);
+    if !required.into_iter().all(|name| object.contains_key(name)) { return false; }
+    if schema["additionalProperties"] == json!(false) && !object.keys().all(|k| properties.is_some_and(|p| p.contains_key(k))) { return false; }
+    properties.into_iter().flatten().all(|(name, property)| object.get(name).is_none_or(|v| has_type(v, &property["type"])))
 }
 
 pub fn theme_name(theme: &str) -> &'static str {
@@ -404,10 +462,51 @@ mod tests {
         assert!(s.contains("connect-src 'self' http://127.0.0.1:123 https://*.example.com"));
         assert_eq!(allowed_csp(&json!({"frameDomains": ["http://[::1]:90", "http://[::1]:91"]}), Some("http://[::1]:90/mcp"))["frameDomains"], json!(["http://[::1]:90"]));
     }
+    // Issue #6: a view gets the result Claude Code gave, and nothing made up
+    // from the text the model reads.
     #[test]
-    fn results_restore_only_schema_objects() {
-        assert_eq!(normalize_result(&json!("{\"n\":2}"), true)["structuredContent"], json!({"n":2}));
-        assert!(normalize_result(&json!("[1]"), true)["structuredContent"].is_null());
-        assert!(normalize_result(&json!({"isError":true,"content":[{"type":"text","text":"{}"}]}), true)["structuredContent"].is_null());
+    fn results_are_passed_on_as_they_came_and_nothing_is_made_up() {
+        // Claude Code's record of a call whose result had structuredContent:
+        // one text block of its JSON. It stays text.
+        assert_eq!(normalize_result(&json!("{\"n\":2}")), json!({"content": [{"type": "text", "text": "{\"n\":2}"}]}));
+        let blocks = json!([{"type": "text", "text": "{\"n\":2}"}, {"type": "image", "data": "AA==", "mimeType": "image/png"}]);
+        assert_eq!(normalize_result(&blocks), json!({"content": blocks}));
+        // A whole CallToolResult (a view's own call, or a record that is one):
+        // every field as it came, the server's structuredContent and _meta with it.
+        let whole = json!({"content": [{"type": "text", "text": "n is 2"}], "structuredContent": {"n": 2}, "_meta": {"origin": "https://example.test"}, "isError": false});
+        assert_eq!(normalize_result(&whole), whole);
+        // An object that isn't one is text, not structuredContent.
+        assert_eq!(normalize_result(&json!({"n": 2})), json!({"content": [{"type": "text", "text": "{\"n\":2}"}]}));
+        assert_eq!(normalize_result(&json!({"isError": true, "content": [{"type": "text", "text": "{}"}]})), json!({"isError": true, "content": [{"type": "text", "text": "{}"}]}));
+        assert_eq!(normalize_result(&Value::Null), Value::Null);
+    }
+    // The setting a person turns on for one server: structuredContent from
+    // Claude Code's JSON text, only when that is all the result is and it
+    // fits the tool's schema.
+    #[test]
+    fn structured_content_from_text_only_where_it_fits() {
+        let schema = json!({"type": "object", "properties": {"n": {"type": "integer"}, "label": {"type": ["string", "null"]}}, "required": ["n"], "additionalProperties": false});
+        let restored = |record: Value| { let mut call = normalize_result(&record); structured_from_text(&mut call, &schema); call };
+        let text = json!("{\"n\":2,\"label\":null}");
+        assert_eq!(restored(text.clone()), json!({"content": [{"type": "text", "text": "{\"n\":2,\"label\":null}"}], "structuredContent": {"n": 2, "label": null}}));
+        // Anything else is left as it came.
+        for record in [
+            json!("{\"n\":2.5}"),                     // wrong type
+            json!("{\"label\":\"x\"}"),               // a required property missing
+            json!("{\"n\":2,\"extra\":1}"),           // one the schema doesn't allow
+            json!("[1]"),                                // not an object
+            json!("n is 2"),                             // not JSON
+            json!([{"type": "text", "text": "{\"n\":2}"}, {"type": "text", "text": "more"}]), // more than one block
+            json!({"isError": true, "content": [{"type": "text", "text": "{\"n\":2}"}]}),
+        ] {
+            assert_eq!(restored(record.clone()), normalize_result(&record), "{record}");
+        }
+        // structuredContent the result has is never replaced.
+        let whole = json!({"content": [{"type": "text", "text": "{\"n\":3}"}], "structuredContent": {"n": 2}});
+        assert_eq!(restored(whole.clone()), whole);
+        // No schema (the tool has no outputSchema): nothing.
+        let mut call = normalize_result(&text);
+        structured_from_text(&mut call, &Value::Null);
+        assert_eq!(call, normalize_result(&text));
     }
 }

@@ -48,7 +48,19 @@ function themeOf(value: unknown): Theme {
 export function userAgent($: EngineInterface) {
   state.agent ??= $.session
     .version()
-    .then(({ version }) => `Claude Code/${version} mcp-apps-cli/0.1.4`)
-    .catch(() => 'Claude Code mcp-apps-cli/0.1.4')
+    .then(({ version }) => `Claude Code/${version} mcp-apps-cli/0.1.5`)
+    .catch(() => 'Claude Code mcp-apps-cli/0.1.5')
   return state.agent
+}
+
+/**
+ * Whether the person listed `server` under "Structured results from text"
+ * (names separated by commas, as Claude Code names its servers): an
+ * exception they make on purpose for that server, off by default.
+ */
+export function structuredFromText(server: string): boolean {
+  return String(state.settings.structuredFromText ?? '')
+    .split(',')
+    .map((name) => name.trim())
+    .some((name) => name !== '' && name === server)
 }

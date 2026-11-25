@@ -1240,10 +1240,7 @@ async function openViewNow(options) {
     // it has written so far, if anything, and the rest later (/args).
     toolInput: options.streaming ? undefined : options.toolInput ?? {},
     partialInput: options.streaming ? options.partialInput : undefined,
-    toolResult: normalizeResult(
-      options.toolResult,
-      (await discover(server)).structured.includes(toolName),
-    ),
+    toolResult: normalizeResult(options.toolResult),
     // The view's size now: a /resize may have come while the page loaded.
     width: view.cols * CELL_WIDTH,
     maxHeight: view.maxRows * view.cellH,
@@ -1285,35 +1282,25 @@ async function openViewNow(options) {
 }
 
 /**
- * What Claude Code hands a tool result as, turned back into CallToolResult.
+ * A tool's result as a view gets it: a CallToolResult made only of what came.
  *
- * Claude Code passes a result on as the model reads it: a tool that returns
- * `structuredContent` comes through as one text block holding that object's
- * JSON, and the field itself is gone (the tool's own text too). For a tool
- * that declares an output schema, a text block that parses to a JSON object
- * is taken back as its `structuredContent`, which is what apps read.
+ * Claude Code hands a plugin an MCP tool's result as the model reads it: a
+ * result with `structuredContent` comes as one text block of that object's
+ * JSON, its `content` and `_meta` left out. `$.mcp.call` answers with
+ * `content`, `isError` and `structuredContent`, no `_meta`. A CallToolResult
+ * (it has `content`) is passed on as it is; anything else becomes its text.
+ * Up to 0.1.4 a text block that parsed to a JSON object was taken back as
+ * `structuredContent`, a guess from what the model reads (issue #6); the Rust
+ * helper (`helper-rs/src/policy.rs`) does the same as this. The setting that
+ * takes it back for a server the person lists ("Structured results from
+ * text") is the Rust helper's alone: this one is not run by the plugin.
  */
-function normalizeResult(result, hasOutputSchema = false) {
+function normalizeResult(result) {
   if (!result) return undefined;
-  let call;
-  if (typeof result === "string") call = { content: [{ type: "text", text: result }] };
-  else if (Array.isArray(result)) call = { content: result };
-  else if (Array.isArray(result.content)) call = { ...result };
-  else return { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: result };
-  if (hasOutputSchema && call.structuredContent == null && !call.isError) {
-    const texts = call.content.filter((block) => block?.type === "text");
-    if (texts.length === 1) {
-      try {
-        const parsed = JSON.parse(texts[0].text);
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          call.structuredContent = parsed;
-        }
-      } catch {
-        // Plain text: nothing to restore.
-      }
-    }
-  }
-  return call;
+  if (typeof result === "string") return { content: [{ type: "text", text: result }] };
+  if (Array.isArray(result)) return { content: result };
+  if (Array.isArray(result.content)) return { ...result };
+  return { content: [{ type: "text", text: JSON.stringify(result) }] };
 }
 
 async function onHostCall(view, kind, payload) {
@@ -1364,10 +1351,7 @@ async function onHostCall(view, kind, payload) {
         log(`app-only tool ${name} → helper connection`);
         return (await sideClient(view.server)).callTool(payload);
       }
-      return normalizeResult(
-        await requestFromMod(view, kind, payload),
-        discoveredTools.structured.includes(name),
-      );
+      return normalizeResult(await requestFromMod(view, kind, payload));
     }
     case "resources/read":
       return (await sideClient(view.server)).readResource(payload);
@@ -2954,8 +2938,7 @@ const routes = {
   "/result": async ({ viewId, result }) => {
     const view = views.get(viewId);
     if (!view) return { ok: false, error: "no such view" };
-    const structured = (await discover(view.server)).structured.includes(view.toolName);
-    await view.page.evaluate((r) => window.__toolResult(r), normalizeResult(result, structured));
+    await view.page.evaluate((r) => window.__toolResult(r), normalizeResult(result));
     setTimeout(() => void capture(view), 60);
     describeSoon(view, ALT_SETTLE_MS);
     return { ok: true };

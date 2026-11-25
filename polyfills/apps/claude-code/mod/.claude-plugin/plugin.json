@@ -1,6 +1,6 @@
 {
   "name": "mcp-apps-cli",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Unofficial MCP Apps client for the Claude Code terminal: app UIs render inline, with clicks and keys forwarded to the app",
   "author": {
     "name": "Ido Salomon",
@@ -50,6 +50,12 @@
         "never"
       ],
       "default": "ask"
+    },
+    "structuredFromText": {
+      "type": "string",
+      "title": "Structured results from text",
+      "description": "Off unless you list servers here: MCP server names, separated by commas, as Claude Code names them. Claude Code gives plugins a tool's result as the model reads it, so an app's first result has no structuredContent (its JSON is in the text) and no _meta. For a server listed here, when that result is a single text block of a JSON object that fits the tool's outputSchema, the app gets it back as structuredContent too. This goes beyond the MCP Apps spec: a server whose text is JSON but which sent no structuredContent gets one all the same.",
+      "default": ""
     }
   }
 }
