@@ -230,7 +230,7 @@ The relay's own documentation is in
 | `codex exec` | Yes | No: the session, and the helper with it, end with the run |
 | The TUI without the daemon (`--no-daemon`, `-c`, `--profile`) | Yes | Not tested. `codex queue` then has no daemon to resume the session on, so the message is expected to wait in its queue |
 | The ChatGPT desktop app (Work chats) | Yes: a watch is set and stores its events | No: its chats are not local Codex sessions, which is all `codex queue` reaches. Ask for `recent_events` |
-| Another app that runs Codex through an app server of its own (T3 Code, say) | Yes: a watch is set and stores its events | No: the plugin can't tell that the app would show the wake, so it doesn't wake the session there. `list_watches` says so. Ask for `recent_events`, or use an events form built for that app ([Limits](#limits)) |
+| T3 Code, or another app that runs Codex through an app server of its own | Yes: a watch is set and stores its events | No: the plugin can't tell that the app would show the wake, so it doesn't wake the session there. `list_watches` says so. In T3 Code, [mcp-events for T3 Code](../t3/README.md) wakes a thread instead ([Limits](#limits)) |
 | The IDE extension | Not tested | Not tested |
 
 It's tested live in the Codex TUI 0.172.0 on macOS. The tests also run on
@@ -334,25 +334,32 @@ The changes both hosts would need are in
   app.
   - **How it tells.** Codex sends what started each turn with every call
     (`x-codex-turn-metadata.turn_trigger`, from the app's `turnTrigger`).
-    These count: `user` (typed in the TUI), `exec` (`codex exec`), and
-    `realtime` or `voice`.
-  - **When it can't tell.** Some calls name nothing: those from a turn
-    another app's app server started, since T3 Code sets no trigger, and
-    those from a Codex before 0.172. After such a call the session isn't
-    woken. Its watches still store every event, `list_watches` and
-    `watch_event` say why, and `recent_events` reads what came.
-  - **What leaves it as it was.** A turn the queue started, which Codex marks
-    `queue` in any app server, a goal, an automation, and a trigger the
-    plugin doesn't know.
-  - **When waking starts again.** Once a turn you start in the Codex TUI
+    These count, each where it is set (Codex 0.172):
+    - `user`, typed in the TUI (`codex-rs/tui/src/chatwidget/input_submission.rs`);
+    - `composer`, sent in the ChatGPT desktop app. It's the app's default
+      for a message, read from the installed app and from its sessions'
+      records, not run with this version;
+    - `exec`, a `codex exec` run (`codex-rs/exec/src/lib.rs`);
+    - `realtime`, voice (`codex-rs/core/src/session/realtime_handoff.rs`).
+  - **What stops the wakes.** Any other call. That covers a turn that names
+    nothing, as another app's app server sends (T3 Code sets no trigger) and
+    a Codex before 0.172 does. It also covers a trigger the plugin doesn't
+    count: a goal, an automation, a review, or an app's own name for its
+    turns. The session then isn't woken until your next turn. Its watches
+    still store every event, `list_watches` and `watch_event` say why, and
+    `recent_events` reads what came.
+  - **What leaves it as it was.** Only a turn the queue started, which Codex
+    marks `queue` in any app server (`codex-rs/ext/queue/src/service.rs`).
+  - **When waking starts again.** Once a turn you start in Codex's own app
     calls one of the plugin's tools, what waited is handed over.
   - **What it can't tell apart.** An app that marks its own turns `user`,
     as the TUI does, is taken for Codex's own.
-  - **For T3 Code,** an events form built for it wakes a thread through T3
-    Code itself. The change in Codex that would remove this limit
-    is a turn metadata field naming the app the session is open in, or a
-    `codex queue` that doesn't leave a message for an app server whose app
-    may not show it.
+  - **In T3 Code** this form doesn't wake a thread. Use
+    [mcp-events for T3 Code](../t3/README.md) there, which wakes a thread
+    through T3 Code itself, as a message the thread shows. The change in
+    Codex that would remove this limit is a turn metadata field naming the
+    app the session is open in, or a `codex queue` that doesn't leave a
+    message for an app server whose app may not show it.
 - **The ChatGPT desktop app.** In the ChatGPT desktop app, a watch records
   events but can't wake the chat: its threads aren't local Codex sessions
   that `codex queue` can reach. Ask for recent events. Waking works in the
@@ -363,7 +370,8 @@ The changes both hosts would need are in
   told once that events are waiting, and isn't woken again for an hour, or
   until, sooner, you write to it and Codex calls one of the plugin's tools in
   that turn. Telling that you wrote depends on the turn metadata Codex 0.172
-  sends with each call (`turn_trigger`: `user`, `exec`, or voice). With an
+  sends with each call (`turn_trigger`: `user`, `composer`, `exec`, or
+  `realtime`). With an
   older Codex, or a turn it marks otherwise, the pause ends only after its
   hour. With the session open in two windows, only a turn in the window that
   runs its watches counts. That's the window whose `list_watches` shows them
