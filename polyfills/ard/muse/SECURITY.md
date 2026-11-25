@@ -5,6 +5,11 @@ says. Discovery is the [Codex form's](../codex/SECURITY.md), with the same code.
 
 ## What differs in Muse
 
+**Plainly:** Muse offers plugins no approval dialog. Where Claude Code, Codex,
+Pi and OpenCode ask you through a prompt the host draws itself, here adding a
+server is a command you run yourself: the plugin writes nothing. It sends no
+search to a registry either, because a search must ask first.
+
 - **No search.** A registry search sends your query to a third party, so it
   must ask you first. Muse gives a plugin no way to ask: no elicitation, and an
   approval judge that is a model. So `ard_search` isn't offered: it isn't

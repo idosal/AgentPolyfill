@@ -9,6 +9,14 @@ here. What follows is what differs in Muse.
 
 ## The boundary
 
+**Plainly:** Muse offers plugins no approval dialog. Where Claude Code, Codex,
+Pi and OpenCode show you a prompt the host draws itself, which the model can't
+answer, here consent is a phrase you type, checked by the plugin's
+`UserPromptSubmit` hook. That holds because Muse runs the hook only for messages
+you type; each way a model can put text into a session was [tried](docs/live-run.md#what-can-send-the-phrase), and none
+ran it. The weaker part: you read the question as the model relays it, so the
+phrase names what it approves.
+
 Muse's own approvals decide what Muse does: with an event, as with anything
 else in the session. Receiving an event gives Muse no permission it didn't
 already have.
