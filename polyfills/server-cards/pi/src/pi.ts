@@ -41,6 +41,9 @@ export function planForPi(card: ServerCard, remote: number, values: Record<strin
     headers[h.name] = h.value
   }
   const serverName = name ?? p.name
+  // Pi's CLI would read a name that starts with - as an option of its own (-l is --local).
+  if (serverName.startsWith('-'))
+    return { error: 'A Pi server name may not start with -, which Pi\'s command line reads as an option. Choose another name.' }
   const addArgs = ['mcp', 'add', serverName, '--url', p.url]
   for (const [key, value] of Object.entries(headers)) addArgs.push('--header', `${key}=${value}`)
   return { plan: { name: serverName, url: p.url, headers, envVars: p.envVars, addArgs } }
@@ -59,7 +62,7 @@ export function fileHasName(file: string, name: string): boolean {
     const servers = config.mcpServers
     if (servers === undefined) return false
     if (!servers || typeof servers !== 'object' || Array.isArray(servers)) return true
-    return Object.hasOwn(servers, name)
+    return Object.keys(servers).some(other => sameName(other, name))
   } catch (error) {
     return (error as NodeJS.ErrnoException).code !== 'ENOENT'
   }
@@ -67,8 +70,11 @@ export function fileHasName(file: string, name: string): boolean {
 
 export function isNameTaken(pi: PiAPI, name: string, file: string, projectFile?: string) {
   return fileHasName(file, name) || (projectFile !== undefined && fileHasName(projectFile, name)) ||
-    pi.getMcpServers().some(server => server.name === name)
+    pi.getMcpServers().some(server => sameName(server.name, name))
 }
+
+/** Pi treats names that differ only in - and _ as one server (they share a tool namespace). */
+const sameName = (a: string, b: string) => a.replace(/-/g, '_') === b.replace(/-/g, '_')
 
 /** Only the CLI that launched this Pi, verified against its package's bin entry. No PATH guesses. */
 export function runningPiCli(argv: readonly string[] = process.argv): string | undefined {

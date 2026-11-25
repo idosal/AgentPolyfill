@@ -22,7 +22,12 @@ asks, so the boundary is what you let Pi reach.
 - **You**, and Pi's MCP configuration. The extension reaches only the servers
   Pi connects (`mcp.json` in Pi's agent directory, a trusted project's
   `.pi/mcp.json`, and servers other extensions register), and leaves alone the
-  ones you turned off or hid.
+  ones you turned off or hid, and every entry Pi would reject (it applies Pi
+  1.6.0's own checks of an entry). When Pi's MCP support is off for a session
+  (`--no-mcp`, `"extensions": ["-builtin:mcp"]`, or an extension that replaces
+  it), it stands down: no configuration read, no command run, no server
+  reached. A `!command` value runs when a session starts, once for this
+  extension, as it runs for Pi and for any other extension that reads it.
 - **Pi**: how it shows the extension's dialogs and returns your answer.
 - **Not the servers.** A server that serves a skill can serve anything, and its
   digests are its own. A match shows the server is consistent, not that it's
@@ -106,6 +111,15 @@ Pi lists the stubs only while the extension is loaded.
   where nobody can be asked. A skill of that other server approved before
   doesn't skip it. Pi runs that check for the model's calls and for codemode's
   nested calls alike.
+- **It holds as long as the skill is in the conversation.** Each load is
+  recorded in the session (an entry the model doesn't see). After `/reload`,
+  `/resume`, `/fork` or `/clone`, Pi starts a new instance of the extension
+  that holds nothing yet, but the skill's text is still in the conversation:
+  the recorded loads on the current branch keep the check on.
+- **A loaded skill's own files are read against its entry.** Pi's
+  `read_mcp_resource` is refused for a file under a loaded skill's root, and
+  points the model to `read_skill_file`, which reads only the files the
+  skill's entry lists and checks each against its digest (SEP-2640 V4).
 
 ## What is stored
 

@@ -113,7 +113,8 @@ export function tools(session: Session, defaultRegistry: string): Tool[] {
       },
       required: ['query'],
     },
-    annotations: { readOnlyHint: true, openWorldHint: true },
+    // Not read-only: it sends the person's words to a third party (permission extensions read this hint).
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     run: async (args, ctx, signal) => {
       const query = (str(args.query) ?? '').trim()
       if (!query) return refuse('Give `query`: what the person needs, in plain words.')
@@ -197,10 +198,6 @@ export function tools(session: Session, defaultRegistry: string): Tool[] {
 
   return [discoverTool, searchTool, addTool(session, DISCOVER, `${DISCOVER} or ${SEARCH}`, ADD)]
 }
-
-export const INSTRUCTIONS =
-  'Agentic Resource Discovery (ARD v0.91 draft) for MCP servers: ard_discover reads a domain\'s ard.json and AI Catalog; ard_search sends a query to an ARD registry, a third party, after the person approves it with a question; ard_add_mcp_server adds a server either one showed, after the person approves that too. ' +
-  "A registry's order is relevance, not trust; a result is confirmed only when its publisher's own catalog lists it."
 
 export default function ard(pi: ExtensionAPI) {
   install(pi, 'ARD_DISCOVERY_DISABLED', session => tools(session, registrySetting(process.env)))

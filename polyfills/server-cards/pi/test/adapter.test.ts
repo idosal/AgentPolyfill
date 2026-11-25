@@ -135,3 +135,45 @@ test('P-9 headers in the consent are the unexpanded references that Pi writes', 
   assert.match(c.questions[0]!.title, /Headers: X-Key: \$\{MCP_EXAMPLE_DOCS__X_KEY_[A-Z2-7]{16}\}/)
   assert.match(s.calls[0]!.args.at(-1)!, /^X-Key=\$\{MCP_/)
 })
+
+test('P-10 a header value Pi would write holding a character that shows as nothing is refused, from the card or given (the shared planner)', () => {
+  const withHeader = (h: Record<string, unknown>) => card({ remotes: [{ type: 'streamable-http', url: 'https://mcp.example.com/mcp', headers: [h] }] })
+  for (const hidden of ['acme\u{e0041}\u{e0042}', 'acme\ufe0f', 'ac\u00adme']) {
+    assert.ok('error' in planForPi(withHeader({ name: 'X-Workspace', value: hidden }), 0, {}, undefined, false), JSON.stringify(hidden))
+    assert.ok('error' in planForPi(withHeader({ name: 'X-Workspace', isRequired: true }), 0, { 'X-Workspace': hidden }, undefined, false), JSON.stringify(hidden))
+  }
+  const ok = planForPi(withHeader({ name: 'X-Workspace', isRequired: true }), 0, { 'X-Workspace': 'acme' }, undefined, false)
+  assert.ok('plan' in ok && ok.plan.headers['X-Workspace'] === 'acme')
+})
+
+test("P-11 a card's text that shows as nothing (tag characters, a soft hyphen, a variation selector) is taken out of the question and the result", async () => {
+  const s = mockSession(), c = context()
+  const hidden = /[\u00ad\u2028\u2029\ufe00-\ufe0f]|[\u{e0000}-\u{e0fff}]/u
+  s.session.discovered.get(`https://publisher.example\n${IDENTIFIER}`)!.card = card({
+    remotes: [{ type: 'streamable-http', url: addArgs.url, headers: [{ name: 'X-Key', isSecret: true, description: 'Your API key\u{e0049}\u{e0047}\u00ad from the dashboard\ufe0f' }] }],
+  })
+  const r = await addTool(s.session, 'd', 'd').run(addArgs, c.ctx)
+  assert.equal(r.isError, undefined, r.text)
+  assert.match(r.text, /Your API key from the dashboard/)
+  assert.doesNotMatch(c.questions[0]!.title, hidden)
+  assert.doesNotMatch(r.text, hidden)
+})
+
+test("P-12 a name that differs from one of the person's only in - and _ is theirs: Pi treats the two as one server", async () => {
+  for (const kind of ['file', 'registered']) {
+    const s = mockSession(), c = context()
+    if (kind === 'file') writeConfig(s.file, { example_docs: { url: 'https://theirs.example' } })
+    else s.registered.push({ name: 'example_docs', config: { url: 'https://theirs.example' } })
+    const r = await addTool(s.session, 'd', 'd').run(addArgs, c.ctx)
+    assert.equal(r.isError, true, kind)
+    assert.equal(c.questions.length, 0, kind)
+    assert.equal(s.calls.length, 0, kind)
+  }
+})
+
+test('P-13 a server name that starts with - is refused: Pi\'s command line would read it as an option', () => {
+  for (const name of ['-l', '--local', '-x']) {
+    const r = planForPi(card(), 0, {}, name, false)
+    assert.match('error' in r ? r.error : '', /may not start with -/, name)
+  }
+})

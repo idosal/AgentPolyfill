@@ -29,7 +29,7 @@ export function install(pi: ExtensionAPI, disabled: string, makeTools: (session:
   for (const spec of tools) {
     pi.registerTool({
       name: spec.name,
-      label: spec.name === 'add_mcp_server' ? 'Add MCP server' : spec.name === 'ard_search' ? 'Search ARD registry' : 'Discover MCP servers',
+      label: spec.name.endsWith('add_mcp_server') ? 'Add MCP server' : spec.name === 'ard_search' ? 'Search ARD registry' : 'Discover MCP servers',
       description: spec.description,
       parameters: spec.inputSchema as never, // Pi accepts a plain JSON Schema.
       annotations: spec.annotations,

@@ -11,9 +11,10 @@
 import { appendFileSync, existsSync, renameSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
+import { rootOf } from '../../core/src/skills.ts';
 import { oneLine, secrets } from '../../core/src/untrusted.ts';
 import { App, type Ask, type Decision } from './app.ts';
-import { agentDir, readPiServers } from './pi-config.ts';
+import { agentDir, piRunsMcp, readPiServers } from './pi-config.ts';
 import { Store } from './store.ts';
 import { stubRootOf } from './stubs.ts';
 import { PLUGIN, VERSION } from './version.ts';
@@ -21,6 +22,8 @@ import { PLUGIN, VERSION } from './version.ts';
 /** How long Pi's start waits for the servers' listings before it lists skills; the rest are listed after a /reload. */
 const STARTUP_WAIT_MS = Number(process.env.MCP_SKILLS_STARTUP_WAIT_MS ?? 8000);
 const SECTION = 'mcp_skills';
+/** The session entry that says a skill was loaded in this conversation (its server and URI). */
+const LOADED = 'mcp-skills.loaded';
 const INSTRUCTIONS =
     'Some of the skills listed for you are served by the user\'s MCP servers (the MCP Skills extension), named mcp-<server>-<name> and marked with their server; the SKILL.md you read for one only says how to load it. ' +
     'Load a served skill with load_skill, giving its server and uri: the user is asked first, and the skill\'s text comes back marked with the server it came from. ' +
@@ -79,6 +82,10 @@ export default function mcpSkills(pi: ExtensionAPI): void {
     };
     let app: App | undefined;
     let ui: ExtensionContext['ui'] | undefined;
+    // Pi's own MCP support is off in this session (--no-mcp, the settings, or an extension that
+    // replaces it): Pi reads no mcp.json and connects no server, and neither does this extension.
+    let mcpOff = false;
+    const MCP_OFF = "Pi's MCP support is off in this session (--no-mcp, `-builtin:mcp` in the settings, or an extension that replaces it), so mcp-skills reaches no MCP server, as Pi reaches none.";
 
     const start = (ctx: ExtensionContext): App => {
         const trusted = ctx.isProjectTrusted();
@@ -99,6 +106,7 @@ export default function mcpSkills(pi: ExtensionAPI): void {
             parameters: spec.parameters as never,
             annotations: spec.annotations,
             async execute(_id, params, signal, _onUpdate, ctx) {
+                if (mcpOff) return { content: [{ type: 'text' as const, text: MCP_OFF }], details: {}, isError: true };
                 if (!app) return { content: [{ type: 'text' as const, text: 'mcp-skills has not started in this session yet.' }], details: {}, isError: true };
                 const ask: Ask = async (message, choices) => {
                     if (!ctx.hasUI) return { unavailable: 'Pi has no one to ask in this mode (print or JSON)' };
@@ -112,6 +120,11 @@ export default function mcpSkills(pi: ExtensionAPI): void {
                     return { decision: decision && choices.includes(decision) ? decision : 'no' };
                 };
                 const answer = await app.call(spec.name, params, { ask, signal });
+                // Recorded in the session, for the checks below once this instance is replaced.
+                if (spec.name === 'load_skill' && !answer.isError) {
+                    const { server, uri } = params as { server: string; uri: string };
+                    pi.appendEntry(LOADED, { server, uri });
+                }
                 // Nothing the model reads carries a secret of the configuration, even one a server echoes back.
                 return { content: [{ type: 'text' as const, text: secrets.scrub(answer.text) }], details: {}, ...(answer.isError ? { isError: true } : {}) };
             }
@@ -120,7 +133,13 @@ export default function mcpSkills(pi: ExtensionAPI): void {
 
     pi.on('session_start', (_event, ctx) => {
         ui = ctx.ui;
-        if (!app) app = start(ctx);
+        if (app || mcpOff) return;
+        if (!piRunsMcp(pi.getCommands())) {
+            mcpOff = true;
+            log('Pi\'s MCP support is off in this session: standing down');
+            return;
+        }
+        app = start(ctx);
     });
 
     // Pi lists skills from the folders extensions give it here: the stubs, written once the servers
@@ -139,11 +158,30 @@ export default function mcpSkills(pi: ExtensionAPI): void {
         if (app?.conns.size) event.systemPromptOptions.sections[SECTION] = INSTRUCTIONS;
     });
 
+    /**
+     * The skills loaded in this conversation: those this process holds, and those the session's
+     * current branch records as loaded (`LOADED`). A skill's text stays in the conversation after
+     * /reload, /resume, /fork or /clone, while Pi starts a new instance of this extension that holds
+     * nothing yet; the session's entries carry over, so the checks below hold across them.
+     */
+    const loadedSkills = (ctx: ExtensionContext): { server: string; uri: string }[] => {
+        const out = new Map<string, { server: string; uri: string }>();
+        for (const h of app?.host.held() ?? []) out.set(`${h.label}\n${h.entry.uri}`, { server: h.label, uri: h.entry.uri });
+        for (const e of ctx.sessionManager.getBranch()) {
+            if (e.type !== 'custom' || e.customType !== LOADED) continue;
+            const d = e.data as { server?: unknown; uri?: unknown } | undefined;
+            if (typeof d?.server === 'string' && typeof d.uri === 'string') out.set(`${d.server}\n${d.uri}`, { server: d.server, uri: d.uri });
+        }
+        return [...out.values()];
+    };
+
     // SEP-2640 X8: while a served skill is loaded, anything that reads from another MCP server is put
     // to the person, with both servers named, or refused where nobody can be asked: Pi's own
     // read_mcp_resource, and this extension's own reads of another server's skills (a skill's text may
     // be what asks for them, whether or not that other skill was approved before). Pi runs this for the
     // model's calls and for calls a codemode script makes alike.
+    // V4: a loaded skill's own files are read only with read_skill_file, against the entry it was
+    // loaded from; Pi's read_mcp_resource is refused for them.
     const CROSS: Record<string, (input: Record<string, unknown>) => string> = {
         read_mcp_resource: (i) => `read a resource from the MCP server ${JSON.stringify(i.server)}${typeof i.uri === 'string' ? ` (${oneLine(i.uri, 200)})` : ''}`,
         load_skill: (i) => `load a skill from the MCP server ${JSON.stringify(i.server)}${typeof i.uri === 'string' ? ` (${oneLine(i.uri, 200)})` : ''}`,
@@ -152,11 +190,15 @@ export default function mcpSkills(pi: ExtensionAPI): void {
     };
     pi.on('tool_call', async (event, ctx) => {
         const describe = Object.hasOwn(CROSS, event.toolName) ? CROSS[event.toolName] : undefined;
-        if (!app || !describe) return;
+        if (!describe) return;
         const input = (event.input ?? {}) as Record<string, unknown>;
-        const held = [...new Set(app.host.held().map((h) => h.label))];
-        if (!held.length || typeof input.server !== 'string') return;
-        const others = held.filter((s) => s !== input.server);
+        const loaded = loadedSkills(ctx);
+        if (!loaded.length || typeof input.server !== 'string') return;
+        if (event.toolName === 'read_mcp_resource' && typeof input.uri === 'string') {
+            const own = loaded.find((l) => l.server === input.server && (input.uri as string).startsWith(`${rootOf(l.uri)}/`));
+            if (own) return { block: true, reason: `That is a file of the skill ${JSON.stringify(own.uri)}, loaded from the MCP server ${JSON.stringify(own.server)}. Read it with read_skill_file (server ${JSON.stringify(own.server)}, skill ${JSON.stringify(own.uri)} and its path), which checks it against the skill's entry.` };
+        }
+        const others = [...new Set(loaded.map((l) => l.server))].filter((s) => s !== input.server);
         if (!others.length) return;
         const why = secrets.scrub(`A skill served by the MCP server ${others.map((s) => JSON.stringify(s)).join(', ')} is loaded in this session, and Pi wants to ${describe(input)}. The loaded skill's text may be what asks for it.`);
         if (!ctx.hasUI) return { block: true, reason: `${why} Nobody can be asked in this mode, so it is not done.` };

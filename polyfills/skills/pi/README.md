@@ -180,6 +180,13 @@ The changes hosts would need are in
   `skip` in `settings.json`, or turn the server off in `mcp.json`.
 - **The X8 question covers Pi's own resource tool.** A resource read another
   extension makes with its own connection passes no hook of this extension's.
+- **Servers are read when a session starts.** A server another extension
+  registers later in the session is reached after `/reload`. Each `!command`
+  value in a server's entry runs when a session starts, once for this
+  extension, as it runs for Pi and for any other extension that reads it.
+- **Off with Pi's MCP support.** With `--no-mcp`, `"extensions":
+  ["-builtin:mcp"]` in the settings, or an extension that replaces Pi's MCP
+  support, Pi connects no server and the extension stands down.
 - **Pi has no approval step for tools.** After you approve a skill, what Pi
   does with it is up to Pi and the extensions you run, as for a skill on your
   disk.
@@ -196,8 +203,11 @@ are in [`SECURITY.md`](SECURITY.md).
 ## Spec and conformance
 
 mcp-skills implements SEP-2640 (Final, at commit `2eb3a8e`), with the client
-logic every form shares. The clause-by-clause table is the Claude Code form's
-[`docs/conformance.md`](../claude-code/docs/conformance.md). On Pi:
+logic every form shares. Every rule, with how it is met on Pi and where it is
+tested, is in [`docs/conformance.md`](docs/conformance.md): 53 met, 6 met with
+a stated exception, 1 not applicable, none unmet. The official MCP
+conformance suite's four SEP-2640 client scenarios pass against this
+extension's App ([output](docs/evidence/conformance.txt)). On Pi:
 
 - **X8 is met.** Pi's `tool_call` hook can block and ask, for the model's
   calls and for codemode's nested calls alike, so a cross-server
@@ -206,7 +216,11 @@ logic every form shares. The clause-by-clause table is the Claude Code form's
   The same question covers this extension's own tools: with a skill of one
   server loaded, `load_skill`, `read_skill_file` or `list_skill_directory`
   against another server asks first, every time, even for a skill approved
-  before. (In the Codex form X8 isn't met, for want of such a hook.)
+  before. It holds after `/reload`, `/resume`, `/fork` and `/clone`, from the
+  loads the session records. (In the Codex form X8 isn't met, for want of
+  such a hook.)
+- **V4 is met.** Pi's `read_mcp_resource` is refused for a loaded skill's own
+  files, which are read with `read_skill_file`, against the skill's entry.
 - **H1, per-skill switch:** Pi has none for an extension's skills; the
   server-level `skip` stands in ([Limits](#limits)).
 - No step outside the SEP is taken.
@@ -219,15 +233,24 @@ logic every form shares. The clause-by-clause table is the Claude Code form's
 - `test/pi-test.ts`, in a real Pi 1.6.0 with its own agent directory and home
   and a scripted stand-in model: a served skill is in Pi's skill list,
   `/skill:` loads it after you approve it, a no loads nothing and fetches no
-  file, and the X8 question.
-- `test/pi-test.ts` also: the X8 question for a read made from inside a
-  codemode script.
+  file; the X8 question, for the model's read, for a codemode script's, for
+  this extension's own tools, and in a new instance of the extension after a
+  clone; Pi's resource tool refused for a loaded skill's own files (V4); and
+  with `--no-mcp`, no server reached and no skill listed.
 - `test/hardening-test.ts`, from the security review: a generated skill that
   changes after you read it is loaded as you read it; two loads asked at once
   run one after the other; a call cancelled while you're asked, or while it
-  waits for another load, loads and keeps nothing; a server's media type can't
-  add a line to the result; a configured secret a server echoes back reaches
-  no stub.
+  waits for another load, loads and keeps nothing; a server whose `skills/get`
+  answer can't be used is asked about as it listed the skill; a server's media
+  type can't add a line to the result, whether it reaches the form or comes
+  from a read; a file with terminal control characters isn't shown as text; a
+  configured secret a server echoes back reaches no stub.
+- `test/config-test.ts`: the configuration file is the Events form's (whose
+  test holds it to Pi's own entry check); an entry Pi rejects runs nothing;
+  the extension runs only with Pi's own MCP support.
+- `test/conformance/`: the official MCP conformance suite's four SEP-2640
+  client scenarios, run against this extension's App
+  ([output](docs/evidence/conformance.txt)).
 - `test/connection-test.ts`: against an HTTP server behind a token (reached,
   with the header resolved as Pi resolves it) and behind OAuth (out of reach,
   with the reason).

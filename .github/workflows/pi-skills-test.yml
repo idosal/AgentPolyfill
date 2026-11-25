@@ -19,6 +19,7 @@ on:
       - "polyfills/skills/claude-code/test/harness.ts"
       - "polyfills/skills/claude-code/test/fixture-skills-server.ts"
       - "polyfills/events/pi/test/http-fixture.ts"
+      - "polyfills/events/pi/src/pi-config.ts"
       - "tools/bundle-notices.mjs"
       - ".github/workflows/pi-skills-test.yml"
   # Pull requests from forks; a branch of this repository is checked by its
@@ -30,6 +31,7 @@ on:
       - "polyfills/skills/claude-code/test/harness.ts"
       - "polyfills/skills/claude-code/test/fixture-skills-server.ts"
       - "polyfills/events/pi/test/http-fixture.ts"
+      - "polyfills/events/pi/src/pi-config.ts"
       - "tools/bundle-notices.mjs"
       - ".github/workflows/pi-skills-test.yml"
 

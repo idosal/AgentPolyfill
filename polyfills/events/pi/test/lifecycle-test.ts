@@ -83,3 +83,31 @@ test('print mode: nobody can confirm a watch, so none is started', { timeout: 60
     assert.match(out, /A watch needs the user to confirm it, and Pi has no one to ask in this mode/);
     assert.ok(!w.methods().some((m) => m === 'events/stream' || m === 'events/poll' || m === 'events/subscribe'), 'nothing was subscribed');
 });
+
+test("with Pi's MCP support off (--no-mcp), the extension reaches no server and runs none of its commands", { timeout: 60_000 }, async () => {
+    const w = world();
+    const pi = new Pi({ extensions: [EXTENSION], rules: RULES, agentDir: w.agentDir, args: ['--no-mcp'], answer: (r) => (r.method === 'confirm' ? true : undefined) });
+    running.push(pi);
+    await pi.ready();
+    await pi.prompt('watch tickets ticket.created');
+    const watched = pi.toolResults('watch_event').at(-1);
+    assert.ok(watched?.isError, watched?.text);
+    assert.match(watched.text, /Pi's MCP support is off in this session/);
+    assert.equal(pi.ui.filter((u) => u.method === 'confirm').length, 0, 'nobody was asked');
+    assert.deepEqual(w.methods(), [], 'the server was not even started');
+});
+
+test('a watch whose note holds a value the configuration keeps secret is refused before the question: the question shows what is sent, or there is no watch', { timeout: 60_000 }, async () => {
+    const secret = 'tok-0123456789abcdef';
+    const w = world({ TICKETS_TOKEN: secret });
+    const rules = [{ when: '^watch-note (\\S+) (\\S+) (\\S+)$', call: { name: 'watch_event', args: { server: '$1', event: '$2', note: '$3' } } }];
+    const pi = new Pi({ extensions: [EXTENSION], rules, agentDir: w.agentDir, answer: (r) => (r.method === 'confirm' ? true : undefined) });
+    running.push(pi);
+    await pi.ready();
+    await pi.prompt(`watch-note tickets ticket.created ${secret}`);
+    const watched = pi.toolResults('watch_event').at(-1);
+    assert.ok(watched?.isError, watched?.text);
+    assert.match(watched.text, /hold a value your MCP configuration keeps secret/);
+    assert.equal(pi.ui.filter((u) => u.method === 'confirm').length, 0, 'nobody was asked');
+    assert.ok(!w.methods().some((m) => m === 'events/stream' || m === 'events/poll' || m === 'events/subscribe'), 'nothing was subscribed');
+});

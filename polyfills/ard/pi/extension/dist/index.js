@@ -1335,6 +1335,8 @@ function planForPi(card, remote, values, name, fromLocal) {
     headers[h.name] = h.value;
   }
   const serverName = name ?? p.name;
+  if (serverName.startsWith("-"))
+    return { error: "A Pi server name may not start with -, which Pi's command line reads as an option. Choose another name." };
   const addArgs = ["mcp", "add", serverName, "--url", p.url];
   for (const [key, value] of Object.entries(headers)) addArgs.push("--header", `${key}=${value}`);
   return { plan: { name: serverName, url: p.url, headers, envVars: p.envVars, addArgs } };
@@ -1350,14 +1352,15 @@ function fileHasName(file, name) {
     const servers = config.mcpServers;
     if (servers === void 0) return false;
     if (!servers || typeof servers !== "object" || Array.isArray(servers)) return true;
-    return Object.hasOwn(servers, name);
+    return Object.keys(servers).some((other) => sameName(other, name));
   } catch (error) {
     return error.code !== "ENOENT";
   }
 }
 function isNameTaken(pi, name, file, projectFile) {
-  return fileHasName(file, name) || projectFile !== void 0 && fileHasName(projectFile, name) || pi.getMcpServers().some((server) => server.name === name);
+  return fileHasName(file, name) || projectFile !== void 0 && fileHasName(projectFile, name) || pi.getMcpServers().some((server) => sameName(server.name, name));
 }
+var sameName = (a, b) => a.replace(/-/g, "_") === b.replace(/-/g, "_");
 function runningPiCli(argv = process.argv) {
   try {
     if (!argv[1]) return void 0;
@@ -1579,7 +1582,7 @@ function install(pi, disabled, makeTools, env = process.env) {
   for (const spec of tools2) {
     pi.registerTool({
       name: spec.name,
-      label: spec.name === "add_mcp_server" ? "Add MCP server" : spec.name === "ard_search" ? "Search ARD registry" : "Discover MCP servers",
+      label: spec.name.endsWith("add_mcp_server") ? "Add MCP server" : spec.name === "ard_search" ? "Search ARD registry" : "Discover MCP servers",
       description: spec.description,
       parameters: spec.inputSchema,
       // Pi accepts a plain JSON Schema.
@@ -1818,7 +1821,8 @@ function tools(session, defaultRegistry) {
       },
       required: ["query"]
     },
-    annotations: { readOnlyHint: true, openWorldHint: true },
+    // Not read-only: it sends the person's words to a third party (permission extensions read this hint).
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     run: async (args, ctx, signal) => {
       const query = (str2(args.query) ?? "").trim();
       if (!query) return refuse2("Give `query`: what the person needs, in plain words.");
@@ -1887,7 +1891,6 @@ ${formatOffered(r, `the ARD registry at ${hosts}`)}`) };
   };
   return [discoverTool2, searchTool, addTool(session, DISCOVER, `${DISCOVER} or ${SEARCH}`, ADD2)];
 }
-var INSTRUCTIONS = "Agentic Resource Discovery (ARD v0.91 draft) for MCP servers: ard_discover reads a domain's ard.json and AI Catalog; ard_search sends a query to an ARD registry, a third party, after the person approves it with a question; ard_add_mcp_server adds a server either one showed, after the person approves that too. A registry's order is relevance, not trust; a result is confirmed only when its publisher's own catalog lists it.";
 function ard(pi) {
   install(pi, "ARD_DISCOVERY_DISABLED", (session) => tools(session, registrySetting(process.env)));
 }
@@ -1901,7 +1904,6 @@ export {
   CATALOG_TYPE,
   DISCOVER,
   HOST_PROTOCOL_VERSIONS,
-  INSTRUCTIONS,
   INVISIBLE_TEXT,
   MAX_BODY,
   MAX_INLINE_CARD,

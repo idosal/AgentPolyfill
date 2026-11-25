@@ -17,7 +17,7 @@ import { pruneSessions } from '../../core/src/store.ts';
 import type { Unavailable } from '../../core/src/tools.ts';
 import { describeError, secrets } from '../../core/src/untrusted.ts';
 import { isHttp, type ServerTable } from '../../core/src/upstream.ts';
-import { agentDir, mayUseOAuth, readPiServers } from './pi-config.ts';
+import { agentDir, mayUseOAuth, piRunsMcp, readPiServers } from './pi-config.ts';
 import { PiSession } from './session.ts';
 import { CUSTOM_TYPE, inPisWords, PI, TOOLS, unshowable, VERSION, watchQuestion } from './words.ts';
 
@@ -53,6 +53,10 @@ export default function mcpEvents(pi: ExtensionAPI): void {
         }
     };
     let running: Running | undefined;
+    // Pi's own MCP support is off in this session (--no-mcp, the settings, or an extension that
+    // replaces it): Pi reads no mcp.json and connects no server, and neither does this extension.
+    let mcpOff = false;
+    const MCP_OFF = "Pi's MCP support is off in this session (--no-mcp, `-builtin:mcp` in the settings, or an extension that replaces it), so mcp-events reaches no MCP server, as Pi reaches none.";
 
     const waitForServers = async (ms: number) => {
         if (!running) return;
@@ -68,6 +72,7 @@ export default function mcpEvents(pi: ExtensionAPI): void {
             annotations: spec.annotations,
             async execute(_id, params, signal, _onUpdate, ctx) {
                 const text = (t: string, isError?: boolean) => ({ content: [{ type: 'text' as const, text: t }], details: {}, ...(isError ? { isError: true } : {}) });
+                if (mcpOff) return text(MCP_OFF, true);
                 if (!running) return text('mcp-events has not started in this session yet.', true);
                 await waitForServers(FIRST_PROMPT_WAIT_MS + 5000);
                 const { session } = running;
@@ -80,7 +85,10 @@ export default function mcpEvents(pi: ExtensionAPI): void {
                     const why = unshowable(asked);
                     if (why) return text(`The watch is not started: ${why}.`, true);
                     const q = watchQuestion(asked, session.limits);
-                    const ok = await ctx.ui.confirm(q.title, secrets.scrub(q.message), { signal });
+                    // The question shows what is sent, or there is no watch: one whose filters or note hold
+                    // a secret of the configuration can't be shown as it is.
+                    if (secrets.scrub(q.message) !== q.message || secrets.scrub(q.title) !== q.title) return text('The watch is not started: its filters or note hold a value your MCP configuration keeps secret, which the question to the user would have to hide.', true);
+                    const ok = await ctx.ui.confirm(q.title, q.message, { signal });
                     // A call Pi cancelled while the user was asked starts nothing, whatever the answer.
                     if (signal?.aborted) return text('The call was cancelled, so nothing is watched.', true);
                     if (!ok) {
@@ -96,7 +104,12 @@ export default function mcpEvents(pi: ExtensionAPI): void {
     }
 
     pi.on('session_start', (_event, ctx) => {
-        if (running) return;
+        if (running || mcpOff) return;
+        if (!piRunsMcp(pi.getCommands())) {
+            mcpOff = true;
+            log('Pi\'s MCP support is off in this session: standing down');
+            return;
+        }
         mkdirSync(base, { recursive: true, mode: 0o700 });
         try {
             chmodSync(base, 0o700);
