@@ -1,0 +1,25 @@
+{
+  "name": "mcp-skills-muse",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "MCP Skills (SEP-2640) for Muse Code: skills served by your MCP servers in Muse's skill list, loaded after you type the phrase that approves each one. Built from ../codex's sources, into the Codex plugin folder beside the Codex bundle.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test --no-warnings \"test/*-test.ts\"",
+    "typecheck": "../codex/node_modules/.bin/tsc --noEmit -p .",
+    "build": "node build.mjs"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idosal/AgentPolyfill.git",
+    "directory": "polyfills/skills/muse"
+  }
+}

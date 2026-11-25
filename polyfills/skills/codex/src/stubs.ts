@@ -111,9 +111,8 @@ export type StubSync = {
     keep: Set<string>;
 };
 
-/** Holds `root` while one helper writes stubs there (a folder made and removed; `name` in `root`). */
-export function lockStubs(root: string, name = '.lock'): () => void {
-    const dir = join(root, name);
+function lock(root: string): () => void {
+    const dir = join(root, '.lock');
     for (let i = 0; i < 40; i++) {
         try {
             mkdirSync(dir);
@@ -138,8 +137,7 @@ export function lockStubs(root: string, name = '.lock'): () => void {
     return () => {};
 }
 
-/** Removes a file, a symbolic link (never followed) or a folder. */
-export function removePath(path: string): void {
+export function remove(path: string): void {
     const st = lstatSync(path, { throwIfNoEntry: false });
     if (!st) return;
     if (st.isSymbolicLink() || !st.isDirectory()) unlinkSync(path);
@@ -166,14 +164,14 @@ export function writeIfChanged(path: string, text: string): boolean {
 /** A real folder at `path`: whatever else is there (a file, a symbolic link) is removed first. */
 export function realDir(path: string): void {
     const st = lstatSync(path, { throwIfNoEntry: false });
-    if (st && (st.isSymbolicLink() || !st.isDirectory())) removePath(path);
+    if (st && (st.isSymbolicLink() || !st.isDirectory())) remove(path);
     if (!st || st.isSymbolicLink() || !st.isDirectory()) mkdirSync(path);
 }
 
 export function syncStubs(root: string, s: StubSync): { written: number; removed: number; omitted: number } {
     mkdirSync(join(root, '..'), { recursive: true });
     realDir(root);
-    const unlock = lockStubs(root);
+    const unlock = lock(root);
     let written = 0;
     let removed = 0;
     let omitted = 0;
@@ -198,18 +196,18 @@ export function syncStubs(root: string, s: StubSync): { written: number; removed
             const want = wanted.get(entry.name);
             if (!want) {
                 if (kept.has(entry.name)) continue;
-                removePath(path);
+                remove(path);
                 removed++;
                 continue;
             }
             if (entry.isSymbolicLink() || !entry.isDirectory()) {
-                removePath(path);
+                remove(path);
                 removed++;
                 continue;
             }
             for (const skill of readdirSync(path)) {
                 if (!SKILL_DIR.test(skill) || want.has(skill)) continue;
-                removePath(join(path, skill));
+                remove(join(path, skill));
                 removed++;
             }
         }
@@ -231,7 +229,7 @@ export function removeOldStubs(pluginRoot: string): number {
     let removed = 0;
     for (const entry of readdirSync(old)) {
         if (!LABEL_DIR.test(entry) && entry !== '.lock') continue;
-        removePath(join(old, entry));
+        remove(join(old, entry));
         removed++;
     }
     try {

@@ -11,7 +11,6 @@ import { formatDiscovery, formatOffered } from '../../../server-cards/claude-cod
 import { readOffered } from '../../../server-cards/claude-code/mod/hooks/offer'
 import { codexDeps, isMain, logger, useCodexHost } from '../../../server-cards/codex/src/host'
 import { serve, type Tool } from '../../../server-cards/codex/src/mcp'
-import { isMuse, museAddTool, museRunner, useMuseHost } from '../../../server-cards/codex/src/muse'
 import { addTool, askPerson, Session, shownText } from '../../../server-cards/codex/src/tools'
 import { HIDDEN, search, searchEndpoint } from '../../claude-code/mod/hooks/registry'
 import { originOf } from '../../claude-code/mod/hooks/urls'
@@ -29,11 +28,10 @@ export * from '../../../server-cards/codex/src/codex'
 export * from '../../../server-cards/codex/src/fetch'
 export * from '../../../server-cards/codex/src/host'
 export * from '../../../server-cards/codex/src/mcp'
-export * from '../../../server-cards/codex/src/muse'
 export * from '../../../server-cards/codex/src/tools'
 
 export const NAME = 'ard-discovery'
-export const VERSION = '0.1.4'
+export const VERSION = '0.1.3'
 export const DISCOVER = 'ard_discover'
 export const SEARCH = 'ard_search'
 export const BY = 'ard-discovery (ARD v0.91 draft)'
@@ -206,35 +204,15 @@ export const INSTRUCTIONS =
   'Agentic Resource Discovery (ARD v0.91 draft) for MCP servers: ard_discover reads a domain\'s ard.json and AI Catalog; ard_search sends a query to an ARD registry, a third party, after the person approves it in a form; add_mcp_server adds a server either one showed, after the person approves that too. ' +
   "A registry's order is relevance, not trust; a result is confirmed only when its publisher's own catalog lists it."
 
-/**
- * In Muse (the plugin folder's .muse-plugin/plugin.json, which passes --host=muse): ard_discover,
- * and an add_mcp_server that gives the person the `muse mcp add` command to run (see
- * mcp-server-cards' muse.ts). No registry search: it sends the person's words to a third party,
- * which needs their yes first, and Muse gives a plugin no way to ask for it.
- */
-export function museTools(session: Session): Tool[] {
-  const discover = tools(session, '').find(t => t.name === DISCOVER)!
-  return [{ ...discover, description: discover.description.replaceAll('Codex', 'Muse') }, museAddTool(session, DISCOVER, DISCOVER)]
-}
-
-export const MUSE_INSTRUCTIONS =
-  "Agentic Resource Discovery (ARD v0.91 draft) for MCP servers: ard_discover reads a domain's ard.json and AI Catalog; add_mcp_server checks a server it showed and gives the `muse mcp add` command that adds it, which the person runs themselves. " +
-  'Registry search (ard_search) is not offered in Muse: it sends the words of a request to a third party, which needs the person\'s yes first, and Muse gives this plugin no way to ask. ' +
-  "A result is the publisher's claim, not a check of the server."
-
-export function start(env: NodeJS.ProcessEnv = process.env, argv: readonly string[] = process.argv) {
-  const muse = isMuse(argv)
-  if (muse) useMuseHost()
-  else useCodexHost()
+export function start(env: NodeJS.ProcessEnv = process.env) {
+  useCodexHost()
   const off = /^(1|true|on|yes)$/i.test(env.ARD_DISCOVERY_DISABLED ?? '')
-  const deps = codexDeps(env, `${NAME}/${VERSION} (${muse ? 'Muse' : 'Codex'} polyfill)`)
-  if (muse) deps.run = museRunner(env)
-  const session = new Session(deps)
+  const session = new Session(codexDeps(env, `${NAME}/${VERSION} (Codex polyfill)`))
   serve({
     name: NAME,
     version: VERSION,
-    instructions: off ? undefined : muse ? MUSE_INSTRUCTIONS : INSTRUCTIONS,
-    tools: off ? [] : muse ? museTools(session) : tools(session, registrySetting(env)),
+    instructions: off ? undefined : INSTRUCTIONS,
+    tools: off ? [] : tools(session, registrySetting(env)),
     log: logger(NAME, env, env.ARD_DISCOVERY_LOG ?? env.MCP_SERVER_CARDS_LOG),
   })
 }

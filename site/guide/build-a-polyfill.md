@@ -161,9 +161,10 @@ for each host:
   (`opencode plugin add`, with Git) or from a clone; nothing is published to
   npm.
 - **Muse Code:** the Codex plugin folder, with a Muse manifest
-  (`.muse-plugin/plugin.json`) beside the Codex one. Muse reads the Codex
-  marketplace and runs the same bundle, told it is in Muse. `muse/` holds
-  the form's README, `SECURITY.md` and docs.
+  (`.muse-plugin/plugin.json`) beside the Codex one, and the Muse form's own
+  bundles in `muse/` there. Muse reads the Codex marketplace.
+  `polyfills/<extension>/muse/` holds the form's sources (which reuse the
+  Codex form's unchanged), its tests, README, `SECURITY.md` and docs.
 
 The Pi examples are
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi),
@@ -238,8 +239,8 @@ Skills need their own connections and can't use Muse's sign-in. A turn in an
 idle session needs two experimental launch gates, so Events delivers with
 the next message by default. The Skills form meets X8 because Muse gives the
 model no tool that reads an MCP resource. Their READMEs, `SECURITY.md`,
-`docs/conformance.md` and `docs/live-run.md` record what was checked: tests
-in the Codex suites, and runs in a real Muse 1.4.25 with no real model.
+`docs/conformance.md` and `docs/live-run.md` record what was checked: each
+form's own tests, and runs in a real Muse 1.4.25 with no real model.
 
 ## Your own, listed in the community directory
 

@@ -147,12 +147,12 @@ const runOnce = (bin: string, args: readonly string[], opts: Parameters<Run>[1] 
     if (!opts.keepOpen) child.stdin!.end()
   })
 
-export function codexRunner(env: NodeJS.ProcessEnv = process.env, candidates: readonly string[] = codexCandidates(env), label = 'codex'): Run {
+export function codexRunner(env: NodeJS.ProcessEnv = process.env): Run {
   let found: string | undefined
   return async (args, opts) => {
     if (found) return runOnce(found, args, opts)
     let failure = ''
-    for (const bin of candidates) {
+    for (const bin of codexCandidates(env)) {
       const r = await runOnce(bin, args, opts)
       if ('failure' in r) {
         failure = r.failure
@@ -161,7 +161,7 @@ export function codexRunner(env: NodeJS.ProcessEnv = process.env, candidates: re
       found = bin
       return r
     }
-    return { failure: failure || `${label} was not found` }
+    return { failure: failure || 'codex was not found' }
   }
 }
 

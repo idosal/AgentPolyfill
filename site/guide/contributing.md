@@ -54,8 +54,10 @@ polyfills/<extension>/
 - `core/` holds what does not depend on the host; each host folder holds its
   adapter. Events and Skills use this layout. Apps has no Pi, OpenCode or
   Muse Code form.
-- `muse/` holds no code of its own: only the Muse Code form's README,
-  `SECURITY.md` and docs. Its code and tests are in `codex/`.
+- `muse/` holds the Muse Code form's sources, tests, README, `SECURITY.md`
+  and docs. It reuses `codex/`'s sources unchanged, and builds its own
+  bundles into the Codex plugin folder (`muse/` there), beside the Codex
+  bundle, which stays as it is.
 
 Inside an adapter's folder, the installable form goes in a subfolder (`mod/`
 in the Apps polyfill, `extension/` in Pi, `plugin/` in OpenCode), holding
@@ -77,9 +79,9 @@ Installation differs by host:
   where the bundle holds other packages' code (the Events and Skills forms).
 - **Muse Code:** reads the Codex marketplace and copies the Codex plugin
   folder on install. That folder carries `.muse-plugin/plugin.json` beside
-  `.codex-plugin/plugin.json`. Its manifest starts the same bundle with
-  `--host=muse`, and each hook is one bundled script, because Muse trusts a
-  hook by its script file.
+  `.codex-plugin/plugin.json`. Its manifest starts the Muse form's own
+  bundle, in `muse/` there, and each hook is one bundled script, because Muse
+  trusts a hook by its script file.
 
 One plugin folder can carry both `.claude-plugin/plugin.json` and
 `.codex-plugin/plugin.json`. The plugin's name is unique in the repository, and
@@ -180,10 +182,9 @@ depending on every polyfill. Add the polyfill's own tests as a workflow in
   a real OpenCode, the release pinned in `tools/opencode`, in a throwaway
   home with a scripted stand-in for a model, on Linux, macOS and Windows,
   and checks that the committed `plugin/server.js` is what its sources build.
-- **Muse Code:** no workflow of its own. The Muse tests are part of each
-  Codex form's suite (`test/muse-test.ts` in Events and Skills, the M- tests
-  in `test/adapter.test.ts` in Server Cards and ARD), so
-  `codex-<extension>-test.yml` runs them.
+- **Muse Code:** `muse-<extension>-test.yml`. It runs the form's tests,
+  with a typecheck, and checks that its committed bundles are what its
+  sources build. It also runs when a Codex file the form reuses changes.
 
 A polyfill that ships built files also gets a release workflow, run on its
 own tags, `<plugin>-v<version>`.
@@ -243,8 +244,9 @@ beside the others. Events and Skills share one `core/`, with these forms:
    the host's own tests beside it. A host that reads another host's plugins
    and marketplace can share that host's folder instead, with its own
    manifest beside the other one: the Muse Code forms are the Codex plugin
-   folders with a `.muse-plugin/plugin.json`, and the same bundle told which
-   host it is in.
+   folders with a `.muse-plugin/plugin.json` and the Muse bundles in
+   `muse/`, built from `polyfills/<extension>/muse`, so the Codex bundle
+   stays byte-identical.
 4. **Meet the contract in that host:** its own README with that host's install
    steps, requirements, limits and stand-down, its own `SECURITY.md`, and a
    recorded run in the real host against a server you did not write.

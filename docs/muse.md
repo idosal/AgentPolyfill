@@ -1,11 +1,14 @@
 # AgentPolyfill in Muse Code
 
 [Muse Code](https://dev.meta.ai/docs/muse-code) is Meta's terminal coding
-agent (`muse`). Muse reads this repository's Codex marketplace, and each of the
-four Codex plugin folders also carries a Muse manifest
-(`.muse-plugin/plugin.json`). So Muse installs Events, Skills, Server Cards and
-ARD from the same marketplace, under the same names, and runs the same code,
-told it is in Muse.
+agent (`muse`). Muse reads this repository's Codex marketplace, so the Muse
+forms of Events, Skills, Server Cards and ARD live in the four Codex plugin
+folders, under the same names. Each folder holds a Muse manifest
+(`.muse-plugin/plugin.json`) and the Muse form's own bundles, in `muse/`, beside
+the Codex form's. A Muse form's sources and tests are in
+`polyfills/<extension>/muse`. It reuses the Codex form's code unchanged and has
+its own version, 0.1.0. The Codex bundles are the same, byte for byte, with or
+without it.
 
 These forms are early. They were checked with Muse Code 1.4.25 on macOS on
 25 November 2026, and Muse's plugin interface changes every few days.
@@ -243,8 +246,8 @@ records its runs:
 - **ARD.** Discovery through a local `ard.json`, the same command flow, and no
   search tool offered.
 - **Remove.** `remove --delete-data` left only the Skills stubs.
-- **Codex unchanged.** Each plugin's Codex test suite still passes, with the
-  Muse tests beside it.
+- **Codex unchanged.** The four Codex bundles are byte-identical to `main`'s,
+  and each Codex test suite passes. The Muse forms have suites of their own.
 
 Why the Codex Events plugin first closed at startup in Muse: Muse starts a
 plugin's MCP server with the session's workspace as its working directory.

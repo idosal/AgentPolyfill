@@ -1,0 +1,88 @@
+# The Skills polyfill for Muse Code (polyfills/skills/muse, plugin mcp-skills): its own bundle
+# and hook, built into the Codex plugin folder beside the Codex bundle. On any change in its
+# folder, in its files in the plugin folder, in the Codex form's sources it reuses unchanged, in
+# the shared Skills client, or in the parts of the Events Muse form it shares (Muse's settings and
+# the typed yes):
+# - a typecheck, and a rebuild of the Muse bundles that must equal the committed ones;
+# - its tests (Muse's settings, flat stubs in Muse's skill folder, the typed load, the hook, the
+#   bundled helper against the Claude Code form's fixture server), on Linux and macOS. No real
+#   muse and no model.
+
+name: "mcp-skills for Muse Code: tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/skills/muse/**"
+      - "polyfills/skills/codex/src/**"
+      - "polyfills/skills/codex/package-lock.json"
+      - "polyfills/skills/codex/test/harness.ts"
+      - "polyfills/skills/codex/mod/.muse-plugin/**"
+      - "polyfills/skills/codex/mod/muse/**"
+      - "polyfills/skills/core/**"
+      - "polyfills/skills/claude-code/**"
+      - "polyfills/events/muse/src/muse-config.ts"
+      - "polyfills/events/muse/src/muse-confirm.ts"
+      - "polyfills/events/muse/test/fake-muse.mjs"
+      - ".github/workflows/muse-skills-test.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see the job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/skills/muse/**"
+      - "polyfills/skills/codex/src/**"
+      - "polyfills/skills/codex/package-lock.json"
+      - "polyfills/skills/codex/test/harness.ts"
+      - "polyfills/skills/codex/mod/.muse-plugin/**"
+      - "polyfills/skills/codex/mod/muse/**"
+      - "polyfills/skills/core/**"
+      - "polyfills/skills/claude-code/**"
+      - "polyfills/events/muse/src/muse-config.ts"
+      - "polyfills/events/muse/src/muse-confirm.ts"
+      - "polyfills/events/muse/test/fake-muse.mjs"
+      - ".github/workflows/muse-skills-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: muse-skills-test-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: polyfills/skills/muse
+
+jobs:
+  test:
+    name: tests (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: polyfills/skills/codex
+      - run: npm ci
+        working-directory: polyfills/skills/core
+      - run: npm ci
+        working-directory: polyfills/skills/claude-code
+      - run: npm run typecheck
+      # The Muse files are installed as committed, beside the Codex bundle: rebuild them,
+      # and fail if that changed anything there.
+      - name: Rebuild the Muse bundles; they must equal the committed ones
+        run: |
+          npm run build
+          if [ -n "$(git status --porcelain -- ../codex/mod/muse)" ]; then
+            git status --porcelain -- ../codex/mod/muse
+            echo "::error::../codex/mod/muse is not what the sources build: run npm run build in polyfills/skills/muse and commit it"
+            exit 1
+          fi
+      - run: npm test

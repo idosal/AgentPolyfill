@@ -6,7 +6,7 @@ and it reads the files the skill refers to as it needs them. You approve each
 skill once.
 
 Also available for Claude Code, Pi and OpenCode: [mcp-skills for Claude Code](../claude-code/README.md), [mcp-skills for Pi](../pi/README.md), [mcp-skills for OpenCode](../opencode/README.md).
-The same plugin folder is also the Muse Code form: [mcp-skills for Muse Code](../muse/README.md).
+The same plugin folder also holds the Muse Code form, with its own manifest and bundles: [mcp-skills for Muse Code](../muse/README.md).
 
 It implements the client side of the MCP Skills extension
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md),
@@ -42,9 +42,12 @@ You need:
 
 ## In Muse Code
 
-The same folder installs in Muse Code: [mcp-skills for Muse Code](../muse/README.md)
-has the install steps, what works differently there and why, its limits, and
-its security notes.
+This folder also holds the Muse Code form: its own manifest
+(`.muse-plugin/plugin.json`) and bundles (`muse/`), built from
+[`../muse`](../muse) with this form's sources unchanged. This form's bundle is
+the same with or without it. [mcp-skills for Muse Code](../muse/README.md) has the
+install steps, what works differently there and why, its limits, and its
+security notes.
 
 ## Try it
 

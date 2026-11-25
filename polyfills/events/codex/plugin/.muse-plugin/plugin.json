@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "name": "mcp-events",
   "displayName": "MCP Events",
-  "version": "0.1.7",
+  "version": "0.1.0",
   "description": "MCP Events (SEP-3415) for Muse Code: watch events on your MCP servers (poll, push or webhook); new events reach the session with your next message.",
   "compat": {
     "source": "native",
@@ -28,7 +28,7 @@
       {
         "id": "mcp-events",
         "transport": "stdio",
-        "command": ["node", "dist/helper.js", "--host=muse"]
+        "command": ["node", "muse/dist/helper.js"]
       }
     ]
   }

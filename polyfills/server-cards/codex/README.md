@@ -5,7 +5,7 @@ to add one, accept the form Codex shows you, and the server goes into Codex's
 own MCP configuration.
 
 Also available for Claude Code, Pi and OpenCode: [mcp-server-cards for Claude Code](../claude-code/README.md), [mcp-server-cards for Pi](../pi/README.md), [mcp-server-cards for OpenCode](../opencode/README.md).
-The same plugin folder is also the Muse Code form: [mcp-server-cards for Muse Code](../muse/README.md).
+The same plugin folder also holds the Muse Code form, with its own manifest and bundles: [mcp-server-cards for Muse Code](../muse/README.md).
 
 > What MCP servers does neon.com publish?
 
@@ -55,9 +55,12 @@ To run it from a clone instead, add the clone as the marketplace,
 
 ## In Muse Code
 
-The same folder installs in Muse Code: [mcp-server-cards for Muse Code](../muse/README.md)
-has the install steps, what works differently there and why, its limits, and
-its security notes.
+This folder also holds the Muse Code form: its own manifest
+(`.muse-plugin/plugin.json`) and bundles (`muse/`), built from
+[`../muse`](../muse) with this form's sources unchanged. This form's bundle is
+the same with or without it. [mcp-server-cards for Muse Code](../muse/README.md) has the
+install steps, what works differently there and why, its limits, and its
+security notes.
 
 ## Try it
 

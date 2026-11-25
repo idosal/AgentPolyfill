@@ -1,7 +1,7 @@
 # Conformance: the Server Cards client rules, for Muse Code
 
-The Muse form (0.1.3, on Muse Code 1.4.25) is the Codex form's bundle, started
-with `--host=muse`. It runs the same card, discovery, cache, formatting and
+The Muse form (0.1.0, on Muse Code 1.4.25) runs the Codex form's code
+unchanged, in a bundle of its own: the same card, discovery, cache, formatting and
 fetch code, against the same revisions: SEP-2127 Final, ext-server-card
 `28db12c9b4`, and the AI Catalog v0.9 release candidate. The shared rule
 tests run against the committed bundle, so the
@@ -9,7 +9,7 @@ tests run against the committed bundle, so the
 its limits (S-3 remains not met).
 
 These are the rows where Muse differs. M-1 to M-6 are the Muse tests in
-[`../../codex/test/adapter.test.ts`](../../codex/test/adapter.test.ts).
+[`../test/adapter.test.ts`](../test/adapter.test.ts).
 
 | # | Rule | Status | How, in Muse | Tests |
 |---|---|---|---|---|

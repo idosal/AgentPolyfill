@@ -8,7 +8,7 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { serverEnabled } from '../../../events/codex/src/muse-config.ts';
+import { serverEnabled } from '../../../events/muse/src/muse-config.ts';
 import { confirmFromPrompt, museStoreDir } from './muse-confirm.ts';
 
 function main(): void {

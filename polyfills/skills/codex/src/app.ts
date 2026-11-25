@@ -15,14 +15,10 @@ import { MAX_STUBS, stubNames, stubPath, syncStubs } from './stubs.ts';
 import { PLUGIN, VERSION } from './version.ts';
 
 export type Decision = 'load' | 'show' | 'no';
-/**
- * What the person answered, or why nobody could be asked, or (Muse, where the person answers by
- * typing a message of their own) what to tell them: the question waits for that answer.
- */
-export type Asked = { decision: Decision } | { unavailable: string } | { pending: string };
+/** What the person answered, or why nobody could be asked. */
+export type Asked = { decision: Decision } | { unavailable: string };
 /** Puts a question to the person (an MCP elicitation, through Codex). */
-/** `subject`: the server and the skill's name, for a host whose yes is typed and names what it approves (Muse). */
-export type Ask = (message: string, choices: Decision[], subject?: readonly string[]) => Promise<Asked>;
+export type Ask = (message: string, choices: Decision[]) => Promise<Asked>;
 export type CallContext = { ask: Ask; /** Codex's thread, from the call's `_meta`: what a load is held for. */ thread?: string };
 export type ToolAnswer = { text: string; isError?: boolean };
 
@@ -33,8 +29,6 @@ export type AppOptions = {
     stubRoot?: string;
     /** Codex's `[[skills.config]]` rules, read afresh at each call. */
     skillRules: () => SkillRule[];
-    /** How the stubs are written (Muse: muse.ts syncFlatStubs, one folder each in Muse's skill folder). */
-    syncStubs?: typeof syncStubs;
     log?: (line: string) => void;
     connectTimeoutMs?: number;
     now?: () => number;
@@ -132,7 +126,7 @@ export class App {
         this.#log(`standing down: ${why}`);
         if (this.#o.stubRoot) {
             try {
-                (this.#o.syncStubs ?? syncStubs)(this.#o.stubRoot, { listed: new Map(), keep: new Set() });
+                syncStubs(this.#o.stubRoot, { listed: new Map(), keep: new Set() });
             } catch (e) {
                 this.#log(`stubs could not be removed (${describeError(e)})`);
             }
@@ -270,7 +264,7 @@ export class App {
         // A server still being looked at keeps the stubs it had, as one not reachable now does.
         const keep = new Set(this.unavailable.filter((u) => this.#o.table.servers[u.name] !== undefined).map((u) => u.name).concat(this.skipped, [...this.#pending]));
         try {
-            const r = (this.#o.syncStubs ?? syncStubs)(this.#o.stubRoot, { listed, keep });
+            const r = syncStubs(this.#o.stubRoot, { listed, keep });
             this.#omitted = r.omitted;
             if (r.written || r.removed) this.#log(`stubs: ${r.written} written, ${r.removed} removed${r.omitted ? `, ${r.omitted} past the ${MAX_STUBS} written` : ''}`);
         } catch (e) {
@@ -373,15 +367,14 @@ export class App {
             const files = entry.resources === 'dynamic' ? [] : entry.resources;
             const root = rootOf(entry.uri)!;
             const outer = this.catalog.listed(server).find((l) => l.entry.uri !== entry.uri && root.startsWith(`${rootOf(l.entry.uri)}/`));
-            let answer = await ctx.ask(questionText({ server, entry, files: files.length, bytes: files.reduce((n, r) => n + r.size, 0), changed: this.#o.store.wasApproved(server, entry.uri), nestedIn: outer?.entry.frontmatter.name }), ['no', 'show', 'load'], [server, entry.frontmatter.name]);
+            let answer = await ctx.ask(questionText({ server, entry, files: files.length, bytes: files.reduce((n, r) => n + r.size, 0), changed: this.#o.store.wasApproved(server, entry.uri), nestedIn: outer?.entry.frontmatter.name }), ['no', 'show', 'load']);
             if ('decision' in answer && answer.decision === 'show') {
                 // Kept for the load: a generated skill, which no digest holds to this text, is loaded from this read.
                 const read = await host.preview(server, uri, { keep: true });
                 shown = true;
                 if ((await manifestHash(read.entry)) !== hash) throw new LocalError('this skill changed on the server while it was being shown, so it is not loaded: load it again, and the user is asked about it as it is now');
-                answer = await ctx.ask(previewText({ server, entry: read.entry, body: read.body, isVerified: read.isVerified }), ['no', 'load'], [server, read.entry.frontmatter.name]);
+                answer = await ctx.ask(previewText({ server, entry: read.entry, body: read.body, isVerified: read.isVerified }), ['no', 'load']);
             }
-            if ('pending' in answer) throw new LocalError(answer.pending);
             if ('unavailable' in answer) throw new LocalError(`the skill is not loaded: the user could not be asked (${answer.unavailable}). A skill the user approves once in an interactive Codex session loads without the question afterwards, while it is unchanged`);
             if (answer.decision !== 'load') {
                 this.#log(`${server}: ${uri} not approved`);

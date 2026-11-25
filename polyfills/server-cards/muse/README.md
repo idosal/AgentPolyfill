@@ -11,10 +11,15 @@ and for Pi: [mcp-server-cards for Pi](../pi/README.md).
 This plugin implements the client side of MCP Server Cards,
 [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md)
 (Final; the extension is Beta).
-- **The folder.** It's the Codex plugin's folder, [`../codex/plugin`](../codex/plugin),
-  with a Muse manifest beside the Codex one
-  ([`.muse-plugin/plugin.json`](../codex/plugin/.muse-plugin/plugin.json)).
-- **The Muse-only code** is in [`../codex/src/muse.ts`](../codex/src/muse.ts).
+- **The folder.** Muse installs from this repository's Codex marketplace, so the
+  plugin lives in the Codex plugin's folder, [`../codex/plugin`](../codex/plugin),
+  with its own manifest ([`.muse-plugin/plugin.json`](../codex/plugin/.muse-plugin/plugin.json))
+  and its own bundle, `muse/dist/server.mjs` there. The Codex bundle beside it is
+  the Codex form's alone, the same with or without this form.
+- **The code.** This folder: [`src/main.ts`](src/main.ts) (the server) and
+  [`src/muse.ts`](src/muse.ts) (the add that gives you the command). It reuses
+  the Codex form's sources ([`../codex/src`](../codex/src)) unchanged.
+- **Its version** is its own, 0.1.0.
 - **All four forms.** [AgentPolyfill in Muse Code](../../../docs/muse.md) covers
   every Muse form.
 
@@ -137,9 +142,11 @@ the rows in [`docs/conformance.md`](docs/conformance.md). Muse runs are in
 
 ## Development
 
-Built and tested with the Codex form, from [`../codex`](../codex): `npm ci`,
-`npm test` (the Muse tests are M-1 to M-7 in `test/adapter.test.ts`, and the
-Muse manifest check in `test/bundle.test.ts`), and `npm run build`.
+From this folder, after `npm ci` in [`../codex`](../codex) (the Muse form builds
+with its pinned esbuild): `npm test` (M-1 to M-7 in `test/adapter.test.ts`, and
+the bundle and manifest checks in `test/bundle.test.ts`), `npm run typecheck`,
+and `npm run build`, which writes `../codex/plugin/muse/dist/server.mjs`. The
+Codex bundle is built in `../codex`, and nothing here changes it.
 
 ## Licence
 

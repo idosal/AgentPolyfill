@@ -70,7 +70,7 @@ polyfills/<extension>/
 | Codex | plugin | `polyfills/<extension>/codex/` |
 | Pi | extension | `polyfills/<extension>/pi/` |
 | OpenCode | V2 server plugin | `polyfills/<extension>/opencode/` |
-| Muse Code | plugin | `polyfills/<extension>/muse/` for its README, SECURITY.md and docs; the code and tests are in `codex/` |
+| Muse Code | plugin | `polyfills/<extension>/muse/` for its sources, tests, README, SECURITY.md and docs; its manifest and bundles are in the Codex plugin folder (`.muse-plugin/`, `muse/`) |
 
 The Apps polyfill, [`polyfills/apps/claude-code`](polyfills/apps/claude-code),
 is a complete example of one adapter. Inside an adapter's folder:
@@ -95,7 +95,7 @@ is a complete example of one adapter. Inside an adapter's folder:
   | Codex | Copied on install; carries `.codex-plugin/plugin.json`, which can sit beside another host's manifest. |
   | Pi | A separate `pi/extension/` folder with a manifest and one bundled file. The Git install loads the three extensions from Pi's copy of the repository under `~/.pi/agent/git/`. A local install loads its path in place, so that clone must stay. |
   | OpenCode | A separate `opencode/plugin/` folder: one bundled file, `server.js`, the bundle's licence notices where it holds other packages' code, and a small `package.json` that names it, which `opencode plugin add` installs from GitHub. OpenCode runs it inside its own server, once per project folder. |
-  | Muse Code | The Codex plugin folder, with `.muse-plugin/plugin.json` beside `.codex-plugin/plugin.json`. Muse reads the Codex marketplace and copies the folder on install. Its manifest starts the same bundle with `--host=muse`, and each hook is one bundled script, because Muse trusts a hook by its script file. |
+  | Muse Code | The Codex plugin folder, with `.muse-plugin/plugin.json` beside `.codex-plugin/plugin.json`. Muse reads the Codex marketplace and copies the folder on install. Its manifest starts the Muse form's own bundle, in `muse/` there, built from `polyfills/<extension>/muse` with the Codex sources unchanged, so the Codex bundle stays as it is. Each hook is one bundled script, because Muse trusts a hook by its script file. |
 
 - **A marketplace plugin's name** is unique in this repository. The same
   name is used in the marketplace entries, in release tags and in the
@@ -334,8 +334,10 @@ one `core/` with these forms:
    folder with that host's manifest, `core/` bundled into it, and the host's
    own tests beside it. A host that reads another host's plugins and
    marketplace can share that host's folder instead, with its own manifest
-   beside the other one: Muse Code's forms are the Codex plugin folders with a
-   `.muse-plugin/plugin.json`, and the same bundle told which host it is in
+   beside the other one and its own bundle: Muse Code's forms are the Codex
+   plugin folders with a `.muse-plugin/plugin.json` and the Muse bundles in
+   `muse/`, built from `polyfills/<extension>/muse`, which reuses the Codex
+   sources unchanged. The other host's bundle must stay byte-identical
    ([AgentPolyfill in Muse Code](docs/muse.md)).
 4. **Meet the contract in that host.** It needs its own README (step 3), with
    that host's install line, requirements, limits and stand-down, its own

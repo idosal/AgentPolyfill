@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "name": "mcp-skills",
   "displayName": "MCP Skills",
-  "version": "0.1.7",
+  "version": "0.1.0",
   "description": "MCP Skills (SEP-2640) for Muse Code: skills served by your MCP servers are listed among Muse's skills, and load after you confirm each one by typing, checked against the server's digests.",
   "compat": {
     "source": "native",
@@ -28,7 +28,7 @@
       {
         "id": "mcp-skills",
         "transport": "stdio",
-        "command": ["node", "dist/helper.js", "--host=muse"]
+        "command": ["node", "muse/dist/helper.js"]
       }
     ]
   }

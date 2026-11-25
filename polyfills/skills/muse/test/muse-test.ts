@@ -1,6 +1,7 @@
-// The helper in Muse Code (--host=muse): Muse's settings as the server list, the stubs flat in
-// Muse's own skill folder, and the person's yes typed as a message of their own (load <code>),
-// read by the bundled UserPromptSubmit hook. Against the fixture server of the Claude Code form.
+// The Muse Code form: Muse's settings as the server list, the stubs flat in Muse's own skill
+// folder, and the person's yes typed as a message of their own (load <server> <skill> <code>),
+// read by the bundled UserPromptSubmit hook. Against the fixture server of the Claude Code form,
+// with the Codex form's app and test harness, which this form reuses unchanged.
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync, type ChildProcess } from 'node:child_process';
@@ -10,15 +11,21 @@ import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { after, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { closeAll, digest, Fixture, scenarioOf, skill, startApp, temp } from './harness.ts';
+import { closeAll, digest, Fixture, scenarioOf, skill, startApp, temp } from '../../codex/test/harness.ts';
 import { confirmFromPrompt, flatStubDir, museAsk, museManagedFor, museWords, readMuseSkillsConfig, syncFlatStubs } from '../src/muse.ts';
-import type { Asked, Decision } from '../src/app.ts';
+import { loadSubject } from '../src/muse-confirm.ts';
+import type { Asked, Decision } from '../../codex/src/app.ts';
 import type { Listed } from '../../core/src/skills.ts';
+import { LocalError } from '../../core/src/untrusted.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const HOOK = join(ROOT, 'mod', 'muse', 'hooks', 'user-prompt-submit.mjs');
+/** The Codex plugin folder, which holds this form's manifest and bundles too. */
+const MOD = join(ROOT, '..', 'codex', 'mod');
+const HOOK = join(MOD, 'muse', 'hooks', 'user-prompt-submit.mjs');
+/** The helper as Muse runs it: the bundle, where build.mjs gives the Codex form's app the Muse stubs module (test 'the bundles …' checks it is current). */
+const HELPER = join(MOD, 'muse', 'dist', 'helper.js');
 // The stand-in muse of mcp-events' Muse tests: `muse config status --json`.
-const FAKE_MUSE = join(ROOT, '..', '..', 'events', 'codex', 'test', 'fake-muse.mjs');
+const FAKE_MUSE = join(ROOT, '..', '..', 'events', 'muse', 'test', 'fake-muse.mjs');
 after(closeAll);
 
 /** Muse's user settings in `home`: its MCP servers, and this plugin's server turned on (approved), unless `serverOn` is false. */
@@ -33,15 +40,28 @@ function museSettings(home: string, mcpServers: Record<string, unknown> = {}, o:
  */
 function typedAnswers(dir: string, session: string, typed: (phrase: string) => string | undefined) {
     const ask = museAsk(dir, session);
-    return (async (message: string, choices: Decision[], subject?: readonly string[]): Promise<Asked> => {
-        const r = await ask(message, choices, subject);
-        if ('pending' in r) {
-            const phrase = /exactly: (load .*\d{4})$/m.exec(r.pending)![1]!;
-            const said = typed(phrase);
+    return (async (message: string, choices: Decision[]): Promise<Asked> => {
+        try {
+            return await ask(message, choices);
+        } catch (e) {
+            // A waiting question is the tool's answer: the person reads it, and may type the phrase.
+            const phrase = e instanceof LocalError ? /exactly: (load .*\d{4})$/m.exec(e.message)?.[1] : undefined;
+            const said = phrase ? typed(phrase) : undefined;
             if (said !== undefined) confirmFromPrompt(dir, session, said);
+            throw e;
         }
-        return r;
     }) as never;
+}
+
+/** What a waiting question tells the model (museAsk throws it, so load_skill answers with it). */
+async function waiting(p: Promise<Asked>): Promise<string> {
+    try {
+        const r = await p;
+        assert.fail(`not waiting for the person: ${JSON.stringify(r)}`);
+    } catch (e) {
+        if (e instanceof LocalError) return e.message;
+        throw e;
+    }
 }
 
 const listed = (label: string, uri: string, name = 'git-workflow'): Listed => ({ label, entry: { uri, frontmatter: { name, description: `${name} skill` }, resources: [] } }) as unknown as Listed;
@@ -53,18 +73,20 @@ function hook(input: Record<string, unknown>, env: Record<string, string>): stri
 }
 
 describe('the Muse plugin folder', () => {
-    test('the bundled hook is what src/ builds, and the Muse manifest names the same plugin and files that are in the folder', () => {
+    test('the bundles are what src/ builds, and the Muse manifest names the same plugin, its own version and its own bundles', () => {
         const out = temp();
         execFileSync(process.execPath, [join(ROOT, 'build.mjs'), out], { cwd: ROOT, stdio: 'ignore' });
-        assert.equal(readFileSync(join(out, 'user-prompt-submit.mjs'), 'utf8'), readFileSync(HOOK, 'utf8'), 'run npm run build and commit mod/muse/hooks');
-        const muse = JSON.parse(readFileSync(join(ROOT, 'mod', '.muse-plugin', 'plugin.json'), 'utf8'));
+        assert.deepEqual(readdirSync(join(MOD, 'muse', 'dist')), ['helper.js']);
+        assert.ok(readFileSync(join(out, 'helper.js')).equals(readFileSync(HELPER)), 'run npm run build in polyfills/skills/muse and commit mod/muse/dist');
+        assert.equal(readFileSync(join(out, 'user-prompt-submit.mjs'), 'utf8'), readFileSync(HOOK, 'utf8'), 'run npm run build in polyfills/skills/muse and commit mod/muse/hooks');
+        const muse = JSON.parse(readFileSync(join(MOD, '.muse-plugin', 'plugin.json'), 'utf8'));
         assert.equal(muse.name, 'mcp-skills');
         assert.equal(muse.version, JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version);
         assert.deepEqual(muse.compat, { source: 'native', manifestDir: '.muse-plugin' });
-        assert.deepEqual(muse.capabilities.mcpServers, [{ id: 'mcp-skills', transport: 'stdio', command: ['node', 'dist/helper.js', '--host=muse'] }]);
+        assert.deepEqual(muse.capabilities.mcpServers, [{ id: 'mcp-skills', transport: 'stdio', command: ['node', 'muse/dist/helper.js'] }]);
         assert.deepEqual(muse.capabilities.hooks.map((h: { event: string; command: string[] }) => [h.event, h.command]), [['UserPromptSubmit', ['node', 'muse/hooks/user-prompt-submit.mjs']]]);
         for (const s of muse.capabilities.skills) {
-            assert.ok(existsSync(join(ROOT, 'mod', s.path)), s.path);
+            assert.ok(existsSync(join(MOD, s.path)), s.path);
             assert.ok(!s.path.startsWith('skills/'), 'Codex lists every SKILL.md under skills/');
         }
     });
@@ -92,35 +114,42 @@ describe('stubs in Muse', () => {
 });
 
 describe("the person's yes, typed", () => {
-    test('a question waits for exactly "load <code>" in a message of the person\'s own, in the same session, once', async () => {
+    test('a question waits for exactly "load <server> <skill> <code>" in a message of the person\'s own, in the same session, once', async () => {
         const dir = temp();
         const s = randomUUID();
         const ask = museAsk(dir, s);
-        const first = await ask('Load the skill "x" from the MCP server "srv"?\nURI: skill://x/SKILL.md', ['no', 'show', 'load']);
-        assert.ok('pending' in first);
-        const code = /exactly: load (\d{4})\b/.exec((first as { pending: string }).pending)![1]!;
-        assert.match((first as { pending: string }).pending, /Show them this question as it is:\n\nLoad the skill "x"/);
+        const Q = 'Load the skill "x" from the MCP server "srv"?\nURI: skill://x/SKILL.md';
+        const first = await waiting(ask(Q, ['no', 'show', 'load']));
+        const code = /exactly: load srv x (\d{4})$/m.exec(first)?.[1];
+        assert.ok(code, `the phrase names the server and the skill: ${first}`);
+        assert.match(first, /Show them this question as it is:\n\nLoad the skill "x"/);
         // Asked again before the person answered: the same code.
-        assert.match(((await ask('Load the skill "x" from the MCP server "srv"?\nURI: skill://x/SKILL.md', ['no', 'show', 'load'])) as { pending: string }).pending, new RegExp(`load ${code}\\b`));
-        assert.equal(confirmFromPrompt(dir, s, `please load ${code}`), undefined, 'the whole message, nothing else');
-        assert.equal(confirmFromPrompt(dir, randomUUID(), `load ${code}`), undefined, 'another session');
-        assert.equal(confirmFromPrompt(dir, s, ` Load ${code} `), 'Load the skill "x" from the MCP server "srv"?');
-        assert.deepEqual(await ask('Load the skill "y" from the MCP server "srv"?', ['no', 'show', 'load']).then((a) => 'pending' in a), true, 'a different question is not approved');
+        assert.match(await waiting(ask(Q, ['no', 'show', 'load'])), new RegExp(`load srv x ${code}$`, 'm'));
+        assert.equal(confirmFromPrompt(dir, s, `please load srv x ${code}`), undefined, 'the whole message, nothing else');
+        assert.equal(confirmFromPrompt(dir, s, `load ${code}`), undefined, 'the code alone');
+        assert.equal(confirmFromPrompt(dir, s, `load srv y ${code}`), undefined, 'another skill');
+        assert.equal(confirmFromPrompt(dir, randomUUID(), `load srv x ${code}`), undefined, 'another session');
+        assert.equal(confirmFromPrompt(dir, s, ` Load SRV  x ${code} `), 'Load the skill "x" from the MCP server "srv"?');
+        assert.ok(await waiting(ask('Load the skill "y" from the MCP server "srv"?', ['no', 'show', 'load'])), 'a different question is not approved');
     });
 
-    test('the yes is for that question only, and runs out', async () => {
+    test('the yes is for that question only, and runs out; a question the phrase cannot name is not asked', async () => {
         const dir = temp();
         const s = randomUUID();
         let t = 1_000_000;
         const ask = museAsk(dir, s, () => t);
-        const code = /load (\d{4})/.exec(((await ask('Q1', ['load'])) as { pending: string }).pending)![1]!;
-        assert.ok(confirmFromPrompt(dir, s, `load ${code}`, t));
-        assert.deepEqual(await ask('Q1', ['load']), { decision: 'load' });
-        assert.ok('pending' in (await ask('Q1', ['load'])), 'once');
-        const again = /load (\d{4})/.exec(((await ask('Q1', ['load'])) as { pending: string }).pending)![1]!;
+        const Q1 = 'Load the skill "q1" from the MCP server "srv"?';
+        const code = /load srv q1 (\d{4})/.exec(await waiting(ask(Q1, ['load'])))![1]!;
+        assert.ok(confirmFromPrompt(dir, s, `load srv q1 ${code}`, t));
+        assert.deepEqual(await ask(Q1, ['load']), { decision: 'load' });
+        assert.ok(await waiting(ask(Q1, ['load'])), 'once');
+        const again = /load srv q1 (\d{4})/.exec(await waiting(ask(Q1, ['load'])))![1]!;
         t += 16 * 60 * 1000;
-        assert.equal(confirmFromPrompt(dir, s, `load ${again}`, t), undefined, 'a question waits 15 minutes');
-        assert.deepEqual(await museAsk(dir, undefined)('Q', ['load']).then((a) => 'unavailable' in a), true);
+        assert.equal(confirmFromPrompt(dir, s, `load srv q1 ${again}`, t), undefined, 'a question waits 15 minutes');
+        assert.deepEqual(await museAsk(dir, undefined)(Q1, ['load']).then((a) => 'unavailable' in a), true, 'no session');
+        assert.deepEqual(await ask('Q', ['load']).then((a) => 'unavailable' in a), true, 'a question in another shape');
+        assert.deepEqual(await ask('Load the skill "a b" from the MCP server "srv"?', ['load']).then((a) => 'unavailable' in a), true, 'a name that cannot be typed plainly');
+        assert.deepEqual(loadSubject('Load the skill "x\\"y" from the MCP server "s"?\nmore'), ['s', 'x"y']);
     });
 
     test('the bundled hook approves only the waiting question, tells the model, and prints nothing otherwise', async () => {
@@ -129,17 +158,18 @@ describe("the person's yes, typed", () => {
         const env = { MUSE_PLUGIN_DATA_DIR: dir, HOME: dir };
         museSettings(dir);
         assert.equal(hook({ session_id: s, prompt: 'load 1234' }, env), '');
-        const code = /load (\d{4})/.exec(((await museAsk(dir, s)('Load the skill "x"?', ['load'])) as { pending: string }).pending)![1]!;
-        const out = JSON.parse(hook({ hook_event_name: 'UserPromptSubmit', session_id: s, prompt: `load ${code}` }, env));
+        const code = /load srv x (\d{4})/.exec(await waiting(museAsk(dir, s)('Load the skill "x" from the MCP server "srv"?', ['load'])))![1]!;
+        assert.equal(hook({ session_id: s, prompt: `load ${code}` }, env), '', 'the code alone');
+        const out = JSON.parse(hook({ hook_event_name: 'UserPromptSubmit', session_id: s, prompt: `load srv x ${code}` }, env));
         assert.equal(out.hookSpecificOutput.hookEventName, 'UserPromptSubmit');
-        assert.match(out.hookSpecificOutput.additionalContext, /they approve "Load the skill "x"\?"\. Call load_skill again/);
-        assert.equal(out.systemMessage, 'mcp-skills: you approved: Load the skill "x"?');
+        assert.match(out.hookSpecificOutput.additionalContext, /they approve "Load the skill "x" from the MCP server "srv"\?"\. Call load_skill again/);
+        assert.equal(out.systemMessage, 'mcp-skills: you approved: Load the skill "x" from the MCP server "srv"?');
         writeFileSync(join(dir, 'settings.json'), JSON.stringify({ off: true }));
-        assert.equal(hook({ session_id: s, prompt: `load ${code}` }, env), '', 'off in its settings');
+        assert.equal(hook({ session_id: s, prompt: `load srv x ${code}` }, env), '', 'off in its settings');
         writeFileSync(join(dir, 'settings.json'), '{}');
         museSettings(dir, {}, { serverOn: false });
-        const again = /load (\d{4})/.exec(((await museAsk(dir, s)('Load the skill "y"?', ['load'])) as { pending: string }).pending)![1]!;
-        assert.equal(hook({ session_id: s, prompt: `load ${again}` }, env), '', "with the plugin's MCP server turned off in Muse, the hook approves nothing");
+        const again = /load srv y (\d{4})/.exec(await waiting(museAsk(dir, s)('Load the skill "y" from the MCP server "srv"?', ['load'])))![1]!;
+        assert.equal(hook({ session_id: s, prompt: `load srv y ${again}` }, env), '', "with the plugin's MCP server turned off in Muse, the hook approves nothing");
         assert.equal(spawnSync(process.execPath, [HOOK], { input: 'not json', encoding: 'utf8' }).status, 0);
     });
 });
@@ -168,7 +198,7 @@ describe('the helper in Muse', () => {
         const data = join(home, 'data');
         const session = randomUUID();
         const env = { PATH: process.env.PATH ?? '', HOME: home, TMPDIR: process.env.TMPDIR ?? '/tmp', MUSE_SESSION_ID: session, MUSE_PLUGIN_ID: 'mcp-skills', MUSE_PLUGIN_DATA_DIR: data, MCP_SKILLS_MUSE_BIN: FAKE_MUSE };
-        const child: ChildProcess = spawn(process.execPath, ['--no-warnings', join(ROOT, 'src', 'helper.ts'), '--host=muse'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+        const child: ChildProcess = spawn(process.execPath, [HELPER], { env, stdio: ['pipe', 'pipe', 'pipe'] });
         let stderr = '';
         child.stderr!.on('data', (d) => (stderr += d));
         const waiting = new Map<number, (m: { result?: { content: { text: string }[]; isError?: boolean; tools?: { description: string }[] } }) => void>();

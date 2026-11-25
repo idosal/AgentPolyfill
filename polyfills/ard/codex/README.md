@@ -5,7 +5,7 @@ domain lists, or by asking an ARD registry for a server that can do a task.
 You choose the registry, and Codex shows you a form before every search.
 
 Also available for Claude Code, Pi and OpenCode: [ard-discovery for Claude Code](../claude-code/README.md), [ard-discovery for Pi](../pi/README.md), [ard-discovery for OpenCode](../opencode/README.md).
-The same plugin folder is also the Muse Code form: [ard-discovery for Muse Code](../muse/README.md).
+The same plugin folder also holds the Muse Code form, with its own manifest and bundles: [ard-discovery for Muse Code](../muse/README.md).
 
 > Find an MCP server that can check why my CI build failed.
 
@@ -58,9 +58,12 @@ To remove it, run `codex plugin remove ard-discovery@agent-polyfill`.
 
 ## In Muse Code
 
-The same folder installs in Muse Code: [ard-discovery for Muse Code](../muse/README.md)
-has the install steps, what works differently there and why, its limits, and
-its security notes.
+This folder also holds the Muse Code form: its own manifest
+(`.muse-plugin/plugin.json`) and bundles (`muse/`), built from
+[`../muse`](../muse) with this form's sources unchanged. This form's bundle is
+the same with or without it. [ard-discovery for Muse Code](../muse/README.md) has the
+install steps, what works differently there and why, its limits, and its
+security notes.
 
 ## Try it
 

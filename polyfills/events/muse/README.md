@@ -11,14 +11,19 @@ and for Pi: [mcp-events for Pi](../pi/README.md).
 This plugin implements the client side of the MCP Events extension,
 [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
 (the Final text, as of 24 November 2026), which Muse doesn't support itself.
-It's the Codex plugin's folder, [`../codex/plugin`](../codex/plugin), with a
-Muse manifest beside the Codex one ([`.muse-plugin/plugin.json`](../codex/plugin/.muse-plugin/plugin.json)).
-Muse runs the same bundle, told it is in Muse. The code that differs is in
-[`../codex/src/muse.ts`](../codex/src/muse.ts),
-[`muse-confirm.ts`](../codex/src/muse-confirm.ts),
-[`muse-config.ts`](../codex/src/muse-config.ts) and
-[`muse-prompt-hook.ts`](../codex/src/muse-prompt-hook.ts).
-[AgentPolyfill in Muse Code](../../../docs/muse.md) covers all four Muse forms.
+- **The folder.** Muse installs from this repository's Codex marketplace, so the
+  plugin lives in the Codex plugin's folder, [`../codex/plugin`](../codex/plugin),
+  with its own manifest ([`.muse-plugin/plugin.json`](../codex/plugin/.muse-plugin/plugin.json))
+  and its own bundles in `muse/` there. The Codex bundle beside them is the
+  Codex form's alone, the same with or without this form.
+- **The code.** This folder: [`src/helper.ts`](src/helper.ts) (the server),
+  [`src/muse.ts`](src/muse.ts), [`src/muse-confirm.ts`](src/muse-confirm.ts),
+  [`src/muse-config.ts`](src/muse-config.ts) and
+  [`src/muse-prompt-hook.ts`](src/muse-prompt-hook.ts) (the hook). It reuses the
+  Codex form's sources ([`../codex/src`](../codex/src)) unchanged.
+- **Its version** is its own, 0.1.0.
+- **All four forms.** [AgentPolyfill in Muse Code](../../../docs/muse.md) covers
+  every Muse form.
 
 ## Install
 
@@ -237,15 +242,18 @@ made-up key.
 
 ## Development
 
-The Muse form is built and tested with the Codex form, from
-[`../codex`](../codex):
+From this folder. The Muse form has no dependencies of its own: it builds with
+the Codex form's pinned esbuild, and its sources' packages come from there.
 
 ```bash
 (cd ../core && npm ci)
-cd ../codex && npm ci
-npm test              # test/muse-test.ts is the Muse form's
-npm run build         # plugin/dist/helper.js and plugin/muse/hooks/user-prompt-submit.mjs
+(cd ../codex && npm ci)
+npm test              # its tests (test/muse-test.ts, test/plugin-test.ts)
+npm run typecheck
+npm run build         # ../codex/plugin/muse/dist/helper.js and ../codex/plugin/muse/hooks/user-prompt-submit.mjs
 ```
+
+The Codex bundle is built in [`../codex`](../codex), and nothing here changes it.
 
 ## Licence
 

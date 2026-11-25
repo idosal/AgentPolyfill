@@ -9,9 +9,15 @@ for Codex: [ard-discovery for Codex](../codex/README.md),
 and for Pi: [ard-discovery for Pi](../pi/README.md).
 
 [ARD](https://github.com/ards-project/ard-spec) v0.91 is a draft.
-- **The folder.** It's the Codex plugin's folder, [`../codex/plugin`](../codex/plugin),
-  with a Muse manifest beside the Codex one
-  ([`.muse-plugin/plugin.json`](../codex/plugin/.muse-plugin/plugin.json)).
+- **The folder.** Muse installs from this repository's Codex marketplace, so the
+  plugin lives in the Codex plugin's folder, [`../codex/plugin`](../codex/plugin),
+  with its own manifest ([`.muse-plugin/plugin.json`](../codex/plugin/.muse-plugin/plugin.json))
+  and its own bundle, `muse/dist/server.mjs` there. The Codex bundle beside it is
+  the Codex form's alone, the same with or without this form.
+- **The code.** [`src/main.ts`](src/main.ts): the Codex form's `ard_discover`,
+  named for Muse, and mcp-server-cards' Muse add
+  ([`../../server-cards/muse/src/muse.ts`](../../server-cards/muse/src/muse.ts)).
+- **Its version** is its own, 0.1.0.
 - **All four forms.** [AgentPolyfill in Muse Code](../../../docs/muse.md) covers
   every Muse form.
 
@@ -95,9 +101,12 @@ model.**
 
 ## Development
 
-Built and tested with the Codex form, from [`../codex`](../codex): `npm ci`,
-`npm test` (the Muse tests are M-1 to M-3 in `test/adapter.test.ts`), and
-`npm run build`.
+From this folder, after `npm ci` in [`../codex`](../codex) and in
+[`../../server-cards/codex`](../../server-cards/codex): `npm test` (M-1 to M-3 in
+`test/adapter.test.ts`, and the bundle and manifest checks in
+`test/bundle.test.ts`), `npm run typecheck`, and `npm run build`, which writes
+`../codex/plugin/muse/dist/server.mjs`. The Codex bundle is built in `../codex`,
+and nothing here changes it.
 
 ## Licence
 

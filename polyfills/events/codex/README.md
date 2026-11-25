@@ -4,7 +4,7 @@ Codex can watch events on your MCP servers ("tell me when a deploy fails")
 and act when one fires, even while the session sits idle with nobody typing.
 
 Also available for Claude Code, Pi and OpenCode: [mcp-events for Claude Code](../claude-code/README.md), [mcp-events for Pi](../pi/README.md), [mcp-events for OpenCode](../opencode/README.md).
-The same plugin folder is also the Muse Code form: [mcp-events for Muse Code](../muse/README.md).
+The same plugin folder also holds the Muse Code form, with its own manifest and bundles: [mcp-events for Muse Code](../muse/README.md).
 
 This plugin implements the client side of the MCP Events extension,
 [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
@@ -31,9 +31,12 @@ To remove it, run `codex plugin remove mcp-events@agent-polyfill`.
 
 ## In Muse Code
 
-The same folder installs in Muse Code: [mcp-events for Muse Code](../muse/README.md)
-has the install steps, what works differently there and why, its limits, and
-its security notes.
+This folder also holds the Muse Code form: its own manifest
+(`.muse-plugin/plugin.json`) and bundles (`muse/`), built from
+[`../muse`](../muse) with this form's sources unchanged. This form's bundle is
+the same with or without it. [mcp-events for Muse Code](../muse/README.md) has the
+install steps, what works differently there and why, its limits, and its
+security notes.
 
 ## Try it
 
