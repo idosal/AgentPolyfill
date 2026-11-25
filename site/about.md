@@ -15,9 +15,13 @@ What runs in each host:
 - **Codex:** Events, Skills, Server Cards and ARD.
 - **Pi:** Events, Skills, Server Cards and ARD, as Pi extensions. Apps has no
   Pi form.
+- **OpenCode:** Events, Skills, Server Cards and ARD, as OpenCode plugins.
+  Apps has no OpenCode form.
 
 See [Getting started](/guide/getting-started) for installation. Nothing for Pi
 is published to npm or Pi's package gallery; install from a repository clone.
+Nothing for OpenCode is published to npm either; OpenCode installs each plugin
+from the repository on GitHub, with Git.
 
 ## Not affiliated
 

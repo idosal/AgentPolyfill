@@ -116,6 +116,44 @@ To try one for a single run without installing, replace `<polyfill>` with
 pi -e ./polyfills/<polyfill>/pi/extension
 ```
 
+### OpenCode
+
+OpenCode 2.4 or newer (the V2 plugin API; tested with 2.4.1), with Git, which
+OpenCode uses to fetch each plugin. OpenCode runs the plugins itself, so you
+don't need Node. Nothing for OpenCode is published to npm: OpenCode installs
+each plugin from this repository on GitHub. In a terminal, install the ones
+you want:
+
+```bash
+opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/events/opencode/plugin'
+opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/skills/opencode/plugin'
+opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/server-cards/opencode/plugin'
+opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/ard/opencode/plugin'
+```
+
+These steps were tested from a clean, isolated OpenCode, installing from
+GitHub. There is no OpenCode bundle or single install for every polyfill.
+Apps has no OpenCode form. ARD carries the Server Cards code and its own add
+tool; installing `mcp-server-cards` beside it is optional.
+
+Each command adds the plugin to `plugins` in your global configuration
+(`~/.config/opencode/opencode.json`), so it runs in every project, from the
+next time OpenCode opens one. `#main` installs what the main branch holds; a
+commit in its place pins one version. Each `plugin/` folder holds one bundled
+file, `server.js`, and a `package.json` that names it, with nothing to build;
+the Events and Skills folders carry the bundle's licence notices too.
+
+Or, from a clone of this repository, add a plugin's folder to `plugins`
+yourself, in the global configuration or a project's `opencode.json`:
+
+```jsonc
+{
+  "plugins": ["/path/to/AgentPolyfill/polyfills/events/opencode/plugin"]
+}
+```
+
+OpenCode loads it the next time it opens the project.
+
 ## Requirements
 
 ### In Claude Code
@@ -182,6 +220,60 @@ Each Pi form's README has the rest:
 [Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi) and
 [ARD discovery](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi).
 
+### In OpenCode
+
+| | OpenCode | What else it needs |
+|---|---|---|
+| Events | 2.4 or newer (tested with 2.4.1) | Git, to install it. A watch runs while OpenCode has the project open. |
+| Skills | 2.4 or newer (tested with 2.4.1) | Git, to install it. |
+| Server Cards, ARD | 2.4 or newer (tested with 2.4.1) | Git, to install it. An added server connects over streamable HTTP; an SSE remote is refused. |
+| Apps | not available | OpenCode has no MCP Apps support, and a plugin can't read a `ui://` resource or a tool's `_meta`; an OpenCode form was assessed, not built. |
+
+Each one runs inside OpenCode's own server, once per project folder, so it
+works the same from the TUI (`opencode`), OpenCode Desktop or a client of
+`opencode serve`. All four were run with a real model against OpenCode's
+server; Events, Skills and Server Cards in the TUI too; Events and Skills in
+OpenCode Desktop 2.4.1. Server Cards and ARD weren't tried in OpenCode
+Desktop, and ARD wasn't tried in the TUI. The tests run in OpenCode 2.4.1 on
+Linux, macOS and Windows; Windows hasn't been tried by hand.
+
+OpenCode's shipped permission rules allow every action. Each polyfill puts
+its own actions to those rules and asks you by default: starting or stopping
+a watch, loading a skill, a read of another server's resource while a served
+skill is loaded, adding or removing a server, a registry search. A `deny` or
+`ask` rule you write wins. With nobody there to answer, as in a scheduled
+run, OpenCode refuses the question. To leave them to OpenCode's rules alone,
+set the plugin option `askByDefault` to `false`, in the object form of the
+plugin's entry (`{ "package": "<path or spec>", "options": { "askByDefault": false } }`),
+or `MCP_EVENTS_ASK_BY_DEFAULT=0`, `MCP_SKILLS_ASK_BY_DEFAULT=0`,
+`MCP_SERVER_CARDS_ASK_BY_DEFAULT=0` or `ARD_DISCOVERY_ASK_BY_DEFAULT=0` in
+the environment OpenCode starts in. An `allow` rule you write doesn't skip
+the question by itself, since the plugin can't tell it from OpenCode's
+default.
+
+"Allow always" keeps your answer for a watch's server and event type
+(Events) or for a skill as it is now (Skills), in that project. The plugin
+keeps its own record of it, so taking it back in OpenCode doesn't make it ask
+again; an `ask` rule for the action does. Server Cards and ARD save nothing:
+each addition and each search is asked about on its own.
+
+In OpenCode 2.4.1's TUI, the prompt for a polyfill's action says only "Call
+tool `<action>`", such as "Call tool mcp_events_watch"; the details are on the
+model's call line just above it. OpenCode Desktop shows the action and its
+resource (seen for Events and Skills). After a wake or a load, what the model
+does goes through OpenCode's rules as usual, and their default allows it.
+
+Events and Skills each open their own connection to a server: a local server
+runs twice. OpenCode loads a project's plugins when something uses that
+project, so a saved watch runs again only when OpenCode next opens the
+project; events from the meantime arrive then.
+
+Each OpenCode form's README has the rest:
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/opencode),
+[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/opencode),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/opencode) and
+[ARD discovery](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/opencode).
+
 ## First run
 
 Events and Apps each have a hosted demo server to try them against, Skills
@@ -203,6 +295,13 @@ codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 
 ```bash [Pi]
 pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
+```
+
+```jsonc [OpenCode]
+// opencode.json
+{
+  "mcp": { "feeds": { "type": "remote", "url": "https://event-feeds.idosalomon.workers.dev/mcp" } }
+}
 ```
 
 :::
@@ -234,6 +333,20 @@ For the demo button:
   folder. The [Pi live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/live-run.md)
   records a confirmed watch, idle wake, event read, answer and stop against
   a local ticket server.
+- **OpenCode:** the entry goes in `mcp` in `opencode.json`, the project's or
+  your global one. The agent makes a private button page, gives you its link,
+  and watches it. OpenCode asks before the watch starts, naming the server
+  and the event type; in the TUI the prompt says only "Call tool
+  mcp_events_watch", and both are on the model's call line above it. "Allow
+  always" keeps that answer for that server and event type in this project.
+  Press the button: the idle session wakes with a message from the plugin
+  that starts with `[mcp-events]`, and the model reads the event and answers.
+  The TUI shows the wake as `◈ mcp-events: new events`; OpenCode Desktop
+  shows no entry for it, so the turn starts with no visible cause. By
+  default, a watch can wake the session once a minute and the session can
+  wake 30 times an hour. Watches resume when OpenCode next opens the project.
+  The [OpenCode live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md#public-infrastructure)
+  records a demo button pressed on this server and the idle session woken.
 
 [More on Events](./events)
 
@@ -253,6 +366,13 @@ codex mcp add huggingface --url https://huggingface.co/mcp
 pi mcp add huggingface --url https://huggingface.co/mcp
 ```
 
+```jsonc [OpenCode]
+// opencode.json
+{
+  "mcp": { "huggingface": { "type": "remote", "url": "https://huggingface.co/mcp", "oauth": false } }
+}
+```
+
 :::
 
 - **Claude Code:** `/mcp-skills` lists what it serves.
@@ -262,6 +382,11 @@ pi mcp add huggingface --url https://huggingface.co/mcp
   `mcp-<server>-<name>`, with descriptions marked
   `[MCP server "<server>", not a local skill]`. Pi can choose one for the
   task, or you can name it with `/skill:mcp-...`.
+- **OpenCode:** the served skills are in OpenCode's own skill list as
+  `mcp-skills:huggingface:<name>`, each described
+  `[MCP server "huggingface", not a local skill] …`.
+  `mcp_skills_list_skills` lists them, and each server it left alone, with
+  the reason.
 
 Then ask a question one of its skills covers:
 
@@ -278,6 +403,20 @@ server asks "mcp-skills: reach another MCP server?", naming both servers
 The [Pi live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/docs/live-run.md)
 used Hugging Face's server, loaded two skills after approval, read reference
 files and answered from them; a second run previewed each skill first.
+
+In OpenCode, loading takes two steps: OpenCode's skill tool returns a short
+note from the plugin, then the model calls `mcp_skills_load_skill`, and
+OpenCode asks: "Allow once", "Allow always" or "Reject". There is no preview
+of the skill's `SKILL.md` before you decide. In the TUI the prompt says only
+"Call tool mcp_skills_load": the server and the skill's URI are on the
+model's call line above it, and "Always allow" shows the pattern it would
+save, bound to the skill's digest. "Allow always" covers that skill as it is
+now; a changed skill asks again. While a served skill is loaded, OpenCode's
+own read of another server's resource is asked about, naming both servers
+(SEP-2640 X8). The [OpenCode live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md)
+loaded two Hugging Face skills after OpenCode asked, and answered from them.
+In that run, under OpenCode's default rules, the model also ran a command a
+loaded skill described, without a prompt.
 
 [More on Skills](./skills)
 
@@ -302,6 +441,15 @@ Then add **Neon Docs** (no sign-in):
   connects without a restart. Decline or close the dialog and nothing is
   added. This was shown in the [Pi live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/docs/live-run.md).
   For a server that needs sign-in, use `/mcp` or `pi mcp login <name>`.
+- **OpenCode:** ask "Add Neon Docs". OpenCode asks; in the TUI the prompt
+  says only "Call tool mcp_server_cards_add", with "Allow once" and "Reject",
+  and the name and URL are on the model's call line above it. Allowed, the
+  server is in OpenCode's MCP servers at once, for this project, and OpenCode
+  connects it. It isn't written to your configuration files. For a server
+  behind a sign-in, add it the same way, then run `opencode mcp auth <name>`
+  in a terminal. Ask OpenCode to remove Neon Docs to take it out again
+  (`server_cards_remove_mcp_server`). The [OpenCode live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md#in-opencodes-tui)
+  added Neon Docs in the TUI, and OpenCode connected it.
 
 [More on Server Cards](./server-cards)
 
@@ -324,6 +472,36 @@ read buildkite.com's `ard.json` and searched the repository's demo registry
 after approval. **It did not complete the add step:** the model asked in
 chat instead of calling `ard_add_mcp_server`. Addition is covered by tests
 in real Pi with a scripted model and a local server.
+[More on ARD](./ard)
+
+### ARD in OpenCode
+
+Ask "What does buildkite.com list in its ard.json?" `ard_discover` reads the
+domain's manifest and checks its cards. To search, name a registry in your
+request or set `ARD_DISCOVERY_REGISTRY`: there is no default registry.
+Before anything is sent, `ard_search` is put to OpenCode's rules on the
+registry hosts, and OpenCode asks; nothing is saved, so each search is asked
+about on its own. A registry a referral names is asked about in a prompt of
+its own before the query goes there; rejected, it gets nothing.
+
+In OpenCode's TUI, a prompt for a plugin's action says only "Call tool
+`<action>`" (seen for the other three plugins; ARD wasn't tried there). Since
+nothing is saved, a search's prompt would offer only "Allow once" and
+"Reject", as for Server Cards. The query and the registry you named are on
+the model's call line above it, but **nothing on screen names a registry a
+referral names**, so reject a prompt you can't read. OpenCode Desktop shows a plugin action's
+resource in its prompt, here the registry's host; ARD wasn't tried there
+either.
+
+Adding a result is a separate question through `ard_add_mcp_server`, under
+the same action as a Server Cards addition (`mcp_server_cards_add`).
+
+The [OpenCode live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md)
+read buildkite.com's `ard.json`, and sent a search to the repository's demo
+registry after OpenCode asked. It returned Buildkite's and Netlify's servers,
+each confirmed by its publisher's catalog. No public registry that takes an
+unauthenticated search was found. Addition is covered by tests in real
+OpenCode with a scripted model and a local server.
 [More on ARD](./ard)
 
 ### Apps
@@ -358,6 +536,10 @@ configuration works with Events and Skills:
   `Authorization` header in `mcp.json` works, written out or resolved from
   `${VARIABLE}` or `!command`. The extensions never read `mcp-auth.json` or
   `auth.json`.
+- **OpenCode:** a server OpenCode signs in to with OAuth
+  (`opencode mcp auth`) is out of reach; the polyfill's list tool names each
+  server it left alone, and why. The headers in a server's OpenCode
+  configuration work. The plugins never read OpenCode's stored credentials.
 
 Server Cards is different: it adds a server to the host's own config, and the
 host connects it with its own sign-in. [How it works](./how-it-works) says
@@ -405,3 +587,36 @@ and events, and `mcp-skills/` to remove approvals and skill stubs. If you set
 Servers added through Server Cards or ARD remain in `mcp.json`; remove each
 with `pi mcp remove <name>`, then `/reload` or start a new session to refresh
 an already running Pi.
+
+In OpenCode, set the off switch in the environment OpenCode starts in (or
+the plugin option `{"off": true}`), or remove the plugin with
+`opencode plugin remove` and the same text you added it with:
+
+| | Off without uninstalling | Remove |
+|---|---|---|
+| Events | `MCP_EVENTS_OFF=1` | `opencode plugin remove 'github:idosal/AgentPolyfill#main::path:polyfills/events/opencode/plugin'` |
+| Skills | `MCP_SKILLS_OFF=1` | `opencode plugin remove 'github:idosal/AgentPolyfill#main::path:polyfills/skills/opencode/plugin'` |
+| Server Cards | `MCP_SERVER_CARDS_DISABLED=1` | `opencode plugin remove 'github:idosal/AgentPolyfill#main::path:polyfills/server-cards/opencode/plugin'` |
+| ARD discovery | `ARD_DISCOVERY_DISABLED=1` | `opencode plugin remove 'github:idosal/AgentPolyfill#main::path:polyfills/ard/opencode/plugin'` |
+
+A folder you added to `plugins` yourself is removed by taking its entry out.
+
+OpenCode already has part of Events: its own client takes push events for
+its automations. The Events polyfill stays on beside it, because OpenCode
+doesn't poll or take webhooks and skips event types whose schemas it can't
+check; it tells the model to use a watch or an automation for an event type,
+not both. Turn it off once OpenCode watches every event type for a session,
+by push, poll and webhook.
+
+Removing a plugin leaves OpenCode's downloaded copy in `~/.cache/opencode/npm/`
+(a `git-AgentPolyfill-…` folder), which you can delete. Events leaves its
+watches, stored events and log in `~/.local/share/opencode/mcp-events/`, and
+Skills its log in `~/.local/share/opencode/mcp-skills/`. If you set
+`MCP_EVENTS_STATE` or `MCP_SKILLS_STATE`, the data is at that path instead.
+Delete those to remove it. The "Allow always" answers Events and Skills kept,
+and which skills each session loaded, stay in OpenCode's plugin storage
+(OpenCode's own database). Servers added through Server Cards or ARD were
+never in your configuration files, so they go with the plugin, but its list
+of them stays in that storage and comes back if you install it again: ask
+OpenCode to remove each one first (`server_cards_remove_mcp_server` or
+`ard_remove_mcp_server`).

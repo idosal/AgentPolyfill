@@ -271,7 +271,7 @@ the live server.
   `mcp_skills_load`), below every rule of yours, would do the same with
   neither problem, and leave the decision with your rules.
 - **Show a plugin's permission request as it was made, in the TUI.** The
-  TUI shows a request for an action it doesn't know as "Call tool <action>",
+  TUI shows a request for an action it doesn't know as "Call tool `<action>`",
   without its resources or metadata, so the person reads the model's call
   line above it instead (2.4.1, `packages/tui/src/util/permission.ts`). The
   desktop app already shows the resources. Showing them in the TUI too, and a

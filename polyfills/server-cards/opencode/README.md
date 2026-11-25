@@ -4,8 +4,7 @@ Name a company, and OpenCode finds the MCP servers its domain publishes. Ask
 it to add one, and once you allow it, the server is in OpenCode's MCP
 servers.
 
-Also available for Claude Code ([mcp-server-cards for Claude Code](../claude-code/README.md))
-and Codex ([mcp-server-cards for Codex](../codex/README.md)).
+Also available for Claude Code, Codex and Pi: [mcp-server-cards for Claude Code](../claude-code/README.md), [mcp-server-cards for Codex](../codex/README.md), [mcp-server-cards for Pi](../pi/README.md).
 
 > What MCP servers does neon.com publish?
 
@@ -36,8 +35,15 @@ opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/server-car
 That adds it to `plugins` in your global configuration
 (`~/.config/opencode/opencode.json`), so it runs in every project, from the
 next time OpenCode opens one. `#main` installs what the main branch holds; a
-commit in its place pins one version. To remove it, run `opencode plugin remove` with the
-same text.
+commit in its place pins one version. To remove it, run `opencode plugin remove`
+with the same text. OpenCode keeps its downloaded copy in
+`~/.cache/opencode/npm/` (a `git-AgentPolyfill-…` folder), which you can
+delete afterwards.
+
+Removing it stops adding the servers it added: they were never in your
+configuration files. Its list of them stays in OpenCode's plugin storage
+(OpenCode's own database), and comes back if you install it again; remove a
+server with `server_cards_remove_mcp_server` first to drop it from the list.
 
 Or, from a clone of this repository, add the plugin's folder to `plugins`
 yourself, in the global configuration or a project's `opencode.json`:

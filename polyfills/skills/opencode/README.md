@@ -5,8 +5,7 @@ They show up in OpenCode's own skill list, OpenCode loads one when a task
 calls for it, and it reads the files the skill refers to as it needs them.
 Loading goes through OpenCode's permission rules.
 
-Also available for Claude Code ([mcp-skills for Claude Code](../claude-code/README.md))
-and Codex ([mcp-skills for Codex](../codex/README.md)).
+Also available for Claude Code, Codex and Pi: [mcp-skills for Claude Code](../claude-code/README.md), [mcp-skills for Codex](../codex/README.md), [mcp-skills for Pi](../pi/README.md).
 
 It implements the client side of the MCP Skills extension
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md),
@@ -30,8 +29,15 @@ opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/skills/ope
 That adds it to `plugins` in your global configuration
 (`~/.config/opencode/opencode.json`), so it runs in every project, from the
 next time OpenCode opens one. `#main` installs what the main branch holds; a
-commit in its place pins one version. To remove it, run `opencode plugin remove` with the
-same text.
+commit in its place pins one version. To remove it, run `opencode plugin remove`
+with the same text. OpenCode keeps its downloaded copy in
+`~/.cache/opencode/npm/` (a `git-AgentPolyfill-…` folder), which you can
+delete afterwards.
+
+Removing it leaves its log in `~/.local/share/opencode/mcp-skills/` (or
+`MCP_SKILLS_STATE`), which you can delete, and, in OpenCode's plugin storage
+(OpenCode's own database), which skills each session loaded and the "Allow
+always" answers it kept. No skill content is kept anywhere.
 
 Or, from a clone of this repository, add the plugin's folder to `plugins`
 yourself, in the global configuration or a project's `opencode.json`:

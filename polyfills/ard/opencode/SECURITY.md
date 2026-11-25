@@ -1,7 +1,7 @@
 # Security
 
 This covers ard-discovery for OpenCode. The other forms have their own:
-[Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md).
+[Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md), [Pi](../pi/SECURITY.md).
 
 The plugin is one bundled file (`plugin/server.js`) that OpenCode loads into
 its own server. It carries the Server Cards modules, so everything

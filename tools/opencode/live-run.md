@@ -218,7 +218,7 @@ saved for an addition, so the prompt offers only "Allow once" and "Reject":
 Neon Docs was added and connected, and its four tools listed.
 
 **What the TUI doesn't show.** For an action it doesn't know, OpenCode 2.4.1's
-TUI shows only "Call tool <action>" (`packages/tui/src/util/permission.ts`,
+TUI shows only "Call tool `<action>`" (`packages/tui/src/util/permission.ts`,
 its fallback): not the request's resources or metadata. So what the person
 sees is the model's call line above the prompt (the server, event type, URI
 or URL as the model passed them) and, under "Always allow", the pattern to be

@@ -4,8 +4,7 @@ OpenCode finds MCP servers through Agentic Resource Discovery (ARD): in what a
 domain lists, or by asking an ARD registry for a server that can do a task.
 You choose the registry, and OpenCode asks you before every search.
 
-Also available for Claude Code ([ard-discovery for Claude Code](../claude-code/README.md))
-and Codex ([ard-discovery for Codex](../codex/README.md)).
+Also available for Claude Code, Codex and Pi: [ard-discovery for Claude Code](../claude-code/README.md), [ard-discovery for Codex](../codex/README.md), [ard-discovery for Pi](../pi/README.md).
 
 > Find an MCP server that can check why my CI build failed.
 
@@ -45,8 +44,15 @@ opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/ard/openco
 That adds it to `plugins` in your global configuration
 (`~/.config/opencode/opencode.json`), so it runs in every project, from the
 next time OpenCode opens one. `#main` installs what the main branch holds; a
-commit in its place pins one version. To remove it, run `opencode plugin remove` with the
-same text.
+commit in its place pins one version. To remove it, run `opencode plugin remove`
+with the same text. OpenCode keeps its downloaded copy in
+`~/.cache/opencode/npm/` (a `git-AgentPolyfill-…` folder), which you can
+delete afterwards.
+
+Removing it stops adding the servers it added: they were never in your
+configuration files. Its list of them stays in OpenCode's plugin storage
+(OpenCode's own database), and comes back if you install it again; remove a
+server with `ard_remove_mcp_server` first to drop it from the list.
 
 Or, from a clone of this repository, add the plugin's folder to `plugins`
 yourself, in the global configuration or a project's `opencode.json`:
@@ -110,7 +116,7 @@ the object form of the plugin's entry in `plugins`:
   CI runs the tests on Linux, macOS and Windows.
 - **OpenCode's TUI shows little in the prompt.** In OpenCode 2.4.1's TUI, a
   permission prompt for a plugin's own action says only "Call tool
-  <action>" (seen in the TUI for the other three plugins,
+  `<action>`" (seen in the TUI for the other three plugins,
   [`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui); ARD's
   search wasn't tried there). For `ard_search`, nothing is saved, so the
   prompt would offer "Allow once" and "Reject" only, as for Server Cards. The
