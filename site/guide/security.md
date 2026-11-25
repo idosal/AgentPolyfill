@@ -7,7 +7,6 @@ description: How the AgentPolyfill polyfills treat server content, what each one
 These are third-party plugins and extensions that run with your permissions.
 None of them reads the host's stored credentials. They have been reviewed by
 an AI reviewer that did not build them, and not audited by a person.
-The Antigravity forms' review is in progress.
 
 ## Reporting a problem
 
@@ -410,8 +409,6 @@ notes apply. Two things differ:
     make happen, checked with TLC within stated bounds; what TLC reports is
     exhaustive within them and says nothing past them.
 - **Review.** The polyfills have been reviewed by an AI reviewer that did not
-  build them. The Events, Apps, Server Cards and ARD `SECURITY.md` files record
-  what became of the review's findings. No person has
-  audited any of them. The Antigravity forms' review is in progress.
+  build them. No person has audited any of them.
 
 Each `SECURITY.md` says what was considered, not that nothing is left.

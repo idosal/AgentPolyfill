@@ -715,9 +715,9 @@ Environment variables, for example in the `env` block of
   plugin: a resumed CLI conversation gets the events it missed.
 - **No sign-in through Antigravity.** Servers behind Antigravity's own
   sign-in can't be reached.
-- **Not checked yet:** a webhook watch, the feeds demo, and these builds in the
-  App. Whether `--dangerously-skip-permissions` also skips the watch's
-  `force_ask` hasn't been checked.
+- **Not checked yet:** a webhook watch and the feeds demo. Whether
+  `--dangerously-skip-permissions` also skips the watch's `force_ask` hasn't
+  been checked.
 - **Not in the IDE.** The IDE documents no plugin hooks, so the forms aren't
   supported there, and their gated calls are refused.
 
@@ -842,7 +842,6 @@ In CLI 1.5.17 a `PreToolUse` hook that fails makes the call fail. Whether
 `--dangerously-skip-permissions` also skips `force_ask` hasn't been checked.
 The Events scenarios in conformance PR #541 (suite at `c8625de`) pass 17 of
 17 checks, through the form's MCP server and its ticket hook.
-The independent AI review of the Antigravity forms is in progress.
 
 ### In Copilot CLI
 

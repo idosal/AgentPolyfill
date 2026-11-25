@@ -582,7 +582,6 @@ check names, and never logs or shows those values. It writes only that file,
 after your approval, and its own folder, `~/.gemini/agentpolyfill/mcp-server-cards/`.
 It never opens `~/.gemini/antigravity/mcp_oauth_tokens.json`. See
 [Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/antigravity/SECURITY.md).
-The independent AI review of the Antigravity forms is in progress.
 
 ### In Copilot CLI
 

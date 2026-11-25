@@ -34,8 +34,8 @@ extension's `core/`. Host results are listed separately:
 - **Pi:** the second table gives its results, checked in Pi 1.6.0.
 - **OpenCode:** the third table gives its results, checked in OpenCode
   2.4.1.
-- **Antigravity:** the fourth table gives its results: these builds checked
-  in CLI v1.5.17, earlier builds also in App v2.35.1.
+- **Antigravity:** the fourth table gives its results, checked in App
+  v2.35.1 and CLI v1.5.17.
 - **Copilot CLI:** the fifth table gives its results, checked in Copilot CLI
   1.0.115.
 
@@ -103,9 +103,8 @@ Skills in OpenCode Desktop.
 | ARD (v0.91 draft, beyond MCP) | [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/antigravity/docs/conformance.md). | In CLI 1.5.17 and App 2.35.1, against Hugging Face's own registry: a search approved and one declined. |
 | Apps | No form: the App renders MCP Apps itself (v2.34.0 and later). | None. |
 
-Not checked: a webhook watch,
-`--dangerously-skip-permissions` against `force_ask`, or these builds in the
-App. The IDE documents no plugin hooks, so the forms aren't supported there,
+Not checked: a webhook watch, or `--dangerously-skip-permissions` against
+`force_ask`. The IDE documents no plugin hooks, so the forms aren't supported there,
 and their gated calls are refused.
 
 ### Copilot CLI

@@ -526,7 +526,6 @@ checked. The plugin writes only its own folder,
 `~/.gemini/agentpolyfill/ard-discovery/`, and, after your approval,
 `~/.gemini/config/mcp_config.json`. It never opens a sign-in store. See
 [Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/antigravity/SECURITY.md).
-The independent AI review of the Antigravity forms is in progress.
 
 ### In Copilot CLI
 

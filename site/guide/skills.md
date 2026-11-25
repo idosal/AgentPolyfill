@@ -489,7 +489,6 @@ placeholders, and never opens a sign-in store. X8 isn't met: the hook asks
 before a cross-server read while a skill is loaded, but Antigravity (CLI
 1.5.17, App 2.35.1) ignores that question. See
 [Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/SECURITY.md).
-The independent AI review of the Antigravity forms is in progress.
 
 ## How it is tested
 
@@ -537,9 +536,7 @@ not been audited by a person.
 [Antigravity's conformance table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/conformance.md)
 maps the client rules for this form. Checked in App 2.35.1 and CLI 1.5.17:
 a new skill's load approved, a changed one asked about again, and a declined
-load, which reads nothing. Checked with earlier builds against Hugging
-Face's server: listing its 25 skills and loading one after approval, in the
-App and over `agy acp`. The official MCP conformance suite's four
+load, which reads nothing. The official MCP conformance suite's four
 SEP-2640 client scenarios pass (suite at `c8625de`).
 
 ## Settings

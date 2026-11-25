@@ -567,10 +567,9 @@ For the demo button:
   `PreInvocation` among plugin hooks), as fixed text with a count and the
   plugin's own watch ids. An idle App conversation wakes only with the
   sidecar on ([Install](#antigravity)); CLI conversations can't be woken. The
-  feeds demo was not checked in Antigravity. Checked in CLI 1.5.17: a watch
-  approved and one declined, and delivery at the next turn. Checked in the
-  App with earlier builds: an idle conversation woken by the sidecar, and a
-  wake during a running turn.
+  feeds demo was not checked in Antigravity. Checked in App 2.35.1 and CLI
+  1.5.17: a watch approved and one declined, delivery at the next turn in the
+  CLI, and an idle App conversation woken by the sidecar.
 - **Copilot CLI:** start `copilot --experimental`. The first session asks
   once whether the extension may have elevated permissions; choose **Yes**.
   A watch asks twice: Copilot's tool prompt for `watch_event`, then the
@@ -622,8 +621,7 @@ agy mcp add huggingface https://huggingface.co/mcp
 - **Antigravity:** in the App, add the server under Customizations >
   Installed > MCP Servers. Served skills appear as placeholder folders in
   `~/.gemini/config/skills/`, which Antigravity documents reading before
-  each turn. Checked with earlier builds: listing Hugging Face's skills and
-  loading one after approval.
+  each turn.
 
 Then ask a question one of its skills covers:
 
