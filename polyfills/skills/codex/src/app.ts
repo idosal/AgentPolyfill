@@ -361,6 +361,7 @@ export class App {
         const fingerprint = fingerprintOf(this.conns.get(server)!.cfg);
         const approval = hash === undefined ? undefined : { server, fingerprint, uri: entry.uri, hash };
         let asked = false;
+        let shown = false;
         if (!approval || !this.#o.store.isApproved(approval)) {
             asked = true;
             const files = entry.resources === 'dynamic' ? [] : entry.resources;
@@ -368,9 +369,11 @@ export class App {
             const outer = this.catalog.listed(server).find((l) => l.entry.uri !== entry.uri && root.startsWith(`${rootOf(l.entry.uri)}/`));
             let answer = await ctx.ask(questionText({ server, entry, files: files.length, bytes: files.reduce((n, r) => n + r.size, 0), changed: this.#o.store.wasApproved(server, entry.uri), nestedIn: outer?.entry.frontmatter.name }), ['no', 'show', 'load']);
             if ('decision' in answer && answer.decision === 'show') {
-                const shown = await host.preview(server, uri);
-                if ((await manifestHash(shown.entry)) !== hash) throw new LocalError('this skill changed on the server while it was being shown, so it is not loaded: load it again, and the user is asked about it as it is now');
-                answer = await ctx.ask(previewText({ server, entry: shown.entry, body: shown.body, isVerified: shown.isVerified }), ['no', 'load']);
+                // Kept for the load: a generated skill, which no digest holds to this text, is loaded from this read.
+                const read = await host.preview(server, uri, { keep: true });
+                shown = true;
+                if ((await manifestHash(read.entry)) !== hash) throw new LocalError('this skill changed on the server while it was being shown, so it is not loaded: load it again, and the user is asked about it as it is now');
+                answer = await ctx.ask(previewText({ server, entry: read.entry, body: read.body, isVerified: read.isVerified }), ['no', 'load']);
             }
             if ('unavailable' in answer) throw new LocalError(`the skill is not loaded: the user could not be asked (${answer.unavailable}). A skill the user approves once in an interactive Codex session loads without the question afterwards, while it is unchanged`);
             if (answer.decision !== 'load') {
@@ -379,7 +382,9 @@ export class App {
             }
         }
         this.#refuseDisabled(server, entry.uri);
-        const loaded = await host.load(server, uri, { expect: hash });
+        // What is loaded is what the person was asked about: the same files (the manifest hash), and
+        // where they were shown the text first, that text.
+        const loaded = await host.load(server, uri, { expect: hash, shown });
         if (approval && asked && !this.#o.store.approve(approval)) this.#log(`${server}: the approval of ${uri} could not be kept`);
         this.#log(`${server}: loaded ${uri}${loaded.isVerified ? '' : ' (dynamic, unverified)'}${asked ? '' : ' (approved earlier)'}`);
         return { text: loadedText(loaded, { asked }) };

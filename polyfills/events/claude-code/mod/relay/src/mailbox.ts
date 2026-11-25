@@ -5,7 +5,8 @@
 
 import { DurableObject } from 'cloudflare:workers';
 import type { Env } from './index.ts';
-import { allowed, LIMITS_DOWN, SENDER_HEADER, TOO_MANY } from './limits.ts';
+import type { Admission, Ceilings } from './registry.ts';
+import { allowed, LIMITS_DOWN, networkKey, SENDER_HEADER, TOO_MANY } from './limits.ts';
 import { HOOK_RE, SUBPROTOCOL, type ClientMessage, type DeliveryHeaders, type RelayMessage } from './protocol.ts';
 
 /** Deliveries one mailbox may hold at once, and their total size. Past either, the server is told to retry. */
@@ -75,6 +76,8 @@ export class Mailbox extends DurableObject<Env> {
         if (this.#hasTables) return;
         this.#sql.exec(`
             CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value INTEGER NOT NULL);
+            -- this mailbox's own name, so that it can tell the registry when it gives its storage back
+            CREATE TABLE IF NOT EXISTS self (id INTEGER PRIMARY KEY CHECK (id = 1), name TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS hooks (
                 hook TEXT PRIMARY KEY,
                 created INTEGER NOT NULL,
@@ -123,9 +126,11 @@ export class Mailbox extends DurableObject<Env> {
 
     /** The Worker has already checked the mailbox key and the access key. */
     async fetch(request: Request): Promise<Response> {
-        // A mailbox opened for the first time counts against what this relay opens in an hour.
+        // The Worker has checked that the key opens the mailbox this path names.
+        const name = /^\/mailboxes\/([A-Za-z0-9_-]{43})\/socket$/.exec(new URL(request.url).pathname)?.[1] ?? '';
+        // A mailbox opened for the first time counts against what this relay opens and holds.
         if (!this.#exists()) {
-            const refused = await this.#admit(request.headers.get(SENDER_HEADER) ?? 'unknown');
+            const refused = await this.#admit(request.headers.get(SENDER_HEADER) ?? 'unknown', name);
             if (refused) return refused;
         }
         // Clear out first, while the hooks the outgoing reader holds still count as in use.
@@ -134,6 +139,7 @@ export class Mailbox extends DurableObject<Env> {
         // older socket may still deliver a message or two after this; its number no longer matches,
         // so nothing it says changes the mailbox.
         this.#create();
+        if (name) this.#sql.exec('INSERT INTO self (id, name) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET name = excluded.name', name);
         const gen = this.#generation() + 1;
         this.#sql.exec("INSERT INTO meta (key, value) VALUES ('generation', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", gen);
         this.#gen = gen;
@@ -149,23 +155,34 @@ export class Mailbox extends DurableObject<Env> {
         return new Response(null, { status: 101, webSocket: client, headers: { 'Sec-WebSocket-Protocol': SUBPROTOCOL } });
     }
 
+    /** The registry's ceilings, or undefined if this relay sets none (then it is never asked). */
+    #ceilings(): Ceilings | undefined {
+        const c = {
+            most: positive(this.env.NEW_MAILBOXES_PER_HOUR, 0),
+            mostPerSender: positive(this.env.NEW_MAILBOXES_PER_SENDER_PER_HOUR, 0),
+            mostPerNetwork: positive(this.env.NEW_MAILBOXES_PER_NETWORK_PER_HOUR, 0),
+            mostLive: positive(this.env.MAX_LIVE_MAILBOXES, 0)
+        };
+        return c.most || c.mostPerSender || c.mostPerNetwork || c.mostLive ? c : undefined;
+    }
+
     /** Whether this relay may open one more mailbox now. Returns the refusal, if not. */
-    async #admit(sender: string): Promise<Response | undefined> {
-        const most = positive(this.env.NEW_MAILBOXES_PER_HOUR, 0);
-        const mostPerSender = positive(this.env.NEW_MAILBOXES_PER_SENDER_PER_HOUR, 0);
-        if (!most && !mostPerSender) return undefined;
+    async #admit(sender: string, name: string): Promise<Response | undefined> {
+        const ceilings = this.#ceilings();
+        if (!ceilings) return undefined;
         const refuse = (status: number, error: string, retryAfter: number) =>
             new Response(JSON.stringify({ error }), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', 'retry-after': String(retryAfter) } });
-        let verdict: 'yes' | 'all' | 'sender' | 'down';
+        let verdict: Admission | 'down';
         try {
-            verdict = this.env.REGISTRY ? await this.env.REGISTRY.getByName('registry').admit(sender, most, mostPerSender) : 'down';
+            verdict = this.env.REGISTRY && name ? await this.env.REGISTRY.getByName('registry').admit(sender, networkKey(sender), name, ceilings) : 'down';
         } catch {
             verdict = 'down';
         }
         if (verdict === 'yes') return undefined;
         // A count that cannot be kept is no ceiling: a relay that set one refuses rather than go without it.
         if (verdict === 'down') return refuse(LIMITS_DOWN.status, LIMITS_DOWN.error, LIMITS_DOWN.retryAfter);
-        return refuse(429, verdict === 'all' ? 'this relay has opened as many new mailboxes as it does in an hour; try again later, or use a relay of your own' : 'too many new mailboxes from this address in an hour; try again later', 600);
+        if (verdict === 'full') return refuse(503, 'this relay holds as many mailboxes as it will; try again later, or use a relay of your own', 3600);
+        return refuse(429, verdict === 'all' ? 'this relay has opened as many new mailboxes as it does in an hour; try again later, or use a relay of your own' : verdict === 'network' ? 'too many new mailboxes from this network in an hour; try again later' : 'too many new mailboxes from this address in an hour; try again later', 600);
     }
 
     #send(ws: WebSocket, m: RelayMessage): void {
@@ -308,7 +325,8 @@ export class Mailbox extends DurableObject<Env> {
         // its own delivery, and cannot push a genuine one out.
         const digest = await sha256(`${d.headers['webhook-timestamp']}\n${d.headers['webhook-signature']}\n${d.headers['x-mcp-subscription-id'] ?? ''}\n${d.body}`);
         if (this.#sql.exec('SELECT 1 FROM deliveries WHERE hook = ? AND webhook_id = ? AND digest = ?', d.hook, id, digest).toArray().length) return { status: 200 };
-        const size = new TextEncoder().encode(d.body).byteLength;
+        // The headers are stored beside the body, so they count against the mailbox's room too.
+        const size = new TextEncoder().encode(d.body).byteLength + new TextEncoder().encode(JSON.stringify(d.headers)).byteLength;
         const held = this.#sql.exec<{ n: number; bytes: number }>('SELECT COUNT(*) AS n, COALESCE(SUM(size), 0) AS bytes FROM deliveries').one();
         if (held.n >= positive(this.env.MAX_QUEUED, MAX_QUEUED) || held.bytes + size > positive(this.env.MAX_QUEUED_BYTES, MAX_QUEUED_BYTES)) {
             return { status: 503, body: errorBody('this mailbox is full until its owner collects'), retryAfter: 60 };
@@ -331,10 +349,15 @@ export class Mailbox extends DurableObject<Env> {
      * address confirmed without the plugin's say, and still could not make an event up.)
      */
     async #ask(d: Delivery): Promise<DeliverResult> {
+        // One answer for every challenge the plugin did not confirm: not connected, too many waiting,
+        // no answer in time, or refused (its signature did not verify). Anyone who knows an address
+        // can POST a challenge, and different answers would tell them whether its owner is online.
+        // Only a server that holds the secret can tell, by getting an echo.
+        const unconfirmed: DeliverResult = { status: 503, body: errorBody('the receiver did not confirm this challenge; try again later'), retryAfter: 30 };
         const readers = this.#readers(d.hook);
-        if (!readers.length) return { status: 503, body: errorBody('the receiver is not connected right now'), retryAfter: 30 };
+        if (!readers.length) return unconfirmed;
         // Anyone can POST a challenge; only so many wait for an answer at once.
-        if (this.#asks.size >= MAX_ASKS) return { status: 503, body: errorBody('too many challenges are waiting'), retryAfter: 5 };
+        if (this.#asks.size >= MAX_ASKS) return unconfirmed;
         const id = crypto.randomUUID();
         const answer = await new Promise<Answer | undefined>((resolve) => {
             const timer = setTimeout(() => resolve(undefined), positive(this.env.ASK_TIMEOUT_MS, ASK_TIMEOUT_MS));
@@ -345,7 +368,7 @@ export class Mailbox extends DurableObject<Env> {
             for (const ws of readers) this.#send(ws, { t: 'ask', id, hook: d.hook, headers: d.headers, body: d.body, receivedAt: d.receivedAt });
         });
         this.#asks.delete(id);
-        if (!answer) return { status: 503, body: errorBody('the receiver did not answer in time'), retryAfter: 30 };
+        if (!answer || answer.status < 200 || answer.status > 299) return unconfirmed;
         return { status: answer.status, body: answer.body };
     }
 
@@ -386,7 +409,17 @@ export class Mailbox extends DurableObject<Env> {
         const left = this.#sql.exec<{ n: number }>('SELECT (SELECT COUNT(*) FROM hooks) + (SELECT COUNT(*) FROM deliveries) AS n').one().n;
         if (left > 0 || this.ctx.getWebSockets().length > 0) return void (await this.ctx.storage.setAlarm(Date.now() + this.#cleanupEveryMs()));
         // No address, nothing held and nobody connected: the mailbox gives its storage back. It is
-        // made again, empty, if its owner returns.
+        // made again, empty, if its owner returns. First it stops counting as live at the registry;
+        // if the registry cannot be told, it keeps its storage and tries again at the next clear-out,
+        // so the count of live mailboxes never forgets one that still holds storage.
+        const name = this.#sql.exec<{ name: string }>('SELECT name FROM self WHERE id = 1').toArray()[0]?.name;
+        if (name && this.#ceilings() && this.env.REGISTRY) {
+            try {
+                await this.env.REGISTRY.getByName('registry').release(name);
+            } catch {
+                return void (await this.ctx.storage.setAlarm(Date.now() + this.#cleanupEveryMs()));
+            }
+        }
         await this.ctx.storage.deleteAll();
         this.#hasTables = false;
         this.#gen = undefined;

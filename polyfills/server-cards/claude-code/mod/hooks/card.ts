@@ -97,8 +97,20 @@ const length = (s: string) => [...s].length
  */
 export const UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/
 
-/** Text with every UNSAFE_TEXT character removed: for anything shown. */
-export const plainText = (s: unknown) => String(s ?? '').replace(new RegExp(UNSAFE_TEXT.source, 'g'), '')
+/**
+ * Characters that show as nothing, beyond UNSAFE_TEXT: line and paragraph
+ * separators, interlinear annotation marks, and every default-ignorable code
+ * point (Unicode's Default_Ignorable_Code_Point: a soft hyphen, variation
+ * selectors, plane 14's tag characters, which can carry text nobody sees, and
+ * the rest). Taken out of anything shown; a card holding one is not refused for
+ * it (an emoji's variation selector is one). The same set as ard-discovery's
+ * HIDDEN, less UNSAFE_TEXT's controls.
+ */
+export const INVISIBLE_TEXT = /[\u2028\u2029\ufff9-\ufffb\p{Default_Ignorable_Code_Point}]/u
+
+/** Text with every UNSAFE_TEXT and INVISIBLE_TEXT character removed: for anything shown. */
+export const plainText = (s: unknown) =>
+  String(s ?? '').replace(new RegExp(UNSAFE_TEXT.source, 'g'), '').replace(new RegExp(INVISIBLE_TEXT.source, 'gu'), '')
 
 const NAME = /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/
 // The schema's pattern, narrowed to printable ASCII without markup: a remote

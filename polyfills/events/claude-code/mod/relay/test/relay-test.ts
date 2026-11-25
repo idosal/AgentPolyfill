@@ -140,7 +140,9 @@ describe('relay with an access key', { concurrency: false }, () => {
         const refused = post(relay.origin, sock.mailbox, hook, challenge, { id: 'msg_verification_2' });
         const ask2 = await sock.next('ask', (m) => m.headers['webhook-id'] === 'msg_verification_2');
         sock.send({ t: 'answer', id: ask2.id, status: 401 });
-        assert.equal((await refused).status, 401, "the plugin's refusal is passed on");
+        // Not passed on as such: the same answer as when nobody is connected, so that whoever posts a
+        // challenge without the secret cannot tell whether the plugin is online.
+        assert.equal((await refused).status, 503, "the plugin's refusal is answered as unconfirmed");
 
         const unanswered = await post(relay.origin, sock.mailbox, hook, challenge, { id: 'msg_verification_3' });
         assert.equal(unanswered.status, 503, 'no answer in time: the server may try again');

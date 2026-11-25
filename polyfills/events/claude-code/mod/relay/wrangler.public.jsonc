@@ -4,7 +4,12 @@
   // limits. People who use it are trusting whoever deploys this with their event payloads in
   // transit; a relay of their own (wrangler.jsonc, `npm run setup`) avoids that.
   //
-  //   npx wrangler deploy -c wrangler.public.jsonc
+  //   npm run deploy:public      (wrangler deploy -c wrangler.public.jsonc, with VERSION set to the commit)
+  //
+  // Deploy it on a Workers Paid account that holds nothing else, with billing notifications on. On
+  // Workers Free, the account's daily quotas (requests, Durable Object rows written) are shared by
+  // every Worker on it, and anyone can spend them by sending requests here: a request this relay
+  // refuses still counts. Nothing in this file can prevent that.
   "name": "mcp-events-public-relay",
   "main": "src/index.ts",
   "compatibility_date": "2026-11-19",
@@ -24,6 +29,10 @@
     "OPEN_RELAY": "1",
     // Said at the relay's front page.
     "OPERATOR": "Ido Salomon (https://github.com/idosal)",
+    // Where to report misuse of this relay (a mailbox used as a drop box, say).
+    "ABUSE_CONTACT": "https://github.com/idosal/AgentPolyfill/security/advisories/new",
+    // Mailboxes refused here, separated by commas: the operator's way to stop one being misused.
+    "BLOCKED_MAILBOXES": "",
     // An uncollected delivery is dropped after 23 hours; with the hourly clear-out, within 24.
     "DELIVERY_TTL_S": "82800",
     // A webhook address nobody collected from for a week is retired.
@@ -36,13 +45,19 @@
     "REQUIRE_LIMITS": "1",
     // A connection that sends more than 600 messages in a minute is closed.
     "SOCKET_MESSAGES_PER_MINUTE": "600",
-    // New mailboxes opened in an hour: by everyone together, and from one sender (an IPv4 address,
-    // or an IPv6 /64). Past either, a new mailbox is refused until the hour is over; mailboxes that
-    // already exist are not affected. The ceiling for everyone is set well above the sign-ups
-    // expected in an hour, so that spending it takes many senders: what it guards against is cost,
-    // and an empty mailbox gives its storage back while a full one holds at most 4 MiB.
+    // New mailboxes opened in an hour: by everyone together, from one sender (an IPv4 address, or
+    // an IPv6 /64), and from one network (an IPv6 /48; an IPv4 address is its own). Past any of
+    // them, a new mailbox is refused until the hour is over; mailboxes that already exist are not
+    // affected. The ceiling for everyone is set well above the sign-ups expected in an hour, so
+    // that spending it takes many networks. These bound how fast mailboxes appear, not how many
+    // there are: MAX_LIVE_MAILBOXES does that.
     "NEW_MAILBOXES_PER_HOUR": "2000",
-    "NEW_MAILBOXES_PER_SENDER_PER_HOUR": "60"
+    "NEW_MAILBOXES_PER_SENDER_PER_HOUR": "60",
+    "NEW_MAILBOXES_PER_NETWORK_PER_HOUR": "200",
+    // Mailboxes this relay holds at once. A full one holds at most 4 MiB, so 20,000 of them are at
+    // most about 80 GiB: the most this relay can be made to store. Past it a new mailbox is refused
+    // (503) until others give their storage back; mailboxes that exist are not affected.
+    "MAX_LIVE_MAILBOXES": "20000"
   },
   // Approximate, and counted per Cloudflare location. A refused request gets 429 and Retry-After.
   "ratelimits": [
@@ -51,9 +66,11 @@
     { "name": "DELIVERIES_PER_HOOK", "namespace_id": "34151", "simple": { "limit": 120, "period": 60 } },
     // Requests to deliver from one sender (an IPv4 address, or an IPv6 /64), to any mailbox, whether or not they are kept.
     { "name": "DELIVERIES_PER_SENDER", "namespace_id": "34152", "simple": { "limit": 300, "period": 60 } },
-    // The same, for every MCP server hosted on Cloudflare Workers together: Cloudflare gives all of
-    // them one address when they call another Cloudflare site. Larger, so they are not held to one machine's share.
-    { "name": "DELIVERIES_FROM_WORKERS", "namespace_id": "34154", "simple": { "limit": 3000, "period": 60 } },
+    // The same, for MCP servers hosted on Cloudflare Workers: Cloudflare gives all of them one address
+    // when they call another Cloudflare site, so theirs is counted per mailbox, not per sender (one
+    // bucket for all of them would let any Worker spend it for every one of them). 2,000: a little
+    // more than one mailbox can take (16 addresses at 120 a minute each).
+    { "name": "DELIVERIES_FROM_WORKERS", "namespace_id": "34154", "simple": { "limit": 2000, "period": 60 } },
     // Connections from one address: opening and re-opening mailboxes.
     { "name": "SOCKETS_PER_SENDER", "namespace_id": "34153", "simple": { "limit": 30, "period": 60 } }
   ],

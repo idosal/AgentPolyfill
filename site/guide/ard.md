@@ -1,5 +1,5 @@
 ---
-description: ard-discovery adds the consumer side of Agentic Resource Discovery (ARD v0.91, a draft outside MCP) to Claude Code and Codex, for MCP servers. It's installed by name, not with the bundle.
+description: ard-discovery adds the consumer side of Agentic Resource Discovery (ARD v0.91, a draft outside MCP) for MCP servers. Install, search approval and limits are listed per host. It's installed separately.
 ---
 
 # ARD discovery
@@ -21,7 +21,7 @@ servers in two ways:
   caption="A real session (16 s; waits sped up, with a badge saying how fast): buildkite.com's own listing, found from its domain, then a search of a local demo registry, asked about first."
 />
 
-It only finds. Each Server Card it finds goes to
+In Claude Code, it only finds. Each Server Card it finds goes to
 [`mcp-server-cards`](./server-cards), which checks it against the schema and
 shows it under the answer with an **Add** button. For a search result,
 `mcp-server-cards` also asks the publisher's own domain whether the server is
@@ -29,13 +29,17 @@ theirs.
 
 ::: warning Search sends your query to a third party
 `ard_search` posts the words of your request to an ARD registry, a service
-someone else runs, which ranks other people's servers. The plugin ships with no
-registry: you name one in the request, or set one with the `registry` setting,
+someone else runs, which ranks other people's servers. In Claude Code, the
+plugin ships with no registry: you name one in the request, or set one with the `registry` setting,
 and the query also goes to up to three registries it refers to. With neither, a
 search is refused and nothing is sent. Claude Code asks you before every search, showing
 the query and where it goes; with nobody to ask (`claude -p`), nothing is sent.
 For that reason the plugin is not part of the `agent-polyfill` bundle: you
 install it by name.
+
+In Pi, name the registry or set `ARD_DISCOVERY_REGISTRY`. Every search asks
+in a Pi dialog, showing the exact query and endpoint; without a UI it is
+refused. Pi has no bundle; this extension is installed separately too.
 :::
 
 It implements ARD v0.91 at commit `f073b1ea9b`: §5.1 (domain discovery), §5.3
@@ -54,6 +58,12 @@ codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add ard-discovery@agent-polyfill
 ```
 
+```bash [Pi]
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+pi install ./polyfills/ard/pi/extension
+```
+
 :::
 
 ### In Claude Code
@@ -69,9 +79,26 @@ Codex 0.170 or newer, with Node 20 or newer. As in Claude Code, no registry is
 set: name one in the request, or set `ARD_DISCOVERY_REGISTRY`. To add a server
 it finds, Codex shows you a form, and the server is added only if you accept.
 
-The sections below describe the Claude Code plugin. Where the Codex plugin
-differs, its README says so:
-[`polyfills/ard/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex).
+### In Pi
+
+Pi 1.6.0 (the version tested), with Node 22 or newer. Nothing for Pi is
+published to npm or Pi's package gallery; install from a clone. The extension
+is bundled, with nothing to build. For one run without installing, use
+`pi -e ./polyfills/ard/pi/extension`. Pi loads the path where it is, so keep
+the clone; `git pull` there updates it. Remove it from the same folder with
+`pi remove ./polyfills/ard/pi/extension`. Servers you added stay in
+`mcp.json`; remove one with `pi mcp remove <name>`.
+
+This form includes Server Cards checking and adding; no other polyfill is
+required. Its add tool is `ard_add_mcp_server`, so it can run beside Server
+Cards' `add_mcp_server`: Pi shares tool names across extensions and keeps
+the first registration of a name.
+
+The sections below name the host where behavior differs. Full guides by host:
+
+- [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/claude-code)
+- [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex)
+- [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi)
 
 ## Try it
 
@@ -79,8 +106,13 @@ Ask the agent:
 
 > What MCP servers does buildkite.com list through ARD?
 
-Then add it: press **Add** under the answer in Claude Code, or accept Codex's
-form.
+Then ask to add it:
+
+- **Claude Code:** press **Add** under the answer.
+- **Codex:** accept Codex's form.
+- **Pi:** choose "Add it" in the extension's dialog. This add step is
+  covered by real-Pi tests with a scripted model and a local server; it was
+  **not completed in the live run**.
 
 To try search, start the demo registry from a clone of the repository (it is a
 demo, not a real registry: it reads the live catalogs of ten publishers and
@@ -90,13 +122,18 @@ answers by word match):
 node polyfills/ard/claude-code/demo/registry.mjs
 ```
 
-It listens on `http://127.0.0.1:9011`. Then, in Claude Code:
+It listens on `http://127.0.0.1:9011`. Ask your host:
 
 > My CI build failed and I don't have a tool for it. Search the registry at http://127.0.0.1:9011 for an MCP server that can check why.
 
 Claude finds Buildkite, and says buildkite.com's own catalog confirms it.
+In Pi, the recorded search returned publisher-confirmed Buildkite and
+Netlify after the extension's search question. The query stays local with
+this demo; fetching cards and checking publishers still makes public GETs.
 
 ## Using it, step by step
+
+### In Claude Code
 
 1. **Ask.** For example "find an MCP server that can check why my CI build
    failed", or "what does buildkite.com list in its ard.json?".
@@ -120,9 +157,30 @@ Claude finds Buildkite, and says buildkite.com's own catalog confirms it.
 5. **Add.** Press **Add**, or ask Claude. The rules are those of
    [`mcp-server-cards`](./server-cards#using-it-step-by-step).
 
+### In Pi
+
+`ard_discover` reads a domain's `ard.json` and AI Catalog sources and checks
+their Server Cards. `ard_search` uses a registry you name or set with
+`ARD_DISCOVERY_REGISTRY`; none is configured by default. Before sending,
+the extension shows the exact query and registry endpoint, and says that up
+to three referrals may receive it. Only "Send the search", beside "Don't
+send it", sends the query.
+
+Adding is a separate question from `ard_add_mcp_server`, with "Don't add
+it" and "Add it". It names the host, URL, headers, `mcp.json` in Pi's agent
+folder (`~/.pi/agent`, or `PI_CODING_AGENT_DIR`) and
+`pi mcp remove <name>`. On yes it runs Pi's own `pi mcp add` and registers
+the server for the session. Use `/mcp` or `pi mcp login <name>` if sign-in
+is needed. Print and JSON modes cannot ask, so searches and additions are
+refused; RPC clients relay the dialogs.
+
 ## Settings
 
-In `/config`, under the plugin:
+In Pi, use `ARD_DISCOVERY_REGISTRY` for your chosen registry and
+`ARD_DISCOVERY_DISABLED=1` to turn the form off. It cannot detect native ARD
+support: remove it or use the off switch when Pi supports ARD itself.
+
+In Claude Code, in `/config`, under the plugin:
 
 | Setting | Default | What it does |
 |---|---|---|
@@ -130,6 +188,8 @@ In `/config`, under the plugin:
 | `registry` | empty | The ARD registry for `ard_search` to ask when the request names none. Empty by default: no registry is chosen for you, so each search names its own. Your query text is sent to the registry, once you say yes. |
 
 ## Limits
+
+### In Claude Code
 
 - **The query leaves your machine**, once you approve that search. Only the words
   Claude puts in the query are sent, with no cookie or credential, but the
@@ -141,7 +201,25 @@ In `/config`, under the plugin:
   URL that redirects to a private address, or a public name that resolves to
   one, is not caught. Only addresses named directly are refused.
 
+### In Pi
+
+- **A search discloses its query.** The chosen registry and its referrals
+  see it after approval; cancellation cannot recall it once sent.
+- **The Server Cards Pi limits apply:** no live card comparison, SSE, URL
+  secrets or command-valued headers; no check of DNS results for private
+  addresses, and no atomic add-if-absent in Pi's CLI. See
+  [Server Cards](./server-cards#limits).
+- **Discover or search again after a session change.** New, resumed,
+  forked and reloaded sessions forget shown cards.
+- **The live run did not add a server.** It read buildkite.com's `ard.json`
+  and searched the repository's demo registry after approval. The model then
+  asked in chat instead of calling `ard_add_mcp_server`, and `mcp.json`
+  stayed empty. Additions are covered by real-Pi tests with a scripted model
+  and a local server, not by that live run.
+
 ## Security
+
+### In Claude Code
 
 Everything this plugin finds is someone else's claim, and it is handed to
 `mcp-server-cards`, which checks it before you see it. It writes nothing and
@@ -158,6 +236,25 @@ re-check found that searches were not each put to you; every search now is.
 
 The full account:
 [`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md).
+
+### In Pi
+
+Each search and each addition needs its own answer in the extension's
+dialog. Pi runs tools without asking unless a permission extension asks;
+the polyfill supplies those questions itself. Its `readOnlyHint`
+annotations let permission extensions distinguish calls; search is marked
+not read-only because it sends your query. The extension reads no stored
+credentials. A publisher's catalog can confirm a result, but cannot approve
+an addition. See
+[Pi's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md).
+An AI reviewer who did not build the Pi forms reviewed them, and checked
+the fixes again. They have not been audited by a person.
+
+[Pi's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/docs/conformance.md)
+documents the shared ARD and Server Cards rules, Pi's questions and the
+tested add path. No upstream conformance run or independent public-registry
+run is claimed. The [live-run transcript](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/docs/live-run.md)
+shows discovery and the approved demo search, and stops before addition.
 
 ## More
 

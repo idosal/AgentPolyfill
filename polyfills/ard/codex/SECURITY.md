@@ -64,11 +64,17 @@ sent.
     [the table](../../server-cards/codex/README.md#which-codex-modes-ask-you).
 - **What is sent is what you saw.** A query is refused before you are asked if
   it is over 300 characters, or holds control characters, invisible
-  characters, direction marks, or `` ` ``, `<`, `>` or square brackets. Those
-  last are Markdown or HTML, which a host could render as something else in
-  the form. A registry, named or set, is refused if it is over 200 characters
-  or holds spaces, control characters or direction marks, so the form names
-  exactly where the search goes.
+  characters (tag characters and variation selectors among them), direction
+  marks, or `` ` ``, `<`, `>` or square brackets. Those last are Markdown or
+  HTML, which a host could render as something else in the form. A registry,
+  named or set, is refused if it is over 200 characters or holds spaces,
+  control characters, invisible characters or direction marks, so the form
+  names exactly where the search goes.
+- **A registry's own words are one line.** Its error messages, the referrals
+  it names, and each result's name and description are shown on one line,
+  capped, with control and invisible characters taken out. So a registry can't
+  add lines of its own to the answer, or carry text you don't see. A result
+  whose identifier holds such a character is skipped.
 - **Only where you were told.** A registry that redirects the search to
   another origin isn't followed, and neither is a 301, 302 or 303 that would
   turn it into a `GET`. A referral is a registry the first one names, and the

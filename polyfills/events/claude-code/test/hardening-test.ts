@@ -137,7 +137,7 @@ describe('a relay that misbehaves', () => {
             send({ t: 'delivery', seq: 'one', hook: HOOK, headers: {}, body: '{}', receivedAt: 1 });
             send({ t: 'delivery', seq: 1, hook: HOOK, headers: { 'webhook-id': { nested: true } }, body: '{}', receivedAt: 1 });
             send({ t: 'ask', id: 7, hook: HOOK });
-            send('x'.repeat(3 * 1024 * 1024));
+            // (A frame larger than any delivery ends the connection: review-test.ts, E4.)
             const ts = Math.floor(Date.now() / 1000);
             const body = JSON.stringify({ eventId: 'real', name: 'x', timestamp: 't', data: {} });
             send({ t: 'ok', n: m.n, queued: 1 });
@@ -248,9 +248,12 @@ describe('what is left on disk', () => {
         const foreign = make('someone-elses', 30, 'notes.txt');
         // Since 0.4.0 every session that was woken keeps its wake count beside its events.
         const woken = make('woken-session', 30, 'wakes.json');
-        assert.equal(pruneSessions(base, 'this-session', 14 * day, now), 2);
+        // A save of the wake count cut short leaves wakes.json.<pid>.tmp beside it.
+        const cut = make('cut-short-session', 30, 'wakes.json.12345.tmp');
+        assert.equal(pruneSessions(base, 'this-session', 14 * day, now), 3);
         assert.equal(existsSync(old), false, 'gone');
         assert.equal(existsSync(woken), false, 'gone too, wake count and all');
+        assert.equal(existsSync(cut), false, 'and one with a save cut short');
         assert.ok(existsSync(join(recent, 'events.jsonl')), 'a recent one stays');
         assert.ok(existsSync(join(mine, 'events.jsonl')), "this session's own stays, however old");
         assert.ok(existsSync(join(foreign, 'notes.txt')), 'a folder holding anything else is not removed');
@@ -284,6 +287,37 @@ describe('state that must survive a power cut', () => {
         const at = calls.indexOf('rename watches.json');
         assert.ok(at > 0, `renamed into place (${calls.join(', ')})`);
         assert.equal(calls[at - 1], 'fsync', 'after its content was flushed');
+    });
+
+    test('a write that takes less than it was given is finished, and a save that fails leaves nothing beside the file', () => {
+        const dir = temp();
+        const project = new ProjectState(dir, '/project/short-writes');
+        project.watches = [{ id: 'w-1', server: 's', fingerprint: 'fp', event: 'x', arguments: {}, mode: 'poll', cursor: 'c1', createdAt: '', events: 0, status: 'active', seen: [] }];
+        const real = { writeSync: fs.writeSync, fsyncSync: fs.fsyncSync };
+        const spy = fs as unknown as { writeSync: (fd: number, b: Buffer, at: number, n: number) => number; fsyncSync: typeof fs.fsyncSync };
+        // Each write takes at most 7 bytes of what it is given.
+        spy.writeSync = (fd, b, at, n) => (real.writeSync as (fd: number, b: Buffer, at: number, n: number) => number)(fd, b, at, Math.min(n, 7));
+        syncBuiltinESMExports();
+        try {
+            project.save();
+        } finally {
+            Object.assign(spy, real);
+            syncBuiltinESMExports();
+        }
+        const saved = JSON.parse(fs.readFileSync(join(project.dir, 'watches.json'), 'utf8')) as { watches: { cursor: string }[] };
+        assert.equal(saved.watches[0]!.cursor, 'c1', 'the whole of it was written');
+        // A save that fails throws, and its temporary file goes with it.
+        spy.fsyncSync = () => {
+            throw new Error('disk gone');
+        };
+        syncBuiltinESMExports();
+        try {
+            assert.throws(() => project.save(), /disk gone/);
+        } finally {
+            Object.assign(spy, real);
+            syncBuiltinESMExports();
+        }
+        assert.deepEqual(fs.readdirSync(project.dir).filter((f) => f.endsWith('.tmp')), []);
     });
 });
 
