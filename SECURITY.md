@@ -18,6 +18,14 @@ not protect against:
 | Server Cards | [SECURITY.md](polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](polyfills/server-cards/opencode/SECURITY.md) | [SECURITY.md](polyfills/server-cards/muse/SECURITY.md) |
 | ARD | [SECURITY.md](polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](polyfills/ard/codex/SECURITY.md) | [SECURITY.md](polyfills/ard/pi/SECURITY.md) | [SECURITY.md](polyfills/ard/opencode/SECURITY.md) | [SECURITY.md](polyfills/ard/muse/SECURITY.md) |
 
+In T3 Code, which runs Codex, Claude Code, OpenCode and other agents for
+you, the plugins above run as they do in those hosts (checked with Codex). Events has a form of its own there, for Codex
+threads: [mcp-events for T3 Code](polyfills/events/t3/SECURITY.md). It is an
+MCP server Codex starts, and a watcher process that keeps running after T3
+Code closes, until no thread has a watch, and wakes a thread with T3 Code's
+`t3 thread send`. The turn it starts runs in the thread's own permission
+mode. It reads no stored credentials, Codex's or T3 Code's.
+
 These are third-party plugins and extensions that run with your permissions
 in each host. They have been reviewed by an AI reviewer that did not build
 them, and not audited by a person.

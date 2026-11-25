@@ -34,9 +34,7 @@ codex plugin add mcp-skills@agent-polyfill
 ```
 
 ```bash [Pi]
-git clone https://github.com/idosal/AgentPolyfill.git
-cd AgentPolyfill
-pi install ./polyfills/skills/pi/extension
+pi install git:github.com/idosal/AgentPolyfill
 ```
 
 ```bash [OpenCode]
@@ -85,14 +83,40 @@ put to you first (rule X8), because Codex doesn't let a plugin ask.
 
 ### In Pi
 
-Pi 1.6.0 (the version tested), with Node 22 or newer. Nothing for Pi is
-published to npm or Pi's package gallery; install from a clone. The extension
-is bundled, with nothing to build. For one run without installing, use
-`pi -e ./polyfills/skills/pi/extension`. Pi loads the path where it is, so
-keep the clone; `git pull` there updates it. Remove it from the same folder
-with `pi remove ./polyfills/skills/pi/extension`. Approvals and skill stubs
-stay in `mcp-skills/` in Pi's agent folder (`~/.pi/agent`, or
-`PI_CODING_AGENT_DIR`); delete that folder too to remove them.
+Pi 1.6.0 (the version tested), with Node 22 or newer. The command above
+installs Events, Skills and Server Cards together.
+Pi clones the repository under `~/.pi/agent/git/` and loads the three
+extensions from there. Nothing is published to npm or Pi's package gallery,
+and nothing is built.
+
+Update installed packages with `pi update --extensions`. Remove all three
+and Pi's copy of the repository with
+`pi remove git:github.com/idosal/AgentPolyfill`. For one run of all three
+without installing, use `pi -e git:github.com/idosal/AgentPolyfill`.
+
+To install only Skills, use a clone:
+
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+pi install ./polyfills/skills/pi/extension
+```
+
+Pi loads the local path where it is, so keep the clone. From the same folder,
+`pi remove ./polyfills/skills/pi/extension` removes that local install;
+`pi -e ./polyfills/skills/pi/extension` runs it once without installing.
+Use one way per form: Pi tells packages apart by repository address or local
+path, so a form installed both ways loads twice.
+
+[ARD](./ard#install) is left out of the one-line install, as it is from the
+Claude Code bundle: its search sends the words of your request to a registry
+after asking each time. Install it separately from a clone.
+
+Removal leaves watches and events in `mcp-events/`, and approvals and skill
+stubs in `mcp-skills/`, in Pi's agent folder (`~/.pi/agent`, or
+`PI_CODING_AGENT_DIR`); delete those folders too to remove that data.
+Servers you added stay in `mcp.json`; remove one with
+`pi mcp remove <name>`.
 
 ### In OpenCode
 
@@ -404,6 +428,16 @@ protocol, no vendor extension.
   `allow` rule you write doesn't skip the question by itself, since the
   plugin can't tell it from OpenCode's default.
 - **Not tried yet:** Windows by hand (CI runs the tests there).
+
+### In T3 Code
+
+T3 Code runs Codex, Claude Code or OpenCode for you, and this polyfill's
+forms for them load there. With Codex, the question it asks before loading a skill ("Load it") is
+an MCP elicitation form, and T3 Code shows such a form only when it can
+answer it with Approve or Decline; it cancels this one without showing it, so
+the step is refused as if you had said no. Nothing is approved for you.
+Listing the served skills works (tried live).
+[T3 Code](https://github.com/idosal/AgentPolyfill/blob/main/docs/t3-code.md) has the details.
 
 ### In Muse Code
 

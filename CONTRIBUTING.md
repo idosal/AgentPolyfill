@@ -93,7 +93,7 @@ is a complete example of one adapter. Inside an adapter's folder:
   |---|---|
   | Claude Code | Copied on install; carries `.claude-plugin/plugin.json`. |
   | Codex | Copied on install; carries `.codex-plugin/plugin.json`, which can sit beside another host's manifest. |
-  | Pi | A separate `pi/extension/` folder with a manifest and one bundled file. Pi loads the local path in place, so the clone must stay. |
+  | Pi | A separate `pi/extension/` folder with a manifest and one bundled file. The Git install loads the three extensions from Pi's copy of the repository under `~/.pi/agent/git/`. A local install loads its path in place, so that clone must stay. |
   | OpenCode | A separate `opencode/plugin/` folder: one bundled file, `server.js`, the bundle's licence notices where it holds other packages' code, and a small `package.json` that names it, which `opencode plugin add` installs from GitHub. OpenCode runs it inside its own server, once per project folder. |
   | Muse Code | The Codex plugin folder, with `.muse-plugin/plugin.json` beside `.codex-plugin/plugin.json`. Muse reads the Codex marketplace and copies the folder on install. Its manifest starts the same bundle with `--host=muse`, and each hook is one bundled script, because Muse trusts a hook by its script file. |
 
@@ -134,11 +134,18 @@ It states:
     `/plugin install <plugin>@agent-polyfill`.
   - In Codex:
     `codex plugin marketplace add idosal/AgentPolyfill && codex plugin add <plugin>@agent-polyfill`.
-  - In Pi: clone `https://github.com/idosal/AgentPolyfill.git`, enter
-    `AgentPolyfill`, then `pi install ./polyfills/<extension>/pi/extension`.
+  - In Pi: lead with `pi install git:github.com/idosal/AgentPolyfill`, which
+    installs Events, Skills and Server Cards together. For one form alone,
+    clone `https://github.com/idosal/AgentPolyfill.git`, enter `AgentPolyfill`,
+    then `pi install ./polyfills/<extension>/pi/extension`; keep the clone.
+    ARD uses this separate install because its search sends the words of
+    your request to a registry, after asking each time, the same reason it
+    is left out of the Claude Code bundle.
     The current forms need Pi 1.6.0 (the version tested) and Node 22 or
-    newer. Nothing for Pi is published to npm or Pi's package gallery.
-    For one run, use `pi -e ./polyfills/<extension>/pi/extension`.
+    newer. Nothing for Pi is published to npm or Pi's package gallery, and
+    nothing is built on install. For one run without installing, use
+    `pi -e git:github.com/idosal/AgentPolyfill` for all three, or
+    `pi -e ./polyfills/<extension>/pi/extension` from a clone for one.
   - In OpenCode:
     `opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/<extension>/opencode/plugin'`,
     and `opencode plugin remove` with the same text to remove it. Then, from
@@ -207,13 +214,22 @@ which installs every polyfill in one step, and to the list in its
 match. Add the polyfill to the table in the [README](README.md) as well, in
 its host's column.
 
-For Pi, there is no marketplace file or bundle here, and nothing is
-published to npm or Pi's package gallery. Document the clone-and-install
-steps and keep the installable folder at `polyfills/<extension>/pi/extension`.
-`pi install git:...` installs a whole repository, not one subfolder. Include
-`pi remove ./polyfills/<extension>/pi/extension` from the same clone for
-removal, and say what data remains. Add the form to the root README's Pi
-column; Apps has no Pi form.
+For Pi, list a new form's `./polyfills/<extension>/pi/extension/dist/index.js`
+in the root [`package.json`](package.json)'s `pi.extensions` to include it
+in `pi install git:github.com/idosal/AgentPolyfill`. ARD is left out on
+purpose because its search sends your request's words to a registry after
+asking each time. There is no Pi marketplace file here, and nothing is
+published to npm or Pi's package gallery.
+
+Document `pi update --extensions` to update installed packages and
+`pi remove git:github.com/idosal/AgentPolyfill` to remove all three forms
+and Pi's copy of the repository. Keep the local install as an alternative,
+with `pi remove ./polyfills/<extension>/pi/extension` from the same clone
+for removal. Use one way per form: Pi tells packages apart by repository
+address or local path, so a form installed both ways loads twice. Say what
+data remains: `mcp-events/` and `mcp-skills/` in Pi's agent folder, and
+added servers in `mcp.json`. Add the form to the root README's Pi column;
+Apps has no Pi form.
 
 For OpenCode, there is no marketplace file or bundle here either, and
 nothing is published to npm. `opencode plugin add` installs a form straight
@@ -297,7 +313,8 @@ one `core/` with these forms:
 
 - `claude-code/`: a Claude Code mod.
 - `codex/`: a Codex plugin.
-- `pi/`: a Pi extension, installed from `pi/extension/`.
+- `pi/`: a Pi extension, listed in the root `pi.extensions` for the Git
+  install, or installed on its own from `pi/extension/` in a clone.
 - `opencode/`: an OpenCode plugin, installed from `opencode/plugin/`.
 - `muse/`: the Muse Code form's docs. Muse installs the Codex plugin's
   folder, which carries a Muse manifest too.

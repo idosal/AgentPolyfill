@@ -23,6 +23,13 @@ replaced with `<agent dir>` and `<temp>`; tool results are cut at a few hundred
 characters, as the script prints them.
 
 
+The agent folder is a throwaway one, never your own: make it with
+`node ../server-cards/pi/live/run.ts --new-agent-dir <path>`, sign in to it (`PI_CODING_AGENT_DIR=<path> pi`,
+then `/login`), then run. The script refuses any other folder, writes `mcp.json`
+only where a live run left the one there, and prints servers by name and
+address only ([`live/agent-dir.ts`](../../../server-cards/pi/live/agent-dir.ts)). Afterwards, sign out with
+`PI_CODING_AGENT_DIR=<path> pi auth logout <provider>` and delete the folder.
+
 ```bash
 PI_LIVE_EXTENSION=$PWD/extension/dist/index.js PI_LIVE_AGENT_DIR=… PI_LIVE_PROVIDER=openai-codex PI_LIVE_MODEL=gpt-6.2-sol node ../server-cards/pi/live/run.ts "What does buildkite.com list in its ard.json?" "Search the registry at http://127.0.0.1:9011 for an MCP server that can check why a CI build failed."
 ```

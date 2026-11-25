@@ -64,22 +64,29 @@ you choose):
 codex plugin add ard-discovery@agent-polyfill
 ```
 
-**Pi** (1.6.0, the version tested; Node 22 or newer). Nothing for Pi is
-published to npm or Pi's package gallery. Install from a clone:
+**Pi** (1.6.0, the version tested; Node 22 or newer). Install Events, Skills
+and Server Cards together:
+
+```bash
+pi install git:github.com/idosal/AgentPolyfill
+```
+
+Pi clones the repository into its agent folder (under `~/.pi/agent/git/`)
+and loads the three extensions from there. Nothing is published to npm or
+Pi's package gallery, and nothing is built. Start `pi` to use them.
+
+ARD is installed on its own, from a clone. As with the Claude Code bundle,
+it is left out because its search sends the words of your request to a
+registry, after asking you each time:
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
 cd AgentPolyfill
-pi install ./polyfills/events/pi/extension
-pi install ./polyfills/skills/pi/extension
-pi install ./polyfills/server-cards/pi/extension
 pi install ./polyfills/ard/pi/extension
 ```
 
-Each line installs one extension; Pi has no bundle. The folders contain a
-manifest and one bundled file, with nothing to build. Pi loads the local
-paths where they are, so keep the clone; `git pull` in it brings the next
-version. Start `pi` to use them.
+Pi loads a local path where it is, so keep the clone. The clone path also
+works for any one form alone.
 
 **OpenCode** (2.4 or newer, for the V2 plugin API; tested with 2.4.1; Git).
 Nothing for OpenCode is published to npm: OpenCode installs each plugin from
@@ -101,6 +108,19 @@ opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/ard/openco
 Each line adds one plugin to your global `opencode.json`; OpenCode has no
 bundle. OpenCode runs the plugins itself, so you don't need Node. They load
 the next time OpenCode opens a project.
+
+**T3 Code** (0.1.11, the version tested). T3 Code runs the Codex and Claude
+Code you have, so install the plugins above for the agent you use in it. For
+Events in Codex threads, add the T3 form from a clone instead of the Codex
+plugin (nothing for T3 Code is published):
+
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+codex mcp add mcp-events-t3 -- node "$PWD/AgentPolyfill/polyfills/events/t3/plugin/dist/server.js"
+```
+
+Then **Restart agent session** in T3 Code. What works and what doesn't is in
+[In T3 Code](#in-t3-code).
 
 **Muse Code** (Meta's terminal agent; 1.4.25, the version tested; Node 20 or
 newer). In a terminal:
@@ -129,6 +149,10 @@ There are [more ways to install](#more-ways-to-install) further down.
 | Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) | [`mcp-server-cards`](polyfills/server-cards/pi) | [`mcp-server-cards`](polyfills/server-cards/opencode) | [`mcp-server-cards`](polyfills/server-cards/muse) |
 | Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet | not available | not available | not yet |
 | ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) | [`ard-discovery`](polyfills/ard/pi) | [`ard-discovery`](polyfills/ard/opencode) | [`ard-discovery`](polyfills/ard/muse) (no registry search) |
+
+T3 Code isn't a column here: it's an app that runs Codex, Claude Code and
+other agents for you, so what works in it is mostly what works in those, with
+one Events form of its own. [In T3 Code](#in-t3-code) says which.
 
 All of them are early. Here is what each one does, and where it stops:
 
@@ -215,7 +239,9 @@ an ARD registry you choose, and hands the cards to `mcp-server-cards` (the Pi
 and OpenCode forms carry the Server Cards checks and add step themselves). A
 search sends the words of your request to that registry, so every search asks
 you first and names where it's going. That's also why it isn't part of the
-`agent-polyfill` bundle; install it by name.
+Claude Code `agent-polyfill` bundle or Pi's one-line install. Install it by
+name in Claude Code or Codex, from a clone in Pi, and with its own
+`opencode plugin add` in OpenCode.
 
 In Pi, `ard_search` asks "Don't send it" or "Send the search", naming the
 registry endpoint and exact query. There is no default registry: name one
@@ -400,7 +426,10 @@ polyfill off:
   `/config` for Server Cards and ARD).
 - **Codex:** remove the plugin
   (`codex plugin remove mcp-events@agent-polyfill`).
-- **Pi:** remove the extension, or use `MCP_EVENTS_OFF=1`,
+- **Pi:** `pi remove git:github.com/idosal/AgentPolyfill` removes Events,
+  Skills and Server Cards together and Pi's copy of the repository. For a
+  local install, use `pi remove ./polyfills/<form>/pi/extension` from the
+  same clone. To turn off one form, use `MCP_EVENTS_OFF=1`,
   `MCP_SKILLS_OFF=1`, `MCP_SERVER_CARDS_DISABLED=1` or
   `ARD_DISCOVERY_DISABLED=1` for the corresponding form.
 - **OpenCode:** remove the plugin (`opencode plugin remove` with the text it
@@ -539,6 +568,44 @@ each extension needs, and the questions they raise about permissions are in
   OpenCode Console's `console_watch` tools, and Windows by hand (CI runs the
   tests on Linux, macOS and Windows). The
   [live-run record](tools/opencode/live-run.md) has what was run.
+
+## In T3 Code
+
+[T3 Code](https://github.com/pingdotgg/t3code) (0.1.11) is an app (desktop,
+web and phone) that runs the coding agents already on your machine, Codex,
+Claude Code and OpenCode among them, from one interface. It has no plugin
+layer of its own and no MCP client for your servers: the agent connects them,
+as it does on its own. So the plugins above load in T3 Code's threads, and
+most of what they need from a host, T3 Code passes through. What follows was
+checked with Codex as the agent; [T3 Code](docs/t3-code.md) has the details
+and the sources.
+
+- **Apps: T3 Code does it itself.** It shows an MCP App under the tool call,
+  for Codex and for Claude Code 2.1.301 or newer. Don't install the Apps
+  polyfill for use in T3 Code.
+- **Skills, Server Cards and ARD: the tools work, the one question doesn't.**
+  With Codex, each asks you before its consequential step ("Load it", "Add
+  it", "Send the search") with an MCP elicitation form. T3 Code shows such a
+  form only when it can answer it with Approve or Decline, and cancels the
+  others without showing them, so the step is refused as if you'd said no.
+  Nothing is approved for you. Tried live with Skills; Server Cards and ARD
+  use the same kind of form and weren't run in T3 Code.
+- **Events: the T3 form, for Codex threads only.** The Codex plugin's wake
+  doesn't fit T3 Code: its turn runs where the thread doesn't show it.
+  [`mcp-events-t3`](polyfills/events/t3) is an MCP server you add to Codex.
+  T3 Code tells it which thread it serves, a watcher it starts outlives the
+  agent's sessions and T3 Code itself, and an event wakes the thread through
+  T3 Code's own `t3 thread send`
+  ([live run](polyfills/events/t3/docs/live-run.md)). Claude Code threads
+  can't use it, because T3 Code doesn't tell Claude Code's servers which
+  thread they serve. The Claude Code mod's wakes could reach a thread at most
+  while T3 Code keeps its session open, and that wasn't checked live.
+- **Not run live in T3 Code:** anything with Claude Code or OpenCode as the
+  agent; the approval prompt for `watch_event` in a thread whose mode asks
+  (the live run's thread was in Full access); Server Cards and ARD.
+
+What T3 Code would need to change is in
+[`docs/host-changes.md`](docs/host-changes.md#in-t3-code).
 
 ## Other hosts
 
@@ -679,14 +746,33 @@ installs one (`mcp-events`, `mcp-skills`, `mcp-server-cards` or
 `ard-discovery`), and `codex plugin remove <name>@agent-polyfill` removes it.
 Codex has no bundle.
 
-**Pi.** From the clone, use `pi -e ./polyfills/<polyfill>/pi/extension` for
-one run without installing. Replace `<polyfill>` with `events`, `skills`,
-`server-cards` or `ard`. Pi can't install one subfolder of a Git repository:
-`pi install git:...` takes the whole repository, so use the local paths
-above. Nothing for Pi is published to npm or Pi's package gallery.
+**Pi.** `pi install git:github.com/idosal/AgentPolyfill` installs Events,
+Skills and Server Cards together. Update installed packages with
+`pi update --extensions`. Remove all three and Pi's copy of the repository
+with `pi remove git:github.com/idosal/AgentPolyfill`.
 
-To uninstall, run `pi remove ./polyfills/<polyfill>/pi/extension` from the
-same folder. Events and Skills data stays in `mcp-events/` and `mcp-skills/`
+For one run of all three without installing:
+
+```bash
+pi -e git:github.com/idosal/AgentPolyfill
+```
+
+To install any one form alone, use a clone. Replace `<form>` with `events`,
+`skills`, `server-cards` or `ard`:
+
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+pi install ./polyfills/<form>/pi/extension
+```
+
+Pi loads the local path where it is, so keep the clone. For one run without
+installing, use `pi -e ./polyfills/<form>/pi/extension`. To remove a local
+install, run `pi remove ./polyfills/<form>/pi/extension` from the same folder.
+Use one way per form, not both: Pi tells packages apart by their repository
+address or local path, so a form installed both ways loads twice.
+
+After removal, Events and Skills data stays in `mcp-events/` and `mcp-skills/`
 in Pi's agent folder (`~/.pi/agent`, or `PI_CODING_AGENT_DIR`); delete those
 folders too to remove it. Servers added by Server Cards or ARD stay in
 `mcp.json`; remove each with `pi mcp remove <name>`.
@@ -736,6 +822,9 @@ permissions:
   a skill load, a registry search or a server addition) to OpenCode's
   permission rules and makes it ask by default. It never answers for you;
   OpenCode's rules remain the boundary.
+- **T3 Code:** the plugins of the agent it runs, as above. The T3 Events form
+  is an MCP server Codex starts, plus a watcher of its own that keeps running
+  after T3 Code closes, until no thread has a watch.
 
 None reads the host's stored credentials, including Pi's `mcp-auth.json`
 or `auth.json` and OpenCode's OAuth tokens. Each polyfill's `SECURITY.md`
@@ -756,6 +845,9 @@ says what it checks and what it doesn't protect against.
   - `opencode/`: plugins for Events, Skills, Server Cards and ARD, each with
     an installable `plugin/` folder (one bundled `server.js` and a
     `package.json`) and its own README and SECURITY.md.
+  - `t3/`: the Events form for T3 Code
+    ([`polyfills/events/t3`](polyfills/events/t3)), an MCP server for Codex
+    threads in T3 Code.
   - `muse/`: the Muse Code forms of Events, Skills, Server Cards and ARD:
     their README, SECURITY.md and docs. The installable folder is the Codex
     plugin's, with a `.muse-plugin/plugin.json` beside its Codex manifest.
@@ -766,8 +858,10 @@ says what it checks and what it doesn't protect against.
   and `polyfill-author`, the skills for building one.
   [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) lists
   the Codex plugins.
-  Pi's forms are installed from their local folders; none is published to
-  npm or Pi's package gallery.
+  The root [`package.json`](package.json) lists the three Pi extensions
+  installed by `pi install git:github.com/idosal/AgentPolyfill`. Local
+  folders are the alternative for one form, and the way to install ARD;
+  none is published to npm or Pi's package gallery.
   OpenCode's forms are installed from their folders on GitHub with
   `opencode plugin add`; none is published to npm, and there is no
   marketplace file for them.

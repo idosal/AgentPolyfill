@@ -145,8 +145,16 @@ for each host:
 - **Claude Code:** a mod in `claude-code/`.
 - **Codex:** a plugin in `codex/`.
 - **Pi:** an extension in `pi/`, with a manifest and bundled file in
-  `extension/`. It installs from a local clone; nothing for Pi is published
-  to npm or Pi's package gallery.
+  `extension/`. `pi install git:github.com/idosal/AgentPolyfill` installs
+  Events, Skills and Server Cards together; a local clone is the
+  alternative for one form. Nothing for Pi is published to npm or Pi's
+  package gallery. List a new form's
+  `./polyfills/<extension>/pi/extension/dist/index.js` in the root
+  `package.json`'s `pi.extensions` to include it in the one-line install.
+  ARD is left out on purpose, as in the Claude Code bundle: its search
+  sends your request's words to a registry after asking each time. Install
+  it separately from a clone; [Getting started](./getting-started#pi) has
+  both install paths.
 - **OpenCode:** a V2 server plugin in `opencode/`, with one bundled file,
   `server.js`, in `plugin/`. OpenCode runs it inside its own server, once per
   project folder. It installs from GitHub by its folder's path

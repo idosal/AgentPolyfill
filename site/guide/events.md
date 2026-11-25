@@ -40,9 +40,7 @@ codex plugin add mcp-events@agent-polyfill
 ```
 
 ```bash [Pi]
-git clone https://github.com/idosal/AgentPolyfill.git
-cd AgentPolyfill
-pi install ./polyfills/events/pi/extension
+pi install git:github.com/idosal/AgentPolyfill
 ```
 
 ```bash [OpenCode]
@@ -67,14 +65,40 @@ CLI session (the terminal app or `codex exec`). A chat in the ChatGPT desktop
 app keeps its events but can't be woken, so ask it for `recent_events`. A
 resumed Codex session starts watching at its first Events tool call.
 
-**In Pi** (1.6.0, the version tested, with Node 22 or newer), install from a
-clone: nothing for Pi is published to npm or Pi's package gallery. The
-extension is bundled, with nothing to build. For one run without installing,
-use `pi -e ./polyfills/events/pi/extension`. Pi loads the path where it is,
-so keep the clone; `git pull` there updates it. To remove it, run
-`pi remove ./polyfills/events/pi/extension` from the same folder. Watches and
-events stay in `mcp-events/` in Pi's agent folder (`~/.pi/agent`, or
-`PI_CODING_AGENT_DIR`); delete that folder too to remove them.
+**In Pi** (1.6.0, the version tested, with Node 22 or newer), the command
+above installs Events, Skills and Server Cards together.
+Pi clones the repository under `~/.pi/agent/git/` and loads the three
+extensions from there. Nothing is published to npm or Pi's package gallery,
+and nothing is built.
+
+Update installed packages with `pi update --extensions`. Remove all three
+and Pi's copy of the repository with
+`pi remove git:github.com/idosal/AgentPolyfill`. For one run of all three
+without installing, use `pi -e git:github.com/idosal/AgentPolyfill`.
+
+To install only Events, use a clone:
+
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+pi install ./polyfills/events/pi/extension
+```
+
+Pi loads the local path where it is, so keep the clone. From the same folder,
+`pi remove ./polyfills/events/pi/extension` removes that local install;
+`pi -e ./polyfills/events/pi/extension` runs it once without installing.
+Use one way per form: Pi tells packages apart by repository address or local
+path, so a form installed both ways loads twice.
+
+[ARD](./ard#install) is left out of the one-line install, as it is from the
+Claude Code bundle: its search sends the words of your request to a registry
+after asking each time. Install it separately from a clone.
+
+Removal leaves watches and events in `mcp-events/`, and approvals and skill
+stubs in `mcp-skills/`, in Pi's agent folder (`~/.pi/agent`, or
+`PI_CODING_AGENT_DIR`); delete those folders too to remove that data.
+Servers you added stay in `mcp.json`; remove one with
+`pi mcp remove <name>`.
 
 **In OpenCode** (2.4 or newer; tested with 2.4.1), OpenCode runs the plugin
 itself, so you don't need Node. The plugin isn't on npm: the command fetches
@@ -746,6 +770,30 @@ This mod is a stopgap. Once Claude Code handles Events natively, uninstall it
 (`/plugin uninstall mcp-events`) or set `MCP_EVENTS_OFF=1`; running both would
 show each event twice. It cannot stand down by itself, because a mod has no way
 to see what Claude Code's own MCP client supports.
+
+## In T3 Code
+
+[T3 Code](https://github.com/pingdotgg/t3code) runs Codex and Claude Code for
+you, and neither of their Events forms can wake one of its threads: the Codex
+plugin's wake runs a turn the thread doesn't show, and the Claude Code mod's
+helper ends when T3 Code closes the session. So Events has a form of its own
+there, [`mcp-events-t3`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/t3), for **Codex threads
+only**:
+
+- It's an MCP server you add to Codex (see [Getting started](./getting-started#t3-code)).
+  T3 Code tells it which thread it serves (`T3CODE_THREAD_ID`).
+- A watcher it starts runs the watches, and outlives the agent's sessions and
+  T3 Code itself. It ends by itself when no thread has a watch.
+- An event wakes the thread through T3 Code's own `t3 thread send`. The turn
+  runs in the thread's permission mode; the message says it's from the
+  polyfill, and T3 Code adds that it came through T3 Code's tools.
+- The [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/t3/docs/live-run.md) stopped T3 Code
+  entirely before the event arrived; when T3 Code came back, the thread woke
+  and read the event.
+
+Claude Code threads can't use it: T3 Code doesn't tell Claude Code's servers
+which thread they serve. Not run live: the approval prompt for `watch_event`
+in a thread whose mode asks.
 
 ## More
 
