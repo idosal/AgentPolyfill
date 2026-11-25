@@ -65,8 +65,9 @@ This removes each plugin, its data folder and its approvals. Left behind:
 ## Why some steps are typed or run by you
 
 In Claude Code, Codex and Pi, the polyfills ask you directly before anything
-that matters: a watch, loading a skill a server serves, adding a server, or
-sending a search to a registry. Muse gives a plugin no way to ask you:
+that matters: a watch, loading a skill a server serves (in Codex and Pi;
+Claude Code lists served skills itself), adding a server, or sending a search
+to a registry. Muse gives a plugin no way to ask you:
 
 - **No elicitation.** Muse's MCP client declares no capabilities, so a plugin's
   server can't show you a form.
