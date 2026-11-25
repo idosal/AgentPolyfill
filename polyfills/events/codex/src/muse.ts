@@ -124,6 +124,28 @@ export function museWatchQuestion(p: { server: string; event: string; arguments?
     ].join('\n');
 }
 
+/** What the person is asked before a watch stops, in Muse: the watch, its server and its event type, shown whole. */
+export function museUnwatchQuestion(w: { id: string; server: string; event: string; note?: string }): string {
+    return [
+        'mcp-events: stop a watch?',
+        `Muse wants to stop the watch ${visible(JSON.stringify(w.id))} of ${visible(JSON.stringify(w.event))} on the MCP server ${visible(JSON.stringify(w.server))}.`,
+        ...(w.note ? [`Its note: ${visible(JSON.stringify(w.note))}`] : []),
+        '',
+        'Its events will stop coming into this session.'
+    ].join('\n');
+}
+
+/** The answer to an unwatch_event that waits for the person's typed yes. */
+export const unwatchPendingText = (question: string, phrase: string) =>
+    [
+        'The watch is not stopped yet. Muse gives this plugin no way to ask the person, so they answer by typing. Show them this question as it is:',
+        '',
+        question,
+        '',
+        `To stop it, they send a message that is exactly: ${phrase}`,
+        'When they have, call unwatch_event again with the same watch. If they say no, or send anything else, leave it running.'
+    ].join('\n');
+
 /** The answer to a watch_event that waits for the person's typed yes. */
 export const watchPendingText = (question: string, phrase: string) =>
     [

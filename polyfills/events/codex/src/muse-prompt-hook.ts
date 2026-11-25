@@ -6,7 +6,7 @@
 // helper stored since the last hand-over (it records how far it got), and any batch waiting in the
 // session's inbox (where waking through `muse attach` failed). It also stamps the time, which tells
 // the helper the person is back. A message that is exactly the `watch <code>` a watch_event asked
-// for approves that watch (muse-confirm.ts), and the model is told so.
+// for approves that watch (muse-confirm.ts), and the same for `unwatch <code>`; the model is told so.
 //
 // A turn the plugin itself started (waking through `muse attach`, experimental) begins with
 // "[mcp-events]": that is not the person speaking, so it is not stamped. It prints nothing when
@@ -48,8 +48,9 @@ function main(): void {
     const parts: string[] = [];
     let systemMessage: string | undefined;
     const yes = confirmFromPrompt(base, session, prompt);
-    if (yes?.verb === 'watch') {
-        parts.push(`${LINE_PREFIX} The user's own message is the confirmation watch_event asked for: they approve "${yes.summary}". Call watch_event again with the same arguments to start it.`);
+    if (yes?.verb === 'watch' || yes?.verb === 'unwatch') {
+        const tool = yes.verb === 'watch' ? 'watch_event' : 'unwatch_event';
+        parts.push(`${LINE_PREFIX} The user's own message is the confirmation ${tool} asked for: they approve "${yes.summary}". Call ${tool} again with the same arguments to ${yes.verb === 'watch' ? 'start it' : 'stop it'}.`);
         systemMessage = `mcp-events: you approved: ${yes.summary}`;
     }
     const waiting = takeInbox(base, session);

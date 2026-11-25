@@ -349,6 +349,29 @@ describe('the helper in Muse', () => {
         }
     });
 
+    test('stopping a watch waits for its own typed yes too; an unknown watch is refused with nobody asked', async () => {
+        const w = museWorld();
+        const h = await startMuse(w.env());
+        try {
+            const watch = await watchActive(h, w);
+            const asked = await call(h, 'unwatch_event', { watch });
+            assert.equal(asked.isError, true);
+            assert.match(asked.text, /^The watch is not stopped yet\./);
+            assert.match(asked.text, new RegExp(`Muse wants to stop the watch "${watch}" of "ticket\\.created" on the MCP server "tickets"\\.\\nIts note: "tell me"`));
+            const phrase = /exactly: (unwatch \d{4})/.exec(asked.text)![1]!;
+            assert.match((await call(h, 'list_watches')).text, new RegExp(watch), 'still running');
+            assert.match((JSON.parse(w.say(phrase).out) as { hookSpecificOutput: { additionalContext: string } }).hookSpecificOutput.additionalContext, /Call unwatch_event again/);
+            const r = await call(h, 'unwatch_event', { watch });
+            assert.equal(r.isError, false, r.text);
+            assert.doesNotMatch((await call(h, 'list_watches')).text, new RegExp(`"id": "${watch}"`));
+            const unknown = await call(h, 'unwatch_event', { watch: 'w-000000' });
+            assert.doesNotMatch(unknown.text, /exactly: unwatch/);
+        } finally {
+            await h.stop();
+            rmSync(w.dir, { recursive: true, force: true });
+        }
+    });
+
     test('a watch the question cannot show whole is refused before anyone is asked; an unknown event type is refused by the call itself', async () => {
         const w = museWorld();
         const h = await startMuse(w.env());
