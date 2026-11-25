@@ -57,8 +57,9 @@ yourself, in the global configuration or a project's `opencode.json`:
 }
 ```
 
-The folder is one bundled file, [`plugin/server.js`](plugin/), its licence
-notices, and a `package.json` that names it. Nothing else is downloaded.
+The folder is one bundled file, [`plugin/server.js`](plugin/), which holds
+only this repository's code, and a `package.json` that names it. Nothing else
+is downloaded.
 It works on its own; installing `mcp-server-cards` beside it is optional.
 
 ## How it works
@@ -109,10 +110,12 @@ the object form of the plugin's entry in `plugins`:
   CI runs the tests on Linux, macOS and Windows.
 - **OpenCode's TUI shows little in the prompt.** In OpenCode 2.4.1's TUI, a
   permission prompt for a plugin's own action says only "Call tool
-  ard_search". The details are on the model's call line just above it, and
-  "Always allow" lists the pattern it would save. Checked in the TUI
-  ([`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui)). The call
-  line names the query and the registry you named. **A registry a referral
+  <action>" (seen in the TUI for the other three plugins,
+  [`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui); ARD's
+  search wasn't tried there). For `ard_search`, nothing is saved, so the
+  prompt would offer "Allow once" and "Reject" only, as for Server Cards. The
+  details are on the model's call line just above it: the query and the
+  registry you named. **A registry a referral
   names is asked about in a prompt of its own that, in the TUI, shows only
   "Call tool ard_search"**: its host is in the request alone, and nothing on
   screen names it. The plugin can't do better in the TUI. OpenCode Desktop
