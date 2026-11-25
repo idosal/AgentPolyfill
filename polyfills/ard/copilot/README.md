@@ -46,9 +46,14 @@ copilot plugin install ard-discovery@agent-polyfill
 ```
 
 Copilot loads a plugin from a local marketplace where it is, without copying
-it, so keep the clone. Once this plugin is on the repository's default branch,
-`copilot plugin marketplace add idosal/AgentPolyfill` adds the same
-marketplace from GitHub. Start a new Copilot session afterwards. It works on
+it, so keep the clone. From GitHub, `copilot plugin marketplace add idosal/AgentPolyfill` adds the
+same marketplace (Copilot reads its `.github/plugin/marketplace.json`), and
+Copilot keeps its own copy. That was checked on 25 November 2026 with Copilot
+CLI 1.0.105, in an isolated home with no sign-in: the three plugins installed
+from GitHub, byte-identical to main, and loaded
+([the record](docs/live-run.md#installed-from-github)). It wasn't checked on
+1.0.115, in the interactive TUI, or in VS Code. Start a new Copilot session
+afterwards. It works on
 its own; installing [`mcp-server-cards`](../../server-cards/copilot/README.md)
 beside it is optional (each has its own `add_mcp_server`, and Copilot keeps
 them apart by server name).

@@ -147,9 +147,9 @@ the same code and the same permission actions.
 
 Copilot CLI 1.0.115 (the version tested), with Node 20 or newer on your
 `PATH`. It is an MCP server in a plugin, so it needs no experimental mode. The
-install from a clone is the one tested; keep the clone. Once it is on the
-repository's default branch, `copilot plugin marketplace add idosal/AgentPolyfill`
-adds the marketplace from GitHub; that hasn't been tested. Start a new
+install from a clone is the one tested; keep the clone. From GitHub,
+`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace;
+that was checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code. Start a new
 Copilot session afterwards. Remove it with
 `copilot plugin uninstall ard-discovery@agent-polyfill`. Servers you added
 stay in `~/.copilot/mcp-config.json`; remove one with

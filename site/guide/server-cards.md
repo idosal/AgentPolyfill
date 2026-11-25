@@ -136,9 +136,9 @@ server with `server_cards_remove_mcp_server` first to drop it from the list.
 Copilot CLI 1.0.115 (the version tested), with Node 20 or newer on your
 `PATH`. The plugin is an MCP server, so it needs no experimental mode. The
 install from a clone is the one tested; Copilot loads the plugin where it is,
-so keep the clone. Once it is on the repository's default branch,
-`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace
-from GitHub; that hasn't been tested. Start a new Copilot session afterwards.
+so keep the clone. From GitHub,
+`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace;
+that was checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code. Start a new Copilot session afterwards.
 Remove it with `copilot plugin uninstall mcp-server-cards@agent-polyfill`.
 Servers you added stay in `~/.copilot/mcp-config.json`; remove one with
 `copilot mcp remove <name>`.
