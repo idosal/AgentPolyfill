@@ -355,6 +355,9 @@ describe('the helper in Muse', () => {
             assert.equal(out.systemMessage, 'mcp-events: you approved: mcp-events: start a watch?');
             const r = await call(h, 'watch_event', WATCH);
             assert.equal(r.isError, false, r.text);
+            // The Codex form's "shown by" gate is Codex's: in Muse nothing says to wait for Codex's own app.
+            assert.doesNotMatch(r.text, /Codex's own app/);
+            assert.doesNotMatch((await call(h, 'list_watches')).text, /Codex's own app/);
             const watch = /\b(w-[0-9a-f]+)\b/.exec(r.text)![1]!;
             assert.ok(readFileSync(watchesFile, 'utf8').includes(watch), 'kept under the session Muse named');
             await waitFor(async () => (JSON.parse((await call(h, 'list_watches')).text.split('\n\n')[0]!) as { status: string }[]).every((x) => x.status === 'active'), 15000, 'active');

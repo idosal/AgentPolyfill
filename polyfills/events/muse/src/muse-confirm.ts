@@ -4,8 +4,9 @@
 // Muse gives a plugin no way to put a question to the person: its MCP client offers no
 // elicitation, and a tool call that is not read-only, or a hook's "ask", goes to Muse's approval
 // judge, a model that may approve it with nobody asked. What only the person can do is type their
-// own message: Muse runs a plugin's UserPromptSubmit hook for those, and not for a turn that its
-// timers or a model start (checked: cron, monitors, subagents, peer messages, goals, workflows). So a tool that needs a yes records the question for the session with a
+// own message: Muse ran a plugin's UserPromptSubmit hook for those, and none of the ways a model can
+// put text into a session ran it when each was checked (cron, monitors, subagents, peer messages,
+// goals, workflows). So a tool that needs a yes records the question for the session with a
 // four-digit code and answers with the question and a phrase that names what it approves
 // (`watch tickets ticket.created 4821`, `load hf datasets 4821`): someone misled about the question
 // still types the names of what they say yes to. When a message of the person's is exactly that
