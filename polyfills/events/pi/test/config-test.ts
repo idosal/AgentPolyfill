@@ -170,4 +170,6 @@ test("the extension runs only where Pi's own MCP support does: its /mcp command,
     assert.equal(piRunsMcp([{ name: 'model' }]), false);
     // An extension that replaces MCP support registers /mcp itself.
     assert.equal(piRunsMcp([{ name: 'mcp', sourceInfo: { path: '/home/me/.pi/agent/extensions/pi-mcp-adapter/index.ts' } }]), false);
+    // Should Pi keep its own /mcp beside the replacement's, the replacement still counts.
+    assert.equal(piRunsMcp([{ name: 'mcp', sourceInfo: { path: 'builtin:mcp' } }, { name: 'mcp', sourceInfo: { path: '/x/pi-mcp-adapter/index.ts' } }]), false);
 });

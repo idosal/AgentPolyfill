@@ -122,7 +122,9 @@ const resolvedAliases = (v: Json): Json => ({
  * neither does this extension.
  */
 export function piRunsMcp(commands: { name: string; sourceInfo?: { path?: string } }[]): boolean {
-    return commands.some((c) => c.name === 'mcp' && c.sourceInfo?.path === 'builtin:mcp');
+    // Every /mcp there is must be the built-in one: an /mcp from anywhere else means MCP support is replaced.
+    const mcp = commands.filter((c) => c.name === 'mcp');
+    return mcp.length > 0 && mcp.every((c) => c.sourceInfo?.path === 'builtin:mcp');
 }
 
 /** Pi's agent directory: PI_CODING_AGENT_DIR, else ~/.pi/agent. A leading `~` is the home directory, as Pi reads it. */

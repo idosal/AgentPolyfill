@@ -16,20 +16,30 @@ shares its client logic, in [`../core`](../core/). Details are in
 
 ## Install
 
-Nothing is published yet. From a clone of this repository:
+Nothing is published to npm or Pi's package gallery yet, so install it from a
+clone of this repository. You need **Pi 1.6.0**, the version it was tested
+with, and **Node 22 or newer**, which Pi needs anyway:
 
 ```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
 pi install ./polyfills/skills/pi/extension
 ```
 
-Or, for one run without installing: `pi -e ./polyfills/skills/pi/extension`.
+Or, to try it for one run without installing:
+
+```bash
+pi -e ./polyfills/skills/pi/extension
+```
 
 The extension is one folder, [`extension/`](extension/): a manifest and one
-bundled file, with nothing to install alongside it. You need **Pi 1.6.0**, the
-version it was tested with, and **Node 22 or newer**, which Pi needs anyway.
+bundled file, with nothing to build or install alongside it. Pi loads it from
+where it is, so keep the clone; `git pull` in it brings the next version.
 
-To remove it, run `pi remove` with the same path. The served skills leave
-Pi's list with it.
+To remove it, run `pi remove ./polyfills/skills/pi/extension` from the same
+folder. The served skills leave Pi's list with it. Your approvals
+and the stubs are in `mcp-skills/` in Pi's agent folder (`~/.pi/agent`, or
+`PI_CODING_AGENT_DIR`); delete that folder too to remove them.
 
 ## Try it
 

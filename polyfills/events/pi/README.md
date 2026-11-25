@@ -13,9 +13,13 @@ Details are in [Spec and conformance](#spec-and-conformance).
 
 ## Install
 
-Nothing is published yet. From a clone of this repository:
+Nothing is published to npm or Pi's package gallery yet, so install it from a
+clone of this repository. You need **Pi 1.6.0**, the version it was tested
+with, and **Node 22 or newer**, which Pi needs anyway:
 
 ```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
 pi install ./polyfills/events/pi/extension
 ```
 
@@ -26,16 +30,13 @@ pi -e ./polyfills/events/pi/extension
 ```
 
 The extension is one folder, [`extension/`](extension/): a manifest and one
-bundled file of about 0.5 MB, with nothing to install alongside it.
+bundled file, with nothing to build or install alongside it. Pi loads it from
+where it is, so keep the clone; `git pull` in it brings the next version.
 
-You need:
-
-- **Pi 1.6.0**, the version it was tested with. Extensions are a standard
-  part of Pi; nothing needs to be turned on.
-- **Node 22 or newer**, which Pi itself needs.
-
-To remove it, run `pi remove` with the same path, or delete it from
-`packages` in Pi's `settings.json`.
+To remove it, run `pi remove ./polyfills/events/pi/extension` from the same
+folder. Its watches and stored events are in `mcp-events/` in Pi's agent folder
+(`~/.pi/agent`, or `PI_CODING_AGENT_DIR`); delete that folder too to remove
+them.
 
 ## Try it
 
@@ -225,8 +226,10 @@ The changes hosts would need are in
 - **Not yet run against other implementations' servers from Pi.** The shared
   client's interop runs (in the [Codex form](../codex/docs/interop.md)) apply
   to the client; this form has been run against the hand-written fixture
-  server, an HTTP server behind a token and behind OAuth, and the hosted demo
-  server above.
+  server (with a real model, in [`docs/live-run.md`](docs/live-run.md)), an
+  HTTP server behind a token and behind OAuth, and the hosted demo server
+  above (with the scripted model: a watch confirmed, an `hn.story` event
+  waking the idle session, `get_event` reading it).
 
 ## Security
 

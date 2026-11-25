@@ -164,6 +164,7 @@ export default function mcpSkills(pi: ExtensionAPI): void {
      * /reload, /resume, /fork or /clone, while Pi starts a new instance of this extension that holds
      * nothing yet; the session's entries carry over, so the checks below hold across them.
      */
+    const caseless = (uri: string) => uri.replace(/^([A-Za-z][A-Za-z0-9+.-]*:\/\/[^/]*)/, (m) => m.toLowerCase());
     const loadedSkills = (ctx: ExtensionContext): { server: string; uri: string }[] => {
         const out = new Map<string, { server: string; uri: string }>();
         for (const h of app?.host.held() ?? []) out.set(`${h.label}\n${h.entry.uri}`, { server: h.label, uri: h.entry.uri });
@@ -195,7 +196,9 @@ export default function mcpSkills(pi: ExtensionAPI): void {
         const loaded = loadedSkills(ctx);
         if (!loaded.length || typeof input.server !== 'string') return;
         if (event.toolName === 'read_mcp_resource' && typeof input.uri === 'string') {
-            const own = loaded.find((l) => l.server === input.server && (input.uri as string).startsWith(`${rootOf(l.uri)}/`));
+            // Scheme and authority compared without case, as a URI's are: SKILL://Git-Workflow/... is the same skill's file.
+            const target = caseless(input.uri);
+            const own = loaded.find((l) => l.server === input.server && target.startsWith(`${caseless(rootOf(l.uri) ?? l.uri)}/`));
             if (own) return { block: true, reason: `That is a file of the skill ${JSON.stringify(own.uri)}, loaded from the MCP server ${JSON.stringify(own.server)}. Read it with read_skill_file (server ${JSON.stringify(own.server)}, skill ${JSON.stringify(own.uri)} and its path), which checks it against the skill's entry.` };
         }
         const others = [...new Set(loaded.map((l) => l.server))].filter((s) => s !== input.server);
