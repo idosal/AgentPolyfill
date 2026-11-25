@@ -50,6 +50,7 @@ const HOSTS = [
   { name: 'Claude Code', command: 'claude', addKey: 'add', form: 'Mod (plugin)', polyfills: 'Events, Skills, Server Cards, Apps, ARD' },
   { name: 'Codex', command: 'codex', addKey: 'addCodex', form: 'Plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
   { name: 'Pi', command: 'pi', addKey: 'addPi', form: 'Extension', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
+  { name: 'Muse Code', command: 'muse', addKey: 'addMuse', form: 'Plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
 ]
 // Pi's source installs and examples, for the Markdown served to agents.
 const PI_FORMS = {
@@ -77,6 +78,29 @@ const INSTALL_PI = [
 ]
 const PI_INSTALL_NOTES = 'Nothing for Pi is published to npm or Pi\'s package gallery. There is no bundle: install each extension separately. Pi cannot install one folder of a git repository, so use a local clone. Each extension is bundled, with nothing to build. Pi loads each path where it is; keep the clone and run `git pull` there to update it. For one run without installing, use `pi -e ./polyfills/<polyfill>/pi/extension`. Remove it from the same folder with `pi remove ./polyfills/<polyfill>/pi/extension` (`<polyfill>` is `events`, `skills`, `server-cards` or `ard`). Data stays in `mcp-events/` and `mcp-skills/` in Pi\'s agent folder (`~/.pi/agent`, or `PI_CODING_AGENT_DIR`); delete those to remove it. Added servers stay in `mcp.json`; undo with `pi mcp remove <name>`.'
 const PI_APPS_LIMIT = 'Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`, so an extension cannot get an App\'s UI through Pi. Its terminal could draw one in principle, but no Pi Apps form is built or tested.'
+// Muse Code's installs and examples, for the Markdown served to agents. Muse
+// installs the Codex plugins from this repository's marketplace.
+const MUSE_FORMS = {
+  'mcp-events': {
+    add: 'muse mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp',
+    ask: 'Watch for new earthquakes from the feeds server and tell me where each one was.',
+  },
+  'mcp-skills': {
+    add: 'muse mcp add huggingface --url https://huggingface.co/mcp',
+  },
+  'mcp-server-cards': {},
+  'ard-discovery': {
+    add: 'muse plugins marketplace add agent-polyfill https://github.com/idosal/AgentPolyfill && muse plugins install ard-discovery@agent-polyfill && muse plugins approve ard-discovery',
+  },
+}
+const INSTALL_MUSE = [
+  'muse plugins marketplace add agent-polyfill https://github.com/idosal/AgentPolyfill',
+  ...Object.keys(MUSE_FORMS).flatMap((name) => [`muse plugins install ${name}@agent-polyfill`, `muse plugins approve ${name}`]),
+]
+const MUSE_INSTALL_NOTES = 'There is no bundle: install and approve each plugin separately. Muse turns on a plugin\'s skills at install, and holds its MCP servers and hooks until `muse plugins approve <name>`. After `muse plugins marketplace update agent-polyfill` and `muse plugins update <name>`, approve again. Then start a new `muse` session. Muse starts no MCP server in a workspace you haven\'t trusted. To uninstall, run `muse plugins remove <name> --delete-data` for each plugin, then `muse plugins marketplace remove agent-polyfill`. That removes the plugins, their data folders and approvals. Skills\' stubs stay in `~/.config/muse/skills/mcp-skills-served--*`; delete them by hand. A server you added with `muse mcp add` stays; undo it with `muse mcp remove <name>`.'
+const MUSE_APPS_LIMIT = 'Apps has no Muse Code form: Muse gives a plugin no way to draw in its terminal.'
+// The host forms whose demo commands differ from home.json's.
+const HOST_FORMS = { Pi: PI_FORMS, 'Muse Code': MUSE_FORMS }
 
 function hostTable() {
   return ['| Host | Form | Polyfills |', '|---|---|---|', ...HOSTS.map(({ name, form, polyfills }) => `| ${name} | ${form} | ${polyfills} |`)].join('\n')
@@ -255,7 +279,6 @@ function homeMarkdown() {
   const notice = html(poc[1].replace(/<strong>([\s\S]*?)<\/strong>/g, '**$1**'))
   const card = (p) => {
     const cut = media.cuts.find((c) => c.name === p.cut)
-    const pi = PI_FORMS[p.plugin]
     const hosts = HOSTS.filter(({ name }) => p.hosts.includes(name))
     const lines = [
       `### ${p.name} (\`${p.plugin}\`)`,
@@ -271,15 +294,16 @@ function homeMarkdown() {
     const block = (command) => [command.startsWith('/') ? '```' : '```bash', command, '```']
     if (p.addStep) lines.push('', p.addStep)
     for (const host of hosts) {
-      const add = host.name === 'Pi' ? pi?.add ?? p[host.addKey] : p[host.addKey]
-      const ask = host.name === 'Pi' ? pi?.ask ?? p.ask : p.ask
+      const form = HOST_FORMS[host.name]?.[p.plugin]
+      const add = form?.add ?? p[host.addKey]
+      const ask = form?.ask ?? p.ask
       lines.push('', `**${host.name}**`, '')
       if (add) lines.push(...block(add), '', `Then start \`${host.command}\` and ask: "${ask}"`)
       else lines.push(`Nothing to set up. Start \`${host.command}\` and ask: "${ask}"`)
     }
     if (p.then) lines.push('', p.then)
     if (p.note) lines.push('', p.note)
-    if (p.plugin === 'mcp-apps-cli') lines.push('', PI_APPS_LIMIT)
+    if (p.plugin === 'mcp-apps-cli') lines.push('', PI_APPS_LIMIT, '', MUSE_APPS_LIMIT)
     lines.push('', videoLine({ file: cut.file, seconds: cut.seconds, description: p.alt }), '', `The ${p.name} guide: ${resolveLink(p.link, 'index')}`)
     return lines.join('\n')
   }
@@ -323,11 +347,22 @@ ${PI_INSTALL_NOTES}
 
 ${PI_APPS_LIMIT}
 
+**Muse Code** (Meta's terminal coding agent; 1.4.25, the version tested, on macOS; Node 20 or newer). Muse installs the Codex plugins from this repository's marketplace. In a terminal:
+
+\`\`\`bash
+${INSTALL_MUSE.join('\n')}
+\`\`\`
+
+${MUSE_INSTALL_NOTES}
+
+${MUSE_APPS_LIMIT}
+
 Beyond MCP, ARD is a draft. Every search asks you first and goes to a registry you choose. Install it separately:
 
 - **Claude Code:** \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`; it isn't in the bundle.
 - **Codex:** \`codex plugin add ard-discovery@agent-polyfill\`.
 - **Pi:** \`pi install ./polyfills/ard/pi/extension\` from the clone (included in the commands above).
+- **Muse Code:** \`muse plugins install ard-discovery@agent-polyfill\`, then \`muse plugins approve ard-discovery\` (included in the commands above). In Muse it has no registry search, because a search must ask you first.
 
 ${videoLine({ file: media.launch.file, seconds: media.launch.seconds, description: media.launch.description })}
 
@@ -383,21 +418,32 @@ AgentPolyfill makes polyfills for agent protocols: it brings more of MCP to the 
 
 ${hostTable()}
 
-The MCP polyfills implement Events (SEP-3415), Skills (SEP-2640), Server Cards (SEP-2127) and Apps (MCP Apps 2026-01-26). It's an early proof of concept: some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs (${origin}/guide/how-it-works.md). ${PI_APPS_LIMIT}
+The MCP polyfills implement Events (SEP-3415), Skills (SEP-2640), Server Cards (SEP-2127) and Apps (MCP Apps 2026-01-26). It's an early proof of concept: some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs (${origin}/guide/how-it-works.md). ${PI_APPS_LIMIT} ${MUSE_APPS_LIMIT}
 
-Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A search sends the words of your request to the ARD registry you choose and asks you first every time, so ARD is installed separately. Pi's live run showed domain discovery and an approved search of the repository's demo registry, but did not complete the add step; additions are covered by real-Pi tests with a scripted model and a local server.
+Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A search sends the words of your request to the ARD registry you choose and asks you first every time, so ARD is installed separately. Pi's live run showed domain discovery and an approved search of the repository's demo registry, but did not complete the add step; additions are covered by real-Pi tests with a scripted model and a local server. In Muse Code, ARD finds servers by domain only: it has no registry search, because a search must ask you first and Muse gives a plugin no way to ask.
 
 ## Install
 
 - **Claude Code 2.1.329 or newer:** every MCP polyfill, the \`agent-polyfill\` bundle, from a terminal: \`${INSTALL_CLI}\`. At the prompt of a \`claude\` session it is \`${INSTALL}\`. Start a new session for the plugins to load. ARD is separate: \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`.
 - **Codex 0.170 or newer (Node 20 or newer):** from a terminal: \`${INSTALL_CODEX.join(' && ')}\`. ARD is separate: \`codex plugin add ard-discovery@agent-polyfill\`. There is no bundle.
 - **Pi 1.6.0 (the version tested; Node 22 or newer):** use the clone commands below.
+- **Muse Code 1.4.25 (the version tested, on macOS; Node 20 or newer):** use the Muse commands below.
+
+Pi:
 
 \`\`\`bash
 ${INSTALL_PI.join('\n')}
 \`\`\`
 
 ${PI_INSTALL_NOTES}
+
+Muse Code (it installs the Codex plugins from this repository's marketplace):
+
+\`\`\`bash
+${INSTALL_MUSE.join('\n')}
+\`\`\`
+
+${MUSE_INSTALL_NOTES}
 
 In Pi, Events and Skills use their own MCP connections, so a local (stdio) server runs twice. They cannot use Pi's OAuth or \`auth.provider\` sign-ins, and never read Pi's stored credentials. An \`Authorization\` header in \`mcp.json\` works, written out or using \`\${VARIABLE}\` or \`!command\`. Events needs protocol revision 2026-07-28; Pi's own client stops at 2025-11-25. With Pi's MCP support off, Events and Skills stand down too. Servers another extension registers later are reached after \`/reload\`.
 
@@ -409,6 +455,14 @@ Pi runs tools without asking unless a permission extension asks. Each polyfill a
 | Skills | \`MCP_SKILLS_OFF=1\` |
 | Server Cards | \`MCP_SERVER_CARDS_DISABLED=1\` |
 | ARD | \`ARD_DISCOVERY_DISABLED=1\` |
+
+In Muse Code, the plugins are the Codex plugins, run with \`--host=muse\`. Muse gives a plugin no way to put a question to the person: its MCP client offers no elicitation, and a tool call that isn't read-only, or a hook's \`ask\`, goes to Muse's approval judge, a model that may approve with nobody asked. So a watch (Events) and a skill load (Skills) wait for you to type the phrase the answer gives, such as \`watch 4821\` or \`load 4821\`. Only a message of yours that is exactly that phrase approves it; it is good for that one question, in that session, for 15 minutes. Server Cards and ARD write nothing: they give you the \`muse mcp add …\` command, which you run yourself, in a terminal or after \`!\` at the Muse prompt. Skills doesn't offer "show me its SKILL.md first".
+
+New events reach the model with your next message, as a context block from the hook starting \`[mcp-events] (Sent by the mcp-events plugin, not typed by the user.)\`. Nothing wakes an idle session by default. An experimental opt-in does: \`{"MCP_EVENTS_MUSE_WAKE": "attach"}\` in the plugin's settings file, and \`muse\` started with \`MUSE_EXPERIMENTAL_TUI_MSP_CLIENT=1 MUSE_EXPERIMENTAL_TUI_SESSION_PROCESS=1\`. With those gates on, any local process of the same user can attach to the session and start turns, with no prompt, and could type the phrases. Waking is capped as in Codex (once a minute per watch, 30 times an hour), and was checked with the echo provider only.
+
+Muse passes a plugin's server and hooks none of your environment variables, so settings live in \`settings.json\` in the plugin's data folder, \`~/.local/share/muse/plugins/data/<plugin>/\`: \`MCP_EVENTS_*\` keys for Events (for example \`{"MCP_EVENTS_OFF": "1"}\`), and \`{"servers": [...], "skip": [...], "off": true}\` for Skills. Events and Skills read \`mcpServers\` in \`~/.config/muse/settings.json\`, never Muse's sign-in store or a project's \`.mcp.json\`; they can't reach OAuth servers, and skip a server signed in with \`muse mcp login\`, one whose values come from \`\${VAR}\`, and one with \`enabled: false\`. When an organisation manages Muse (\`muse config status\` shows a defaults or policy plane), they read nothing. No Muse form detects native support; turn one off with \`muse plugins disable <name>\` when Muse ships the extension.
+
+No Muse run used a real model. Every run used Muse's echo provider, or a local stand-in for the Responses API on 127.0.0.1 with a made-up key, which also answered Muse's approval judge, in an isolated home with no \`muse login\`. Details: https://github.com/idosal/AgentPolyfill/blob/main/docs/muse.md
 
 Anyone can build a polyfill to the contract, bring an existing one to another host, or list one they keep in their own repository in the community directory (${origin}/guide/community.md).
 

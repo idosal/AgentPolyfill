@@ -30,18 +30,26 @@ a new extension, without waiting on one company's roadmap.
 
 ## The polyfills
 
-| Extension | Spec | Claude Code | Codex | Pi |
-|---|---|---|---|---|
-| [Events](./events) | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | `mcp-events` | `mcp-events` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi) |
-| [Skills](./skills) | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | `mcp-skills` | `mcp-skills` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi) |
-| [Server Cards](./server-cards) | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | `mcp-server-cards` | `mcp-server-cards` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi) |
-| [Apps](./apps) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | `mcp-apps-cli` | not yet | not available |
-| [ARD](./ard) (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | `ard-discovery` | `ard-discovery` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi) |
+| Extension | Spec | Claude Code | Codex | Pi | Muse Code |
+|---|---|---|---|---|---|
+| [Events](./events) | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | `mcp-events` | `mcp-events` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi) | [`mcp-events`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/muse) (at your next message) |
+| [Skills](./skills) | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | `mcp-skills` | `mcp-skills` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi) | [`mcp-skills`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/muse) |
+| [Server Cards](./server-cards) | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | `mcp-server-cards` | `mcp-server-cards` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi) | [`mcp-server-cards`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/muse) |
+| [Apps](./apps) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | `mcp-apps-cli` | not yet | not available | not available |
+| [ARD](./ard) (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | `ard-discovery` | `ard-discovery` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi) | [`ard-discovery`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/muse) (no registry search) |
 
 The Pi forms were tested with Pi 1.6.0 and need Node 22 or newer. Nothing for
 Pi is published to npm or Pi's package gallery. Install the extensions from
 a clone, with nothing to build; [Getting started](./getting-started#pi) has
 the steps.
+
+The Muse Code forms are the Codex plugins, which Muse installs from this
+repository's marketplace. They were tested with Muse Code 1.4.25 on macOS
+only, and need Node 20 or newer. No run used a real model: every run used
+Muse's echo provider, or a local stand-in for the model.
+[Getting started](./getting-started#muse-code) has the steps, and
+[AgentPolyfill in Muse Code](https://github.com/idosal/AgentPolyfill/blob/main/docs/muse.md)
+says what works differently there, and why.
 
 All of them are early. Here is what each one does, and where it stops:
 
@@ -52,7 +60,10 @@ All of them are early. Here is what each one does, and where it stops:
   `recent_events`. A resumed Codex session starts watching at its first Events
   tool call. In Pi, each watch asks you first; an event wakes the idle
   session with a message starting `[mcp-events]` that says the extension
-  sent it, and Pi reads the event with `get_event`.
+  sent it, and Pi reads the event with `get_event`. In Muse Code, a watch
+  starts only after you type the phrase the answer gives, such as
+  `watch 4821`. New events reach the model with your next message; nothing
+  wakes an idle session unless you turn on an experimental opt-in.
 - **Skills.** Skills an MCP server serves show up next to your own, load only
   after you say yes to each one, and are checked against the server's
   digests. In Codex they appear in Codex's own skill list after you ask once
@@ -62,24 +73,32 @@ All of them are early. Here is what each one does, and where it stops:
   In Pi, served skills appear as `mcp-<server>-<name>`, marked with their
   server. X8 is met: a cross-server read while a served skill is loaded asks
   you first, naming both servers, including calls made through codemode.
+  In Muse Code, a load waits until you type the phrase the answer gives,
+  such as `load 4821`, because Muse gives a plugin no way to ask you.
 - **Server Cards.** Name a company and the agent finds the MCP servers its
   domain publishes, checks each card against the schema, and adds the one you
   pick to the host's own configuration. The host then connects it with its own
   sign-in, so servers behind OAuth work. You see the host it connects to
   before you add it. In Pi, the extension asks before running `pi mcp add`
-  and registers the server for the current session, without a restart.
+  and registers the server for the current session, without a restart. In
+  Muse Code, it writes nothing: it gives you the `muse mcp add …` command,
+  which you run yourself.
 - **Apps.** A server's app opens right under the tool call in the terminal
   and answers the mouse and keyboard: real pixels in iTerm2, kitty and
   Ghostty, text cells everywhere else. There is no Pi form: Pi 1.6.0 leaves
   out `ui://` resources and tool `_meta`, so an extension can't get an App's
-  UI. Nothing for Apps in Pi is built or tested.
+  UI. Nothing for Apps in Pi is built or tested. There is no Muse Code form
+  either: Muse gives a plugin no way to draw in its terminal.
 
 Events and Skills can't use a host's OAuth sign-in. Apps has the same limit
 in its available form. In Pi, Events and Skills open their own connections,
 so a local (stdio) server runs twice. Headers in `mcp.json` work, including
 `${VARIABLE}` and `!command` values; Pi's stored sign-ins and `auth.provider`
 are out of reach. Events also needs protocol revision 2026-07-28, while
-Pi 1.6.0's own MCP client stops at 2025-11-25.
+Pi 1.6.0's own MCP client stops at 2025-11-25. In Muse Code, Events and
+Skills read the servers in Muse's settings, never its sign-in store, so they
+can't reach OAuth servers: a server signed in with `muse mcp login` is
+skipped, and so is one whose values come from `${VAR}`.
 [How it works](./how-it-works#how-it-works-in-each-host-and-where-it-stops)
 says why, and what would fix it.
 
@@ -95,7 +114,8 @@ also why it isn't part of the `agent-polyfill` bundle; install it by name.
 Pi's recorded live run showed domain discovery and an approved search of the
 repository's demo registry. It did not complete the add step: the model
 asked in chat instead of calling the add tool. Addition is covered by tests
-in real Pi with a scripted model and a local server.
+in real Pi with a scripted model and a local server. In Muse Code, ARD has
+no registry search, because a search must ask you first.
 
 Native support is separate from these polyfills:
 
@@ -109,6 +129,8 @@ Native support is separate from these polyfills:
 - **Pi:** 1.6.0 supports none of them itself; its MCP client implements no
   MCP extension. The Pi forms can't detect native support themselves, so
   remove them or use their off switches when Pi supports an extension.
+- **Muse Code:** no form detects native support. Disable the plugin
+  (`muse plugins disable <name>`) when Muse ships the extension.
 
 Hosts add extensions all the time, so check the matrix for today's picture.
 
@@ -131,7 +153,8 @@ These are third-party plugins and extensions, and they run with your
 permissions. None of them reads the host's stored credentials. Pi runs tool
 calls without asking unless a permission extension asks; each polyfill adds
 its own question before a watch, skill load, registry search or server add.
-Each polyfill's `SECURITY.md` says what it checks and what it doesn't protect
+Muse Code gives a plugin no way to ask you, so a watch or a skill load waits
+for a phrase you type, and you run `muse mcp add` yourself. Each polyfill's `SECURITY.md` says what it checks and what it doesn't protect
 against; [Security](./security) collects them.
 
 AgentPolyfill isn't affiliated with Anthropic, OpenAI, MCP, ARD or the AAIF.

@@ -116,6 +116,37 @@ To try one for a single run without installing, replace `<polyfill>` with
 pi -e ./polyfills/<polyfill>/pi/extension
 ```
 
+### Muse Code
+
+Muse Code 1.4.25 (Meta's terminal coding agent, `muse`; the version tested,
+on macOS only), with Node 20 or newer on the `PATH` that `muse` runs with.
+Muse reads this repository's Codex marketplace and installs the Codex
+plugins under the same names. In a terminal:
+
+```bash
+muse plugins marketplace add agent-polyfill https://github.com/idosal/AgentPolyfill
+muse plugins install mcp-events@agent-polyfill
+muse plugins approve mcp-events
+muse plugins install mcp-skills@agent-polyfill
+muse plugins approve mcp-skills
+muse plugins install mcp-server-cards@agent-polyfill
+muse plugins approve mcp-server-cards
+muse plugins install ard-discovery@agent-polyfill
+muse plugins approve ard-discovery
+```
+
+These steps were tested in an isolated home. There is no bundle, so install
+the ones you want. Apps has no Muse form. Then start a new `muse` session.
+
+- **Why `approve`.** Muse turns on a plugin's skills when you install it. It
+  holds back the plugin's MCP servers and hooks until you run
+  `muse plugins approve <name>`.
+- **After an update, approve again.** After
+  `muse plugins marketplace update agent-polyfill` and
+  `muse plugins update <name>`, run `muse plugins approve <name>` again.
+- **Trusted folders only.** Muse starts no MCP server in a workspace you
+  haven't trusted, these included.
+
 ## Requirements
 
 ### In Claude Code
@@ -182,6 +213,47 @@ Each Pi form's README has the rest:
 [Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi) and
 [ARD discovery](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi).
 
+### In Muse Code
+
+| | Muse Code | What else it needs |
+|---|---|---|
+| Events | 1.4.25 (the version tested) | Node 20 or newer. A watch starts after you type a phrase. New events arrive with your next message; waking an idle session is an experimental opt-in. |
+| Skills | 1.4.25 (the version tested) | Node 20 or newer. A load waits until you type a phrase. |
+| Server Cards, ARD | 1.4.25 (the version tested) | Node 20 or newer. You run the `muse mcp add …` command they give you. |
+| Apps | not available | Muse gives a plugin no way to draw in its terminal. |
+
+Muse gives a plugin no way to put a question to you. Its MCP client offers
+no elicitation. A tool call that isn't read-only goes to Muse's approval
+judge, a model that may approve it with nobody asked, and a hook's `ask`
+goes to the same judge. So the forms work this way:
+
+- **Events and Skills:** a watch and a skill load wait for a phrase you type,
+  such as `watch 4821` or `load 4821`. Only a message of yours that is
+  exactly that phrase approves it. Muse runs the plugin's `UserPromptSubmit`
+  hook for your messages, not for a turn its timers start. The phrase is good
+  for that one question, in that session, for 15 minutes.
+- **Server Cards and ARD:** "add" writes nothing. It gives you the
+  `muse mcp add …` command, which you run yourself, in a terminal or after
+  `!` at the Muse prompt.
+- **ARD:** no registry search in Muse, because a search must ask first.
+
+Muse passes a plugin's server and hooks none of your environment variables.
+Settings live in `settings.json` in the plugin's data folder,
+`~/.local/share/muse/plugins/data/<plugin>/`: `MCP_EVENTS_*` keys for
+Events, such as `{"MCP_EVENTS_OFF": "1"}`, and
+`{"servers": [...], "skip": [...], "off": true}` for Skills. Server Cards
+and ARD have none.
+
+Every Muse run used Muse's echo provider, or a local stand-in for the
+Responses API on 127.0.0.1 with a made-up key; no run used a real model.
+Each Muse form's README has the rest:
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/muse),
+[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/muse),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/muse) and
+[ARD discovery](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/muse).
+[AgentPolyfill in Muse Code](https://github.com/idosal/AgentPolyfill/blob/main/docs/muse.md)
+is the overview.
+
 ## First run
 
 Events and Apps each have a hosted demo server to try them against, Skills
@@ -203,6 +275,10 @@ codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 
 ```bash [Pi]
 pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
+```
+
+```bash [Muse Code]
+muse mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
 :::
@@ -234,6 +310,14 @@ For the demo button:
   folder. The [Pi live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/live-run.md)
   records a confirmed watch, idle wake, event read, answer and stop against
   a local ticket server.
+- **Muse Code:** try "Watch for new earthquakes from the feeds server and
+  tell me where each one was." The watch waits: the answer gives a phrase
+  such as `watch 4821`, and the watch starts only after you send exactly
+  that phrase. New events reach the model with your next message, as a
+  context block from the plugin's hook starting
+  `[mcp-events] (Sent by the mcp-events plugin, not typed by the user.)`.
+  Nothing wakes an idle session by default; the experimental opt-in that
+  does is on the [Events page](./events#in-muse-code).
 
 [More on Events](./events)
 
@@ -253,6 +337,10 @@ codex mcp add huggingface --url https://huggingface.co/mcp
 pi mcp add huggingface --url https://huggingface.co/mcp
 ```
 
+```bash [Muse Code]
+muse mcp add huggingface --url https://huggingface.co/mcp
+```
+
 :::
 
 - **Claude Code:** `/mcp-skills` lists what it serves.
@@ -262,6 +350,8 @@ pi mcp add huggingface --url https://huggingface.co/mcp
   `mcp-<server>-<name>`, with descriptions marked
   `[MCP server "<server>", not a local skill]`. Pi can choose one for the
   task, or you can name it with `/skill:mcp-...`.
+- **Muse Code:** the served skills are in Muse's skill list from the next
+  session. Whether they show in the same session wasn't checked.
 
 Then ask a question one of its skills covers:
 
@@ -278,6 +368,12 @@ server asks "mcp-skills: reach another MCP server?", naming both servers
 The [Pi live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/docs/live-run.md)
 used Hugging Face's server, loaded two skills after approval, read reference
 files and answered from them; a second run previewed each skill first.
+
+In Muse Code there is no dialog. The answer gives a phrase such as
+`load 4821`, and the skill loads after you send exactly that phrase.
+"Show me its SKILL.md first" isn't offered, because Muse has no way to show
+you text the model doesn't see. In Muse, Hugging Face's server was used to
+check the skill listing.
 
 [More on Skills](./skills)
 
@@ -302,6 +398,9 @@ Then add **Neon Docs** (no sign-in):
   connects without a restart. Decline or close the dialog and nothing is
   added. This was shown in the [Pi live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/docs/live-run.md).
   For a server that needs sign-in, use `/mcp` or `pi mcp login <name>`.
+- **Muse Code:** ask "Add Neon Docs". The plugin writes nothing: it gives
+  you the `muse mcp add …` command, which you run yourself, in a terminal or
+  after `!` at the Muse prompt. `muse mcp remove <name>` undoes it.
 
 [More on Server Cards](./server-cards)
 
@@ -325,6 +424,13 @@ after approval. **It did not complete the add step:** the model asked in
 chat instead of calling `ard_add_mcp_server`. Addition is covered by tests
 in real Pi with a scripted model and a local server.
 [More on ARD](./ard)
+
+### ARD in Muse Code
+
+ARD finds servers through a domain's `ard.json` and, as Server Cards does,
+gives you the `muse mcp add …` command for the one you pick, to run
+yourself. There is no registry search in Muse, because a search must ask
+you first and Muse gives a plugin no way to ask. [More on ARD](./ard)
 
 ### Apps
 
@@ -358,6 +464,13 @@ configuration works with Events and Skills:
   `Authorization` header in `mcp.json` works, written out or resolved from
   `${VARIABLE}` or `!command`. The extensions never read `mcp-auth.json` or
   `auth.json`.
+- **Muse Code:** Events and Skills read `mcpServers` in
+  `~/.config/muse/settings.json`, which can hold header values you wrote.
+  They never read Muse's sign-in store or a project's `.mcp.json`. A server
+  signed in with `muse mcp login` is skipped, and so is one whose values come
+  from `${VAR}`, because Muse passes the variable to no plugin. When an
+  organisation manages Muse (`muse config status` shows a defaults or policy
+  plane), they read nothing.
 
 Server Cards is different: it adds a server to the host's own config, and the
 host connects it with its own sign-in. [How it works](./how-it-works) says
@@ -405,3 +518,21 @@ and events, and `mcp-skills/` to remove approvals and skill stubs. If you set
 Servers added through Server Cards or ARD remain in `mcp.json`; remove each
 with `pi mcp remove <name>`, then `/reload` or start a new session to refresh
 an already running Pi.
+
+In Muse Code, turn a plugin off with `muse plugins disable <name>`, or
+remove it:
+
+| | Off without uninstalling | Remove |
+|---|---|---|
+| Events | `muse plugins disable mcp-events`, or `{"MCP_EVENTS_OFF": "1"}` in its settings file | `muse plugins remove mcp-events --delete-data` |
+| Skills | `muse plugins disable mcp-skills`, or `{"off": true}` in its settings file | `muse plugins remove mcp-skills --delete-data` |
+| Server Cards | `muse plugins disable mcp-server-cards` | `muse plugins remove mcp-server-cards --delete-data` |
+| ARD discovery | `muse plugins disable ard-discovery` | `muse plugins remove ard-discovery --delete-data` |
+
+After removing the plugins, run `muse plugins marketplace remove agent-polyfill`.
+That removes the plugins, their data folders and approvals. Two things stay:
+Skills' stubs in `~/.config/muse/skills/mcp-skills-served--*` (delete them
+by hand), and any server you added with `muse mcp add` (undo it with
+`muse mcp remove <name>`). A server marked `enabled: false` in Muse's
+settings is skipped. While a plugin's MCP server is rejected or not
+approved, its hook does nothing.
