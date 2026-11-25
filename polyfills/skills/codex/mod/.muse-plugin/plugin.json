@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "name": "mcp-skills",
+  "displayName": "MCP Skills",
+  "version": "0.1.6",
+  "description": "MCP Skills (SEP-2640) for Muse Code: skills served by your MCP servers are listed among Muse's skills, and load after you confirm each one by typing, checked against the server's digests.",
+  "compat": {
+    "source": "native",
+    "manifestDir": ".muse-plugin"
+  },
+  "capabilities": {
+    "skills": [
+      {
+        "id": "mcp-skills",
+        "path": "muse/skills/mcp-skills/SKILL.md",
+        "enabledDefault": true
+      }
+    ],
+    "hooks": [
+      {
+        "id": "user-prompt-submit",
+        "event": "UserPromptSubmit",
+        "command": ["node", "muse/hooks/user-prompt-submit.mjs"],
+        "timeoutMs": 5000
+      }
+    ],
+    "mcpServers": [
+      {
+        "id": "mcp-skills",
+        "transport": "stdio",
+        "command": ["node", "dist/helper.js", "--host=muse"]
+      }
+    ]
+  }
+}

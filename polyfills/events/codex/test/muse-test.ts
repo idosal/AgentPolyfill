@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { FIXTURE, HELPER, Helper, PLUGIN, ROOT, sleep, temp, waitFor } from './harness.ts';
 import { sessionDir } from '../../core/src/store.ts';
-import { applyPluginSettings, attachTurn, inboxDir, parseMuseServer, putInbox, readMuseServers, spokeAt, takeInbox } from '../src/muse.ts';
+import { applyPluginSettings, attachTurn, inboxDir, parseEventsServer, parseMuseServer, putInbox, readMuseServers, spokeAt, takeInbox } from '../src/muse.ts';
 
 const HOOK = join(PLUGIN, 'muse', 'hooks', 'user-prompt-submit.mjs');
 const FAKE_MUSE = join(ROOT, 'test', 'fake-muse.mjs');
@@ -114,7 +114,7 @@ describe('Muse settings', () => {
         assert.deepEqual(parseMuseServer({ type: 'http', url: 'https://x.example/mcp', enabled: false }, env, '/cfg'), { skip: 'it is switched off in Muse' });
         assert.match((parseMuseServer({ type: 'http', url: 'https://x.example/mcp', oauth: { clientId: 'c' } }, env, '/cfg') as { skip: string }).skip, /signs in through Muse/);
         assert.match((parseMuseServer({ type: 'sse', url: 'https://x.example/sse' }, env, '/cfg') as { skip: string }).skip, /not supported/);
-        assert.equal(parseMuseServer({ type: 'stdio', command: 'node', args: ['/x/mcp-events/0.1.7/dist/helper.js', '--host=muse'] }, env, '/cfg'), undefined);
+        assert.equal(parseEventsServer({ type: 'stdio', command: 'node', args: ['/x/mcp-events/0.1.7/dist/helper.js', '--host=muse'] }, env, '/cfg'), undefined);
     });
 
     test('the settings file is mcpServers in ~/.config/muse/settings.json, narrowed by MCP_EVENTS_SERVERS', () => {
@@ -124,7 +124,7 @@ describe('Muse settings', () => {
             writeFileSync(join(dir, '.config', 'muse', 'settings.json'), JSON.stringify({ schema_version: 1, mcpServers: { a: { type: 'http', url: 'https://a.example/mcp' }, b: { type: 'http', url: 'https://b.example/mcp' } } }));
             assert.deepEqual(Object.keys(readMuseServers({ HOME: dir }).servers), ['a', 'b']);
             const only = readMuseServers({ HOME: dir, MCP_EVENTS_SERVERS: 'b' });
-            assert.deepEqual([Object.keys(only.servers), only.skipped], [['b'], { a: 'excluded by MCP_EVENTS_SERVERS / MCP_EVENTS_SKIP' }]);
+            assert.deepEqual([Object.keys(only.servers), only.skipped], [['b'], { a: "excluded by this plugin's settings" }]);
             writeFileSync(join(dir, '.config', 'muse', 'settings.json'), '{not json');
             assert.match(readMuseServers({ HOME: dir }).skipped['(all servers)']!, /could not be read/);
         } finally {

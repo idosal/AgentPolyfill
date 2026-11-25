@@ -1,17 +1,18 @@
 // Bundles the plugin's MCP server into mod/dist/helper.js, with the shared Skills
 // core (../core) inside it, so the installed plugin folder runs on its own with no
-// node_modules. mod/dist/ is committed; test/helper-test.ts fails when it is stale.
+// node_modules. The same folder is the Muse plugin: its UserPromptSubmit hook is
+// bundled on its own into mod/muse/hooks/, because Muse trusts a hook by its one
+// script file. Both are committed; test/helper-test.ts fails when either is stale.
+// With a folder argument (the tests), both go there.
 import { build } from 'esbuild';
 import { fileURLToPath } from 'node:url';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
+const out = process.argv[2] ? resolve(process.argv[2]) : undefined;
 // A fixed working directory and a pinned esbuild keep paths and output stable.
-await build({
+const common = {
     absWorkingDir: root,
-    entryPoints: ['src/helper.ts'],
-    entryNames: '[name]',
-    outdir: process.argv[2] ? resolve(process.argv[2]) : resolve(root, 'mod', 'dist'),
     platform: 'node',
     format: 'esm',
     // Node 20 is the oldest the MCP SDK runs on.
@@ -22,4 +23,6 @@ await build({
     // Bundled CommonJS dependencies (e.g. cross-spawn) still require Node builtins.
     banner: { js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);' },
     logLevel: 'info'
-});
+};
+await build({ ...common, entryPoints: ['src/helper.ts'], entryNames: '[name]', outdir: out ?? resolve(root, 'mod', 'dist') });
+await build({ ...common, entryPoints: ['src/muse-prompt-hook.ts'], outfile: out ? join(out, 'user-prompt-submit.mjs') : resolve(root, 'mod', 'muse', 'hooks', 'user-prompt-submit.mjs') });
