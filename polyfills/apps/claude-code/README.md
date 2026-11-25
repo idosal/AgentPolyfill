@@ -139,6 +139,7 @@ The settings are in `/config`:
 | App messages: an app sending Claude a message | ask, as Claude Desktop does | ask, fill (put it in your prompt), allow |
 | Offer fullscreen | ask once | ask, never |
 | Offer a browser download | ask once | ask, never |
+| Structured results from text: servers whose apps get `structuredContent` back from the JSON text of Claude's tool result | none (off) | MCP server names, separated by commas (see [Limits](#limits)) |
 
 Your deny rules apply to an app's tool calls in every mode. Where Claude Code
 can't check its rules for a tool, you're asked whatever the setting. When
@@ -168,6 +169,36 @@ Or remove it with `claude plugin uninstall mcp-apps-cli@agent-polyfill`.
   doesn't give plugins the UI metadata of a tool or of a resource. So the
   helper opens its own connection to each server, from your MCP config, and
   that connection can't sign in.
+- **A view gets Claude's tool result as the model reads it.** That is all
+  Claude Code gives plugins: a result with `structuredContent` comes as one
+  text block of that object's JSON, and the server's own `content` and the
+  result's `_meta` don't come. So a view's `ui/notifications/tool-result`
+  (`app.ontoolresult`) holds that text as `content`, with no
+  `structuredContent` or `_meta`. The plugin never calls Claude's tool a
+  second time to get the rest, as that would run the tool twice. What an app
+  can do today:
+  - **Data only the view should see** (a session key, a connection origin):
+    put it behind an app-only tool (`_meta.ui.visibility: ["app"]`) and call
+    that from the view with `app.callServerTool`. It goes over the plugin's
+    own connection and comes back whole, `_meta` included, and the model
+    never sees it. Tie it to the call with the tool's arguments, which the
+    view gets (`ui/notifications/tool-input`): the host context's
+    `toolInfo.id` isn't set, as Claude Code doesn't tell plugins the id of
+    its request to the server.
+  - **`structuredContent`:** `app.callServerTool` on a tool the model also
+    sees comes back with it (no `_meta`); that is a call of its own, so it
+    suits a tool that only reads. Or list the server under
+    **Structured results from text** in `/config`. For that server, when
+    Claude's result is a single text block of a JSON object that fits the
+    tool's `outputSchema`, the view also gets it as `structuredContent`.
+    This goes beyond the spec, and is off by default: a server whose text is
+    JSON but which sent no `structuredContent` gets one all the same.
+
+  Up to 0.1.4 the plugin did that for every server's tools with an
+  `outputSchema`, without the check; from 0.1.5 only for the servers you
+  list. The Claude Code
+  change that would give views the whole result is in
+  [What hosts would need to change](../../../docs/host-changes.md), change 4.
 - **Some servers get no apps.** The helper can't find or judge these the way
   Claude Code does, so it leaves them alone:
   - claude.ai connectors and plugins' servers;
@@ -234,6 +265,17 @@ Where it departs from the spec:
   as tall as the terminal, and picture-in-picture is a pane beside the chat.
 - **`platform`** is sent as `"desktop"`, because the spec has no value for a
   terminal.
+- **Tool results** are what Claude Code gives a plugin, without the server's
+  `structuredContent` and `_meta` (see [Limits](#limits)).
+- **Structured results from text** (off by default, one server at a time):
+  for the servers you list, `structuredContent` is taken back from the JSON
+  text of Claude's tool result where it fits the tool's `outputSchema`. The
+  spec has no such step; it stands in for what Claude Code leaves out.
+
+The helper's own MCP connection speaks revision 2026-07-28 to a server that
+serves it (`server/discover`, no `initialize`), and the 2025 handshake at
+2025-11-25 to one that doesn't; before 0.1.5 it sent `initialize` naming
+2026-07-28, which a server serving only 2026-07-28 refused.
 
 [docs/COMPLIANCE.md](docs/COMPLIANCE.md) goes through the spec clause by
 clause, each MUST, SHOULD and MAY with its test. It also says how the plugin

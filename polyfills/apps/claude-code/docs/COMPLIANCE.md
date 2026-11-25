@@ -1,7 +1,8 @@
 # mcp-apps-cli: compliance and verification
 
-What `mcp-apps-cli` 0.1.3 implements of MCP Apps, clause by clause, how each
-part is checked, and what each check does and does not prove. The spec is
+What `mcp-apps-cli` 0.1.5 implements of MCP Apps, clause by clause, how each
+part is checked, and what each check does and does not prove. A check names
+the version it was run on where that isn't 0.1.5. The spec is
 [`specification/2026-01-26/apps.mdx`](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx)
 (Stable), byte for byte the copy on `main` on 24 November 2026 (SHA-256
 `ee452a7d…`), plus `ui/download-file` from the draft.
@@ -19,9 +20,9 @@ touch (CSP sources, app traffic, the client capability) are rewritten.
 
 | State | Rows |
 |---|---|
-| Met (28 with a test, 4 by reading only, 1 by Claude Code itself) | 33 |
+| Met (27 with a test, 4 by reading only, 1 by Claude Code itself) | 32 |
 | Met, a MAY taken up (one only in part: R03) | 5 |
-| Met with an exception the host causes (R66: Claude Code's own connection doesn't advertise the extension) | 1 |
+| Met with an exception the host causes (R60: the result a view gets is the one Claude Code gives a plugin, without the server's `structuredContent` and `_meta`; R66: Claude Code's own connection doesn't advertise the extension) | 2 |
 | Not met, deliberately (R12: the default CSP when an app declares none) | 1 |
 | A MAY not taken up | 6 |
 | Not applicable: binds a server, a view, or a web host's sandbox proxy | 29 |
@@ -89,7 +90,7 @@ R12 is the one MUST that is neither met nor a limit of the host; see the row.
 | R57 | 1141 | MAY render progressive loading/streaming states | view | n/a | Binds the view (the app). |
 | R58 | 1142 | MUST NOT rely on partial arguments for critical operations | view | n/a | Binds the view (the app). |
 | R59 | 1143 | SHOULD gracefully handle missing or changing fields between notifications | view | n/a | Binds the view (the app). |
-| R60 | 1155 | Host MUST send this notification when tool execution completes (if the View is displayed during tool execution). | host | met | Sent once per call, never after a cancel: tool.run marks the call it takes, and an early view's approval is decided once. |
+| R60 | 1155 | Host MUST send this notification when tool execution completes (if the View is displayed during tool execution). | host | exception (host) | Sent once per call, never after a cancel: tool.run marks the call it takes, and an early view's approval is decided once. Its `params` (a `CallToolResult`, line 1151) are what Claude Code gives a plugin for the call: the result as the model reads it, so the server's `structuredContent` comes as `content` (one text block of its JSON) and its `_meta` doesn't come. Nothing is added by default: from 0.1.5 no field is made from that text (issue #6), except for a server the person lists under "Structured results from text" (off by default; beyond the spec), where `structuredContent` is taken back from one text block of a JSON object that fits the tool's `outputSchema`. A limit of the host: [host-changes](../../../../docs/host-changes.md), change 4. Tests: "the view is sent Claude Code's record of the call as it came" and "structured results from text, setting …" (mod), `results_are_passed_on_as_they_came_and_nothing_is_made_up` and `structured_content_from_text_only_where_it_fits` (helper), `bench/revision-check.mjs`. |
 | R61 | 1169 | Host MUST send this notification if the tool execution was cancelled, for any reason | host | met | Denied, failed to run, or the turn stopped. A view that loaded while its call waited to be allowed, and was denied, is torn down instead (it never had the arguments). |
 | R62 | 1201 | Host MUST send this notification before tearing down the UI resource, for any reason | host | met | On eviction, sleep, session end, /clear and a dropped early view (1.5 s at most). A page that crashed has nothing to send it to. |
 | R63 | 1202 | Host SHOULD wait for a response before tearing down the resource | host | met | Up to 1.5 s, then closed anyway (the threat model asks for a host deadline). |
@@ -122,7 +123,8 @@ R12 is the one MUST that is neither met nor a limit of the host; see the row.
 | `permissions` | `clipboardWrite` yes; camera, microphone, geolocation not granted (no devices in headless Chrome, no indicator) |
 | Display modes `inline`, `fullscreen`, `pip` | yes, as a terminal allows: fullscreen fills the terminal, pip is a pane |
 | Sign-in (OAuth) for servers that need it | no: the helper's own connection can't use Claude Code's sign-in. Host change: `$.mcp.request` over Claude Code's connection ([host-changes](../../../../docs/host-changes.md), change 1) |
-| `_meta` and `structuredContent` of Claude Code's own results | restored for tools with an `outputSchema`; host change 4 would give them whole |
+| `_meta` and `structuredContent` of a tool's result | the model's call: neither, only `content` as the model reads it (a host limit), unless the person lists the server under "Structured results from text", which takes `structuredContent` back from that text where it fits the tool's `outputSchema` (up to 0.1.4 that was done for every server, unchecked). A view's own call of a tool the model sees: `structuredContent` yes, `_meta` no (`$.mcp.call`). An app-only tool: both (the helper's connection). Host change 4 would give the first two whole |
+| The MCP revision of the helper's connection | 2026-07-28 where the server serves it (`server/discover`, no `initialize`), else the 2025 handshake at 2025-11-25 (from 0.1.5; see below) |
 | `tools/list_changed`, resource updates | no: Claude Code delivers no server notifications to plugins (host change 3) |
 
 ## The conformance suite
@@ -288,7 +290,9 @@ What remains of the first, which no change in this plugin can remove:
   Closing the connection is its only notice, and over streamable HTTP rmcp
   closes it with one more request, the session's `DELETE`.
 - Within one request, what follows the server's own answers goes on the same
-  yes: the second half of the connection's handshake (`initialized`),
+  yes: the second half of the connection's handshake (`initialized`), and
+  from 0.1.5 the `initialize` that follows a `server/discover` the server
+  didn't know,
   further pages of a tool list, rmcp's upkeep of an HTTP server's event
   stream while the connection stands.
 - The mod hears a no only when it asks: at the next request for that server,
@@ -345,6 +349,50 @@ again. These are 0.1.2's numbers; 0.1.3 changes nothing at start and adds one
 local round trip (a `check`) before each request the helper writes to a
 server: the mod's answer went out within 2 ms of Claude Code's and reached
 the helper in 0-2 ms in the live session below.
+
+## The helper's MCP revision (0.1.5)
+
+Issue #5: up to 0.1.4 the helper's connection sent `initialize` naming
+2026-07-28, which has no `initialize`, so a server that serves only that
+revision refused it (`-32022`) and no view of it opened. From 0.1.5 it asks
+`server/discover` first and falls back to `initialize` at 2025-11-25 (see
+[DESIGN.md](DESIGN.md), Which MCP revision the helper speaks).
+
+- `tests/gate.rs`, `the_helper_speaks_each_servers_revision_in_that_revisions_form`:
+  the real binary's `/discover` against stand-in servers
+  (`tests/gate-server.mjs revision`) that serve 2026-07-28 only, the 2025
+  revisions only, or both, each over stdio and over streamable HTTP. It
+  checks what each server received: for 2026-07-28, `server/discover` then
+  `tools/list`, no `initialize`, each naming 2026-07-28 in its `_meta` and
+  (HTTP) in `MCP-Protocol-Version`; for the 2025 revisions, `initialize` at
+  2025-11-25 after the refused probe, and `tools/list` in the 2025 form.
+  Every one of them says the client renders MCP Apps. Before the fix the
+  2026-07-28 case failed with the reported error.
+- `bench/revision-check.mjs`, against servers built on the TypeScript SDK:
+  2.4.0 with `createMcpHandler(..., { legacy: "reject" })` (2026-07-28 only),
+  2.4.0 with its default (both), and 1.32.2 with a session-based streamable
+  HTTP transport (2025 only). For each, `/discover`, a view opened and drawn
+  (its `ui://` resource read over the helper's connection), and an app-only
+  `tools/call` from the view whose `structuredContent` and `_meta` came back
+  whole; and what each server received, as above. It also gives each view
+  the model's call's result as Claude Code records it (one text block of the
+  JSON): with "Structured results from text" on for the server the view got
+  `structuredContent` back, and without it, the text alone. All passed on 25 November
+  2026 (macOS, Apple Silicon, the helper's release and debug builds, over its Unix socket and TCP, Chrome 158).
+
+The rest of the form's suites on 0.1.5, the same day: `cargo test
+--workspace` in `helper-rs` (the render parity tests too, their fixtures
+made first), `claude plugin test mod`, `npm test` in `mod/helper` and
+`bench/contract-check.mjs` (stdio and SSE servers on the 1.x SDK, which get
+the 2025 handshake): all pass.
+
+Not checked: a live Claude Code session on 0.1.5 (what a mod receives for an
+MCP tool's result is from Claude Code's typed plugin API, the prototype's
+own notes and the report in issue #6, not observed here), a stdio server
+built on the 2.4.0 SDK (the stand-in covers
+stdio), Python and other SDKs, and a server that neither answers
+`server/discover` nor refuses it, which waits 10 seconds before the
+handshake.
 
 ## A live session (0.1.3)
 
