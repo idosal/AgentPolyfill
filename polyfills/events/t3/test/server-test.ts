@@ -7,7 +7,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
 import { socketPath } from '../src/ipc.ts';
-import { cleanup, started, BUNDLE, SERVER, newThread, ROOT, sleep, startServer, stopWatcher, untilActive, waitFor, watcherLog, world, type World } from './harness.ts';
+import { teardown, BUNDLE, SERVER, newThread, ROOT, sleep, startServer, stopWatcher, untilActive, waitFor, watcherLog, world, type World } from './harness.ts';
 
 const worlds: World[] = [];
 const make = (env: Record<string, string> = {}, extraToml = '') => {
@@ -15,11 +15,7 @@ const make = (env: Record<string, string> = {}, extraToml = '') => {
     worlds.push(w);
     return w;
 };
-after(async () => {
-    for (const s of started) if (s.child.exitCode === null) s.child.kill('SIGKILL');
-    for (const w of worlds) await stopWatcher(w);
-    cleanup();
-});
+after(() => teardown(worlds));
 
 const watchTickets = async (w: World, thread: string, note = 'tell me') => {
     const s = await startServer(w, thread);
