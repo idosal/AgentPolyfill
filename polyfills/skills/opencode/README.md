@@ -160,7 +160,10 @@ plugin off with `MCP_SKILLS_OFF=1`, or remove it.
   "Always allow" lists the pattern it would save. Checked in the TUI
   ([`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui)). The digest and the "not a local skill" note in the
   request aren't shown, though the saved pattern carries the digest.
-- **Not tried yet:** Windows, and the desktop app as a client.
+- **In OpenCode Desktop** (2.4.1, tried live): the permission prompt shows
+  the action and the full resource, the skill's digest included, and a
+  Hugging Face skill loaded after "Allow once".
+- **Not tried yet:** Windows by hand (CI runs the tests there).
 
 [What hosts would need to change](../../../docs/host-changes.md) covers these
 gaps for each host.

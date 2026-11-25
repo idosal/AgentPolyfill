@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { appendFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -21,7 +22,7 @@ const ASK: Rule[] = [
 ];
 
 function eventsWorld(o: { delivery?: string; permissions?: Rule[]; fixtureEnv?: Record<string, string>; env?: Record<string, string>; mcp?: Record<string, McpConfig> } = {}) {
-    const upstream = join(process.env.TMPDIR ?? '/tmp', `upstream-${randomUUID()}.jsonl`);
+    const upstream = join(tmpdir(), `upstream-${randomUUID()}.jsonl`);
     writeFileSync(upstream, '');
     const world = new World({
         plugins: [PLUGIN],

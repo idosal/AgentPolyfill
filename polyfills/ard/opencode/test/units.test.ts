@@ -6,10 +6,10 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
-const B = (await import(join(ROOT, 'plugin', 'server.js'))) as any
+const B = (await import(pathToFileURL(join(ROOT, 'plugin', 'server.js')).href)) as any
 
 test('a registry is searched at <base>/search, over HTTPS (plain HTTP only on loopback)', () => {
   assert.equal(B.searchEndpoint('https://registry.example.com/v1/'), 'https://registry.example.com/v1/search')

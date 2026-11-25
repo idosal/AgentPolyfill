@@ -122,7 +122,9 @@ When OpenCode supports Server Cards itself, turn the plugin off, or remove it
   "Always allow" lists the pattern it would save. Checked in the TUI
   ([`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui)). The call line
   names the URL; the request's host, headers and undo aren't shown.
-- **Not tried yet:** Windows, and the desktop app as a client.
+- **Not tried yet:** Windows by hand (CI runs the tests there), and an
+  addition from OpenCode Desktop (its prompts show a plugin action's
+  resource, as seen for Events and Skills).
 
 ## Security
 
