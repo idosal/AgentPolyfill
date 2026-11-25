@@ -4,7 +4,7 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
@@ -36,8 +36,15 @@ function skill(path: string, description: string, files: Record<string, string> 
 }
 
 /** A fixture server with these skills; its scenario file can be rewritten while it runs. */
+// The fixtures' folders are removed when the test process ends.
+const fixtureDirs: string[] = [];
+process.on('exit', () => {
+    for (const d of fixtureDirs) rmSync(d, { recursive: true, force: true });
+});
+
 function fixture(skills: ReturnType<typeof skill>[]) {
     const dir = mkdtempSync(join(tmpdir(), 'mcp-skills-opencode-'));
+    fixtureDirs.push(dir);
     const scenario = join(dir, 'scenario.json');
     const write = (s: ReturnType<typeof skill>[]) => writeFileSync(scenario, JSON.stringify({ listed: s.map((x) => x.entry), files: Object.assign({}, ...s.map((x) => x.files)) }));
     write(skills);
@@ -129,6 +136,14 @@ describe('mcp-skills in OpenCode', () => {
         const before = docs.requests('resources/read').length;
         const out = await turn(world, session, 'CALL opencode_read_mcp_resource {"server":"docs","uri":"skill://haiku-guide/references/FORMS.md"}');
         assert.match(out, /mcp_skills_read_skill_file/);
+        assert.equal(docs.requests('resources/read').length, before);
+        // The same file with its scheme and authority in capitals is the same resource.
+        const loud = await turn(world, session, 'CALL opencode_read_mcp_resource {"server":"docs","uri":"SKILL://HAIKU-GUIDE/references/FORMS.md"}');
+        assert.match(loud, /mcp_skills_read_skill_file/);
+        assert.equal(docs.requests('resources/read').length, before);
+        // A path that may lead into the skill's folder without starting with it is refused too.
+        const dotted = await turn(world, session, 'CALL opencode_read_mcp_resource {"server":"docs","uri":"skill://elsewhere/..%2fhaiku-guide/references/FORMS.md"}');
+        assert.match(dotted, /mcp_skills_read_skill_file/);
         assert.equal(docs.requests('resources/read').length, before);
     });
 
@@ -314,5 +329,36 @@ describe('mcp-skills asks by default', () => {
         const s = await off.createSession();
         const out = await turn(off, s, `CALL mcp_skills_load_skill {"server":"docs","uri":"${guide.uri}"}`);
         assert.match(out, /Loaded the skill "haiku-guide"/);
+    });
+});
+
+describe('mcp-skills keeps an "Allow always" to the project it was given in', () => {
+    const guide = skill('haiku-guide', 'Use when the user wants answers in haiku.');
+    const docs = fixture([guide]);
+    // Installed globally, so the plugin runs in both folders, each its own OpenCode project.
+    const world = new World({ plugins: [PLUGIN], mcp: { docs: docs.config }, configIn: 'global' });
+    let other = '';
+    before(async () => {
+        await world.start();
+        other = join(world.dir, 'other-project');
+        mkdirSync(other, { recursive: true });
+    });
+    after(() => world.stop());
+    const listedIn = (dir: string) => waitFor(async () => (await world.api<{ data: { id: string }[] }>('GET', `/api/skill?location[directory]=${encodeURIComponent(dir)}`)).data.some((s) => s.id === 'mcp-skills:docs:haiku-guide'), 30000, 'the served skill');
+    const sessionIn = async (dir: string) => {
+        const r = await world.api<{ data?: { id: string }; id?: string }>('POST', '/api/session', { location: { directory: dir } });
+        return (r.data?.id ?? r.id)!;
+    };
+
+    test("another project's instance of the plugin, which sees the same permission events, doesn't keep it", async () => {
+        // Both projects' instances are running before the answer is given.
+        await listedIn(world.project);
+        await listedIn(other);
+        await turn(world, await world.createSession(), `CALL mcp_skills_load_skill {"server":"docs","uri":"${guide.uri}"}`, 'always', (p) => assert.equal(p.action, 'mcp_skills_load'));
+        // In the project it was given in, it holds.
+        const again = await turn(world, await world.createSession(), `CALL mcp_skills_load_skill {"server":"docs","uri":"${guide.uri}"}`);
+        assert.match(again, /Loaded the skill "haiku-guide"/);
+        // In the other project, the same load is asked about.
+        await turn(world, await sessionIn(other), `CALL mcp_skills_load_skill {"server":"docs","uri":"${guide.uri}"}`, 'reject', (p) => assert.equal(p.action, 'mcp_skills_load'));
     });
 });

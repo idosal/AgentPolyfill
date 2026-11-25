@@ -1,6 +1,6 @@
 {
   "name": "mcp-server-cards-opencode",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "MCP Server Cards (SEP-2127) for OpenCode: find the MCP servers a domain publishes, and add one after you allow it.",
   "type": "module",

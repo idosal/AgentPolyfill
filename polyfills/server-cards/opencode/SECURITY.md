@@ -78,6 +78,10 @@ It never reads OpenCode's stored credentials, runs no sign-in of its own, and
 holds no token. A sign-in for an added server is OpenCode's
 (`opencode mcp auth`).
 
+Of the servers in OpenCode's configuration it reads only their names, so as
+never to replace one, and the connection status of a server it added. It
+never reads another server's URL, headers or environment.
+
 ## What it does not protect against
 
 - **A public name that resolves to a private address.** The fetch code is

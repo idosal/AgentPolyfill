@@ -1,7 +1,7 @@
 {
   "name": "mcp-skills-opencode",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "An OpenCode plugin that adds the skills your MCP servers serve (SEP-2640) to OpenCode's skill list, loaded only once OpenCode's permission rules allow it.",
   "engines": {
