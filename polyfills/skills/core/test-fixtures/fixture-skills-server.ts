@@ -1,6 +1,6 @@
 // A small MCP server that implements the server side of the Skills extension
-// (SEP-2640) by hand, over stdio, so the mod is tested against something that
-// shares no code with it (no SDK, no line of src/).
+// (SEP-2640) by hand, over stdio, so each Skills form is tested against something
+// that shares no code with it (no SDK, no line of any form's src/ or of ../src/).
 //
 // It serves exactly what a scenario file says, read again on every request, so a
 // test can change the server between two requests: rotate a file, add one, drop

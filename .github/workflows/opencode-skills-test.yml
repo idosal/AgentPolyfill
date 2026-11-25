@@ -1,6 +1,6 @@
 # The Skills polyfill for OpenCode (polyfills/skills/opencode, plugin mcp-skills), on any change
-# in its folder, in the shared Skills client it bundles, in the fixture server its tests use,
-# or in the OpenCode test kit.
+# in its folder, in the shared Skills client it bundles (polyfills/skills/core, which also
+# holds the fixture server its tests use), or in the OpenCode test kit.
 #
 # The tests run the plugin in a real OpenCode (the release pinned in
 # tools/opencode/package.json), in a throwaway home with its own configuration,
@@ -15,7 +15,6 @@ on:
     paths:
       - "polyfills/skills/opencode/**"
       - "polyfills/skills/core/**"
-      - "polyfills/skills/claude-code/test/fixture-skills-server.ts"
       - "tools/opencode/**"
       - "tools/bundle-notices.mjs"
       - ".github/workflows/opencode-skills-test.yml"
@@ -25,7 +24,6 @@ on:
     paths:
       - "polyfills/skills/opencode/**"
       - "polyfills/skills/core/**"
-      - "polyfills/skills/claude-code/test/fixture-skills-server.ts"
       - "tools/opencode/**"
       - "tools/bundle-notices.mjs"
       - ".github/workflows/opencode-skills-test.yml"

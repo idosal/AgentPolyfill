@@ -1,14 +1,13 @@
-// What the tests share: a fixture server driven by a scenario file, builders for
-// skills with correct digests, and the helper's app connected to fixtures.
+// What every Skills form's tests share: a fixture server driven by a scenario
+// file, and builders for skills with correct digests. Nothing here knows a host:
+// each form's own test/harness.ts connects its app to these fixtures.
 
 import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { App } from '../src/app.ts';
-import type { StdioUpstream } from '../src/config.ts';
-import { Connection } from '../src/wire.ts';
+import type { StdioUpstream } from '../src/upstream.ts';
 
 export type Json = Record<string, unknown>;
 export type Entry = { uri: string; frontmatter: Json; resources: { uri: string; digest: string; size: number }[] | 'dynamic' | unknown };
@@ -91,26 +90,4 @@ export class Fixture {
 /** Puts several skills into one scenario. */
 export function scenarioOf(skills: ReturnType<typeof skill>[], extra: Scenario = {}): Scenario {
     return { listed: skills.map((s) => s.entry), files: Object.assign({}, ...skills.map((s) => s.files)), ...extra };
-}
-
-const open: { stop: () => Promise<void> }[] = [];
-
-/** The helper's app, connected to the given fixtures under the given labels. */
-export async function startApp(servers: Record<string, Fixture>, o: { verdict?: (name: string) => Promise<{ ok: boolean; reason?: string }>; now?: () => number } = {}): Promise<App> {
-    const app = new App({ table: { servers: Object.fromEntries(Object.entries(servers).map(([name, f]) => [name, f.config])), skipped: {} }, verdict: o.verdict ?? (async () => ({ ok: true })), connectTimeoutMs: 8000, now: o.now });
-    open.push(app);
-    await app.start();
-    return app;
-}
-
-export async function connect(label: string, fixture: Fixture): Promise<Connection> {
-    const c = new Connection(label, fixture.config);
-    open.push({ stop: () => c.close() });
-    await c.connect(8000);
-    return c;
-}
-
-/** Closes what the tests of a file opened. */
-export async function closeAll(): Promise<void> {
-    await Promise.all(open.splice(0).map((a) => a.stop().catch(() => {})));
 }
