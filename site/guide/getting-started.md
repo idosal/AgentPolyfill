@@ -361,10 +361,9 @@ Each OpenCode form's README has the rest:
 | Apps | built in for graphical hosts | VS Code's Copilot harness turns MCP Apps on (from its source; no app was drawn there); the terminal draws none. There is no Copilot form. |
 
 Copilot asks before each of the plugins' tools that act (`watch_event`,
-`unwatch_event`, `add_mcp_server`, `ard_search`), as for any tool. Copilot's
-default mode can approve a call without you, though: in "assisted" mode an
-LLM reviews the call, and an organisation can make that mode the default;
-allow-all approves every call. So each plugin asks its own question after
+`unwatch_event`, `add_mcp_server`, `ard_search`), as for any tool. Copilot can
+approve a call without you, though: in assisted mode (an LLM review, which an
+organisation can make the default) or with allow-all. So each plugin asks its own question after
 Copilot's prompt. Before a watch starts, Events asks in a Copilot dialog,
 naming the server, the event type, the filters and the note, and
 saying that events will start turns; **Don't watch it** comes first. Server

@@ -313,10 +313,10 @@ the session.
 `watch_event` and `unwatch_event` go through Copilot's tool prompt. Then the
 plugin asks its own question in a Copilot dialog before a watch starts.
 It names the server, the event type, the filters and the note in full, and
-says that events will start turns; **Don't watch it** comes first. Copilot's
-default mode can approve a call without you: in "assisted" mode an LLM
-reviews the call, and an organisation can make that mode the default;
-allow-all approves every call. So the plugin asks by default. Where nobody
+says that events will start turns; **Don't watch it** comes first. Copilot
+can approve a call without you: in assisted mode (an LLM review, which an
+organisation can make the default) or with allow-all. So the plugin asks by
+default. Where nobody
 can be asked (`copilot -p`), the watch is refused. `MCP_EVENTS_ASK_BY_DEFAULT=0`
 turns the plugin's own question off and leaves watches to Copilot's rules
 alone. Say no to either, and nothing is watched.
