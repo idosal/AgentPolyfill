@@ -1,7 +1,11 @@
 launch/
 .DS_Store
 __pycache__/
-# Local run scripts and their records are not part of the repository.
+# Local run scripts, run records and internal notes are not part of the repository.
 live/
 live-run.md
 live-test.ts
+**/docs/evidence/
+**/docs/interop.md
+polyfills/apps/claude-code/helper-rs/PORT.md
+polyfills/apps/claude-code/docs/DESIGN.md
