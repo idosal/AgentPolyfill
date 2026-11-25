@@ -142,6 +142,10 @@ describe('waking', () => {
             await sleep(4000);
             assert.equal(e.sent.length, 1);
             assert.match(w.log(), /did not answer within 2 s; it may have queued the message, so it counts as handed over/);
+            // list_watches says the wake may not have reached the session, in Copilot's terms.
+            const watches = (await e.call('list_watches')).text;
+            assert.match(watches, /The last wake's session\.send did not answer \(Copilot did not answer within 2 s\), so it may not have woken this session/);
+            assert.doesNotMatch(watches, /codex/i);
         } finally {
             await e.stop();
         }
@@ -161,6 +165,67 @@ describe('waking', () => {
             await waitFor(async () => /"status": "active"/.test((await b!.call('list_watches')).text), 20000, 'the second to take over');
             w.emit('ticket.created', { title: 'after the hand-over' });
             await waitFor(() => b!.sent.length === 1, 20000, 'a wake from the second');
+        } finally {
+            await a.stop();
+            await b?.stop();
+        }
+    });
+});
+
+describe('two processes for one session (main\'s takeover and wake-cap fix)', () => {
+    test('one that takes the watches over carries on from the wake count and pause the first saved, not from what it read when it opened', async () => {
+        const w = world();
+        const session = newSession();
+        const env = { MCP_EVENTS_WAKE_GAP_S: '0', MCP_EVENTS_WAKES_PER_HOUR: '1' };
+        const a = await startExtension(w, session, env);
+        let b: Extension | undefined;
+        try {
+            await a.call('watch_event', { server: 'tickets', event: 'ticket.created' });
+            await untilActive(a);
+            // The second opens now, while nothing has woken the session: what it reads is out of date by the takeover.
+            b = await startExtension(w, session, env);
+            assert.match((await b.call('list_watches')).text, /"status": "elsewhere"/);
+            w.emit('ticket.created', { title: 'one' });
+            await waitFor(() => a.sent.length === 1, 20000, 'the first wake');
+            w.emit('ticket.created', { title: 'two' });
+            await waitFor(() => a.sent.length === 2, 20000, 'the notice');
+            await a.stop();
+            await waitFor(async () => /"status": "active"/.test((await b!.call('list_watches')).text), 20000, 'the second to take over');
+            w.emit('ticket.created', { title: 'three' });
+            await sleep(2500);
+            assert.equal(b.sent.length, 0, 'past the hour\'s wakes and paused, as the first left it');
+            // The person writes, in the one that now runs the watches: waking starts again, with what waited.
+            b.message('what happened?');
+            await waitFor(() => b!.sent.length === 1, 20000, 'the wake after the person wrote');
+            assert.match(b.sent[0]!.options.prompt, /2 new events/);
+        } finally {
+            await a.stop();
+            await b?.stop();
+        }
+    });
+
+    test('the person writing in the process that does not run the watches leaves the pause to the one that does', async () => {
+        const w = world();
+        const session = newSession();
+        const env = { MCP_EVENTS_WAKE_GAP_S: '0', MCP_EVENTS_WAKES_PER_HOUR: '1' };
+        const a = await startExtension(w, session, env);
+        let b: Extension | undefined;
+        try {
+            await a.call('watch_event', { server: 'tickets', event: 'ticket.created' });
+            await untilActive(a);
+            b = await startExtension(w, session, env);
+            w.emit('ticket.created', { title: 'one' });
+            await waitFor(() => a.sent.length === 1, 20000, 'the first wake');
+            w.emit('ticket.created', { title: 'two' });
+            await waitFor(() => a.sent.length === 2, 20000, 'the notice');
+            b.message('hello from the other window');
+            await waitFor(() => /the user wrote in a window that doesn't run this session's watches/.test(w.log()), 10000, 'the second to log it');
+            w.emit('ticket.created', { title: 'three' });
+            await sleep(2500);
+            assert.equal(a.sent.length, 2, 'still paused: the second did not undo the count');
+            assert.equal(b.sent.length, 0);
+            a.message('what happened?');
+            await waitFor(() => a.sent.length === 3, 20000, 'the wake after the person wrote where the watches run');
         } finally {
             await a.stop();
             await b?.stop();

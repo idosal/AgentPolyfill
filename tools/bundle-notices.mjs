@@ -6,13 +6,15 @@
 //
 //   node tools/bundle-notices.mjs polyfills/events/claude-code [--check]
 //   node tools/bundle-notices.mjs polyfills/events/codex --plugin plugin [--check]
+//   node tools/bundle-notices.mjs polyfills/events/pi --plugin extension --entry src/index.ts [--check]
 //   node tools/bundle-notices.mjs polyfills/events/copilot --plugin plugin --entry src/extension.ts \
 //       --bundle plugin/extensions/mcp-events/extension.mjs [--check]
 //
-// --plugin names the installed folder when it is not mod/ (a Codex plugin's).
-// --bundle names the bundled file in the header, when it is not <plugin>/dist/helper.js.
-// --entry names the bundle's entry when it is not src/helper.ts (a Copilot extension's). The
-// SDK Copilot provides to its extensions (@github/copilot-sdk, @microsoft/copilot-sdk) is never bundled.
+// --plugin names the installed folder when it is not mod/ (a Codex plugin's, a
+// Pi extension's). --entry names the bundle's entry when it is not src/helper.ts.
+// --bundle names the bundled file in the header when it isn't <plugin>/dist/<entry>.js
+// (a Copilot extension's). The packages a host gives its extensions are never bundled:
+// Pi's own, and the SDK Copilot provides (@github/copilot-sdk, @microsoft/copilot-sdk).
 // --check fails if the file on disk differs from what it would write.
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -27,9 +29,11 @@ const pluginAt = process.argv.indexOf('--plugin');
 const plugin = pluginAt > 0 && process.argv[pluginAt + 1] ? process.argv[pluginAt + 1] : 'mod';
 const entryAt = process.argv.indexOf('--entry');
 const entry = entryAt > 0 && process.argv[entryAt + 1] ? process.argv[entryAt + 1] : 'src/helper.ts';
-// What the bundle is called in the file's header: the helper, unless --bundle names another file.
+// What the bundle is called in the file's header: <plugin>/dist/<entry>.js, unless --bundle names it.
 const bundleAt = process.argv.indexOf('--bundle');
-const bundled = bundleAt > 0 && process.argv[bundleAt + 1] ? process.argv[bundleAt + 1] : `${plugin}/dist/helper.js`;
+const bundled = bundleAt > 0 && process.argv[bundleAt + 1]
+    ? process.argv[bundleAt + 1]
+    : `${plugin}/${entry.replace(/^src\//, 'dist/').replace(/\.ts$/, '.js')}`;
 const what = bundleAt > 0 ? 'The extension' : 'The helper';
 const LICENSE_FILE = /^(licen[cs]e|copying|notice|unlicense|copyright)/i;
 
@@ -37,7 +41,9 @@ const LICENSE_FILE = /^(licen[cs]e|copying|notice|unlicense|copyright)/i;
 const { metafile } = await build({
     absWorkingDir: folder,
     entryPoints: [entry],
-    external: ['@github/copilot-sdk', '@github/copilot-sdk/*', '@microsoft/copilot-sdk', '@microsoft/copilot-sdk/*'],
+    // Packages the host gives its extensions stay out, as each polyfill's build.mjs leaves them:
+    // Pi's own, and the SDK Copilot provides.
+    external: ['@earendil-works/*', '@github/copilot-sdk', '@github/copilot-sdk/*', '@microsoft/copilot-sdk', '@microsoft/copilot-sdk/*'],
     platform: 'node',
     format: 'esm',
     target: 'node20',
@@ -85,7 +91,7 @@ const target = join(folder, plugin, 'THIRD_PARTY_LICENSES.txt');
 if (check) {
     const current = existsSync(target) ? readFileSync(target, 'utf8') : '';
     if (current !== text) {
-        console.error(`${target} is out of date: run node tools/bundle-notices.mjs ${process.argv[2]}${plugin === 'mod' ? '' : ` --plugin ${plugin}`}`);
+        console.error(`${target} is out of date: run node tools/bundle-notices.mjs ${process.argv[2]}${plugin === 'mod' ? '' : ` --plugin ${plugin}`}${entryAt > 0 ? ` --entry ${entry}` : ''}`);
         process.exit(1);
     }
     console.log(`${target}: up to date (${seen.size} packages)`);

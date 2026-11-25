@@ -54,9 +54,21 @@ Tests are in `test/extension-test.ts` and `test/units-test.ts`.
   automation turns and other sources don't lift the wake pause.
 - **The wake's answer.** Refused by Copilot: tried again, once taken handed
   over once. No answer within a minute: counted as handed over, never sent
-  twice.
+  twice, and `list_watches` says the wake may not have reached the session.
+- **The same session in two processes** (open in two terminals). One runs
+  the watches and the other only lists them, taking over when the first ends.
+  The one taking over carries on from the wake count and pause the first one
+  saved, not from what it read when it opened, and the person writing in the
+  one that doesn't run the watches leaves the pause to the one that does.
+  This is main's takeover fix in the Codex form's `threads.ts`, which this
+  form shares; its two tests here run two extension processes on one session.
 - **Stand-down.** `MCP_EVENTS_OFF=1` joins the session with no tools and no
   hooks.
+
+Run with `npm test` on 25 November 2026 (Node 22.23.1): **45 tests**, none
+failed: `spec-test.ts` (SEP rules end to end), `extension-test.ts` (joining,
+waking, two processes, which servers), `units-test.ts` and `plugin-test.ts`
+(the installed folder and its one import).
 
 ## The upstream conformance suite
 

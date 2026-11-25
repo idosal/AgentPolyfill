@@ -3,8 +3,8 @@
 Copilot can watch events on your MCP servers ("tell me when a deploy fails")
 and act when one fires, even while the session sits idle with nobody typing.
 
-Also available for [Claude Code](../claude-code/README.md) and
-[Codex](../codex/README.md).
+Also available for [Claude Code](../claude-code/README.md),
+[Codex](../codex/README.md) and [Pi](../pi/README.md).
 
 This plugin implements the client side of the MCP Events extension,
 [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
@@ -13,30 +13,69 @@ Details are in [Spec and conformance](#spec-and-conformance).
 
 ## Install
 
-```bash
-copilot plugin marketplace add idosal/AgentPolyfill
-```
+From a clone of this repository (the install that was tested, on Copilot CLI
+1.0.115):
 
 ```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+copilot plugin marketplace add ./AgentPolyfill
 copilot plugin install mcp-events@agent-polyfill
 ```
 
-The first command adds the [AgentPolyfill](../../../README.md) marketplace
-(Copilot reads its `.github/plugin/marketplace.json`), and the second installs
-the plugin. The install is one folder, [`plugin/`](plugin/), of about 0.6 MB:
-a manifest and one JavaScript file. Nothing else is downloaded.
+Copilot loads a plugin from a local marketplace where it is, without copying
+it, so keep the clone; `git pull` in it brings the next version. Once this
+plugin is on the repository's default branch,
+`copilot plugin marketplace add idosal/AgentPolyfill` adds the same
+marketplace from GitHub (Copilot reads its `.github/plugin/marketplace.json`),
+and Copilot keeps its own copy. The install is one folder,
+[`plugin/`](plugin/), of about 0.6 MB: a manifest and one JavaScript file.
 
 You need:
 
 - **GitHub Copilot CLI 1.0.115 or newer**, with **experimental mode on**. The
   plugin is a Copilot *extension*, and Copilot loads extensions only in
   experimental mode: start it with `copilot --experimental`, or run
-  `/settings experimental on` once.
+  `/settings experimental on` once. Everything the plugin uses (joining the
+  session, its tools, `session.send` to wake it, the session's events and
+  `session.rpc.mcp.listConfigured`) is part of Copilot's extension API, which
+  Copilot marks experimental: it may change in any release. It was tested on
+  1.0.115, and in VS Code 1.147.0's Copilot harness.
 - Nothing else. Copilot runs the extension with its own copy of Node, so you
   don't need Node on the machine. (A local MCP server you configured may need
   it, as it does for Copilot.)
 
-To remove it, run `copilot plugin uninstall mcp-events@agent-polyfill`.
+The first session asks once whether the extension may have elevated
+permissions ("skip tool permission prompts, register hooks"). It uses them for
+two things: its four tools that only read (`list_event_types`, `list_watches`,
+`get_event`, `recent_events`) run without Copilot's prompt, and its
+instructions reach the model at the session's start. `watch_event` and
+`unwatch_event` always go through Copilot's prompt.
+
+For one run without installing:
+`copilot --experimental --plugin-dir ./AgentPolyfill/polyfills/events/copilot/plugin`.
+
+### Uninstall
+
+Stop the watches you want ended on their servers first (ask Copilot to
+unwatch them, or `unwatch_event`): a webhook watch has a subscription on its
+server, which otherwise lasts until the server expires it. Then:
+
+```bash
+copilot plugin uninstall mcp-events@agent-polyfill
+```
+
+What stays behind (seen with Copilot 1.0.115):
+
+- **The plugin's data,** in `~/.copilot/mcp-events/` (or under
+  `COPILOT_HOME`): the log, each session's watches (`threads/`) and its stored
+  events and wake count (`sessions/`). Delete the folder to remove it.
+- **The relay's settings,** `~/.mcp-events/relay.json`, if you set up the
+  relay. The other forms of mcp-events share it.
+- **Copilot's own records:** `enabledPlugins` in `~/.copilot/settings.json`
+  keeps `"mcp-events@agent-polyfill": false`, Copilot leaves an empty
+  `~/.copilot/plugin-data/agent-polyfill/mcp-events/`, and the marketplace
+  stays until `copilot plugin marketplace remove agent-polyfill`.
+- **The clone,** if you installed from one.
 
 ## Try it
 

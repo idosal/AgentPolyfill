@@ -31,7 +31,8 @@ var isUri = (v) => {
 };
 var length = (s) => [...s].length;
 var UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/;
-var plainText = (s) => String(s ?? "").replace(new RegExp(UNSAFE_TEXT.source, "g"), "");
+var INVISIBLE_TEXT = /[\u2028\u2029\ufff9-\ufffb\p{Default_Ignorable_Code_Point}]/u;
+var plainText = (s) => String(s ?? "").replace(new RegExp(UNSAFE_TEXT.source, "g"), "").replace(new RegExp(INVISIBLE_TEXT.source, "gu"), "");
 var NAME = /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/;
 var URL_CHAR = "[\\x21-\\x3b\\x3d\\x3f-\\x5a\\x5e\\x5f\\x61-\\x7e]";
 var IPV6_HOST = "\\[[0-9A-Fa-f:.]+\\]";
@@ -794,7 +795,7 @@ var defaultName = (card) => slug(card.title ?? "") || slug(card.name.split("/")[
 var shellQuote = (a) => /^[A-Za-z0-9_./:@%+=,-]+$/.test(a) ? a : `'${a.replace(/'/g, `'\\''`)}'`;
 var isCompatible = (remote) => !remote.supportedProtocolVersions?.length || remote.supportedProtocolVersions.some((v) => host.protocolVersions.includes(v));
 var HEADER_NAME = /^[!#%&'*+.^_`|~0-9A-Za-z-]+$/;
-var BAD_VALUE = UNSAFE_TEXT;
+var BAD_VALUE = { test: (v) => UNSAFE_TEXT.test(v) || INVISIBLE_TEXT.test(v) };
 var URL_VALUE = /^[A-Za-z0-9._~-]+$/;
 var VAR = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
 var tag = (s) => base32(sha256(s), 80);
@@ -1270,7 +1271,7 @@ function serve(opts) {
 }
 
 // polyfills/server-cards/claude-code/mod/hooks/format.ts
-var clean = (s, max = 300) => plainText(String(s ?? "").replace(/[\r\n\t]+/g, " ")).slice(0, max);
+var clean = (s, max = 300) => plainText(String(s ?? "").replace(/[\r\n\t\u2028\u2029]+/g, " ")).slice(0, max);
 var describeInputs = (card, i) => {
   const r = card.remotes[i];
   const lines = [];
@@ -1960,6 +1961,13 @@ var MAX_REFERRALS = 3;
 var MAX_RESULTS = 10;
 var MAX_READ2 = 50;
 var MAX_BODY2 = 512 * 1024;
+var HIDDEN = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\ufff9-\ufffb\u2800\p{Default_Ignorable_Code_Point}]/u;
+var HIDDEN_ALL = new RegExp(HIDDEN.source, "gu");
+var oneLine = (v, max) => {
+  const s = String(v ?? "").replace(HIDDEN_ALL, " ").replace(/\s+/g, " ").trim();
+  const chars = Array.from(s);
+  return chars.length > max ? `${chars.slice(0, max).join("")}\u2026` : s;
+};
 var isObject5 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
 var searchEndpoint = (base) => {
   let u;
@@ -2006,7 +2014,7 @@ var search = async (post, text, endpoints) => {
           code = [err.errorCode, err.message].filter((x) => typeof x === "string").join(": ");
         } catch {
         }
-        call.note = `HTTP ${res.status}${code ? ` (${code.slice(0, 200)})` : ""}`;
+        call.note = `HTTP ${res.status}${code ? ` (${oneLine(code, 200)})` : ""}`;
         return;
       }
       let body;
@@ -2029,6 +2037,10 @@ var search = async (post, text, endpoints) => {
           out.problems.push(`${endpoint}: a result without an "identifier" was skipped`);
           continue;
         }
+        if (HIDDEN.test(r.identifier)) {
+          out.problems.push(`${endpoint}: a result whose identifier holds control or hidden characters was skipped`);
+          continue;
+        }
         if (r.type !== void 0 && r.type !== CARD_TYPE2) {
           out.skipped++;
           continue;
@@ -2041,8 +2053,8 @@ var search = async (post, text, endpoints) => {
           ...typeof r.url === "string" ? { url: r.url } : {},
           ...r.data !== void 0 ? { data: r.data } : {},
           listedIn: endpoint,
-          displayName: typeof r.displayName === "string" ? r.displayName : void 0,
-          description: typeof r.description === "string" ? r.description : void 0,
+          displayName: typeof r.displayName === "string" ? oneLine(r.displayName, 200) || void 0 : void 0,
+          description: typeof r.description === "string" ? oneLine(r.description, 300) || void 0 : void 0,
           score: typeof r.score === "number" ? r.score : void 0,
           order: found.length
         });
@@ -2057,10 +2069,10 @@ var search = async (post, text, endpoints) => {
           } catch {
           }
           if (u && mayFollow2(u, fromLocal)) referrals.push(u.href);
-          else out.problems.push(`${endpoint}: referral ${String(ref.url).slice(0, 200)} is not HTTPS on a public host; not followed`);
+          else out.problems.push(`${endpoint}: referral ${oneLine(ref.url, 200)} is not HTTPS on a public host; not followed`);
         }
     } catch (err) {
-      call.note = err instanceof Error ? err.message : String(err);
+      call.note = oneLine(err instanceof Error ? err.message : err, 200);
     }
   };
   const first = [...new Set(endpoints)];
@@ -2085,7 +2097,7 @@ var SHOWN_QUERY = 300;
 var SHOWN_REGISTRY = 200;
 var noRegistry = (hostName = "Codex") => `No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as \`registry\`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment ${hostName} starts in. Nothing was sent.`;
 var NO_REGISTRY = noRegistry();
-var UNSEEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/;
+var UNSEEN = HIDDEN;
 var MARKUP = /[`<>[\]]/;
 var str3 = (v) => typeof v === "string" ? v : void 0;
 var refuse3 = (text) => ({ text: shownText(text), isError: true });
@@ -2127,12 +2139,12 @@ function tools(session, defaultRegistry, h = CODEX_HOST) {
       },
       required: ["query"]
     },
-    annotations: { readOnlyHint: true, openWorldHint: true },
+    annotations: h.searchReadOnly === false ? { readOnlyHint: false, destructiveHint: false, openWorldHint: true } : { readOnlyHint: true, openWorldHint: true },
     run: async (args, ctx) => {
       const query = (str3(args.query) ?? "").trim();
       if (!query) return refuse3("Give `query`: what the person needs, in plain words.");
       if (query.length > SHOWN_QUERY) return refuse3(`Keep the search under ${SHOWN_QUERY} characters, so the person sees all of it before it is sent.`);
-      if (UNSEEN.test(query)) return refuse3("Write the search on one line, without control characters or direction marks, so the person sees exactly what is sent.");
+      if (UNSEEN.test(query)) return refuse3("Write the search on one line, without control characters, direction marks or hidden characters, so the person sees exactly what is sent.");
       if (MARKUP.test(query)) return refuse3("Write the search in plain words, without `, <, > or square brackets, so the form shows exactly what is sent.");
       const asked = (str3(args.registry) ?? defaultRegistry).trim();
       if (!asked) return refuse3(noRegistry(h.name));
@@ -2199,7 +2211,7 @@ var INSTRUCTIONS = "Agentic Resource Discovery (ARD v0.91 draft) for MCP servers
 // polyfills/ard/copilot/src/main.ts
 var NAME2 = "ard-discovery";
 var VERSION = "0.1.0";
-var tools2 = (session, defaultRegistry) => tools(session, defaultRegistry, { name: "Copilot", addTool: addTool2 });
+var tools2 = (session, defaultRegistry) => tools(session, defaultRegistry, { name: "Copilot", addTool: addTool2, searchReadOnly: false });
 function start(env = process.env) {
   useCopilotHost();
   const off = /^(1|true|on|yes)$/i.test(env.ARD_DISCOVERY_DISABLED ?? "");
@@ -2225,6 +2237,7 @@ export {
   DISCOVER,
   HOST_PROTOCOL_VERSIONS,
   INSTRUCTIONS,
+  INVISIBLE_TEXT,
   MAX_BODY,
   MAX_INLINE_CARD,
   MAX_OFFERED,

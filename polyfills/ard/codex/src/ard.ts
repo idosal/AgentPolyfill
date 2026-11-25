@@ -12,7 +12,7 @@ import { formatDiscovery, formatOffered } from '../../../server-cards/claude-cod
 import { readOffered } from '../../../server-cards/claude-code/mod/hooks/offer'
 import type { Tool } from '../../../server-cards/codex/src/mcp'
 import { addTool, askPerson, Session, shownText } from '../../../server-cards/codex/src/tools'
-import { search, searchEndpoint } from '../../claude-code/mod/hooks/registry'
+import { HIDDEN, search, searchEndpoint } from '../../claude-code/mod/hooks/registry'
 import { originOf } from '../../claude-code/mod/hooks/urls'
 
 export { search, searchEndpoint, originOf }
@@ -31,8 +31,8 @@ export const SHOWN_REGISTRY = 200
 export const noRegistry = (hostName = 'Codex') =>
   `No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as \`registry\`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment ${hostName} starts in. Nothing was sent.`
 export const NO_REGISTRY = noRegistry()
-/** Characters that display as something else or as nothing (as in the Claude Code form). */
-const UNSEEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/
+/** Characters that display as something else or as nothing, tag characters among them (registry.ts HIDDEN, as in the Claude Code form). */
+const UNSEEN = HIDDEN
 /**
  * Markdown and HTML a host could render in the form: a query such as
  * `check [my CI](https://evil.example/)` would show "check my CI" while the
@@ -56,7 +56,12 @@ export const SEARCH_CHOICES = { yes: { value: 'search', title: 'Send the search'
 export const registrySetting = (env: NodeJS.ProcessEnv) => (env.ARD_DISCOVERY_REGISTRY ?? '').trim()
 
 /** The host a form serves: its name in the words, and its add_mcp_server (the Codex form's by default). */
-export type ArdHost = { name: string; addTool: (session: Session, discoverName: string, foundBy: string) => Tool }
+/**
+ * What differs by host: its name in what the tools say, its add tool, and whether `ard_search` is
+ * marked read-only. A search sends the person's words to a third party, so a host whose permission
+ * rules read the hint marks it not read-only (`searchReadOnly: false`, as the Pi form does).
+ */
+export type ArdHost = { name: string; addTool: (session: Session, discoverName: string, foundBy: string) => Tool; searchReadOnly?: boolean }
 const CODEX_HOST: ArdHost = { name: 'Codex', addTool }
 
 export function tools(session: Session, defaultRegistry: string, h: ArdHost = CODEX_HOST): Tool[] {
@@ -107,13 +112,13 @@ export function tools(session: Session, defaultRegistry: string, h: ArdHost = CO
       },
       required: ['query'],
     },
-    annotations: { readOnlyHint: true, openWorldHint: true },
+    annotations: h.searchReadOnly === false ? { readOnlyHint: false, destructiveHint: false, openWorldHint: true } : { readOnlyHint: true, openWorldHint: true },
     run: async (args, ctx) => {
       const query = (str(args.query) ?? '').trim()
       if (!query) return refuse('Give `query`: what the person needs, in plain words.')
       // What is sent is what the question showed (security review R1).
       if (query.length > SHOWN_QUERY) return refuse(`Keep the search under ${SHOWN_QUERY} characters, so the person sees all of it before it is sent.`)
-      if (UNSEEN.test(query)) return refuse('Write the search on one line, without control characters or direction marks, so the person sees exactly what is sent.')
+      if (UNSEEN.test(query)) return refuse('Write the search on one line, without control characters, direction marks or hidden characters, so the person sees exactly what is sent.')
       if (MARKUP.test(query)) return refuse('Write the search in plain words, without `, <, > or square brackets, so the form shows exactly what is sent.')
       const asked = (str(args.registry) ?? defaultRegistry).trim()
       // No registry is chosen for the person: with none set and none named,

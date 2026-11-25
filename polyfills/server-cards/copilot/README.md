@@ -4,8 +4,8 @@ Name a company, and Copilot finds the MCP servers its domain publishes. Ask
 it to add one, accept the form Copilot shows you, and the server goes into
 Copilot's own MCP configuration.
 
-Also available for [Claude Code](../claude-code/README.md) and
-[Codex](../codex/README.md).
+Also available for [Claude Code](../claude-code/README.md),
+[Codex](../codex/README.md) and [Pi](../pi/README.md).
 
 > What MCP servers does neon.com publish?
 
@@ -25,17 +25,21 @@ so it's a separate plugin, [`ard-discovery`](../../ard/copilot/README.md).
 
 ## Install
 
-```bash
-copilot plugin marketplace add idosal/AgentPolyfill
-```
+From a clone of this repository (the install that was tested, on Copilot CLI
+1.0.115):
 
 ```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+copilot plugin marketplace add ./AgentPolyfill
 copilot plugin install mcp-server-cards@agent-polyfill
 ```
 
-The first command adds the [AgentPolyfill](../../../README.md) marketplace
-(Copilot reads its `.github/plugin/marketplace.json`), and the second installs
-the plugin. Start a new Copilot session afterwards.
+Copilot loads a plugin from a local marketplace where it is, without copying
+it, so keep the clone; `git pull` in it brings the next version. Once this
+plugin is on the repository's default branch,
+`copilot plugin marketplace add idosal/AgentPolyfill` adds the same
+marketplace from GitHub (Copilot reads its `.github/plugin/marketplace.json`),
+and Copilot keeps its own copy. Start a new Copilot session afterwards.
 
 You need:
 
@@ -45,7 +49,26 @@ You need:
   no dependencies, [`plugin/dist/server.mjs`](plugin/dist/server.mjs), which
   Copilot starts as a stdio MCP server.
 
-To remove it, run `copilot plugin uninstall mcp-server-cards@agent-polyfill`.
+For one run without installing: `copilot --plugin-dir ./AgentPolyfill/polyfills/server-cards/copilot/plugin`.
+
+### Uninstall
+
+```bash
+copilot plugin uninstall mcp-server-cards@agent-polyfill
+```
+
+What stays behind (seen with Copilot 1.0.115):
+
+- **Servers you added** stay in `~/.copilot/mcp-config.json`. Remove each with
+  `copilot mcp remove <name>`; the plugin told you the name when it added it.
+- **Copilot's own records:** `enabledPlugins` in `~/.copilot/settings.json`
+  keeps `"mcp-server-cards@agent-polyfill": false`, and the marketplace stays
+  until `copilot plugin marketplace remove agent-polyfill` (which other plugins
+  from this repository need too).
+- **The clone,** if you installed from one.
+
+The plugin itself stores nothing: what it discovers is kept in memory for the
+session.
 
 ## Try it
 
@@ -216,52 +239,22 @@ It implements the client side of the MCP Server Cards extension:
 - The [AI Catalog](https://github.com/Agent-Card/ai-catalog) that SEP-2127
   hands domain discovery to: v0.9, a release candidate, at `19208af2f8`.
 
-### Client rules
+Each client rule, how Copilot meets it and where it is tested, is in
+[`docs/conformance.md`](docs/conformance.md). The shared rules (D-1 to D-9,
+V-1 to V-3, C-1 to C-3, S-1 to S-6, I-1 to I-4) are the same code and the
+same 90 tests as in the other forms, run here against the committed bundle.
+This form's own tests cover the Copilot plan and its command line (C-1 to
+C-9) and the server as Copilot starts it (E-1 to E-10): the form, existing
+names, secrets, headers, failure, stand-down and hidden characters. One rule
+isn't met, as in the other forms: S-3, the live comparison of a card with the
+server.
 
-All forms run the same code and tests for the discovery, validation, input and
-transport rules. The full table is with the Claude Code form's
-[client rules](../claude-code/README.md#client-rules). Here, those tests run
-against the built [`plugin/dist/server.mjs`](plugin/dist/server.mjs), with
-`npm test`. These are the rows where Copilot differs:
-
-| # | Rule | Test | State |
-|---|---|---|---|
-| P-1 | Never replace a server the person has | E-5, E-7 | met: a name `copilot mcp get` knows, or can't rule out, is refused before the person is asked, and again before writing |
-| P-2 | A person approves every addition | E-3, E-4, E-9 | met: a form naming the server, URL, headers, file and undo, with a required choice. Only **Add it** adds. Copilot declines the form where nobody can be asked, `--yolo` included (seen live) |
-| P-3 | Add only what was shown, as shown | E-5 | met |
-| I-2 | Handle `isSecret` values securely | C-2, C-3, E-6 | met: a `${VAR}` reference named for this card, never a value |
-| I-3 | Choose a remote by its `supportedProtocolVersions` | C-6 | met, with Copilot's revisions |
-| I-4 | Transport `streamable-http` or `sse` | C-3 | both met |
-| V-3 | No text that displays as something else | C-5, plus the shared tests | met. A header's value is shown in the form as it is, so it may hold no markup |
-| P-4 | Nothing from a card is read as an option of `copilot mcp add` | C-7 | met: every option is written `--option=value` (a header name may legally start with `-`; Copilot 1.0.115 refuses `--header -x: v` and takes `--header=-x: v` whole), and the name (a slug) and the URL (http or https) are checked again before the command runs, with no shell |
-| P-5 | One value per header | C-8 | met: a card that sets one header twice, in any letter case, is refused, so the form, the command and the file can't disagree |
-
-### Proof
-
-- **Per rule:** 107 tests, run with `npm test`: 88 shared rule tests from
-  `../claude-code/mod/tests`, run against the committed bundle; 17 of this
-  form's own (the Copilot plan, C-, and the server as Copilot runs it, E-, with
-  a stand-in `copilot` that parses options as Copilot's does, and a web on
-  127.0.0.1); 2 that check the installed folder.
-- **The real host,** 25 November 2026, Copilot CLI 1.0.115 on macOS, with an
-  isolated `COPILOT_HOME`, no GitHub sign-in, and a scripted model on this
-  machine (as in [mcp-events' live run](../../events/copilot/docs/live-run.md)):
-  - Installed from this repository's marketplace (`copilot plugin marketplace
-    add`, `copilot plugin install mcp-server-cards@agent-polyfill`), beside
-    `mcp-events` and `ard-discovery`, all three loading in one session.
-  - `discover_mcp_servers` for neon.com returned Neon and Neon Docs, both valid,
-    from neon.com's own published cards.
-  - In the TUI: Copilot's tool prompt for each tool, then the form above, drawn
-    as quoted. **Add it** wrote `neon-docs` to `mcp-config.json` through
-    `copilot mcp add`.
-  - In `copilot -p`, with `--allow-all-tools` and with `--yolo`: Copilot
-    declined the form, and nothing was written.
-  - `copilot mcp add` (1.0.115) checked by hand: it writes `--header` values
-    and `${VAR}` references as given, accepts SSE, refuses a name that exists,
-    and contacts no server. Copilot expands `${VAR}` in a server's URL and
-    headers when it connects (seen against a local server).
-- **Upstream conformance:** the MCP conformance suite has no Server Card
-  scenarios.
+In Copilot CLI 1.0.115 itself, the plugin was installed from a clone as a
+marketplace, found Neon and Neon Docs on neon.com, and after Copilot's tool
+prompt and **Add it** in the plugin's form, wrote `neon-docs` with
+`copilot mcp add`. In `copilot -p`, with `--yolo` too, Copilot declined the
+form and nothing was written. The MCP conformance suite has no Server Card
+scenarios, so there is no upstream run to report.
 
 ## Development
 

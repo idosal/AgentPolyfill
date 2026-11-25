@@ -43,14 +43,14 @@ polyfill never adds behaviour of its own.
 
 ### 2. Put it in its folder
 
-Each extension has one folder, and one plugin that serves every host it
-supports:
+Each extension has one folder, with an adapter for each host it supports:
 
 ```
 polyfills/<extension>/
   core/          the host-neutral logic and its tests of the spec's rules
   claude-code/   the Claude Code adapter
   codex/         the Codex adapter
+  pi/            the Pi adapter
   copilot/       the GitHub Copilot CLI adapter
 ```
 
@@ -59,30 +59,43 @@ polyfills/<extension>/
 - `core/` holds what doesn't depend on the host: the protocol, the spec's
   client rules and the tests for each rule. A polyfill for a single host can
   start without it.
-- `claude-code/`, `codex/` and `copilot/` each hold a host adapter: the code that wires
-  `core/` into that host, with the host's own tests. A host's folder is named
-  after it, in lower case with hyphens.
+- Each host folder holds an adapter: the code that wires the shared logic
+  into that host, with the host's own tests. A host's folder is named after
+  it, in lower case with hyphens.
+
+| Host | Form | Folder |
+|---|---|---|
+| Claude Code | mod (plugin) | `polyfills/<extension>/claude-code/` |
+| Codex | plugin | `polyfills/<extension>/codex/` |
+| Pi | extension | `polyfills/<extension>/pi/` |
+| Copilot CLI | plugin; for Events, an extension inside it | `polyfills/<extension>/copilot/` |
 
 The Apps polyfill, [`polyfills/apps/claude-code`](polyfills/apps/claude-code),
 is a complete example of one adapter. Inside an adapter's folder:
 
-- **The installable plugin goes in a subfolder** (`mod/` in the Apps
-  polyfill). It holds the host's manifest and only what the plugin runs.
+- **The installable plugin or extension goes in a subfolder** (`mod/` in the
+  Apps polyfill; `extension/` in a Pi form). It holds the host's manifest and
+  only what the plugin or extension runs.
   Tests, build scripts, benchmarks and design notes go beside it, not in it.
   If the plugin's own top folder holds a `package.json`, Claude Code runs
   `npm install` there when someone installs it, so keep any `package.json`
   out of that top folder.
-- **The plugin folder is self-contained.** Claude Code and Codex copy only
-  that folder when someone installs the plugin, so nothing in it may import
-  from outside it. Code from `core/` reaches it by bundling, a build step that
-  writes the bundle into the plugin folder. Never use an import that reaches
-  out of it.
-- **One plugin folder can serve both hosts.** It can carry
-  `.claude-plugin/plugin.json` for Claude Code and `.codex-plugin/plugin.json`
-  for Codex side by side, with the same plugin name.
-- **The plugin's name** is unique in this repository. The same name is used
-  in the marketplace entries, in release tags and in the workflow files. An
-  extension keeps one name in every host. Existing names: `mcp-events`,
+- **The installable folder is self-contained.** Nothing in it may import
+  repository files from outside it. Code from `core/` reaches it by bundling,
+  a build step that writes the bundle into the installable folder. Never
+  use an import that reaches out of it.
+- **One plugin folder can carry multiple host manifests**, with the same
+  plugin name. The current forms use these layouts:
+
+  | Host | Installable folder |
+  |---|---|
+  | Claude Code | Copied on install; carries `.claude-plugin/plugin.json`. |
+  | Codex | Copied on install; carries `.codex-plugin/plugin.json`, which can sit beside another host's manifest. |
+  | Pi | A separate `pi/extension/` folder with a manifest and one bundled file. Pi loads the local path in place, so the clone must stay. |
+
+- **A marketplace plugin's name** is unique in this repository. The same
+  name is used in the marketplace entries, in release tags and in the
+  workflow files. Existing polyfill and plugin names: `mcp-events`,
   `mcp-apps-cli`, `mcp-skills`, `mcp-server-cards`, `ard-discovery`,
   `agent-polyfill`, `polyfill-author`.
 - **No large files in git.** Nothing over about 1 MB, unless the plugin or its
@@ -103,13 +116,13 @@ who has never seen this repository, in this order: what it does, install, try
 it, how it works, settings, limits, security, spec and conformance,
 development. Where the extension runs in more than one host, each host's
 README follows the same order, describes shared behaviour in the same words,
-and links the other host's README near the top.
+and links each other host's README near the top.
 
 It states:
 
 - **The extension:** its identifier, the spec's name and revision (for
   example "SEP-3415, Final") and a link to the spec.
-- **Requirements, install and use.** Put the one-line install first.
+- **Requirements, install and use.** Put the tested install steps first.
   - In Claude Code: `/plugin install <plugin> --marketplace idosal/AgentPolyfill`,
     and in a terminal
     `claude plugin install <plugin> --marketplace idosal/AgentPolyfill`. Then
@@ -117,11 +130,16 @@ It states:
     `/plugin install <plugin>@agent-polyfill`.
   - In Codex:
     `codex plugin marketplace add idosal/AgentPolyfill && codex plugin add <plugin>@agent-polyfill`.
+  - In Pi: clone `https://github.com/idosal/AgentPolyfill.git`, enter
+    `AgentPolyfill`, then `pi install ./polyfills/<extension>/pi/extension`.
+    The current forms need Pi 1.6.0 (the version tested) and Node 22 or
+    newer. Nothing for Pi is published to npm or Pi's package gallery.
+    For one run, use `pi -e ./polyfills/<extension>/pi/extension`.
   - In Copilot CLI: `copilot plugin marketplace add idosal/AgentPolyfill`,
     then `copilot plugin install <plugin>@agent-polyfill`.
   - Then what else it needs, and every step and question a new user meets
-    between that line and the extension working, with what happens when they
-    say no. Anything beyond "install, add a server, ask" needs a reason.
+    between installation and the extension working, with what happens when
+    they say no. Anything beyond "install, add a server, ask" needs a reason.
 - **Stand-down:** how it detects that the host supports the extension
   natively, or, until it can, the setting that turns it off.
 - **Limits:** what it can't do on this host, and for each limit the change in
@@ -137,8 +155,9 @@ If a contract rule isn't met yet, the README says so.
 
 ### 4. Add it to the marketplace
 
-Each host has its own marketplace file in this repository. For Claude Code,
-add an entry to [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json):
+Each host that has a marketplace has its own marketplace file in this
+repository (Pi has none; see the end of this step). For Claude Code, add an
+entry to [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json):
 
 ```json
 {
@@ -189,6 +208,14 @@ which installs every polyfill in one step, and to the list in its
 match. Add the polyfill to the table in the [README](README.md) as well, in
 its host's column.
 
+For Pi, there is no marketplace file or bundle here, and nothing is
+published to npm or Pi's package gallery. Document the clone-and-install
+steps and keep the installable folder at `polyfills/<extension>/pi/extension`.
+`pi install git:...` installs a whole repository, not one subfolder. Include
+`pi remove ./polyfills/<extension>/pi/extension` from the same clone for
+removal, and say what data remains. Add the form to the root README's Pi
+column; Apps has no Pi form.
+
 ### 5. Add its CI
 
 Every push and pull request runs [`ci.yml`](.github/workflows/ci.yml). It
@@ -200,7 +227,10 @@ checks that:
 - each relative marketplace entry points at a plugin that is there;
 - the `agent-polyfill` bundle depends on every polyfill.
 
-Your plugin is included automatically.
+Plugins listed in the marketplaces are included in those checks
+automatically. Pi forms need their own workflow; see
+[`pi-events-test.yml`](.github/workflows/pi-events-test.yml) and
+[`pi-skills-test.yml`](.github/workflows/pi-skills-test.yml).
 
 Add the polyfill's own tests as `.github/workflows/<plugin>-test.yml`,
 filtered to its folder. Copy
@@ -209,7 +239,7 @@ the paths, the working directory and the commands. Keep it cheap: it runs on
 every change in the folder. For a Claude Code mod that is usually
 `claude plugin test <plugin subfolder>` and the tests of any helper.
 
-A polyfill that ships built files also gets
+A polyfill that ships built files from a marketplace also gets
 `.github/workflows/<plugin>-release.yml`. It runs only when what goes into
 those files changes, and on its own tags, `<plugin>-v<version>`. Tags carry
 the plugin's name so that each polyfill releases on its own. See
@@ -219,6 +249,8 @@ publishes the release and opens a pull request that updates only that
 plugin's marketplace entry.
 
 ### 6. Before you open the pull request
+
+For a Claude Code plugin, validate the marketplace and plugin:
 
 ```bash
 claude plugin validate .
@@ -234,33 +266,39 @@ saw.
 
 ## Bringing a polyfill to another host
 
-An extension keeps one folder and one plugin name, and each host gets an
-adapter beside the others. Events is the fullest example: one `core/`, a
-`claude-code/` mod, a `codex/` plugin and a `copilot/` extension
-([`polyfills/events`](polyfills/events), [`polyfills/skills`](polyfills/skills)).
+An extension keeps one folder and one polyfill name, and each host gets an
+adapter beside the others. Events and Skills are the examples
+([`polyfills/events`](polyfills/events), [`polyfills/skills`](polyfills/skills)):
+one `core/` with these forms:
+
+- `claude-code/`: a Claude Code mod.
+- `codex/`: a Codex plugin.
+- `pi/`: a Pi extension, installed from `pi/extension/`.
+- `copilot/`: a Copilot CLI plugin, installed from `copilot/plugin/`
+  (Events only; Copilot has Skills built in).
 
 1. **Find the host's way in.** What can third-party code do there? It may run
-   code inside the host or beside it (Claude Code mods; a Codex plugin's MCP
-   server and skills), call tools, ask the user, or start a turn in an idle
-   session. Each wire need of the extension is reached one of those ways, or
-   it is a limit, written down with the host change that would remove it
+   code inside the host or beside it, call tools, ask the user, or start a
+   turn in an idle session. Each wire need of the extension is reached one
+   of those ways, or it is a limit, written down with the host change that would remove it
    ([`docs/host-changes.md`](docs/host-changes.md)). The `create-polyfill`
    skill walks through this for a named host.
 2. **Share the core.** If the host-neutral logic still lives inside the first
    host's adapter, move it into `polyfills/<extension>/core/` first, with its
    rule tests, in its own pull request. That way the existing host's behaviour
-   is checked unchanged before a second host depends on it.
+   is checked unchanged before another host depends on it.
 3. **Write the adapter** in `polyfills/<extension>/<host>/`, under the rules
-   in [step 2](#2-put-it-in-its-folder): a self-contained plugin folder with
-   that host's manifest, `core/` bundled into it, and the host's own tests
-   beside it.
+   in [step 2](#2-put-it-in-its-folder): a self-contained plugin or extension
+   folder with that host's manifest, `core/` bundled into it, and the host's
+   own tests beside it.
 4. **Meet the contract in that host.** It needs its own README (step 3), with
    that host's install line, requirements, limits and stand-down, its own
    `SECURITY.md`, and a recorded run in the real host against a server you
    didn't write.
-5. **List it** in that host's marketplace file (step 4), and add its CI
-   (step 5). Add it to the polyfills table in the [README](README.md), in that
-   host's column.
+5. **Document installation** using that host's distribution method (step 4),
+   list it in a marketplace file where one exists, and add its CI (step 5).
+   Add it to the polyfills table in the [README](README.md), in that host's
+   column.
 
 ## Listing a polyfill in the community directory
 

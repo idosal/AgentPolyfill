@@ -27,7 +27,7 @@ export * from '../../../server-cards/codex/src/tools'
 export * from './ard'
 
 export const NAME = 'ard-discovery'
-export const VERSION = '0.1.1'
+export const VERSION = '0.1.3'
 
 export function start(env: NodeJS.ProcessEnv = process.env) {
   useCodexHost()

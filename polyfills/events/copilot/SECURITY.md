@@ -1,7 +1,8 @@
 # Security
 
 This covers mcp-events for GitHub Copilot CLI. The other forms have their own:
-[Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md).
+[Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md),
+[Pi](../pi/SECURITY.md).
 
 "The plugin" below means this Copilot plugin: an extension
 (`plugin/extensions/mcp-events/extension.mjs`) that Copilot starts as a child

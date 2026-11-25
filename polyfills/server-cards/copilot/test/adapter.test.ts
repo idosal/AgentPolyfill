@@ -65,6 +65,16 @@ test('C-8 a card that sets one header twice, in any letter case, is refused', ()
   assert.match('error' in r ? r.error : JSON.stringify(r), /sets the header x-region twice/)
 })
 
+test("C-9 a header value Copilot would write holding a character that shows as nothing is refused, from the card or given (main's shared planner): what the person is asked about is what is written", () => {
+  for (const hidden of ['acme\u{e0041}\u{e0042}', 'acme\ufe0f', 'ac\u00adme']) {
+    assert.ok('error' in planForCopilot(remote({ headers: [{ name: 'X-Workspace', value: hidden }] }) as never, 0, {}, undefined, false), JSON.stringify(hidden))
+    assert.ok('error' in planForCopilot(remote({ headers: [{ name: 'X-Workspace', isRequired: true }] }) as never, 0, { 'X-Workspace': hidden }, undefined, false), JSON.stringify(hidden))
+  }
+  const ok = planForCopilot(remote({ headers: [{ name: 'X-Workspace', isRequired: true }] }) as never, 0, { 'X-Workspace': 'acme' }, undefined, false)
+  assert.ok('plan' in ok, JSON.stringify(ok))
+  assert.ok(ok.plan.addArgs.includes('--header=X-Workspace: acme'), JSON.stringify(ok.plan.addArgs))
+})
+
 test('C-4 the shared rules hold: no "$" from a card, no private remote from a public card, no secret in the host part', () => {
   const dollar = planForCopilot(remote({ headers: [{ name: 'X-T', value: '${HOME}' }] }) as never, 0, {}, undefined, false)
   assert.match('error' in dollar ? dollar.error : '', /may not contain "\$"/)
@@ -229,4 +239,31 @@ test('E-9 only the explicit "add" adds: an accept without the choice, with "no",
     assert.equal(r.isError, true, JSON.stringify(content))
     assert.deepEqual(adds(s.fake), [], JSON.stringify(content))
   }
+})
+
+test("E-10 a card's text that shows as nothing (tag characters, a soft hyphen, a variation selector, a line separator) is taken out of the form and the answer (main's shared text filter)", async () => {
+  const hiddenWeb = await localWeb({
+    '/.well-known/ai-catalog.json': { body: { specVersion: '1.0', entries: [{ identifier: 'urn:air:localhost:hidden', type: 'application/mcp-server-card+json', url: '{origin}/hidden.json' }] } },
+    '/hidden.json': {
+      body: card({
+        name: 'com.example/hidden',
+        title: 'Hidden\u{e0041}\u{e0042} Docs',
+        description: 'Builds\u2028then more\u{e0049}',
+        remotes: [{ type: 'streamable-http', url: '{origin}/mcp', headers: [{ name: 'X-Key', isSecret: true, description: 'Your API key\u{e0049}\u{e0047}\u00ad from the dashboard\ufe0f' }] }],
+      }),
+    },
+  })
+  after(() => hiddenWeb.close())
+  const hidden = /[\u00ad\u2028\u2029\ufe00-\ufe0f]|[\u{e0000}-\u{e0fff}]/u
+  const s = server({ answer: { action: 'accept', afterMs: 50 } })
+  const found = await s.call('discover_mcp_servers', { domain: hiddenWeb.origin })
+  assert.equal(found.isError, false, found.text)
+  assert.doesNotMatch(found.text, hidden)
+  assert.match(found.text, /Builds then more/)
+  const r = await s.call('add_mcp_server', { domain: hiddenWeb.origin, identifier: 'urn:air:localhost:hidden', url: `${hiddenWeb.origin}/mcp` })
+  assert.equal(r.isError, false, r.text)
+  assert.equal(s.asked.length, 1)
+  assert.doesNotMatch(s.asked[0]!.message, hidden)
+  assert.doesNotMatch(r.text, hidden)
+  assert.match(s.asked[0]!.message + r.text, /Your API key from the dashboard/)
 })

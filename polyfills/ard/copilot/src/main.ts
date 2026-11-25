@@ -31,7 +31,9 @@ export { ARD_SOURCES, BY, DISCOVER, INSTRUCTIONS, noRegistry, registrySetting, S
 export const NAME = 'ard-discovery'
 export const VERSION = '0.1.0'
 
-export const tools = (session: Session, defaultRegistry: string) => ardTools(session, defaultRegistry, { name: 'Copilot', addTool })
+// ard_search is marked not read-only: it sends the person's words to a third party, and Copilot's
+// permission rules (and VS Code's) may read the hint.
+export const tools = (session: Session, defaultRegistry: string) => ardTools(session, defaultRegistry, { name: 'Copilot', addTool, searchReadOnly: false })
 
 export function start(env: NodeJS.ProcessEnv = process.env) {
   useCopilotHost()

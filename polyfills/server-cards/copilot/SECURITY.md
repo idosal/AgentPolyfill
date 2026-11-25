@@ -1,7 +1,8 @@
 # Security
 
 This covers `mcp-server-cards` for GitHub Copilot CLI. The other forms have
-their own: [Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md).
+their own: [Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md),
+[Pi](../pi/SECURITY.md).
 Where this file says nothing different, the Codex form's SECURITY.md applies:
 this form runs its MCP server, its fetch and its form code unchanged.
 
@@ -31,6 +32,11 @@ and the plugin adds no policy of its own beyond asking you.
   each hop held to the same rule.
 - **Text that displays as something else** is refused as in the Codex form,
   including markup in a header's value, which the form shows as it is.
+  Characters that show as nothing (tag characters, variation selectors, a
+  soft hyphen, line separators) are taken out of everything shown, and a
+  header value that would be written holding one is refused, from a card or
+  given: what you're asked about is what is written. These are the shared
+  checks in `card.ts` and `configure.ts`.
 - **What it writes:** only Copilot's user MCP configuration,
   `$COPILOT_HOME/mcp-config.json` (`~/.copilot/mcp-config.json`), one server
   at a time, and only after your accept, through `copilot mcp add`, run with
@@ -54,7 +60,8 @@ and the plugin adds no policy of its own beyond asking you.
     may contain `$`, and a secret may not stand in a URL's host part.
 - **Sign-in stays Copilot's.** `copilot mcp add` contacts no server; Copilot
   signs in when it connects (`/mcp auth`). The plugin never reads Copilot's
-  stored credentials (the keychain, `~/.copilot/mcp-oauth-config/`).
+  stored credentials (the keychain, `~/.copilot/mcp-oauth-config/`, signed-in
+  accounts in `config.json`).
 
 ## What is stored
 

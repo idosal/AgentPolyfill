@@ -1,0 +1,31 @@
+{
+  "name": "mcp-events-pi",
+  "private": true,
+  "version": "0.1.1",
+  "type": "module",
+  "description": "A Pi extension that adds MCP Events (SEP-3415): Pi can watch events on your MCP servers, and an event wakes the idle session that asked for it.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test --no-warnings --test-concurrency=1 \"test/*-test.ts\"",
+    "typecheck": "tsc --noEmit -p .",
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "1.6.0",
+    "@types/node": "^22.10.0",
+    "esbuild": "0.28.2",
+    "typescript": "^5.9.3"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idosal/AgentPolyfill.git",
+    "directory": "polyfills/events/pi"
+  }
+}

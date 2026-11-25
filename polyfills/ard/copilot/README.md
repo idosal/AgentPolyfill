@@ -4,8 +4,8 @@ Copilot finds MCP servers through Agentic Resource Discovery (ARD): in what a
 domain lists, or by asking an ARD registry for a server that can do a task.
 You choose the registry, and Copilot shows you a form before every search.
 
-Also available for [Claude Code](../claude-code/README.md) and
-[Codex](../codex/README.md).
+Also available for [Claude Code](../claude-code/README.md),
+[Codex](../codex/README.md) and [Pi](../pi/README.md).
 
 > Find an MCP server that can check why my CI build failed.
 
@@ -35,23 +35,46 @@ in [Spec and conformance](#spec-and-conformance).
 
 ## Install
 
-```bash
-copilot plugin marketplace add idosal/AgentPolyfill
-```
+From a clone of this repository (the install that was tested, on Copilot CLI
+1.0.115):
 
 ```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+copilot plugin marketplace add ./AgentPolyfill
 copilot plugin install ard-discovery@agent-polyfill
 ```
 
-Start a new Copilot session afterwards. It works on its own; installing
-[`mcp-server-cards`](../../server-cards/copilot/README.md) beside it is
-optional (each has its own `add_mcp_server`, and Copilot keeps them apart by
-server name).
+Copilot loads a plugin from a local marketplace where it is, without copying
+it, so keep the clone. Once this plugin is on the repository's default branch,
+`copilot plugin marketplace add idosal/AgentPolyfill` adds the same
+marketplace from GitHub. Start a new Copilot session afterwards. It works on
+its own; installing [`mcp-server-cards`](../../server-cards/copilot/README.md)
+beside it is optional (each has its own `add_mcp_server`, and Copilot keeps
+them apart by server name).
 
-You need GitHub Copilot CLI 1.0.115 or newer (no experimental mode) and
-Node.js 20 or newer on your `PATH`.
+You need GitHub Copilot CLI 1.0.115 or newer (tested with 1.0.115; no
+experimental mode, since this is an MCP server in a plugin) and Node.js 20 or
+newer on your `PATH`.
 
-To remove it, run `copilot plugin uninstall ard-discovery@agent-polyfill`.
+For one run without installing: `copilot --plugin-dir ./AgentPolyfill/polyfills/ard/copilot/plugin`.
+
+### Uninstall
+
+```bash
+copilot plugin uninstall ard-discovery@agent-polyfill
+```
+
+What stays behind (seen with Copilot 1.0.115):
+
+- **Servers you added** stay in `~/.copilot/mcp-config.json`. Remove each with
+  `copilot mcp remove <name>`.
+- **Copilot's own records:** `enabledPlugins` in `~/.copilot/settings.json`
+  keeps `"ard-discovery@agent-polyfill": false`, and the marketplace stays
+  until `copilot plugin marketplace remove agent-polyfill`.
+- **The clone,** if you installed from one.
+
+The plugin itself stores nothing: what it finds is kept in memory for the
+session. A search you sent is with the registry you sent it to.
 
 ## Try it
 
@@ -151,38 +174,19 @@ It implements, as the other forms do:
   Final) and the [AI Catalog](https://github.com/Agent-Card/ai-catalog) v0.9,
   for the cards it finds.
 
-### Client rules
+Each rule, how Copilot meets it and where it is tested, is in
+[`docs/conformance.md`](docs/conformance.md). All forms follow the same ARD
+and Server Cards rules with the same code; here the shared tests (ARD's 12
+registry tests and the Server Cards core's 90) run against the committed
+bundle, and this form's own (A-1 to A-19) run the bundled server over stdio
+as Copilot starts it: consent, what is sent, what a registry may say, hidden
+characters, and the add flow. One rule isn't met, as in every form: S-3, the
+live comparison of a card with the server.
 
-All forms follow the same ARD rules and Server Cards rules, with the same
-code. The full tables are with the Claude Code forms:
-[ARD's client rules](../claude-code/README.md#client-rules) and
-[mcp-server-cards'](../../server-cards/claude-code/README.md#client-rules).
-The rows particular to a host with a form (Q-1 to Q-5, V-3, D-1, H-3) are the
-Codex form's [table](../codex/README.md#client-rules), met here by the same
-code and tests (A-1 to A-12). Copilot asks its MCP servers for revision
-2025-11-25, so the forms use titled choices (`oneOf`), as A-11 checks.
-
-### Proof
-
-- **Per rule:** 112 tests, run with `npm test`: ARD's 8 registry rule tests and
-  the Server Cards core's 88, run against the committed bundle; 14 of this
-  form's own (A-1 to A-14, over stdio, with a stand-in `copilot` and a local
-  registry on 127.0.0.1); 2 that check the installed folder.
-- **The real host,** 25 November 2026, Copilot CLI 1.0.115 on macOS, with an
-  isolated `COPILOT_HOME`, no GitHub sign-in, and a scripted model on this
-  machine:
-  - Installed from this repository's marketplace beside `mcp-events` and
-    `mcp-server-cards`.
-  - `ard_discover` for buildkite.com read `ai-catalog.json` and `ard.json` (one
-    entry each) and returned Buildkite's valid card.
-  - In the TUI, against the demo registry on 127.0.0.1, so no query left the
-    machine: Copilot's tool prompt, then the form quoted above. **Send the
-    search** posted the query, and the result listed Buildkite and Netlify,
-    both confirmed by their publishers.
-  - A search with no registry named or set was refused, naming
-    `ARD_DISCOVERY_REGISTRY`, and nothing was sent.
-- **Upstream conformance:** the MCP conformance suite has no Server Card or
-  ARD scenarios.
+In Copilot CLI 1.0.115 itself, `ard_discover` read buildkite.com's catalogs,
+and a search against the demo registry on 127.0.0.1 went out only after
+Copilot's tool prompt and **Send the search** in the plugin's form. The MCP
+conformance suite has no Server Card or ARD scenarios.
 
 ## Development
 

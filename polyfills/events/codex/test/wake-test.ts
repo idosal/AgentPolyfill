@@ -4,7 +4,7 @@
 // past that it is told once and woken again only after the person writes.
 
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { ThreadSession } from '../src/threads.ts';
@@ -191,6 +191,74 @@ describe('a hand-over the helper never heard back about (the wake model, TLC)', 
             const saved = wakesOf(base, thread);
             assert.equal(saved.wakes.length, 1);
             assert.equal(saved.handed, undefined);
+            // list_watches says that the wake may not have reached the session, and that it is not tried again.
+            assert.match((await s.call('list_watches', {})).text, /The last wake's codex queue did not answer \(codex queue did not finish within 60 s\), so it may not have woken this session\. Its events count as handed over and are not handed over again/);
+        } finally {
+            await s.stop();
+        }
+    });
+
+    test("the notice's codex queue times out: list_watches says the session may not have been told, not that the events were handed over", async () => {
+        const base = temp('mcp-events-codex-notice-maybe-');
+        const thread = newThread();
+        const texts: string[] = [];
+        const s = new ThreadSession(thread, {
+            base,
+            connections: new Map(),
+            unavailable: () => [],
+            wake: async (_id: string, text: string) => {
+                texts.push(text);
+                // The hour's one wake goes through; the notice after it gets no answer.
+                return texts.length === 1 ? { ok: true, resumed: true } : { ok: false, why: 'codex queue did not finish within 60 s', maybe: true };
+            },
+            log: () => {},
+            env: { MCP_EVENTS_WAKE_GAP_S: '0', MCP_EVENTS_BATCH_MS: '50', MCP_EVENTS_WAKES_PER_HOUR: '1' }
+        });
+        try {
+            assert.equal(s.start(), true);
+            s.spool.append({ kind: 'event', watch: 'w-aaaaaa', server: 'tickets', event: 'ticket.created', eventId: 'a1', data: {} });
+            await waitFor(() => texts.length === 1, 5000, 'the wake');
+            s.spool.append({ kind: 'event', watch: 'w-aaaaaa', server: 'tickets', event: 'ticket.created', eventId: 'a2', data: {} });
+            await waitFor(() => texts.length === 2, 5000, 'the notice');
+            assert.match(texts[1]!, /has stopped waking it/);
+            const text = (await s.call('list_watches', {})).text;
+            assert.match(text, /The codex queue that was to tell this session that waking had stopped did not answer \(codex queue did not finish within 60 s\), so the session may not have been told\. Waking stays paused/);
+            assert.doesNotMatch(text, /count as handed over/, 'the waiting events are not said to be handed over');
+            assert.equal(wakesOf(base, thread).paused, true, 'the notice counts as given: waking is paused');
+        } finally {
+            await s.stop();
+        }
+    });
+
+    test('a hand-over that cannot be recorded is not made: codex queue is not run, list_watches says why, and it is tried again once it can be', async () => {
+        const base = temp('mcp-events-codex-unsaved-');
+        const thread = newThread();
+        let calls = 0;
+        const s = new ThreadSession(thread, {
+            base,
+            connections: new Map(),
+            unavailable: () => [],
+            wake: async () => {
+                calls++;
+                return { ok: true, resumed: true };
+            },
+            log: () => {},
+            env: { MCP_EVENTS_WAKE_GAP_S: '0', MCP_EVENTS_BATCH_MS: '50' }
+        });
+        // wakes.json cannot be replaced while a folder stands in its place.
+        const file = join(base, 'sessions', thread, 'wakes.json');
+        mkdirSync(file, { recursive: true });
+        try {
+            assert.equal(s.start(), true);
+            s.spool.append({ kind: 'event', watch: 'w-aaaaaa', server: 'tickets', event: 'ticket.created', eventId: 'a1', data: {} });
+            await waitFor(() => s.lastWakeError !== undefined, 5000, 'the try');
+            assert.equal(calls, 0, 'not handed over without its record');
+            assert.match((await s.call('list_watches', {})).text, /Waking this session failed the last time it was tried \(the hand-over could not be recorded: wakes\.json could not be saved\); it is tried again\./);
+            assert.deepEqual(readdirSync(join(base, 'sessions', thread)).filter((f) => f.endsWith('.tmp')), [], 'no save cut short is left beside it');
+            rmSync(file, { recursive: true });
+            await waitFor(() => calls === 1, 12000, 'the next try, once it can be recorded');
+            await waitFor(() => s.lastWakeError === undefined, 5000, 'list_watches to stop saying so');
+            assert.equal(wakesOf(base, thread).wakes.length, 1);
         } finally {
             await s.stop();
         }
@@ -226,6 +294,7 @@ describe('a hand-over the helper never heard back about (the wake model, TLC)', 
         assert.equal(wakesOf(base, thread).noticeHanded, false);
         const second = new ThreadSession(thread, { base, connections: new Map(), unavailable: () => [], wake: async () => ({ ok: true, resumed: true }), log: () => {}, env });
         try {
+            assert.equal(second.start(), true);
             assert.equal(second.budget.paused, false, 'not paused by a notice the person wrote after');
         } finally {
             await second.stop();

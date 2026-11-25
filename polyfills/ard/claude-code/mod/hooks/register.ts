@@ -1,5 +1,5 @@
 import type { EngineInterface, Register } from 'claude-code'
-import { search, searchEndpoint, type Post } from './registry'
+import { HIDDEN, search, searchEndpoint, type Post } from './registry'
 import { originOf } from './urls'
 
 const PLUGIN = 'ard-discovery'
@@ -20,11 +20,10 @@ const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
 /** Text for the person's prompt: control characters out, one line, capped. */
 /** The longest query the ask shows, and so the longest that is sent. */
 const SHOWN_QUERY = 300
-/** Characters that display as something else or as nothing: C0 and C1 controls,
- * zero-width and direction marks, line and paragraph separators, BOM. The same
- * set as mcp-server-cards' UNSAFE_TEXT, plus U+2028 and U+2029. */
-const UNSEEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/
-const shown = (v: string, max: number) => v.replace(new RegExp(UNSEEN.source, 'g'), ' ').replace(/\s+/g, ' ').trim().slice(0, max)
+/** Characters that display as something else or as nothing (registry.ts HIDDEN):
+ * controls, direction marks, separators, and invisible ones such as tag characters. */
+const UNSEEN = HIDDEN
+const shown = (v: string, max: number) => v.replace(new RegExp(UNSEEN.source, 'gu'), ' ').replace(/\s+/g, ' ').trim().slice(0, max)
 /** The longest registry the ask names, and so the longest searched. */
 const SHOWN_REGISTRY = 200
 /** Why a registry could not be named in the ask exactly as it is searched, or undefined: shown() would change it. */
@@ -192,7 +191,7 @@ export const register: Register = (on, options) => {
     if (query.length > SHOWN_QUERY)
       return { deny: `Keep the search under ${SHOWN_QUERY} characters, so the person sees all of it before it is sent.` }
     if (UNSEEN.test(query))
-      return { deny: 'Write the search on one line, without control characters or direction marks, so the person sees exactly what is sent.' }
+      return { deny: 'Write the search on one line, without control characters, direction marks or hidden characters, so the person sees exactly what is sent.' }
     const asked = (str(input.registry) ?? defaultRegistry).trim()
     if (!asked) return { deny: NO_REGISTRY }
     const unnamed = unshowable(asked, registryFrom(input))
