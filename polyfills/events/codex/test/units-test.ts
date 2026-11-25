@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
-import { isThePersons, threadOf } from '../src/meta.ts';
+import { isThePersons, shownBy, threadOf } from '../src/meta.ts';
 import { codexNotFound, findCodex, queueMessage, remoteOf } from '../src/waker.ts';
 import { TOOLS } from '../src/words.ts';
 import { eventIdsIn, FAKE_CODEX, newThread, startHelper, temp, world } from './harness.ts';
@@ -35,6 +35,17 @@ describe("what Codex says in a call's _meta", () => {
         assert.equal(isThePersons({}), false, 'no turn metadata (a Codex before 0.172): not the person');
         assert.equal(isThePersons({ 'x-codex-turn-metadata': {} }), false, 'no turn_trigger: not the person');
         assert.equal(isThePersons({ 'x-codex-turn-metadata': { turn_trigger: 7 } }), false);
+    });
+
+    test("which app shows the session: a turn the person started in Codex's own app says Codex; a turn that says nothing says it can't be told; anything else says nothing", () => {
+        const turn = (turn_trigger: unknown) => ({ 'x-codex-turn-metadata': { turn_trigger } });
+        for (const t of ['user', 'exec', 'realtime', 'voice']) assert.equal(shownBy(turn(t)), 'codex', t);
+        // What another app's app server sends for a turn it started (T3 Code sets no turnTrigger), and a Codex before 0.172.
+        assert.equal(shownBy({ threadId: newThread(), 'x-codex-turn-metadata': { thread_id: newThread(), turn_id: newThread(), model: 'm', sandbox: 'seatbelt' } }), 'unmarked');
+        assert.equal(shownBy({}), 'unmarked', 'no turn metadata');
+        for (const t of [undefined, null, '', 7]) assert.equal(shownBy(turn(t)), 'unmarked', JSON.stringify(t));
+        // Codex names these itself, in whichever app server runs the turn: they say nothing about the app.
+        for (const t of ['queue', 'goal', 'automation_heartbeat_scheduled', 'guardian_review', 'hook', 'composer', 'remote_android', 'USER']) assert.equal(shownBy(turn(t)), undefined, t);
     });
 });
 

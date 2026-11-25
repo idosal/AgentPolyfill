@@ -6,7 +6,8 @@
 // watch belongs to that session. The Events client (polyfills/events/core) connects
 // to the MCP servers in Codex's configuration, runs the watches, and stores every
 // event; then `codex queue --resume` hands the session a message saying what is new,
-// which wakes it if it is idle.
+// which wakes it if it is idle. Only a session whose calls say it is open in Codex's own app is
+// woken: in an app that runs Codex through an app server of its own, a wake could run unseen.
 //
 // It ends when Codex closes its standard input (the session was closed or unloaded).
 
@@ -22,7 +23,7 @@ import { describeError, secrets } from '../../core/src/untrusted.ts';
 import { isHttp } from '../../core/src/upstream.ts';
 import { codexHome, readCodexServers } from './codex-config.ts';
 import { serve } from './mcp-server.ts';
-import { isThePersons, threadOf } from './meta.ts';
+import { isThePersons, shownBy, threadOf } from './meta.ts';
 import { ThreadSession } from './threads.ts';
 import { VERSION } from './version.ts';
 import { codexNotFound, findCodex, queueMessage, THREAD_ID, type Wake } from './waker.ts';
@@ -198,6 +199,8 @@ const server = serve({
         await Promise.race([discover(), new Promise((r) => setTimeout(r, timeout + 5000).unref())]);
         const s = sessionFor(thread);
         if (!s.manager.owner) s.start();
+        // Before anything is handed over: whether the app this call came from shows a wake (meta.ts).
+        s.shown(shownBy(meta));
         if (isThePersons(meta)) s.spoke();
         return s.call(name, args);
     }
@@ -232,6 +235,7 @@ const tick = setInterval(() => {
     if (process.ppid !== parent) return void stop();
     for (const s of sessions.values()) {
         if (!s.manager.owner && s.start()) log(`[${s.id.slice(0, 8)}] the process that ran this session's watches has gone; this one runs them now`);
+        s.recheck();
     }
 }, 5000);
 tick.unref();

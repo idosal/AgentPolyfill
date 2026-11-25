@@ -4,11 +4,12 @@
 // past that it is told once and woken again only after the person writes.
 
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { ThreadSession } from '../src/threads.ts';
-import { eventIdsIn, newThread, sleep, startHelper, temp, untilActive, waitFor, world } from './harness.ts';
+import { eventIdsIn, type Helper, newThread, sleep, startHelper, temp, untilActive, waitFor, world } from './harness.ts';
 
 describe('which session', () => {
     test("a watch belongs to the session that made it: its events wake that session, and another session does not see it", async () => {
@@ -184,6 +185,7 @@ describe('a hand-over the helper never heard back about (the wake model, TLC)', 
         });
         try {
             assert.equal(s.start(), true);
+            s.shown('codex'); // open in the Codex TUI: a turn the person started there called the plugin
             s.spool.append({ kind: 'event', watch: 'w-aaaaaa', server: 'tickets', event: 'ticket.created', eventId: 'a1', data: {} });
             await waitFor(() => calls === 1, 5000, 'the try');
             await sleep(6000);
@@ -216,6 +218,7 @@ describe('a hand-over the helper never heard back about (the wake model, TLC)', 
         });
         try {
             assert.equal(s.start(), true);
+            s.shown('codex'); // open in the Codex TUI: a turn the person started there called the plugin
             s.spool.append({ kind: 'event', watch: 'w-aaaaaa', server: 'tickets', event: 'ticket.created', eventId: 'a1', data: {} });
             await waitFor(() => texts.length === 1, 5000, 'the wake');
             s.spool.append({ kind: 'event', watch: 'w-aaaaaa', server: 'tickets', event: 'ticket.created', eventId: 'a2', data: {} });
@@ -250,6 +253,7 @@ describe('a hand-over the helper never heard back about (the wake model, TLC)', 
         mkdirSync(file, { recursive: true });
         try {
             assert.equal(s.start(), true);
+            s.shown('codex'); // open in the Codex TUI: a turn the person started there called the plugin
             s.spool.append({ kind: 'event', watch: 'w-aaaaaa', server: 'tickets', event: 'ticket.created', eventId: 'a1', data: {} });
             await waitFor(() => s.lastWakeError !== undefined, 5000, 'the try');
             assert.equal(calls, 0, 'not handed over without its record');
@@ -280,6 +284,7 @@ describe('a hand-over the helper never heard back about (the wake model, TLC)', 
         });
         try {
             assert.equal(first.start(), true);
+            first.shown('codex'); // open in the Codex TUI: a turn the person started there called the plugin
             first.spool.append({ kind: 'event', watch: 'w-aaaaaa', server: 'tickets', event: 'ticket.created', eventId: 'a1', data: {} });
             await waitFor(() => calls === 1, 5000, 'the wake');
             first.spool.append({ kind: 'event', watch: 'w-aaaaaa', server: 'tickets', event: 'ticket.created', eventId: 'a2', data: {} });
@@ -321,6 +326,7 @@ describe('CX1: when the person never writes', () => {
         });
         try {
             assert.equal(s.start(), true);
+            s.shown('codex'); // open in the Codex TUI: a turn the person started there called the plugin
             const event = (eventId: string) => s.spool.append({ kind: 'event', watch: 'w-aaaaaa', server: 'tickets', event: 'ticket.created', eventId, data: {} });
             event('a1');
             await waitFor(() => wakes.length === 1, 5000, 'the wake');
@@ -404,6 +410,88 @@ describe('when codex queue fails', () => {
             assert.deepEqual(w.queued()[0]!.args.slice(0, 1), ['queue']);
             assert.ok(w.queued()[0]!.args.includes('--resume'));
         } finally {
+            await h.stop();
+        }
+    });
+});
+
+describe("only where Codex's own app shows the wake", () => {
+    // A call as Codex makes it for a turn another app started through an app server of its own
+    // (T3 Code runs `codex app-server` and sets no turnTrigger): the turn metadata says nothing about
+    // what started the turn.
+    const unmarked = async (h: Helper, name: string, args: Record<string, unknown>, thread: string) => {
+        const r = await h.request('tools/call', { name, arguments: args, _meta: { threadId: thread, sessionId: thread, 'x-codex-turn-metadata': { session_id: thread, thread_id: thread, turn_id: randomUUID(), model: 'm', sandbox: 'seatbelt' } } });
+        const result = r.result as { content: { text: string }[]; isError?: boolean };
+        return { text: result.content.map((c) => c.text).join(''), isError: result.isError === true };
+    };
+    const held = /This session isn't woken by events: its last turn that called the plugin didn't say what started it/;
+
+    test("a session whose turns don't say what started them is not woken: codex queue isn't run, watch_event and list_watches say why, and the events are stored", async () => {
+        const w = world();
+        const h = await startHelper(w, { MCP_EVENTS_WAKE_GAP_S: '0' });
+        const thread = newThread();
+        try {
+            const set = await unmarked(h, 'watch_event', { server: 'tickets', event: 'ticket.created' }, thread);
+            assert.equal(set.isError, false);
+            assert.match(set.text, held, 'said when the watch is set');
+            assert.match(set.text, /recent_events and get_event read them/);
+            await untilActive(h, thread);
+            w.emit('ticket.created', { title: 'one' });
+            await waitFor(async () => eventIdsIn((await h.call('recent_events', {}, thread, 'queue')).text).length === 1, 20000, 'the event to be stored');
+            await sleep(1500);
+            assert.equal(w.queued().length, 0, 'codex queue is not run');
+            assert.match((await unmarked(h, 'list_watches', {}, thread)).text, held);
+            // A woken turn says nothing about the app either: Codex marks it "queue" in any app server.
+            await h.call('list_watches', {}, thread, 'queue');
+            await sleep(1000);
+            assert.equal(w.queued().length, 0);
+            // The session is opened in the Codex TUI and the person writes: what waited is handed over, once.
+            const tui = await h.call('list_watches', {}, thread, 'user');
+            assert.doesNotMatch(tui.text, /isn't woken/);
+            await waitFor(() => w.queued().length === 1, 20000, 'the wake');
+            assert.match(w.queued()[0]!.message, /1 new event \[event e1;/);
+            // A turn that says nothing again stops it.
+            await unmarked(h, 'get_event', { id: 'e1' }, thread);
+            w.emit('ticket.created', { title: 'two' });
+            await waitFor(async () => eventIdsIn((await h.call('recent_events', {}, thread, 'queue')).text).length === 2, 20000, 'the second event');
+            await sleep(1500);
+            assert.equal(w.queued().length, 1, 'not woken again');
+        } finally {
+            await h.stop();
+        }
+    });
+
+    test('what the latest call said holds across processes: for a helper that starts later, and for the window that runs the watches', async () => {
+        const w = world();
+        const thread = newThread();
+        let h = await startHelper(w, { MCP_EVENTS_WAKE_GAP_S: '0' });
+        try {
+            await h.call('watch_event', { server: 'tickets', event: 'ticket.created' }, thread);
+        } finally {
+            await h.stop();
+        }
+        // Resumed: the first call is a woken turn's, and the session is still Codex's own app's.
+        h = await startHelper(w, { MCP_EVENTS_WAKE_GAP_S: '0' });
+        const other = await startHelper(w, { MCP_EVENTS_WAKE_GAP_S: '0' });
+        try {
+            await untilActive(h, thread);
+            w.emit('ticket.created', { title: 'one' });
+            await waitFor(() => w.queued().length === 1, 20000, 'the wake');
+            // The same session, open in another app that runs Codex itself: a call there stops the wakes
+            // of the process that runs the watches.
+            assert.match((await unmarked(other, 'list_watches', {}, thread)).text, /"status": "elsewhere"/);
+            w.emit('ticket.created', { title: 'two' });
+            await waitFor(async () => eventIdsIn((await h.call('recent_events', {}, thread, 'queue')).text).length === 2, 20000, 'the second event');
+            await sleep(1500);
+            assert.equal(w.queued().length, 1, 'not woken');
+            assert.match((await h.call('list_watches', {}, thread, 'queue')).text, held);
+            // The person writes in that other window, now in the Codex TUI: the window that runs the
+            // watches hands over what waited.
+            await other.call('list_watches', {}, thread, 'user');
+            await waitFor(() => w.queued().length === 2, 20000, "the wake after the other window's call");
+            assert.match(w.queued()[1]!.message, /1 new event \[event e2;/);
+        } finally {
+            await other.stop();
             await h.stop();
         }
     });

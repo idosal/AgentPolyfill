@@ -353,6 +353,12 @@ after four, and two wakes an hour.
 | `CallIn(person, trigger)` | a `tools/call` (`codex/src/helper.ts`): `isThePersons` on `x-codex-turn-metadata.turn_trigger`, and if so `ThreadSession.spoke`, `WakeBudget.spoke`. `person` is whether the person started the turn; `trigger` is what Codex says started it: on the person's turns `user`, `exec`, `realtime` or `voice`, or no metadata (`"none"`, a Codex before 0.172); on other turns `queue` (a wake, this plugin's among them), a trigger neither rule names (`hook`), or no metadata |
 | `local` | whether `codex queue` can reach the session at all |
 
+From 0.1.7, `Take` has one more condition, which the model doesn't have. No hand-over is made
+unless the latest call that named the app the session is open in was from a turn the person
+started in Codex's own app (`shown-by.json`, `codex/src/meta.ts` `shownBy`). A condition on a step
+only takes behaviours away, and each property below is about what must never happen, so each
+still holds with it.
+
 `init` is 0.1.3, the session reachable or not. `initUnrecorded` is 0.1.2: no record of the
 hand-over, a timeout a failure like any other, and a notice whose `codex queue` failed still kept
 as handed over. `initBefore` is 0.1.3 with CX1's fix (the security review) taken out: 0.1.0's rule,

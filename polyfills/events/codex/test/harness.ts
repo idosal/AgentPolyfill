@@ -151,8 +151,12 @@ export class Helper {
         return r;
     }
 
-    /** A tools/call as Codex makes it: the session's id in `_meta`, and the turn's metadata. */
-    async call(name: string, args: Json, thread: string, trigger = 'composer'): Promise<{ text: string; isError: boolean }> {
+    /**
+     * A tools/call as Codex makes it: the session's id in `_meta`, and the turn's metadata. By default
+     * from a turn the person typed in the Codex TUI ("user"), which is what lets the plugin wake the
+     * session; a test that means a woken turn says "queue".
+     */
+    async call(name: string, args: Json, thread: string, trigger = 'user'): Promise<{ text: string; isError: boolean }> {
         const r = await this.request('tools/call', {
             name,
             arguments: args,

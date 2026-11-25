@@ -70,7 +70,7 @@ describe('push and poll', () => {
         const h = await startHelper(w, { MCP_EVENTS_WAKE_GAP_S: '0' });
         const thread = newThread();
         try {
-            const r = await h.call('watch_event', { server: 'tickets', event: 'ticket.created', note: 'tell me' }, thread, 'composer');
+            const r = await h.call('watch_event', { server: 'tickets', event: 'ticket.created', note: 'tell me' }, thread);
             const id = watchIdOf(r.text);
             assert.ok(id, r.text);
             assert.match(r.text, /by push/);
