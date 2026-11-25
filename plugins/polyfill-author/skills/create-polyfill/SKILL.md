@@ -1,6 +1,6 @@
 ---
 name: create-polyfill
-description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, Pi, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod, extension or gateway server; or to change or review an existing polyfill. Not for JavaScript or browser polyfills.
+description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, Pi, OpenCode, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod, extension or gateway server; or to change or review an existing polyfill. Not for JavaScript or browser polyfills.
 ---
 
 # Create a polyfill
@@ -242,6 +242,15 @@ How a polyfill is built depends on what the host lets third-party code do.
   use `pi -e git:github.com/idosal/AgentPolyfill` or the local extension path.
   Removal leaves `mcp-events/` and `mcp-skills/` in Pi's agent folder and
   added servers in `mcp.json`.
+- **OpenCode:** a V2 server plugin in `polyfills/<polyfill>/opencode/`, with
+  its bundle and `package.json` in `plugin/`; OpenCode runs it inside its own
+  server, once per project folder. Read the existing OpenCode forms' README,
+  SECURITY.md and `docs/conformance.md` before writing part 3. Events,
+  Skills, Server Cards and ARD have OpenCode forms; Apps does not. The forms
+  need OpenCode 2.4 or newer and were tested with 2.4.1, the version pinned
+  in `tools/opencode`. Install with
+  `opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/<polyfill>/opencode/plugin'`;
+  nothing for OpenCode is published to npm.
 - **Another host with an in-process extension layer:** read its extension API
   for the installed version and build the route table from that. Do not assume
   it matches Claude Code's.

@@ -31,7 +31,9 @@ so other agents that read skills can use them too.
 ## The contract
 
 Every polyfill in this repository meets these rules. Where one does not yet, its
-README says so. The full text is in
+README says so: the OpenCode form of Events watches push events that
+OpenCode's automations also take, a stated departure from rule 4. The full
+text is in
 [`docs/polyfill-contract.md`](https://github.com/idosal/AgentPolyfill/blob/main/docs/polyfill-contract.md).
 
 1. **One published extension, client side, and nothing else.** It adds no
@@ -153,6 +155,11 @@ for each host:
   sends your request's words to a registry after asking each time. Install
   it separately from a clone; [Getting started](./getting-started#pi) has
   both install paths.
+- **OpenCode:** a V2 server plugin in `opencode/`, with one bundled file,
+  `server.js`, in `plugin/`. OpenCode runs it inside its own server, once per
+  project folder. It installs from GitHub by its folder's path
+  (`opencode plugin add`, with Git) or from a clone; nothing is published to
+  npm.
 
 The Pi examples are
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi),
@@ -161,6 +168,15 @@ The Pi examples are
 and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi).
 Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`;
 its terminal could draw an App in principle, but nothing is built or tested.
+
+The OpenCode examples are
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/opencode),
+[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/opencode),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/opencode)
+and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/opencode).
+Apps has no OpenCode form. OpenCode has no MCP Apps support, and a plugin
+can't read a `ui://` resource or a tool's `_meta` over OpenCode's connection;
+that was looked into, not built.
 
 Bringing a polyfill to another host is a new adapter: find how the host lets
 it reach the wire (a connection of its own, a tool call, a way to wake an idle
@@ -178,6 +194,22 @@ switch because native support cannot be detected. Their READMEs,
 `SECURITY.md`, `docs/conformance.md` and `docs/live-run.md` record what was
 checked. ARD's live run did not complete the add step; addition was checked
 in real Pi with a scripted model and a local server.
+
+The OpenCode forms show the same. An OpenCode plugin can add tools, start a
+turn in an idle session, ask through OpenCode's own permission rules, add a
+skill to its list and an MCP server to its servers, and see a tool call
+before it runs. It can't send an MCP method over OpenCode's connection or
+read a resource. So Events and Skills need their own connections and cannot
+use OpenCode's OAuth sign-in, while Server Cards adds a server that OpenCode
+connects itself. The Skills form meets X8 with a hook on OpenCode's resource
+read. OpenCode's shipped rules allow every action, so each form makes its own
+actions ask by default. OpenCode takes push events for its automations but
+skips event types it can't check, so the Events form watches every type and
+states its departure from rule 4. Their READMEs, `SECURITY.md` and
+`docs/conformance.md` record what was checked: tests in a real OpenCode with
+a scripted model, and live runs in
+[`tools/opencode/live-run.md`](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md).
+ARD's live runs did not add a server; addition was checked by its tests.
 
 ## Your own, listed in the community directory
 

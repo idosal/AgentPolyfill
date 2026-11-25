@@ -1,7 +1,7 @@
 # Security
 
-This covers mcp-events for Claude Code. The Codex form has its own:
-[SECURITY.md](../codex/SECURITY.md).
+This covers mcp-events for Claude Code. The other forms have their own:
+[Codex](../codex/SECURITY.md), [Pi](../pi/SECURITY.md), [OpenCode](../opencode/SECURITY.md).
 
 "The mod" below means this Claude Code plugin. It has two parts: a hooks
 module that runs inside Claude Code (`mod/hooks/register.ts`), and a helper

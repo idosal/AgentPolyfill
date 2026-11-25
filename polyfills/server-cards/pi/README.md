@@ -4,9 +4,9 @@ Name a company, and Pi finds the MCP servers its domain publishes. Ask it to
 add one, choose **Add it** in Pi's question, and the server goes into Pi's
 own MCP configuration and connects in the current session.
 
-Also available for [Claude Code](../claude-code/README.md) and
-[Codex](../codex/README.md). All three use the same card, discovery and
-configuration modules.
+Also available for Claude Code, Codex and OpenCode: [mcp-server-cards for Claude Code](../claude-code/README.md), [mcp-server-cards for Codex](../codex/README.md), [mcp-server-cards for OpenCode](../opencode/README.md).
+All four use the same card and discovery modules, and all but OpenCode the
+same configuration modules.
 
 > What MCP servers does neon.com publish?
 

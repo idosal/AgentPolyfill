@@ -15,6 +15,8 @@ What runs in each host:
 - **Codex:** Events, Skills, Server Cards and ARD.
 - **Pi:** Events, Skills, Server Cards and ARD, as Pi extensions. Apps has no
   Pi form.
+- **OpenCode:** Events, Skills, Server Cards and ARD, as OpenCode plugins.
+  Apps has no OpenCode form.
 
 See [Getting started](/guide/getting-started) for installation. In Pi,
 `pi install git:github.com/idosal/AgentPolyfill` installs Events, Skills and
@@ -22,6 +24,8 @@ Server Cards together. A clone is the alternative for one form, and the way
 to install ARD separately: its search sends your request's words to a registry
 after asking each time, so it is left out as it is from the Claude Code bundle.
 Nothing for Pi is published to npm or Pi's package gallery.
+Nothing for OpenCode is published to npm either; OpenCode installs each plugin
+from the repository on GitHub, with Git.
 
 ## Not affiliated
 
