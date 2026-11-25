@@ -26,8 +26,19 @@ import { join } from 'node:path'
 
 /** The argument the hook adds to a call it gated. */
 export const TICKET_ARG = 'agentpolyfill_ticket'
-/** How long a ticket waits for its call: the person may take a while to answer. */
-export const TICKET_TTL_MS = 15 * 60_000
+/**
+ * How long a ticket waits for its call. The ticket is issued when the hook
+ * runs, before Antigravity's approval card is answered, and the person may
+ * leave the card open for a long time (an hour, in the live run of
+ * 2026-11-25, which first had 15 minutes here and refused an approved call).
+ * A ticket is good once, for one tool and one digest, and the hook replaces
+ * any ticket a call already carries, so a long wait costs little:
+ *
+ * - a question to the person (`ask`): 4 hours;
+ * - a call the hook only ties to its conversation (`pass`): 24 hours.
+ */
+export const TICKET_TTL_MS = 4 * 60 * 60_000
+export const PASS_TICKET_TTL_MS = 24 * 60 * 60_000
 
 /**
  * Where a plugin keeps what its hook and its MCP server share, private to the
@@ -67,7 +78,7 @@ export const writePrivate = (file: string, text: string) => {
 }
 
 /** `meta`: what else the hook saw about the call, for the server (short strings only). */
-export type Ticket = { tool: string; digest: string; conversationId: string; issued: number; meta?: Record<string, string> }
+export type Ticket = { tool: string; digest: string; conversationId: string; issued: number; ttlMs?: number; meta?: Record<string, string> }
 
 const NONCE = /^[0-9a-f]{32}$/
 
@@ -82,7 +93,7 @@ export function issueTicket(dir: string, t: Omit<Ticket, 'issued'>, now = Date.n
   const tickets = ticketDir(dir)
   for (const f of readdirSync(tickets))
     try {
-      if (now - statSync(join(tickets, f)).mtimeMs > TICKET_TTL_MS) rmSync(join(tickets, f), { force: true })
+      if (now - statSync(join(tickets, f)).mtimeMs > Math.max(TICKET_TTL_MS, PASS_TICKET_TTL_MS)) rmSync(join(tickets, f), { force: true })
     } catch {}
   const nonce = randomBytes(16).toString('hex')
   writePrivate(join(tickets, `${nonce}.json`), JSON.stringify({ ...t, issued: now }))
@@ -108,7 +119,9 @@ export function redeemTicket(dir: string, nonce: unknown, tool: string, digest: 
     rmSync(file, { force: true })
   }
   if (t.tool !== tool) return { ok: false, why: 'the approval was for another tool' }
-  if (now - t.issued > TICKET_TTL_MS) return { ok: false, why: 'the approval expired before the call ran' }
+  const ttl = typeof t.ttlMs === 'number' && t.ttlMs > 0 ? Math.min(t.ttlMs, PASS_TICKET_TTL_MS) : TICKET_TTL_MS
+  if (now - t.issued > ttl)
+    return { ok: false, why: `the approval expired before the call ran (it waited more than ${Math.round(ttl / 3_600_000)} hours); ask the person whether to try again` }
   if (t.digest !== digest) return { ok: false, why: 'what the call would do changed after the person was asked' }
   return { ok: true, conversationId: t.conversationId, ...(t.meta ? { meta: t.meta } : {}) }
 }
@@ -220,7 +233,8 @@ export async function answerHook(input: unknown, handlers: Record<string, Handle
     const named = server ? { ...input, toolCall: { name: `mcp_${server}_${found.tool}`, args } } : input
     const v = await handlers[found.tool]!(args, named as HookInput)
     if ('deny' in v) return { decision: 'deny', reason: v.deny }
-    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId, ...(v.meta ? { meta: v.meta } : {}) }, now)
+    const ttlMs = 'ask' in v ? TICKET_TTL_MS : PASS_TICKET_TTL_MS
+    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId, ttlMs, ...(v.meta ? { meta: v.meta } : {}) }, now)
     // `overwrite` is a shallow merge into the call's own arguments: for
     // call_mcp_tool, that is `Arguments` as a whole.
     const withTicket = { ...args, [TICKET_ARG]: ticket }

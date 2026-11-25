@@ -124,7 +124,7 @@ your configured MCP servers -- push / poll / webhook --> store
   conversation id. The `PreToolUse` hook does receive it. The shared
   server-cards gate writes a private ticket bound to this tool and these
   arguments and merges its name into `agentpolyfill_ticket`. The server
-  redeems it once, within 15 minutes. Missing tickets, changed arguments,
+  redeems it once, within 24 hours (the call may wait that long on Antigravity's own approval card). Missing tickets, changed arguments,
   another tool's ticket and non-UUID ids are refused. `_meta`, tool arguments,
   workspace paths and transcript filenames are never used to guess identity.
 - **Server discovery.** The first valid tool call reads the configured

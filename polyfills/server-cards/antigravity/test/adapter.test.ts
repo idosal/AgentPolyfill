@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { answerHook, callOf, digestOf, gateMatcher, issueTicket, redeemTicket, surfaceOf, TICKET_ARG, TICKET_TTL_MS } from '../src/gate'
+import { answerHook, callOf, digestOf, gateMatcher, issueTicket, PASS_TICKET_TTL_MS, redeemTicket, surfaceOf, TICKET_ARG, TICKET_TTL_MS } from '../src/gate'
 import { isNameTaken, planForAntigravity, readConfig, writeEntry } from '../src/antigravity'
 import { antigravityServer, localWeb, matches, preToolUse, runHook, tempHome } from './harness'
 
@@ -139,6 +139,21 @@ test('G-6 the surface a conversation lives in, from its transcript path; a ticke
   const dir = gateDir()
   const out = await answerHook(preToolUse(TOOL, {}), { add_mcp_server: () => ({ pass: 'p', digest: 'd', meta: { surface: 'cli' } }) }, dir)
   assert.deepEqual(redeemTicket(dir, (out.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd'), { ok: true, conversationId: 'ec33ebf9-0cba-4100-8142-c61503f6c587', meta: { surface: 'cli' } })
+})
+
+test('G-7 a ticket outlives an approval card left open for an hour: 4 hours for a question, 24 for a call only tied to its conversation', async () => {
+  const dir = gateDir()
+  const hourAgo = Date.now() - 61 * 60_000
+  const ask = await answerHook(preToolUse(TOOL, {}), { add_mcp_server: () => ({ ask: 'q', digest: 'd' }) }, dir, hourAgo)
+  assert.equal(redeemTicket(dir, (ask.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd').ok, true, 'approved after an hour')
+  const longAsk = await answerHook(preToolUse(TOOL, {}), { add_mcp_server: () => ({ ask: 'q', digest: 'd' }) }, dir, Date.now() - TICKET_TTL_MS - 1)
+  const late = redeemTicket(dir, (longAsk.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd')
+  assert.equal(late.ok, false)
+  assert.match(late.ok ? '' : late.why, /waited more than 4 hours\); ask the person whether to try again/)
+  const pass = await answerHook(preToolUse(TOOL, {}), { add_mcp_server: () => ({ pass: 'p', digest: 'd' }) }, dir, Date.now() - TICKET_TTL_MS - 1)
+  assert.equal(redeemTicket(dir, (pass.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd').ok, true, 'a pass ticket still good after 4 hours')
+  const oldPass = await answerHook(preToolUse(TOOL, {}), { add_mcp_server: () => ({ pass: 'p', digest: 'd' }) }, dir, Date.now() - PASS_TICKET_TTL_MS - 1)
+  assert.equal(redeemTicket(dir, (oldPass.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd').ok, false)
 })
 
 test('G-2 digests ignore key order', () => {

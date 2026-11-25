@@ -563,7 +563,8 @@ import { chmodSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, st
 import { homedir } from "node:os";
 import { join } from "node:path";
 var TICKET_ARG = "agentpolyfill_ticket";
-var TICKET_TTL_MS = 15 * 6e4;
+var TICKET_TTL_MS = 4 * 60 * 6e4;
+var PASS_TICKET_TTL_MS = 24 * 60 * 6e4;
 var stateDir = (plugin, env = process.env) => {
   const dir = env.AGENTPOLYFILL_STATE_DIR ? join(env.AGENTPOLYFILL_STATE_DIR, plugin) : join(env.HOME || homedir(), ".gemini", "agentpolyfill", plugin);
   mkdirSync(dir, { recursive: true, mode: 448 });
@@ -595,7 +596,7 @@ function issueTicket(dir, t, now = Date.now()) {
   const tickets = ticketDir(dir);
   for (const f of readdirSync(tickets))
     try {
-      if (now - statSync(join(tickets, f)).mtimeMs > TICKET_TTL_MS) rmSync(join(tickets, f), { force: true });
+      if (now - statSync(join(tickets, f)).mtimeMs > Math.max(TICKET_TTL_MS, PASS_TICKET_TTL_MS)) rmSync(join(tickets, f), { force: true });
     } catch {
     }
   const nonce = randomBytes(16).toString("hex");
@@ -615,7 +616,9 @@ function redeemTicket(dir, nonce, tool, digest, now = Date.now()) {
     rmSync(file, { force: true });
   }
   if (t.tool !== tool) return { ok: false, why: "the approval was for another tool" };
-  if (now - t.issued > TICKET_TTL_MS) return { ok: false, why: "the approval expired before the call ran" };
+  const ttl = typeof t.ttlMs === "number" && t.ttlMs > 0 ? Math.min(t.ttlMs, PASS_TICKET_TTL_MS) : TICKET_TTL_MS;
+  if (now - t.issued > ttl)
+    return { ok: false, why: `the approval expired before the call ran (it waited more than ${Math.round(ttl / 36e5)} hours); ask the person whether to try again` };
   if (t.digest !== digest) return { ok: false, why: "what the call would do changed after the person was asked" };
   return { ok: true, conversationId: t.conversationId, ...t.meta ? { meta: t.meta } : {} };
 }
@@ -669,7 +672,8 @@ async function answerHook(input, handlers2, dir, now = Date.now(), server) {
     const named = server ? { ...input, toolCall: { name: `mcp_${server}_${found.tool}`, args } } : input;
     const v = await handlers2[found.tool](args, named);
     if ("deny" in v) return { decision: "deny", reason: v.deny };
-    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId: conversationId2, ...v.meta ? { meta: v.meta } : {} }, now);
+    const ttlMs = "ask" in v ? TICKET_TTL_MS : PASS_TICKET_TTL_MS;
+    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId: conversationId2, ttlMs, ...v.meta ? { meta: v.meta } : {} }, now);
     const withTicket = { ...args, [TICKET_ARG]: ticket };
     const overwrite = found.lazy ? { Arguments: found.lazy.asText ? JSON.stringify(withTicket) : withTicket } : { [TICKET_ARG]: ticket };
     return "ask" in v ? { decision: "force_ask", reason: v.ask, overwrite } : { decision: "allow", reason: v.pass, overwrite };

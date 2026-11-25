@@ -77,7 +77,7 @@ Customizations > Installed > MCP Servers (`/mcp` in the CLI).
    question above, whatever you have allowed before. The hook also leaves a
    one-use ticket for that exact entry and adds its name to the call.
 3. **The server writes only with that ticket.** It recomputes the entry, and
-   writes it only if the ticket is there, unused, less than 15 minutes old,
+   writes it only if the ticket is there, unused, less than 4 hours old,
    and for that same entry. No ticket, no write: if the hook didn't run, the
    call is refused and says so.
 4. **The entry** goes into `~/.gemini/config/mcp_config.json` as
