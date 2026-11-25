@@ -60,9 +60,10 @@ bundling, never by an import from outside it. Installation differs by host:
 
 - **Claude Code:** copies only the plugin folder.
 - **Codex:** copies only the plugin folder.
-- **Pi:** loads `extension/` from its local path; it is not copied. The
-  folder holds a manifest and one bundled file, with nothing for the user
-  to build. The clone must stay in place.
+- **Pi:** the Git install clones the repository under `~/.pi/agent/git/`
+  and loads the three extensions from there. A local install loads
+  `extension/` where it is, so that clone must stay. The folder holds a
+  manifest and one bundled file, with nothing for the user to build.
 
 One plugin folder can carry both `.claude-plugin/plugin.json` and
 `.codex-plugin/plugin.json`. The plugin's name is unique in the repository, and
@@ -92,11 +93,23 @@ Install instructions depend on the host:
 
 - **Claude Code:** `/plugin install <plugin> --marketplace idosal/AgentPolyfill`.
 - **Codex:** `codex plugin marketplace add idosal/AgentPolyfill && codex plugin add <plugin>@agent-polyfill`.
-- **Pi:** clone the repository, then
-  `pi install ./polyfills/<extension>/pi/extension`. State Pi 1.6.0 as the
+- **Pi:** lead with `pi install git:github.com/idosal/AgentPolyfill`, which
+  installs Events, Skills and Server Cards together. Keep the clone path,
+  `pi install ./polyfills/<extension>/pi/extension`, as the alternative for
+  one form. ARD is installed separately from a clone because its search
+  sends your request's words to a registry after asking each time, the same
+  reason it is left out of the Claude Code bundle. State Pi 1.6.0 as the
   tested version and Node 22 or newer as the requirement. Nothing for Pi is
-  published to npm or Pi's package gallery; don't offer a package install.
-  [Getting started](./getting-started#pi) has the tested steps.
+  published to npm or Pi's package gallery. Document
+  `pi update --extensions` for installed packages and
+  `pi remove git:github.com/idosal/AgentPolyfill` to remove all three and
+  Pi's repository copy. For a local install, use
+  `pi remove ./polyfills/<extension>/pi/extension` from the same clone.
+  Use one way per form: repository addresses and local paths identify
+  separate packages, so installing both loads a form twice. Removal leaves
+  `mcp-events/` and `mcp-skills/` in Pi's agent folder and added servers in
+  `mcp.json`. [Getting started](./getting-started#pi) has the steps,
+  including one run without installing.
 
 ### 4. List it for its host
 
@@ -105,9 +118,11 @@ Install instructions depend on the host:
   the list in its README (CI fails until the two lists match).
 - **Codex:** add an entry to `.agents/plugins/marketplace.json` (a `local`
   source with the plugin folder's path).
-- **Pi:** document the local `extension/` install path. There is no Pi
-  bundle, and none of these forms is published to npm or Pi's package
-  gallery.
+- **Pi:** add `./polyfills/<extension>/pi/extension/dist/index.js` to the
+  root `package.json`'s `pi.extensions` to include a new form in the
+  one-line install. ARD is left out on purpose because of its registry
+  search. Keep the local `extension/` install path documented too. None of
+  these forms is published to npm or Pi's package gallery.
 
 Then add it to the polyfills table in the repository's README, in its host's
 column.

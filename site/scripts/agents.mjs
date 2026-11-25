@@ -51,7 +51,7 @@ const HOSTS = [
   { name: 'Codex', command: 'codex', addKey: 'addCodex', form: 'Plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
   { name: 'Pi', command: 'pi', addKey: 'addPi', form: 'Extension', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
 ]
-// Pi's source installs and examples, for the Markdown served to agents.
+// Pi's installs and examples, for the Markdown served to agents.
 const PI_FORMS = {
   'mcp-events': {
     path: 'polyfills/events/pi/extension',
@@ -67,15 +67,20 @@ const PI_FORMS = {
   },
   'ard-discovery': {
     path: 'polyfills/ard/pi/extension',
-    add: 'pi install ./polyfills/ard/pi/extension',
+    add: 'git clone https://github.com/idosal/AgentPolyfill.git\ncd AgentPolyfill\npi install ./polyfills/ard/pi/extension',
   },
 }
-const INSTALL_PI = [
-  'git clone https://github.com/idosal/AgentPolyfill.git',
-  'cd AgentPolyfill',
-  ...Object.values(PI_FORMS).map(({ path }) => `pi install ./${path}`),
-]
-const PI_INSTALL_NOTES = 'Nothing for Pi is published to npm or Pi\'s package gallery. There is no bundle: install each extension separately. Pi cannot install one folder of a git repository, so use a local clone. Each extension is bundled, with nothing to build. Pi loads each path where it is; keep the clone and run `git pull` there to update it. For one run without installing, use `pi -e ./polyfills/<polyfill>/pi/extension`. Remove it from the same folder with `pi remove ./polyfills/<polyfill>/pi/extension` (`<polyfill>` is `events`, `skills`, `server-cards` or `ard`). Data stays in `mcp-events/` and `mcp-skills/` in Pi\'s agent folder (`~/.pi/agent`, or `PI_CODING_AGENT_DIR`); delete those to remove it. Added servers stay in `mcp.json`; undo with `pi mcp remove <name>`.'
+const INSTALL_PI = ['pi install git:github.com/idosal/AgentPolyfill']
+const PI_INSTALL_NOTES = [
+  'The command installs Events, Skills and Server Cards together. Pi clones the repository into its agent folder (under `~/.pi/agent/git/`) and loads the three extensions from there. Nothing is published to npm or Pi\'s package gallery, and nothing is built.',
+  'Update installed packages with `pi update --extensions`. Remove all three and Pi\'s copy of the repository with `pi remove git:github.com/idosal/AgentPolyfill`. For one run of all three without installing, use `pi -e git:github.com/idosal/AgentPolyfill`.',
+  'ARD is left out for the same reason it isn\'t in the Claude Code bundle: its search sends the words of your request to a registry after asking each time. Install it on its own from a clone.',
+  'The clone path also works for any one form alone. Replace `<form>` with `events`, `skills`, `server-cards` or `ard`:',
+  '```bash\ngit clone https://github.com/idosal/AgentPolyfill.git\ncd AgentPolyfill\npi install ./polyfills/<form>/pi/extension\n```',
+  'Pi loads a local path where it is, so keep the clone. From the same folder, use `pi -e ./polyfills/<form>/pi/extension` for one run without installing, or `pi remove ./polyfills/<form>/pi/extension` to remove a local install.',
+  'Use one way per form, not both: Pi tells packages apart by repository address or local path, so a form installed both ways loads twice.',
+  'Data stays in `mcp-events/` and `mcp-skills/` in Pi\'s agent folder (`~/.pi/agent`, or `PI_CODING_AGENT_DIR`); delete those to remove it. Added servers stay in `mcp.json`; undo with `pi mcp remove <name>`.',
+].join('\n\n')
 const PI_APPS_LIMIT = 'Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`, so an extension cannot get an App\'s UI through Pi. Its terminal could draw one in principle, but no Pi Apps form is built or tested.'
 
 function hostTable() {
@@ -313,7 +318,7 @@ ${INSTALL_CODEX.join('\n')}
 
 Apps isn't in Codex yet, and Codex has no bundle.
 
-**Pi** (1.6.0, the version tested; Node 22 or newer). From a clone:
+**Pi** (1.6.0, the version tested; Node 22 or newer). In a terminal:
 
 \`\`\`bash
 ${INSTALL_PI.join('\n')}
@@ -327,7 +332,7 @@ Beyond MCP, ARD is a draft. Every search asks you first and goes to a registry y
 
 - **Claude Code:** \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`; it isn't in the bundle.
 - **Codex:** \`codex plugin add ard-discovery@agent-polyfill\`.
-- **Pi:** \`pi install ./polyfills/ard/pi/extension\` from the clone (included in the commands above).
+- **Pi:** \`pi install ./polyfills/ard/pi/extension\` from a clone; it is left out of the one-line install.
 
 ${videoLine({ file: media.launch.file, seconds: media.launch.seconds, description: media.launch.description })}
 
@@ -391,7 +396,7 @@ Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A
 
 - **Claude Code 2.1.329 or newer:** every MCP polyfill, the \`agent-polyfill\` bundle, from a terminal: \`${INSTALL_CLI}\`. At the prompt of a \`claude\` session it is \`${INSTALL}\`. Start a new session for the plugins to load. ARD is separate: \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`.
 - **Codex 0.170 or newer (Node 20 or newer):** from a terminal: \`${INSTALL_CODEX.join(' && ')}\`. ARD is separate: \`codex plugin add ard-discovery@agent-polyfill\`. There is no bundle.
-- **Pi 1.6.0 (the version tested; Node 22 or newer):** use the clone commands below.
+- **Pi 1.6.0 (the version tested; Node 22 or newer):** install Events, Skills and Server Cards together:
 
 \`\`\`bash
 ${INSTALL_PI.join('\n')}
