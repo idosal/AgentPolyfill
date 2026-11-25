@@ -209,9 +209,9 @@ the numbers below are one run's.
 | Token | another program sending forged requests | all hold; 40,112 states, depth 24 |
 | ConsentRules, ConsentAsk, ConsentAllow | 2 tool calls (one app-only), two sessions, each setting | all hold; 947,520, 1,532,480 and 519,488 states, depth 16 |
 | ConsentOther | 2 messages, links or downloads, every appMessages setting | all hold; 72,769 states, depth 14 |
-| RaceBefore, RaceBeforeDead | Race against 0.1.1 | NoOrphanPages and NoDeadViews violated (the defects fixed in 0.1.2) |
-| TrafficBefore, TrafficBeforeNo | Traffic against 0.1.1 | GatedSends and NoSendAfterNo violated (fixed in 0.1.2) |
-| WindowBefore | Traffic against 0.1.2 | SendsOnlyWhileUsed violated: the window 0.1.2 documented (a yes kept 5 s for discovery and opening; an open's resource read on the /open's yes) |
+| RaceBefore, RaceBeforeDead | Race against 0.1.1 | NoOrphanPages and NoDeadViews violated |
+| TrafficBefore, TrafficBeforeNo | Traffic against 0.1.1 | GatedSends and NoSendAfterNo violated |
+| WindowBefore | Traffic against 0.1.2 | SendsOnlyWhileUsed violated: a yes kept 5 s for discovery and opening; an open's resource read on the /open's yes |
 | CancelBefore | TrafficShared with every 0.1.3 fix but the cancelling | NoAnswerAfterNo violated: an answer in flight when the mod hears the no still reached the app |
 | InstanceBefore | Instance against 0.1.2 | SameInstance violated: requests were matched to a view by id alone |
 | RaceGen | Race with generations but not the one-at-a-time order | NoDeadViews violated: a late /open of an earlier generation replaces the newer page, so the order stays |
@@ -221,8 +221,8 @@ the numbers below are one run's.
 should. A larger one (2 calls of one server, each opened twice, with
 traffic) passes 150 MB of state files and isn't run.
 
-What the `...Before` configurations show, and what prevents each (from
-0.1.2 for the first two, from 0.1.3 for the others), each with tests:
+What the `...Before` configurations show, and what prevents each, with its
+tests:
 
 1. **An app's own traffic was never re-checked.** After a view opened, its
    app's reads and calls of app-only tools went to the server over the

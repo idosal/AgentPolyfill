@@ -121,9 +121,7 @@ sandbox is on, unless you turn it off with `MCP_APPS_CLI_NO_SANDBOX`.
   sources are `*`, `https:`, a wildcard over fewer than two labels such as
   `*.com`, a wildcard over a shared suffix anyone can host under such as
   `*.workers.dev`, `*.github.io` or `*.co.uk`, and a wildcard port.
-  - Chrome's local-network checks are on. They are what keeps a remote
-    server's app from reaching this machine by fetch, WebSocket, image or
-    frame, or through a public name that resolves to it.
+  - Chrome's local-network checks are on for every view.
   - A view of a server on your machine or your local network, or of a stdio
     server, may reach your local network, and that includes your own machine.
 - **The helper** listens on a private Unix socket only you can open (on
