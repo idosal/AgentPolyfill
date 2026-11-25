@@ -6,7 +6,8 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
-import { started, BUNDLE, SERVER, newThread, ROOT, sleep, startServer, stopWatcher, untilActive, waitFor, watcherLog, world, type World } from './harness.ts';
+import { socketPath } from '../src/ipc.ts';
+import { cleanup, started, BUNDLE, SERVER, newThread, ROOT, sleep, startServer, stopWatcher, untilActive, waitFor, watcherLog, world, type World } from './harness.ts';
 
 const worlds: World[] = [];
 const make = (env: Record<string, string> = {}, extraToml = '') => {
@@ -17,6 +18,7 @@ const make = (env: Record<string, string> = {}, extraToml = '') => {
 after(async () => {
     for (const s of started) if (s.child.exitCode === null) s.child.kill('SIGKILL');
     for (const w of worlds) await stopWatcher(w);
+    cleanup();
 });
 
 const watchTickets = async (w: World, thread: string, note = 'tell me') => {
@@ -171,7 +173,7 @@ test('the state is private to the user', async () => {
     const mode = (p: string) => execFileSync('stat', process.platform === 'darwin' ? ['-f', '%Lp', p] : ['-c', '%a', p]).toString().trim();
     assert.equal(mode(w.state), '700');
     assert.equal(mode(join(w.state, 'mcp-events.log')), '600');
-    assert.ok(existsSync(join(w.state, 'watcher.sock')));
+    assert.ok(existsSync(socketPath(w.state)));
     await s.stop();
 });
 

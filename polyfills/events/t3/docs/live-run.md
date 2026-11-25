@@ -8,9 +8,16 @@ when `MCP_EVENTS_T3_BIN` isn't set (now PATH, then `~/.local/bin`); this run
 set `MCP_EVENTS_T3_BIN`.
 
 Everything ran in an isolated install: its own `HOME`, `T3CODE_HOME`,
-`CODEX_HOME` and `CLAUDE_CONFIG_DIR` (`$S` below, a scratch folder),
-with a Codex sign-in made for it. The events server is the fixture server of
-this repository's tests
+`CODEX_HOME` and `CLAUDE_CONFIG_DIR` (`$S` below, a scratch folder). The
+Codex sign-in was the user's own, made in that throwaway home. The command
+`CODEX_HOME=$S/iso/codex codex login` was started in the user's own terminal
+(that home's `config.toml` set `cli_auth_credentials_store = "file"`), and the
+user finished the sign-in in their browser. No credential file was copied, read
+or moved; Codex itself wrote and read its own sign-in there. After the runs,
+`codex logout` against that home signed it out ("Successfully logged out",
+then "Not logged in"), and the whole isolated home was deleted.
+
+The events server is the fixture server of this repository's tests
 ([`../../claude-code/test/fixture-events-server.ts`](../../claude-code/test/fixture-events-server.ts)),
 written by hand from SEP-3415, over stdio; an event is a line appended to its
 upstream file. The isolated `config.toml` named it, and this server:

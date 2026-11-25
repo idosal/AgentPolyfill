@@ -3,9 +3,11 @@
 import { strict as assert } from 'node:assert';
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import { findT3, sendMessage, THREAD_ID } from '../src/waker.ts';
-import { FAKE_T3, temp } from './harness.ts';
+import { cleanup, FAKE_T3, temp } from './harness.ts';
+
+after(cleanup);
 
 const setup = (mode = 'ok') => {
     const dir = temp();
