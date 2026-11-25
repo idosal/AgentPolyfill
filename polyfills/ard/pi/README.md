@@ -14,7 +14,8 @@ default. Name one in your request or set `ARD_DISCOVERY_REGISTRY`. The
 extension never supplies a registry on your behalf. With neither, it refuses
 the search and asks Pi to ask you which registry to use.
 
-ARD is a draft, not an MCP specification. This form implements its consumer
+ARD is a draft published by the ards-project on GitHub, not an MCP
+specification. This form implements its consumer
 side for MCP Server Cards only. Each card is checked; a result counts as
 confirmed only when the publisher's own catalog lists it. The registry's
 ranking is relevance, not trust.

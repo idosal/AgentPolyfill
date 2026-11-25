@@ -38,7 +38,8 @@ other people's servers.
 - Every result says which registries were asked.
 - Discovery by domain sends nothing but plain `GET`s to that domain.
 
-ARD is a draft, not an MCP specification. The revision this plugin follows is
+ARD is a draft published by the ards-project on GitHub, not an MCP
+specification. The revision this plugin follows is
 in [Spec and conformance](#spec-and-conformance).
 
 ## Install

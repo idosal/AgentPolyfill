@@ -41,9 +41,9 @@ install just one:
 
 :::
 
-`ard-discovery` isn't in the bundle, because a search sends the words of your
-request to the ARD registry you choose. Install it by name, and it brings
-`mcp-server-cards` with it.
+`ard-discovery` is for ARD, a draft from outside MCP. It isn't in the bundle,
+because a search sends the words of your request to the ARD registry you
+choose. Install it by name, and it brings `mcp-server-cards` with it.
 
 There is no Skills polyfill for Claude Code: Claude Code lists skills from MCP
 servers itself, in beta from 2.1.332. [Skills](./skills#claude-code) says what
@@ -78,7 +78,8 @@ codex plugin add mcp-server-cards@agent-polyfill
 ```
 
 Codex has no bundle, so add the ones you want. Apps isn't in Codex yet.
-`ard-discovery` is added by name, for the same reason as in Claude Code:
+`ard-discovery`, for ARD (a draft from outside MCP), is added by name, for the
+same reason as in Claude Code:
 
 ```bash
 codex plugin add ard-discovery@agent-polyfill
