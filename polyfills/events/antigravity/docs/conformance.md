@@ -6,8 +6,8 @@ normative text and core implementation for each of 86 client clauses. The
 core is bundled unchanged. This document does not turn another host's run
 into an Antigravity result.
 
-Local run on 25 November 2026, Node.js 22.23.1: **102 tests passed, zero
-failures or skips** (`npm test`). Typecheck, byte-identical bundle
+Local run on 25 November 2026 (the builds from commit `819e7955`), Node.js
+22.23.1: **104 tests passed, zero failures or skips** (`npm test`). Typecheck, byte-identical bundle
 comparison, standalone plugin boot and third-party notice comparison also
 passed. `agy plugin validate --strict` passes for `plugin/` (it counts the
 sidecar).
@@ -19,32 +19,45 @@ sidecar).
 | `core-recovery.test.ts` | Stored events and cursors recovered after interrupted writes and ownership changes. |
 | `core-relay.test.ts` | Signature, age, replay, acknowledgment and relay settings rules. |
 | `spec.test.ts` (nine Codex cases adapted here) | LIST-1, DM-1, CAP-2/4, PUSH-1/2/11, STATE-1, DEDUP-1, POLL-1/2/5, WH-1/12, RX-1/7, SEC-1/2 through the bundled adapter. |
-| `adapter.test.ts`, `sidecar.test.ts` | Host boundary: normal approval, UUID binding, one-use tickets, argument/tool mismatch, no guessed identity, conversation isolation, config skips, injection and separate wake accounting. SEC-3/4 remain the host's permission policy. |
+| `adapter.test.ts`, `sidecar.test.ts` | Host boundary: the watch question (`force_ask`), normal approval for the other tools, UUID binding, one-use tickets cleared at the turn's end, argument/tool mismatch, a lazy call refused, no guessed identity, another server's call let be (also with the state folder broken), conversation isolation, config skips, fixed injected text, separate wake accounting, only App conversations woken, the sidecar's environment for `agentapi`. SEC-3/4 remain the host's permission policy. |
 
 Strict behavior uses `MCP_EVENTS_PRE_STANDARD=off`. The default accepts the
 pre-SEP top-level capability as the other forms do, an explicit exception to
-CAP-2 and CAP-4. Payloads are never injected into the higher-trust hook
-container; core's bounded summaries are labeled as server data. Antigravity's
-rendering and permission behavior still require the live checks in the README.
+CAP-2 and CAP-4. Nothing a server or the model wrote is injected into the
+hook's system step: it holds fixed text, a count and the plugin's own watch
+ids; event types, notices, notes and payloads are read with `recent_events`
+and `get_event`.
 
 ## Live, 25 November 2026
 
-In Antigravity App v2.35.1 and CLI v1.5.16 on macOS, with a throwaway `HOME`
-([the record](live-run.md)), against this repository's deploys demo, whose
-Events support is Mastra's (`@mastra/mcp` 2.10.0), a server this project
-didn't write: so these runs are also this form's interop run.
+How the runs were made, and the full record: [live-run.md](live-run.md). The
+Events server was this repository's deploys demo, whose Events support is
+Mastra's (`@mastra/mcp` 2.10.0), a server this project didn't write: so these
+runs are also this form's interop run.
 
-- A push watch; the event delivered once at the CLI conversation's next turn,
-  labelled by Antigravity as injected by a hook.
-- An idle App conversation woken by the sidecar's `agentapi send-message`,
-  which then answered from the event; a wake during a running turn, held and
-  put into that turn.
-- A second conversation saw none of the first's events; `MCP_EVENTS_OFF=1`
-  left no tools and no injections; after restarts, the events missed in
-  between arrived from the server's cursor once the conversation called the
-  plugin again.
-- Not run: the IDE's agent, and a webhook watch (the demo server refused a
-  plain `http` local callback; it needs an https address).
+With these builds, in the real Antigravity CLI 1.5.17 with a real model:
+
+- a push watch, asked and approved; the event delivered once at the next
+  turn by the plugin's `PreInvocation` step, which held only fixed text and
+  the watch id; the model read the event with `recent_events` and
+  `get_event`;
+- a watch declined: no subscription, nothing saved, its ticket gone when the
+  conversation's next turn ended;
+- refused: a call through `call_mcp_tool` with no ticket, with a forged
+  ticket, with a replayed one; and, with the hook's command broken, the call
+  failed in Antigravity before reaching the server;
+- another server's tool still got Antigravity's own question.
+
+With the earlier builds, in App 2.35.1 and CLI 1.5.16: an idle App
+conversation woken by the sidecar's `agentapi send-message`, which then
+answered from the event; a wake during a running turn, held and put into that
+turn; a second conversation saw none of the first's events; `MCP_EVENTS_OFF=1`
+left no tools and no injections; after a restart, a resumed CLI conversation's
+watch delivered the events missed in between, from the server's cursor.
+
+Not run: the App with these builds, a webhook watch (the demo server refused
+a plain `http` local callback; it needs an https address), and the IDE (not
+supported).
 
 ## Upstream suite
 
@@ -52,7 +65,9 @@ The Events client scenarios proposed upstream
 ([conformance PR #541](https://github.com/modelcontextprotocol/conformance/pull/541)),
 at `c8625de3118c2d5dc0561696cddeb0baaf124f2c`, the revision the other forms
 used, run on 25 November 2026 through this form's committed MCP server, its
-ticket hook and a temporary `HOME`: **17 of 17 checks pass**
+ticket hook and a temporary `HOME`, and run again with the builds from
+`819e7955` (the watch question approved as the person would): **17 of 17
+checks pass**
 (`events-client-no-extension` 1/1, `events-client-poll` 10/10,
 `events-client-push` 3/3, `events-client-webhook` 3/3). The record is
 [evidence/conformance.txt](evidence/conformance.txt).
