@@ -1,7 +1,7 @@
 # Security
 
 This covers mcp-events for Pi. The other forms have their own:
-[Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md).
+[Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md), [OpenCode](../opencode/SECURITY.md).
 
 "The extension" below means this Pi extension
 (`extension/dist/index.js`), which runs inside Pi's own process with Pi's

@@ -99,7 +99,8 @@ The brief named three cases. Here is what each turned out to be.
 `polyfills/<ext>/t3` plugin into, as there is in OpenCode or Pi.
 
 **(b) T3 Code drives Codex or Claude Code, so the existing forms run inside
-it: partly.** Skills, Server Cards and ARD are tools, skills and (for Server
+it: partly.** (It drives OpenCode too, the fourth host here; the OpenCode
+forms weren't tried in T3 Code.) Skills, Server Cards and ARD are tools, skills and (for Server
 Cards) writing the agent's configuration. The Codex plugins and the Claude
 Code mods load in T3 Code's threads as they do in a terminal, and their tools
 work there. Tried live with Codex: `list_skills` in a T3 Code thread listed the

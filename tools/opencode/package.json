@@ -1,0 +1,11 @@
+{
+  "name": "agentpolyfill-opencode-test-kit",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The OpenCode the OpenCode forms' tests run against (pinned), a scripted stand-in for a model, and a harness that starts both in a throwaway home.",
+  "dependencies": {
+    "@opencode/cli": "2.4.1"
+  },
+  "license": "Apache-2.0"
+}
