@@ -29,7 +29,7 @@ type Json = Record<string, unknown>;
 
 /** What skills.ts needs from a server: what it advertised, and a way to send it a request. */
 export interface Wire {
-    /** The host-assigned label of the server: its name in Claude Code's config, never `serverInfo.name`. */
+    /** The host-assigned label of the server: its name in the host's config, never `serverInfo.name`. */
     readonly label: string;
     /** The protocol revision the connection settled on. */
     readonly revision: string | undefined;

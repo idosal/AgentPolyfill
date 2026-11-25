@@ -6,9 +6,10 @@
 // servers may be asked, what a valid entry is, what is verified and when, what
 // a loaded skill may read, and what is kept. It talks to a server only through
 // the `Wire` interface (wire.ts), uses nothing of Node (hashing is WebCrypto),
-// and knows nothing of any host: the Claude Code and Codex adapters
-// (../claude-code, ../codex) both use it. Each adapter's docs/conformance.md maps
-// each client rule of the specification to the code here and the test that checks it.
+// and knows nothing of any host: the Codex, Pi and OpenCode adapters
+// (../codex, ../pi, ../opencode) all use it. The client rules are listed in
+// ../docs/sep-2640-client-rules.md; each adapter's docs/conformance.md maps each
+// one to the code here and the test that checks it.
 //
 // Section names in comments ("Capability Negotiation", "Verification on Read")
 // are the specification's own headings.

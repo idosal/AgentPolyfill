@@ -33,7 +33,7 @@ a new extension, without waiting on one company's roadmap.
 | Extension | Spec | Claude Code | Codex | Pi | OpenCode |
 |---|---|---|---|---|---|
 | [Events](./events) | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | `mcp-events` | `mcp-events` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi) | [plugin](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/opencode) |
-| [Skills](./skills) | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | `mcp-skills` | `mcp-skills` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi) | [plugin](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/opencode) |
+| [Skills](./skills) | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | built into Claude Code, in beta from 2.1.332 ([changelog](https://code.claude.com/docs/en/changelog)) | `mcp-skills` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi) | [plugin](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/opencode) |
 | [Server Cards](./server-cards) | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | `mcp-server-cards` | `mcp-server-cards` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi) | [plugin](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/opencode) |
 | [Apps](./apps) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | `mcp-apps-cli` | not yet | not available | not available |
 | [ARD](./ard) (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | `ard-discovery` | `ard-discovery` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi) | [plugin](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/opencode) |
@@ -68,10 +68,12 @@ All of them are early. Here is what each one does, and where it stops:
   event types whose schemas it can't check, so the polyfill watches every
   type, push included, and tells the model to use a watch or an automation,
   not both: a stated departure from the contract's rule 4.
-- **Skills.** Skills an MCP server serves show up next to your own, load only
-  after you say yes to each one, and are checked against the server's
-  digests. In Codex they appear in Codex's own skill list after you ask once
-  to list the served skills, from the next turn. One rule of the spec can't be
+- **Skills.** In Codex, Pi and OpenCode, skills an MCP server serves show up
+  next to your own, load only after you say yes to each one, and are checked
+  against the server's digests. Claude Code needs no polyfill for Skills: it
+  lists skills from MCP servers itself, in beta from 2.1.332
+  ([Skills](./skills#claude-code)). In Codex, served skills appear in Codex's
+  own skill list after you ask once to list them, from the next turn. One rule of the spec can't be
   met in Codex yet: a skill from one server reading another server's resources
   isn't put to you first (rule X8), because Codex doesn't let a plugin ask.
   In Pi, served skills appear as `mcp-<server>-<name>`, marked with their
@@ -142,8 +144,9 @@ Native support is separate from these polyfills:
 - **Claude Code:** on 23 November 2026 the official
   [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix)
   listed Tasks, and none of Events, Apps or Skills (Server Cards isn't in
-  the matrix). The Skills SEP notes that Claude Code support has been
-  prototyped at Anthropic.
+  the matrix). Claude Code's [changelog](https://code.claude.com/docs/en/changelog) lists skills from MCP servers,
+  as a beta, in 2.1.332 (25 November 2026); a beta may not be on for every
+  account or server yet.
 - **Codex:** doesn't support Events for your own servers, or Skills
   (openai/codex#48000).
 - **Pi:** 1.6.0 supports none of them itself; its MCP client implements no

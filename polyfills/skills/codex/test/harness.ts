@@ -1,5 +1,5 @@
 // What the Codex adapter's tests share. The fixture server and the skill builders
-// are the Claude adapter's (../claude-code/test): a server written by hand that
+// are the shared ones (../../core/test-fixtures): a server written by hand that
 // shares no code with the polyfill, driven by a scenario file.
 
 import { mkdtempSync } from 'node:fs';
@@ -8,9 +8,9 @@ import { join } from 'node:path';
 import { App, type Asked, type Decision } from '../src/app.ts';
 import type { SkillRule } from '../src/config.ts';
 import { Store } from '../src/store.ts';
-import type { Fixture } from '../../claude-code/test/harness.ts';
+import type { Fixture } from '../../core/test-fixtures/harness.ts';
 
-export { digest, Fixture, scenarioOf, sizeOf, skill, skillMd, type Entry, type Scenario } from '../../claude-code/test/harness.ts';
+export { digest, Fixture, scenarioOf, sizeOf, skill, skillMd, type Entry, type Scenario } from '../../core/test-fixtures/harness.ts';
 
 export const temp = (): string => mkdtempSync(join(tmpdir(), 'mcp-skills-codex-test-'));
 

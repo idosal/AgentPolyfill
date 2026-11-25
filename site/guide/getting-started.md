@@ -27,10 +27,6 @@ install just one:
 /plugin install mcp-events --marketplace idosal/AgentPolyfill
 ```
 
-```txt [Skills]
-/plugin install mcp-skills --marketplace idosal/AgentPolyfill
-```
-
 ```txt [Server Cards]
 /plugin install mcp-server-cards --marketplace idosal/AgentPolyfill
 ```
@@ -48,6 +44,11 @@ install just one:
 `ard-discovery` is for ARD, a draft from outside MCP. It isn't in the bundle,
 because a search sends the words of your request to the ARD registry you
 choose. Install it by name, and it brings `mcp-server-cards` with it.
+
+There is no Skills polyfill for Claude Code: Claude Code lists skills from MCP
+servers itself, in beta from 2.1.332. [Skills](./skills#claude-code) says what
+is known, and how to uninstall the `mcp-skills` plugin if you installed it
+before.
 
 In a terminal, use `claude plugin install` with the same arguments:
 
@@ -199,7 +200,6 @@ in a fresh Codex home.
 | | Claude Code | What else it needs | Where it has run |
 |---|---|---|---|
 | Events | 2.1.326 or newer | Node 20 or newer, or Bun (webhook delivery through a relay needs Node 22 or newer, or Bun); `/mcp-events setup` can fetch Bun for the mod alone on macOS and Linux. A terminal session, or one an app keeps open. | Tested live on macOS; its tests also run on Linux and Windows |
-| Skills | 2.1.329 or newer | Node 20 or newer, or Bun; `/mcp-skills setup` can fetch Bun for the mod alone on macOS and Linux. | Run on macOS; Linux and Windows not tried yet |
 | Server Cards, ARD | 2.1.329 or newer | Nothing else: no helper process, no Node, no account. To add a server, the `claude` command, found on your `PATH` or in the usual install folders. | |
 | Apps | 2.1.329 or newer | Nothing else, not even Node: the plugin carries a small helper program for each platform. A Chromium-based browser (Chrome, Edge, Chromium, Brave); clicking into views needs Claude Code's fullscreen layout. | macOS, Linux (x64 or Arm64) and Windows x64; Windows hasn't been used in a Claude Code session yet |
 
@@ -209,11 +209,13 @@ plugin's code only in a folder you've told it you trust, which it asks the
 first time you start `claude` in a folder. In a folder you haven't trusted,
 the polyfills do nothing.
 
-Neither runtime download happens unless you send the command yourself (at the
-prompt, or from your own Remote Control) and then answer Download in Claude
-Code's own dialog. What is fetched and how it's checked is on the
-[Events](./events#the-mod-s-own-runtime) and
-[Skills](./skills#the-mod-s-own-runtime) pages.
+The runtime download doesn't happen unless you send the command yourself (at
+the prompt, or from your own Remote Control) and then answer Download in
+Claude Code's own dialog. What is fetched and how it's checked is on the
+[Events](./events#the-mod-s-own-runtime) page.
+
+Skills needs no polyfill in Claude Code: it is built in, in beta from 2.1.332
+([Skills](./skills#claude-code)).
 
 ### In Codex
 
@@ -406,10 +408,6 @@ For the demo button:
 
 ::: code-group
 
-```bash [Claude Code]
-claude mcp add --transport http huggingface https://huggingface.co/mcp
-```
-
 ```bash [Codex]
 codex mcp add huggingface --url https://huggingface.co/mcp
 ```
@@ -427,7 +425,6 @@ pi mcp add huggingface --url https://huggingface.co/mcp
 
 :::
 
-- **Claude Code:** `/mcp-skills` lists what it serves.
 - **Codex:** the served skills appear in the `$` list after you ask once to
   list the served skills, from the next turn.
 - **Pi:** the served skills appear in Pi's own list as
@@ -607,13 +604,17 @@ In Claude Code:
 | | Off without uninstalling | Remove |
 |---|---|---|
 | Events | `MCP_EVENTS_OFF=1` | `/plugin uninstall mcp-events` |
-| Skills | `MCP_SKILLS_OFF=1`, or disable the plugin in `/plugin` | `/plugin` |
 | Server Cards | `disabled` in `/config` | `/plugin` |
 | ARD discovery | `disabled` in `/config` (`mcp-server-cards` keeps working) | `/plugin` |
 | Apps | `claude plugin disable mcp-apps-cli@agent-polyfill` | `claude plugin uninstall mcp-apps-cli@agent-polyfill` |
 
 The environment variables go, for example, in the `env` block of
 `~/.claude/settings.json`.
+
+Skills in Claude Code was the first such case: Claude Code ships it itself
+now, in beta, and the form was removed from this project. If you still have
+it, `/plugin uninstall mcp-skills@agent-polyfill` removes it
+([Skills](./skills#claude-code)).
 
 In Codex, remove the plugin: `codex plugin remove mcp-events@agent-polyfill`,
 and the same for `mcp-skills`, `mcp-server-cards` and `ard-discovery`.

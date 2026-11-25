@@ -5,7 +5,7 @@ They show up in Codex's skill list, Codex loads one when a task calls for it,
 and it reads the files the skill refers to as it needs them. You approve each
 skill once.
 
-Also available for Claude Code, Pi and OpenCode: [mcp-skills for Claude Code](../claude-code/README.md), [mcp-skills for Pi](../pi/README.md), [mcp-skills for OpenCode](../opencode/README.md).
+Also available for Pi and OpenCode: [mcp-skills for Pi](../pi/README.md), [mcp-skills for OpenCode](../opencode/README.md). Claude Code needs no polyfill for this: it lists skills from MCP servers itself, in beta from 2.1.332 ([changelog](https://code.claude.com/docs/en/changelog)).
 
 It implements the client side of the MCP Skills extension
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md),
@@ -139,8 +139,8 @@ connection. So the plugin opens a connection of its own, with what your config
 holds. It runs no sign-in of its own, and it stores no tokens. Codex's
 app-server can call a server's tools and read its resources over Codex's
 connection, but it has no method for other requests.
-[`../claude-code/docs/host-changes.md`](../claude-code/docs/host-changes.md)
-describes the same gap in Claude Code.
+[What hosts would need to change](../../../docs/host-changes.md) describes
+the gap, host by host.
 
 ### How a skill gets to the model
 
@@ -243,25 +243,6 @@ how the server is configured (without its token), and what
 `~/.codex/mcp-skills/mcp-skills.log` says. For a security problem, see
 [`SECURITY.md`](SECURITY.md#reporting-a-problem).
 
-### What differs between Claude Code and Codex
-
-| | Claude Code | Codex |
-|---|---|---|
-| What runs | A mod inside Claude Code, and a helper process (`mod/dist/helper.js`) on Node 20+ or Bun | A plugin whose MCP server (`mod/dist/helper.js`) Codex starts with Node 20+ |
-| Servers it reads | The project's `.mcp.json`, and the user and local scopes. It connects only to servers Claude Code itself uses. | `[mcp_servers.*]` in `~/.codex/config.toml`. Servers that come with a plugin, or from a project's `.codex/config.toml`, aren't looked at. |
-| Where served skills appear | In Claude's skill listing, under their own heading: right after the install, and from the next session for a server you add later | In Codex's `$` skill list, as `mcp-skills:<server>:<name>`, from the turn after the plugin's server starts (after you ask once to list the served skills, if Codex's daemon was already running), and from the first turn of every later session. The plugin writes a short `SKILL.md` stub for each one into `~/.agents/skills/mcp-skills-served`. At most 100 are listed. |
-| The question before a load | Claude Code's own permission dialog | Codex's form (MCP elicitation): "Do not load it", "Show me its SKILL.md first" or "Load it" |
-| Reading a skill before you decide | `/mcp-skills show <skill>`, in a panel Claude doesn't read | "Show me its SKILL.md first", shown to you only |
-| Where your approvals are kept | The mod's own store, in your Claude Code configuration folder | `~/.codex/mcp-skills/approvals.json` |
-| Turning a skill off | `/mcp-skills disable <skill>` | Codex's own `[[skills.config]]` |
-| A loaded skill leads to a resource on another server (rule X8) | Claude Code asks you first, naming both servers | Not asked: a plugin can't put a question in front of Codex's `read_mcp_resource`. The loaded skill tells the model to ask you first. |
-| Nobody to ask | `claude -p`: an unapproved skill loads only if your rules allow the tool, and then Claude can only read and search | `codex exec`, or the approval policy `never`: an unapproved skill isn't loaded |
-| Servers behind a sign-in | A browser sign-in through `/mcp`, claude.ai connectors and plugin servers aren't supported | A `codex mcp login` sign-in isn't supported. A token in an environment variable usually isn't either. |
-| Settings | Environment variables | `~/.codex/mcp-skills/settings.json` |
-| Stand-down | Turns itself off for a session in which it sees Claude Code load a skill from an MCP server | Removes its stubs, and its tools do nothing, if Codex declares the Skills extension itself |
-| Client rules (60) | 54 met, 3 met with a stated limit, 3 don't apply | 52 met, 6 met with a stated limit, 1 not met (X8), 1 doesn't apply |
-| Run on | macOS, Claude Code 2.1.329 | macOS, Codex 0.172: the terminal UI and `codex exec` |
-
 ## Settings
 
 There's nothing to set. For the rare case that needs it, write
@@ -326,7 +307,7 @@ Codex does, turn the plugin off with `codex plugin remove`, or by writing
     source.
 
 [What hosts would need to change](../../../docs/host-changes.md) covers these
-gaps for Codex and Claude Code side by side.
+gaps for Codex next to the other hosts.
 
 ## Security
 
@@ -426,7 +407,7 @@ and one never approved is refused
 From this folder (`polyfills/skills/codex` in the repository):
 
 ```bash
-npm ci && (cd ../core && npm ci) && (cd ../claude-code && npm ci)   # the tests reuse the Claude adapter's fixture server
+npm ci && (cd ../core && npm ci)   # the shared Skills client; the tests use its fixture server (../core/test-fixtures)
 npm test
 npm run typecheck
 npm run build          # mod/dist/helper.js, from src/ and ../core
@@ -440,7 +421,7 @@ server (`dist/helper.js`, with the shared core inside it), and the plugin's own
 `mcp-skills` skill.
 
 - [`../core/src/skills.ts`](../core/src/skills.ts) is the extension's client
-  logic, shared with the [Claude Code form](../claude-code/).
+  logic, shared with the [Pi](../pi/) and [OpenCode](../opencode/) forms.
 - [`src/stubs.ts`](src/stubs.ts) is how Codex comes to list served skills.
 - [`src/mcp.ts`](src/mcp.ts) is the server Codex talks to.
 
@@ -451,7 +432,7 @@ includes npm packages under their own licences:
 [`mod/THIRD_PARTY_LICENSES.txt`](mod/THIRD_PARTY_LICENSES.txt).
 
 This plugin is one of a set of polyfills that add MCP extensions to Claude
-Code and Codex ahead of native support, collected at
+Code, Codex, Pi and OpenCode ahead of native support, collected at
 [AgentPolyfill](../../../README.md). It's a community project by Ido Salomon.
 It isn't affiliated with or endorsed by Anthropic, OpenAI, the Model Context
 Protocol project, the Agentic AI Foundation or the Linux Foundation. Claude and

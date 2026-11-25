@@ -28,10 +28,10 @@ What a server sends (an event payload, a skill's text, an app's HTML) is data
 from that server, and receiving it grants nothing. A polyfill never
 auto-approves an action or reads the host's stored credentials.
 
-In Claude Code, event payloads and skill text reach Claude as tool results;
+In Claude Code, event payloads reach Claude as tool results;
 context an app sets goes with your next prompt
 (see [Apps](#apps)). Whatever Claude does next goes through Claude Code's normal
-permissions. A polyfill never reads the host's stored credentials. Events, Apps and Skills connect only
+permissions. A polyfill never reads the host's stored credentials. Events and Apps connect only
 to servers Claude Code itself uses in the session, asking Claude Code for its
 verdict on each one. Server Cards connects to no server: it reads public
 documents and adds a server to Claude Code's own config, only when you press
@@ -45,7 +45,7 @@ not protect against, in each host:
 | Polyfill | Claude Code | Codex | Pi | OpenCode |
 |---|---|---|---|---|
 | Events | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/SECURITY.md) |
-| Skills | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/SECURITY.md) |
+| Skills | no polyfill: built into Claude Code, in beta from 2.1.332 | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/SECURITY.md) |
 | Server Cards | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/opencode/SECURITY.md) |
 | Apps | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md) | not available | not available | not available |
 | ARD | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/opencode/SECURITY.md) |
@@ -86,19 +86,12 @@ lists each finding of the review of 24 November 2026 and where it stands.
 
 ### Skills
 
-- A skill is loaded only after you approved it, in Claude Code's own permission
-  dialog, and your approval is bound to its content: a changed skill is asked
-  about again.
-- A loaded skill and its files reach Claude only after their size and SHA-256
-  digest matched the server's entry. A skill's frontmatter grants nothing.
-- Where nobody can be asked (`claude -p`), an unapproved skill can make Claude
-  only read and search while it is loaded.
-- A skill you approved whose instructions are harmful is not stopped by the mod:
-  what Claude does next goes through Claude Code's ordinary permissions.
-- A skill you disabled is not offered, loaded or read, whatever a rule or mode
-  allows, until you enable it again; Claude cannot enable it.
-
-[Skills `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/SECURITY.md)
+There is no Skills polyfill for Claude Code: Claude Code lists skills from MCP
+servers itself, in beta from 2.1.332 ([Skills](./skills#claude-code)). That is
+Claude Code's own feature, and this project doesn't describe or vouch for how
+it handles a served skill. The Skills forms for
+[Codex](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md),
+[Pi](#in-pi) and [OpenCode](#in-opencode) have their own accounts.
 
 ### Server Cards
 
@@ -303,9 +296,6 @@ notes apply. Two things differ:
   - Events: a model of delivery and of waking, in Quint and in TLA+, simulated,
     and model-checked with TLC to small, stated bounds. TLC checks the model,
     not the code, and says nothing past its bounds.
-  - Skills: a model of approval, loading and the gate, every reachable state to
-    its bound, by an explorer of its own and, in TLA+, by TLC. The model is
-    checked, not the code.
   - Apps: a TLA+ model of which server a view's app comes from and what it may
     make happen, checked with TLC within stated bounds; what TLC reports is
     exhaustive within them and says nothing past them.

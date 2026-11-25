@@ -6,10 +6,10 @@ where that is tested.
 
 **The source** is SEP-2640, status Final:
 [`seps/2640-skills-extension.md`](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md)
-at commit `2eb3a8e` (12 November 2026), the same revision the Claude Code
-adapter implements ([its table](../../claude-code/docs/conformance.md)). The
-rule ids are the same in both tables. This page describes version 0.1.6 of the
-Codex plugin.
+at commit `2eb3a8e` (12 November 2026), the same revision the Pi and OpenCode
+forms implement. The rule ids, and each rule's text in full, are in
+[the shared rule list](../../core/docs/sep-2640-client-rules.md); the rows
+here shorten the text. This page describes version 0.1.6 of the Codex plugin.
 
 **Status** is one of: **met**; **exception** (met, with a limit stated in the
 row); **not met**; **n/a** (the rule governs something this plugin does not do).
@@ -40,8 +40,8 @@ not met, X8, needs a change in Codex; the row says which.
 
 The logic of the rules (entries, verification, the held entry, limits) is the
 shared core, [`../core/src/skills.ts`](../../core/src/skills.ts), which the
-Claude Code adapter's tests also check rule by rule. The rows below say what
-the Codex adapter adds.
+Pi form's tests also check rule by rule. The rows below say what the Codex
+adapter adds.
 
 ## Capability negotiation and the wire
 
