@@ -163,7 +163,11 @@ The same world, kept running by [`tui-world.ts`](tui-world.ts), with
 OpenCode's TUI attached (`opencode --server <url> <project>`), driven in a
 pseudo-terminal by the repository's `pty-drive.py`, which types and presses
 keys and saves the screen. Shell and edits denied. Each permission prompt was
-answered with the keyboard.
+answered with the keyboard. The first run had an `ask` rule for each plugin
+action; on 25 November 2026 the three runs below were repeated at `fdde7565`
+with no rule for the plugins' actions at all, as for a person who just
+installed them, and the prompts, the wake and the answers were the same: each
+plugin asked by default.
 
 **Events.** The model's call, then OpenCode's prompt:
 
@@ -221,6 +225,18 @@ or URL as the model passed them) and, under "Always allow", the pattern to be
 saved. The digest, the file count and the "not a local skill" note in the
 request's metadata aren't shown.
 
+## Installed from GitHub
+
+`install-check.ts` installs the four plugins as the READMEs say, with
+`opencode plugin add 'github:idosal/AgentPolyfill#<ref>::path:polyfills/<x>/opencode/plugin'`,
+in a throwaway home with the pinned OpenCode 2.4.1, then checks that each one
+loads (its tools reach the model) and removes it with `opencode plugin remove`.
+On 25 November 2026, at the branch `claude/opencode-polyfill-1b603a`
+(`fdde7565`): each of the four installed and loaded, every installed copy of
+`server.js` was the committed bundle byte for byte, and after the removals the
+global `opencode.json` listed no plugins. Nothing was published; the only
+network use was the Git fetch.
+
 ## To repeat
 
 ```bash
@@ -231,6 +247,12 @@ node --no-warnings tools/opencode/live.ts provider/model  # another model that n
 
 The transcript goes to a folder the script names; the throwaway home is kept
 for reading, and can be deleted afterwards.
+
+The install from GitHub (`main` by default, or a branch, tag or commit):
+
+```bash
+node --no-warnings tools/opencode/install-check.ts github:idosal/AgentPolyfill main
+```
 
 For the TUI, start `tui-world.ts <out>`, then attach OpenCode's TUI with the
 environment `<out>/world.json` gives (its own `HOME` and XDG folders and the

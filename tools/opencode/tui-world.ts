@@ -1,6 +1,7 @@
 // An OpenCode server for trying the plugins in OpenCode's own TUI, by hand: the
 // same throwaway world as live.ts (a real model that needs no sign-in, the four
-// plugins, an `ask` rule for each plugin action, shell and edits denied), kept
+// plugins, shell and edits denied), but with no `ask` rule for the plugins'
+// actions: they ask by default, as for a person who just installed them. Kept
 // running until this process is stopped. It writes what a TUI needs to attach
 // to <out>/world.json (mode 600: it holds the throwaway server's password),
 // and appends an event to the fixture server when <out>/emit appears.
@@ -34,10 +35,7 @@ const world = new World({
         },
         huggingface: { type: 'remote', url: 'https://huggingface.co/mcp', oauth: false }
     },
-    permissions: [
-        ...['mcp_events_watch', 'mcp_events_unwatch', 'mcp_skills_load', 'mcp_skills_cross_server', 'mcp_server_cards_add', 'mcp_server_cards_remove', 'ard_search'].map((action) => ({ action, resource: '*', effect: 'ask' as const })),
-        ...['shell', 'edit'].map((action) => ({ action, resource: '*', effect: 'deny' as const }))
-    ],
+    permissions: ['shell', 'edit'].map((action) => ({ action, resource: '*', effect: 'deny' as const })),
     env: { MCP_EVENTS_WAKE_GAP_S: '0' }
 });
 

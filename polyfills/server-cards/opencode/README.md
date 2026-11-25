@@ -48,8 +48,9 @@ yourself, in the global configuration or a project's `opencode.json`:
 }
 ```
 
-The folder is one bundled file, [`plugin/server.js`](plugin/), its licence
-notices, and a `package.json` that names it. Nothing else is downloaded.
+The folder is one bundled file, [`plugin/server.js`](plugin/), which holds
+only this repository's code, and a `package.json` that names it. Nothing else
+is downloaded.
 
 ## Try it
 
@@ -139,10 +140,11 @@ When OpenCode supports Server Cards itself, turn the plugin off, or remove it
   Linux, macOS and Windows.
 - **OpenCode's TUI shows little in the prompt.** In OpenCode 2.4.1's TUI, a
   permission prompt for a plugin's own action says only "Call tool
-  mcp_server_cards_add". The details are on the model's call line just above it, and
-  "Always allow" lists the pattern it would save. Checked in the TUI
-  ([`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui)). The call line
-  names the URL; the request's host, headers and undo aren't shown.
+  mcp_server_cards_add", with "Allow once" and "Reject" (nothing is saved,
+  so there's no "Always allow"). The details are on the model's call line just
+  above it: the name, the identifier and the URL. The request's host, headers
+  and undo aren't shown. Checked in the TUI
+  ([`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui)).
 - **Not tried yet:** Windows by hand (CI runs the tests there), and an
   addition from OpenCode Desktop (its prompts show a plugin action's
   resource, as seen for Events and Skills).
