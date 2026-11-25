@@ -1,7 +1,7 @@
 // A live run: a real Pi, a real model, an extension (this form's, or ARD's with
 // PI_LIVE_EXTENSION), and a conversation of plain-words prompts. Answers each
 // question of the extension with its yes ("Add it", or a search's yes), and
-// prints a transcript and the servers the run's mcp.json names (names and addresses only).
+// prints a transcript and the servers the run's mcp.json names (names and origins only).
 //
 // Needs a throwaway Pi agent folder you signed in to (PI_LIVE_AGENT_DIR, made with
 // `node live/run.ts --new-agent-dir <path>`; see live/agent-dir.ts) and the model to use:

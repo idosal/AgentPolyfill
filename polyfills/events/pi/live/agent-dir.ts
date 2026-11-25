@@ -10,7 +10,7 @@
 // whatever it holds. It never reads the folder's credentials: Pi does, to call
 // the model. It writes mcp.json only where there is none, or where the one there
 // is the one a live run left (its SHA-256 is in the mark), and prints only the
-// names and addresses of the servers in it, never header or env values.
+// names and origins of the servers in it, never paths, header or env values.
 // When you're done: `PI_CODING_AGENT_DIR=<path> pi auth logout <provider>`, then
 // delete the folder.
 
@@ -62,7 +62,7 @@ export function writeMcpJson(dir: string, config: unknown): void {
 }
 
 /**
- * The servers in the run's mcp.json after the run (it may have added one), by name and address
+ * The servers in the run's mcp.json after the run (it may have added one), by name and origin
  * only, and that file kept as the one this run left.
  */
 export function mcpServersAfter(dir: string): string {
@@ -76,8 +76,9 @@ export function mcpServersAfter(dir: string): string {
     } catch {
         return '(mcp.json is not JSON)';
     }
-    // An address without what could be a credential in it: no user, password or query.
-    const where = (u: string) => (URL.canParse(u) ? `${new URL(u).origin}${new URL(u).pathname}` : '(not a URL)');
+    // An address without what could be a credential in it: the origin only, since a hosted
+    // server's key can sit in its path (…/mcp/<key>/sse), as it can in a user, password or query.
+    const where = (u: string) => (URL.canParse(u) ? new URL(u).origin : '(not a URL)');
     const lines = Object.entries(servers).map(([name, s]) => `${name}: ${typeof s.url === 'string' ? where(s.url) : typeof s.command === 'string' ? 'a local command' : '(no url or command)'}`);
     return lines.length ? lines.join('\n') : '(no servers)';
 }
