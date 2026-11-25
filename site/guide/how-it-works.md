@@ -34,8 +34,11 @@ host ships one of these extensions, turn that polyfill off:
 - **Codex:** remove the plugin
   (`codex plugin remove mcp-events@agent-polyfill`), or for resource links
   set `MCP_RESOURCE_LINKS_DISABLED=1`.
-- **Pi:** remove the extension (`pi remove ./polyfills/events/pi/extension`
-  from your clone), or use its own setting (`MCP_EVENTS_OFF=1`,
+- **Pi:** `pi remove git:github.com/idosal/AgentPolyfill` removes Events,
+  Skills and Server Cards together and Pi's copy of the repository. For a
+  local install, use `pi remove ./polyfills/<form>/pi/extension` from the
+  same clone (`events`, `skills`, `server-cards` or `ard`). To turn off one
+  form, use its own setting (`MCP_EVENTS_OFF=1`,
   `MCP_SKILLS_OFF=1`, `MCP_SERVER_CARDS_DISABLED=1`, `ARD_DISCOVERY_DISABLED=1`).
 - **OpenCode:** remove the plugin (`opencode plugin remove` with the text you
   added it with), or use its own setting (`MCP_EVENTS_OFF=1`,

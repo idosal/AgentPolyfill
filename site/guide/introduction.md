@@ -39,10 +39,13 @@ a new extension, without waiting on one company's roadmap.
 | [ARD](./ard) (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | `ard-discovery` | `ard-discovery` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi) | [plugin](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/opencode) |
 | [Resource links](./resource-links) (core spec) | [MCP 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/server/tools#resource-links), Tools > Resource Links | not needed, handled natively, with caveats | `mcp-resource-links` | not measured | not measured |
 
-The Pi forms were tested with Pi 1.6.0 and need Node 22 or newer. Nothing for
-Pi is published to npm or Pi's package gallery. Install the extensions from
-a clone, with nothing to build; [Getting started](./getting-started#pi) has
-the steps.
+The Pi forms were tested with Pi 1.6.0 and need Node 22 or newer.
+`pi install git:github.com/idosal/AgentPolyfill` installs Events, Skills and
+Server Cards together. Pi clones the repository under `~/.pi/agent/git/`
+and loads them from there, with nothing to build. Nothing for Pi is
+published to npm or Pi's package gallery. A clone is the alternative for
+one form, and the way to install ARD separately;
+[Getting started](./getting-started#pi) has the steps.
 
 The OpenCode forms need OpenCode 2.4 or newer and were tested with 2.4.1.
 OpenCode runs them itself, so they need no Node. Nothing for OpenCode is
@@ -130,7 +133,9 @@ by searching an ARD registry you choose, and hands the cards to
 add tool, `ard_add_mcp_server`.
 A search sends the words of your request to that
 registry, so every search asks you first and names where it's going. That's
-also why it isn't part of the `agent-polyfill` bundle; install it by name.
+also why it isn't part of the Claude Code `agent-polyfill` bundle or Pi's
+one-line install. Install it by name in Claude Code or Codex, or from a
+clone in Pi.
 Pi's recorded live run showed domain discovery and an approved search of the
 repository's demo registry. It did not complete the add step: the model
 asked in chat instead of calling the add tool. Addition is covered by tests

@@ -69,22 +69,29 @@ you choose):
 codex plugin add ard-discovery@agent-polyfill
 ```
 
-**Pi** (1.6.0, the version tested; Node 22 or newer). Nothing for Pi is
-published to npm or Pi's package gallery. Install from a clone:
+**Pi** (1.6.0, the version tested; Node 22 or newer). Install Events, Skills
+and Server Cards together:
+
+```bash
+pi install git:github.com/idosal/AgentPolyfill
+```
+
+Pi clones the repository into its agent folder (under `~/.pi/agent/git/`)
+and loads the three extensions from there. Nothing is published to npm or
+Pi's package gallery, and nothing is built. Start `pi` to use them.
+
+ARD is installed on its own, from a clone. As with the Claude Code bundle,
+it is left out because its search sends the words of your request to a
+registry, after asking you each time:
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
 cd AgentPolyfill
-pi install ./polyfills/events/pi/extension
-pi install ./polyfills/skills/pi/extension
-pi install ./polyfills/server-cards/pi/extension
 pi install ./polyfills/ard/pi/extension
 ```
 
-Each line installs one extension; Pi has no bundle. The folders contain a
-manifest and one bundled file, with nothing to build. Pi loads the local
-paths where they are, so keep the clone; `git pull` in it brings the next
-version. Start `pi` to use them.
+Pi loads a local path where it is, so keep the clone. The clone path also
+works for any one form alone.
 
 **OpenCode** (2.4 or newer, for the V2 plugin API; tested with 2.4.1; Git).
 Nothing for OpenCode is published to npm: OpenCode installs each plugin from
@@ -209,7 +216,9 @@ an ARD registry you choose, and hands the cards to `mcp-server-cards` (the Pi
 and OpenCode forms carry the Server Cards checks and add step themselves). A
 search sends the words of your request to that registry, so every search asks
 you first and names where it's going. That's also why it isn't part of the
-`agent-polyfill` bundle; install it by name.
+Claude Code `agent-polyfill` bundle or Pi's one-line install. Install it by
+name in Claude Code or Codex, from a clone in Pi, and with its own
+`opencode plugin add` in OpenCode.
 
 In Pi, `ard_search` asks "Don't send it" or "Send the search", naming the
 registry endpoint and exact query. There is no default registry: name one
@@ -393,7 +402,10 @@ polyfill off:
   `/config` for Server Cards and ARD).
 - **Codex:** remove the plugin
   (`codex plugin remove mcp-events@agent-polyfill`).
-- **Pi:** remove the extension, or use `MCP_EVENTS_OFF=1`,
+- **Pi:** `pi remove git:github.com/idosal/AgentPolyfill` removes Events,
+  Skills and Server Cards together and Pi's copy of the repository. For a
+  local install, use `pi remove ./polyfills/<form>/pi/extension` from the
+  same clone. To turn off one form, use `MCP_EVENTS_OFF=1`,
   `MCP_SKILLS_OFF=1`, `MCP_SERVER_CARDS_DISABLED=1` or
   `ARD_DISCOVERY_DISABLED=1` for the corresponding form.
 - **OpenCode:** remove the plugin (`opencode plugin remove` with the text it
@@ -667,14 +679,33 @@ installs one (`mcp-events`, `mcp-skills`, `mcp-server-cards`,
 `codex plugin remove <name>@agent-polyfill` removes it.
 Codex has no bundle.
 
-**Pi.** From the clone, use `pi -e ./polyfills/<polyfill>/pi/extension` for
-one run without installing. Replace `<polyfill>` with `events`, `skills`,
-`server-cards` or `ard`. Pi can't install one subfolder of a Git repository:
-`pi install git:...` takes the whole repository, so use the local paths
-above. Nothing for Pi is published to npm or Pi's package gallery.
+**Pi.** `pi install git:github.com/idosal/AgentPolyfill` installs Events,
+Skills and Server Cards together. Update installed packages with
+`pi update --extensions`. Remove all three and Pi's copy of the repository
+with `pi remove git:github.com/idosal/AgentPolyfill`.
 
-To uninstall, run `pi remove ./polyfills/<polyfill>/pi/extension` from the
-same folder. Events and Skills data stays in `mcp-events/` and `mcp-skills/`
+For one run of all three without installing:
+
+```bash
+pi -e git:github.com/idosal/AgentPolyfill
+```
+
+To install any one form alone, use a clone. Replace `<form>` with `events`,
+`skills`, `server-cards` or `ard`:
+
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+pi install ./polyfills/<form>/pi/extension
+```
+
+Pi loads the local path where it is, so keep the clone. For one run without
+installing, use `pi -e ./polyfills/<form>/pi/extension`. To remove a local
+install, run `pi remove ./polyfills/<form>/pi/extension` from the same folder.
+Use one way per form, not both: Pi tells packages apart by their repository
+address or local path, so a form installed both ways loads twice.
+
+After removal, Events and Skills data stays in `mcp-events/` and `mcp-skills/`
 in Pi's agent folder (`~/.pi/agent`, or `PI_CODING_AGENT_DIR`); delete those
 folders too to remove it. Servers added by Server Cards or ARD stay in
 `mcp.json`; remove each with `pi mcp remove <name>`.
@@ -755,8 +786,10 @@ says what it checks and what it doesn't protect against.
   and `polyfill-author`, the skills for building one.
   [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) lists
   the Codex plugins.
-  Pi's forms are installed from their local folders; none is published to
-  npm or Pi's package gallery.
+  The root [`package.json`](package.json) lists the three Pi extensions
+  installed by `pi install git:github.com/idosal/AgentPolyfill`. Local
+  folders are the alternative for one form, and the way to install ARD;
+  none is published to npm or Pi's package gallery.
   OpenCode's forms are installed from their folders on GitHub with
   `opencode plugin add`; none is published to npm, and there is no
   marketplace file for them.
