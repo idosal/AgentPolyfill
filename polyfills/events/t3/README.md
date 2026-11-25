@@ -57,8 +57,41 @@ You need:
   Without it, events are still stored, but no thread is woken.
 - **Node 20 or newer** on that PATH.
 
-To remove it, run `codex mcp remove mcp-events-t3`, then
-`node plugin/dist/server.js --stop`, and delete `~/.codex/mcp-events-t3`.
+The `codex mcp add` line above was tried in a fresh Codex home (Codex
+0.172.0). It writes this to `config.toml`, and `codex mcp list` then shows the
+server as enabled:
+
+```toml
+[mcp_servers.mcp-events-t3]
+command = "node"
+args = ["<clone>/polyfills/events/t3/plugin/dist/server.js"]
+```
+
+### Remove it
+
+From the same folder:
+
+```bash
+codex mcp remove mcp-events-t3
+node plugin/dist/server.js --stop
+```
+
+The first takes the server out of `config.toml`; the second ends the watcher,
+if one is running. Tried in the same fresh Codex home: afterwards `codex mcp
+list` shows no server, and no process of it is left.
+
+What stays is its data folder, `~/.codex/mcp-events-t3` (or
+`$CODEX_HOME/mcp-events-t3`, or `MCP_EVENTS_STATE`): every thread's watches
+(with their cursors and webhook secrets), the events stored for each thread,
+the servers found to have no events, and the log. Delete it yourself:
+
+```bash
+rm -rf ~/.codex/mcp-events-t3
+```
+
+A relay you set up for webhooks (`~/.mcp-events/relay.json`, and the Worker on
+your Cloudflare account) is shared with the other forms; remove it as their
+READMEs say, if nothing else uses it. The clone is yours to delete.
 
 It doesn't need the [mcp-events plugin for Codex](../codex/README.md). If you
 have that too, see [Beside the Codex plugin](#beside-the-codex-plugin).
@@ -203,7 +236,7 @@ watcher takes them from the server that starts it; after changing one, run
 | Variable | What it does |
 |---|---|
 | `MCP_EVENTS_OFF=1` | Installed, and doing nothing. |
-| `MCP_EVENTS_T3_BIN` | The full path of `t3` (or of the `t3` package's `dist/bin.mjs`). Default: the first `t3` on PATH, then where T3 Code's installer puts it. |
+| `MCP_EVENTS_T3_BIN` | The full path of `t3` (or of the `t3` package's `dist/bin.mjs`). Default: the first `t3` on PATH, then `~/.local/bin/t3`, where T3 Code's installer puts it. |
 | `MCP_EVENTS_PRE_STANDARD` | As in the other forms: `off` refuses servers that advertise events only in the form from before the standard; a comma-separated list allows that form for those servers only. |
 | `MCP_EVENTS_SERVERS` / `MCP_EVENTS_SKIP` | Only these server names, or never these. |
 | `MCP_EVENTS_CONFIG` | A servers file of your own instead of `config.toml`. |
@@ -246,7 +279,11 @@ socket.
 ## Spec and conformance
 
 SEP-3415, Final (as of 24 November 2026), through the shared client in
-[`../core`](../core). Beyond the spec, and listed as the contract asks:
+[`../core`](../core). How it stands, clause by clause, and what is different
+in T3 Code: [`docs/conformance.md`](docs/conformance.md). The upstream
+conformance suite's Events client scenarios haven't been run for this form
+yet; the driver is ready, and the reason is there. Beyond the spec, and listed
+as the contract asks:
 
 - **The form from before the standard** (a top-level `events` capability) is
   accepted by default, as in the other forms. `MCP_EVENTS_PRE_STANDARD=off`

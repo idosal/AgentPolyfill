@@ -468,6 +468,30 @@ This mod is a stopgap. Once Claude Code handles Events natively, uninstall it
 show each event twice. It cannot stand down by itself, because a mod has no way
 to see what Claude Code's own MCP client supports.
 
+## In T3 Code
+
+[T3 Code](https://github.com/pingdotgg/t3code) runs Codex and Claude Code for
+you, and neither of their Events forms can wake one of its threads: the Codex
+plugin's wake runs a turn the thread doesn't show, and the Claude Code mod's
+helper ends when T3 Code closes the session. So Events has a form of its own
+there, [`mcp-events-t3`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/t3), for **Codex threads
+only**:
+
+- It's an MCP server you add to Codex (see [Getting started](./getting-started#t3-code)).
+  T3 Code tells it which thread it serves (`T3CODE_THREAD_ID`).
+- A watcher it starts runs the watches, and outlives the agent's sessions and
+  T3 Code itself. It ends by itself when no thread has a watch.
+- An event wakes the thread through T3 Code's own `t3 thread send`. The turn
+  runs in the thread's permission mode; the message says it's from the
+  polyfill, and T3 Code adds that it came through T3 Code's tools.
+- The [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/t3/docs/live-run.md) stopped T3 Code
+  entirely before the event arrived; when T3 Code came back, the thread woke
+  and read the event.
+
+Claude Code threads can't use it: T3 Code doesn't tell Claude Code's servers
+which thread they serve. Not run live: the approval prompt for `watch_event`
+in a thread whose mode asks.
+
 ## More
 
 On GitHub, in [`polyfills/events/claude-code`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/claude-code):

@@ -116,6 +116,24 @@ To try one for a single run without installing, replace `<polyfill>` with
 pi -e ./polyfills/<polyfill>/pi/extension
 ```
 
+### T3 Code
+
+[T3 Code](https://github.com/pingdotgg/t3code) runs the Codex and Claude Code
+already on your machine, so install the plugins above for the agent you use
+in it. For Events in Codex threads, use the T3 form instead of the Codex
+plugin. Nothing for T3 Code is published; add it from a clone:
+
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+codex mcp add mcp-events-t3 -- node "$PWD/AgentPolyfill/polyfills/events/t3/plugin/dist/server.js"
+```
+
+Then use **Restart agent session** in T3 Code. To remove it, run
+`codex mcp remove mcp-events-t3` and
+`node AgentPolyfill/polyfills/events/t3/plugin/dist/server.js --stop`; its data
+stays in `~/.codex/mcp-events-t3` until you delete it. These steps were tried
+in a fresh Codex home.
+
 ## Requirements
 
 ### In Claude Code
@@ -181,6 +199,20 @@ Each Pi form's README has the rest:
 [Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi),
 [Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi) and
 [ARD discovery](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi).
+
+### In T3 Code
+
+T3 Code 0.1.11 is the version tested, with Codex 0.172.0.
+
+| | In T3 Code | What else it needs |
+|---|---|---|
+| Events | the T3 form, for Codex threads only | The `t3` command on the PATH Codex runs with, and Node 20 or newer. |
+| Skills, Server Cards, ARD | the Codex or Claude Code plugins | With Codex, the question each asks before loading, adding or searching is cancelled by T3 Code without being shown, so that step doesn't happen. |
+| Apps | T3 Code shows MCP Apps itself | Nothing: don't use the Apps polyfill there. |
+
+Not run live in T3 Code: anything with Claude Code as the agent, the
+approval prompt for `watch_event` in a thread whose mode asks, Server Cards
+and ARD. [T3 Code](https://github.com/idosal/AgentPolyfill/blob/main/docs/t3-code.md) has the details.
 
 ## First run
 

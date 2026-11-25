@@ -81,6 +81,19 @@ manifest and one bundled file, with nothing to build. Pi loads the local
 paths where they are, so keep the clone; `git pull` in it brings the next
 version. Start `pi` to use them.
 
+**T3 Code** (0.1.11, the version tested). T3 Code runs the Codex and Claude
+Code you have, so install the plugins above for the agent you use in it. For
+Events in Codex threads, add the T3 form from a clone instead of the Codex
+plugin (nothing for T3 Code is published):
+
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+codex mcp add mcp-events-t3 -- node "$PWD/AgentPolyfill/polyfills/events/t3/plugin/dist/server.js"
+```
+
+Then **Restart agent session** in T3 Code. What works and what doesn't is in
+[In T3 Code](#in-t3-code).
+
 There are [more ways to install](#more-ways-to-install) further down.
 
 ## Polyfills
@@ -92,6 +105,10 @@ There are [more ways to install](#more-ways-to-install) further down.
 | Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) | [`mcp-server-cards`](polyfills/server-cards/pi) |
 | Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet | not available |
 | ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) | [`ard-discovery`](polyfills/ard/pi) |
+
+T3 Code isn't a column here: it's an app that runs Codex and Claude Code for
+you, so what works in it is mostly what works in those two, with one Events
+form of its own. [In T3 Code](#in-t3-code) says which.
 
 All of them are early. Here is what each one does, and where it stops:
 
@@ -359,6 +376,43 @@ each extension needs, and the questions they raise about permissions are in
   ([Server Cards](polyfills/server-cards/pi/docs/conformance.md),
   [ARD](polyfills/ard/pi/docs/conformance.md)).
 
+## In T3 Code
+
+[T3 Code](https://github.com/pingdotgg/t3code) (0.1.11) is an app (desktop,
+web and phone) that runs the coding agents already on your machine, Codex
+and Claude Code among them, from one interface. It has no plugin layer of its
+own and no MCP client for your servers: Codex and Claude Code connect them,
+as they do in a terminal. So the plugins above load in T3 Code's threads, and
+most of what they need from a host, T3 Code passes through.
+[T3 Code](docs/t3-code.md) has the details and the sources.
+
+- **Apps: T3 Code does it itself.** It shows an MCP App under the tool call,
+  for Codex and for Claude Code 2.1.301 or newer. Don't install the Apps
+  polyfill for use in T3 Code.
+- **Skills, Server Cards and ARD: the tools work, the one question doesn't.**
+  With Codex, each asks you before its consequential step ("Load it", "Add
+  it", "Send the search") with an MCP elicitation form. T3 Code shows such a
+  form only when it can answer it with Approve or Decline, and cancels the
+  others without showing them, so the step is refused as if you'd said no.
+  Nothing is approved for you. Tried live with Skills; Server Cards and ARD
+  use the same kind of form and weren't run in T3 Code.
+- **Events: the T3 form, for Codex threads only.** The Codex plugin's wake
+  doesn't fit T3 Code: its turn runs where the thread doesn't show it.
+  [`mcp-events-t3`](polyfills/events/t3) is an MCP server you add to Codex.
+  T3 Code tells it which thread it serves, a watcher it starts outlives the
+  agent's sessions and T3 Code itself, and an event wakes the thread through
+  T3 Code's own `t3 thread send`
+  ([live run](polyfills/events/t3/docs/live-run.md)). Claude Code threads
+  can't use it, because T3 Code doesn't tell Claude Code's servers which
+  thread they serve. The Claude Code mod's wakes could reach a thread at most
+  while T3 Code keeps its session open, and that wasn't checked live.
+- **Not run live in T3 Code:** anything with Claude Code as the agent; the
+  approval prompt for `watch_event` in a thread whose mode asks (the live
+  run's thread was in Full access); Server Cards and ARD.
+
+What T3 Code would need to change is in
+[`docs/host-changes.md`](docs/host-changes.md#in-t3-code).
+
 ## Other hosts
 
 We haven't found a documented way for third-party code to send requests over
@@ -512,6 +566,10 @@ permissions:
   step: a watch, a skill load, a registry search or a server addition. It
   never auto-approves; Pi's permissions remain the boundary.
 
+- **T3 Code:** the plugins of the agent it runs, as above. The T3 Events form
+  is an MCP server Codex starts, plus a watcher of its own that keeps running
+  after T3 Code closes, until no thread has a watch.
+
 None reads the host's stored credentials, including Pi's `mcp-auth.json`
 or `auth.json`. Each polyfill's `SECURITY.md` says what it checks and what it
 doesn't protect against. [`SECURITY.md`](SECURITY.md) says how to report a
@@ -528,6 +586,9 @@ problem privately.
   - `codex/`: plugins for Events, Skills, Server Cards and ARD.
   - `pi/`: extensions for Events, Skills, Server Cards and ARD, each with
     an installable `extension/` folder and its own README and SECURITY.md.
+  - `t3/`: the Events form for T3 Code
+    ([`polyfills/events/t3`](polyfills/events/t3)), an MCP server for Codex
+    threads in T3 Code.
 - **Marketplaces.**
   [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) lists
   everything for Claude Code, including the two plugins in

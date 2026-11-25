@@ -3,6 +3,9 @@
 mcp-events-t3 0.1.0 (bundle `plugin/dist/server.js`, SHA-256 starting
 `6578709592cd`), in T3 Code 0.1.11 (`t3 serve`, the npm package) with
 Codex CLI 0.172.0 (model `gpt-6.1-terra`), on macOS, 25 November 2026.
+Since this run, the only change to the server is where it looks for `t3`
+when `MCP_EVENTS_T3_BIN` isn't set (now PATH, then `~/.local/bin`); this run
+set `MCP_EVENTS_T3_BIN`.
 
 Everything ran in an isolated install: its own `HOME`, `T3CODE_HOME`,
 `CODEX_HOME` and `CLAUDE_CONFIG_DIR` (`$S` below, a scratch folder),

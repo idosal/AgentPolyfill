@@ -193,7 +193,8 @@ are below.
 
 ## What T3 Code would need to change
 
-These are the "In T3 Code" items for [host-changes.md](host-changes.md).
+The same asks are in [host-changes.md](host-changes.md#in-t3-code), with T3
+Code's column in its table.
 
 - **Show an MCP elicitation form as the server wrote it.** T3 Code shows a
   form only when it can answer it with Approve or Decline, and cancels the
@@ -221,23 +222,3 @@ These are the "In T3 Code" items for [host-changes.md](host-changes.md).
   would still need the agent's MCP connection (or its own) to the server,
   which is the "send any MCP method" change in host-changes.md, asked of the
   agents.
-
-## Draft column for host-changes.md
-
-To add to the table in [How a plugin plugs in today](host-changes.md#how-a-plugin-plugs-in-today),
-once the other new columns land:
-
-| What a polyfill needs | T3 Code (drives Codex, Claude Code and others; no plugins of its own) |
-|---|---|
-| Add tools the model can call | Through the agent: an MCP server, a Codex plugin, a Claude Code mod |
-| Draw its own UI | No; it shows a server's MCP App itself |
-| Start a turn in an idle session | `t3 thread send <thread> -` |
-| Know which session called | `T3CODE_THREAD_ID` in the environment of Codex's stdio servers (undocumented) |
-| Call a server's tool over the host's connection, with its sign-in | Only through the agent (a Claude Code mod's `$.mcp.call`) |
-| Ask whether the host would use a server | No |
-| Read a resource over the host's connection | No |
-| Send any other MCP method | No |
-| See what a server advertised | No |
-| Receive a server's notifications | No |
-| See a tool's `_meta`, its `outputSchema`, or a result as the server sent it | No |
-| Declare a client extension to servers | No |

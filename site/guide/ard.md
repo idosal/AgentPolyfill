@@ -217,6 +217,16 @@ In Claude Code, in `/config`, under the plugin:
   stayed empty. Additions are covered by real-Pi tests with a scripted model
   and a local server, not by that live run.
 
+### In T3 Code
+
+T3 Code runs Codex and Claude Code for you, and this polyfill's Codex and Claude Code
+forms load there. With Codex, the question it asks before sending a registry search ("Send the search") is an MCP
+elicitation form, and T3 Code shows such a form only when it can answer it
+with Approve or Decline; it cancels this one without showing it, so the step
+is refused as if you had said no. Nothing is approved for you.
+Not run live in T3 Code.
+[T3 Code](https://github.com/idosal/AgentPolyfill/blob/main/docs/t3-code.md) has the details.
+
 ## Security
 
 ### In Claude Code

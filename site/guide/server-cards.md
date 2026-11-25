@@ -240,6 +240,16 @@ in the same catalogs, and local (stdio) servers, which cards do not describe.
   reloaded sessions forget shown cards. Disabled or replaced MCP support,
   or a failed connection, can prevent added tools from becoming available.
 
+### In T3 Code
+
+T3 Code runs Codex and Claude Code for you, and this polyfill's Codex and Claude Code
+forms load there. With Codex, the question it asks before adding a server ("Add it") is an MCP
+elicitation form, and T3 Code shows such a form only when it can answer it
+with Approve or Decline; it cancels this one without showing it, so the step
+is refused as if you had said no. Nothing is approved for you.
+Not run live in T3 Code.
+[T3 Code](https://github.com/idosal/AgentPolyfill/blob/main/docs/t3-code.md) has the details.
+
 ## Security
 
 ### In Claude Code

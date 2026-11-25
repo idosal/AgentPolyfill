@@ -47,7 +47,10 @@ export function t3NotFound(platform: NodeJS.Platform = process.platform): string
         : 'no `t3` command was found to run `t3 thread send` with. Install it (T3 Code\'s "Install" docs: curl -fsSL https://t3.codes/install.sh | sh), or set MCP_EVENTS_T3_BIN to its full path';
 }
 
-/** The `t3` to run: MCP_EVENTS_T3_BIN if set, else the first on PATH, else where T3 Code's installer puts it. */
+/**
+ * The `t3` to run: MCP_EVENTS_T3_BIN if set, else the first on PATH, else where T3 Code's installer
+ * puts it (~/.local/bin, T3 Code's apps/server/src/cli/install.ts).
+ */
 export function findT3(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform): T3Command | undefined {
     const bin = env.MCP_EVENTS_T3_BIN?.trim();
     if (bin) {
@@ -61,9 +64,8 @@ export function findT3(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Pl
     for (const dir of (env.PATH ?? '').split(delimiter).filter(Boolean)) if (executable(join(dir, name), platform)) return { command: join(dir, name), args: [] };
     if (platform === 'win32') return undefined;
     const home = env.HOME || homedir();
-    const known = [join(home, '.local', 'bin', 't3'), join(home, '.t3', 'bin', 't3'), '/opt/homebrew/bin/t3', '/usr/local/bin/t3'];
-    const found = known.find((p) => executable(p, platform));
-    return found ? { command: found, args: [] } : undefined;
+    const installed = join(home, '.local', 'bin', 't3');
+    return executable(installed, platform) ? { command: installed, args: [] } : undefined;
 }
 
 const MAX_OUTPUT = 64 * 1024;
