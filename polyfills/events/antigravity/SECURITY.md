@@ -41,6 +41,15 @@ calls to read the event and the server's log each asked).
   which marks the summaries as data from the named server, not instructions.
   Payloads go only through `get_event` and `recent_events`.
 
+Antigravity's defaults ask: in the App an MCP tool call shows "Allow using
+this MCP tool?", and the CLI's default permission mode (`request-review`)
+asks too; a headless `agy -p` call nobody can answer is denied (both seen
+live, App v2.35.1, CLI v1.5.16). If you allow MCP tools in your rules or use
+Auto mode, the calls the hook only ties to a conversation run without a
+question; the steps that change something or send something away still ask,
+through `force_ask`. Whether `--dangerously-skip-permissions` also skips
+`force_ask` hasn't been checked.
+
 Hooks fail open in Antigravity (a non-zero exit is ignored): the hooks always
 exit 0; the `PreToolUse` one answers `deny` when anything goes wrong, the
 `PreInvocation` one `{}`.

@@ -40,6 +40,15 @@ to you through the plugin's `PreToolUse` hook:
   this conversation loaded and approved, from its own server, checked against
   their digests. `list_skills` shows metadata only.
 
+Antigravity's defaults ask: in the App an MCP tool call shows "Allow using
+this MCP tool?", and the CLI's default permission mode (`request-review`)
+asks too; a headless `agy -p` call nobody can answer is denied (both seen
+live, App v2.35.1, CLI v1.5.16). If you allow MCP tools in your rules or use
+Auto mode, the calls the hook only ties to a conversation run without a
+question; the steps that change something or send something away still ask,
+through `force_ask`. Whether `--dangerously-skip-permissions` also skips
+`force_ask` hasn't been checked.
+
 There is no "show me `SKILL.md` first": the card is yes or no, and the plugin
 shows the model nothing of a skill before your yes.
 

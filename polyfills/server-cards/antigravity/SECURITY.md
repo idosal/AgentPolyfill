@@ -38,6 +38,11 @@ So an addition is put to you through the plugin's `PreToolUse` hook:
 - Nothing is auto-approved: the hook never answers `auto_approve` and sets no
   permission overrides. `discover_mcp_servers`, which only reads, goes through
   Antigravity's usual approval for MCP tools.
+- Antigravity's defaults ask before any MCP tool (the App's card; the CLI's
+  default `request-review` mode, where a headless call nobody answers is
+  denied; seen live). `force_ask` asks even where you have allowed MCP tools.
+  Whether `--dangerously-skip-permissions` also skips `force_ask` hasn't been
+  checked.
 - Hooks fail open in Antigravity (a non-zero exit is ignored), so the hook
   always exits 0 and answers `deny` when anything goes wrong.
 
