@@ -1,8 +1,7 @@
 # mcp-apps-cli: compliance and verification
 
 What `mcp-apps-cli` 0.1.5 implements of MCP Apps, clause by clause, how each
-part is checked, and what each check does and does not prove. A check names
-the version it was run on where that isn't 0.1.5. The spec is
+part is checked, and what each check does and does not prove. The spec is
 [`specification/2026-01-26/apps.mdx`](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx)
 (Stable), byte for byte the copy on `main` on 24 November 2026 (SHA-256
 `ee452a7d…`), plus `ui/download-file` from the draft.
@@ -366,36 +365,25 @@ revision refused it (`-32022`) and no view of it opened. From 0.1.5 it asks
   `tools/list`, no `initialize`, each naming 2026-07-28 in its `_meta` and
   (HTTP) in `MCP-Protocol-Version`; for the 2025 revisions, `initialize` at
   2025-11-25 after the refused probe, and `tools/list` in the 2025 form.
-  Every one of them says the client renders MCP Apps. Before the fix the
-  2026-07-28 case failed with the reported error. CI's "mcp-apps-cli: helper
-  and release" workflow runs it, with the rest of `cargo test --workspace`, on
-  each platform the helper is built for: macOS arm64 and x64, Linux x64 and
-  arm64, and Windows x64. Windows first caught a fault in the test itself:
-  its HTTP stand-in was started without the variables Windows needs for node
-  to start.
-- `bench/revision-check.mjs`, against servers built on the TypeScript SDK:
-  2.4.0 with `createMcpHandler(..., { legacy: "reject" })` (2026-07-28 only),
-  2.4.0 with its default (both), and 1.32.2 with a session-based streamable
-  HTTP transport (2025 only). For each, `/discover`, a view opened and drawn
-  (its `ui://` resource read over the helper's connection), and an app-only
-  `tools/call` from the view whose `structuredContent` and `_meta` came back
+  Every one of them says the client renders MCP Apps. CI runs it with the
+  rest of `cargo test --workspace` on each platform the helper is built for:
+  macOS arm64 and x64, Linux x64 and arm64, and Windows x64.
+- `bench/revision-check.mjs` (how to run it: [bench/README.md](../bench/README.md)),
+  against servers built on the TypeScript SDK: 2.4.0 with
+  `createMcpHandler(..., { legacy: "reject" })` (2026-07-28 only), 2.4.0
+  with its default (both), and 1.32.2 with a session-based streamable HTTP
+  transport (2025 only). For each, `/discover`, a view opened and drawn (its
+  `ui://` resource read over the helper's connection), and an app-only
+  `tools/call` from the view whose `structuredContent` and `_meta` come back
   whole; and what each server received, as above. It also gives each view
   the model's call's result as Claude Code records it (one text block of the
-  JSON): with "Structured results from text" on for the server the view got
-  `structuredContent` back, and without it, the text alone. All passed on 25 November
-  2026 (macOS, Apple Silicon, the helper's release and debug builds, over its Unix socket and TCP, Chrome 158).
+  JSON): with "Structured results from text" on for the server the view gets
+  `structuredContent` back, and without it, the text alone.
 
-The rest of the form's suites on 0.1.5, the same day: `cargo test
---workspace` in `helper-rs` (the render parity tests too, their fixtures
-made first), `claude plugin test mod`, `npm test` in `mod/helper` and
-`bench/contract-check.mjs` (stdio and SSE servers on the 1.x SDK, which get
-the 2025 handshake): all pass.
-
-Not checked: a live Claude Code session on 0.1.5 (what a mod receives for an
-MCP tool's result is from Claude Code's typed plugin API, the prototype's
-own notes and the report in issue #6, not observed here), a stdio server
-built on the 2.4.0 SDK (the stand-in covers
-stdio), Python and other SDKs, and a server that neither answers
+What Claude Code gives a plugin for an MCP tool's result is taken from its
+plugin API's types and the report in issue #6. Not checked in a live Claude
+Code session. Also not checked: a stdio server built on the 2.4.0 SDK (the
+stand-in covers stdio), other SDKs, and a server that neither answers
 `server/discover` nor refuses it, which waits 10 seconds before the
 handshake.
 
