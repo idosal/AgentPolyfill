@@ -80,20 +80,28 @@ function revision(serves, http) {
   const tools = [{ name: "show", inputSchema: { type: "object" }, _meta: { ui: { resourceUri: URI } } }];
   const log = (entry) => appendFileSync(file, `${JSON.stringify(entry)}\n`);
 
-  // One message in; its answer out (undefined for none), or an HTTP status
-  // and body for a request a server rejects before JSON-RPC (HTTP only).
+  // One message in, logged with what it was answered; its answer out
+  // (undefined for none), or an HTTP status and body for a request a server
+  // rejects before JSON-RPC (HTTP only).
   function answer(message, header) {
     const method = typeof message.method === "string" ? message.method : "";
     const meta = message.params?._meta ?? {};
     const envelope = meta["io.modelcontextprotocol/protocolVersion"] ?? null;
     const caps = method === "initialize" ? message.params?.capabilities : meta["io.modelcontextprotocol/clientCapabilities"];
-    log({
+    const entry = {
       method,
       envelope,
       header: header ?? null,
       initialize: method === "initialize" ? (message.params?.protocolVersion ?? null) : null,
       apps: Boolean(caps?.extensions?.["io.modelcontextprotocol/ui"]?.mimeTypes?.includes("text/html;profile=mcp-app")),
-    });
+    };
+    const out = reply_to(message, method, meta, envelope, header);
+    entry.answered = out === undefined ? "none" : "status" in out ? `HTTP ${out.status}` : out.error ? `error ${out.error.code}: ${out.error.message}` : "result";
+    log(entry);
+    return out;
+  }
+
+  function reply_to(message, method, meta, envelope, header) {
     if (!("id" in message)) return undefined;
     const reply = (result) => ({ jsonrpc: "2.0", id: message.id, result });
     const fail = (code, text, data) => ({ jsonrpc: "2.0", id: message.id, error: { code, message: text, ...(data ? { data } : {}) } });
@@ -153,9 +161,11 @@ function revision(serves, http) {
         return;
       }
       let message;
+      const raw = Buffer.concat(chunks).toString();
       try {
-        message = JSON.parse(Buffer.concat(chunks).toString());
+        message = JSON.parse(raw);
       } catch {
+        log({ method: "(unreadable)", envelope: null, header: req.headers["mcp-protocol-version"] ?? null, initialize: null, apps: false, answered: "HTTP 400", body: raw.slice(0, 300), contentType: req.headers["content-type"] ?? null });
         res.writeHead(400).end();
         return;
       }

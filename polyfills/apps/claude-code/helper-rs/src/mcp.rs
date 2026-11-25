@@ -20,7 +20,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result, anyhow, bail};
 use rmcp::ServiceExt;
 use rmcp::model::{ClientCapabilities, ClientConfig, Implementation, ProtocolVersion};
-use rmcp::service::{ClientLifecycleMode, ClientServiceExt, RoleClient, RunningService};
+use rmcp::service::{ClientInitializeError, ClientLifecycleMode, ClientServiceExt, RoleClient, RunningService};
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use rmcp::transport::{ConfigureCommandExt, StreamableHttpClientTransport, TokioChildProcess};
 use serde_json::{Map, Value, json};
@@ -355,6 +355,17 @@ fn lifecycle() -> ClientLifecycleMode {
     }
 }
 
+/// Why a connection didn't start. Where the probe and the handshake both
+/// failed, rmcp's own message says only that; this says what each got.
+fn startup_error(error: ClientInitializeError) -> anyhow::Error {
+    match error {
+        ClientInitializeError::LegacyFallbackFailed { discover, fallback } => {
+            anyhow!("server/discover failed ({discover}), and then initialize failed ({fallback})")
+        }
+        other => other.into(),
+    }
+}
+
 async fn connect(config: &Value, cwd: &PathBuf) -> Result<RunningService<RoleClient, ClientConfig>> {
     let url = config.get("url").and_then(Value::as_str);
     match config::kind(config) {
@@ -367,7 +378,7 @@ async fn connect(config: &Value, cwd: &PathBuf) -> Result<RunningService<RoleCli
             // the server's headers there, outside the browser's protections
             // (security review, A3).
             let transport = StreamableHttpClientTransport::from_config(transport_config);
-            Ok(client_info().serve_with_lifecycle(transport, lifecycle()).await?)
+            client_info().serve_with_lifecycle(transport, lifecycle()).await.map_err(startup_error)
         }
         // The HTTP+SSE transport is the 2024-11-05 revision's (replaced in
         // 2025-03-26): a server that offers it speaks a 2025 revision, so it
@@ -399,7 +410,7 @@ async fn connect(config: &Value, cwd: &PathBuf) -> Result<RunningService<RoleCli
                 cmd.creation_flags(crate::win::NO_WINDOW);
             });
             let (transport, _stderr) = TokioChildProcess::builder(command).stderr(std::process::Stdio::null()).spawn()?;
-            Ok(client_info().serve_with_lifecycle(transport, lifecycle()).await?)
+            client_info().serve_with_lifecycle(transport, lifecycle()).await.map_err(startup_error)
         }
     }
 }
@@ -486,6 +497,23 @@ mod tests {
             "the same-origin redirect wasn't followed: {:?}",
             sent(&heads)
         );
+    }
+
+    // Where server/discover and the 2025 handshake both fail, the error says
+    // what each got (rmcp's own says only that both failed).
+    #[tokio::test]
+    async fn a_failed_start_says_what_the_probe_and_the_handshake_each_got() {
+        const REFUSED: &str = "HTTP/1.1 400 Bad Request\r\ncontent-type: text/plain\r\ncontent-length: 7\r\nconnection: close\r\n\r\nrefused";
+        let (origin, heads) = serve(|_| REFUSED.to_string());
+        let config = json!({"type": "http", "url": format!("{origin}/mcp")});
+        let error = match tokio::time::timeout(Duration::from_secs(20), connect(&config, &std::env::temp_dir())).await {
+            Ok(Err(error)) => format!("{error:#}"),
+            Ok(Ok(_)) => panic!("connected to a server that refuses everything"),
+            Err(_) => panic!("timed out"),
+        };
+        assert!(error.contains("server/discover failed (") && error.contains("and then initialize failed ("), "{error}");
+        assert!(error.contains("HTTP 400"), "{error}");
+        assert_eq!(sent(&heads).len(), 2, "{:?}", sent(&heads));
     }
 
     #[tokio::test]

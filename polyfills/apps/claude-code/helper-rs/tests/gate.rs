@@ -404,12 +404,20 @@ impl RevisionServer {
             .env("HOME", w.root.join("home"))
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .spawn()
             .expect("node");
-        let mut port = String::new();
-        BufReader::new(child.stdout.take().unwrap()).read_line(&mut port).unwrap();
-        let url = format!("http://127.0.0.1:{}/mcp", port.trim());
+        // Its first line is the port it listens on, once it listens: anything
+        // else (it exited, or said something else) fails here, with what it said.
+        let mut line = String::new();
+        BufReader::new(child.stdout.take().unwrap()).read_line(&mut line).unwrap();
+        let Ok(port) = line.trim().parse::<u16>() else {
+            let _ = child.kill();
+            let mut stderr = String::new();
+            let _ = child.stderr.take().unwrap().read_to_string(&mut stderr);
+            panic!("the {serves} HTTP server printed no port (its first line: {line:?}, exit: {:?}); its stderr: {stderr}", child.wait());
+        };
+        let url = format!("http://127.0.0.1:{port}/mcp");
         RevisionServer { config: json!({"type": "http", "url": url}), child: Some(child) }
     }
 }
@@ -448,13 +456,15 @@ fn the_helper_speaks_each_servers_revision_in_that_revisions_form() {
             w.claude_json(json!({"probe": server.config.clone()}), json!({}));
             let helper = Helper::start(&w);
             let answer = helper.post("/discover", &json!({"server": "probe"}));
-            assert_eq!(answer["ok"], true, "{case}: {answer}");
-            assert_eq!(answer["tools"]["show"]["resourceUri"], "ui://probe/view.html", "{case}: {answer}");
+            // What the server received and answered, and what the helper said, for a failure.
+            let seen = || format!("server got {:?}; helper said {:?}", revision_log(&w, "revision"), helper.said("log"));
+            assert_eq!(answer["ok"], true, "{case}: {answer}; {}", seen());
+            assert_eq!(answer["tools"]["show"]["resourceUri"], "ui://probe/view.html", "{case}: {answer}; {}", seen());
 
             let sent: Vec<Value> = revision_log(&w, "revision").into_iter().filter(|m| m["method"] != "GET").collect();
             let methods: Vec<&str> = sent.iter().map(|m| m["method"].as_str().unwrap_or_default()).collect();
             if serves == "legacy" {
-                assert_eq!(methods, ["server/discover", "initialize", "notifications/initialized", "tools/list"], "{case}");
+                assert_eq!(methods, ["server/discover", "initialize", "notifications/initialized", "tools/list"], "{case}: {}", seen());
                 let initialize = &sent[1];
                 assert_eq!(initialize["initialize"], "2025-11-25", "{case}: {initialize}");
                 assert_eq!(initialize["apps"], true, "{case}: {initialize}");
@@ -464,7 +474,7 @@ fn the_helper_speaks_each_servers_revision_in_that_revisions_form() {
                     assert_eq!(list["header"], "2025-11-25", "{case}: {list}");
                 }
             } else {
-                assert_eq!(methods, ["server/discover", "tools/list"], "{case}");
+                assert_eq!(methods, ["server/discover", "tools/list"], "{case}: {}", seen());
                 for message in &sent {
                     assert_eq!(message["envelope"], "2026-07-28", "{case}: {message}");
                     assert_eq!(message["apps"], true, "{case}: {message}");
