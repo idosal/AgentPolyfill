@@ -10,13 +10,13 @@ and what happened.
 Each polyfill's own `SECURITY.md` describes what it checks and what it does
 not protect against:
 
-| Polyfill | Claude Code | Codex | Pi |
-|---|---|---|---|
-| Events | [SECURITY.md](polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](polyfills/events/codex/SECURITY.md) | [SECURITY.md](polyfills/events/pi/SECURITY.md) |
-| Apps | [SECURITY.md](polyfills/apps/claude-code/SECURITY.md) | not available | not available |
-| Skills | [SECURITY.md](polyfills/skills/claude-code/SECURITY.md) | [SECURITY.md](polyfills/skills/codex/SECURITY.md) | [SECURITY.md](polyfills/skills/pi/SECURITY.md) |
-| Server Cards | [SECURITY.md](polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](polyfills/server-cards/pi/SECURITY.md) |
-| ARD | [SECURITY.md](polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](polyfills/ard/codex/SECURITY.md) | [SECURITY.md](polyfills/ard/pi/SECURITY.md) |
+| Polyfill | Claude Code | Codex | Pi | Muse Code |
+|---|---|---|---|---|
+| Events | [SECURITY.md](polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](polyfills/events/codex/SECURITY.md) | [SECURITY.md](polyfills/events/pi/SECURITY.md) | [SECURITY.md](polyfills/events/muse/SECURITY.md) |
+| Apps | [SECURITY.md](polyfills/apps/claude-code/SECURITY.md) | not available | not available | not available |
+| Skills | [SECURITY.md](polyfills/skills/claude-code/SECURITY.md) | [SECURITY.md](polyfills/skills/codex/SECURITY.md) | [SECURITY.md](polyfills/skills/pi/SECURITY.md) | [SECURITY.md](polyfills/skills/muse/SECURITY.md) |
+| Server Cards | [SECURITY.md](polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](polyfills/server-cards/muse/SECURITY.md) |
+| ARD | [SECURITY.md](polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](polyfills/ard/codex/SECURITY.md) | [SECURITY.md](polyfills/ard/pi/SECURITY.md) | [SECURITY.md](polyfills/ard/muse/SECURITY.md) |
 
 These are third-party plugins and extensions that run with your permissions
 in each host. They have been reviewed by an AI reviewer that did not build
@@ -28,3 +28,20 @@ registry search or a server addition. None auto-approves or reads Pi's
 stored credentials (`mcp-auth.json`, `auth.json`). Pi's permissions remain
 the boundary. Skills also asks before a cross-server read while a served
 skill is loaded, naming both servers (SEP-2640 X8).
+
+Muse Code gives a plugin no way to ask you: its MCP client offers no
+elicitation, and a tool call that isn't read-only, or a hook's "ask", goes to
+its approval judge, a model that can approve with nobody asked. So no Muse
+polyfill leaves its consequential step to that judge:
+- **Events and Skills.** A watch and a skill load wait for a phrase you type
+  (`watch 4821`, `load 4821`), which only a message of your own satisfies.
+- **Server Cards and ARD.** An addition is a `muse mcp add` command you run
+  yourself.
+- **No search.** ARD has no registry search in Muse.
+
+The Muse forms read Muse's MCP server list (`~/.config/muse/settings.json`),
+which can hold header values you wrote, and never Muse's sign-in store. They
+read no project's configuration. They reach no server where your organisation
+manages Muse. While a plugin's MCP server is turned off in Muse, its hook does
+nothing.
+

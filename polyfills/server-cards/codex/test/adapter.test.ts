@@ -10,8 +10,10 @@ import {
   host,
   isCompatible,
   nodeFetch,
+  MUSE_PROTOCOL_VERSIONS,
   museCommand,
   planForCodex,
+  useMuseHost,
   shellWord,
   useCodexHost,
 } from '../plugin/dist/server.mjs'
@@ -452,4 +454,17 @@ test("M-6 in Muse the shared checks hold: a card whose text shows as something e
   assert.equal(zw.isError, true, zw.text)
   assert.doesNotMatch(zw.text, /muse mcp add/)
   assert.deepEqual(s.fake.calls(), [], 'muse is not even asked about the name')
+})
+
+test('M-7 as Muse: its protocol revisions, and its name where a remote is not usable', () => {
+  const before = { ...host, protocolVersions: [...host.protocolVersions] }
+  useMuseHost()
+  try {
+    assert.deepEqual([...host.protocolVersions], MUSE_PROTOCOL_VERSIONS)
+    assert.deepEqual([...MUSE_PROTOCOL_VERSIONS], ['2025-06-18', '2025-03-26', '2024-11-05'])
+    assert.equal(host.name, 'Muse')
+    assert.equal(isCompatible({ type: 'streamable-http', url: 'https://a.example/', supportedProtocolVersions: ['2026-07-28'] } as never), false)
+  } finally {
+    Object.assign(host, before)
+  }
 })

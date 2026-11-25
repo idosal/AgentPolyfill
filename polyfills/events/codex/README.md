@@ -4,7 +4,7 @@ Codex can watch events on your MCP servers ("tell me when a deploy fails")
 and act when one fires, even while the session sits idle with nobody typing.
 
 Also available for Claude Code: [mcp-events for Claude Code](../claude-code/README.md).
-The same plugin folder is also the Muse Code form: see [In Muse Code](#in-muse-code).
+The same plugin folder is also the Muse Code form: [mcp-events for Muse Code](../muse/README.md).
 
 This plugin implements the client side of the MCP Events extension,
 [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
@@ -31,30 +31,9 @@ To remove it, run `codex plugin remove mcp-events@agent-polyfill`.
 
 ## In Muse Code
 
-The same folder installs in [Muse Code](../../../docs/muse.md) (1.4.25 or newer):
-
-```bash
-muse plugins marketplace add agent-polyfill https://github.com/idosal/AgentPolyfill
-muse plugins install mcp-events@agent-polyfill
-muse plugins approve mcp-events
-```
-
-There it works differently:
-
-- **Delivery.** A watch belongs to the Muse session that set it (Muse names it
-  in `MUSE_SESSION_ID`). Its new events reach the model with your next message,
-  through the plugin's `UserPromptSubmit` hook. An event doesn't wake an idle
-  session.
-- **Real wake, opt-in and experimental.** `{"MCP_EVENTS_MUSE_WAKE": "attach"}`
-  in the plugin's settings file, with `muse` started with Muse's two
-  session-protocol gates. With those gates on, any local program running as you
-  can drive the session.
-- **Servers and settings.** The servers come from Muse's settings. The plugin's
-  settings come from `settings.json` in its data folder, because Muse passes a
-  plugin's server no environment variables.
-
-[AgentPolyfill in Muse Code](../../../docs/muse.md) has the details and the
-limits.
+The same folder installs in Muse Code: [mcp-events for Muse Code](../muse/README.md)
+has the install steps, what works differently there and why, its limits, and
+its security notes.
 
 ## Try it
 
