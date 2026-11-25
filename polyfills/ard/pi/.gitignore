@@ -1,0 +1,5 @@
+node_modules/
+test/.build/
+test/.tmp/
+test/*-results.log
+test/results.log

@@ -1,0 +1,60 @@
+$ MCP_CONFORMANCE_SUITE_DIR=<suite checkout> node --no-warnings test/conformance-driver.ts --suite
+# 2026-11-25, 0.1.0, conformance suite at c8625de3118c2d5dc0561696cddeb0baaf124f2c (modelcontextprotocol/conformance#541)
+Starting scenario: events-client-no-extension
+Executing client: "node" --no-warnings "<pi>/test/conformance-driver.ts" http://localhost:64701
+With context: {"durationMs":2000}
+Results saved to <out>/events-client-no-extension-2026-11-25T00-17-20-426Z
+Checks:
+2026-11-25T00:17:23.215Z [sep-3415-client-no-events-without-extension] SUCCESS All `events/*` requests are client-initiated, so a client MUST NOT send them to a server that has not advertised the extension.
+
+Test Results:
+Passed: 1/1, 0 failed, 0 warnings
+
+✅ OVERALL: PASSED
+Starting scenario: events-client-poll
+Executing client: "node" --no-warnings "<pi>/test/conformance-driver.ts" http://localhost:64729
+With context: {"durationMs":10000}
+Results saved to <out>/events-client-poll-2026-11-25T00-17-25-553Z
+Checks:
+2026-11-25T00:17:36.040Z [sep-3415-client-poll-drain-on-has-more         ] SUCCESS When `hasMore` is true the client SHOULD poll again immediately, ignoring `nextPollMs`.
+2026-11-25T00:17:36.040Z [sep-3415-client-poll-respects-next-poll-ms     ] SUCCESS `nextPollMs` lets the server control polling frequency. Clients SHOULD respect it.
+2026-11-25T00:17:36.040Z [sep-3415-client-poll-floor                     ] SUCCESS Clients SHOULD apply a configurable floor (default 1000 ms) to guard against a misbehaving server inducing a tight loop.
+2026-11-25T00:17:36.041Z [sep-3415-client-truncated-persists-fresh-cursor] SUCCESS `truncated: true` always implies a possible gap; clients SHOULD treat it as such and persist the fresh cursor.
+2026-11-25T00:17:36.041Z [sep-3415-client-listen-opt-in                  ] SUCCESS `notifications/events/list_changed` is delivered only on a `subscriptions/listen` stream, and only when the client opted in with `eventsListChanged`.
+2026-11-25T00:17:36.041Z [sep-3415-client-relist-on-list-changed         ] SUCCESS On `notifications/events/list_changed` the client SHOULD re-call `events/list` to refresh its event type registry.
+2026-11-25T00:17:36.041Z [sep-3415-client-null-cursor-not-replayed       ] SUCCESS A client receiving `cursor: null` MUST NOT attempt to persist or replay from it; on reconnect/resubscribe it sends `cursor: null`.
+2026-11-25T00:17:36.041Z [sep-3415-client-cursor-absent-tolerated        ] SUCCESS An absent `cursor` field MUST be treated identically to an explicit `cursor: null`; a receiver MUST NOT fail because it is missing.
+2026-11-25T00:17:36.041Z [sep-3415-client-mcp-name-set                   ] SUCCESS On Streamable HTTP the client MUST set `Mcp-Name` to `params.name` on `events/poll`, `events/stream`, `events/subscribe` and `events/unsubscribe`.
+2026-11-25T00:17:36.041Z [sep-3415-client-mcp-name-base64                ] SUCCESS An event name that cannot be safely represented as a plain ASCII header value MUST be carried in the Base64 sentinel format.
+
+Test Results:
+Passed: 10/10, 0 failed, 0 warnings
+
+✅ OVERALL: PASSED
+Starting scenario: events-client-push
+Executing client: "node" --no-warnings "<pi>/test/conformance-driver.ts" http://localhost:64802
+With context: {"durationMs":9000}
+Results saved to <out>/events-client-push-2026-11-25T00-17-37-541Z
+Checks:
+2026-11-25T00:17:47.053Z [sep-3415-client-stream-reconnect-with-cursor] SUCCESS A client that has received neither an event nor a heartbeat for more than twice the heartbeat interval SHOULD treat the stream as dead and reconnect with its cursor.
+2026-11-25T00:17:47.053Z [sep-3415-client-null-cursor-not-replayed    ] SUCCESS A client receiving `cursor: null` MUST NOT attempt to persist or replay from it; on reconnect/resubscribe it sends `cursor: null`.
+2026-11-25T00:17:47.054Z [sep-3415-client-mcp-name-set                ] SUCCESS On Streamable HTTP the client MUST set `Mcp-Name` to `params.name` on `events/poll`, `events/stream`, `events/subscribe` and `events/unsubscribe`.
+
+Test Results:
+Passed: 3/3, 0 failed, 0 warnings
+
+✅ OVERALL: PASSED
+Starting scenario: events-client-webhook
+Executing client: "node" --no-warnings "<pi>/test/conformance-driver.ts" http://localhost:64850
+With context: {"durationMs":8000}
+Results saved to <out>/events-client-webhook-2026-11-25T00-17-47-963Z
+Checks:
+2026-11-25T00:17:56.462Z [sep-3415-client-refresh-before-expiry   ] SUCCESS Unless granted no expiry, the client MUST re-call `events/subscribe` with the same subscription key before `refreshBefore` to keep the subscription alive.
+2026-11-25T00:17:56.462Z [sep-3415-client-null-cursor-not-replayed] SUCCESS A client receiving `cursor: null` MUST NOT attempt to persist or replay from it; on reconnect/resubscribe it sends `cursor: null`.
+2026-11-25T00:17:56.462Z [sep-3415-client-mcp-name-set            ] SUCCESS On Streamable HTTP the client MUST set `Mcp-Name` to `params.name` on `events/poll`, `events/stream`, `events/subscribe` and `events/unsubscribe`.
+
+Test Results:
+Passed: 3/3, 0 failed, 0 warnings
+
+✅ OVERALL: PASSED
+[driver] core client: all 4 scenarios passed
