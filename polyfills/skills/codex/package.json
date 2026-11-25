@@ -1,7 +1,7 @@
 {
   "name": "mcp-skills-codex",
   "private": true,
-  "version": "0.1.6",
+  "version": "0.1.7",
   "type": "module",
   "description": "A Codex plugin that adds the client side of the MCP Skills extension (SEP-2640): skills served by your MCP servers are listed among Codex's skills, and loaded on demand after you approve them.",
   "engines": {
