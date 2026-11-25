@@ -211,11 +211,11 @@ these commands help:
 | `/mcp-skills use <skill> [what to do]` | Asks Claude to load a skill by name. |
 | `/mcp-skills disable <skill>` | Keeps a skill from Claude: it is not in Claude's skill listing, and cannot be loaded or read, in this session or another, until you type `/mcp-skills enable <skill>`. |
 
-Also: `/mcp-skills refresh` looks at every server again, `/mcp-skills forget
-[<skill>]` drops your approvals, and `/mcp-skills setup` is for a machine with
-no Node and no Bun. `<skill>` is a name, `server:name`, the URI of a
-`SKILL.md`, or `server:URI` (which also names a skill its server does not
-list).
+Also: `/mcp-skills refresh` looks at every server again,
+`/mcp-skills forget [<skill>]` drops your approvals, and `/mcp-skills setup`
+is for a machine with no Node and no Bun. `<skill>` is a name, `server:name`,
+the URI of a `SKILL.md`, or `server:URI` (which also names a skill its server
+does not list).
 
 ## What to expect
 
@@ -293,13 +293,13 @@ turn one served skill off, deny `mcp_skills_load` for `<server>:<uri>@*`.
 
 Muse gives a plugin no way to ask you, and a hook's `ask` goes to Muse's
 approval judge, a model that may approve with nobody asked. So a load waits
-for a phrase you type. The answer gives a phrase that names the server and
-the skill, such as `load github git-workflow 4821`, and
-only a message of yours that is exactly that phrase approves the load: Muse
-runs the plugin's `UserPromptSubmit` hook for your messages, not for a turn
-Muse or a model starts. The phrase is good for that one question, in that
-session, for 15 minutes. Then the skill loads and is checked against the
-server's digests.
+for a phrase you type. The answer gives a phrase that names the server and the
+skill, such as `load github git-workflow 4821`, and only a message of yours
+that is exactly that phrase approves the load: Muse runs the plugin's
+`UserPromptSubmit` hook for your messages, and none of the ways a model can
+put text into a session ran it when each was checked. The phrase is good for
+that one question, in that session, for 15 minutes. Then the skill loads and
+is checked against the server's digests.
 
 "Show me its SKILL.md first" isn't offered, because Muse has no way to show
 you text the model doesn't see. The served skills are written as stubs into

@@ -300,16 +300,16 @@ server, in its TUI and in OpenCode Desktop.
 ### In Muse Code
 
 Muse gives a plugin no way to ask you, and a tool call that isn't read-only
-goes to Muse's approval judge, a model that may approve it with nobody
-asked. So `watch_event` starts nothing at first. Its answer gives a phrase
-that names the server and the event type, such as `watch tickets ticket.created 4821`. Only a
-message of yours that is exactly that phrase
-approves the watch: Muse runs the plugin's `UserPromptSubmit` hook for your
-messages, not for a turn Muse or a model starts. The phrase is good for that one
-question, in that session, for 15 minutes. `unwatch_event` works the same
-way: its answer names the watch and gives a phrase such as
-`unwatch tickets ticket.created 3307`,
-and the watch stops only after you send it.
+goes to Muse's approval judge, a model that may approve it with nobody asked.
+So `watch_event` starts nothing at first. Its answer gives a phrase that names
+the server and the event type, such as `watch tickets ticket.created 4821`.
+Only a message of yours that is exactly that phrase approves the watch: Muse
+runs the plugin's `UserPromptSubmit` hook for your messages, and none of the
+ways a model can put text into a session ran it when each was checked. The
+phrase is good for that one question, in that session, for 15 minutes.
+`unwatch_event` works the same way: its answer names the watch and gives a
+phrase such as `unwatch tickets ticket.created 3307`, and the watch stops only
+after you send it.
 
 New events reach the model with your next message, as a context block from
 the hook that starts

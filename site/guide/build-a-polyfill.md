@@ -226,19 +226,19 @@ a scripted model, and live runs in
 [`tools/opencode/live-run.md`](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md).
 ARD's live runs did not add a server; addition was checked by its tests.
 
-The Muse Code forms show the same. A Muse plugin brings an MCP server,
-skills and hooks, as in Codex, but it can't put a question to the person:
-Muse's MCP client offers no elicitation, and a
-tool call that isn't read-only, or a hook's `ask`, goes to the approval
-judge, a model that may approve with nobody asked. So Events and Skills wait
-for a phrase the person types, which the plugin's `UserPromptSubmit` hook
-checks; Muse runs that hook for the person's messages, not for a turn Muse or a model
-starts. Server Cards and ARD write nothing and give the person a
+The Muse Code forms show the same. A Muse plugin brings an MCP server, skills
+and hooks, as in Codex, but it can't put a question to the person: Muse's MCP
+client offers no elicitation, and a tool call that isn't read-only, or a
+hook's `ask`, goes to the approval judge, a model that may approve with nobody
+asked. So Events and Skills wait for a phrase the person types, which the
+plugin's `UserPromptSubmit` hook checks; Muse runs that hook for the person's
+messages, and none of the ways a model can put text into a session ran it when
+each was checked. Server Cards and ARD write nothing and give the person a
 `muse mcp add …` command to run, and ARD drops registry search. Events and
 Skills need their own connections and can't use Muse's sign-in. A turn in an
-idle session needs two experimental launch gates, so Events delivers with
-the next message by default. The Skills form meets X8 because Muse gives the
-model no tool that reads an MCP resource. Their READMEs, `SECURITY.md`,
+idle session needs two experimental launch gates, so Events delivers with the
+next message by default. The Skills form meets X8 because Muse gives the model
+no tool that reads an MCP resource. Their READMEs, `SECURITY.md`,
 `docs/conformance.md` and `docs/live-run.md` record what was checked: each
 form's own tests, and runs in a real Muse 1.4.25 with no real model.
 

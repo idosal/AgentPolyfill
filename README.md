@@ -133,10 +133,10 @@ muse plugins approve mcp-events
 
 The same for `mcp-skills`, `mcp-server-cards` and `ard-discovery`; Muse has no
 bundle. Muse holds a plugin's servers and hooks back until you approve them,
-and again after each update. To remove one, `muse plugins remove <name>
---delete-data`. Skills' stubs stay in `~/.config/muse/skills/mcp-skills-served--*`
-until you delete them. What works differently there, and why:
-[AgentPolyfill in Muse Code](docs/muse.md).
+and again after each update. To remove one,
+`muse plugins remove <name> --delete-data`. Skills' stubs stay in
+`~/.config/muse/skills/mcp-skills-served--*` until you delete them. What works
+differently there, and why: [AgentPolyfill in Muse Code](docs/muse.md).
 
 There are [more ways to install](#more-ways-to-install) further down.
 
@@ -225,17 +225,18 @@ where these forms run.
 **In Muse Code** the same plugins as in Codex run with less from the host. An
 event reaches the session with your next message, not by waking it (an
 experimental opt-in does wake it). **Muse offers plugins no approval dialog.**
-In the other hosts the polyfills ask through a prompt the host draws itself,
-which the model can't answer. In Muse, consent is a phrase you type, checked
-by the plugin's `UserPromptSubmit` hook, which runs only for messages you
-type. A model can't send it: scheduled prompts, monitors, subagents, other
-sessions, goals and workflows were each checked. So you approve a watch, its
-stop or a served skill by typing the short phrase the answer gives, which names
-what you approve (`watch tickets ticket.created 4821`,
-`load github git-workflow 4821`). You read the question as the model relays it,
-not in a dialog. You add a server yourself, with the `muse mcp add` command
-Server Cards gives you. ARD has no registry search there. No Muse run used a
-real model.
+In the other hosts, in a mode that asks, the polyfills ask through a prompt
+the host draws itself, which the model can't answer (with approvals off in
+Claude Code or Codex, a watch isn't asked). In Muse, consent is a phrase you
+type, checked by the plugin's `UserPromptSubmit` hook. That hook ran for the
+messages you typed, and none of the ways a model can put text into a session
+(scheduled prompts, monitors, subagents, other sessions, goals, workflows) ran
+it when each was checked. So you approve a watch, its stop or a served skill
+by typing the short phrase the answer gives, which names what you approve
+(`watch tickets ticket.created 4821`, `load github git-workflow 4821`). You
+read the question as the model relays it, not in a dialog. You add a server
+yourself, with the `muse mcp add` command Server Cards gives you. ARD has no
+registry search there. No Muse run used a real model.
 [AgentPolyfill in Muse Code](docs/muse.md) explains each of these.
 
 **Beyond MCP**, `ard-discovery` adds

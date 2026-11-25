@@ -37,28 +37,32 @@ stored credentials (`mcp-auth.json`, `auth.json`). Pi's permissions remain
 the boundary. Skills also asks before a cross-server read while a served
 skill is loaded, naming both servers (SEP-2640 X8).
 
-OpenCode's shipped permission rules allow every action. Each OpenCode
-polyfill puts its consequential step (a watch, a skill load, a registry
-search or a server addition) to OpenCode's rules and makes it ask by
-default; a `deny` or `ask` rule you write wins, and with nobody there to
-answer, OpenCode refuses. None answers a question itself or reads
-OpenCode's stored credentials, OAuth tokens included. OpenCode's rules
-remain the boundary. Skills also asks before a cross-server read while a
-served skill is loaded, naming both servers (SEP-2640 X8). OpenCode 2.4.1's
-TUI shows each of these questions only as "Call tool `<action>`"; the details
-are on the model's call line just above it.
+OpenCode's shipped permission rules allow every action. Each OpenCode polyfill
+puts its consequential step (a watch, a skill load, a registry search or a
+server addition) to OpenCode's rules and makes it ask by default; a `deny` or
+`ask` rule you write wins, and with nobody there to answer, OpenCode refuses.
+None answers a question itself or reads OpenCode's stored credentials, OAuth
+tokens included. OpenCode's rules remain the boundary. Skills also asks before
+a cross-server read while a served skill is loaded, naming both servers
+(SEP-2640 X8). OpenCode 2.4.1's TUI shows each of these questions only as
+"Call tool `<action>`"; the details are on the model's call line just above
+it.
+
 **Muse Code offers plugins no approval dialog.** In Claude Code, Codex, Pi
-and OpenCode, the polyfills ask through a prompt the host draws itself, which
-the model can't answer. Muse's MCP client offers no elicitation, and a tool
-call that isn't read-only, or a hook's "ask", goes to its approval judge, a
-model that can approve with nobody asked. So no Muse polyfill leaves its
+and OpenCode, in a mode that asks, the polyfills ask through a prompt the host
+draws itself, which the model can't answer (with approvals off in Claude Code
+or Codex, a watch isn't asked). Muse's MCP client offers no elicitation, and a
+tool call that isn't read-only, or a hook's "ask", goes to its approval judge,
+a model that can approve with nobody asked. So no Muse polyfill leaves its
 consequential step to that judge:
 - **Events and Skills.** Consent is a phrase you type, checked by the plugin's
   `UserPromptSubmit` hook. Starting or stopping a watch, and loading a skill,
   wait for a phrase that names what it approves
-  (`watch tickets ticket.created 4821`, `load github git-workflow 4821`). Only a
-  message of your own satisfies it: Muse runs that hook only for messages you
-  type, and nothing a model can put into a session ran it when each way was
+  (`watch tickets ticket.created 4821`, `load github git-workflow 4821`). Only
+  a message of your own satisfies it: Muse ran that hook for the messages you
+  typed, and none of the ways a model can put text into a session (scheduled
+  prompts, monitors, subagents, other sessions, goals, workflows) ran it when
+  each was
   [checked](polyfills/events/muse/docs/live-run.md#what-can-send-the-phrase).
   Unlike a host's dialog, you read the question as the model relays it.
 - **Server Cards and ARD.** An addition is a `muse mcp add` command you run

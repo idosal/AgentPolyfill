@@ -13,7 +13,7 @@
 //     offers no elicitation, and a tool call that is not read-only, or a hook's "ask", goes to
 //     Muse's approval judge, a model that may approve it with nobody asked. What only the person
 //     can do is type their own message: Muse runs a plugin's UserPromptSubmit hook for those, and
-//     not for a turn that Muse or a model starts (checked: cron, monitors, subagents, peer messages, goals, workflows). So load_skill answers with the question
+//     and none of the ways a model can put text into a session ran it when each was checked (cron, monitors, subagents, peer messages, goals, workflows). So load_skill answers with the question
 //     and a short code; the person who wants the skill sends a message that is exactly
 //     `load <server> <skill> <code>`, the plugin's hook records it, and the next load_skill call of that session
 //     loads it. An approval is kept as in Codex: the same skill, unchanged, loads without the

@@ -92,6 +92,25 @@ describe('the Muse plugin folder', () => {
     });
 });
 
+describe('the stub writers are where they belong', () => {
+    test("the Muse bundle writes flat stubs and holds no Codex stub writer; the Codex bundle holds no Muse writer", () => {
+        // The Codex writer's own folder-name patterns (../codex/src/stubs.ts LABEL_DIR, SKILL_DIR),
+        // which only it uses, and the Muse writer's folder prefix (muse.ts FLAT_PREFIX).
+        const src = readFileSync(join(ROOT, '..', 'codex', 'src', 'stubs.ts'), 'utf8');
+        const codexMarks = ['LABEL_DIR', 'SKILL_DIR'].map((n) => new RegExp(`const ${n} = (/.+/);`).exec(src)?.[1]);
+        assert.ok(codexMarks.every(Boolean), 'the Codex writer\'s patterns are found in its source');
+        const museMark = 'mcp-skills-served--';
+        const muse = readFileSync(HELPER, 'utf8');
+        const codex = readFileSync(join(MOD, 'dist', 'helper.js'), 'utf8');
+        for (const m of codexMarks) {
+            assert.ok(codex.includes(m!), `the Codex bundle has its writer (${m})`);
+            assert.ok(!muse.includes(m!), `the Muse bundle holds the Codex writer (${m}): see build.mjs swapCodexStubWriter`);
+        }
+        assert.ok(muse.includes(museMark), 'the Muse bundle has the flat writer');
+        assert.ok(!codex.includes(museMark), 'the Codex bundle holds the Muse writer');
+    });
+});
+
 describe('stubs in Muse', () => {
     test('one folder each, directly in Muse\'s skill folder; stale ones go, a configured server not reached keeps its own, nothing else is touched', () => {
         const root = join(temp(), 'skills');

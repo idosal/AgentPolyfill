@@ -10,12 +10,16 @@ says.
 ## The boundary
 
 **Plainly:** Muse offers plugins no approval dialog. Where Claude Code, Codex,
-Pi and OpenCode show you a prompt the host draws itself, which the model can't
-answer, here consent is a phrase you type, checked by the plugin's
-`UserPromptSubmit` hook. That holds because Muse runs the hook only for messages
-you type; each way a model can put text into a session was [tried](../../events/muse/docs/live-run.md#what-can-send-the-phrase), and none
-ran it. The weaker part: you read the question as the model relays it, so the
-phrase names what it approves.
+Pi and OpenCode, in a mode that asks, show you a prompt the host draws itself,
+which the model can't answer (with approvals off in Claude Code or Codex, a
+watch isn't asked), here consent is a phrase you type, checked by the plugin's
+`UserPromptSubmit` hook. That holds because Muse ran the hook for the messages
+you typed, and none of the ways a model can put text into a session (scheduled
+prompts, monitors, subagents, other sessions, goals, workflows) ran it when
+each was
+[checked](../../events/muse/docs/live-run.md#what-can-send-the-phrase). The
+weaker part: you read the question as the model relays it, so the phrase names
+what it approves.
 
 Loading a skill puts a server's text into the conversation, so it waits for
 your yes. Muse can't be relied on to ask:
@@ -32,10 +36,11 @@ approve. A skill whose server or name has anything but letters, digits and
 
 - **Who can approve.** The plugin's `UserPromptSubmit` hook approves the
   question only when a message of yours is exactly that phrase, in the same
-  session, within 15 minutes. Muse runs that hook for your messages, not for a
-  turn Muse or a model starts, so the model can't send the phrase. Each way a
-  model can put text into a session was tried, and none ran the hook
-  ([mcp-events' live runs](../../events/muse/docs/live-run.md#what-can-send-the-phrase)).
+  session, within 15 minutes. Muse ran that hook for your messages. None of
+  the ways a model can put text into a session ran it when each was tried
+  ([mcp-events' live
+  runs](../../events/muse/docs/live-run.md#what-can-send-the-phrase)), so the
+  model can't send the phrase by any of them.
 - **What a yes covers.** The next `load_skill` of that question loads it, once.
   After that the approval is kept as in Codex: bound to the skill's URI, its
   server and its digests, and asked again when they change.

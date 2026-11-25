@@ -59,8 +59,10 @@ rm -rf ~/.config/muse/skills/mcp-skills-served--*
 
 ## How you say yes
 
-**Muse offers plugins no approval dialog.** In the other hosts, the polyfills
-ask you through a prompt the host draws itself, which the model can't answer:
+**Muse offers plugins no approval dialog.** In the other hosts, in a mode that
+asks, the polyfills ask you through a prompt the host draws itself, which the
+model can't answer (with approvals off in Claude Code or Codex, a watch isn't
+asked):
 
 - **Claude Code:** its permission dialog.
 - **Codex:** its approval prompt, or an MCP form.
@@ -78,10 +80,10 @@ plugin's hook**:
 - **The check.** The plugin's `UserPromptSubmit` hook reads your next message.
   Only a message that is exactly that phrase approves it, in the same session,
   within 15 minutes, once.
-- **Only you.** Muse runs that hook only for messages you type. Nothing a
-  model can put into a session runs it: scheduled prompts, monitors,
-  subagents, other sessions, goals and workflows were each [checked
-  live](../../events/muse/docs/live-run.md#what-can-send-the-phrase).
+- **Only you.** Muse ran that hook for the messages you typed. None of the
+  ways a model can put text into a session (scheduled prompts, monitors,
+  subagents, other sessions, goals, workflows) ran it when each was
+  [checked live](../../events/muse/docs/live-run.md#what-can-send-the-phrase).
 
 What a host's prompt gives you that this doesn't: you read the question as the
 model relays it in the chat. The phrase names the server and what's on it, so
@@ -124,11 +126,12 @@ muse mcp add huggingface --url https://huggingface.co/mcp
 
   So the first `load_skill` answers with the question, as the Codex form asks
   it: the skill, the server, the URI, the files, and the server's description.
-  It ends with a phrase, `load <server> <skill> <code>`. The plugin's `UserPromptSubmit` hook
-  approves the load only when a message of yours is exactly that phrase, in the
-  same session, within 15 minutes. Muse runs that hook for your messages, not
-  for a turn Muse or a model starts, so the model can't send it. The next `load_skill`
-  loads the skill.
+  It ends with a phrase, `load <server> <skill> <code>`. The plugin's
+  `UserPromptSubmit` hook approves the load only when a message of yours is
+  exactly that phrase, in the same session, within 15 minutes. Muse runs that
+  hook for your messages, and none of the ways a model can put text into a
+  session ran it when each was checked, so the model can't send it. The next
+  `load_skill` loads the skill.
 - **After a yes.** An approval is kept as in Codex: the same skill, unchanged,
   loads without the question afterwards. A changed one is asked about again.
 - **No preview.** "Show me its SKILL.md first" isn't offered in Muse. Muse has

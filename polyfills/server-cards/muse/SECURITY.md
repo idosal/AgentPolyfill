@@ -10,8 +10,9 @@ says.
 ## The boundary
 
 **Plainly:** Muse offers plugins no approval dialog. Where Claude Code, Codex,
-Pi and OpenCode ask you through a prompt the host draws itself, here adding a
-server is a command you run yourself: the plugin writes nothing.
+Pi and OpenCode, in a mode that asks, ask you through a prompt the host draws
+itself, here adding a server is a command you run yourself: the plugin writes
+nothing.
 
 Muse's own configuration is the boundary. Adding a server to it is something
 only you do here.
@@ -28,8 +29,8 @@ So `add_mcp_server` writes nothing. Instead:
   yourself.
 - **What you see.** Each word that needs it is quoted for a POSIX shell, so the
   command you see is the one that runs, with the URL and every header.
-- **No secret values.** A secret is never a value: `--bearer-token-env-var
-  VAR`, or a header whose whole value is `${VAR}`.
+- **No secret values.** A secret is never a value:
+  `--bearer-token-env-var VAR`, or a header whose whole value is `${VAR}`.
 - **The same checks as Codex:**
   - a card shown in this session;
   - the URL it gives, which must match the URL the model names;

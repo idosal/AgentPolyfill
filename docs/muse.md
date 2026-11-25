@@ -42,10 +42,10 @@ no bundle. Then start a new `muse` session.
 
 - **Why `approve`.** Muse turns on a plugin's skills when you install it. It
   holds its MCP servers and hooks back until you approve them.
-- **After an update, approve again.** `muse plugins marketplace update
-  agent-polyfill`, then `muse plugins update <name>`, marks the plugin's servers
-  and hooks as changed. They stay off until you run `muse plugins approve <name>`
-  again.
+- **After an update, approve again.**
+  `muse plugins marketplace update agent-polyfill`, then
+  `muse plugins update <name>`, marks the plugin's servers and hooks as
+  changed. They stay off until you run `muse plugins approve <name>` again.
 - **Trusted folders only.** Muse starts no MCP server in a workspace you haven't
   trusted, these included.
 
@@ -81,11 +81,12 @@ sending a search to a registry. Muse gives a plugin no way to ask you:
 So the forms rely on two things only you can do:
 
 - **Type your own message.** Muse runs a plugin's `UserPromptSubmit` hook for
-  your messages. It doesn't run it for anything a model can put into a
-  session: a scheduled prompt, a monitor's output, a subagent's task or result,
-  a message from another session, a goal's or a workflow's turn. So a model
-  can't write that message for you
-  ([how that was checked](../polyfills/events/muse/docs/live-run.md#what-can-send-the-phrase)).
+  your messages. None of the ways a model can put text into a session ran it
+  when each was checked: a scheduled prompt, a monitor's output, a subagent's
+  task or result, a message from another session, a goal's or a workflow's
+  turn. So a model can't write that message for you by any of those ways ([how
+  that was
+  checked](../polyfills/events/muse/docs/live-run.md#what-can-send-the-phrase)).
   - **Events and Skills** answer a watch, a stop or a load with the question,
     which ends with a phrase that names what it approves (`watch tickets ticket.created 4821`,
     `unwatch tickets ticket.created 3307`, `load github git-workflow 4821`).
@@ -149,8 +150,8 @@ variables you'd set for Codex never reach them. Each plugin reads a
 - **`mcp-events`:** the `MCP_EVENTS_*` settings by name, for example
   `{"MCP_EVENTS_MUSE_WAKE": "attach", "MCP_EVENTS_SKIP": "github"}`. One is never
   taken from the file: `MCP_EVENTS_STATE`.
-- **`mcp-skills`:** the same file as in Codex: `{"servers": [...], "skip": [...],
-  "off": true}`.
+- **`mcp-skills`:** the same file as in Codex:
+  `{"servers": [...], "skip": [...], "off": true}`.
 - **`mcp-server-cards` and `ard-discovery`:** no settings in Muse.
 
 ## What Events and Skills read, and what they honour
@@ -161,8 +162,9 @@ a connection of their own to each server in **Muse's MCP server list**: that's
 
 - **Header values.** That list can hold header values you wrote. The plugins
   use them to connect, as Muse does, and keep them out of their logs.
-- **Never Muse's sign-in store.** A server you signed in to with `muse mcp
-  login` (OAuth) can't be reached, because Muse keeps that sign-in to itself.
+- **Never Muse's sign-in store.** A server you signed in to with
+  `muse mcp login` (OAuth) can't be reached, because Muse keeps that sign-in
+  to itself.
 - **No `${VAR}` values.** A server whose header or environment takes a value
   from a variable is left out, with the reason. Muse passes no variables to a
   plugin.
@@ -221,10 +223,11 @@ records its runs:
 [Server Cards](../polyfills/server-cards/muse/docs/live-run.md),
 [ARD](../polyfills/ard/muse/docs/live-run.md). In short:
 
-- **What can send the phrase.** Nothing a model can put into a session ran
-  the plugins' `UserPromptSubmit` hook: scheduled prompts, monitor output,
-  subagent tasks, results and messages, peer-session messages, goal and
-  workflow turns. Only a message the person typed did.
+- **What can send the phrase.** None of the ways a model can put text into a
+  session ran the plugins' `UserPromptSubmit` hook when each was checked:
+  scheduled prompts, monitor output, subagent tasks, results and messages,
+  peer-session messages, goal and workflow turns. Only a message the person
+  typed did.
 - **Install.** All four validate with compatibility `full`, install from a
   local copy of this branch as a marketplace, approve, and serve their tools in
   a session. The GitHub URL above can only be checked once the Muse manifests
