@@ -101,5 +101,7 @@ is what the suite starts as the client. It runs the four scenarios
 - Interop runs against other implementations' Events servers are the Codex
   form's ([`interop.md`](../../codex/docs/interop.md)), with the same client
   code; from Pi, the form has been run against the hand-written fixture
-  server, an HTTP server behind a token and one behind OAuth, and the hosted
-  demo server in the [live run](live-run.md).
+  server (with a real model, in the [live run](live-run.md)), an HTTP server
+  behind a token and one behind OAuth, and the hosted demo server (with the
+  scripted model: a watch confirmed, an `hn.story` event waking the idle
+  session, `get_event` reading it).

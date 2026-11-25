@@ -22,28 +22,35 @@ ranking is relevance, not trust.
 
 ## Install
 
-From a clone, with Node.js 22 on your PATH:
+Nothing is published to npm or Pi's package gallery yet, so install it from a
+clone of this repository. You need **Pi 1.6.0**, the version it was tested
+with, and **Node 22 or newer**, which Pi needs anyway:
 
 ```bash
-pi install /absolute/path/to/AgentPolyfill/polyfills/ard/pi/extension
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+pi install ./polyfills/ard/pi/extension
 ```
 
-Or load it for one session:
+Or, to try it for one run without installing:
 
 ```bash
-pi -e /absolute/path/to/AgentPolyfill/polyfills/ard/pi/extension
+pi -e ./polyfills/ard/pi/extension
 ```
 
-Tested with **Pi 1.6.0** and **Node.js 22.22.1**. Nothing is published to a
-package registry. The installed folder is self-contained: its manifest
-declares `pi.extensions`, and its JavaScript bundle contains the shared code.
+The extension is one folder, [`extension/`](extension/): a manifest and one
+bundled file, with nothing to build or install alongside it. Pi loads it from
+where it is, so keep the clone; `git pull` in it brings the next version.
+
+To remove it, run `pi remove ./polyfills/ard/pi/extension` from the same
+folder. Servers you added stay in `mcp.json`;
+remove one with `pi mcp remove <name>`.
 
 This form includes Server Cards checking and adding; it needs no other
 polyfill installed, and it works beside the Server Cards Pi form. Its add tool
 is `ard_add_mcp_server`: Pi's tool names are shared by every extension (Pi
 keeps the first tool registered under a name), and the Server Cards form's is
-`add_mcp_server`. To remove it, use `pi remove` with the same path. That does
-not remove servers you have added.
+`add_mcp_server`.
 
 ## Try it
 

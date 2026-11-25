@@ -20,25 +20,30 @@ your words to a third party.
 
 ## Install
 
-From a clone of this repository, with Node.js 22 on your PATH:
+Nothing is published to npm or Pi's package gallery yet, so install it from a
+clone of this repository. You need **Pi 1.6.0**, the version it was tested
+with, and **Node 22 or newer**, which Pi needs anyway:
 
 ```bash
-pi install /absolute/path/to/AgentPolyfill/polyfills/server-cards/pi/extension
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+pi install ./polyfills/server-cards/pi/extension
 ```
 
-Or load it for one session:
+Or, to try it for one run without installing:
 
 ```bash
-pi -e /absolute/path/to/AgentPolyfill/polyfills/server-cards/pi/extension
+pi -e ./polyfills/server-cards/pi/extension
 ```
 
-Tested with **Pi 1.6.0** and **Node.js 22.22.1**. Nothing is published to a
-package registry. The installed folder contains a manifest and one bundled
-JavaScript file; it needs no separate dependency installation. Pi provides
-the extension API.
+The extension is one folder, [`extension/`](extension/): a manifest and one
+bundled file, with nothing to build or install alongside it. Pi loads it from
+where it is, so keep the clone; `git pull` in it brings the next version.
 
-To remove the installed extension, use `pi remove` with the same absolute
-path you installed. Removing this extension does not remove servers you added.
+To remove it, run `pi remove ./polyfills/server-cards/pi/extension` from the same
+folder. Servers you added stay in `mcp.json`;
+remove one with `pi mcp remove <name>`.
+
 It works beside the ARD Pi form, which reads AI Catalogs too and names its
 own add tool `ard_add_mcp_server` (Pi's tool names are shared by every
 extension).

@@ -134,6 +134,10 @@ test("V4: a loaded skill's own files are read with read_skill_file, against its 
     assert.ok(read?.isError, 'the read was refused');
     assert.match(read.text, /Read it with read_skill_file/);
     assert.equal(pi.ui.filter((u) => u.method === 'confirm').length, 0, 'nobody is asked: it is refused');
+    // The scheme and the authority are compared without case.
+    await pi.prompt(`read resource docs ${s.root.replace(/^skill:\/\/([^/]+)/, (_m, h: string) => `SKILL://${h.toUpperCase()}`)}/unlisted.md`);
+    const shouted = pi.toolResults('read_mcp_resource').at(-1);
+    assert.ok(shouted?.isError && /Read it with read_skill_file/.test(shouted.text), shouted?.text);
     assert.ok(!docs.requests('resources/read').some((r) => JSON.stringify(r).includes('unlisted.md')), 'the file was not fetched');
 });
 
