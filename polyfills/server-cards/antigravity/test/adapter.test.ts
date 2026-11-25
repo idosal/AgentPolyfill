@@ -28,7 +28,7 @@ test('P-1 a plain remote is a serverUrl entry, named as the card suggests', () =
   assert.deepEqual(r.plan.entry, { serverUrl: 'https://mcp.example.com/mcp' })
 })
 
-test('P-2 a fixed header is kept as it is; one with markup is refused (security review C4)', () => {
+test('P-2 a fixed header is kept as it is; one with markup is refused', () => {
   const ok = planForAntigravity(remote({ headers: [{ name: 'X-Tenant', value: 'acme' }] }) as never, 0, {}, undefined, false)
   assert.ok('plan' in ok)
   assert.deepEqual(ok.plan.entry, { serverUrl: 'https://mcp.example.com/mcp', headers: { 'X-Tenant': 'acme' } })
@@ -118,7 +118,7 @@ test('W-5 a config that is not JSON is refused without quoting it: the file can 
   }
 })
 
-test('W-4 never over a server the person has, whatever its case (security review SC2)', () => {
+test('W-4 never over a server the person has, whatever its case', () => {
   const f = tmpFile()
   mkdirSync(join(f, '..'), { recursive: true })
   writeFileSync(f, JSON.stringify({ mcpServers: { Docs: { serverUrl: 'https://mine.example/' } } }))
@@ -389,7 +389,7 @@ test('E-5 the hook always exits 0 with JSON (Antigravity fails a call whose hook
   const r = run('not json')
   assert.equal(r.status, 0)
   assert.deepEqual(JSON.parse(r.stdout), { decision: 'allow' })
-  // A state folder that can't be made (security review E10): another server's call is still let be,
+  // A state folder that can't be made: another server's call is still let be,
   // without the folder ever being touched; this plugin's own call is refused.
   writeFileSync(join(home, 'blocked'), '')
   const env = { AGENTPOLYFILL_STATE_DIR: join(home, 'blocked', 'state') }

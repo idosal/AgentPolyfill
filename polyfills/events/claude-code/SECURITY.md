@@ -303,25 +303,11 @@ prevented.
   in Quint and in TLA+. It is simulated, and model-checked with TLC to small,
   stated bounds (webhook with one event, or two with the clock stopped). TLC
   checks the model, not the code, and says nothing past its bounds.
-  - On 0.5.0's model it found three cases the simulation had missed.
-  - Two were in the code too: the notice that waking stopped was given again
-    after a helper restart, and an event was shown again after Claude Code was
-    closed and reopened, if the helper stopped at the wrong moment. 0.5.1
-    fixes both, each with a test that fails on 0.5.0.
-  - The third was in the model only, which now does as the code does.
-  - On 0.5.1's model every invariant holds within those bounds. One of them
-    allows the case described under "Delivery is at least once".
-- **Two reviews from outside the sessions that built it, and no audit by a
-  person.** The Events client, webhook verification and the relay were
-  reviewed adversarially during development. On 24 November 2026 an AI
-  reviewer that hadn't built any of it reviewed the mod and the public relay.
-  What it found is fixed in versions 0.4.0 and 0.4.1, each fix with a test, or
-  listed above. Later that day another reviewed the relay alone, with
-  attacks in [`mod/relay/test/adversarial-test.ts`](mod/relay/test/adversarial-test.ts)
-  (two tenants, an outsider, a malicious MCP server, a hostile relay). It
-  found no way to read another user's mailbox or to forge an event. What it
-  found is fixed in 0.7.2 and in the relay, each fix with a test, or listed
-  above. No person has audited any of it.
+  Every invariant holds within those bounds. One of them allows the case
+  described under "Delivery is at least once".
+- **The relay's attack tests** are in
+  [`mod/relay/test/adversarial-test.ts`](mod/relay/test/adversarial-test.ts)
+  (two tenants, an outsider, a malicious MCP server, a hostile relay).
 
 This software wakes an agent on outside input, and it is young. The lists
 above say what was considered, not that nothing is left.

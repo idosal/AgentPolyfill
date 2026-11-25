@@ -1,4 +1,4 @@
-// Even direct core tests and their stdio children get a throwaway HOME.
+// Even direct core tests and their stdio children get a temporary HOME.
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

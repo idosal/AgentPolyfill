@@ -89,7 +89,7 @@ export class SharedSession extends Session {
 /**
  * The question Antigravity's approval card shows: the server, the URL, the headers, the file, and
  * the undo. The CLI's card shows a question's first two lines and hides the rest behind
- * "⋯ (N lines hidden)" (seen live, CLI 1.5.17), so those two say what is written and where.
+ * "⋯ (N lines hidden)" (CLI 1.5.17), so those two say what is written and where.
  */
 export function askText(plan: AntigravityPlan, card: ServerCard, provenance: string, file: string) {
   const host = hostOf(plan.url) || '(unknown host)'
@@ -120,7 +120,7 @@ const fileForms = (file: string, env: NodeJS.ProcessEnv) => {
 
 /**
  * An editor connected to `agy acp` shows the person the tool's name and its
- * arguments, not the hook's question (seen live, CLI 1.5.16). So the call
+ * arguments, not the hook's question (CLI 1.5.16). So the call
  * itself must say what would be written: the name, the URL, each header's
  * name and the file. A call whose arguments say anything else is refused
  * before any question, with the arguments to call again with. Returns the
@@ -194,14 +194,14 @@ export function addTool(session: SharedSession, discoverName: string, foundBy: s
       // What the call's arguments say is what is written: an editor showed the person only those.
       const mismatch = shownMismatch(args, plan, file, session.deps.env)
       if (mismatch) return refuse(mismatch)
-      // The person decides every addition (security review SC4): the hook put
+      // The person decides every addition: the hook put
       // this exact entry to them, and its ticket says they approved it.
       const t = redeemTicket(session.dir, args[TICKET_ARG], ADD, addDigest(plan, file), Date.now(), SERVER_NAME)
       if (!t.ok)
         return refuse(
           `Nothing was written: ${t.why}. Antigravity asks the person through the plugin's hook; if it never asks, the hook isn't running (see the plugin's README, "If the approval never shows"). Don't ask again unless the person brings it up.`,
         )
-      // Never over a server the person has (security review SC2).
+      // Never over a server the person has.
       if (isNameTaken(file, plan.name)) return refuse(`A server named "${plan.name}" appeared in ${file} while the person was asked. Nothing was written.`)
       const w = writeEntry(file, plan)
       if (!w.ok) return refuse(`${w.error}. The person can add it by hand: under mcpServers in ${file}, "${plan.name}": ${JSON.stringify(plan.entry)}`)

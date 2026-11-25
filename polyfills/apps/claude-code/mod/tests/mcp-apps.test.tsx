@@ -533,7 +533,7 @@ for (const [deny, inlined] of [
 
 // An app's tool call: by default (`rules`) it follows the person's permission
 // rules, asking where they would ask (once, if allowed for the session), as
-// for Claude's own calls (security review, A2); `ask` always asks; `allow`,
+// for Claude's own calls; `ask` always asks; `allow`,
 // an opt-in, runs it as Claude Desktop does. Deny rules apply in every mode.
 for (const [setting, decision, answer, expected, asks] of [
   [undefined, 'allow', undefined, [true, true], 0],
@@ -575,7 +575,7 @@ for (const [setting, decision, answer, expected, asks] of [
   })
 }
 
-// The security review's A8: what an app asks about reaches Claude Code's
+// What an app asks about reaches Claude Code's
 // dialogs only as plain text. A tool its server doesn't list is refused
 // before anyone is asked; a link carrying terminal control sequences is refused.
 for (const [what, name] of [
@@ -1337,7 +1337,7 @@ test('the helper starts with the first MCP call, not with the session', async ($
   finish()
 })
 
-// The security review's A1: the helper hears nothing of a server Claude Code
+// The helper hears nothing of a server Claude Code
 // doesn't use in this session under that very name, so it can't start,
 // connect to or send anything to it: not as Claude writes the call, not when
 // ToolSearch loads its tool, not when the call runs.
@@ -1588,7 +1588,7 @@ test('a view out of sight gets no fresh copies (they would wake its paused page)
 
 // An app-only tool (`visibility: ["app"]`) isn't registered with Claude Code,
 // so its permission check has nothing to go on and fails. A check that fails
-// is no verdict: the person is asked, whatever the setting (security review, A2).
+// is no verdict: the person is asked, whatever the setting.
 for (const [setting, appOnly, expected, asks] of [
   [undefined, true, false, 1],
   [undefined, false, false, 1],

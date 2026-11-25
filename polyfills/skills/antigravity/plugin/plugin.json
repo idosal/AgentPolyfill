@@ -2,7 +2,7 @@
   "$schema": "https://antigravity.google/schemas/v1/plugin.json",
   "name": "mcp-skills",
   "displayName": "MCP Skills",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Load skills served by your MCP servers (SEP-2640), after approving each version.",
   "suggestedPrompts": ["List the skills my MCP servers serve."],
   "author": { "name": "Ido Salomon", "url": "https://github.com/idosal" },

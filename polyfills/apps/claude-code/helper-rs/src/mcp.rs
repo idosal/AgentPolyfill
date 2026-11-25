@@ -339,8 +339,7 @@ async fn connect(config: &Value, cwd: &PathBuf) -> Result<RunningService<RoleCli
             transport_config.custom_headers = headers(config).into_iter().filter_map(|(k, v)| Some((k?, v))).collect();
             // rmcp's own client follows a redirect only within the server's
             // origin, and only a 307 or 308: one to another host would carry
-            // the server's headers there, outside the browser's protections
-            // (security review, A3).
+            // the server's headers there, outside the browser's protections.
             let transport = StreamableHttpClientTransport::from_config(transport_config);
             Ok(client_info().serve(transport).await?)
         }
@@ -434,7 +433,7 @@ mod tests {
         heads.lock().unwrap().clone()
     }
 
-    // The security review's A3: a server that answers with a redirect to
+    // A server that answers with a redirect to
     // another origin (127.0.0.1 here, a LAN address or another site there)
     // gets nothing sent there, its headers least of all.
     #[tokio::test]

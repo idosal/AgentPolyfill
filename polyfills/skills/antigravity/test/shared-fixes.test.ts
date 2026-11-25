@@ -69,7 +69,7 @@ test('SF-3 a secret from the configuration that a server echoes back reaches no 
     assert.doesNotMatch(listed.text, new RegExp(secret));
 });
 
-test('SF-4 secrets are taken out after the text is cleaned, of the approval question, stubs, listings and whole answers, and a URL query value is a secret too (security review S1, S2)', async () => {
+test('SF-4 secrets are taken out after the text is cleaned, of the approval question, stubs, listings and whole answers, and a URL query value is a secret too', async () => {
     const secret = 'sekret-token-0123456789';
     // Split by a character that shows as nothing: cleaned first, it is the secret again, and scrubbed.
     const s = skill('git-workflow', { 'notes.md': `the key is ${secret}\n` }, { description: `Uses sekret\u200b-token-0123456789 to sign in.` });
@@ -80,7 +80,7 @@ test('SF-4 secrets are taken out after the text is cleaned, of the approval ques
     const stubs = readdirSync(st.stubRoot, { withFileTypes: true }).filter((d) => d.isDirectory() && d.name.startsWith('mcp-skills-served--'));
     const stubText = readFileSync(join(st.stubRoot, stubs[0]!.name, 'SKILL.md'), 'utf8');
     assert.doesNotMatch(stubText, /sekret.?-token/);
-    // Stubs are private to the person (security review S6).
+    // Stubs are private to the person.
     assert.equal(statSync(join(st.stubRoot, stubs[0]!.name, 'SKILL.md')).mode & 0o777, 0o600);
     assert.equal(statSync(join(st.stubRoot, stubs[0]!.name)).mode & 0o777, 0o700);
     assert.doesNotMatch((await st.call('list_skills', {})).text, /sekret.?-token/);

@@ -20,8 +20,8 @@ pub fn own_dir() -> PathBuf {
 /// The helper's own folder, made or found private: a folder, not a link,
 /// that this user owns and only this user can open. Its name can be
 /// guessed, and on Linux the temporary folder is shared, so another user
-/// could make it first; it is checked, not taken as found (security review,
-/// A6). Chrome's profile and the pictures go inside it.
+/// could make it first; it is checked, not taken as found.
+/// Chrome's profile and the pictures go inside it.
 pub fn own_private_dir() -> Result<PathBuf> {
     let dir = own_dir();
     crate::store::private_folder(&dir)?;
@@ -299,7 +299,7 @@ impl Signals {
 mod tests {
     use super::*;
 
-    // The security review's A6: the helper's folder has a name another local
+    // The helper's folder has a name another local
     // user can guess, so it is checked whoever made it.
     #[test]
     fn the_helpers_own_folder_is_checked_not_taken_as_found() {

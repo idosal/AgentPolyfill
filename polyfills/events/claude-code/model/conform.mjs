@@ -73,7 +73,7 @@ const MODELS = [
     group: (state) => {
       const lift = Number(state.s.lift["#bigint"] ?? state.s.lift);
       const version = state.s.record ? "Codex 0.1.3" : "Codex 0.1.2";
-      const label = state.s.allow ? `${version}${lift === 4 ? "" : `, the pause lifting after ${lift}`}` : `${version} without CX1's fix`;
+      const label = state.s.allow ? `${version}${lift === 4 ? "" : `, the pause lifting after ${lift}`}` : `${version} with 0.1.0's rule and pause`;
       return { label, constants: { ALLOW: state.s.allow ? "TRUE" : "FALSE", LIFT: String(lift), RECORD: state.s.record ? "TRUE" : "FALSE" } };
     },
     inits: ["init", "initUnrecorded", "initBefore", "initShortLift"],

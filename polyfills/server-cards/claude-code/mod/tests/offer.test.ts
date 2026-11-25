@@ -137,7 +137,7 @@ test('O-8 the finder\'s further sources are read on the publisher\'s domain too:
   expect(calls.some(c => c.url === 'https://buildkite.com/.well-known/ai-catalog.json')).toBe(true)
 })
 
-test('O-9 a finder\'s card URL or "listedIn" with markup is not used (security review C1)', async () => {
+test('O-9 a finder\'s card URL or "listedIn" with markup is not used', async () => {
   const { deps, calls } = web({})
   const r = await readOffered(deps, [
     entry('urn:air:a.example:mcp:a', 'https://cards.example/x/[https://good.example](https://cards.example/)'),
@@ -149,7 +149,7 @@ test('O-9 a finder\'s card URL or "listedIn" with markup is not used (security r
   expect(calls.length).toBe(0)
 })
 
-test('O-10 a finder\'s card URL or "listedIn" that names a user before its host is not used (security review C3)', async () => {
+test('O-10 a finder\'s card URL or "listedIn" that names a user before its host is not used', async () => {
   const { deps, calls } = web({})
   const r = await readOffered(deps, [
     entry('urn:air:a.example:mcp:a', 'https://good.example@cards.example/a'),

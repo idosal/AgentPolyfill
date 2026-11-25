@@ -49,8 +49,8 @@ or environment. What ARD adds is the registry search.
   its catalog lists are in the request only. **A registry a referral names is
   asked about in a prompt of its own, and in the TUI nothing on screen names
   it**: there is no mitigation for that in the TUI. OpenCode Desktop shows a
-  plugin action's resource, the registry's host here, in its prompt (seen for
-  Events and Skills; ARD there wasn't tried). Rejecting a prompt you can't
+  plugin action's resource, the registry's host here, in its prompt (checked
+  for Events and Skills, not for ARD). Rejecting a prompt you can't
   read sends nothing to that registry.
 - **Turning asking off.** With `askByDefault: false` or
   `ARD_DISCOVERY_ASK_BY_DEFAULT=0`, OpenCode's rules alone decide, and under

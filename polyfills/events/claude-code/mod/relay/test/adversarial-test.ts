@@ -1,11 +1,11 @@
-// Adversarial tests for the relay, from a security review of it (finding ids R-...).
+// Adversarial tests for the relay (test ids R-...).
 //
 // The actors: two tenants (A and B) who each opened a mailbox with a key of their own, an outsider
 // who knows nothing but what is public, an outsider who learned one of A's webhook addresses (a
 // malicious MCP server knows its own), and a hostile relay, against the plugin's real relay client
 // (core/src/relay.ts) and its real delivery check (core/src/webhooks.ts).
 //
-// A test named with a finding's id (R-...) asserts that finding's fix. One residual is shown as it
+// Each test has an id (R-...). One limit is shown as it
 // is (R-M3: an open relay cannot tell an event from anything else shaped like one).
 
 import assert from 'node:assert/strict';

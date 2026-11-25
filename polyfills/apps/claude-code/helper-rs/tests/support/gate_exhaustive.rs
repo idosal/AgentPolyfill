@@ -6,8 +6,8 @@
 //! finite set: 2^11 flags times 12^4 settings layers, 42,467,328 cases),
 //! `decide` gives the entry the rules below give, and each safety rule holds
 //! on its own. What it does not prove: that the rules are Claude Code's (they
-//! are its documented behaviour as the security review read it, and the mod
-//! asks Claude Code's own verdict first), nor that `facts` reads every file
+//! are its documented behaviour, and the mod asks Claude Code's own verdict
+//! first), nor that `facts` reads every file
 //! right: that half is property-tested on random worlds, not proved.
 
 use super::*;

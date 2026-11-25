@@ -25,7 +25,7 @@ seven exist.
 | 3 | **Route table** | For each thing the extension needs on the wire (each method, each notification, the server's declaration, the client's declaration, each `_meta` field): how this host lets you reach it, and what that route cannot do. See "Routes". |
 | 4 | **Implementation** | Code for the rows of part 2, over the routes of part 3. |
 | 5 | **Stand-down** | What makes the polyfill do nothing when the host supports the extension. See "Stand-down". |
-| 6 | **Proof** | A test per row of part 2; a run against a server you did not write; a recorded run in the real host. |
+| 6 | **Proof** | A test per row of part 2; a run against a server you did not write; a run in the real host. |
 | 7 | **Limits and host changes** | In the README: what it does not do on this host, and for each limit the change in the host that would remove it. |
 
 Write parts 1 to 3 before any code. They are short, and they decide the design.
@@ -203,7 +203,7 @@ not a stand-down.
   (a reference server in the extension's repo, an SDK's implementation, a
   vendor's). Your own fixture agrees with your own reading of the spec, so it
   cannot catch a misreading.
-- **The real host:** install the polyfill the way a user would and record the
+- **The real host:** install the polyfill the way a user would and check the
   behaviour working. Tests of the helper alone do not show that the host loads
   it, lists its tools, or wakes.
 - **Upstream conformance:** if the MCP conformance suite has client scenarios
@@ -256,7 +256,7 @@ How a polyfill is built depends on what the host lets third-party code do.
   in `plugin/`. Read the existing Antigravity forms' README, SECURITY.md and
   `docs/conformance.md` before writing part 3. Events, Skills, Server Cards
   and ARD have Antigravity forms; Apps does not, as the App shows MCP Apps
-  itself. These builds were run in CLI v1.5.17; earlier builds ran in App
+  itself. Checked in CLI v1.5.17 and App
   v2.35.1 (ARD in the CLI only). The IDE documents no plugin hooks, so the
   forms aren't supported there. They need Node 20 or newer. Install from a
   local clone with the Antigravity CLI (the App doesn't ship `agy`):

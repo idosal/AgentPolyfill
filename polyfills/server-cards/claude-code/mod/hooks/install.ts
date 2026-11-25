@@ -49,7 +49,7 @@ export async function runClaude($: EngineInterface, args: readonly string[]): Pr
  * Whether a server of this name is configured in any scope this project sees
  * (local, project, user, managed, plugin, claude.ai). `claude mcp add --scope
  * local NAME` succeeds over a user-scope NAME and then wins over it, so a card
- * titled like a server the person has could replace it (security review SC2).
+ * titled like a server the person has could replace it.
  * Unknown (could not ask) counts as taken.
  */
 export async function isNameTaken($: EngineInterface, name: string): Promise<boolean> {

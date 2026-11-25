@@ -181,7 +181,7 @@ export function askText(plan: CodexPlan, card: ServerCard, provenance: string, f
       // The host first: some clients (the ChatGPT desktop app) join the lines
       // into one paragraph, so it has to read first either way.
       `${host}: add the MCP server "${plan.name}" to Codex?`,
-      // And on its own line, for clients that keep line breaks (security review C3).
+      // And on its own line, for clients that keep line breaks.
       `It connects to the host ${host}`,
       `URL: ${plan.url}`,
       headers.length ? `Headers: ${headers.join('; ')}` : 'Headers: none',
@@ -217,10 +217,10 @@ export function addTool(session: Session, discoverName: string, foundBy: string)
       const r = resolveAdd(session, args, discoverName)
       if ('deny' in r) return refuse(r.deny)
       const { plan, card, provenance } = r
-      // Never over a server the person has (security review SC2).
+      // Never over a server the person has.
       if (await isNameTaken(session.deps.run, plan.name))
         return refuse(`A server named "${plan.name}" already exists in Codex's configuration (or codex could not say). Ask the person: add it under another name (pass \`name\`), or keep theirs.`)
-      // The person decides every addition (security review SC4): asked here,
+      // The person decides every addition: asked here,
       // through the client's form, and refused where there is no form or the
       // form is not accepted.
       const file = configPath(session.deps.env)

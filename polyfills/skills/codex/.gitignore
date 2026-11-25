@@ -3,5 +3,5 @@ node_modules/
 .DS_Store
 # What the helper writes into the plugin folder while it runs (stubs.ts).
 /mod/skills/served/
-# Per-run state of tests and live runs.
+# Per-run state of tests.
 /.test-state/

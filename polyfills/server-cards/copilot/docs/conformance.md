@@ -27,7 +27,7 @@ apply here. Rule IDs follow the [Claude Code](../../claude-code/README.md#client
 [Codex](../../codex/README.md#client-rules) and
 [Pi](../../pi/docs/conformance.md) tables. In the test column, C-1 to C-10 (the Copilot plan and its command) and E-1 to E-12 (the server as Copilot runs it) are in
 [`adapter.test.ts`](../test/adapter.test.ts). Shared tests are named
-separately. The runs in Copilot itself are in [Proof](#proof).
+separately.
 
 `exception` means met within the limit stated in the row, with its reason.
 `not met` names what is missing; `n/a` means the rule governs something this
@@ -35,14 +35,14 @@ form doesn't do.
 
 | # | Rule | Status | How Copilot meets it, and limits | Tests |
 |---|---|---|---|---|
-| P-1 | Never replace a server the person has | met | A name `copilot mcp get` knows, or can't rule out (it fails, or answers in a way the plugin doesn't recognise), is refused before the person is asked, and checked again before writing. `copilot mcp add` itself refuses a name that exists (1.0.115, checked by hand), so a name written in between isn't overwritten either. A failed `copilot mcp add` claims nothing and gives the entry to add by hand. | E-5, E-7, E-11, E-12 |
-| P-2 | A person approves every addition | met | Two questions, both Copilot's own: its tool prompt before `add_mcp_server` runs (unless the person allowed the tool), then an MCP elicitation form naming the server, host, URL, headers, the file written and the undo command, with a required choice and **Don't add it** first. Only **Add it** adds. Decline, close, a missing or different choice, a failed form, or no form support at all adds nothing. Copilot declines the form where nobody can be asked: `copilot -p`, with `--allow-all-tools` and with `--yolo` (seen live). | E-3, E-4, E-9 |
+| P-1 | Never replace a server the person has | met | A name `copilot mcp get` knows, or can't rule out (it fails, or answers in a way the plugin doesn't recognise), is refused before the person is asked, and checked again before writing. `copilot mcp add` itself refuses a name that exists (checked in 1.0.115), so a name written in between isn't overwritten either. A failed `copilot mcp add` claims nothing and gives the entry to add by hand. | E-5, E-7, E-11, E-12 |
+| P-2 | A person approves every addition | met | Two questions, both Copilot's own: its tool prompt before `add_mcp_server` runs (unless the person allowed the tool), then an MCP elicitation form naming the server, host, URL, headers, the file written and the undo command, with a required choice and **Don't add it** first. Only **Add it** adds. Decline, close, a missing or different choice, a failed form, or no form support at all adds nothing. Copilot declines the form where nobody can be asked: `copilot -p`, with `--allow-all-tools` and with `--yolo` (checked in Copilot CLI 1.0.115). | E-3, E-4, E-9 |
 | P-3 | Add only what was shown, as shown | met | A valid card shown by `discover_mcp_servers` in this session, at the URL the tool call gives, is the only thing added. The write is `copilot mcp add`, run with no shell, from the `copilot` that started the server (`COPILOT_CLI_PATH`), else one in an absolute `PATH` entry or the usual install places (P-6), in the session's folder (`COPILOT_SESSION_CWD`). | E-3, E-5 |
 | P-4 | Nothing from a card is read as an option of `copilot mcp add` | met | Every option is written `--option=value`: a header name may legally start with `-`, and Copilot 1.0.115 refuses `--header -x: v` but takes `--header=-x: v` whole. The name (a slug) and the URL (http or https) are checked again just before the command runs. | C-7 |
 | P-5 | One value per header | met | A card that sets one header twice, in any letter case, is refused, so the form, the command and the file can't disagree. | C-8 |
 | P-6 | Run only a `copilot` that can be trusted | met | The `copilot` that started the plugin (`COPILOT_CLI_PATH`), else one in an absolute `PATH` entry, then the usual install places; only an absolute path to an executable file. The command runs in the session's folder, so an empty or relative `PATH` entry, which could find a `copilot` in the repository, is skipped. | C-10 |
-| I-2 | Handle `isSecret` values securely | met | A secret is written as a `${VAR}` reference named for this card alone, also inside a value (`Token ${VAR}`) and in a URL path. A secret value the model offers is ignored; a `$` from a card is refused. The person is told which variable to set. Copilot expands the reference when it connects (seen against a local server). | C-2, C-3, C-4, E-6 |
-| I-3 | Choose a remote by its `supportedProtocolVersions` | met | Copilot's revisions are listed in [`src/host.ts`](../src/host.ts) (`COPILOT_PROTOCOL_VERSIONS`). A declared list with none of them is refused, naming them. Copilot 1.0.115 initialises at `2025-11-25` (seen live); negotiation of each older revision isn't tested. | C-6 |
+| I-2 | Handle `isSecret` values securely | met | A secret is written as a `${VAR}` reference named for this card alone, also inside a value (`Token ${VAR}`) and in a URL path. A secret value the model offers is ignored; a `$` from a card is refused. The person is told which variable to set. Copilot expands the reference when it connects. | C-2, C-3, C-4, E-6 |
+| I-3 | Choose a remote by its `supportedProtocolVersions` | met | Copilot's revisions are listed in [`src/host.ts`](../src/host.ts) (`COPILOT_PROTOCOL_VERSIONS`). A declared list with none of them is refused, naming them. Copilot 1.0.115 initialises at `2025-11-25`; negotiation of each older revision isn't tested. | C-6 |
 | I-4 | Transport `streamable-http` or `sse` | met | Both: `--transport=http` and `--transport=sse`. | C-1, C-3 |
 | S-1 | HTTPS for cards; plain HTTP only for local development | met | The shared URL checks, and every redirect hop checked again by the fetch adapter the Codex form uses ([`codex/src/fetch.ts`](../../codex/src/fetch.ts)): a public HTTPS request can't redirect to plain HTTP; loopback HTTP stays available for local development. | Shared S-1 and T-1 in [discover.test.ts](../../claude-code/mod/tests/discover.test.ts); F-1 to F-3 in the [Codex form's tests](../../codex/test/adapter.test.ts), same module |
 | S-2 | Never treat a card as authoritative for security or access-control decisions | met | A card supplies a plan. The person still approves the addition, and Copilot owns the connection and any sign-in. `extensionsInfo` grants nothing. | E-3, E-4; shared S-4 in [format.test.ts](../../claude-code/mod/tests/format.test.ts) |
@@ -75,9 +75,8 @@ npm ci
 npm test
 ```
 
-The checked run on 25 November 2026, with Node.js 22.23.1, passed **114
-tests**, none failed or skipped. The tests need loopback access for their
-local web server.
+`npm test` runs **114 tests**. They need loopback access for their local web
+server.
 
 - **90 shared rule tests:** `card`, `configure`, `discover`, `format` and
   `offer` from [`claude-code/mod/tests`](../../claude-code/mod/tests),
@@ -89,46 +88,25 @@ local web server.
 - **2 bundle tests:** the committed bundle is what the sources build, and the
   installed folder holds what the manifest names.
 
-**In Copilot itself** ([the record](live-run.md)), 25 November 2026, Copilot CLI 1.0.115 on macOS, with an
-isolated `HOME` and `COPILOT_HOME`, no GitHub sign-in, and a scripted model on
-this machine (as in [mcp-events' live run](../../../events/copilot/docs/live-run.md)):
+Checked in Copilot CLI 1.0.115 and in VS Code 1.147.0's Copilot harness, on
+macOS, installed from a clone of this repository as a marketplace.
 
-- Installed from a clone of this repository as a marketplace
-  (`copilot plugin marketplace add <clone>`, then
-  `copilot plugin install mcp-server-cards@agent-polyfill`), beside
-  `mcp-events` and `ard-discovery`, all three loading in one session.
-  Uninstalling and removing the marketplace were run the same way; what
-  stays behind is in the [README](../README.md#uninstall).
-- `discover_mcp_servers` for neon.com returned Neon and Neon Docs, both valid,
-  from neon.com's own published cards.
-- In the TUI: Copilot's tool prompt for each tool, then the form, drawn as
-  quoted in the README. **Add it** wrote `neon-docs` to `mcp-config.json`
-  through `copilot mcp add`.
-- In `copilot -p`, with `--allow-all-tools` and with `--yolo`: Copilot
-  declined the form, and nothing was written.
-- `copilot mcp add` (1.0.115), checked by hand: it writes `--header` values
-  and `${VAR}` references as given, accepts SSE, refuses a name that exists,
-  and contacts no server.
+- `copilot mcp add` in 1.0.115 writes `--header` values and `${VAR}`
+  references as given, accepts SSE, refuses a name that exists, and contacts
+  no server.
+- In VS Code 1.147.0's Copilot harness, `discover_mcp_servers` runs with no
+  prompt (it is read-only, and the harness's default permission mode runs
+  read-only tools without asking), `add_mcp_server` stops at VS Code's tool
+  prompt, and VS Code then shows the plugin's form, with the question's lines
+  run together in one paragraph.
 
-**In VS Code's Copilot harness** (VS Code 1.147.0, GitHub's Claude Haiku 4.5, in a throwaway VS Code profile the user signed in to themselves: [who, how and which profile](../../../events/copilot/docs/live-run.md#in-vs-code); the user's real `~/.copilot` was neither read nor written), from the same plugin install: `discover_mcp_servers` for neon.com
-ran with no prompt (it is read-only, and the harness's default permission mode
-runs read-only tools without asking); `add_mcp_server` stopped at VS Code's
-tool prompt; then VS Code showed the plugin's form, headed "Your answer", with
-the question and the two choices, **Don't add it** first. It runs the
-question's lines together in one paragraph. **Add it** wrote `neon-docs` to
-`mcp-config.json` (the harness log shows the request as
-`Elicitation request: … mode=form, source=mcp-server-cards`).
-
-What this evidence doesn't establish:
+Not checked:
 
 - S-3's live comparison, negotiation of each older protocol revision, or a
   public name that resolves to a private address.
 - An install from GitHub (`copilot plugin marketplace add idosal/AgentPolyfill`)
-  on 1.0.115, in the interactive TUI, or in VS Code. It was checked with
-  Copilot CLI 1.0.105, in an isolated home with no sign-in: the three plugins
-  installed from GitHub, byte-identical to main, and loaded
-  ([the record](live-run.md#installed-from-github)).
-- A model of GitHub's choosing these tools in Copilot CLI: the model was
-  scripted there.
+  in 1.0.115, in the interactive TUI, or in VS Code. Checked in Copilot CLI
+  1.0.105.
+- The form under `--yolo`, allow-all or autopilot in the interactive session.
 - An upstream conformance pass: the MCP conformance suite has no Server Card
   scenarios.

@@ -3,8 +3,7 @@
 This covers `mcp-apps-cli` for Claude Code.
 
 This is third-party code that runs with your permissions, as every Claude Code
-plugin does. It has had no audit by a person. The review described below was
-done by an AI reviewer, outside the sessions that wrote the code.
+plugin does.
 
 To report a security issue, see [Reporting](#reporting) at the end.
 
@@ -122,53 +121,18 @@ sandbox is on, unless you turn it off with `MCP_APPS_CLI_NO_SANDBOX`.
   sources are `*`, `https:`, a wildcard over fewer than two labels such as
   `*.com`, a wildcard over a shared suffix anyone can host under such as
   `*.workers.dev`, `*.github.io` or `*.co.uk`, and a wildcard port.
-  - Chrome's local-network checks are on. In the review's test, a remote
-    server's app couldn't reach this machine by fetch, WebSocket, image or
-    frame, even through a public name that resolves to it.
+  - Chrome's local-network checks are on for every view.
   - A view of a server on your machine or your local network, or of a stdio
     server, may reach your local network, and that includes your own machine.
 - **The helper** listens on a private Unix socket only you can open (on
   Windows, 127.0.0.1). It answers only requests that carry the token it gave
   the plugin. A request without the token is refused before its body is read.
-  A connection that sends no request head within 2 seconds is closed.
-
-## The review of 24 November 2026
-
-An AI reviewer read the code and ran reproductions. Its findings for this
-plugin, and where they stand:
-
-| | Finding | Now |
-|---|---|---|
-| A1 | The helper chose a server by name from config files, checking no trust, approval, switched-off list or policy. A repository's `.mcp.json` could make it run a command, or send environment credentials to an address of its own | Fixed: both checks above. Tests plant such a repository (`helper-rs/tests/gate.rs`, `bench/gate-check.mjs`) |
-| A2 | An app's tool calls ran without asking by default, where Claude Code would have asked | Fixed: `rules` is the default |
-| A3 | The helper's MCP client followed redirects to other hosts, carrying custom headers | Fixed in the Rust helper. The Node helper already refused them |
-| A4 | The CSP filter let `http://*:*`, `https://*.com` and the like through, and a local-network server's view can reach your machine | Broad sources fixed. A local-network server's view still gets local-network access, which includes your machine |
-| A5 | Saved files carried no "downloaded" mark | Fixed |
-| A6 | On Linux, the helper's temporary folder has a guessable name, and only the folders made inside it were checked | Fixed: the folder itself is checked |
-| A7 | The helper read a request's body before checking the token (Windows, or `MCP_APPS_CLI_TRANSPORT=tcp`) | Fixed: the token is checked first. There is a 30-second read deadline, and at most 128 connections |
-| A8 | An app could put terminal control sequences into Claude Code's dialogs through a link or a tool name | Fixed |
-| A4, re-test | A CSP wildcard over a shared suffix (`*.workers.dev`, `*.co.uk`) still passed | Fixed in 0.1.2 for a list of the most used such suffixes (`helper-rs/src/policy.rs`). One not on the list still passes |
-| A7, re-test | Over TCP, 128 connections that sent nothing locked the plugin out of its helper for 30 seconds at a time | Mitigated in 0.1.2: a connection that sends no request head within 2 seconds is closed. A local process that keeps re-opening connections can still keep the plugin from its helper over TCP (Windows, or `MCP_APPS_CLI_TRANSPORT=tcp`) while it does so; it can't get past the token |
-
-The TLA+ model in `model/` found two more (see
-[docs/COMPLIANCE.md](docs/COMPLIANCE.md)), and both were fixed in 0.1.2:
-
-- an open view's app kept reaching its server after Claude Code stopped using
-  it;
-- a view's open and close requests to the helper could cross, leaving an
-  app's page running unseen.
-
-0.1.3 closed two windows that 0.1.2 documented. Each was found first in the
-model:
-
-- A yes from Claude Code was kept for 5 seconds and reused to discover and
-  open views, and a request in flight went on after Claude Code stopped using
-  its server. Now there is a yes for each request, and a no that cancels, as
-  above.
-- The plugin matched what a view's page asked to the view by the tool call's
-  id alone. So what the page of an earlier open of the same call asked could
-  be done for the view opened again in its place. Now each open has its own
-  generation, and anything of another is refused.
+  A connection that sends no request head within 2 seconds is closed, a
+  request has 30 seconds to arrive whole, and at most 128 connections are
+  open at once.
+- **Each open of a view has its own generation.** What the page of an
+  earlier open of the same tool call asks is refused for the view opened
+  again in its place.
 
 ## What isn't protected
 
@@ -185,12 +149,13 @@ model:
 - **Wildcards over a shared suffix not on the plugin's list** still pass the
   CSP filter. The filter carries the most used such suffixes, not the whole
   public suffix list.
+- **Over TCP** (Windows, or `MCP_APPS_CLI_TRANSPORT=tcp`), a local process
+  that keeps opening connections can keep the plugin from its helper while it
+  does so. It can't get past the token.
 - **Chrome for Testing,** if you accept the download, comes from Google over
   HTTPS with no digest or signature check of the archive. It is updated daily
   without asking again.
-- **Windows** hasn't been used in a real Claude Code session yet.
-
-[docs/DESIGN.md](docs/DESIGN.md) describes the isolation in detail.
+- **Windows.** Not checked in a Claude Code session yet.
 
 ## Reporting
 

@@ -1,7 +1,7 @@
 // The same Codex session open in two windows: two helper processes, of which one runs the session's
 // watches and wakes it, and the other only lists them and takes over if the first goes. The wake
 // model (claude-code/model/wakeCodex.qnt) has one helper process at a time; these are the cases of
-// two (review EVH1): the one taking over reads the wake count again, and the one that doesn't run
+// two: the one taking over reads the wake count again, and the one that doesn't run
 // the watches never writes it.
 
 import assert from 'node:assert/strict';
@@ -30,7 +30,7 @@ async function crash(w: World, h: Helper): Promise<void> {
 
 const runsTheWatches = (h: Helper, thread: string) => async () => /"status": "active"/.test((await h.call('list_watches', {}, thread, 'queue')).text);
 
-describe('a session open in two windows (EVH1)', () => {
+describe('a session open in two windows', () => {
     test('the window that runs the watches dies while codex queue runs: the other takes over, counts that wake from the record, and does not hand the batch over again', async () => {
         const w = world();
         const thread = newThread();

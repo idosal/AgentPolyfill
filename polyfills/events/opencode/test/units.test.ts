@@ -82,7 +82,7 @@ test('plugin/package.json makes the folder an installable package: this form, it
     for (const k of ['dependencies', 'peerDependencies', 'optionalDependencies', 'scripts']) assert.equal(pkg[k], undefined, k);
 });
 
-test('"Allow always" lists 0.1.0 kept are not read: they could hold another project\'s answers (OC-4)', async () => {
+test('"Allow always" lists 0.1.0 kept are not read: they could hold another project\'s answers', async () => {
     const { alwaysKey, alwaysKeyV1, askByDefault } = await import('../src/consent.ts');
     const location = { directory: '/work/a', project: { id: 'project-a' } };
     const watch = 'mcp_events_watch';

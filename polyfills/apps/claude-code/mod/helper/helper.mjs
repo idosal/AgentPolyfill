@@ -459,7 +459,7 @@ function browser() {
     } catch (error) {
       log("temporary folder:", error.message);
     }
-    // Checked, not taken as found: its name can be guessed (A6). Chrome
+    // Checked, not taken as found: its name can be guessed. Chrome
     // doesn't start in one that fails.
     checkedFolder(OWN_TMP, fs);
     const executablePath = process.env.MCP_APPS_CLI_CHROME;
@@ -653,8 +653,8 @@ function sideClient(name) {
       const requestInit = { headers: config.headers ?? {} };
       // A redirect is followed only within the server's own origin (and only
       // one that keeps the request as it is): one to another host would carry
-      // the server's headers there, outside the browser's protections
-      // (security review, A3). The default of the SDK in package-lock.json
+      // the server's headers there, outside the browser's protections.
+      // The default of the SDK in package-lock.json
       // (1.32.2); said here so another version can't quietly change it.
       const redirectPolicy = "same-origin";
       const transport =
@@ -3089,7 +3089,7 @@ const ready = () => {
     truecolor: TRUECOLOR,
   });
   if (process.env.MCP_APPS_CLI_SOCKET_FILE && !TCP) {
-    // A test aid (bench/session.py): the socket and its token, for the person only.
+    // A test aid: the socket and its token, for the person only.
     fs.writeFileSync(process.env.MCP_APPS_CLI_SOCKET_FILE, `${socketPath}\n${TOKEN}\n`, { mode: 0o600 });
   }
 };

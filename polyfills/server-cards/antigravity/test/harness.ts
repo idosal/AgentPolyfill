@@ -1,4 +1,4 @@
-// For the Antigravity forms' tests: a throwaway HOME (never the person's own
+// For the Antigravity forms' tests: a temporary HOME (never the person's own
 // ~/.gemini), the built server on stdio as Antigravity runs a plugin's MCP
 // server, and its hook run as Antigravity runs a plugin's command hook (stdin
 // JSON in, stdout JSON out, exit code read). The MCP client and the local web

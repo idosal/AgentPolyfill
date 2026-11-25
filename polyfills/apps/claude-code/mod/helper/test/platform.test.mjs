@@ -30,7 +30,7 @@ test("npm is npm.cmd through a shell on Windows, npm elsewhere", () => {
   assert.deepEqual(npmCommand("linux"), { command: "npm", shell: false });
 });
 
-// Security review A5: a file saved from an app is marked as downloaded.
+// A file saved from an app is marked as downloaded.
 test("a saved download is marked as downloaded (macOS: com.apple.quarantine)", { skip: process.platform !== "darwin" }, async () => {
   const fs = await import("node:fs");
   const os = await import("node:os");
@@ -54,7 +54,7 @@ test("a saved download is marked as downloaded (Windows: Zone.Identifier, zone 3
   assert.deepEqual(written, { [`${file}:Zone.Identifier`]: "[ZoneTransfer]\r\nZoneId=3\r\n" });
 });
 
-// Security review A6: the helper's own temporary folder is checked, not taken as found.
+// The helper's own temporary folder is checked, not taken as found.
 test("a private folder that is a link is refused; one open to others is closed", { skip: process.platform === "win32" }, async () => {
   const fs = await import("node:fs");
   const os = await import("node:os");

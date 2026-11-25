@@ -51,8 +51,8 @@ OpenCode runs them itself, so they need no Node. Nothing for OpenCode is
 published to npm: OpenCode installs each plugin from this repository on
 GitHub, with Git; [Getting started](./getting-started#opencode) has the steps.
 
-The Antigravity forms are plugins for the App and the CLI (`agy`). These
-builds were run in App v2.35.1 and CLI v1.5.17. They need Node 20 or newer on `PATH`, and the Antigravity CLI
+The Antigravity forms are plugins for the App and the CLI (`agy`). Checked
+in App v2.35.1 and CLI v1.5.17. They need Node 20 or newer on `PATH`, and the Antigravity CLI
 to install them, since the App doesn't ship `agy`. The IDE documents no
 plugin hooks, so the forms aren't supported there, and their gated calls are
 refused. Nothing is published to Antigravity's Marketplace;
@@ -85,7 +85,7 @@ All of them are early. Here is what each one does, and where it stops:
   not both: a stated departure from the contract's rule 4. In Antigravity, a
   watch asks in Antigravity's approval card, and new events reach the
   conversation at its next model call, through the plugin's `PreInvocation`
-  hook (seen live in the CLI; Antigravity's plugins page doesn't list
+  hook (checked in CLI 1.5.17; Antigravity's plugins page doesn't list
   `PreInvocation` among plugin hooks). An idle App conversation wakes only
   through the plugin's sidecar, which you turn on; CLI conversations can't be
   woken.
@@ -176,25 +176,23 @@ registry, so every search asks you first and names where it's going. That's
 also why it isn't part of the Claude Code `agent-polyfill` bundle or Pi's
 one-line install. Install it by name in Claude Code or Codex, from a clone
 in Pi or Antigravity, or with its own `opencode plugin add` in OpenCode.
-Pi's recorded live run showed domain discovery and an approved search of the
-repository's demo registry. It did not complete the add step: the model
-asked in chat instead of calling the add tool. Addition is covered by tests
-in real Pi with a scripted model and a local server.
+Checked in Pi 1.6.0: domain discovery, and an approved search of the
+repository's demo registry. Adding is checked by the form's tests only.
 The OpenCode form carries the Server Cards code and its own add tool,
-`ard_add_mcp_server`. OpenCode's live run read buildkite.com's `ard.json` and
-sent a search to the repository's demo registry after OpenCode asked. In
-OpenCode's TUI, the prompt for a registry a referral names doesn't show that
-registry. Addition is covered by tests in real OpenCode with a scripted model
-and a local server. In Antigravity, every registry search and every addition
-is put to you in Antigravity's approval card. ARD was run in Antigravity's
-App (2.35.1) and CLI (1.5.17): a search of Hugging Face's own registry went
-to that endpoint only after the approval, and a declined one sent nothing.
+`ard_add_mcp_server`. Checked in OpenCode 2.4.1: reading buildkite.com's
+`ard.json`, and a search of the repository's demo registry after OpenCode
+asked. In OpenCode's TUI, the prompt for a registry a referral names doesn't
+show that registry. Adding is checked by the form's tests only. In
+Antigravity, every registry search and every addition
+is put to you in Antigravity's approval card. Checked in Antigravity's
+App 2.35.1 and CLI 1.5.17: a search of Hugging Face's own registry goes
+to that endpoint only after the approval, and a declined one sends nothing.
 The Copilot CLI form works on its own too, with its own `add_mcp_server`;
-installing `mcp-server-cards` beside it is optional. In Copilot CLI 1.0.115,
-with a scripted model, `ard_discover` read buildkite.com's catalogs, and a
-search of the repository's demo registry on 127.0.0.1 went out only after
-Copilot's tool prompt and **Send the search** in the plugin's form. No server
-was added through it there.
+installing `mcp-server-cards` beside it is optional. Checked in Copilot CLI
+1.0.115: `ard_discover` reading buildkite.com's catalogs, and a search of
+the repository's demo registry going out only after Copilot's tool prompt
+and **Send the search** in the plugin's form. Adding is checked by the
+form's tests only.
 
 Native support is separate from these polyfills:
 
@@ -219,11 +217,11 @@ Native support is separate from these polyfills:
   support: Antigravity tells plugins nothing about its MCP client's
   extensions. Disable or uninstall them, or use their off switches, when
   Antigravity supports an extension.
-- **Copilot CLI:** 1.0.115 declares Skills over MCP to every server (seen in
+- **Copilot CLI:** 1.0.115 declares Skills over MCP to every server (in
   its `initialize`), and VS Code's Copilot harness turns MCP Apps on (from its
-  source; no app was drawn there). It doesn't do Events or ARD, and it doesn't
+  source; not checked there). It doesn't do Events or ARD, and it doesn't
   read Server Cards from a domain; its own catalogue search, by its SDK's
-  types, accepts the card format, but wasn't run. The Copilot forms can't detect native support either, so disable or
+  types, accepts the card format, but wasn't checked. The Copilot forms can't detect native support either, so disable or
   uninstall them, or use their off switches, when Copilot supports an
   extension.
 

@@ -6,8 +6,8 @@ This covers `mcp-events` for Google Antigravity. The
 with their own host adapters.
 
 An event is data a server sends: untrusted. Receiving one grants nothing; what
-the agent does next goes through Antigravity's own approvals (seen live: after
-a wake, the agent's calls to read the event and the server's log each asked).
+the agent does next goes through Antigravity's own approvals (checked in App
+2.35.1).
 
 ## What is trusted
 
@@ -18,8 +18,8 @@ a wake, the agent's calls to read the event and the server's log each asked).
   its MCP connections.
 - **The plugin's state folder**, `~/.gemini/agentpolyfill/mcp-events/`.
   Anything that can write it, or run the plugin's hook as you, can make a
-  ticket or a wake request (seen live: a ticket made by running the hook
-  command by hand was accepted once). Antigravity's terminal sandbox, on by
+  ticket or a wake request (a ticket made by running the hook command by hand
+  is accepted, once). Antigravity's terminal sandbox, on by
   default, keeps the agent's commands to the workspace and temporary folders;
   a command run outside the sandbox (you approved it, Auto mode judged it safe,
   or the sandbox is off, as in Turbo) can reach the folder.
@@ -45,8 +45,8 @@ a wake, the agent's calls to read the event and the server's log each asked).
   conversation later, so it is never only a rule's decision.
 - **The other five** (`list_event_types`, `unwatch_event`, `list_watches`,
   `get_event`, `recent_events`) answer `allow` with a ticket. That leaves
-  Antigravity's usual MCP question in place (seen live, CLI 1.5.17: "Allow
-  calling this tool?"), which MCP allow rules skip. The hook never answers
+  Antigravity's usual MCP question in place (CLI 1.5.17: "Allow calling this
+  tool?"), which MCP allow rules skip. The hook never answers
   `auto_approve` and sets no permission overrides.
 - **Which conversation.** Antigravity tells hooks the conversation id and an
   MCP server nothing. The hook puts the id, checked as a UUID, in a one-use
@@ -66,7 +66,7 @@ a wake, the agent's calls to read the event and the server's log each asked).
   use one; a call that goes around the hook could carry a live one.
 - **When the hook can't run.** In CLI 1.5.17 a `PreToolUse` hook that exits
   non-zero, times out or prints something that isn't JSON makes Antigravity
-  fail the call (seen live). The hook always exits 0 with JSON: `allow` for a
+  fail the call. The hook always exits 0 with JSON: `allow` for a
   call that isn't the plugin's or that it can't read, `deny` for the plugin's
   own call when it can't open its state. The `PreInvocation` hook answers
   `{}` when anything goes wrong.
@@ -87,7 +87,7 @@ a wake, the agent's calls to read the event and the server's log each asked).
 - **What reaches a system message.** The `PreInvocation` hook's step, which
   Antigravity labels "injected by a PreInvocation hook" and hooks.md calls
   "an out-of-band system instruction", holds fixed text, a count and the
-  plugin's own watch ids (`w-` and six hex digits), nothing else (seen live).
+  plugin's own watch ids (`w-` and six hex digits), nothing else.
   The wake message is fixed text too. Event type names, notices, the watch's
   note (which the model wrote) and payloads reach the model only through
   `recent_events` and `get_event`, as tool results.
@@ -95,7 +95,7 @@ a wake, the agent's calls to read the event and the server's log each asked).
 Antigravity's defaults ask before an MCP tool: in the App ("Allow using this
 MCP tool?"), in the interactive CLI, which starts in auto mode (CLI 1.5.7 and
 later, where available), and headless `agy -p` denies a call nobody answers
-(all seen live). If you allow MCP tools in your rules, the five tools that
+(checked in App 2.35.1 and CLI 1.5.17). If you allow MCP tools in your rules, the five tools that
 pass with a ticket run without a question; watches still ask. Whether
 `--dangerously-skip-permissions` also skips `force_ask` hasn't been checked.
 

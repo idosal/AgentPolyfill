@@ -29,7 +29,7 @@ export { addTool, askText, resolveAdd } from '../../../server-cards/copilot/src/
 export { ARD_SOURCES, BY, DISCOVER, INSTRUCTIONS, noRegistry, registrySetting, SEARCH, SEARCH_CHOICES, SHOWN_QUERY, SHOWN_REGISTRY, search, searchEndpoint, originOf } from '../../codex/src/ard'
 
 export const NAME = 'ard-discovery'
-export const VERSION = '0.1.1'
+export const VERSION = '0.1.2'
 
 // ard_search is marked not read-only: it sends the person's words to a third party, and Copilot's
 // permission rules (and VS Code's) may read the hint.

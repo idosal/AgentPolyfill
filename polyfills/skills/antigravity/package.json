@@ -1,7 +1,7 @@
 {
   "name": "mcp-skills-antigravity",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "MCP Skills (SEP-2640) for Google Antigravity.",
   "engines": {

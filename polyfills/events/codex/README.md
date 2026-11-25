@@ -45,8 +45,7 @@ Start `codex` in a folder and ask:
 Codex makes a private button page with the server's `new_demo_button` tool,
 gives you its link, and watches it. Open the link, type a message and press
 the button. A few seconds later the idle session gets a message that starts
-with `[mcp-events]`, reads the event, and tells you what you typed. That is
-the run recorded in [`docs/live-run.md`](docs/live-run.md).
+with `[mcp-events]`, reads the event, and tells you what you typed.
 
 The same server also offers `hn.comment` (new comments in a Hacker News
 thread), `hn.story`, `npm.release`, `github.release` and `usgs.earthquake`,
@@ -226,15 +225,15 @@ The relay's own documentation is in
 | | Tools | An event wakes the session |
 |---|---|---|
 | The Codex TUI (`codex`), with the app-server daemon (the default) | Yes | Yes |
-| `codex --remote <app server>` | Yes | Yes, with `MCP_EVENTS_CODEX_REMOTE` set to the same address (tested: [`docs/live-run.md`](docs/live-run.md)) |
+| `codex --remote <app server>` | Yes | Yes, with `MCP_EVENTS_CODEX_REMOTE` set to the same address |
 | `codex exec` | Yes | No: the session, and the helper with it, end with the run |
 | The TUI without the daemon (`--no-daemon`, `-c`, `--profile`) | Yes | Not tested. `codex queue` then has no daemon to resume the session on, so the message is expected to wait in its queue |
 | The ChatGPT desktop app (Work chats) | Yes: a watch is set and stores its events | No: its chats are not local Codex sessions, which is all `codex queue` reaches. Ask for `recent_events` |
 | T3 Code, or another app that runs Codex through an app server of its own | Yes: a watch is set and stores its events | No: the plugin can't tell that the app would show the wake, so it doesn't wake the session there. `list_watches` says so. In T3 Code, [mcp-events for T3 Code](../t3/README.md) wakes a thread instead ([Limits](#limits)) |
 | The IDE extension | Not tested | Not tested |
 
-It's tested live in the Codex TUI 0.172.0 on macOS. The tests also run on
-Linux in CI. Windows hasn't been tried. On Windows the plugin runs only
+Checked in the Codex TUI 0.172.0 on macOS. The tests also run on Linux in CI.
+Not checked on Windows. On Windows the plugin runs only
 `codex.exe`, or Node with an npm install's `codex.js`, never npm's `codex.cmd`
 ([`SECURITY.md`](SECURITY.md)). Without either, it can't wake a session.
 
@@ -271,7 +270,7 @@ differ:
 | A session you come back to | Watches pick up when Claude Code starts in the project again | A resumed session's watches start at its first call of one of the plugin's tools |
 | One prompt, then exit | `claude -p`: tools work, no wake | `codex exec`: tools work, no wake |
 | Where state is kept | The plugin's data folder | `$CODEX_HOME/mcp-events` |
-| Tested live | Claude Code on macOS | The Codex TUI 0.172.0 on macOS |
+| Checked in | Claude Code on macOS | The Codex TUI 0.172.0 on macOS |
 
 ## Settings
 
@@ -322,14 +321,13 @@ The changes both hosts would need are in
   then nothing runs the session's watches. They start again, from their
   cursors, the moment Codex calls any of this plugin's tools in that session.
   The plugin asks Codex to call `list_watches` after a resume, and asking
-  "check my watches" also does it. Seen live: asked "What are you watching?",
-  Codex answered from memory and called nothing. The change in Codex: start a
-  resumed session's plugin servers when it opens, as for a new session.
+  "check my watches" also does it. The change in Codex: start a resumed
+  session's plugin servers when it opens, as for a new session.
 - **A wake only where Codex's own app shows it.** `codex queue` runs the wake
   in whichever app server has the session open. Codex's own TUI shows that
   turn. An app that runs Codex through an app server of its own, as T3 Code
-  does, may not show a turn it didn't start. In T3 Code, the turn ran and was
-  never shown. So the plugin wakes a session only while the latest of the
+  does, may not show a turn it didn't start. T3 Code (0.1.11) runs the turn
+  and never shows it. So the plugin wakes a session only while the latest of the
   session's turns that called its tools was one you started in Codex's own
   app.
   - **How it tells.** Codex sends what started each turn with every call
@@ -337,8 +335,7 @@ The changes both hosts would need are in
     These count, each where it is set (Codex 0.172):
     - `user`, typed in the TUI (`codex-rs/tui/src/chatwidget/input_submission.rs`);
     - `composer`, sent in the ChatGPT desktop app. It's the app's default
-      for a message, read from the installed app and from its sessions'
-      records, not run with this version;
+      for a message. Not checked with this version;
     - `exec`, a `codex exec` run (`codex-rs/exec/src/lib.rs`);
     - `realtime`, voice (`codex-rs/core/src/session/realtime_handoff.rs`).
   - **What stops the wakes.** Any other call. That covers a turn that names
@@ -449,13 +446,12 @@ servers that advertise events in the form from before the standard
   scenarios (its open pull request #541) pass 17 of 17, against the shared
   client and end to end through the bundled helper (`npm run conformance`,
   `npm run conformance:helper`).
-- [`docs/interop.md`](docs/interop.md) records runs against servers others
-  wrote: hookbench's reference server (7 of 7), Hookdeck's Outpost demo
-  against its own mock Outpost (4 of 4), and this repository's event-feeds
-  (3 of 3). mcp-mailbox is a relay, not an Events server, and wasn't run.
-- [`docs/live-run.md`](docs/live-run.md) records a watch made from a real
-  Codex session, a button press, and the idle session waking and answering.
-  Then the same session is resumed and woken again.
+- **Interop,** with Events servers others wrote: hookbench's reference server
+  (7 of 7), Hookdeck's Outpost demo against its own mock Outpost (4 of 4), and
+  this repository's event-feeds (3 of 3). The commands are under
+  [Development](#development). mcp-mailbox is a relay, not an Events server,
+  so there is nothing in it to check.
+- **The real host:** Checked in the Codex TUI 0.172.0 on macOS.
 - **Formal model.** The wake rules (only the person's own turn lifts the
   pause, the pause lifting after its hour, a chat `codex queue` can't reach)
   are model-checked with TLC, and simulated with Quint, by reading this code.
@@ -477,6 +473,16 @@ npm run build             # plugin/dist/helper.js; a test fails when it is stale
 node ../../../tools/bundle-notices.mjs . --plugin plugin   # plugin/THIRD_PARTY_LICENSES.txt
 ```
 
+The interop checks run against servers others wrote. Two need a checkout of
+the server:
+
+```bash
+HOOKBENCH=<checkout of NHTanvir/hookbench> node --no-warnings test/interop/run.ts hookbench
+OUTPOST_LAUNCH="node <checkout of hookdeck/mcp-events-outpost-demo>/node_modules/tsx/dist/cli.mjs test/interop/launch-outpost.mts <the same checkout>" \
+  node --no-warnings test/interop/run.ts outpost
+node --no-warnings test/interop/run.ts feeds   # the hosted event-feeds server
+```
+
 - [`plugin/`](plugin/) is what gets installed, all of it: the manifest
   (`.codex-plugin/plugin.json`), the server's entry (`.mcp.json`), the bundled
   helper (`dist/helper.js`) and a skill.
@@ -486,8 +492,7 @@ node ../../../tools/bundle-notices.mjs . --plugin plugin   # plugin/THIRD_PARTY_
   what it says (`words.ts`). The rest is [`../core`](../core).
 - `test/` runs the helper as Codex does, with a stand-in `codex`, against the
   Claude Code form's fixture events server. That server was written from the
-  SEP and shares no code with the client. `test/interop/run.ts` runs the
-  interop. CI: [`codex-events-test.yml`](../../../.github/workflows/codex-events-test.yml).
+  SEP and shares no code with the client. CI: [`codex-events-test.yml`](../../../.github/workflows/codex-events-test.yml).
 - To release, change the version in `plugin/.codex-plugin/plugin.json`,
   `package.json` and `src/version.ts`, rebuild, and merge to `main`.
 

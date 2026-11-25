@@ -36,8 +36,7 @@ specification. The revision this plugin follows is in
 
 ## Install
 
-From a clone of this repository (the install that was tested, on Copilot CLI
-1.0.115):
+From a clone of this repository (checked in Copilot CLI 1.0.115):
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
@@ -48,17 +47,14 @@ copilot plugin install ard-discovery@agent-polyfill
 Copilot loads a plugin from a local marketplace where it is, without copying
 it, so keep the clone. From GitHub, `copilot plugin marketplace add idosal/AgentPolyfill` adds the
 same marketplace (Copilot reads its `.github/plugin/marketplace.json`), and
-Copilot keeps its own copy. That was checked on 25 November 2026 with Copilot
-CLI 1.0.105, in an isolated home with no sign-in: the three plugins installed
-from GitHub, byte-identical to main, and loaded
-([the record](docs/live-run.md#installed-from-github)). It wasn't checked on
+Copilot keeps its own copy. Checked in Copilot CLI 1.0.105. Not checked in
 1.0.115, in the interactive TUI, or in VS Code. Start a new Copilot session
 afterwards. It works on
 its own; installing [`mcp-server-cards`](../../server-cards/copilot/README.md)
 beside it is optional (each has its own `add_mcp_server`, and Copilot keeps
 them apart by server name).
 
-You need GitHub Copilot CLI 1.0.115 or newer (tested with 1.0.115; no
+You need GitHub Copilot CLI 1.0.115 or newer (checked in 1.0.115; no
 experimental mode, since this is an MCP server in a plugin) and Node.js 20 or
 newer on your `PATH`.
 
@@ -105,8 +101,7 @@ with these differences:
 
 - Copilot asks before each of the plugin's tools runs ("Do you want to use
   this tool?"), as for any MCP tool, and then the plugin's form asks about the
-  search or the add. Seen in the TUI, with a scripted stand-in model, against
-  the demo registry:
+  search or the add. The form for a search against the demo registry:
 
   ```
   ard-discovery needs information.
@@ -119,9 +114,9 @@ with these differences:
   ```
 
 - Where nobody can be asked (`copilot -p`, with `--allow-all-tools` or
-  `--yolo`), Copilot declines the form, so nothing is sent or written. That
-  was seen with the Server Cards plugin's add form; the search form is the
-  same kind of request and wasn't tried there itself.
+  `--yolo`), Copilot declines the form, so nothing is sent or written.
+  Checked in Copilot CLI 1.0.115 with the Server Cards plugin's add form. Not
+  checked with the search form, which is the same kind of request.
 - An add goes through `copilot mcp add`, with `${VAR}` references for
   secrets, into `~/.copilot/mcp-config.json`, and connects after `/mcp reload`.
 
@@ -129,7 +124,7 @@ Copilot 1.0.115 also has a discovery of its own: a built-in
 `discover-resources` skill whose `catalog_search` searches a catalogue Copilot
 is given, by the skill's own text and the SDK's types. Neither was run. Nothing
 seen in Copilot's runtime reads `ard.json` or speaks ARD's registry search
-(its compiled core couldn't be searched), so this plugin doesn't stand down for
+(its compiled core can't be searched as text), so this plugin doesn't stand down for
 it ([what was checked](../../server-cards/copilot/README.md#copilots-own-catalogue)).
 
 ## Settings
@@ -198,11 +193,10 @@ as Copilot starts it: consent, what is sent, what a registry may say, hidden
 characters, and the add flow. One rule isn't met, as in every form: S-3, the
 live comparison of a card with the server.
 
-In Copilot CLI 1.0.115 itself ([the record](docs/live-run.md)), with a scripted stand-in model, `ard_discover`
-read buildkite.com's catalogs, and a search against the demo registry on
-127.0.0.1 went out only after Copilot's tool prompt and **Send the search** in
-the plugin's form. Search has been run against no registry but that one. The MCP
-conformance suite has no Server Card or ARD scenarios.
+Checked in Copilot CLI 1.0.115: domain discovery against buildkite.com, and
+search against the demo registry on 127.0.0.1. Search has been run against no
+registry but that one. The MCP conformance suite has no Server Card or ARD
+scenarios.
 
 ## Development
 

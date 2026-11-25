@@ -1,6 +1,6 @@
 # SEP-3415 client conformance, in T3 Code
 
-How this client (mcp-events for T3 Code, 0.1.1; 0.1.0 was tested in T3 Code 0.1.11
+How this client (mcp-events for T3 Code, 0.1.1; 0.1.0 was checked in T3 Code 0.1.11
 with Codex 0.172.0) stands against the **Final** text of SEP-3415
 (`seps/3415-events-extension.md` in `modelcontextprotocol/modelcontextprotocol`,
 as fetched on 24 November 2026), the same revision as the other forms.
@@ -46,7 +46,7 @@ The form's other tests check what the SEP leaves to the client:
 | Clause | In T3 Code |
 |---|---|
 | SEC-3 ("Receipt of an event does NOT constitute authorization to act") | The wake is a message in the thread, sent with `t3 thread send`. T3 Code puts a line of its own before it, saying it came through T3 Code's tools and not from the user, and the polyfill's first line says the same. The turn runs in the thread's own permission mode. |
-| SEC-4 (policy evaluation between receipt and action) | The thread's permission mode, through Codex's approvals as T3 Code shows them. The form adds none. `watch_event` and `unwatch_event` aren't marked read-only, so a mode that asks asks before each. That prompt wasn't seen live: the live run's thread was in Full access. |
+| SEC-4 (policy evaluation between receipt and action) | The thread's permission mode, through Codex's approvals as T3 Code shows them. The form adds none. `watch_event` and `unwatch_event` aren't marked read-only, so a mode that asks asks before each. That prompt is not checked. |
 | SEC-5 (the client owns all subscription state) | Per T3 Code thread, by the id T3 Code puts in `T3CODE_THREAD_ID`, in `$CODEX_HOME/mcp-events-t3`, private to the user. |
 | STATE-1 across a restart | The watcher outlives the agent's sessions and T3 Code itself. When it starts again (after `--stop`, a reboot, or ending idle) it resumes every saved watch from its cursor, without waiting for the thread to call a tool. |
 | CAP-1 | The client declares the extension on its own connection to each server (`clientInfo` `mcp-events-t3`). Codex's connection isn't used: Codex gives an MCP server no way to send `events/*` over it. |
@@ -56,16 +56,15 @@ The form's other tests check what the SEP leaves to the client:
 **Not run for this form yet.** The official Events client scenarios are in
 the suite's open pull request
 [modelcontextprotocol/conformance#541](https://github.com/modelcontextprotocol/conformance/pull/541),
-at its head `c8625de3118c2d5dc0561696cddeb0baaf124f2c`, the revision the
-Codex and Pi forms ran. [`test/conformance-driver.ts`](../test/conformance-driver.ts)
+at its head `c8625de3118c2d5dc0561696cddeb0baaf124f2c`, the same revision as
+the Codex and Pi forms. [`test/conformance-driver.ts`](../test/conformance-driver.ts)
 is ready to be what the suite starts as the client, two ways: `--suite` runs
 the shared client in-process, named to the server as this form names it;
 `--suite --t3` runs the server as Codex starts it for a T3 Code thread, with
 the watcher it starts and a stand-in `t3`. Running the suite means running a
-checkout of code this repository doesn't hold, and that wasn't approved in
-this session, so neither has been run. The shared client this form bundles
-passes the four scenarios in the Codex and Pi forms' runs
-([Pi's results](../../pi/docs/conformance.md#the-upstream-conformance-suite)).
+checkout of code this repository doesn't hold; neither has been run. The
+shared client this form bundles passes the four scenarios in the Codex and Pi
+forms ([Pi's results](../../pi/docs/conformance.md#the-upstream-conformance-suite)).
 
 To run them, from a checkout of the suite at that commit with its
 dependencies installed (`npm ci`), and this folder ready (`npm ci` here, in
@@ -80,7 +79,6 @@ MCP_CONFORMANCE_SUITE_DIR=<suite checkout> node --no-warnings test/conformance-d
 
 - The webhook relay is the same relay, with the same client code; its tests
   are the Claude Code form's.
-- Interop runs against other implementations' Events servers are the Codex
-  form's ([`interop.md`](../../codex/docs/interop.md)), with the same client
-  code. From T3 Code, this form has been run against the hand-written fixture
-  server, with a real model, in the [live run](live-run.md).
+- Checks against other implementations' Events servers are the
+  [Codex form](../../codex/README.md)'s, with the same client code. Checked in
+  T3 Code 0.1.11 against the hand-written fixture server.

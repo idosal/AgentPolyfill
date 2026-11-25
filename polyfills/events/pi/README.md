@@ -76,10 +76,6 @@ arrives by itself, and Pi reads the event and answers. The same server also
 offers `hn.comment`, `hn.story`, `npm.release`, `github.release` and
 `demo.button`.
 
-[`docs/live-run.md`](docs/live-run.md) records a run with a real model in Pi
-1.6.0, end to end: the question you're asked, the session going idle, an event
-waking it, Pi reading the event and answering, and stopping the watch.
-
 To stop: "Stop watching the earthquakes."
 
 ## How it works
@@ -242,13 +238,11 @@ The changes hosts would need are in
   extension, as it runs for Pi and for any other extension that reads it.
 - **Sizes.** One event is at most 256 KiB, one answer from a remote server
   4 MiB, and one session's stored events 64 MiB.
-- **Not yet run against other implementations' servers from Pi.** The shared
-  client's interop runs (in the [Codex form](../codex/docs/interop.md)) apply
-  to the client; this form has been run against the hand-written fixture
-  server (with a real model, in [`docs/live-run.md`](docs/live-run.md)), an
-  HTTP server behind a token and behind OAuth, and the hosted demo server
-  above (with the scripted model: a watch confirmed, an `hn.story` event
-  waking the idle session, `get_event` reading it).
+- **Not checked against other implementations' servers from Pi.** The shared
+  client has been checked against them in the [Codex form](../codex/README.md),
+  with the same client code. From Pi, this form has been checked against the
+  hand-written fixture server, an HTTP server behind a token and one behind
+  OAuth, and the hosted demo server above.
 
 ## Security
 
@@ -286,8 +280,7 @@ kept, resuming a stdio watch, CAP-1), and how the upstream conformance
 suite's Events client scenarios went: all 17 checks pass with the shared
 client as this form runs it, and end to end through a real Pi, 11 pass and
 none fails (6 can't be evaluated there, because the suite's server also sees
-Pi's own client). What this form's own tests check, in a real Pi 1.6.0 with
-its own agent directory and home and a scripted stand-in model:
+Pi's own client). What this form's own tests check, in a real Pi 1.6.0:
 
 - the user confirms a watch, the session goes idle, an event arrives, and the
   session wakes by itself and reads it; the wake message carries nothing the

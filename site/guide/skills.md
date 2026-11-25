@@ -53,9 +53,9 @@ has the rest.
 
 There is no Copilot form, on purpose. Copilot CLI 1.0.115 has Skills over MCP
 built in: it declares `io.modelcontextprotocol/skills` to every server it
-connects (seen in its `initialize`), and VS Code 1.147.0's Copilot harness has
-it on by default (from its source). No served skill was listed or loaded in
-Copilot. A polyfill would be a second client
+connects, in its `initialize`, and VS Code 1.147.0's Copilot harness has
+it on by default (from its source). Listing or loading a served skill in
+Copilot was not checked. A polyfill would be a second client
 ([why](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/README.md#skills-and-apps-in-copilot)).
 
 ## Install
@@ -362,7 +362,7 @@ protocol, no vendor extension.
   twice.
 - **At most 100 skills** in Codex's list; `list_skills` reaches all of them.
 - **Binary files** of a skill are checked, but not shown to the model.
-- **Not tried yet:** Windows and Linux by hand (it was run on macOS).
+- **Not checked yet:** Windows and Linux outside the tests (checked on macOS).
 
 ### In Pi
 
@@ -393,8 +393,8 @@ protocol, no vendor extension.
   text only when it's loaded, and only after a question.
 - **What a loaded skill leads to.** What the model then does, the commands a
   skill describes included, goes through OpenCode's rules as for its own
-  skills, and OpenCode's default allows it. In a live run, the model ran a
-  command a loaded skill described, without a prompt.
+  skills, and OpenCode's default allows it. So the model can run a
+  command a loaded skill describes, without a prompt.
 - **A loaded skill is held for 64 sessions at once.** Past that, or after
   OpenCode restarts, a file read asks the model to load the skill again,
   which is asked about unless "Allow always" covers it as it is.
@@ -403,7 +403,7 @@ protocol, no vendor extension.
   in OpenCode doesn't take it back from the plugin; an `ask` rule does. An
   `allow` rule you write doesn't skip the question by itself, since the
   plugin can't tell it from OpenCode's default.
-- **Not tried yet:** Windows by hand (CI runs the tests there).
+- **Not checked yet:** Windows outside CI (CI runs the tests there).
 
 ### In Antigravity
 
@@ -426,7 +426,7 @@ agent it runs loads there (checked with Codex). With Codex, the question it asks
 an MCP elicitation form, and T3 Code shows such a form only when it can
 answer it with Approve or Decline; it cancels this one without showing it, so
 the step is refused as if you had said no. Nothing is approved for you.
-Listing the served skills works (tried live).
+Listing the served skills works (checked).
 [T3 Code](https://github.com/idosal/AgentPolyfill/blob/main/docs/t3-code.md) has the details.
 
 ## Security
@@ -459,8 +459,6 @@ loaded asks first, naming both servers. After you approve a skill, Pi's own
 permissions apply: Pi runs tools without asking unless a permission extension
 asks. Tool annotations let permission extensions distinguish the calls.
 See [Pi's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md).
-An AI reviewer who did not build the Pi forms reviewed them, and checked
-the fixes again. They have not been audited by a person.
 
 ### In OpenCode
 
@@ -489,7 +487,6 @@ placeholders, and never opens a sign-in store. X8 isn't met: the hook asks
 before a cross-server read while a skill is loaded, but Antigravity (CLI
 1.5.17, App 2.35.1) ignores that question. See
 [Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/SECURITY.md).
-The independent AI review of the Antigravity forms is in progress.
 
 ## How it is tested
 
@@ -504,21 +501,18 @@ shares no code with the client.
 [Codex's conformance table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/docs/conformance.md)
 records 60 rules: 52 met, 6 met with a stated limit, 1 not met (X8) and 1
 that doesn't apply. The official MCP conformance suite's four SEP-2640 client
-scenarios pass. Against Hugging Face's public server, all 25 skills loaded
-and all 135 files were verified. A recorded session in the Codex terminal UI
-shows a skill listed, asked about, shown, loaded and used. The
-[Codex README](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex#tests) has each run and
-its output.
+scenarios pass. Checked in Codex 0.172 against Hugging Face's public server:
+all 25 skills load and all 135 files verify. Checked in the Codex terminal
+UI: a skill listed, asked about, shown, loaded and used.
 
 ### In Pi
 
 [Pi's conformance table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/docs/conformance.md)
 records 53 rules met, 6 met with a stated exception, 1 not applicable and
 none unmet. The official MCP conformance suite's four SEP-2640 client
-scenarios pass. The [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/docs/live-run.md)
-against Hugging Face records two skills approved and loaded, reference files
-read and an answer from them, including a run with "Show me its SKILL.md
-first".
+scenarios pass. Checked in Pi 1.6.0 against Hugging Face's server: two
+skills approved and loaded, reference files read and an answer from them,
+and "Show me its SKILL.md first".
 
 ### In OpenCode
 
@@ -526,28 +520,20 @@ first".
 records 60 rules: 54 met, 4 met with a stated exception, 1 not applicable,
 and 1 not met, X13b (letting you read a skill before it loads), which needs a
 change in OpenCode. X8 and V4 are met. Its tests run the plugin in OpenCode
-2.4.1, in a throwaway home, against a hand-written fixture server, with a
-scripted model; CI runs them on Linux, macOS and Windows. No run of the
-official conformance suite is recorded for this form. The
-[live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md)
-against Hugging Face records its 25 skills in OpenCode's list, two loaded
-after OpenCode asked, each bound to its digest, reference files read and an
-answer from them, and the X8 question from a Code Mode program. A skill also
-loaded in the TUI and in OpenCode Desktop.
-An AI reviewer who did not build the OpenCode forms reviewed them. They have
-not been audited by a person.
+2.4.1; CI runs them on Linux, macOS and Windows. The official conformance
+suite was not run for this form. Checked in OpenCode 2.4.1 against Hugging
+Face's server: its 25 skills in OpenCode's list, two loaded after OpenCode
+asked, each bound to its digest, reference files read and an answer from
+them, and the X8 question from a Code Mode program. Loading a skill was also
+checked in the TUI and in OpenCode Desktop.
 
 ### In Antigravity
 
 [Antigravity's conformance table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/conformance.md)
-maps the client rules for this form. The live runs of these builds on 25
-November 2026, in App 2.35.1 and CLI 1.5.17 against a local skills server,
-approved a new skill's load, asked again for a changed one, and declined a
-load, which read nothing. Earlier builds, against Hugging
-Face's server, listed its 25 skills and loaded one after approval in the App
-and over `agy acp`. The official MCP conformance suite's four
-SEP-2640 client scenarios pass (suite at `c8625de`, 25 November 2026;
-[record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/evidence/conformance.txt)).
+maps the client rules for this form. Checked in App 2.35.1 and CLI 1.5.17:
+a new skill's load approved, a changed one asked about again, and a declined
+load, which reads nothing. The official MCP conformance suite's four
+SEP-2640 client scenarios pass (suite at `c8625de`).
 
 ## Settings
 
@@ -578,8 +564,8 @@ MCP client's extensions. See the [Antigravity settings](https://github.com/idosa
 
 ## More
 
-On GitHub, each form's folder has its full README, its `SECURITY.md`, its
-conformance table and the records of its test runs:
+On GitHub, each form's folder has its full README, its `SECURITY.md` and its
+conformance table:
 [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex),
 [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi),
 [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/opencode) and

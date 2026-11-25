@@ -150,15 +150,14 @@ plugin only says so.
 That's a departure from the polyfill contract's rule 4, which has a polyfill
 stand down where the host is native. The plugin doesn't leave push to
 OpenCode, because OpenCode's client skips event types whose schemas it can't
-check, and a plugin can't ask which ones it took: in a run, it skipped both
+check, and a plugin can't ask which ones it took: OpenCode 2.4.1 skips both
 of the fixture server's types, whose payload schemas use `pattern`, `format`
 and the SEP's `x-mcp-content`, all valid under the SEP. Standing down for push
 would leave those types unwatched.
 
 OpenCode Console, for a workspace signed in to it, also has `console_watch`
 tools that can wake a session on events from the workspace's MCP servers on
-Console. They weren't tried here (they need a Console sign-in), and the plugin
-doesn't look for them. The same advice holds: one or the other for an event
+Console. They aren't checked here, and the plugin doesn't look for them. The same advice holds: one or the other for an event
 type.
 
 ## Permissions
@@ -245,25 +244,20 @@ remove it.
   synthetic, but sends it to the model in the user's role. Its first line says
   it was sent by the plugin, not typed by you.
 - **A second connection.** A local server that offers events runs twice.
-- **Tried live** with a real model (one of OpenCode's free ones) against the
-  fixture server: an event woke the idle session, and the model did what the
-  note said ([`live-run.md`](../../../tools/opencode/live-run.md)). CI runs
-  the tests on Linux, macOS and Windows.
+- **Checked in OpenCode 2.4.1.** CI runs the tests on Linux, macOS and
+  Windows.
 - **OpenCode's TUI shows little in the prompt.** In OpenCode 2.4.1's TUI, a
   permission prompt for a plugin's own action says only "Call tool
   mcp_events_watch". The details are on the model's call line just above it, and
-  "Always allow" lists the pattern it would save. Checked in the TUI
-  ([`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui)).
-- **In OpenCode Desktop** (2.4.1, tried live): the plugin runs in the app's
+  "Always allow" lists the pattern it would save.
+- **In OpenCode Desktop** (checked in 2.4.1): the plugin runs in the app's
   own server, and the permission prompt names the action and the server and
-  event type. An event woke the idle session and the model answered, but the
-  app shows no entry for the wake message itself, so the turn starts with no
-  visible cause (the TUI shows it as `◈ mcp-events: new events`).
-- **Tried live against public infrastructure:** AgentPolyfill's event-feeds
-  server by poll (a demo button pressed woke the session), and a webhook
-  through the public relay
-  ([`live-run.md`](../../../tools/opencode/live-run.md#public-infrastructure)).
-- **Not tried yet:** Windows by hand (CI runs the tests there).
+  event type. An event wakes the idle session, but the app shows no entry for
+  the wake message itself, so the turn starts with no visible cause (the TUI
+  shows it as `◈ mcp-events: new events`).
+- **Checked against public infrastructure:** AgentPolyfill's event-feeds
+  server by poll, and a webhook through the public relay.
+- **Not checked:** Windows by hand (CI runs the tests there).
 
 [What hosts would need to change](../../../docs/host-changes.md) covers these
 gaps for each host.
@@ -284,8 +278,8 @@ The plugin implements the client side of
 Final as of 24 November 2026, through the shared client in [`../core`](../core),
 bundled unchanged. Every client rule is implemented once, there; the
 clause-by-clause table is the Claude Code form's
-[`docs/conformance.md`](../claude-code/docs/conformance.md), and its interop
-and conformance-suite runs drive the same client. One step outside the SEP is
+[`docs/conformance.md`](../claude-code/docs/conformance.md), and its
+conformance-suite results are for the same client. One step outside the SEP is
 on by default, as in the other forms: servers that advertise events in the
 form from before the standard. `MCP_EVENTS_PRE_STANDARD=off` turns it off.
 This form's [`docs/conformance.md`](docs/conformance.md) lists which clauses
@@ -302,9 +296,9 @@ What is different in OpenCode:
 
 ### Checked end to end in OpenCode
 
-[`test/e2e.test.ts`](test/e2e.test.ts) runs the plugin in OpenCode 2.4.1, in a
-throwaway home, against the Claude Code form's fixture events server (written
-from the SEP, sharing no code with the client), with a scripted model:
+[`test/e2e.test.ts`](test/e2e.test.ts) runs the plugin in OpenCode 2.4.1,
+against the Claude Code form's fixture events server (written from the SEP,
+sharing no code with the client):
 
 - the six tools reach the model, and the fixture's event types are listed from
   OpenCode's own MCP configuration;

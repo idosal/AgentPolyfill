@@ -113,22 +113,17 @@ request in Claude Code's prompt.
   server whose publisher doesn't confirm it is marked so, and adding it is your
   call.
 
-## Security review
+## How a result is confirmed
 
-The launch security review (24 November 2026, by an AI session, not a human
-audit) read registry search while it was still part of `mcp-server-cards`.
-
-- It checked that a result can't impersonate a publisher. A result is
-  "confirmed" only when the publisher's own domain (from
-  `urn:air:<publisher>`) lists it with a valid card. Then the publisher's card
-  is the one shown and installed, not the registry's.
-- That check now lives in `mcp-server-cards`, and this mod hands it ARD's
+- A result can't impersonate a publisher. A result is "confirmed" only when
+  the publisher's own domain (from `urn:air:<publisher>`) lists it with a
+  valid card. Then the publisher's card is the one shown and installed, not
+  the registry's.
+- That check lives in `mcp-server-cards`, and this mod hands it ARD's
   sources. So a publisher that lists its server only in `ard.json` still
   confirms it (mcp-server-cards O-8, B-12).
-- Its pre-merge re-check of the split (M2) found that Claude decided when to
-  search and what to write. Only Claude Code's ordinary permission for the
-  tool was in the way, and nothing under auto mode or an allow rule. Every
-  search is now put to you first, and refused with nobody to ask (A-7, A-8).
+- Every search is put to you first, and refused with nobody to ask (A-7,
+  A-8).
 
 ## Reporting
 

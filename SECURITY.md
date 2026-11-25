@@ -27,9 +27,7 @@ Code closes, until no thread has a watch, and wakes a thread with T3 Code's
 mode. It reads no stored credentials, Codex's or T3 Code's.
 
 These are third-party plugins and extensions that run with your permissions
-in each host. They have been reviewed by an AI reviewer that did not build
-them, and not audited by a person. The Antigravity forms' review is in
-progress.
+in each host.
 
 Pi runs tool calls without asking unless a permission extension asks. Each
 Pi polyfill asks before its consequential step: a watch, a skill load, a

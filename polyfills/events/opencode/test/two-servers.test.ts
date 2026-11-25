@@ -1,6 +1,6 @@
 // The same OpenCode session open in two OpenCode servers (the background service and another, say):
 // two processes over one state folder, of which one runs the session's watches and wakes it, and the
-// other only lists them and takes over if the first goes. As in the Codex form (review EVH1): the one
+// other only lists them and takes over if the first goes. As in the Codex form: the one
 // taking over reads the wake count again, and the one that doesn't run the watches never writes it.
 
 import assert from 'node:assert/strict';

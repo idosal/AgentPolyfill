@@ -191,20 +191,19 @@ code and tests as in the other forms, run here against the committed Pi
 bundle: ARD's 12 registry tests and the Server Cards core's 90. The Pi
 form's own tests cover the search question (the exact query and registry,
 no default registry, no UI), hidden characters, a registry's text, the
-separate add question and the Server Cards Pi adapter's checks. Real Pi RPC
-tests use an isolated agent folder and a local server for both well-known
-catalogs, a card, a registry search endpoint and MCP.
+separate add question and the Server Cards Pi adapter's checks. Tests in a
+real Pi use a local server for both well-known catalogs, a card, a registry
+search endpoint and MCP.
 
-[`docs/live-run.md`](docs/live-run.md) records a run in Pi 1.6.0 with a real
-model, reading buildkite.com's `ard.json`, and a registry search against the
-repository's demo registry that the extension asked about, naming the registry
-and the exact query, before anything was sent. ARD is not an MCP extension,
-and the MCP conformance suite has no ARD scenarios.
+Checked in Pi 1.6.0: reading buildkite.com's `ard.json`, and a registry search
+against the repository's demo registry. ARD is not an MCP extension, and the
+MCP conformance suite has no ARD scenarios.
 
 ## Development
 
+You need Node 22 or newer.
+
 ```bash
-export PATH=$HOME/.nvm/versions/node/v22.22.1/bin:$PATH
 npm run build
 npm run typecheck
 npm test

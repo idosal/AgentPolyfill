@@ -7,7 +7,6 @@ import { fixtures } from './fixtures'
 
 const BUILDKITE_CARD = fixtures.live['mcp.buildkite.com_mcp_server-card']
 
-// Second review pass (2026-11-24).
 test('F-1 a long URL is shown whole, so it can be passed back exactly', async () => {
   const url = 'https://safe.example/' + 'a'.repeat(400)
   const card = { ...BUILDKITE_CARD, remotes: [{ type: 'streamable-http', url }] } as unknown as ServerCard

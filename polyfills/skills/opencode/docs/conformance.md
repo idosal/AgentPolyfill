@@ -27,19 +27,18 @@ whose shipped default allows every action; the rows say so.
 **Where a rule is checked:**
 
 - `e2e`: [`test/e2e.test.ts`](../test/e2e.test.ts), the bundled plugin in
-  OpenCode 2.4.1, in a throwaway home, against the Skills forms' shared
-  hand-written fixture server
-  ([`../core/test-fixtures`](../../core/test-fixtures/), which shares no code
-  with the client), with a scripted model.
+  OpenCode 2.4.1, against the Skills forms' shared hand-written fixture
+  server ([`../core/test-fixtures`](../../core/test-fixtures/), which shares
+  no code with the client).
 - `units`: [`test/units.test.ts`](../test/units.test.ts), what OpenCode lists
   and what the model reads, without OpenCode.
 - `core`: the shared core, [`../core/src/skills.ts`](../../core/src/skills.ts),
   bundled unchanged; its rules are tested rule by rule in the Codex and Pi
   forms (`test/client-rules-test.ts`, `test/hardening-test.ts`), against the
   same code.
-- `live`: OpenCode 2.4.1 with a real model, against Hugging Face's public
-  server, over its API, in its TUI and in OpenCode Desktop
-  ([`live-run.md`](../../../../tools/opencode/live-run.md)).
+
+Also checked in OpenCode 2.4.1 against Hugging Face's public server, in its
+TUI and in OpenCode Desktop.
 
 The rows below say what the OpenCode adapter adds.
 
@@ -89,7 +88,7 @@ The rows below say what the OpenCode adapter adds.
 | D1 | A read of a `SKILL.md` by another route is not a load. | met | Only `load_skill` loads. OpenCode's own skill tool returns the plugin's note, and its resource tool loads nothing. `e2e` |
 | D2 | Return such content as an ordinary resource read. | met | The plugin does not change OpenCode's resource tool (its hook only asks first, for another server: X8) |
 | D3 | Relative references resolve against the skill's root. | met | `core` |
-| V1, V2 | Verify each file against its digest; never use unverified content. | met | `core`; `e2e` (the loaded text and a file say they matched); `live` |
+| V1, V2 | Verify each file against its digest; never use unverified content. | met | `core`; `e2e` (the loaded text and a file say they matched) |
 | V3 | Recover from staleness with `skills/get`. | met | `core` |
 | V4 | While acting on a skill, resolve its files only to the held entry's URIs. | met | `read_skill_file` resolves against the entry the session loaded. OpenCode's own resource read of a file inside a loaded skill's folder, from the skill's server, is refused (a `tool` hook) with a pointer to `read_skill_file`, in the session, its subagents and after a restart; nothing is sent to the server. `e2e` |
 | V5 | A read of an unlisted file is a verification failure. | met | Not requested at all. `core` |
@@ -108,9 +107,9 @@ The rows below say what the OpenCode adapter adds.
 | X1 | Treat served skill content as untrusted input. | met | Fenced with a marker made per answer; a skill or file URI holding anything but printable ASCII is refused; a description OpenCode lists loses every control and invisible character and any markup; a file's media type is printed only when the whole of it is one; a loaded skill or file that holds hidden characters tells the model how many. `core`; `units` |
 | X2 | Treat served skills as a higher-risk surface than tools. | met | A load is put to OpenCode's rules before anything of the skill is fetched, and asks by default where OpenCode's rules would allow it: only "Allow always" for that exact skill as it is, or `askByDefault: false`, skips the question. A configured `deny` is final. `e2e` ("asks by default") |
 | X3, X4 | Tag content with its server; never present it as a local skill. | met | OpenCode's list (`[MCP server "<server>", not a local skill]`), the note, the permission request, the loaded text and every file say which server. `e2e`; `units` |
-| X5 | No host-side code execution from a served skill without explicit per-skill approval: (a) declarative fields ignored; (b) the gate applies to code execution while acting on the skill. | exception | (a) No frontmatter field has any effect, and none reaches OpenCode's list. (b) A skill is loaded only once OpenCode allows `mcp_skills_load` for it, which asks by default; nobody present (an unattended run) is a no. **Limit:** after the load, what the skill tells the model to do goes through OpenCode's rules as for any skill, and OpenCode's shipped rules allow shell commands: in a live run with them, the model ran a command a loaded skill described, without a prompt (`live`) |
+| X5 | No host-side code execution from a served skill without explicit per-skill approval: (a) declarative fields ignored; (b) the gate applies to code execution while acting on the skill. | exception | (a) No frontmatter field has any effect, and none reaches OpenCode's list. (b) A skill is loaded only once OpenCode allows `mcp_skills_load` for it, which asks by default; nobody present (an unattended run) is a no. **Limit:** after the load, what the skill tells the model to do goes through OpenCode's rules as for any skill, and OpenCode's shipped rules allow shell commands, so a command a loaded skill describes runs without a prompt |
 | X6 | A skill of server A never causes a read against B. | met | `read_skill_file` reads only from the skill's server. `core` |
-| X8 | Gate any cross-origin read behind per-call approval naming both servers. | met | Once a session (or a subagent of it) has loaded a served skill, OpenCode's resource read for another server, by either of its names and also from a Code Mode program, is put to OpenCode's rules as `mcp_skills_cross_server` on `<skill servers>-><server>:<uri>`, per call (nothing saved), and asks by default. Kept across restarts. With `askByDefault: false`, OpenCode's rules alone decide. `e2e` (four cases), `live` |
+| X8 | Gate any cross-origin read behind per-call approval naming both servers. | met | Once a session (or a subagent of it) has loaded a served skill, OpenCode's resource read for another server, by either of its names and also from a Code Mode program, is put to OpenCode's rules as `mcp_skills_cross_server` on `<skill servers>-><server>:<uri>`, per call (nothing saved), and asks by default. Kept across restarts. With `askByDefault: false`, OpenCode's rules alone decide. `e2e` (four cases) |
 | X10 | Never honour frontmatter that widens permissions (`allowed-tools`). | met | `core`; the plugin passes no frontmatter to OpenCode |
 | X11 | Served resources are not higher-authority; user policy decides whether a skill loads. | met | Content arrives as a tool result. OpenCode's rules decide, per skill (`<server>:<uri>@<digest>`); a `deny` rule is final |
 | R3 | A nested `SKILL.md` read as a file is plain text. | met | `core` |

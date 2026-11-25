@@ -3,7 +3,7 @@
 // Copilot reads your MCP servers from $COPILOT_HOME/mcp-config.json (~/.copilot), for all your
 // projects, and `copilot mcp add` writes there. Unlike Codex, it takes everything a card can ask
 // for: streamable HTTP and SSE, any header, and `${VAR}` references, which Copilot expands from
-// its environment when it connects (seen live in 1.0.115) and `copilot mcp add` writes as they
+// its environment when it connects (1.0.115) and `copilot mcp add` writes as they
 // are. So the plan is the shared one (configure.ts planAdd), as Claude Code's is: a secret is a
 // `${VAR}` named for this card alone, never a value. `copilot mcp add` contacts no server and
 // starts no sign-in; a server behind OAuth asks for it when Copilot first connects (/mcp auth).
@@ -41,7 +41,7 @@ export const planForCopilot = (card: ServerCard, remoteIndex: number, values: Re
     seen.add(h.name.toLowerCase())
   }
   // A header is shown in the form as it is: no markup a host could render as something else
-  // (security review C4, as in the Codex form).
+  // (as in the Codex form).
   for (const h of p.headers)
     if (hasMarkup(h.value.replace(/\$\{[A-Z0-9_]+\}/g, '')))
       return { error: `The header ${h.name} holds \`, <, > or a square bracket (${h.value}), which could show as something else in the form.` }

@@ -12,10 +12,7 @@ Every line of the spec with MUST, SHOULD, MAY or REQUIRED, 75 in all, one row
 each. "Binds" is who the line is about: the host (this plugin), the client
 (its MCP connection), a server, a view (the app), or a web host's sandbox proxy
 ("host (web)"), which this host doesn't have: its views run in a headless
-Chrome, not in a web page that holds the conversation. The rows were first
-made by the verification of 20 November 2026 in the prototype this plugin came
-from, and are restated here for this code; the rows the fixes since then
-touch (CSP sources, app traffic, the client capability) are rewritten.
+Chrome, not in a web page that holds the conversation.
 
 | State | Rows |
 |---|---|
@@ -57,7 +54,7 @@ R12 is the one MUST that is neither met nor a limit of the host; see the row.
 | R25 | 477 | Once the Sandbox is ready, the Host MUST send the raw HTML resource | host (web) | n/a | No sandbox proxy: the helper serves the HTML at the app's origin with its CSP header. |
 | R26 | 478 | The Sandbox MUST load the raw HTML of the View with CSP settings that: | host | met | Declared domains enforced; frame-src 'none' unless declared; base-uri 'none' unless declared (stricter than 'self'); object-src 'none'; restrictive default: see R12. |
 | R27 | 484 | If `permissions` is declared, the Sandbox MAY set the inner iframe's `allow` attribute | host | n/a (MAY, not taken up) | See R03. |
-| R28 | 485 | The Host MUST NOT send any request or notification to the View before it receives an `initialized` notification. | host | met | Arguments, result, cancel, context changes and the teardown all wait for initialized (host.ts keeps them; __teardown returns when the app never initialized: F3, fixed 2026-11-19). The line also binds the sandbox proxy's forwarding, which has no counterpart here. |
+| R28 | 485 | The Host MUST NOT send any request or notification to the View before it receives an `initialized` notification. | host | met | Arguments, result, cancel, context changes and the teardown all wait for initialized (host.ts keeps them; __teardown returns when the app never initialized). The line also binds the sandbox proxy's forwarding, which has no counterpart here. |
 | R29 | 486 | The Sandbox SHOULD NOT create/send any requests to the Host or to the View | host (web) | n/a |  |
 | R30 | 487 | The Host MAY forward any message from the View (coming via the Sandbox) to the MCP Apps server | host | met | Forwarded only with consent (appToolCalls; deny rules first), only to the view's own server, only for the open of the view that asked (0.1.3), and only on Claude Code's yes asked for that request (0.1.2; from 0.1.3 asked again after the person's consent, and a no cancels what is in flight). Model: AppsConsent (ToolCallsConsented, DenyWins, AskedWhereClaudeCodeWouldAsk) and AppsViews (GatedSends, NoSendAfterNo, SendsOnlyWhileUsed, NoAnswerAfterNo, SameInstance, OwnServerOnly). Tests: "an app's calls and reads stop once Claude Code stops using its server", "an app-only tool's yes is asked of Claude Code after the person's yes", "what an earlier open's page asks is refused", `tests/gate.rs` (a revoke cancels a request in flight). |
 | R31 | 512 | it MUST include its capabilities in the `appCapabilities` field | view | n/a | Binds the view (the app). |
@@ -74,7 +71,7 @@ R12 is the one MUST that is neither met nor a limit of the host; see the row.
 | R42 | 1033 | Host SHOULD add the message to the conversation context, preserving the specified role. | host | met | A user turn, framed as the app's words . |
 | R43 | 1034 | Host MAY request user consent. | host | met | Taken up: asked by default (appMessages). |
 | R44 | 1093 | The View MAY send this request to update the Host's model context. | view | n/a | Binds the view (the app). |
-| R45 | 1097 | SHOULD provide the context to the model in future turns | host | met | With the next prompt, out of the person's view, and only from live views of this session: closed views' context is dropped, and all of it is cleared at /clear and when the helper exits (F2, N2, fixed 2026-11-19). |
+| R45 | 1097 | SHOULD provide the context to the model in future turns | host | met | With the next prompt, out of the person's view, and only from live views of this session: closed views' context is dropped, and all of it is cleared at /clear and when the helper exits. |
 | R46 | 1098 | MAY overwrite the previous model context with the new update | host | met (MAY, taken up) | Taken up (latest per app). |
 | R47 | 1099 | MAY defer sending the context to the model until the next user message | host | met (MAY, taken up) | Taken up. |
 | R48 | 1100 | MAY dedupe identical `ui/update-model-context` calls | host | n/a (MAY, not taken up) |  |
@@ -102,7 +99,7 @@ R12 is the one MUST that is neither met nor a limit of the host; see the row.
 | R70 | 1560 | Servers MAY register different tool variants based on host capabilities | server | n/a | Binds the server. |
 | R71 | 1698 | All View content MUST be rendered in sandboxed iframes with restricted permissions. | host | met | A sandboxed iframe (`allow-scripts allow-forms allow-same-origin allow-pointer-lock`), served from an origin other than the host page's, in a headless Chrome with its own sandbox on (unless MCP_APPS_CLI_NO_SANDBOX), one browser context per view, WebRTC off, navigation away blocked. |
 | R72 | 1725 | Hosts MUST enforce Content Security Policies based on resource metadata. | host | met | Enforced by Chrome on the header; navigation, which connect-src doesn't cover, is blocked separately. |
-| R73 | 1756 | Host MUST block connections to undeclared domains | host | met | And dedicated origins only for a server's own hash (generated cases in the 20 November verification). |
+| R73 | 1756 | Host MUST block connections to undeclared domains | host | met | And dedicated origins only for a server's own hash. |
 | R74 | 1757 | Host SHOULD warn users when UI requires external domain access | host | met (no test) | The view's header names the domains its CSP lets it reach. |
 | R75 | 1758 | Host MAY implement global domain allowlists/blocklists | host | n/a (MAY, not taken up) | A fixed blocklist of sorts: broad sources and other private addresses are never applied. |
 
@@ -192,12 +189,10 @@ The invariants, in plain words:
 | OnlyApprovedViews | Nothing happens for a view whose call Claude Code didn't let run |
 | GrantsEndWithSession | A "this session" yes never carries into the next session |
 
-Results, on an Apple M1 Max (32 GB, macOS 15.4.1), TLC 1.7.4 on Temurin 21,
-`-workers auto`; state files under 150 MB, or 400 MB for ConsentRules and
+Results with TLC 1.7.4 on Temurin 21, `-workers auto`; state files under 150 MB, or 400 MB for ConsentRules and
 ConsentAsk, whose queue of states yet to visit peaks at about 130 and 160 MB
 with CI's four workers (a run past its cap counts as failed), deleted after
-each run. The counts are TLC's final distinct-state counts
-(0.1.2's table took a progress line for some). With several workers the
+each run. The counts are TLC's final distinct-state counts. With several workers the
 reported depth can differ by one from run to run, and for a violated
 configuration the states explored up to the first violation found vary too;
 the numbers below are one run's.
@@ -214,22 +209,20 @@ the numbers below are one run's.
 | Token | another program sending forged requests | all hold; 40,112 states, depth 24 |
 | ConsentRules, ConsentAsk, ConsentAllow | 2 tool calls (one app-only), two sessions, each setting | all hold; 947,520, 1,532,480 and 519,488 states, depth 16 |
 | ConsentOther | 2 messages, links or downloads, every appMessages setting | all hold; 72,769 states, depth 14 |
-| RaceBefore, RaceBeforeDead | Race against 0.1.1 | NoOrphanPages and NoDeadViews violated (the defects fixed in 0.1.2) |
-| TrafficBefore, TrafficBeforeNo | Traffic against 0.1.1 | GatedSends and NoSendAfterNo violated (fixed in 0.1.2) |
-| WindowBefore | Traffic against 0.1.2 | SendsOnlyWhileUsed violated: the window 0.1.2 documented (a yes kept 5 s for discovery and opening; an open's resource read on the /open's yes) |
+| RaceBefore, RaceBeforeDead | Race against 0.1.1 | NoOrphanPages and NoDeadViews violated |
+| TrafficBefore, TrafficBeforeNo | Traffic against 0.1.1 | GatedSends and NoSendAfterNo violated |
+| WindowBefore | Traffic against 0.1.2 | SendsOnlyWhileUsed violated: a yes kept 5 s for discovery and opening; an open's resource read on the /open's yes |
 | CancelBefore | TrafficShared with every 0.1.3 fix but the cancelling | NoAnswerAfterNo violated: an answer in flight when the mod hears the no still reached the app |
 | InstanceBefore | Instance against 0.1.2 | SameInstance violated: requests were matched to a view by id alone |
 | RaceGen | Race with generations but not the one-at-a-time order | NoDeadViews violated: a late /open of an earlier generation replaces the newer page, so the order stays |
 | Witness* | each outcome (a run, a message, a link, a save) | reachable, so the consent invariants don't hold for want of anything happening |
 
-`node model/check.mjs` ran all 24 configurations in 47 s; every one
-gave what it should. The configurations 0.1.2 had keep their bounds;
-ReopenTraffic and RaceGen are new. A larger one (2 calls of one server, each
-opened twice, with traffic) passed 150 MB of state files within 7 s and was
-dropped.
+`node model/check.mjs` runs all 24 configurations; every one gives what it
+should. A larger one (2 calls of one server, each opened twice, with
+traffic) passes 150 MB of state files and isn't run.
 
-What the model found, both fixed in 0.1.2 with a test each that fails on
-0.1.1:
+What the `...Before` configurations show, and what prevents each, with its
+tests:
 
 1. **An app's own traffic was never re-checked.** After a view opened, its
    app's reads and calls of app-only tools went to the server over the
@@ -241,11 +234,6 @@ What the model found, both fixed in 0.1.2 with a test each that fails on
    could close a reopened view's page (the view then stood live with no page),
    or arrive before its page existed and leave that page running unseen. They
    now go one at a time per id.
-
-The two windows 0.1.2 documented as reachable, closed in 0.1.3, each in
-the model first (the invariant that failed with the documented exception
-now holds without it), then in the code, each with tests that fail on
-0.1.2:
 
 3. **A request reached a server just after Claude Code stopped using it.**
    0.1.2 kept a yes 5 s and reused it to discover and open views, read an
@@ -281,9 +269,8 @@ What remains of the first, which no change in this plugin can remove:
 
 - Claude Code's yes and the helper's writing of the request are one local
   round trip apart: a `check` line on the helper's stdout, the mod's
-  `$.mcp.connect`, its `/reply`. In the live session below the mod's reply
-  went out within 2 ms of `$.mcp.connect` answering, and took 0-2 ms. A
-  server switched off within that moment still gets the request.
+  `$.mcp.connect`, its `/reply`. A server switched off within that moment
+  still gets the request.
 - A request already written isn't unsent: the server may have acted on it.
   Closing the connection is its only notice, and over streamable HTTP rmcp
   closes it with one more request, the session's `DELETE`.
@@ -317,8 +304,7 @@ entries only in a trusted folder; under inherited trust, the repository's own
 settings change nothing), and checks that every scope is reachable. Three
 mutants of `decide` are each caught. This proves `decide` matches those rules.
 It does not prove the rules are Claude Code's: they are its documented
-behaviour as the security review read it, and the mod asks Claude Code's own
-verdict first.
+behaviour, and the mod asks Claude Code's own verdict first.
 
 ### Property-based tests
 
@@ -333,39 +319,22 @@ run on every `cargo test`:
 
 ## Measurements
 
-The helper, started alone, five times each, on the machine above, over the
-TCP transport: ready (its first line) in 4.5-9.8 ms, idle at 4.4-4.7 MB
-resident and no measurable CPU over 5 s (the release build of 20 November;
-this branch's debug build: 4.6-9.9 ms, 8.2-8.7 MB), a `/ping` round trip in
-0.3-0.6 ms, gone 0.6-1.1 ms after SIGTERM. The mod starts nothing with the
-session; the helper starts with the first MCP call. The hooks module is
-160 KB of TypeScript. Nothing here was worth changing; the costs with views
-open (Chrome, pictures) are in [DESIGN.md](DESIGN.md) and were not measured
-again. These are 0.1.2's numbers; 0.1.3 changes nothing at start and adds one
-local round trip (a `check`) before each request the helper writes to a
-server: the mod's answer went out within 2 ms of Claude Code's and reached
-the helper in 0-2 ms in the live session below.
+The helper, started alone, five times each, on one machine, over the TCP
+transport: ready (its first line) in 4.5-9.8 ms, idle at 4.4-4.7 MB resident
+and no measurable CPU over 5 s (the release build; a debug build: 4.6-9.9 ms,
+8.2-8.7 MB), a `/ping` round trip in 0.3-0.6 ms, gone 0.6-1.1 ms after
+SIGTERM. The mod starts nothing with the session; the helper starts with the
+first MCP call. The hooks module is 160 KB of TypeScript. The costs with
+views open (Chrome, pictures) aren't measured here. These are 0.1.2's
+numbers; 0.1.3 changes nothing at start and adds one local round trip (a
+`check`) before each request the helper writes to a server.
 
-## A live session (0.1.3)
+## Checked, and not checked
 
-Real Claude Code 2.1.329 sessions (`bench/session.py`, a plain terminal, in
-a folder Claude Code already trusts, with the plugin's debug build of the
-helper) against the hosted arcade server: "Load the game msdos_DOOM_1993",
-then a click into the view and three keys; run twice, the second time with
-the final build. Each time the helper asked a `check` before each request it
-wrote (the connection, the tool list, the UI resource read ahead, its
-refreshes: six, each answered on `/reply`); the view opened with its
-generation (155 ms and 73 ms, the tab kept ready), drew its pictures, took
-the click and keys, and closed with the session. Nothing was refused or logged as an error. The app made no calls of
-its server's tools of its own in that session, so `ui/allow-tool` and
-`ui/allow-read` were exercised by the tests, not live.
+Checked in Claude Code 2.1.329 on macOS, in a plain terminal, against the
+hosted arcade server.
 
-## Not run here
-
-Only macOS on Apple Silicon was available. Not run: macOS on Intel, Linux,
-Windows (CI is blocked by GitHub billing), the bench checks that need the
-SDK's example servers (`bench/gate-check.mjs` and `bench/redirect-check.mjs`
-pass against 0.1.3's debug build), the render crate's parity tests (their
-fixtures are made by the Node helper, whose packages aren't installed here),
-a live session in which Claude Code stops using a server while a view of it
-is open.
+Not checked for 0.1.3: macOS on Intel, Linux, Windows; the bench checks that need the
+SDK's example servers; the render crate's parity tests; `ui/allow-tool` and
+`ui/allow-read` in a Claude Code session (the tests cover them); a session in
+which Claude Code stops using a server while a view of it is open.
