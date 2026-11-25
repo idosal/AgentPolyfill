@@ -35,7 +35,8 @@ it:
   pages don't say whether uninstalling the plugin removes that store.
 - **A log, and a note of which of your servers serve skills,** in the plugin's
   data folder: `~/.claude/plugins/data/` followed by the plugin's folder, or
-  the same under `CLAUDE_CONFIG_DIR`.
+  the same under `CLAUDE_CONFIG_DIR`. If you had set `MCP_SKILLS_STATE`, the
+  log is in the folder it names.
 - **A copy of Bun,** in the `runtime` folder of that data folder, only if you
   ran `/mcp-skills setup`. `/mcp-skills setup remove` deletes it.
 
@@ -45,8 +46,8 @@ The mod kept no skill content and no tokens.
 
 ## History
 
-The form's source, tests and records are in the repository's history. The
-last commit that has them is
+The form's source, tests and records are in the repository's history. A
+commit that has them is
 [`a2ac1c71`](https://github.com/idosal/AgentPolyfill/tree/a2ac1c712da6273a200a9b134cf0d60af33164dd/polyfills/skills/claude-code)
 (a link into history: that folder is not in the repository now).
 
