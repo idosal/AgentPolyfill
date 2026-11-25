@@ -1,6 +1,6 @@
 // A server's `http_headers_helper`, run as Codex 0.172 runs it (codex-rs/rmcp-client/src/http_headers.rs):
-// through a shell, with an environment cleared down to the small default set an MCP server gets,
-// before each connection. It prints a JSON object of headers. Its headers replace configured ones of
+// through a shell, in the folder of the config it came from, with an environment cleared down to the
+// small default set an MCP server gets, before each connection. It prints a JSON object of headers. Its headers replace configured ones of
 // the same name, except an `Authorization` written in the config; a reserved header is refused.
 // Given up on after 10 seconds.
 
@@ -15,16 +15,51 @@ const HEADER = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
 
 export type HeadersHelper = { command: string; cwd: string };
 
-export async function runHeadersHelper(helper: HeadersHelper, env: Record<string, string> = getDefaultEnvironment()): Promise<Record<string, string>> {
+/** The environment Codex gives a headers helper: the MCP SDK's default set, plus the locale, TMPDIR and TZ. */
+export function helperEnvironment(env: NodeJS.ProcessEnv = process.env): Record<string, string> {
+    const out: Record<string, string> = { ...getDefaultEnvironment() };
+    for (const k of ['LANG', 'LC_ALL', 'TMPDIR', 'TZ']) if (env[k]) out[k] = env[k]!;
+    return out;
+}
+
+export async function runHeadersHelper(helper: HeadersHelper, env: Record<string, string> = helperEnvironment(), timeoutMs = TIMEOUT_MS): Promise<Record<string, string>> {
     const out = await new Promise<string>((done, fail) => {
-        const child = spawn(helper.command, { shell: true, cwd: helper.cwd, env, stdio: ['ignore', 'pipe', 'ignore'], timeout: TIMEOUT_MS, killSignal: 'SIGKILL' });
+        // Its own process group (not on Windows), so the shell and whatever it starts are stopped together.
+        const group = process.platform !== 'win32';
+        const child = spawn(helper.command, { shell: true, cwd: helper.cwd, env, stdio: ['ignore', 'pipe', 'ignore'], detached: group, windowsHide: true });
         let text = '';
+        let settled = false;
+        const kill = () => {
+            try {
+                if (group && child.pid) process.kill(-child.pid, 'SIGKILL');
+                else child.kill('SIGKILL');
+            } catch {
+                // already gone
+            }
+        };
+        const finish = (f: () => void) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            f();
+        };
+        // Rejects by itself: a grandchild holding stdout open can't keep the caller waiting.
+        const timer = setTimeout(() => {
+            kill();
+            finish(() => fail(new LocalError(`its http_headers_helper did not finish within ${timeoutMs / 1000} seconds`)));
+        }, timeoutMs);
         child.stdout.on('data', (d: Buffer) => {
             text += d.toString('utf8');
-            if (text.length > MAX_OUTPUT) child.kill('SIGKILL');
+            if (text.length > MAX_OUTPUT) {
+                kill();
+                finish(() => fail(new LocalError('its http_headers_helper printed more than 64 KB')));
+            }
         });
-        child.on('error', () => fail(new LocalError('its http_headers_helper could not be run')));
-        child.on('close', (code, signal) => (code === 0 && text.length <= MAX_OUTPUT ? done(text) : fail(new LocalError(signal ? `its http_headers_helper did not finish within ${TIMEOUT_MS / 1000} seconds` : 'its http_headers_helper failed'))));
+        child.on('error', () => finish(() => fail(new LocalError('its http_headers_helper could not be run'))));
+        child.on('close', (code) => {
+            kill(); // anything it left running in its group
+            finish(() => (code === 0 ? done(text) : fail(new LocalError('its http_headers_helper failed'))));
+        });
     });
     let parsed: unknown;
     try {

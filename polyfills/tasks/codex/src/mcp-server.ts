@@ -60,7 +60,14 @@ export function serve(o: ServeOptions): { done: Promise<void>; revision: () => s
     let next = 1;
     const waiting = new Map<string, (m: Json) => void>();
     const scrub = o.scrub ?? ((t: string) => t);
-    const deep = (v: unknown, depth = 0): unknown => (typeof v === 'string' ? scrub(v) : depth > 32 || typeof v !== 'object' || v === null ? v : Array.isArray(v) ? v.map((x) => deep(x, depth + 1)) : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, deep(x, depth + 1)])));
+    // Every string, keys included; anything nested deeper than 32 levels is cut off rather than sent unscrubbed.
+    const deep = (v: unknown, depth = 0): unknown => {
+        if (typeof v === 'string') return scrub(v);
+        if (typeof v !== 'object' || v === null) return v;
+        if (depth > 32) return '[nested too deep]';
+        if (Array.isArray(v)) return v.map((x) => deep(x, depth + 1));
+        return Object.fromEntries(Object.entries(v).map(([k, x]) => [scrub(k), deep(x, depth + 1)]));
+    };
     const send = (m: Json) => {
         try {
             o.output.write(`${JSON.stringify({ jsonrpc: '2.0', ...(deep(m) as Json) })}\n`);

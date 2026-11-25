@@ -52,7 +52,7 @@ export function fingerprintOf(cfg: UpstreamConfig): string {
     return createHash('sha256').update(JSON.stringify(id)).digest('hex').slice(0, 24);
 }
 
-/** `fetch` that sets the Tasks routing headers and bounds what a server can make this process hold. */
+/** `fetch` that sets the Tasks routing headers and bounds what one answer from a server may weigh (from polyfills/events/core's boundedFetch). */
 export function tasksFetch(inner: typeof fetch = fetch, limit = MAX_RESPONSE_BYTES): typeof fetch {
     return async (input, init) => {
         let next = init;
@@ -71,14 +71,26 @@ export function tasksFetch(inner: typeof fetch = fetch, limit = MAX_RESPONSE_BYT
         }
         const res = await inner(input, next);
         if (!res.body) return res;
-        let seen = 0;
-        const stream = (res.headers.get('content-type') ?? '').includes('text/event-stream');
+        // A plain answer is bounded as a whole. An event stream may run long, but no one message in it
+        // (the bytes between two blank lines) may pass the limit. Past it the body fails, as a broken
+        // connection would. (A stdio server's messages are bounded by the transport: maxBufferSize.)
+        const stream = res.ok && (res.headers.get('content-type') ?? '').split(';')[0]!.trim().toLowerCase() === 'text/event-stream';
+        let since = 0;
+        let newline = false;
         const bounded = res.body.pipeThrough(
             new TransformStream<Uint8Array, Uint8Array>({
                 transform(chunk, controller) {
-                    seen += chunk.byteLength;
-                    // A stream may run long; one plain answer may not pass the limit. A stream is bounded per answer below.
-                    if (!stream && seen > limit) controller.error(new LocalError('the server sent more in one answer than this plugin accepts'));
+                    let most = 0;
+                    if (stream) {
+                        for (let i = 0; i < chunk.length; i++) {
+                            const b = chunk[i];
+                            if (b === 13) continue;
+                            if (b === 10 && newline) since = 0;
+                            else if (++since > most) most = since;
+                            newline = b === 10;
+                        }
+                    } else most = since += chunk.byteLength;
+                    if (most > limit) controller.error(new LocalError('the server sent more in one answer than this plugin accepts'));
                     else controller.enqueue(chunk);
                 }
             })
@@ -144,28 +156,28 @@ export class TasksConnection {
     async connect(timeoutMs: number): Promise<void> {
         const client = new Client({ ...this.#clientInfo } as never, { capabilities: CLIENT_CAPABILITIES as never, versionNegotiation: { mode: 'auto' } });
         const cfg = this.cfg;
-        let headers: Record<string, string> = {};
-        if (isHttp(cfg)) {
-            try {
-                // Run anew for each connection, as Codex does.
-                headers = cfg.headersHelper ? mergeHeaders(cfg.headers ?? {}, await runHeadersHelper(cfg.headersHelper)) : { ...(cfg.headers ?? {}) };
-            } catch (e) {
-                this.error = describeError(e);
-                throw e;
-            }
-            secrets.add(...Object.values(headers));
-        }
-        const transport: Transport = isHttp(cfg)
-            ? new StreamableHTTPClientTransport(new URL(cfg.url), { requestInit: { headers }, fetch: tasksFetch() })
-            : new StdioClientTransport({ command: cfg.command, args: cfg.args ?? [], env: { ...getDefaultEnvironment(), ...(cfg.env ?? {}) }, cwd: cfg.cwd, stderr: 'ignore' });
         let timer: NodeJS.Timeout | undefined;
+        // One limit for all of it: the headers helper, then the connection.
+        const deadline = new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new LocalError(`no answer within ${timeoutMs} ms`)), timeoutMs);
+        });
+        deadline.catch(() => {}); // it may fire while nothing races it
         try {
-            await Promise.race([
-                client.connect(transport),
-                new Promise((_, reject) => {
-                    timer = setTimeout(() => reject(new LocalError(`no answer within ${timeoutMs} ms`)), timeoutMs);
-                })
-            ]);
+            let headers: Record<string, string> = {};
+            if (isHttp(cfg)) {
+                try {
+                    // Run anew for each connection, as Codex does.
+                    headers = cfg.headersHelper ? mergeHeaders(cfg.headers ?? {}, await Promise.race([runHeadersHelper(cfg.headersHelper), deadline])) : { ...(cfg.headers ?? {}) };
+                } catch (e) {
+                    this.error = describeError(e);
+                    throw e;
+                }
+                secrets.add(...Object.values(headers));
+            }
+            const transport: Transport = isHttp(cfg)
+                ? new StreamableHTTPClientTransport(new URL(cfg.url), { requestInit: { headers }, fetch: tasksFetch() })
+                : new StdioClientTransport({ command: cfg.command, args: cfg.args ?? [], env: { ...getDefaultEnvironment(), ...(cfg.env ?? {}) }, cwd: cfg.cwd, stderr: 'ignore', maxBufferSize: MAX_RESPONSE_BYTES });
+            await Promise.race([client.connect(transport), deadline]);
             this.#tap(transport);
             this.#transport = transport;
             this.client = client;

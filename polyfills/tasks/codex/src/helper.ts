@@ -19,6 +19,11 @@ const env = process.env;
 const off = env.MCP_TASKS_OFF === '1';
 const base = env.MCP_TASKS_STATE || join(codexHome(env), 'mcp-tasks');
 mkdirSync(base, { recursive: true, mode: 0o700 });
+try {
+    chmodSync(base, 0o700);
+} catch {
+    // best effort
+}
 
 // The log is the user's: private, a few megabytes at most, with known secrets taken out.
 const logFile = join(base, 'mcp-tasks.log');
@@ -56,7 +61,9 @@ const app = new App({
     log,
     connectTimeoutMs: Number(env.MCP_TASKS_CONNECT_TIMEOUT_MS ?? 10000),
     minPollMs: env.MCP_TASKS_MIN_POLL_MS ? Number(env.MCP_TASKS_MIN_POLL_MS) : undefined,
-    scrub: (t) => secrets.scrub(t),
+    holdsSecret: (v) => secrets.holds(v),
+    wakeGapMs: env.MCP_TASKS_WAKE_GAP_S !== undefined ? Number(env.MCP_TASKS_WAKE_GAP_S) * 1000 : undefined,
+    wakesPerHour: env.MCP_TASKS_WAKES_PER_HOUR !== undefined ? Number(env.MCP_TASKS_WAKES_PER_HOUR) : undefined,
     wake: async (thread, text) => (codex ? queueMessage(codex, thread, text, env) : { ok: false, why: codexNotFound() })
 });
 

@@ -33,7 +33,14 @@ import type { ServerTable, UpstreamConfig } from '../../core/src/upstream.ts';
 export type ReadOptions = {
     /** Where managed configuration lives (for tests; the default is the platform's own place). */
     managedFiles?: string[];
+    /** Codex's system-wide config.toml (for tests). */
+    systemFiles?: string[];
 };
+
+/** Codex's system-wide config layer, /etc/codex/config.toml. Where Windows keeps one wasn't checked: none is looked for there. */
+export function defaultSystemFiles(platform: NodeJS.Platform = process.platform): string[] {
+    return platform === 'win32' ? [] : ['/etc/codex/config.toml'];
+}
 
 /** Codex's home: CODEX_HOME, else ~/.codex. */
 export function codexHome(env: NodeJS.ProcessEnv = process.env): string {
@@ -147,13 +154,27 @@ export function readCodexServers(env: NodeJS.ProcessEnv = process.env, log: (s: 
         }
         if (!managed || Object.keys(managed).some((k) => /mcp/i.test(k))) return off(`your organisation manages which MCP servers Codex may use (${file}), and this plugin cannot judge that policy, so it connects to none`);
     }
+    // Codex layers a system-wide config.toml under the user's. This plugin reads only the user's, so one
+    // that says anything about MCP servers (an `enabled = false`, a tool list) could be missed: then none.
+    for (const file of o.systemFiles ?? defaultSystemFiles()) {
+        if (!existsSync(file)) continue;
+        let system: Json | undefined;
+        try {
+            system = readFile(file);
+        } catch {
+            system = undefined;
+        }
+        if (!system || Object.keys(system).some((k) => /mcp/i.test(k))) return off(`${file} says something about MCP servers, and this plugin reads only your own config.toml, so it connects to none`);
+    }
     const home = codexHome(env);
     const path = env.MCP_TASKS_CONFIG ? resolve(env.MCP_TASKS_CONFIG) : join(home, 'config.toml');
     let config: Json | undefined;
     try {
         config = existsSync(path) ? readFile(path) : {};
     } catch (e) {
-        return off(`${path} could not be read (${e instanceof Error ? e.message.split('\n')[0] : 'not TOML'}), so this plugin connects to no server`);
+        // Not the parser's message: it quotes the text around the error, which may hold a secret.
+        void e;
+        return off(`${path} could not be read or parsed, so this plugin connects to no server`);
     }
     const table = config?.mcp_servers ?? config?.mcpServers ?? config?.servers;
     const base = env.MCP_TASKS_CONFIG ? dirname(path) : home;

@@ -13,14 +13,14 @@
 // wrote. The model reads the result with get_task_result, as a tool result marked as that server's.
 // A wake is handed over only after a turn the person started in one of Codex's own apps.
 
-import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ServerError, TasksConnection, type ToolInfo } from '../../core/src/connection.ts';
 import { TASKS_EXTENSION, TOOL_NAME, type InputRequest } from '../../core/src/protocol.ts';
 import { TaskRunner } from '../../core/src/runner.ts';
 import { LOCAL_ID, TaskStore, type TaskRecord } from '../../core/src/store.ts';
 import { toolAllowed, type ServerTable, type UpstreamConfig } from '../../core/src/upstream.ts';
-import { describeError, oneLine, visible } from '../../core/src/untrusted.ts';
+import { describeError, exact, oneLine, visible } from '../../core/src/untrusted.ts';
 import { isThePersons, shownBy, type ShownBy } from './meta.ts';
 import type { AskForm, CallContext, ToolAnswer, ToolSpec } from './mcp-server.ts';
 import { THREAD_ID, type QueueResult } from './waker.ts';
@@ -43,7 +43,7 @@ export const TOOLS: readonly ToolSpec[] = [
     {
         name: 'start_task',
         title: 'Start a server tool as a task',
-        description: "Calls a tool of one of the user's MCP servers that offers the MCP Tasks extension, so that the server may run it as a long task. The user is asked first, with the server, the tool and the arguments. If the server answers at once, its result is returned; if it starts a task, this returns the task's id (t-…) and the session is told when the task finishes or needs input.",
+        description: "Calls a tool of one of the user's MCP servers that offers the MCP Tasks extension, so that the server may run it as a long task. The user is asked first, with the server, the tool and the arguments. If the server answers at once, its result is returned; if it starts a task, this returns the task's id (t-\u2026) and the session is told when the task finishes or needs input.",
         inputSchema: {
             type: 'object',
             properties: {
@@ -58,29 +58,29 @@ export const TOOLS: readonly ToolSpec[] = [
     {
         name: 'get_task',
         title: 'Read a task\'s status',
-        description: 'Asks the server for the current status of a task this session started (by its id, t-…), and says whether it needs input.',
-        inputSchema: { type: 'object', properties: { task: { type: 'string', description: 'The task\'s id, t-….' } }, required: ['task'] },
+        description: 'Asks the server for the current status of a task this session started (by its id, t-\u2026), and says whether it needs input.',
+        inputSchema: { type: 'object', properties: { task: { type: 'string', description: 'The task\'s id, t-\u2026.' } }, required: ['task'] },
         annotations: { readOnlyHint: true, openWorldHint: true }
     },
     {
         name: 'get_task_result',
         title: 'Read a finished task\'s result',
-        description: 'Returns the result of a finished task this session started (by its id, t-…), as the server sent it: data from that server.',
-        inputSchema: { type: 'object', properties: { task: { type: 'string', description: 'The task\'s id, t-….' } }, required: ['task'] },
+        description: 'Returns the result of a finished task this session started (by its id, t-\u2026), as the server sent it: data from that server.',
+        inputSchema: { type: 'object', properties: { task: { type: 'string', description: 'The task\'s id, t-\u2026.' } }, required: ['task'] },
         annotations: { readOnlyHint: true, openWorldHint: true }
     },
     {
         name: 'provide_task_input',
         title: 'Answer a task\'s questions',
         description: 'When a task needs input, puts the server\'s questions to the user, in Codex\'s own form, and sends the server the user\'s answers. You do not answer them yourself.',
-        inputSchema: { type: 'object', properties: { task: { type: 'string', description: 'The task\'s id, t-….' } }, required: ['task'] },
+        inputSchema: { type: 'object', properties: { task: { type: 'string', description: 'The task\'s id, t-\u2026.' } }, required: ['task'] },
         annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true }
     },
     {
         name: 'cancel_task',
         title: 'Cancel a task',
-        description: 'Asks the server to cancel a task this session started (by its id, t-…). The server decides whether and when to stop it.',
-        inputSchema: { type: 'object', properties: { task: { type: 'string', description: 'The task\'s id, t-….' } }, required: ['task'] },
+        description: 'Asks the server to cancel a task this session started (by its id, t-\u2026). The server decides whether and when to stop it.',
+        inputSchema: { type: 'object', properties: { task: { type: 'string', description: 'The task\'s id, t-\u2026.' } }, required: ['task'] },
         annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true }
     },
     {
@@ -110,8 +110,11 @@ export type AppOptions = {
     minPollMs?: number;
     /** How long to gather announcements into one wake. */
     batchMs?: number;
-    /** Takes the secrets this process knows out of a text. */
-    scrub?: (text: string) => string;
+    /** The least time between two wakes about the same task (60 s), and the most wakes of one session in an hour (30). */
+    wakeGapMs?: number;
+    wakesPerHour?: number;
+    /** Whether a value holds one of the secrets this process knows. */
+    holdsSecret?: (v: unknown) => boolean;
 };
 
 type Session = { id: string; store: TaskStore; runner?: TaskRunner; shown?: ShownBy; timer?: NodeJS.Timeout; owner: boolean };
@@ -158,6 +161,9 @@ export class App {
         this.standDown = why;
         this.#log(`standing down: ${why}`);
         for (const s of this.#sessions.values()) s.runner?.stop();
+        // No second client: the connections go too.
+        for (const c of this.conns.values()) void c.close().catch(() => {});
+        this.conns.clear();
     }
 
     // ---- Servers ----
@@ -260,6 +266,12 @@ export class App {
         for (const id of existsSync(root) ? readdirSync(root) : []) {
             if (!THREAD_ID.test(id) || this.#sessions.has(id)) continue;
             const store = new TaskStore(this.#o.base, id);
+            // Saving lets finished tasks past their week go; a session with nothing left, long quiet, goes too.
+            store.save();
+            if (store.idle()) {
+                rmSync(store.dir, { recursive: true, force: true });
+                continue;
+            }
             if (store.all().some((t) => t.outcome === 'open' || t.announce)) this.session(id);
         }
     }
@@ -269,12 +281,12 @@ export class App {
         for (const s of this.#sessions.values()) if (!s.owner) this.#claim(s);
     }
 
-    #announceSoon(s: Session): void {
+    #announceSoon(s: Session, delayMs = this.#o.batchMs ?? 1000): void {
         if (s.timer) return; // one is coming: what is new now goes with it
         s.timer = setTimeout(() => {
             s.timer = undefined;
             void this.#announce(s);
-        }, this.#o.batchMs ?? 1000);
+        }, delayMs);
         s.timer.unref?.();
     }
 
@@ -288,18 +300,37 @@ export class App {
             this.#log(`[${s.id.slice(0, 8)}] ${due.length} task(s) to announce; held until the person's next turn in Codex's own app`);
             return;
         }
-        const text = wakeText(due);
+        // A budget, as for Events: one wake a minute about the same task, and 30 an hour for the session.
+        const now = Date.now();
+        const gap = this.#o.wakeGapMs ?? 60000;
+        const perHour = this.#o.wakesPerHour ?? 30;
+        const recent = s.store.wakes(now);
+        if (recent.length >= perHour) {
+            const at = Math.min(...recent) + 3600 * 1000;
+            this.#log(`[${s.id.slice(0, 8)}] this session was woken ${recent.length} times in the last hour; the next wake waits until ${new Date(at).toISOString()}`);
+            this.#announceSoon(s, at - now + 50);
+            return;
+        }
+        const ready = due.filter((t) => !t.lastWakeAt || now - t.lastWakeAt >= gap);
+        if (!ready.length) {
+            this.#announceSoon(s, Math.min(...due.map((t) => (t.lastWakeAt ?? now) + gap)) - now + 50);
+            return;
+        }
+        const text = wakeText(ready);
         const r = await this.#o.wake(s.id, text);
         if (!r.ok && !r.maybe) {
             this.#log(`[${s.id.slice(0, 8)}] could not wake the session (${r.why})`);
             return;
         }
-        for (const t of due)
+        for (const t of ready)
             s.store.update(t.id, (x) => {
                 x.announced = x.announce;
                 x.announce = undefined;
+                x.lastWakeAt = now;
             });
-        this.#log(`[${s.id.slice(0, 8)}] woke the session about ${due.map((t) => t.id).join(', ')}`);
+        s.store.recordWake(now);
+        this.#log(`[${s.id.slice(0, 8)}] woke the session about ${ready.map((t) => t.id).join(', ')}`);
+        if (ready.length < due.length) this.#announceSoon(s, gap);
     }
 
     // ---- Tools ----
@@ -368,13 +399,14 @@ export class App {
             }
         }
         if (!known.some((t) => t.name === tool)) return { text: `${server} has no tool named ${tool}.`, isError: true };
-        const shownArgs = JSON.stringify(toolArgs, null, 2);
         // A secret from the user's config would be shown as [redacted], and sent to the server unseen: not started.
-        if (this.#o.scrub && this.#o.scrub(shownArgs) !== shownArgs) return { text: 'The arguments hold one of the secrets in your Codex config (a header or a variable of an MCP server), so the task was not started.', isError: true };
-        if (shownArgs.length > MAX_SHOWN_ARGS) return { text: `The arguments are too long to show the user in full (${shownArgs.length} characters; at most ${MAX_SHOWN_ARGS}), so the task was not started.`, isError: true };
+        if (this.#o.holdsSecret?.(toolArgs)) return { text: 'The arguments hold one of the secrets in your Codex config (a header or a variable of an MCP server), so the task was not started.', isError: true };
+        // The person is shown exactly what is sent: every character they couldn't see is written out, and nothing is cut.
+        const shown = exact(JSON.stringify(toolArgs, null, 2));
+        if (shown.text.length > MAX_SHOWN_ARGS) return { text: `The arguments are too long to show the user in full (${shown.text.length} characters as shown; at most ${MAX_SHOWN_ARGS}), so the task was not started.`, isError: true };
 
         // The person decides, in Codex's own form. Anything but "Start it" is a no.
-        const message = [`Start a task on the MCP server "${server}"?`, '', `Tool: ${tool}`, 'Arguments:', visible(shownArgs), '', `mcp-tasks calls this tool itself, on a connection of its own, so Codex's own approval for ${server}'s tools doesn't apply to it: this question takes its place. The task may keep running on the server after this turn. You'll be told when it finishes.`].join('\n');
+        const message = [`Start a task on the MCP server "${server}"?`, '', `Tool: ${tool}`, 'Arguments:', shown.text, ...(shown.escaped ? ['(Characters you could not see are written as \\u{\u2026}.)'] : []), '', `mcp-tasks calls this tool itself, on a connection of its own, so Codex's own approval for ${server}'s tools doesn't apply to it: this question takes its place. The task may keep running on the server after this turn. You'll be told when it finishes.`].join('\n');
         const answer = await ctx.ask(message, choiceSchema(ctx.revision, [['start', 'Start it'], ['no', 'Do not start it']]));
         if ('unavailable' in answer) return { text: `The task was not started: the user could not be asked (${answer.unavailable}). In codex exec, or with the approval policy "never", Codex declines every question, so nothing starts there.`, isError: true };
         if (answer.action !== 'accept' || answer.content?.decision !== 'start') return { text: 'The user chose not to start the task. Nothing was sent to the server.' };
@@ -391,7 +423,7 @@ export class App {
         const task = outcome.task;
         const id = s.store.newId();
         const now = new Date().toISOString();
-        s.store.add({ id, server, tool, args: toolArgs, taskId: task.taskId, status: task.status, outcome: 'open', createdAt: task.createdAt, lastUpdatedAt: task.lastUpdatedAt, ttlMs: task.ttlMs, pollIntervalMs: task.pollIntervalMs, statusMessage: task.statusMessage, startedAt: now, checkedAt: now, seenKeys: [], answeredKeys: [] });
+        s.store.add({ id, server, tool, args: toolArgs, fingerprint: conn.fingerprint, taskId: task.taskId, status: task.status, outcome: 'open', createdAt: task.createdAt, lastUpdatedAt: task.lastUpdatedAt, ttlMs: task.ttlMs, pollIntervalMs: task.pollIntervalMs, statusMessage: task.statusMessage, startedAt: now, checkedAt: now, seenKeys: [], answeredKeys: [] });
         if (!s.owner) this.#claim(s);
         s.runner?.schedule(id);
         this.#log(`[${s.id.slice(0, 8)}] started ${id} on ${server}`);
@@ -420,9 +452,34 @@ export class App {
         return { text: lines.join('\n') };
     }
 
+    /** Tasks whose questions are being put to the person now: one call at a time per task. */
+    readonly #answering = new Set<string>();
+
     async #provideInput(s: Session, t: TaskRecord, ctx: CallContext): Promise<ToolAnswer> {
+        const key = `${s.id}/${t.id}`;
+        if (this.#answering.has(key)) return { text: `Task ${t.id}'s questions are being put to the user already.` };
+        this.#answering.add(key);
+        try {
+            return await this.#provideInputOnce(s, t, ctx);
+        } finally {
+            this.#answering.delete(key);
+        }
+    }
+
+    /** The connection for a task, if the server of that name is still the one it started on (T10). */
+    async #connectionFor(t: TaskRecord): Promise<TasksConnection | { refused: string }> {
         const conn = await this.connection(t.server);
-        if (!conn) return { text: `${t.server} can't be reached now.`, isError: true };
+        if (!conn) return { refused: `${t.server} can't be reached now.` };
+        if (t.fingerprint && conn.fingerprint !== t.fingerprint) return { refused: `The server named ${t.server} in your config is no longer the one task ${t.id} started on, so nothing about the task is sent to it.` };
+        return conn;
+    }
+
+    async #provideInputOnce(s: Session, t0: TaskRecord, ctx: CallContext): Promise<ToolAnswer> {
+        // What another call or process answered meanwhile counts.
+        s.store.reload();
+        const t = s.store.get(t0.id) ?? t0;
+        const conn = await this.#connectionFor(t);
+        if ('refused' in conn) return { text: conn.refused, isError: true };
         let latest;
         try {
             latest = await conn.getTask(t.taskId, t.status);
@@ -464,11 +521,13 @@ export class App {
         if (p.mode !== undefined && p.mode !== 'form') return { note: `- ${t.server} asked for a form of input this plugin doesn't declare (only forms are), so it wasn't answered.` };
         const schema = isObject(p.requestedSchema) && p.requestedSchema.type === 'object' ? p.requestedSchema : undefined;
         if (!schema) return { note: `- ${t.server}'s question has no valid form, so it wasn't put to you.` };
-        const properties = isObject(schema.properties) ? schema.properties : {};
+        const cleaned = cleanSchema(schema);
+        if (!cleaned) return { note: `- ${t.server}'s question has a form this plugin can't show safely (too large, too deep, or a field name that isn't one), so it wasn't put to you.` };
+        const properties = isObject(cleaned.properties) ? cleaned.properties : {};
         const message = [`The MCP server "${t.server}" asks, for task ${t.id} (tool ${t.tool}):`, '', visible(p.message, 4000)].join('\n');
         // A form with no fields would be answered by Codex itself where approvals are automatic: a choice keeps it the person's.
         const empty = Object.keys(properties).length === 0;
-        const answer = await ask(message, empty ? choiceSchema(revision, [['accept', 'Accept'], ['decline', 'Decline']]) : schema);
+        const answer = await ask(message, empty ? choiceSchema(revision, [['accept', 'Accept'], ['decline', 'Decline']]) : cleaned);
         if ('unavailable' in answer) return { note: `- The question from ${t.server} could not be put to you (${answer.unavailable}); it wasn't answered.` };
         if (empty) {
             const yes = answer.action === 'accept' && answer.content?.decision === 'accept';
@@ -479,8 +538,8 @@ export class App {
 
     async #cancel(s: Session, t: TaskRecord): Promise<ToolAnswer> {
         if (t.outcome !== 'open') return { text: `Task ${t.id} is no longer running (${describeOutcome(t)}).` };
-        const conn = await this.connection(t.server);
-        if (!conn) return { text: `${t.server} can't be reached now.`, isError: true };
+        const conn = await this.#connectionFor(t);
+        if ('refused' in conn) return { text: conn.refused, isError: true };
         try {
             await conn.cancelTask(t.taskId);
         } catch (e) {
@@ -567,12 +626,83 @@ export function wakeText(due: TaskRecord[]): string {
 }
 
 const CONTENT_TYPES = new Set(['text', 'image', 'audio', 'resource_link', 'resource']);
+const str = (v: unknown, max: number) => (typeof v === 'string' ? visible(v, max) : undefined);
+const MIME = /^[\w.+-]+\/[\w.+-]+$/;
+
+/**
+ * One content block of a server's result, rebuilt from the fields MCP defines, each text cleaned:
+ * `annotations` and `_meta` are left out, and anything else a server put there.
+ */
+export function cleanBlock(c: Json): Json | undefined {
+    const mime = typeof c.mimeType === 'string' && MIME.test(c.mimeType) ? c.mimeType : undefined;
+    switch (c.type) {
+        case 'text':
+            return { type: 'text', text: str(c.text, 200000) ?? '' };
+        case 'image':
+        case 'audio':
+            return typeof c.data === 'string' && mime ? { type: c.type, data: c.data, mimeType: mime } : undefined;
+        case 'resource_link': {
+            if (typeof c.uri !== 'string') return undefined;
+            const name = str(c.name, 200);
+            return { type: 'resource_link', uri: oneLine(c.uri, 2000), name: name ?? '', ...(str(c.title, 200) ? { title: str(c.title, 200) } : {}), ...(str(c.description, 2000) ? { description: str(c.description, 2000) } : {}), ...(mime ? { mimeType: mime } : {}) };
+        }
+        case 'resource': {
+            const r = isObject(c.resource) ? c.resource : undefined;
+            if (!r || typeof r.uri !== 'string') return undefined;
+            const rmime = typeof r.mimeType === 'string' && MIME.test(r.mimeType) ? r.mimeType : undefined;
+            if (typeof r.text === 'string') return { type: 'resource', resource: { uri: oneLine(r.uri, 2000), text: visible(r.text, 200000), ...(rmime ? { mimeType: rmime } : {}) } };
+            if (typeof r.blob === 'string') return { type: 'resource', resource: { uri: oneLine(r.uri, 2000), blob: r.blob, ...(rmime ? { mimeType: rmime } : {}) } };
+            return undefined;
+        }
+    }
+    return undefined;
+}
+
+const FIELD = /^[A-Za-z0-9_.-]{1,64}$/;
+const SCHEMA_KEYS = new Set(['type', 'title', 'description', 'default', 'enum', 'enumNames', 'oneOf', 'anyOf', 'items', 'const', 'format', 'minLength', 'maxLength', 'minimum', 'maximum', 'minItems', 'maxItems', 'uniqueItems']);
+
+/**
+ * A server's form, rebuilt for Codex from the parts a form may have (an object of flat fields), with
+ * every text cleaned and bounded: titles, descriptions, choices, defaults. One that is too large or too
+ * deep, or names a field that isn't a plain name, isn't shown at all.
+ */
+export function cleanSchema(schema: Json): Json | undefined {
+    let budget = 400;
+    const walk = (v: unknown, depth: number): unknown => {
+        if (--budget < 0 || depth > 4) throw new Error('too large');
+        if (typeof v === 'string') return visible(v, 500);
+        if (typeof v === 'number' || typeof v === 'boolean' || v === null) return v;
+        if (Array.isArray(v)) {
+            if (v.length > 100) throw new Error('too large');
+            return v.map((x) => walk(x, depth + 1));
+        }
+        if (isObject(v)) {
+            const out: Json = {};
+            for (const [k, x] of Object.entries(v)) if (SCHEMA_KEYS.has(k)) out[k] = walk(x, depth + 1);
+            return out;
+        }
+        return undefined;
+    };
+    try {
+        const props = isObject(schema.properties) ? schema.properties : {};
+        if (Object.keys(props).length > 50) return undefined;
+        const properties: Json = {};
+        for (const [name, field] of Object.entries(props)) {
+            if (!FIELD.test(name) || !isObject(field)) return undefined;
+            properties[name] = walk(field, 0);
+        }
+        const required = Array.isArray(schema.required) ? schema.required.filter((r): r is string => typeof r === 'string' && r in properties) : undefined;
+        return { type: 'object', properties, ...(required?.length ? { required } : {}) };
+    } catch {
+        return undefined;
+    }
+}
 
 /** A tool result from a server, shown as that server's data. */
 export function renderResult(server: string, tool: string, result: Json, head: string): ToolAnswer {
     const content = Array.isArray(result.content) ? (result.content as unknown[]).filter((c): c is Json => isObject(c) && typeof c.type === 'string' && CONTENT_TYPES.has(c.type)) : [];
-    const blocks = content.map((c) => (c.type === 'text' ? { type: 'text', text: visible(c.text, 200000) } : c));
-    if (result.structuredContent !== undefined) blocks.push({ type: 'text', text: `structuredContent: ${JSON.stringify(result.structuredContent).slice(0, 200000)}` });
+    const blocks = content.map(cleanBlock).filter((b): b is Json => !!b);
+    if (result.structuredContent !== undefined) blocks.push({ type: 'text', text: `structuredContent: ${visible(JSON.stringify(result.structuredContent), 200000)}` });
     const isError = result.isError === true;
     return { text: `${head}${isError ? ` ${server} marked it as an error (isError) from ${tool}.` : ''}`, content: blocks, isError };
 }

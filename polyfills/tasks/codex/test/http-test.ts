@@ -48,9 +48,11 @@ test('a header from the config is sent, and never shown to Codex', async () => {
     const w = await world({ http: true, extraServerToml: `http_headers = { Authorization = "${token}" }` });
     const c = await started(w);
     const thread = newThread();
-    assert.ok(logged(w, 'server/discover').every((r) => r.headers.authorization === token));
     // The server echoes the token back: what reaches Codex has it taken out.
     const echo = await c.call('start_task', { server: 'jobs', tool: 'echo', arguments: { text: 'x' } }, thread);
+    const discovered = logged(w, 'server/discover');
+    assert.ok(discovered.length > 0 && discovered.every((r) => r.headers.authorization === token));
+    assert.match(String(echo.content[0]?.text), /\(you sent \[redacted\]\)/);
     assert.doesNotMatch(JSON.stringify(echo), /s3cr3t/);
     // Arguments that hold it are not sent at all.
     const r = await c.call('start_task', { server: 'jobs', tool: 'slow', arguments: { text: 's3cr3t-token-for-the-test' } }, thread);

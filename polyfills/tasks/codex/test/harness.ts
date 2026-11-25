@@ -105,7 +105,7 @@ export class FakeCodex {
 
     constructor(w: World, o: { env?: Record<string, string> } = {}) {
         this.child = spawn(process.execPath, ['--no-warnings', HELPER], {
-            env: { PATH: TEST_PATH, HOME: w.dir, CODEX_HOME: w.codexHome, MCP_TASKS_STATE: w.state, MCP_TASKS_CODEX_BIN: FAKE_CODEX, FAKE_CODEX_LOG: w.queueLog, MCP_TASKS_MIN_POLL_MS: '100', ...(o.env ?? {}) },
+            env: { PATH: TEST_PATH, HOME: w.dir, CODEX_HOME: w.codexHome, MCP_TASKS_STATE: w.state, MCP_TASKS_CODEX_BIN: FAKE_CODEX, FAKE_CODEX_LOG: w.queueLog, MCP_TASKS_MIN_POLL_MS: '100', MCP_TASKS_WAKE_GAP_S: '0', ...(o.env ?? {}) },
             stdio: ['pipe', 'pipe', 'inherit']
         });
         createInterface({ input: this.child.stdout! }).on('line', (line) => void this.#on(JSON.parse(line) as Json));

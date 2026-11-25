@@ -83,7 +83,7 @@ test('C5: the server\'s interval is used, as it changes, with a floor', async ()
     r.stop();
 });
 
-test('C6, C15: a terminal task is not polled again; a cancelled one stops being polled', async () => {
+test('C6: a task that reaches a terminal status is not polled again', async () => {
     const store = new TaskStore(temp(), 'th');
     const { conn, asked } = scripted([readTask(task({ status: 'completed', result: { content: [] }, createdAt: new Date().toISOString() })) as TaskState]);
     const told: string[] = [];
@@ -172,7 +172,7 @@ test('the headers helper: its headers win, except an Authorization the config se
 });
 
 test('server text is shown as data: hidden characters marked, control characters gone', () => {
-    assert.equal(visible('a​​b\u001b[31mc'), 'a⟦2 hidden characters⟧bc');
+    assert.equal(visible('a\u200b\u200bb\u001b[31mc'), 'a\u27e62 hidden characters\u27e7bc');
     const r = renderResult('jobs', 'slow', { content: [{ type: 'text', text: 'hi\u0007' }, { type: 'script', text: 'x' }], isError: true }, 'head');
     assert.equal(r.content?.length, 1);
     assert.equal(r.content?.[0]?.text, 'hi');

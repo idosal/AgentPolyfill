@@ -2,9 +2,24 @@
   "mcpServers": {
     "mcp-tasks": {
       "command": "node",
-      "args": ["./dist/helper.js"],
+      "args": [
+        "./dist/helper.js"
+      ],
       "cwd": ".",
-      "env_vars": ["CODEX_HOME", "MCP_TASKS_OFF", "MCP_TASKS_STATE", "MCP_TASKS_CONFIG", "MCP_TASKS_SERVERS", "MCP_TASKS_SKIP", "MCP_TASKS_CODEX_BIN", "MCP_TASKS_CODEX_REMOTE", "MCP_TASKS_CONNECT_TIMEOUT_MS", "MCP_TASKS_MIN_POLL_MS"],
+      "env_vars": [
+        "CODEX_HOME",
+        "MCP_TASKS_OFF",
+        "MCP_TASKS_STATE",
+        "MCP_TASKS_CONFIG",
+        "MCP_TASKS_SERVERS",
+        "MCP_TASKS_SKIP",
+        "MCP_TASKS_CODEX_BIN",
+        "MCP_TASKS_CODEX_REMOTE",
+        "MCP_TASKS_CONNECT_TIMEOUT_MS",
+        "MCP_TASKS_MIN_POLL_MS",
+        "MCP_TASKS_WAKE_GAP_S",
+        "MCP_TASKS_WAKES_PER_HOUR"
+      ],
       "startup_timeout_sec": 30,
       "tool_timeout_sec": 600
     }

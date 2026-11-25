@@ -6,7 +6,7 @@
 // the server's taskId never reaches the model or a wake line.
 
 import { randomBytes } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { InputRequest, TaskStatus } from './protocol.ts';
 
@@ -58,14 +58,33 @@ export type TaskRecord = {
     announce?: 'finished' | 'input';
     /** The last thing the session was told about. */
     announced?: 'finished' | 'input';
+    /** When the session was last woken about this task (ms). */
+    lastWakeAt?: number;
+    /** How the server was reached when the task started: a task is followed only on that server (core/src/connection.ts). */
+    fingerprint?: string;
 };
 
-type File = { tasks: TaskRecord[] };
+/** The tasks, and when this session was woken (ms), for the hour's budget. */
+type File = { tasks: TaskRecord[]; wakes?: number[] };
 export const LOCAL_ID = /^t-[0-9a-f]{6}$/;
 /** A finished task is kept this long, for its result to be read. */
 export const KEEP_FINISHED_MS = 7 * 24 * 3600 * 1000;
 /** The most a stored result may weigh; past it only a note is kept. */
 export const MAX_RESULT_BYTES = 1024 * 1024;
+/** The most kept of a status message, and of a failed task's error. */
+export const MAX_STATUS_CHARS = 4000;
+export const MAX_ERROR_BYTES = 16 * 1024;
+/** A session not heard from in this long, with no task left, is removed. */
+export const KEEP_IDLE_SESSION_MS = 14 * 24 * 3600 * 1000;
+
+const private0700 = (dir: string) => {
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    try {
+        chmodSync(dir, 0o700);
+    } catch {
+        // best effort
+    }
+};
 
 export class TaskStore {
     readonly dir: string;
@@ -74,12 +93,10 @@ export class TaskStore {
 
     constructor(base: string, thread: string) {
         this.dir = join(base, 'threads', thread);
-        mkdirSync(this.dir, { recursive: true, mode: 0o700 });
-        try {
-            chmodSync(this.dir, 0o700);
-        } catch {
-            // best effort
-        }
+        // Each folder on the way private, an existing one too.
+        private0700(base);
+        private0700(join(base, 'threads'));
+        private0700(this.dir);
         this.#file = join(this.dir, 'tasks.json');
         this.#data = this.#read();
     }
@@ -87,7 +104,8 @@ export class TaskStore {
     #read(): File {
         try {
             const j = JSON.parse(readFileSync(this.#file, 'utf8')) as File;
-            return Array.isArray(j.tasks) ? { tasks: j.tasks.filter((t) => LOCAL_ID.test(t.id)) } : { tasks: [] };
+            const wakes = Array.isArray(j.wakes) ? j.wakes.filter((x): x is number => typeof x === 'number') : [];
+            return Array.isArray(j.tasks) ? { tasks: j.tasks.filter((t) => LOCAL_ID.test(t.id)), wakes } : { tasks: [], wakes };
         } catch {
             return { tasks: [] };
         }
@@ -124,13 +142,26 @@ export class TaskStore {
         if (!t) return undefined;
         change(t);
         if (t.result && JSON.stringify(t.result).length > MAX_RESULT_BYTES) t.result = { content: [{ type: 'text', text: '(the result was larger than this plugin keeps, 1 MB, and was dropped)' }], isError: true, dropped: true };
+        if (t.statusMessage && t.statusMessage.length > MAX_STATUS_CHARS) t.statusMessage = t.statusMessage.slice(0, MAX_STATUS_CHARS - 1) + '\u2026';
+        if (t.error && JSON.stringify(t.error).length > MAX_ERROR_BYTES) t.error = { code: typeof t.error.code === 'number' ? t.error.code : -32603, message: '(the error was larger than this plugin keeps, and was dropped)' };
         this.save();
         return t;
+    }
+
+    /** When this session was woken in the last hour. */
+    wakes(now = Date.now()): number[] {
+        return (this.#data.wakes ?? []).filter((x) => now - x < 3600 * 1000);
+    }
+
+    recordWake(at = Date.now()): void {
+        this.#data.wakes = [...this.wakes(at), at];
+        this.save(at);
     }
 
     save(now = Date.now()): void {
         // Finished tasks are let go after a week.
         this.#data.tasks = this.#data.tasks.filter((t) => t.outcome === 'open' || now - Date.parse(t.checkedAt ?? t.startedAt) < KEEP_FINISHED_MS);
+        this.#data.wakes = (this.#data.wakes ?? []).filter((x) => now - x < 3600 * 1000);
         const tmp = `${this.#file}.${process.pid}.tmp`;
         writeFileSync(tmp, JSON.stringify(this.#data, null, 1), { mode: 0o600 });
         renameSync(tmp, this.#file);
@@ -138,5 +169,15 @@ export class TaskStore {
 
     static exists(base: string, thread: string): boolean {
         return existsSync(join(base, 'threads', thread, 'tasks.json'));
+    }
+
+    /** Whether nothing is left here and the session hasn't been heard from in two weeks. */
+    idle(now = Date.now()): boolean {
+        if (this.#data.tasks.length) return false;
+        try {
+            return now - statSync(this.#file).mtimeMs > KEEP_IDLE_SESSION_MS;
+        } catch {
+            return true;
+        }
     }
 }

@@ -3,7 +3,9 @@
 // ext-tasks specification (it shares no code with the client). Each tool is one behaviour the client
 // must handle. It records every request it gets in FIXTURE_LOG (one JSON line each).
 //
-//   echo            answers at once with a plain CallToolResult (no task)
+//   echo            answers at once with a plain CallToolResult (no task); over HTTP it repeats the
+//                   request's Authorization header, as a careless server might
+//   ask2            a task that asks two questions, one after the other (keys k1, then k2)
 //   slow            a task that completes after FIXTURE_TASK_MS
 //   fail            a task that fails with a JSON-RPC error
 //   ask             a task that asks for a name (input_required, an elicitation), then greets
@@ -38,7 +40,7 @@ const now = () => new Date().toISOString();
 let send = (m) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', ...m }) + '\n');
 const log = (m, headers) => LOG && appendFileSync(LOG, JSON.stringify({ at: Date.now(), method: m.method, params: m.params, ...(headers ? { headers } : {}) }) + '\n');
 
-const TOOLS = ['echo', 'slow', 'fail', 'ask', 'confirm', 'sample', 'long', 'vanish', 'morph', 'relapse', 'bad_create'].map((name) => ({ name, description: `fixture: ${name}`, inputSchema: { type: 'object', properties: { text: { type: 'string' } } } }));
+const TOOLS = ['echo', 'slow', 'fail', 'ask', 'ask2', 'confirm', 'sample', 'long', 'vanish', 'morph', 'relapse', 'bad_create'].map((name) => ({ name, description: `fixture: ${name}`, inputSchema: { type: 'object', properties: { text: { type: 'string' } } } }));
 
 function caps() {
     const c = { tools: {} };
@@ -71,6 +73,7 @@ function create(tool, args) {
     const later = (fn) => setTimeout(fn, TASK_MS);
     if (tool === 'slow' || tool === 'relapse') later(() => set(t, 'completed', { result: { content: [{ type: 'text', text: `done: ${args.text ?? ''}` }], isError: false } }));
     if (tool === 'fail') later(() => set(t, 'failed', { error: { code: -32603, message: 'the fixture failed on purpose' }, statusMessage: 'it failed' }));
+    if (tool === 'ask2') later(() => set(t, 'input_required', { inputRequests: { k1: { method: 'elicitation/create', params: { mode: 'form', message: 'First name?', requestedSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } } } } }));
     if (tool === 'ask') later(() => set(t, 'input_required', { inputRequests: { [`k${++t.keyN}`]: { method: 'elicitation/create', params: { mode: 'form', message: 'What is your name?', requestedSchema: { type: 'object', properties: { name: { type: 'string', title: 'Your name' } }, required: ['name'] } } } } }));
     if (tool === 'confirm') later(() => set(t, 'input_required', { inputRequests: { c1: { method: 'elicitation/create', params: { mode: 'form', message: 'Go ahead?', requestedSchema: { type: 'object', properties: {} } } } } }));
     if (tool === 'sample') later(() => set(t, 'input_required', { inputRequests: { s1: { method: 'sampling/createMessage', params: { messages: [{ role: 'user', content: { type: 'text', text: 'hi' } }], maxTokens: 10 } } } }));
@@ -91,7 +94,7 @@ function handle(m, headers) {
     if (method === 'tools/call') {
         const name = params.name;
         const args = params.arguments ?? {};
-        if (name === 'echo' || !declared(params) || process.env.FIXTURE_NO_TASKS === '1') return ok({ content: [{ type: 'text', text: `echo: ${args.text ?? ''}` }], isError: false });
+        if (name === 'echo' || !declared(params) || process.env.FIXTURE_NO_TASKS === '1') return ok({ content: [{ type: 'text', text: `echo: ${args.text ?? ''}${headers?.authorization ? ` (you sent ${headers.authorization})` : ''}` }], isError: false });
         if (name === 'bad_create') return send({ id, result: { resultType: 'task', status: 'working', createdAt: now(), lastUpdatedAt: now(), ttlMs: null } });
         const t = create(name, args);
         return send({ id, result: { resultType: 'task', ...view(t) } });
@@ -115,10 +118,17 @@ function handle(m, headers) {
             if (t.status === 'input_required') {
                 for (const [key, r] of Object.entries(responses)) {
                     if (!t.inputRequests?.[key]) continue; // not outstanding: ignored
+                    if (t.tool === 'ask2') {
+                        (t.answers ??= {})[key] = r;
+                        if (key === 'k1') setTimeout(() => set(t, 'input_required', { inputRequests: { k2: { method: 'elicitation/create', params: { mode: 'form', message: 'Last name?', requestedSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } } } } }), TASK_MS);
+                        else setTimeout(() => set(t, 'completed', { result: { content: [{ type: 'text', text: `Hello, ${t.answers.k1.content?.name} ${t.answers.k2.content?.name}!` }], isError: false } }), TASK_MS);
+                        set(t, 'working', { inputRequests: undefined });
+                        continue;
+                    }
                     if (t.tool === 'ask') set(t, 'working', { inputRequests: undefined, answer: r });
                     if (t.tool === 'confirm') set(t, 'working', { inputRequests: undefined, answer: r });
                 }
-                if (t.status === 'working') setTimeout(() => set(t, 'completed', { result: { content: [{ type: 'text', text: t.tool === 'ask' ? (t.answer.action === 'accept' ? `Hello, ${t.answer.content?.name}!` : `no name (${t.answer.action})`) : `answer: ${t.answer.action}` }], isError: false } }), TASK_MS);
+                if (t.status === 'working' && t.tool !== 'ask2') setTimeout(() => set(t, 'completed', { result: { content: [{ type: 'text', text: t.tool === 'ask' ? (t.answer.action === 'accept' ? `Hello, ${t.answer.content?.name}!` : `no name (${t.answer.action})`) : `answer: ${t.answer.action}` }], isError: false } }), TASK_MS);
             }
             return ok({});
         }

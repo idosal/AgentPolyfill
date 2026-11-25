@@ -22,6 +22,8 @@ export type RunnerOptions = {
 };
 
 const MAX_BACKOFF_MS = 5 * 60 * 1000;
+/** The most a task's outstanding questions may weigh. */
+export const MAX_INPUT_BYTES = 256 * 1024;
 /** setTimeout's limit; a longer interval is waited in steps. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
 
@@ -80,6 +82,12 @@ export class TaskRunner {
         }
         const conn = await this.#o.connection(t.server);
         if (!conn) return this.#retry(t, 'the server could not be reached');
+        // The task belongs to the server it started on: if that name now leads somewhere else, the task id
+        // (which may be a bearer token) is not sent there.
+        if (t.fingerprint && conn.fingerprint !== t.fingerprint) {
+            log('the server of that name is now reached in another way; the task is left alone');
+            return this.#finish(t, 'refused', `the server named ${t.server} in your config is no longer the one the task started on`);
+        }
         let answer;
         try {
             answer = await conn.getTask(t.taskId, t.status);
@@ -94,6 +102,10 @@ export class TaskRunner {
         if ('invalid' in answer) {
             log(`refused the server's answer: ${answer.invalid}`);
             return this.#finish(t, 'refused', answer.invalid);
+        }
+        if (answer.inputRequests && JSON.stringify(answer.inputRequests).length > MAX_INPUT_BYTES) {
+            log('its questions were larger than this plugin takes');
+            return this.#finish(t, 'refused', 'its questions were larger than this plugin takes (256 KB)');
         }
         const before = t.status;
         let told = false;
@@ -121,7 +133,7 @@ export class TaskRunner {
                 }
             }
         })!;
-        if (before !== updated.status) log(`${before} → ${updated.status}`);
+        if (before !== updated.status) log(`${before} \u2192 ${updated.status}`);
         if (told) this.#o.onAnnounce(updated);
         if (updated.outcome === 'open') this.schedule(id);
         return updated;

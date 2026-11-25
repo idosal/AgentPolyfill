@@ -48,7 +48,7 @@ export function oneLine(s: unknown, max = 120): string {
  * and escapes removed (line breaks kept), and every run of characters nobody can see shown as
  * ⟦n hidden characters⟧, so it can't rewrite what surrounds it.
  */
-export function visible(s: unknown, max = 8000): string {
+export function visible(s: unknown, max = Infinity): string {
     let text = String(s ?? '')
         // eslint-disable-next-line no-control-regex
         .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, '')
@@ -60,21 +60,45 @@ export function visible(s: unknown, max = 8000): string {
     return text.length > max ? text.slice(0, max - 1) + '\u2026' : text;
 }
 
+/** Every character a person can't see (controls, line and paragraph separators, format and default-ignorable characters). */
+const UNSEEN = /[\u0000-\u001f\u007f-\u009f\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180f\u200b-\u200f\u2028-\u202e\u2060-\u206f\u3164\ufe00-\ufe0f\ufeff\uffa0\ufff0-\ufff8]|\udb40[\udc00-\udfff]/g;
+
+/**
+ * Text that will be sent, shown so that nothing in it is hidden: each character nobody can see is
+ * written as `\u{…}`. Nothing is cut. Says whether anything was escaped.
+ */
+export function exact(s: string): { text: string; escaped: boolean } {
+    let escaped = false;
+    const text = s.replace(UNSEEN, (c) => {
+        escaped = true;
+        return `\\u{${c.codePointAt(0)!.toString(16)}}`;
+    });
+    return { text, escaped };
+}
+
 /** A date the server gave, if it is one; otherwise nothing. */
 export function isoDate(v: unknown): string | undefined {
     return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/.test(v) ? v : undefined;
 }
 
-/** Removes known secrets from text bound for a log. */
+/**
+ * The secrets this process knows (headers and variables from the user's config, a headers helper's
+ * output). Text bound for a log or for Codex has every one of 8 characters or more taken out; shorter
+ * ones would match ordinary text, so they are only matched whole, in `holds`.
+ */
 export class Redactor {
     #secrets = new Set<string>();
+    #all = new Set<string>();
 
     add(...secrets: (string | undefined)[]): void {
         for (const s of secrets) {
-            if (typeof s !== 'string' || s.length < 8) continue;
-            this.#secrets.add(s);
+            if (typeof s !== 'string' || !s) continue;
             const bare = s.replace(/^(Bearer|Basic|Token)\s+/i, '');
-            if (bare.length >= 8) this.#secrets.add(bare);
+            for (const x of [s, bare]) {
+                if (!x) continue;
+                this.#all.add(x);
+                if (x.length >= 8) this.#secrets.add(x);
+            }
         }
     }
 
@@ -82,6 +106,15 @@ export class Redactor {
         let out = text;
         for (const s of this.#secrets) out = out.split(s).join('[redacted]');
         return out;
+    }
+
+    /** Whether any string in a value (keys included) is a secret, or holds one of 8 characters or more. Too deep counts as yes. */
+    holds(v: unknown, depth = 0): boolean {
+        if (typeof v === 'string') return this.#all.has(v) || [...this.#secrets].some((x) => v.includes(x));
+        if (typeof v !== 'object' || v === null) return false;
+        if (depth > 64) return true;
+        if (Array.isArray(v)) return v.some((x) => this.holds(x, depth + 1));
+        return Object.entries(v).some(([k, x]) => this.holds(k, depth + 1) || this.holds(x, depth + 1));
     }
 }
 
