@@ -5,7 +5,7 @@
 
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -63,6 +63,7 @@ test("the server that doesn't run the watches never writes the wake count", asyn
     } finally {
         await first.kill();
         await second.kill();
+        rmSync(base, { recursive: true, force: true });
     }
 });
 
@@ -85,5 +86,6 @@ test('the server taking over reads the wake count again, and counts a hand-over 
     } finally {
         await first.kill().catch(() => {});
         await second.kill();
+        rmSync(base, { recursive: true, force: true });
     }
 });

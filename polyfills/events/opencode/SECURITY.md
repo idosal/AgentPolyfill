@@ -46,7 +46,9 @@ a prompt, as a tool result from the same server could. How often is bounded
   anything into `allow`, and a configured `deny` is settled before it runs.
   With nobody there to answer, OpenCode refuses the question. "Allow always"
   is kept by the plugin, from OpenCode's own permission events, only for a
-  request of its own and only as the patterns that request offered to save.
+  request of its own, from a session of this project (OpenCode sends every
+  project's permission events to every project's plugins), and only as the
+  patterns that request offered to save.
 - **What a watch says is plain text.** A watch's note and `arguments` are the
   model's text, repeated with every event or sent to the server. One holding
   a control or hidden character, or a note over 500 characters or `arguments`

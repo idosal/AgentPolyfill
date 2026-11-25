@@ -22,7 +22,7 @@ import { originOf } from '../../claude-code/mod/hooks/urls'
 export { search, searchEndpoint, originOf, UNSEEN }
 
 export const NAME = 'ard-discovery'
-export const VERSION = '0.1.0'
+export const VERSION = '0.1.1'
 export const NAMESPACE = 'ard'
 export const BY = 'ard-discovery (ARD v0.91 draft)'
 /** The permission action a search is put to OpenCode's rules as. Resource: the registry hosts it goes to. */

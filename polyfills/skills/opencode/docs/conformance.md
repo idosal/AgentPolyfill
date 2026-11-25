@@ -9,7 +9,7 @@ where that is tested.
 at commit `2eb3a8e` (12 November 2026), the revision the Claude Code and Codex
 forms implement ([Claude Code's table](../../claude-code/docs/conformance.md),
 [Codex's](../../codex/docs/conformance.md)). The rule ids are the same in all
-three. This page describes version 0.1.0 of the OpenCode plugin, on OpenCode
+three. This page describes version 0.1.1 of the OpenCode plugin, on OpenCode
 2.4.1.
 
 **Status** is one of: **met**; **exception** (met, with a limit stated in the

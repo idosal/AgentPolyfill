@@ -1,6 +1,6 @@
 {
   "name": "ard-discovery-opencode",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Agentic Resource Discovery for OpenCode: find MCP servers by domain or through a registry you choose, and add one after you allow it.",
   "type": "module",
