@@ -9,19 +9,21 @@ commit `2eb3a8e`, the same revision as the [Codex form](../codex/README.md).
 It shares [Skills core](../core/), Codex's approval store and content formatting,
 and the [Antigravity gate](../../server-cards/antigravity/src/gate.ts).
 
-**Run live on 25 November 2026** in Antigravity App v2.35.1 and CLI v1.5.16
-(macOS), against Hugging Face's public MCP server: 25 placeholder skills
-written and found by a fresh conversation, the App's approval card, an
-approved load with verified files, the same skill loaded again with no
-question, and a load nobody could answer denied. The IDE's agent wasn't run.
-See [docs/conformance.md](docs/conformance.md#live-25-november-2026).
+**Run live on 25 November 2026** in the Antigravity CLI 1.5.17 with a real
+model, against a local skills server serving one skill in three versions: a
+new skill asked, a changed one asked again, an unchanged approved one didn't,
+a declined load read nothing, and a load sent around the hook was refused.
+The earlier builds also ran in the App 2.35.1 and against Hugging Face's
+public MCP server. Rule X8 is not met in the CLI (see [Limits](#gaps-and-the-host-changes-that-would-close-them)).
+The record: [docs/live-run.md](../../events/antigravity/docs/live-run.md#skills).
 
 ## Install
 
-Node 20 or newer must be on your `PATH`, for the MCP server and the command
-hook (the hook runs `node ./dist/server.mjs --hook` from the plugin root).
-From a clone of this repository (the sequence checked on 25 November 2026,
-CLI 1.5.16):
+You need the Antigravity CLI (`agy`) to install a plugin from a folder: the
+App doesn't ship it. Node 20 or newer must be on your `PATH`, for the MCP
+server and the command hook (the hook runs `node ./dist/server.mjs --hook`
+from the plugin root). From a clone of this repository (the sequence checked
+on 25 November 2026):
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
@@ -46,15 +48,15 @@ That removes the plugin's folder. It leaves:
   (turn the plugin off in its settings and let its server run once to remove
   them first, or delete those folders yourself);
 - its own folder, `~/.gemini/agentpolyfill/mcp-skills/` (settings, approvals,
-  log): delete it by hand.
+  which servers' skills each conversation loaded, log): delete it by hand.
 
-### Where it was run
+### Where it runs
 
-| Surface | Run | |
+| Surface | Supported | Run live |
 |---|---|---|
-| Antigravity App v2.35.1 (macOS) | yes | the approval card for a new skill, approved; the skill loaded |
-| Antigravity CLI v1.5.16 (macOS) | yes | placeholders written and found; a headless load denied; a load approved over `agy acp` with verified files; the approved skill loaded again with no question |
-| Antigravity IDE v2.8.0 | no | installed, not signed in; its hooks page lists no plugin hooks, and without the hook every load is refused |
+| Antigravity CLI 1.5.17 (macOS) | yes | these builds: new, changed and unchanged loads; a load declined; a load around the hook refused; X8 (the CLI ignores its question) |
+| Antigravity App 2.35.1 (macOS) | yes | the earlier builds: the approval card for a new skill, approved, the skill loaded. These builds: not yet |
+| Antigravity IDE | no | Antigravity documents no plugin hooks for the IDE, so there is no question and no ticket: every load there is refused |
 
 ## Try it
 
@@ -69,26 +71,26 @@ Add a public server that serves skills to your personal
 }
 ```
 
-Hugging Face is the independent server used by the Codex form's interop
-probe. This adapter includes the same kind of probe, but has not run it
-against the public service yet.
-
 Ask Antigravity:
 
 > List the skills my MCP servers serve.
 
 That starts discovery if the MCP server has not started already. The plugin
-writes short skill stubs. Antigravity documents rereading skills before each
-turn across App, CLI and IDE. Check `/skills` on your next turn, then ask to
-use one by its server and skill name. The CLI documentation also mentions
-`/skills reload` or a new conversation to refresh the picker; whether the
-picker updates with the next turn needs a live check.
+writes short placeholder skills. A placeholder written when the plugin's
+server starts was found by that conversation's agent (seen live in the CLI:
+it read the `release-notes` placeholder before loading the skill).
+Antigravity documents rereading skills before each turn; whether a
+placeholder written in the middle of a conversation shows on its next turn
+hasn't been checked, and the CLI documents `/skills reload` or a new
+conversation to refresh its picker.
 
-`load_skill` asks whether to load the skill. Its question names the server,
-skill and URI, says whether this is a new approval or a change since your last
-one, and gives the file count and total size. After you approve, it returns
-verified skill text as content from that server. Supporting files are read as
-needed with `read_skill_file`.
+`load_skill` asks whether to load the skill, for a new or changed version
+only. Its question's first two lines name the skill and the server, then say
+whether this is a new approval or a change since your last one, with the URI
+(the CLI's card shows those two lines and hides the rest); the rest gives the
+file count and total size and the server's description, marked untrusted.
+After you approve, it returns verified skill text as content from that server.
+Supporting files are read as needed with `read_skill_file`.
 
 The card is **yes/no**. There is no “show me SKILL.md first” option: Antigravity
 documents `force_ask`, not a private multi-step preview. You can decline,
@@ -114,9 +116,11 @@ Only `mcpServers` in `~/.gemini/config/mcp_config.json` is read.
 
 The plugin never reads Antigravity's stored credentials, including
 `~/.gemini/antigravity/mcp_oauth_tokens.json`. It does not expand configuration
-variables or run a header helper. Labels must be 1–64 letters, digits,
-hyphens or underscores, starting with a letter or digit. Unsupported entries
-are reported in `list_skills`.
+variables or run a header helper. Header values, environment values and a
+URL's query values are registered as secrets and taken out of everything the
+plugin shows. Labels must be 1–64 letters, digits, hyphens or underscores,
+starting with a letter or digit. Unsupported entries are reported in
+`list_skills`.
 
 Only servers declaring the extension and the resources capability receive
 Skills requests. Discovery reads all listing pages within the core's bounds.
@@ -127,55 +131,65 @@ current metadata. A skill missing from a listing can still load by URI.
 
 ### Approval and reads
 
-1. Antigravity's `PreToolUse` hook runs the bundle with `--hook`. For a load,
-   it reads current configuration and obtains fresh `skills/get` metadata on
-   its own connection. It fetches no file. Validated metadata is shared in
-   `stateDir('mcp-skills')`; the hook also reads the saved catalog to identify
-   nested skills.
-2. An unchanged manifest from an approved server location yields `allow`.
-   A new or changed version yields `force_ask`. Dynamic skills, whose servers
-   publish no digests, ask every time. Invalid entries and oversized skills
-   yield `deny`.
-3. The unchanged shared gate creates a short-lived one-use ticket and adds
-   `agentpolyfill_ticket` through `overwrite`. It binds the call to the
-   version digest and conversation. No ticket means no skill content, even
-   when the hook did not run or failed open in Antigravity.
+1. The three gated tools are eager (`plugin/mcp_config.json`), so Antigravity
+   calls them as `mcp_mcp-skills_skills_<tool>`, and the plugin's
+   `PreToolUse` matcher takes those names (and `read_resource`, for rule X8)
+   only. For a load, the hook reads current configuration and the skill's
+   current entry on its own connection. It fetches no file. Validated
+   metadata is shared in `stateDir('mcp-skills')`; the hook also reads the
+   saved catalog to identify nested skills.
+2. An unchanged manifest from an approved server location yields `allow`,
+   which leaves Antigravity's usual MCP question. A new or changed version
+   yields `force_ask`. Dynamic skills, whose servers publish no digests, ask
+   every time. Invalid entries and oversized skills yield `deny`.
+3. The shared gate creates a one-use ticket, good for an hour at most and
+   removed when the conversation's turn ends, and adds `agentpolyfill_ticket`
+   through `overwrite`. It binds the call to the version digest and the
+   conversation. No ticket means no skill content: a load sent through
+   `call_mcp_tool` doesn't reach the hook and is refused.
 4. The MCP server redeems the ticket against the shared metadata, obtains the
    current entry on its own connection, and refuses if it differs. It loads
-   and verifies SKILL.md through core, then saves the approval. Approvals
-   cover every file address and digest and the server URL or command,
-   arguments and working directory. Credentials are not saved in approvals.
+   and verifies SKILL.md through core, then saves the approval and records
+   that this conversation holds a skill from that server. Approvals cover
+   every file address and digest and the server URL or command, arguments and
+   working directory. Credentials are not saved in approvals.
 5. `read_skill_file` and `list_skill_directory` use `allow` hooks only, with
    no question from the plugin. Their tickets identify the conversation;
    the server only reads a skill that conversation has loaded. A static
    skill's reads and directory listings stay within its held manifest.
    `list_skills` has no hook and asks no question.
+6. Rule X8: once a conversation holds a skill from one server, the hook
+   answers `force_ask` to a `read_resource` from any other server, naming
+   both. In CLI 1.5.17 the CLI shows no question for it and the read goes
+   ahead (seen live), so this holds only where Antigravity honours the
+   question.
 
-Server content is untrusted data. Descriptions are bounded and cleaned;
-loaded text is marked with its origin and fenced. Frontmatter grants no
-permissions, and `allowed-tools` is never copied to a stub. A digest match
-shows consistency, not trust. Subsequent actions still use Antigravity's
-permissions.
+Server content is untrusted data. Descriptions are bounded, cleaned and then
+scrubbed of known secrets; loaded text is marked with its origin and fenced,
+and every answer is scrubbed. Frontmatter grants no permissions, and
+`allowed-tools` is never copied to a stub. A digest match shows consistency,
+not trust. Subsequent actions still use Antigravity's permissions.
 
 ### Where it writes
 
 | Location | Contents |
 |---|---|
-| `~/.gemini/config/skills/mcp-skills-served--<server>-<6hex>--<16hex>/SKILL.md` | One stub directly under the skills root. The readable server part is lowercased and limited to 20 characters; the hashes identify the exact label and URI. Frontmatter `name` equals the folder name. |
-| `~/.gemini/agentpolyfill/mcp-skills/` | Settings, approvals, declaration cache, metadata snapshots, log and tickets. This is `stateDir('mcp-skills')`, or `$AGENTPOLYFILL_STATE_DIR/mcp-skills`. The directory is 0700 and state files are 0600. |
+| `~/.gemini/config/skills/mcp-skills-served--<server>-<6hex>--<16hex>/SKILL.md` | One placeholder directly under the skills root, 0600 in a 0700 folder. The readable server part is lowercased and limited to 20 characters; the hashes identify the exact label and URI. Frontmatter `name` equals the folder name. |
+| `~/.gemini/agentpolyfill/mcp-skills/` | Settings, approvals, declaration cache, metadata snapshots, which servers' skills each conversation loaded (`held/`), log and tickets. This is `stateDir('mcp-skills')`, or `$AGENTPOLYFILL_STATE_DIR/mcp-skills`. The directory is 0700 and state files are 0600. |
 
-The plugin creates, rewrites and removes only stub folders matching that
-exact shape. Unrelated files and folders stay untouched. Stub symlinks are
-replaced or removed without following them; a symlink at the skills root is
-refused. Stubs contain metadata and the plugin's load instructions, never a
-skill's file contents. **Other programs reading this folder see these stubs
-too.** They say they require this Antigravity plugin.
+The plugin creates, rewrites and removes only placeholder folders matching
+that exact shape. Unrelated files and folders stay untouched. Placeholder
+symlinks are replaced or removed without following them; a symlink at the
+skills root is refused. Placeholders contain metadata and the plugin's load
+instructions, never a skill's file contents. **Other programs reading this
+folder see these placeholders too.** They say they require this Antigravity
+plugin.
 
-At most 100 stubs are kept, including retained entries for temporarily
+At most 100 placeholders are kept, including retained entries for temporarily
 unreachable servers. `list_skills` and loads by URI reach entries beyond that
-cap. Discovery removes stale stubs for removed or disabled servers. Removing
-the plugin leaves the stubs: turn it off and let its server run once to clean
-them up first, or remove only its exact-shape folders yourself.
+cap. Discovery removes stale placeholders for removed or disabled servers.
+Removing the plugin leaves them: turn it off and let its server run once to
+clean them up first, or remove only its exact-shape folders yourself.
 
 No runtime writes go into the installed plugin, which Antigravity may replace
 on update. No skill file content is cached on disk. Verified content and
@@ -192,13 +206,13 @@ writes that file:
 
 Omit `servers` to discover all supported user entries. `skip` leaves named
 servers alone. Set `"off": true`, or `MCP_SKILLS_DISABLED=1` in the
-Antigravity environment, to stand down. At startup that removes owned stubs,
-opens no upstream connections, and offers no tools. A running server checks
-settings before calls, refuses work and removes stubs when turned off;
-restart to turn it back on. Restart to refresh discovery after changing server
-configuration or the allowlist. Calls check current configuration; moving a
-server reconnects and invalidates held entries from its old origin. The hook
-checks current settings on every call.
+Antigravity environment, to stand down. At startup that removes owned
+placeholders, opens no upstream connections, and offers no tools. A running
+server checks settings before calls, refuses work and removes placeholders
+when turned off; restart to turn it back on. Restart to refresh discovery
+after changing server configuration or the allowlist. Calls check current
+configuration; moving a server reconnects and invalidates held entries from
+its old origin. The hook checks current settings on every call.
 
 Antigravity currently documents local Agent Skills, not SEP-2640, so there is
 no native extension capability to detect reliably. This setting is the
@@ -206,41 +220,41 @@ stand-down mechanism until the host supplies one. Delete `approvals.json`
 to require approval on subsequent loads; already loaded content cannot be
 removed from a conversation by deleting the file.
 
-## Limits
+## Gaps, and the host changes that would close them
 
-| Limit | Host change that would close it |
-|---|---|
-| No access to Antigravity sign-ins; second upstream connections. A load hook briefly opens another connection, so servers with process-local skill URIs may fail safely. | Let plugins send extension requests over the host's connections, with capability information. |
-| Only personal MCP config; no workspace/plugin server inventory or managed-policy evaluation. | Expose an approved, effective server inventory through a plugin API. |
-| No private SKILL.md preview (X13b). | A user-only preview surface or elicitation with a separate preview step. |
-| The plugin cannot enforce cross-origin approval for the host's other resource tools (X8). | Expose active skill provenance and the target server on resource reads, so the host can ask with both origins. Hook access alone does not establish which skill caused another tool call. |
-| Other host resource tools can bypass manifest verification (V4); commands after a load use ordinary host permissions (X5). | Make native skill context and permission enforcement cover every read and action. |
-| Loaded manifests and verified caches are lost on server restart (W1/V8). Reload before reading further files; an unchanged approved version does not ask again. | A host lifecycle API for keeping manifests with conversation context. |
-| No native per-skill enable/disable enforcement; local discovery exclusions can hide a stub without preventing a tool load (H1/X11). Local name collisions are not detected (X9). | Expose effective skill policy and the complete skill namespace to plugins. Use server allow/skip settings here. |
-| The first turn may need `list_skills`; stubs share a global folder, survive uninstall and appear to other programs. At most 100 are written. Multiple installations use the same personal root. | A managed dynamic skill registration API, with discovery refresh and uninstall cleanup. |
-| Binary files are checked but not displayed. | A native skill-file presentation API for non-text resources. |
-| The hook runs, briefly, for every lazily loaded MCP call (`call_mcp_tool`, any server); it acts only on this plugin's `ServerName`. `reason` display in the approval card hasn't been confirmed live. Without the hook's ticket, loads fail closed. | MCP elicitation, or a hook matcher on the server's name. |
-| No automatic detection of native SEP-2640 support. | A host feature/version signal that plugins can query. |
+| Gap | What it means for you | Host change that closes it |
+|---|---|---|
+| No MCP elicitation (Antigravity declares it and cancels every request), so the question goes through a hook. | Loads are put to you in Antigravity's approval card; there is no private "show me SKILL.md first" (X13b). In the CLI the card shows the question's first two lines. | Elicitation shown to the person, with a preview step. |
+| The CLI shows no question for a hook's `force_ask` on `read_resource` (CLI 1.5.17). | After a skill loads, a read of another server's resource isn't put to you in the CLI (rule X8 not met there). | Honour `force_ask` for every tool. |
+| No plugin hooks in the IDE. | The plugin doesn't work in the Antigravity IDE: every load there is refused. | Plugin hooks in the IDE. |
+| Plugins can't use Antigravity's MCP connections or sign-ins. | The plugin opens its own connections; a server that needs Antigravity's sign-in is left out, and a load hook briefly opens one more connection. | Extension requests over the host's own connections. |
+| Only the personal MCP config is visible to plugins. | Servers from workspaces or other plugins aren't offered. | An approved server inventory for plugins. |
+| Other host tools can read resources without the manifest check (V4); actions after a load use your usual permissions (X5). | A loaded skill can ask the agent to read or do things through Antigravity's own tools. | Native skill context covering every read and action. |
+| Loaded manifests are lost when the plugin's server restarts (W1/V8). | Reload the skill before reading more files; an unchanged approved version doesn't ask again. | A lifecycle API that keeps them with the conversation. |
+| No native per-skill enable/disable or name-collision view (H1/X11/X9). | Use the plugin's `servers`/`skip` settings to choose servers. | Effective skill policy and namespace for plugins. |
+| Placeholders share the global skills folder. | They survive uninstall and other programs see them; at most 100 are written. | A dynamic skill registration API. |
+| Binary files are checked but not shown. | You see that a binary file is there, not its contents. | A presentation API for non-text resources. |
+| A `PreToolUse` hook that fails makes the call fail (CLI 1.5.17). | If Node isn't on `PATH` or the hook crashes, loads and reads fail; other servers' calls, apart from `read_resource`, never reach it. | Documented hook failure behaviour. |
+| No way to tell whether Antigravity supports SEP-2640 itself. | Turn the plugin off yourself when it does. | A capability signal plugins can query. |
 
 ## What differs from the other forms
 
-| | Antigravity | Codex | Claude Code |
+| | Antigravity | Codex | Pi |
 |---|---|---|---|
-| Integration | Plugin, MCP server and command hook | Plugin MCP server | Mod and helper |
-| Skill listing | Flat personal skill stubs | Nested stubs under `~/.agents/skills/mcp-skills-served` | Direct skill listing |
-| Consent | `force_ask`, yes/no, version-bound ticket | MCP elicitation with private preview choice | Host permission dialog and preview panel |
-| Conversation | Hook tickets for load and supporting reads | Codex call metadata | Mod's session |
-| Approvals/settings | `stateDir('mcp-skills')` | Codex state folder | Mod store / environment settings |
-| Stand-down | Explicit setting | Native capability declaration or setting | Observed native skill loading |
-| Live evidence | Not run yet | Recorded terminal and exec runs | Recorded Claude Code runs |
+| Integration | Plugin, MCP server and command hook | Plugin MCP server | Extension |
+| Skill listing | Flat personal placeholder skills | Nested stubs under `~/.agents/skills/mcp-skills-served` | Pi's own skill list |
+| Consent | `force_ask`, yes/no, version-bound ticket | MCP elicitation with private preview choice | Pi's own dialog with preview |
+| Conversation | Hook tickets for load and supporting reads | Codex call metadata | Pi session |
+| X8 (another server's read after a load) | The hook asks; the CLI ignores it | Not met | Asks |
+| Stand-down | Explicit setting | Native capability declaration or setting | See the [Pi README](../pi/README.md) |
+| Live evidence | CLI 1.5.17 (these builds), App 2.35.1 (earlier builds) | Recorded terminal and exec runs | See [its docs](../pi/docs/) |
 
 ## Security
 
-[SECURITY.md](SECURITY.md). In short: Antigravity's approval card is the
-boundary, and every new or changed skill asks; nothing is auto-approved. The
-plugin reads `~/.gemini/config/mcp_config.json`, which can hold header
-values, and never logs or shows them (they're taken out of the log, the
-placeholders and the listings). It never opens `mcp_oauth_tokens.json` or any
+[SECURITY.md](SECURITY.md). In short: every new or changed skill is put to
+you in Antigravity's approval card; nothing is auto-approved. The plugin
+reads `~/.gemini/config/mcp_config.json`, which can hold header values, and
+never logs or shows them. It never opens `mcp_oauth_tokens.json` or any
 sign-in store.
 
 ## Spec and conformance
@@ -248,10 +262,10 @@ sign-in store.
 The [rule table](docs/conformance.md) accounts for the same client rules as
 the Codex form. The shared core supplies negotiation, URI handling, limits,
 pagination, manifest verification, lazy reads and held entries. Antigravity
-tests port the applicable Codex client-rule tests and add config, flat stub,
-gate, matcher, no-elicitation and installed-bundle checks. X8 and X13b remain
-unmet host gaps; the table identifies the other limits instead of claiming
-full conformance.
+tests port the applicable Codex client-rule tests and add config, flat
+placeholder, gate, matcher, X8, no-elicitation and installed-bundle checks.
+X13b remains unmet, and X8 is unmet in the CLI; the table identifies the
+other limits instead of claiming full conformance.
 
 ```bash
 cd polyfills/skills/antigravity
@@ -263,57 +277,30 @@ npm test
 npm run check
 ```
 
-Tests bundle the independent hand-written fixture from the Claude Code form;
-they use temporary HOME directories and only loopback HTTP. The shared build
-driver supports `--check`, `--out DIR` and `--tests`. The committed bundle
-must match a fresh build byte for byte. The install test copies only `plugin/`
-to a temporary directory, then runs its MCP server and hook and loads a skill.
+Tests bundle the hand-written fixture server from
+[`../core/test-fixtures`](../core/test-fixtures); they use temporary HOME
+directories and only loopback HTTP. The shared build driver supports
+`--check`, `--out DIR` and `--tests`. The committed bundle must match a fresh
+build byte for byte. The install test copies only `plugin/` to a temporary
+directory, then runs its MCP server and hook and loads a skill.
 
-Development in this sandbox reused `../codex/node_modules` by symlink rather
-than downloading dependencies. This folder has its own package-lock, using
-Codex's pinned build-tool approach. That symlink is ignored and not shipped.
-The core's dependencies must also be installed for builds; runtime needs
-only the bundled plugin and Node 20+.
+Local verification on 25 November 2026: **69 tests pass**, with no skips.
+Type checking and the byte-identical bundle check pass. Tests ran on Node
+22.23.1; Node 20 and other operating systems have not been exercised
+separately.
 
-Local verification: **64 tests pass**, with no skips. Type checking and the
-byte-identical bundle check pass. Tests ran on Node 22.23.1; Node 20 and other
-operating systems have not been exercised separately.
-
-Two optional external checks are runnable, but were **not run for this
-adapter**. They do not borrow the Codex form's results:
+The upstream SEP-2640 client scenarios (conformance suite at `c8625de`) pass
+4 of 4, rerun with these builds ([evidence](docs/evidence/conformance.txt)).
+The suite's client is `test/interop.ts`, which runs this form's hook handlers
+in-process, taking a `force_ask` as your yes, and this form's MCP server code:
 
 ```bash
-# Public network, no credentials; deliberately approves each version in the test.
-npm run interop:real
-# Or REAL_SERVERS='name=https://example.com/mcp' npm run interop:real
-
-# An independently installed upstream conformance checkout; four loopback scenarios.
 CONFORMANCE_DIR=/path/to/modelcontextprotocol/conformance bash test/conformance.sh
 ```
 
-### Required live checks
-
-On App, CLI and IDE, with a throwaway HOME and a known fixture, confirm:
-
-- Done (25 November 2026, [record](../../events/antigravity/docs/live-run.md#second-pass-later-the-same-night)):
-  the tool name a hook sees (`call_mcp_tool` for a lazy tool) and `overwrite`
-  reaching the server; `list_skills` wrote 25 placeholder folders for
-  Hugging Face's skills, and a fresh conversation found the right one by
-  itself; the App's approval card showed the question ("Load the skill
-  "hf-cli" from the MCP server "huggingface"? ... This is a new skill
-  approval ..."), an approved load returned verified `SKILL.md` and reference
-  files, and the same unchanged skill then loaded with no question; a load
-  nobody could answer (headless `agy -p`) was denied and the plugin's server
-  never saw it. Over `agy acp`, an editor sees the tool name and arguments,
-  not the question.
-- `force_ask` displays the `reason`, including origin, URI and new/changed
-  wording, and declining does not invoke the MCP tool.
-- `overwrite.agentpolyfill_ticket` reaches the server unchanged; approving
-  loads verified content, unchanged approval passes, and changed content asks.
-- Stubs appear in `/skills` on the next turn. Record separately whether the
-  CLI picker needs `/skills reload`; check App/CLI/IDE turn discovery too.
-- A read stays in the conversation that loaded the skill, even if Antigravity
-  shares an MCP process; a missing hook refuses without any skill content.
+`npm run interop:real` (public network, no credentials) is there for a
+scripted run against public servers; the live runs above used Antigravity
+itself instead.
 
 ## Licence
 
