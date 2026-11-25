@@ -186,6 +186,10 @@ never answers.
 - **The plugin keeps its own record** of each "Allow always", in OpenCode's
   plugin storage. Taking a saved approval back in OpenCode doesn't take it
   back from the plugin; an `ask` rule for it does.
+- **Upgrading from 0.1.0** asks for each "Allow always" once more. 0.1.0
+  also kept an answer given in one project for every other project where the
+  plugin was running at the time; 0.1.1 keeps each answer to its own project
+  and doesn't read 0.1.0's lists.
 
 What OpenCode does about an event goes through your rules too. Receiving one
 grants nothing, but OpenCode's default allows the model's other actions, so

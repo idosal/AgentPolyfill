@@ -141,6 +141,10 @@ describe('mcp-skills in OpenCode', () => {
         const loud = await turn(world, session, 'CALL opencode_read_mcp_resource {"server":"docs","uri":"SKILL://HAIKU-GUIDE/references/FORMS.md"}');
         assert.match(loud, /mcp_skills_read_skill_file/);
         assert.equal(docs.requests('resources/read').length, before);
+        // A path that may lead into the skill's folder without starting with it is refused too.
+        const dotted = await turn(world, session, 'CALL opencode_read_mcp_resource {"server":"docs","uri":"skill://elsewhere/..%2fhaiku-guide/references/FORMS.md"}');
+        assert.match(dotted, /mcp_skills_read_skill_file/);
+        assert.equal(docs.requests('resources/read').length, before);
     });
 
     test('after a served skill is loaded, reading another server\'s resource is asked about, naming both servers (X8)', async () => {

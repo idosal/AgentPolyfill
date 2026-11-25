@@ -32,8 +32,17 @@ export type ConsentContext = {
     };
 };
 
-/** Where the patterns the person allowed always are kept: one entry per project, as OpenCode keeps saved approvals. */
+/**
+ * Where the patterns the person allowed always are kept: one entry per project, as OpenCode keeps saved
+ * approvals. `v2` since 0.1.1: 0.1.0 also kept other projects' answers under a project's key (it
+ * counted every project's permission events), so its lists are left unread, and each "Allow always" is
+ * asked for once more.
+ */
 export const alwaysKey = (prefix: string, location: { directory: string; project: { id: string } }) =>
+    location.project.id && location.project.id !== 'global' ? `${prefix}/always/v2/project/${location.project.id}` : `${prefix}/always/v2/folder/${location.directory}`;
+
+/** 0.1.0's key, never read: kept here only so the tests can show it isn't. */
+export const alwaysKeyV1 = (prefix: string, location: { directory: string; project: { id: string } }) =>
     location.project.id && location.project.id !== 'global' ? `${prefix}/always/project/${location.project.id}` : `${prefix}/always/folder/${location.directory}`;
 
 /** Whether an option or environment value turns asking by default off. */

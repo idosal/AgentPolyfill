@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { Listed } from '../../core/src/skills.ts';
 import { skillIds } from '../src/app.ts';
-import { inSkill, stateDir } from '../src/plugin.ts';
+import { inSkill, oddPath, stateDir } from '../src/plugin.ts';
 import { stubContent, stubDescription } from '../src/words.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -94,4 +94,17 @@ test("V4 knows a loaded skill's file whatever the case of its scheme and authori
     assert.equal(inSkill(skill, 'skill://other/SKILL.md'), false);
     // The path keeps its case: a different path is a different resource.
     assert.equal(inSkill('skill://hf-mem/sub/SKILL.md', 'skill://hf-mem/SUB/a.md'), false);
+});
+
+test('a dot segment, or an encoded dot or slash, in a resource path is caught (V4, OC-N1)', () => {
+    assert.equal(oddPath('skill://srv/skills/x/../haiku/FORMS.md'), true);
+    assert.equal(oddPath('skill://srv/a/./b.md'), true);
+    assert.equal(oddPath('skill://srv/a/..'), true);
+    assert.equal(oddPath('skill://srv/a%2Fb.md'), true);
+    assert.equal(oddPath('skill://srv/%2e%2e/b.md'), true);
+    assert.equal(oddPath('skill://srv/a%5cb.md'), true);
+    assert.equal(oddPath('skill://srv/a/b.md'), false);
+    assert.equal(oddPath('skill://srv/a..b/c.d.md'), false);
+    // The authority isn't part of the path.
+    assert.equal(oddPath('skill://a.b.c/d.md'), false);
 });
