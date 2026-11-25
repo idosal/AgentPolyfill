@@ -139,3 +139,23 @@ describe('ard-discovery in OpenCode', () => {
     assert.match(added, /Added "[^"]+"/)
   })
 })
+
+describe('ard-discovery asks by default', () => {
+  let web: Awaited<ReturnType<typeof localWeb>>
+  const world = new World({ plugins: [PLUGIN] })
+  let session = ''
+  before(async () => {
+    web = await localWeb()
+    await world.start()
+    session = await world.createSession()
+  })
+  after(async () => {
+    await world.stop()
+    await web.close()
+  })
+
+  test("with OpenCode's default rules, a search is asked about; rejected, nothing is sent", async () => {
+    await turn(world, session, `CALL ard_search {"query":"check why my CI build failed","registry":"${web.origin}/registry"}`, 'reject', p => assert.equal(p.action, 'ard_search'))
+    assert.equal(web.searches.length, 0)
+  })
+})

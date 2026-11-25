@@ -57,7 +57,7 @@ export const TOOLS: readonly Tool[] = [
         description:
             'Start watching an event type on an MCP server, so its events reach this session as they happen (even when idle). ' +
             "Use when the user asks to be told about, or to react to, something a server reports. Pass `note`: what to do when it fires, in the user's words. " +
-            'Call list_event_types first if you do not know what the servers offer. OpenCode asks the user first if their permission rules say to (action mcp_events_watch).',
+            'Call list_event_types first if you do not know what the servers offer. OpenCode asks the user first (action mcp_events_watch): tell them the server, the event type, the filters and the note before you call this, since the question may show only the call. The note and filters are plain text on one line.',
         input: {
             type: 'object',
             properties: {

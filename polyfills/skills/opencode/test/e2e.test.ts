@@ -125,6 +125,13 @@ describe('mcp-skills in OpenCode', () => {
         assert.match(out, /5-7-5/);
     });
 
+    test('a loaded skill\'s own files are not read through OpenCode\'s resource tool, which checks nothing (V4)', async () => {
+        const before = docs.requests('resources/read').length;
+        const out = await turn(world, session, 'CALL opencode_read_mcp_resource {"server":"docs","uri":"skill://haiku-guide/references/FORMS.md"}');
+        assert.match(out, /mcp_skills_read_skill_file/);
+        assert.equal(docs.requests('resources/read').length, before);
+    });
+
     test('after a served skill is loaded, reading another server\'s resource is asked about, naming both servers (X8)', async () => {
         await turn(world, session, 'CALL opencode_read_mcp_resource {"server":"other","uri":"skill://other-skill/SKILL.md"}', 'reject', (p) => {
             assert.equal(p.action, 'mcp_skills_cross_server');
@@ -183,7 +190,8 @@ describe('mcp-skills across an OpenCode restart', () => {
 
     test('a session that loaded a served skill before the restart is still held to X8 after it', async () => {
         await waitFor(async () => (await world.api<{ data: { id: string }[] }>('GET', `/api/skill?location[directory]=${encodeURIComponent(world.project)}`)).data.some((s) => s.id === 'mcp-skills:docs:haiku-guide'), 30000, 'the served skill');
-        const out = await turn(world, session, `CALL mcp_skills_load_skill {"server":"docs","uri":"${guide.uri}"}`);
+        // No rule for loads here: the plugin asks by default.
+        const out = await turn(world, session, `CALL mcp_skills_load_skill {"server":"docs","uri":"${guide.uri}"}`, 'once');
         assert.match(out, /Loaded the skill/);
         await world.restart();
         await world.api('GET', `/api/mcp?location[directory]=${encodeURIComponent(world.project)}`);
@@ -252,5 +260,59 @@ describe('mcp-skills with a server that needs a sign-in', () => {
         const log = readFileSync(join(world.home, '.local', 'share', 'opencode', 'mcp-skills', 'mcp-skills.log'), 'utf8');
         assert.doesNotMatch(log, new RegExp(SECRET));
         assert.doesNotMatch(JSON.stringify(world.llmRequests()), new RegExp(SECRET));
+    });
+});
+
+describe('mcp-skills with a nested skill', () => {
+    const outer = skill('outer', 'An outer skill.');
+    const inner = skill('outer/inner', 'A skill inside it.');
+    const docs = fixture([outer, inner]);
+    const world = new World({ plugins: [PLUGIN], mcp: { docs: docs.config }, permissions: ASK });
+    let session = '';
+    before(async () => {
+        await world.start();
+        session = await world.createSession();
+    });
+    after(() => world.stop());
+
+    test('a nested skill is asked about on its own, and the request names the skill it is inside (R4, X12)', async () => {
+        await waitFor(async () => (await world.api<{ data: { id: string }[] }>('GET', `/api/skill?location[directory]=${encodeURIComponent(world.project)}`)).data.some((s) => s.id === 'mcp-skills:docs:inner'), 30000, 'the nested skill');
+        await turn(world, session, `CALL mcp_skills_load_skill {"server":"docs","uri":"${inner.uri}"}`, 'reject', (p) => {
+            assert.equal(p.action, 'mcp_skills_load');
+            assert.match(p.resources[0]!, /^docs:skill:\/\/outer\/inner\/SKILL\.md@/);
+            assert.equal((p as { metadata?: { nestedIn?: string } }).metadata?.nestedIn, 'outer');
+        });
+    });
+});
+
+describe('mcp-skills asks by default', () => {
+    const guide = skill('haiku-guide', 'Use when the user wants answers in haiku.');
+    const docs = fixture([guide]);
+    const world = new World({ plugins: [PLUGIN], mcp: { docs: docs.config } });
+    const off = new World({ plugins: [{ package: PLUGIN, options: { askByDefault: false } }], mcp: { docs: docs.config } });
+    before(async () => {
+        await world.start();
+        await off.start();
+    });
+    after(async () => {
+        await world.stop();
+        await off.stop();
+    });
+    const listed = (w: World) => waitFor(async () => (await w.api<{ data: { id: string }[] }>('GET', `/api/skill?location[directory]=${encodeURIComponent(w.project)}`)).data.some((s) => s.id === 'mcp-skills:docs:haiku-guide'), 30000, 'the served skill');
+
+    test('with OpenCode\'s default rules, a load is asked about; "Allow always" then covers that skill as it is', async () => {
+        await listed(world);
+        const first = await world.createSession();
+        await turn(world, first, `CALL mcp_skills_load_skill {"server":"docs","uri":"${guide.uri}"}`, 'always', (p) => assert.equal(p.action, 'mcp_skills_load'));
+        const second = await world.createSession();
+        const out = await turn(world, second, `CALL mcp_skills_load_skill {"server":"docs","uri":"${guide.uri}"}`);
+        assert.match(out, /Loaded the skill "haiku-guide"/);
+    });
+
+    test("with askByDefault off, OpenCode's rules alone decide: with its defaults, nobody is asked", async () => {
+        await listed(off);
+        const s = await off.createSession();
+        const out = await turn(off, s, `CALL mcp_skills_load_skill {"server":"docs","uri":"${guide.uri}"}`);
+        assert.match(out, /Loaded the skill "haiku-guide"/);
     });
 });

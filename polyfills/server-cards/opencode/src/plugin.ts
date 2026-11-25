@@ -5,7 +5,8 @@
 
 import { host } from '../../claude-code/mod/hooks/configure'
 import { nodeFetch } from '../../codex/src/fetch'
-import { AddedServers, addTool, discoverTool, memoryStore, registerTools, removeTool, Shown, type ToolSet } from './cards'
+import { ACTIONS, AddedServers, addTool, discoverTool, memoryStore, registerTools, removeTool, Shown, type ToolSet } from './cards'
+import { askByDefault, askByDefaultOff } from './consent'
 import type { Context, Plugin } from './opencode'
 
 // What the tests run against: the shared modules as bundled here, and this form's own.
@@ -52,6 +53,10 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env) 
   // Stand-down (contract rule 4): OpenCode 2.4.1 has no Server Card support to detect. When it
   // ships, remove the plugin, or turn it off with this setting or the option `off`.
   if (/^(1|true|on|yes)$/i.test(env.MCP_SERVER_CARDS_DISABLED ?? '') || ctx.options?.off === true) return
+  // Additions and removals ask by default, whatever OpenCode's default rules say (consent.ts).
+  const consent = askByDefaultOff(ctx.options?.askByDefault, env.MCP_SERVER_CARDS_ASK_BY_DEFAULT)
+    ? async () => {}
+    : await askByDefault(ctx, { actions: [ACTIONS.add, ACTIONS.remove], prefix: NAME, plugin: NAME, log: () => {} })
   const added = new AddedServers(ctx)
   await added.start()
   const t: ToolSet = {
@@ -63,7 +68,8 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env) 
     foundBy: `${NAMESPACE}_${DISCOVER}`,
   }
   await registerTools(ctx, { name: NAMESPACE, description: NAMESPACE_DESCRIPTION }, [discoverTool(t, { name: DISCOVER, description: DISCOVER_DESCRIPTION }), addTool(t), removeTool(t)])
+  return consent
 }
 
-const plugin: Plugin = { id: NAME, setup: async ctx => void (await setup(ctx)) }
+const plugin: Plugin = { id: NAME, setup: ctx => setup(ctx) }
 export default plugin

@@ -2,8 +2,7 @@
 
 OpenCode finds MCP servers through Agentic Resource Discovery (ARD): in what a
 domain lists, or by asking an ARD registry for a server that can do a task.
-You choose the registry, and every search is put to OpenCode's permission
-rules first.
+You choose the registry, and OpenCode asks you before every search.
 
 Also available for Claude Code ([ard-discovery for Claude Code](../claude-code/README.md))
 and Codex ([ard-discovery for Codex](../codex/README.md)).
@@ -33,25 +32,34 @@ ARD is a draft (v0.91), not an MCP specification.
 
 ## Install
 
-The plugin isn't on npm yet. From a clone of this repository, add its folder
-to `plugins` in your OpenCode configuration:
+You need **OpenCode 2.4** (the V2 plugin API; tested with 2.4.1). OpenCode runs
+the plugin itself, so you don't need Node.
+
+The plugin isn't on npm. OpenCode installs it from this repository on GitHub,
+with Git:
+
+```bash
+opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/ard/opencode/plugin'
+```
+
+That adds it to `plugins` in your global configuration
+(`~/.config/opencode/opencode.json`), so it runs in every project, from the
+next time OpenCode opens one. `#main` installs what the main branch holds; a
+commit in its place pins one version. To remove it, run `opencode plugin remove` with the
+same text.
+
+Or, from a clone of this repository, add the plugin's folder to `plugins`
+yourself, in the global configuration or a project's `opencode.json`:
 
 ```jsonc
 {
-  "plugins": ["/path/to/AgentPolyfill/polyfills/ard/opencode/plugin"],
-  "permissions": [
-    { "action": "ard_search", "resource": "*", "effect": "ask" },
-    { "action": "mcp_server_cards_add", "resource": "*", "effect": "ask" }
-  ]
+  "plugins": ["/path/to/AgentPolyfill/polyfills/ard/opencode/plugin"]
 }
 ```
 
-The rules make OpenCode ask you before each search and each addition. Without
-them, OpenCode's default allows both: a search would be sent without a
-prompt. It works on its own; installing `mcp-server-cards` beside it is
-optional.
-
-You need **OpenCode 2.4** (the V2 plugin API; tested with 2.4.1).
+The folder is one bundled file, [`plugin/server.js`](plugin/), its licence
+notices, and a `package.json` that names it. Nothing else is downloaded.
+It works on its own; installing `mcp-server-cards` beside it is optional.
 
 ## How it works
 
@@ -63,9 +71,17 @@ You need **OpenCode 2.4** (the V2 plugin API; tested with 2.4.1).
   referrals one hop. Before anything is sent, it asks OpenCode's rules about
   `ard_search` on the registry hosts; the request carries the exact query and
   endpoints. A registry a referral names is asked about the same way before
-  the query goes to it; one that isn't allowed gets nothing. Nothing is saved by "Allow always": each search is asked about on
-  its own. A query is one line of plain words, at most 300 characters, so the
-  request shows all of what is sent.
+  the query goes to it; one that isn't allowed gets nothing. Nothing is saved
+  by "Allow always": each search is asked about on its own. A query is one
+  line of plain words, at most 300 characters, so the request shows all of
+  what is sent.
+- **Asked by default.** OpenCode's shipped rules allow every action, so the
+  plugin makes its own actions (`ard_search`, `mcp_server_cards_add`,
+  `mcp_server_cards_remove`) ask, with an OpenCode `evaluate` hook that turns
+  `allow` into `ask` for them and nothing else. A `deny` or `ask` rule you
+  write wins; an `allow` rule doesn't skip the question by itself, since the
+  plugin can't tell it from OpenCode's default. With nobody there to answer,
+  as in a scheduled run, OpenCode refuses the question.
 - **`ard_add_mcp_server`** and **`ard_remove_mcp_server`** add or remove a
   server either tool showed, as `mcp-server-cards` does, under the same
   permission actions (`mcp_server_cards_add`, `mcp_server_cards_remove`).
@@ -76,26 +92,36 @@ You need **OpenCode 2.4** (the V2 plugin API; tested with 2.4.1).
 |---|---|
 | `ARD_DISCOVERY_REGISTRY` | The registry a search goes to when the request names none. Unset by default. |
 | `ARD_DISCOVERY_DISABLED=1`, or the plugin option `{"off": true}` | Do nothing, without being uninstalled. |
+| `ARD_DISCOVERY_ASK_BY_DEFAULT=0`, or the plugin option `{"askByDefault": false}` | Leave searches and additions to OpenCode's rules alone; by default the plugin asks. Under OpenCode's default rules, a search is then sent without a prompt. |
+
+Set a variable in the environment OpenCode starts in. A plugin option goes in
+the object form of the plugin's entry in `plugins`:
+`{ "package": "/path/to/…/ard/opencode/plugin", "options": { "askByDefault": false } }`.
 
 ## Limits
 
-- **OpenCode's default allows every action,** so with no `ard_search` rule a
-  search is sent without a prompt. Add the rules in [Install](#install).
 - The limits of [`mcp-server-cards`](../../server-cards/opencode/README.md#limits)
   for adding a server.
-- **Tried live** with a real model: buildkite.com's `ard.json` read
-  ([`live-run.md`](../../../tools/opencode/live-run.md)). CI runs the tests on
-  Linux and macOS.
+- **Tried live** with a real model: buildkite.com's `ard.json` read, and a
+  search sent to the repository's demo registry after OpenCode asked, which
+  returned Buildkite's and Netlify's servers, each confirmed by its
+  publisher's catalog ([`live-run.md`](../../../tools/opencode/live-run.md)).
+  CI runs the tests on Linux, macOS and Windows.
 - **OpenCode's TUI shows little in the prompt.** In OpenCode 2.4.1's TUI, a
   permission prompt for a plugin's own action says only "Call tool
   ard_search". The details are on the model's call line just above it, and
   "Always allow" lists the pattern it would save. Checked in the TUI
   ([`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui)). The call
-  line names the query and the registry; a referred registry's host is in
-  the request only.
-- **Not tried yet:** Windows by hand (CI runs the tests there), OpenCode
-  Desktop, and a public registry: none that takes an unauthenticated search
-  was found; searches were run against the repository's demo registry.
+  line names the query and the registry you named. **A registry a referral
+  names is asked about in a prompt of its own that, in the TUI, shows only
+  "Call tool ard_search"**: its host is in the request alone, and nothing on
+  screen names it. The plugin can't do better in the TUI. OpenCode Desktop
+  shows a plugin action's resource in its prompt (seen for Events and
+  Skills), so there the host shows; or reject a prompt you can't read.
+- **Not tried yet:** Windows by hand (CI runs the tests there), ARD in
+  OpenCode Desktop, and a public registry: none that takes an
+  unauthenticated search was found; searches were run against the
+  repository's demo registry.
 
 ## Security
 
@@ -104,12 +130,15 @@ You need **OpenCode 2.4** (the V2 plugin API; tested with 2.4.1).
 ## Spec and conformance
 
 ARD v0.91 (draft), as the Claude Code form follows it: the rules are in its
-[README](../claude-code/README.md) and tested there against the same modules.
+[README](../claude-code/README.md) and tested there against the same modules;
+this form's [`docs/conformance.md`](docs/conformance.md) has each rule's
+state in OpenCode and where it is tested.
 [`test/e2e.test.ts`](test/e2e.test.ts) runs this plugin in OpenCode 2.4.1, in a
 throwaway home, against a local web with an `ard.json`, a card, a small MCP
 server and a registry: discovery; a search refused with no registry; a search
 put to OpenCode's rules, rejected (nothing sent) and approved (sent to that
-registry only); and adding what it found.
+registry only); a referred registry asked about on its own and, rejected,
+sent nothing; adding what it found; and asking by default.
 
 ## Development
 

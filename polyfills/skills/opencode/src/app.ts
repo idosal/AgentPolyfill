@@ -10,7 +10,7 @@
 // skill registry in place of SKILL.md files on disk.
 
 import { createHash } from 'node:crypto';
-import { declarationOf, manifestHash, SkillsHost, type Listed } from '../../core/src/skills.ts';
+import { declarationOf, manifestHash, rootOf, SkillsHost, type Listed } from '../../core/src/skills.ts';
 import { describeError, LocalError, secrets } from '../../core/src/untrusted.ts';
 import { isHttp, type ServerTable } from '../../core/src/upstream.ts';
 import { Connection } from '../../core/src/wire.ts';
@@ -59,7 +59,7 @@ export class App {
     /** Called when the listed skills changed, so OpenCode's skill list is rebuilt. */
     onListed?: () => void;
     /** Called when a session loaded a skill of a server, before its text is handed over (X8 keeps it). */
-    onLoaded?: (session: string, server: string) => Promise<void>;
+    onLoaded?: (session: string, server: string, skillUri: string) => Promise<void>;
 
     constructor(o: { log?: (line: string) => void; connectTimeoutMs?: number } = {}) {
         this.#log = o.log ?? (() => {});
@@ -88,6 +88,11 @@ export class App {
     }
 
     /** The servers whose skills a session has loaded (for X8). */
+    /** The skills a session has loaded, as (server, the URI of its SKILL.md). */
+    loadedSkills(session: string): { server: string; uri: string }[] {
+        return this.#sessions.get(session)?.held().map((h) => ({ server: h.label, uri: h.entry.uri })) ?? [];
+    }
+
     loadedFrom(session: string): string[] {
         return [...new Set(this.#sessions.get(session)?.held().map((h) => h.label) ?? [])];
     }
@@ -275,6 +280,9 @@ export class App {
         if (listed.declined) throw new LocalError(`this skill is not loaded: ${listed.declined}`);
         const hash = await manifestHash(entry);
         const files = entry.resources === 'dynamic' ? [] : entry.resources;
+        // A skill inside another skill's folder needs its own yes, and the request says so (R4, X12).
+        const root = rootOf(entry.uri) ?? '';
+        const outer = this.catalog.listed(server).find((l) => l.entry.uri !== entry.uri && root.startsWith(`${rootOf(l.entry.uri)}/`));
         await ask(ctx, ACTIONS.load, `${server}:${entry.uri}@${hash ?? 'dynamic'}`, {
             // A "dynamic" skill has no digest an approval could be bound to: it is asked about every time.
             save: hash !== undefined,
@@ -283,13 +291,14 @@ export class App {
                 skill: entry.frontmatter.name,
                 uri: entry.uri,
                 ...(hash ? { sha256: hash, files: files.length, bytes: files.reduce((n, r) => n + r.size, 0) } : { dynamic: true }),
-                note: `Not a local skill: its text is the MCP server ${JSON.stringify(server)}'s content.`
+                ...(outer ? { nestedIn: outer.entry.frontmatter.name } : {}),
+                note: `Not a local skill: its text is the MCP server ${JSON.stringify(server)}'s content.${outer ? ` It is nested inside the skill ${JSON.stringify(outer.entry.frontmatter.name)}; approving that one does not approve this one.` : ''}`
             }
         });
         const loaded = await host.load(server, uri, { expect: hash });
         // Kept before the text is handed over: a later cross-server read in this session, a
         // subagent of it, or after a restart, is checked against it.
-        await this.onLoaded?.(ctx.session, server);
+        await this.onLoaded?.(ctx.session, server, entry.uri);
         this.#log(`${server}: loaded ${uri}${loaded.isVerified ? '' : ' (dynamic, unverified)'}`);
         return { text: loadedText(loaded) };
     }

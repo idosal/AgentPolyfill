@@ -6,7 +6,8 @@
 // which process runs them, and the OpenCode location it belongs to) and
 // <state>/sessions/<id>/ (its events, how far they were handed over, and the
 // wake count). One process runs a session's watches; another OpenCode server
-// with the same session open only lists them, and takes over if the first goes.
+// with the same session open only lists them, and takes over if the first goes. Only
+// the one running them writes the wake count; one taking over reads it again first.
 //
 // Every event is on disk before it is acknowledged to its server. Then, at most
 // as often as the wake gate allows (core/src/wake.ts), the new events are handed
@@ -89,8 +90,8 @@ export class OpenCodeSession {
         this.spool = new Spool(o.base, id);
         // OpenCode shows the plugin the person's own messages (the `prompt` hook), so past the hour's
         // wakes the pause lasts until they write, as in Claude Code.
+        // Only the process that runs the watches writes it: start() reads it again when this one does.
         this.budget = new WakeBudget(wakeLimits(env), join(this.spool.dir, 'wakes.json'));
-        if (this.budget.noticeHanded) this.budget.pause();
         this.manager = new WatchManager({ connections: o.connections, project: this.project, spool: this.spool, session: id, log: this.#log, env, connectTimeoutMs: o.connectTimeoutMs, redact: secrets });
         this.#tools = createTools(() => [...o.connections.values()], o.unavailable, this.manager);
         this.spool.onAppend = (rec) => {
@@ -108,6 +109,11 @@ export class OpenCodeSession {
         const was = this.manager.owner;
         const owner = this.manager.start();
         if (owner && !was) {
+            // The wake count as the process that ran them before left it: what this one read when it first
+            // saw the session (another OpenCode server with it open, say) may be out of date by now.
+            this.budget.reload();
+            // A notice handed to OpenCode by a process that stopped before it heard back counts as given.
+            if (this.budget.noticeHanded) this.budget.pause();
             this.#delivery = new Delivery(this.spool, { values: this.#values });
             // A batch handed to OpenCode by a process that ended before it heard back: it may have been
             // admitted, so it counts as handed over and as a wake (at most once).
@@ -131,8 +137,16 @@ export class OpenCodeSession {
         });
     }
 
-    /** The person wrote to the session: if waking had stopped at its hourly limit, it starts again. */
+    /**
+     * The person wrote to the session: if waking had stopped at its hourly limit, it starts again. Only in
+     * the process that runs the watches: another holds a count it read earlier, and saving that would
+     * undo what the one running them has saved since, a hand-over's record among it.
+     */
     spoke(): void {
+        if (!this.manager.owner) {
+            this.#log("the user wrote in an OpenCode server that doesn't run this session's watches; the pause, if any, is left to the one that does");
+            return;
+        }
         if (this.budget.spoke()) this.#log('the user is back: waking starts again');
         if (this.#delivery?.pending) this.announce();
     }
@@ -205,7 +219,8 @@ export class OpenCodeSession {
             }
             // Write-ahead: recorded as handed over before OpenCode is asked to admit it.
             if (!this.budget.handBatch(batch.watches, batch.upto)) {
-                this.#log('the hand-over could not be recorded; the session is not woken until it can be');
+                this.lastWakeError = 'the hand-over could not be recorded: wakes.json could not be saved';
+                this.#log(`${this.lastWakeError}; the session is not woken until it can be`);
                 again = Math.max(MIN_RETRY_MS, this.#retryMs);
                 return;
             }

@@ -163,3 +163,47 @@ describe('mcp-server-cards in OpenCode', () => {
     await waitFor(async () => !(await servers(world)).some(x => x.name === name), 10000, 'the server to go')
   })
 })
+
+describe('mcp-server-cards asks by default', () => {
+  let web: Awaited<ReturnType<typeof localWeb>>
+  const world = new World({ plugins: [PLUGIN] })
+  let session = ''
+  before(async () => {
+    web = await localWeb()
+    await world.start()
+    session = await world.createSession()
+  })
+  after(async () => {
+    await world.stop()
+    await web.close()
+  })
+
+  test("with OpenCode's default rules, an addition is asked about; rejected, nothing is added", async () => {
+    await turn(world, session, `CALL server_cards_discover_mcp_servers {"domain":"${web.origin}"}`)
+    await turn(world, session, `CALL server_cards_add_mcp_server ${JSON.stringify({ domain: web.origin, identifier: 'urn:air:localhost:docs', url: `${web.origin}/mcp` })}`, 'reject', p => assert.equal(p.action, 'mcp_server_cards_add'))
+    assert.equal((await servers(world)).length, 0)
+  })
+})
+
+describe('mcp-server-cards never replaces a server the person has', () => {
+  let web: Awaited<ReturnType<typeof localWeb>>
+  // A server of the card's default name (its title, "Example Docs") is already in OpenCode's configuration.
+  const world = new World({ plugins: [PLUGIN], permissions: ASK, mcp: { 'example-docs': { type: 'remote', url: 'http://127.0.0.1:9/mcp', disabled: true } } })
+  let session = ''
+  before(async () => {
+    web = await localWeb()
+    await world.start()
+    session = await world.createSession()
+  })
+  after(async () => {
+    await world.stop()
+    await web.close()
+  })
+
+  test('the add is refused before anyone is asked, and the configured server stays as it was (P-1)', async () => {
+    await turn(world, session, `CALL server_cards_discover_mcp_servers {"domain":"${web.origin}"}`)
+    const out = await turn(world, session, `CALL server_cards_add_mcp_server ${JSON.stringify({ domain: web.origin, identifier: 'urn:air:localhost:docs', url: `${web.origin}/mcp` })}`)
+    assert.match(out, /A server named "example-docs" already exists/)
+    assert.equal((await world.permissions(session)).length, 0)
+  })
+})
