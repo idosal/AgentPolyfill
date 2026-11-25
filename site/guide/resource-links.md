@@ -26,7 +26,7 @@ user only
 | A link marked for the user only | Read like any other | Read like any other |
 | What to install | Nothing | `mcp-resource-links` |
 
-Pi wasn't measured.
+Pi and OpenCode weren't measured.
 
 ## Install
 

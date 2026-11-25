@@ -1,7 +1,7 @@
 # Security
 
 This covers `mcp-skills` for Pi. The other forms have their own:
-[Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md).
+[Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md), [OpenCode](../opencode/SECURITY.md).
 
 The extension puts text from MCP servers in front of a model that can run
 commands on your machine. The Skills extension (SEP-2640) says how a client

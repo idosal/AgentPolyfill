@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "The host-neutral client side of the MCP Skills extension (SEP-2640), shared by the Claude Code and Codex adapters: entries, verification, the held entry, and the connection of the polyfill's own.",
+  "description": "The host-neutral client side of the MCP Skills extension (SEP-2640), shared by the Claude Code, Codex, Pi and OpenCode adapters: entries, verification, the held entry, and the connection of the polyfill's own.",
   "engines": {
     "node": ">=22.18"
   },
