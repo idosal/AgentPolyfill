@@ -6,7 +6,9 @@ Final) that doesn't depend on a host. The adapters share it:
 
 - [`../codex`](../codex/): `mcp-skills` for Codex, a plugin;
 - [`../pi`](../pi/): `mcp-skills` for Pi, an extension;
-- [`../opencode`](../opencode/): `mcp-skills` for OpenCode, a plugin.
+- [`../opencode`](../opencode/): `mcp-skills` for OpenCode, a plugin;
+- [`../hermes`](../hermes/): `mcp-skills` for Hermes Agent, a plugin that runs
+  the Codex form's client logic over this core.
 
 | File | What it is |
 |---|---|

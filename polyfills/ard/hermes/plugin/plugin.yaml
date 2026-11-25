@@ -1,0 +1,11 @@
+name: ard-discovery
+version: "0.1.0"
+description: ARD v0.91 (a draft outside MCP) discovery and approved registry search; add validated MCP Server Cards with Hermes approval.
+author: Ido Salomon
+provides_tools:
+  - ard_discover
+  - ard_search
+  - ard_add_mcp_server
+  - ard_remove_mcp_server
+provides_hooks:
+  - pre_tool_call

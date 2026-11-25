@@ -55,6 +55,7 @@ polyfills/<extension>/
   opencode/      the OpenCode adapter
   antigravity/   the Antigravity adapter
   copilot/       the GitHub Copilot CLI adapter
+  hermes/        the Hermes Agent adapter
 ```
 
 - `<extension>` is the extension's short name: `apps`, `events`, `skills`,
@@ -74,14 +75,15 @@ polyfills/<extension>/
 | OpenCode | V2 server plugin | `polyfills/<extension>/opencode/` |
 | Antigravity | plugin | `polyfills/<extension>/antigravity/` |
 | Copilot CLI | plugin; for Events, an extension inside it | `polyfills/<extension>/copilot/` |
+| Hermes Agent | plugin: a Python half and a Node helper | `polyfills/<extension>/hermes/` |
 
 The Apps polyfill, [`polyfills/apps/claude-code`](polyfills/apps/claude-code),
 is a complete example of one adapter. Inside an adapter's folder:
 
 - **The installable plugin or extension goes in a subfolder** (`mod/` in the
   Apps polyfill; `extension/` in a Pi form; `plugin/` in an OpenCode,
-  Antigravity or Copilot form). It holds the host's manifest and only what
-  the plugin or extension runs.
+  Antigravity, Copilot or Hermes form). It holds the host's manifest and only
+  what the plugin or extension runs.
   Tests, build scripts, benchmarks and design notes go beside it, not in it.
   If the plugin's own top folder holds a `package.json`, Claude Code runs
   `npm install` there when someone installs it, so keep any `package.json`
@@ -101,6 +103,7 @@ is a complete example of one adapter. Inside an adapter's folder:
   | OpenCode | A separate `opencode/plugin/` folder: one bundled file, `server.js`, the bundle's licence notices where it holds other packages' code, and a small `package.json` that names it, which `opencode plugin add` installs from GitHub. OpenCode runs it inside its own server, once per project folder. |
   | Antigravity | A separate `antigravity/plugin/` folder: the MCP server in `mcp_config.json` and the hooks in `hooks.json`. `agy plugin install` copies it to `~/.gemini/config/plugins/<name>`, which the App and the CLI both read. |
   | Copilot CLI | A separate `copilot/plugin/` folder with `plugin.json`: an MCP server's `.mcp.json` and bundle, or for Events `extensions/mcp-events/extension.mjs`, and the bundle's licence notices. A marketplace added from a clone loads it in place; one added from GitHub is copied. |
+  | Hermes Agent | A separate `hermes/plugin/` folder with `plugin.yaml`, the Python half (`__init__.py` and the shared modules from `tools/hermes/shared`, which the form's build copies in), the bundled helper `dist/helper.mjs` and, where the bundle holds other packages' code, its licence notices. `hermes plugins install` copies the folder from GitHub into `$HERMES_HOME/plugins/`. |
 
 - **A marketplace plugin's name** is unique in this repository. The same
   name is used in the marketplace entries, in release tags and in the
@@ -173,6 +176,13 @@ It states:
     CLI 1.0.105; not checked in 1.0.115, in the interactive TUI, or in VS
     Code). `copilot plugin uninstall
     <plugin>@agent-polyfill` removes one.
+  - In Hermes Agent: `hermes plugins install
+    idosal/AgentPolyfill/polyfills/<extension>/hermes/plugin --enable`
+    (Hermes v0.23.4, the version tested; Node 20 or newer on the gateway's
+    machine; the tests copy the plugin folder into Hermes's `plugins/`, and
+    this install from GitHub was read in Hermes's source, not run), then
+    what the plugin needs in its settings in `config.yaml`.
+    `hermes plugins remove <plugin>` removes one.
   - Then what else it needs, and every step and question a new user meets
     between installation and the extension working, with what happens when
     they say no. Anything beyond "install, add a server, ask" needs a reason.
@@ -192,9 +202,9 @@ If a contract rule isn't met yet, the README says so.
 ### 4. Add it to the marketplace
 
 Each host that has a marketplace has its own marketplace file in this
-repository (Pi and OpenCode have none, and Antigravity has no file here; see
-the end of this step; Copilot's is `.github/plugin/marketplace.json`). For
-Claude Code, add an entry to
+repository (Pi, OpenCode and Hermes have none, and Antigravity has no file
+here; see the end of this step; Copilot's is `.github/plugin/marketplace.json`).
+For Claude Code, add an entry to
 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json):
 
 ```json
@@ -275,6 +285,13 @@ the marketplace entry Copilot keeps until
 `copilot plugin marketplace remove agent-polyfill`. Add the form to the root
 README's Copilot column; Copilot has Skills and Apps built in.
 
+Hermes has no marketplace file: `hermes plugins install` takes the plugin's
+folder in this repository on GitHub. Say what data remains:
+`$HERMES_HOME/mcp-events/` and `$HERMES_HOME/mcp-skills/` for Events and
+Skills, and the servers Server Cards or ARD added in `config.yaml`
+(`hermes mcp remove <name>`). Add the form to the root README's Hermes
+column; Apps has no Hermes form yet.
+
 ### 5. Add its CI
 
 Every push and pull request runs [`ci.yml`](.github/workflows/ci.yml). It
@@ -301,6 +318,14 @@ tests in OpenCode itself. No model, key or account is used.
 
 The Antigravity forms are tested in
 [`antigravity-test.yml`](.github/workflows/antigravity-test.yml).
+
+Hermes forms share one workflow,
+[`hermes-test.yml`](.github/workflows/hermes-test.yml); add a new form's
+steps there. On Linux and macOS it runs each form's helper tests, checks that
+the committed bundle and its licence notices are what the sources build, and
+runs the Python half's tests. Then, on Linux, it installs Hermes from the
+release tag pinned in [`tools/hermes`](tools/hermes), never with the curl
+installer, and runs each form's tests in it.
 
 Add the polyfill's own tests as `.github/workflows/<plugin>-test.yml`,
 filtered to its folder. Copy
@@ -350,6 +375,7 @@ one `core/` with these forms:
 - `antigravity/`: an Antigravity plugin, installed from `antigravity/plugin/`.
 - `copilot/`: a Copilot CLI plugin, installed from `copilot/plugin/` (Events
   only; Copilot has Skills built in).
+- `hermes/`: a Hermes Agent plugin, installed from `hermes/plugin/`.
 
 1. **Find the host's way in.** What can third-party code do there? It may run
    code inside the host or beside it, call tools, ask the user, or start a

@@ -5,6 +5,7 @@ __pycache__/
 live/
 live-run.md
 live-test.ts
+live_*.py
 **/docs/evidence/
 **/docs/interop.md
 polyfills/apps/claude-code/helper-rs/PORT.md

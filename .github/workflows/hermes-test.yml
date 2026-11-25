@@ -1,0 +1,112 @@
+# The Hermes Agent forms (polyfills/*/hermes), on any change in them, in the code they
+# bundle, or in their shared harness (tools/hermes):
+# - each form's helper tests, freshness of the committed bundle and notices, and the
+#   Python half's unit tests, on Linux and macOS;
+# - each form in a real Hermes: the pinned release from its tag (tools/hermes/setup.sh,
+#   never the curl installer), its own HOME and HERMES_HOME, a scripted model, loopback only.
+# The interop tests need the network and third-party servers, and run by hand.
+
+name: "Hermes forms: tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/*/hermes/**"
+      - "polyfills/events/core/**"
+      - "polyfills/skills/core/**"
+      - "polyfills/skills/codex/src/**"
+      - "polyfills/server-cards/claude-code/mod/hooks/**"
+      - "polyfills/server-cards/codex/src/**"
+      - "polyfills/ard/claude-code/mod/hooks/**"
+      - "polyfills/events/claude-code/test/fixture-events-server.ts"
+      - "polyfills/skills/core/test-fixtures/**"
+      - "tools/hermes/**"
+      - "tools/bundle-notices.mjs"
+      - ".github/workflows/hermes-test.yml"
+  pull_request:
+    paths:
+      - "polyfills/*/hermes/**"
+      - "tools/hermes/**"
+      - ".github/workflows/hermes-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hermes-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  forms:
+    name: helpers and units (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: Dependencies
+        run: |
+          for d in polyfills/events/core polyfills/skills/core polyfills/skills/codex polyfills/server-cards/codex polyfills/events/hermes polyfills/skills/hermes polyfills/server-cards/hermes polyfills/ard/hermes; do
+            (cd "$d" && npm ci --no-audit --no-fund)
+          done
+      - name: Shared Python modules
+        run: python3 -m unittest discover -s tools/hermes/shared -p 'test_*.py' -v
+      - name: Events
+        working-directory: polyfills/events/hermes
+        run: |
+          npm run typecheck
+          node ../../../tools/bundle-notices.mjs . --plugin plugin --bundle dist/helper.mjs --check
+          npm test
+          python3 -m unittest discover -s test -p 'test_*.py' -v
+      - name: Skills
+        working-directory: polyfills/skills/hermes
+        run: |
+          npm run typecheck
+          node ../../../tools/bundle-notices.mjs . --plugin plugin --bundle dist/helper.mjs --check
+          npm test
+          python3 -m unittest discover -s test -p 'test_*.py' -v
+      - name: Server Cards
+        working-directory: polyfills/server-cards/hermes
+        run: |
+          npm run typecheck
+          npm run check
+          npm test
+          python3 -m unittest discover -s test -p 'test_*.py' -v
+      - name: ARD
+        working-directory: polyfills/ard/hermes
+        run: |
+          npm run typecheck
+          npm run check
+          npm test
+          python3 -m unittest discover -s test -p 'test_*.py' -v
+
+  hermes:
+    name: in Hermes v0.23.4
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - name: uv
+        run: pipx install uv==0.11.16
+      - name: Hermes, from its release tag
+        run: tools/hermes/setup.sh
+      - name: The forms, in Hermes
+        env:
+          HERMES_PYTHON: ${{ github.workspace }}/tools/hermes/.hermes-test/venv/bin/python
+          HERMES_SRC: ${{ github.workspace }}/tools/hermes/.hermes-test/src
+        run: |
+          (cd polyfills/events/hermes && "$HERMES_PYTHON" test/e2e_test.py -v)
+          (cd polyfills/events/hermes && "$HERMES_PYTHON" test/e2e_shared_gateway.py)
+          (cd polyfills/skills/hermes && "$HERMES_PYTHON" test/e2e_test.py -v)
+          (cd polyfills/server-cards/hermes && python3 ../../../tools/hermes/run_card_e2e.py)
+          (cd polyfills/ard/hermes && python3 ../../../tools/hermes/run_card_e2e.py)

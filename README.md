@@ -179,17 +179,37 @@ codex mcp add mcp-events-t3 -- node "$PWD/AgentPolyfill/polyfills/events/t3/plug
 Then **Restart agent session** in T3 Code. What works and what doesn't is in
 [In T3 Code](#in-t3-code).
 
+**Hermes Agent** (v0.23.4, the version tested; Node 20 or newer on the
+gateway's machine). Each polyfill is a Hermes plugin in this repository:
+
+```
+hermes plugins install idosal/AgentPolyfill/polyfills/events/hermes/plugin --enable
+hermes plugins install idosal/AgentPolyfill/polyfills/skills/hermes/plugin --enable
+hermes plugins install idosal/AgentPolyfill/polyfills/server-cards/hermes/plugin --enable
+```
+
+Outside MCP, ARD (a draft; every search asks you first and goes to a registry
+you choose):
+
+```
+hermes plugins install idosal/AgentPolyfill/polyfills/ard/hermes/plugin --enable
+```
+
+Events and Skills then need the servers they may use named in the plugin's
+settings in `config.yaml`, and Events the grant to start a turn; each README
+says what to add.
+
 There are [more ways to install](#more-ways-to-install) further down.
 
 ## Polyfills
 
-| Extension | Spec | Claude Code | Codex | Pi | OpenCode | Antigravity | Copilot CLI |
-|---|---|---|---|---|---|---|---|
-| Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code) | [`mcp-events`](polyfills/events/codex) | [`mcp-events`](polyfills/events/pi) | [`mcp-events`](polyfills/events/opencode) | [`mcp-events`](polyfills/events/antigravity) | [`mcp-events`](polyfills/events/copilot) |
-| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | built into Claude Code, in beta from 2.1.332 ([changelog](https://code.claude.com/docs/en/changelog)) | [`mcp-skills`](polyfills/skills/codex) | [`mcp-skills`](polyfills/skills/pi) | [`mcp-skills`](polyfills/skills/opencode) | [`mcp-skills`](polyfills/skills/antigravity) | built into Copilot |
-| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) | [`mcp-server-cards`](polyfills/server-cards/pi) | [`mcp-server-cards`](polyfills/server-cards/opencode) | [`mcp-server-cards`](polyfills/server-cards/antigravity) | [`mcp-server-cards`](polyfills/server-cards/copilot) |
-| Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet | not available | not available | native in the App (v2.34.0+); the CLI and IDE show text | built into Copilot for graphical hosts (VS Code); none in the terminal |
-| ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) | [`ard-discovery`](polyfills/ard/pi) | [`ard-discovery`](polyfills/ard/opencode) | [`ard-discovery`](polyfills/ard/antigravity) | [`ard-discovery`](polyfills/ard/copilot) |
+| Extension | Spec | Claude Code | Codex | Pi | OpenCode | Antigravity | Copilot CLI | Hermes |
+|---|---|---|---|---|---|---|---|---|
+| Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code) | [`mcp-events`](polyfills/events/codex) | [`mcp-events`](polyfills/events/pi) | [`mcp-events`](polyfills/events/opencode) | [`mcp-events`](polyfills/events/antigravity) | [`mcp-events`](polyfills/events/copilot) | [`mcp-events`](polyfills/events/hermes) (poll and push; webhook is Hermes's own) |
+| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | built into Claude Code, in beta from 2.1.332 ([changelog](https://code.claude.com/docs/en/changelog)) | [`mcp-skills`](polyfills/skills/codex) | [`mcp-skills`](polyfills/skills/pi) | [`mcp-skills`](polyfills/skills/opencode) | [`mcp-skills`](polyfills/skills/antigravity) | built into Copilot | [`mcp-skills`](polyfills/skills/hermes) |
+| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) | [`mcp-server-cards`](polyfills/server-cards/pi) | [`mcp-server-cards`](polyfills/server-cards/opencode) | [`mcp-server-cards`](polyfills/server-cards/antigravity) | [`mcp-server-cards`](polyfills/server-cards/copilot) | [`mcp-server-cards`](polyfills/server-cards/hermes) |
+| Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet | not available | not available | native in the App (v2.34.0+); the CLI and IDE show text | built into Copilot for graphical hosts (VS Code); none in the terminal | not yet |
+| ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) | [`ard-discovery`](polyfills/ard/pi) | [`ard-discovery`](polyfills/ard/opencode) | [`ard-discovery`](polyfills/ard/antigravity) | [`ard-discovery`](polyfills/ard/copilot) | [`ard-discovery`](polyfills/ard/hermes) |
 
 T3 Code isn't a column here: it's an app that runs Codex, Claude Code and
 other agents for you, so what works in it is mostly what works in those, with
@@ -228,10 +248,18 @@ All of them are early. Here is what each one does, and where it stops:
   the server, event type, filters and note, with "Don't watch it" first. An
   event then wakes the idle session with a turn Copilot marks as an
   automation, whose first line says the plugin sent it; VS Code's Copilot
-  harness shows it as a message from the plugin, then the turn.
-- **Skills.** In Codex, Pi, OpenCode and Antigravity, skills an MCP server
-  serves show up next to your own, load only after you say yes to each one,
-  and are checked against the server's digests. Claude Code needs no
+  harness shows it as a message from the plugin, then the turn. In Hermes,
+  Events polls and pushes; webhook delivery is Hermes's own (`events: true`
+  on a server), and the plugin leaves those servers to Hermes. Starting and
+  stopping a watch go through Hermes's own approval, which shows the whole
+  watch; "always" covers that exact watch only. Once you grant
+  `allow_gateway_injection`, an event wakes the idle session with a message
+  starting `[mcp-events]`, which names the watch, the server and the event
+  ids and nothing the server wrote; the model reads the event with
+  `get_event`.
+- **Skills.** In Codex, Pi, OpenCode, Antigravity and Hermes, skills an MCP
+  server serves show up next to your own, load only after you say yes to each
+  one, and are checked against the server's digests. Claude Code needs no
   polyfill for Skills: it lists skills from MCP servers itself, in beta from
   2.1.332. Its
   [changelog](https://code.claude.com/docs/en/changelog) says they show as
@@ -266,6 +294,16 @@ All of them are early. Here is what each one does, and where it stops:
   hook asks before a read from another server, but Antigravity (CLI 1.5.17,
   App 2.35.1) ignores that question, shows no card, and lets the read go
   ahead.
+  In Hermes, served skills appear in
+  Hermes's skill list as `mcp-skills:<server>-<name>`, marked with their
+  server, from the session after the plugin first looks at the server.
+  Loading one goes through Hermes's own approval, naming the skill, its
+  server and its files; "always" covers that version only. To read its
+  `SKILL.md` first, deny and type the `/mcp-skills show` line the question
+  gives: its answer goes to you, and the model never sees it. Hermes meets
+  X8: while a session holds a served skill, a read from another server is
+  asked about each time, naming both. Where Hermes approves without asking
+  (`--yolo`, `/yolo`, `hermes -z`, `approvals.mode: off`), no served skill loads.
   Copilot needs no polyfill for
   Skills: Copilot CLI 1.0.115 declares Skills over MCP to every server in its
   `initialize`. Listing or loading a served skill in Copilot was not checked
@@ -292,7 +330,11 @@ All of them are early. Here is what each one does, and where it stops:
   tool prompt, the plugin's form names the server, URL, headers, file and
   undo command; only "Add it" runs `copilot mcp add`, and the server connects
   after `/mcp reload`. Copilot declines the form in `copilot -p`, even with
-  `--yolo`.
+  `--yolo`. In Hermes, Hermes's own approval names the server and shows the
+  whole entry (the URL, each header with its value, secrets only as `${VAR}`
+  references, the transport and every other setting), the file and the undo
+  action; an approved addition goes into `mcp_servers` in Hermes's
+  `config.yaml`, and Hermes connects it after `/reload-mcp`.
 - **Apps.** A server's app opens right under the tool call in the terminal
   and answers the mouse and keyboard: real pixels in iTerm2, kitty and
   Ghostty, text cells everywhere else. This form runs in Claude Code. No Pi
@@ -305,7 +347,7 @@ All of them are early. Here is what each one does, and where it stops:
   text.
   Copilot needs no form:
   VS Code's Copilot harness turns MCP Apps on itself (from its source; not
-  checked in VS Code), and Copilot CLI's terminal draws none.
+  checked in VS Code), and Copilot CLI's terminal draws none. No Hermes form is built yet.
 
 In Antigravity, which neither tells a plugin's MCP server which conversation
 calls it nor shows MCP forms, the plugins ask through its approval card from a
@@ -320,14 +362,14 @@ where these forms run.
 [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91,
 a draft. It finds MCP servers through a domain's `ard.json`, or by searching
 an ARD registry you choose, and hands the cards to `mcp-server-cards` (the
-Pi, OpenCode and Antigravity forms carry the Server Cards checks and add step
-themselves; Antigravity's has its own `add_mcp_server`). A search sends the
-words of your request to that registry, so every search asks you first and
-names where it's going. That's also why it isn't part of the Claude Code
-`agent-polyfill` bundle or Pi's one-line install. Install it by name in
+Pi, OpenCode, Antigravity and Hermes forms carry the Server Cards checks and
+add step themselves; Antigravity's has its own `add_mcp_server`). A search
+sends the words of your request to that registry, so every search asks you
+first and names where it's going. That's also why it isn't part of the Claude
+Code `agent-polyfill` bundle or Pi's one-line install. Install it by name in
 Claude Code, Codex or Copilot, from a clone in Pi, with its own
-`opencode plugin add` in OpenCode, and with its own `agy plugin install`
-from a clone in Antigravity.
+`opencode plugin add` in OpenCode, with its own `agy plugin install` from a
+clone in Antigravity, and with its own `hermes plugins install` in Hermes.
 
 In Pi, `ard_search` asks "Don't send it" or "Send the search", naming the
 registry endpoint and exact query. There is no default registry: name one
@@ -365,9 +407,19 @@ Server Cards form does. Checked in Copilot CLI 1.0.115: `ard_discover`
 reading buildkite.com's `ard.json`, and a search of the repository's demo
 registry after the form. Search was not checked against any other registry.
 
+In Hermes, each `ard_search` goes through Hermes's own approval, which names
+the registry endpoint and the exact query; "session" or "always" covers that
+exact query to that endpoint only. A registry a referral names needs an
+approval of its own. There is no default registry: name one or set
+`ARD_DISCOVERY_REGISTRY`. `ard_add_mcp_server` adds a server as the Hermes
+Server Cards form does, after a separate approval. Checked in Hermes v0.23.4:
+`ard_discover` reading buildkite.com's `ard.json`
+([interop](polyfills/ard/hermes/README.md#interop)). Search and adding are
+checked by the form's tests only.
+
 The supported hosts don't implement these extensions themselves yet, apart
 from Skills in Claude Code (a beta, from 2.1.332), part of Events in
-OpenCode and MCP Apps in Antigravity's App. On 23 November 2026 the official
+OpenCode and Hermes, and MCP Apps in Antigravity's App. On 23 November 2026 the official
 [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix)
 listed Tasks for Claude Code, and none of Events, Apps or Skills (Server Cards
 isn't in the matrix). Codex doesn't support Events for your own servers, or
@@ -378,6 +430,8 @@ or Apps. Antigravity's App supports MCP Apps (v2.34.0), and none of the
 others. Copilot has Skills over MCP and MCP Apps (in graphical hosts)
 itself, and its SDK's types declare a catalogue API that accepts Server Cards (not checked), but nothing seen in it reads them from a domain
 ([what was checked](polyfills/server-cards/copilot/README.md#copilots-own-catalogue)).
+Hermes v0.23.4 takes Events by webhook itself, for a server you mark
+`events: true`; it doesn't poll or push, and it doesn't serve MCP skills.
 Hosts add extensions all the time, so check the
 matrix for today's picture. Claude Code's
 [changelog](https://code.claude.com/docs/en/changelog) lists skills from MCP
@@ -424,10 +478,25 @@ pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 copilot mcp add --transport=http feeds https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
+**Hermes**, in `~/.hermes/config.yaml`, with the plugin's own settings:
+
+```yaml
+mcp_servers:
+  feeds:
+    url: https://event-feeds.idosalomon.workers.dev/mcp
+plugins:
+  entries:
+    mcp-events:
+      settings:
+        servers: [feeds]
+      allow_gateway_injection: true
+```
+
 In Pi, you can ask "Watch for new earthquakes from the feeds server and tell
 me where each one was", then confirm the watch in its dialog. In OpenCode,
 allow the watch when OpenCode asks. In Copilot, allow `watch_event` at
-Copilot's prompt, then choose "Watch it" in the plugin's question.
+Copilot's prompt, then choose "Watch it" in the plugin's question. In
+Hermes, approve the watch when Hermes asks.
 
 **Antigravity:**
 
@@ -448,8 +517,8 @@ GitHub releases, and earthquakes. Its source is in
 
 ### Skills: skills that come from an MCP server
 
-In Codex, Pi, OpenCode or Antigravity, add Hugging Face's public MCP server
-(no sign-in) and ask a question one of its skills covers.
+In Codex, Pi, OpenCode, Antigravity or Hermes, add Hugging Face's public MCP
+server (no sign-in) and ask a question one of its skills covers.
 
 - **Codex:** the served skills appear in the `$` list after you ask once to
   list the served skills, from the next turn.
@@ -463,6 +532,10 @@ In Codex, Pi, OpenCode or Antigravity, add Hugging Face's public MCP server
   before each turn. Ask a question, then approve the load in Antigravity's
   approval card.
 - **Copilot CLI:** nothing to install: Copilot has Skills over MCP built in.
+- **Hermes:** the plugin looks at the server during your first turn; from
+  your next session, the served skills are in Hermes's skill list as
+  `mcp-skills:huggingface-<name>`. Ask a question, then approve the load when
+  Hermes asks.
 
 **Codex:**
 
@@ -490,6 +563,19 @@ pi mcp add huggingface --url https://huggingface.co/mcp
 agy mcp add huggingface https://huggingface.co/mcp
 ```
 
+**Hermes**, in `~/.hermes/config.yaml`:
+
+```yaml
+mcp_servers:
+  huggingface:
+    url: https://huggingface.co/mcp
+plugins:
+  entries:
+    mcp-skills:
+      settings:
+        servers: [huggingface]
+```
+
 ### Server Cards: add a company's MCP server by its domain
 
 Nothing to set up. Ask "What MCP servers does neon.com publish?" and add
@@ -514,6 +600,9 @@ once it's added, sign in through the host.
 - **Copilot CLI:** after Copilot's tool prompt, choose "Add it" in the
   plugin's form, then `/mcp reload`; `/mcp auth <name>` signs in, and
   `copilot mcp remove neon-docs` removes it.
+- **Hermes:** approve the addition when Hermes asks, then `/reload-mcp`;
+  `hermes mcp login <name>` signs in, and `hermes mcp remove neon-docs`, then
+  `/reload-mcp`, removes it.
 
 ### Apps: an MCP App's interface, in the terminal
 
@@ -582,6 +671,10 @@ polyfill off:
   (`copilot plugin disable mcp-events@agent-polyfill`), or use
   `MCP_EVENTS_OFF=1`, `MCP_SERVER_CARDS_DISABLED=1` or
   `ARD_DISCOVERY_DISABLED=1`.
+- **Hermes:** disable the plugin with Hermes's own switch
+  (`hermes plugins disable mcp-events`), or use `MCP_SERVER_CARDS_DISABLED=1`
+  or `ARD_DISCOVERY_DISABLED=1`. Events already leaves a server you mark
+  `events: true` to Hermes.
 
 Each README says how.
 
@@ -627,6 +720,14 @@ Each host lets outside code in, in a different way.
   reads its resources over Copilot's own connection. VS Code's Copilot harness
   runs the same runtime and loads the same extensions. Events opens its own
   MCP connections; Server Cards and ARD add servers with `copilot mcp add`.
+- **Hermes Agent** runs Python plugins inside the gateway every session runs
+  in. A plugin can register tools and skills, start a turn in an idle session
+  (`ctx.inject_message`), put a tool call to Hermes's own approval, and call a
+  server's tools over Hermes's connection. Hermes delivers Events by webhook
+  itself, so its Events form adds poll and push and leaves those servers to
+  Hermes. Events and Skills open their own MCP connections; Server Cards and
+  ARD write servers into Hermes's `config.yaml`, and Hermes connects them with
+  its own client after `/reload-mcp`.
 
 That's the host half of almost any extension. The protocol half is missing.
 None of these hosts lets a plugin or extension send an extension's own
@@ -643,12 +744,12 @@ with its own sign-in.
 Four small, generic changes would address the limit in each host. None of
 them names an extension:
 
-| Change | Claude Code today | Codex today | Pi today | OpenCode today | Antigravity today | Copilot today |
-|---|---|---|---|---|---|---|
-| Send any MCP method over the host's connection | missing | missing (its client can, internally) | missing (its client can, internally) | missing (its client sends `events/*` for itself) | missing | missing (tool calls and resource reads only) |
-| Read what the server advertised | missing | mostly there | missing | missing | missing | missing (instructions only) |
-| Deliver a server's notifications to the plugin | missing | only for OpenAI's hosted apps server | missing | missing (its client takes Events push for its automations only) | missing | `list_changed` only |
-| Raw tool results; declare a client extension | missing | declaring only by Codex's own client | `structuredContent` reaches hooks; tool `_meta` and declaring are missing | raw results not checked; declaring only by OpenCode's own client, for Events | missing (its App declares the Apps extension itself) | raw tool results; declaring only by Copilot itself |
+| Change | Claude Code today | Codex today | Pi today | OpenCode today | Antigravity today | Copilot today | Hermes today |
+|---|---|---|---|---|---|---|---|
+| Send any MCP method over the host's connection | missing | missing (its client can, internally) | missing (its client can, internally) | missing (its client sends `events/*` for itself) | missing | missing (tool calls and resource reads only) | missing (its client sends `events/*` for its webhook support) |
+| Read what the server advertised | missing | mostly there | missing | missing | missing | missing (instructions only) | missing |
+| Deliver a server's notifications to the plugin | missing | only for OpenAI's hosted apps server | missing | missing (its client takes Events push for its automations only) | missing | `list_changed` only | missing |
+| Raw tool results; declare a client extension | missing | declaring only by Codex's own client | `structuredContent` reaches hooks; tool `_meta` and declaring are missing | raw results not checked; declaring only by OpenCode's own client, for Events | missing (its App declares the Apps extension itself) | raw tool results; declaring only by Copilot itself | `structuredContent` only; no declaring |
 
 The first two are enough for Events (by poll and webhook) and Skills to work
 with every server you've signed in to, with one additional change in Pi:
@@ -796,6 +897,48 @@ each extension needs, and the questions they raise about permissions are in
   there. Not checked there: the plugin's own watch question, and an ARD
   search.
 
+### Limits in Hermes
+
+- Events and Skills can't use a sign-in through Hermes (`auth: oauth`). They
+  open their own connections, with the headers in `config.yaml`, so a local
+  (stdio) server runs twice. They use only the servers named in their own
+  `settings.servers`, and leave alone a server whose entry takes `${VAR}`
+  from `.env`, where Hermes keeps secrets; Hermes's own connection to it
+  still works.
+- Events' wake is a user message: `ctx.inject_message` puts it in the
+  conversation as if you typed it, so its first line says the plugin sent
+  it. Its grant, `allow_gateway_injection`, also lets the plugin start turns
+  in chat-app sessions; the plugin only ever wakes the session that set the
+  watch. The wake limits are the same as in the other forms.
+- After a gateway restart, watches start again at the first session or
+  turn, not when the gateway starts. The plugins read the configuration
+  again at each turn and tool call, so a change takes effect at the next
+  turn.
+- Skills found while a session runs are listed from the next session
+  (`list_skills` and `load_skill` reach them at once), so the first session
+  after install doesn't list them yet. Reading a skill's `SKILL.md` before
+  loading it takes a step of your own: deny, then type `/mcp-skills show`.
+- Where Hermes approves without asking (`--yolo`, `/yolo`, `hermes -z`,
+  `approvals.mode: off`), the forms refuse each step that needs your own yes:
+  a watch, a skill load, a registry search and a server addition. Telling
+  that takes the test Hermes's approval gate uses, which isn't on Hermes's
+  published plugin API; where it can't be evaluated (another Hermes version,
+  `plugins.isolation: host`), the step is refused too. Hermes's unattended approve modes (`approvals.cron_mode`,
+  `single_query_mode` or `unattended_mode: approve`) still approve these steps
+  where nobody is present, as you set them to, and a kept "session" or
+  "always" answer covers its exact step.
+- Server Cards and ARD write the server into `config.yaml`; it connects
+  after `/reload-mcp` or in a new session. ARD's search is checked by the
+  form's tests only. They don't compare a card with the live server (S-3),
+  as in the other forms.
+- By default Hermes lists plugin tools behind Tool Search, and a model may
+  not find them there; `tools.tool_search.enabled: off` in `config.yaml`
+  lists them directly.
+- Not checked on Windows.
+
+What Hermes would need to change is in
+[`docs/host-changes.md`](docs/host-changes.md#in-hermes).
+
 ## In T3 Code
 
 [T3 Code](https://github.com/pingdotgg/t3code) (0.1.11) is an app (desktop,
@@ -896,6 +1039,8 @@ with these forms:
 - `opencode/`: an OpenCode plugin.
 - `antigravity/`: a Google Antigravity plugin.
 - `copilot/`: a Copilot CLI plugin (Events only; Copilot has Skills built in).
+- `hermes/`: a Hermes Agent plugin, a Python half Hermes loads and the
+  shared client bundled as a Node helper it starts.
 
 Bringing one to a new host means writing a new adapter. Find how the host lets
 a plugin reach the wire (a connection of its own, a tool call, a way to wake
@@ -926,8 +1071,8 @@ A polyfill can be that client-side implementation, in hosts that haven't
 shipped the extension yet, used by real people against real servers. Each one
 here names the spec revision it implements. Events and Skills have a test for
 every client rule and run against servers their authors didn't write. Skills
-passes the official conformance suite's Skills client scenarios in Codex, Pi
-and Antigravity, and Events passes the Events client scenarios proposed
+passes the official conformance suite's Skills client scenarios in Codex, Pi,
+Antigravity and Hermes, and Events passes the Events client scenarios proposed
 upstream (still an open pull request in the conformance suite). Apps checks
 the spec requirement by requirement in its compliance page. Whether a polyfill
 counts as an independent implementation for a given SEP is up to that
@@ -964,6 +1109,15 @@ SEP's rules through the extension as Copilot starts it
 ([Events](polyfills/events/copilot/docs/conformance.md),
 [Server Cards](polyfills/server-cards/copilot/docs/conformance.md),
 [ARD](polyfills/ard/copilot/docs/conformance.md)).
+
+In Hermes, Events passes the 14 checks of the upstream Events client
+scenarios that apply, through the bundled helper as the plugin starts it;
+the webhook scenario's three are "unverified, not violated", since webhook
+delivery is Hermes's own there. Skills passes the four upstream Skills client
+scenarios through the bundled helper, and its conformance page maps all 60
+rules to Hermes: 53 met, 6 met with a stated exception, none not met
+([Events](polyfills/events/hermes/docs/conformance.md),
+[Skills](polyfills/skills/hermes/docs/conformance.md)).
 
 If your extension needs a client in a host that doesn't have one, open an
 issue, or build it with the `create-polyfill` skill.
@@ -1075,6 +1229,16 @@ Server Cards or ARD added in `~/.copilot/mcp-config.json`
 `copilot plugin marketplace remove agent-polyfill`. Each form's README has
 the details.
 
+**Hermes Agent.** `hermes plugins install` takes a path in this repository on
+GitHub (`idosal/AgentPolyfill/polyfills/<polyfill>/hermes/plugin`), as in
+[Install](#install). From a clone, put a form's `plugin/` folder in
+`$HERMES_HOME/plugins/<name>/` and run `hermes plugins enable <name>`. There
+is no bundle and no marketplace file. `hermes plugins remove <name>` removes
+one; Events and Skills leave their data in `$HERMES_HOME/mcp-events/` and
+`$HERMES_HOME/mcp-skills/`, and the servers Server Cards or ARD added stay in
+`config.yaml` (`hermes mcp remove <name>`). Each form's README has the
+details.
+
 ### If you installed `mcp-skills` in Claude Code
 
 The marketplace no longer lists `mcp-skills` for Claude Code, and from
@@ -1119,15 +1283,25 @@ permissions:
   each polyfill asks before its consequential step itself: a
   watch in the plugin's dialog, a registry search or a server addition in the
   plugin's form. It never answers for you.
+- **Hermes Agent:** a plugin, a Python half that runs in Hermes's gateway,
+  and a Node helper it starts. Hermes's own approval is the boundary: a
+  watch, a skill load, a registry search and a server addition each go to
+  it, and it fails closed where nobody can answer. Where Hermes approves
+  without asking (`--yolo`, `/yolo`, `hermes -z`, `approvals.mode: off`), each polyfill
+  refuses that step instead, since Hermes would answer for you. Hermes's unattended approve modes (`approvals.cron_mode`,
+  `single_query_mode` or `unattended_mode: approve`) still approve these steps
+  where nobody is present, as you set them to, and a kept "session" or
+  "always" answer covers its exact step.
 - **T3 Code:** the plugins of the agent it runs, as above. The T3 Events form
   is an MCP server Codex starts, plus a watcher of its own that keeps running
   after T3 Code closes, until no thread has a watch.
 
 None reads the host's stored credentials, including Pi's `mcp-auth.json`
 or `auth.json`, OpenCode's OAuth tokens, Antigravity's
-`mcp_oauth_tokens.json`, and Copilot's `config.json`, OAuth store or
-keychain entries. Each polyfill's `SECURITY.md` says what it checks and what
-it doesn't protect against.
+`mcp_oauth_tokens.json`, Copilot's `config.json`, OAuth store or keychain
+entries, and Hermes's `.env`, `auth.json` or token store (`mcp-tokens/`).
+Each polyfill's `SECURITY.md` says what it checks and what it doesn't protect
+against.
 [`SECURITY.md`](SECURITY.md) says how to report a problem privately.
 
 ## Repository layout
@@ -1149,6 +1323,9 @@ it doesn't protect against.
     `docs/conformance.md`.
   - `copilot/`: Copilot CLI plugins for Events, Server Cards and ARD, each
     with an installable `plugin/` folder and its own README and SECURITY.md.
+  - `hermes/`: Hermes Agent plugins for Events, Skills, Server Cards and
+    ARD, each with an installable `plugin/` folder (the Python half and a
+    bundled Node helper) and its own README and SECURITY.md.
   - `t3/`: the Events form for T3 Code
     ([`polyfills/events/t3`](polyfills/events/t3)), an MCP server for Codex
     threads in T3 Code.
@@ -1169,9 +1346,13 @@ it doesn't protect against.
   Antigravity's are installed with `agy plugin install` from their `plugin/`
   folders; none is in its Marketplace.
   [`.github/plugin/marketplace.json`](.github/plugin/marketplace.json) lists
-  the Copilot CLI plugins.
+  the Copilot CLI plugins. Hermes's forms are installed from their folders
+  on GitHub with `hermes plugins install`; there is no marketplace file for
+  them.
 - **[`tools/opencode`](tools/opencode):** the pinned OpenCode and the harness
   the OpenCode forms' tests run in.
+- **[`tools/hermes`](tools/hermes):** the pinned Hermes, the harness the
+  Hermes forms' tests run in, and the Python modules the plugins share.
 - **[`servers/`](servers):** the demo servers hosted for trying a polyfill,
   such as [`event-feeds`](servers/event-feeds) for Events.
 - **[`community/`](community/):** the community directory.

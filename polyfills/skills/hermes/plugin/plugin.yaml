@@ -1,0 +1,15 @@
+name: mcp-skills
+version: "0.1.0"
+description: >-
+  The MCP Skills extension (SEP-2640): skills your MCP servers serve are listed with your
+  skills, and loaded on demand after Hermes asks you.
+author: Ido Salomon
+provides_tools:
+  - list_skills
+  - load_skill
+  - read_skill_file
+  - list_skill_directory
+provides_hooks:
+  - pre_tool_call
+  - pre_llm_call
+  - on_session_open

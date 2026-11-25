@@ -53,6 +53,7 @@ const HOSTS = [
   { name: 'OpenCode', command: 'opencode', addKey: 'addOpenCode', config: 'opencode.json', form: 'V2 server plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
   { name: 'Antigravity', command: 'agy', start: 'open the Antigravity App or start `agy`', addKey: 'addAntigravity', form: 'Plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form (the App renders MCP Apps itself)' },
   { name: 'Copilot CLI', command: 'copilot', addKey: 'addCopilot', form: 'Plugin (Events: an extension)', polyfills: 'Events, Server Cards, ARD; no Skills or Apps form: Copilot has both built in' },
+  { name: 'Hermes', command: 'hermes', addKey: 'addHermes', config: '~/.hermes/config.yaml', form: 'Plugin (Python and a Node helper)', polyfills: 'Events (poll and push), Skills, Server Cards, ARD; Apps not yet; webhook delivery is Hermes\'s own' },
 ]
 // Pi's installs and examples, for the Markdown served to agents.
 const PI_FORMS = {
@@ -151,8 +152,26 @@ const INSTALL_COPILOT = [
 const COPILOT_INSTALL_NOTES = 'This install, from a clone, is the one tested. Copilot loads a plugin from a local marketplace where it is, so keep the clone; `git pull` there updates it. From GitHub, `copilot plugin marketplace add idosal/AgentPolyfill` adds the same marketplace. Checked in Copilot CLI 1.0.105. Not checked in 1.0.115, in the interactive TUI, or in VS Code. There is no bundle. Events is a Copilot extension, and Copilot loads extensions only in experimental mode (`copilot --experimental`, or, per Copilot\'s help, `/settings experimental on`, not checked); the whole extension API is experimental and may change in any release. Copilot runs the extension with its own Node. Server Cards and ARD are MCP servers in plugins: they need no experimental mode, but need Node 20 or newer. For one run without installing: `copilot --experimental --plugin-dir ./AgentPolyfill/polyfills/<polyfill>/copilot/plugin` (`<polyfill>` is `events`, `server-cards` or `ard`). Remove one with `copilot plugin uninstall <name>@agent-polyfill`. Events\' data stays in `~/.copilot/mcp-events/`; delete that folder too to remove it. Added servers stay in `~/.copilot/mcp-config.json`; undo with `copilot mcp remove <name>`. The marketplace stays until `copilot plugin marketplace remove agent-polyfill`.'
 const COPILOT_BUILT_IN = 'Copilot has Skills over MCP and MCP Apps built in, so there is no Copilot form of either. Copilot CLI 1.0.115 declares Skills to every server (in its initialize; listing or loading a served skill in Copilot was not checked). VS Code\'s Copilot harness turns MCP Apps on (from its source; not checked there); the terminal draws none.'
 const COPILOT_APPS = 'Apps has no Copilot form. Copilot has MCP Apps built in where they can be drawn: VS Code\'s Copilot harness turns them on (from its source; no app was drawn there). The Copilot CLI terminal draws none.'
+// Hermes's installs and YAML demo entries, from the forms' READMEs.
+const HERMES_FORMS = {
+  'mcp-events': { path: 'polyfills/events/hermes/plugin', language: 'yaml' },
+  'mcp-skills': {
+    path: 'polyfills/skills/hermes/plugin',
+    language: 'yaml',
+    ask: 'Use the Hugging Face local-models skill: which GGUF quantization should I use to run a 7B model on a 16 GB Mac?',
+  },
+  'mcp-server-cards': { path: 'polyfills/server-cards/hermes/plugin' },
+  'ard-discovery': {
+    path: 'polyfills/ard/hermes/plugin',
+    ask: 'Use ARD to discover the MCP servers neon.com publishes.',
+  },
+}
+const INSTALL_HERMES = Object.values(HERMES_FORMS).map(({ path }) => `hermes plugins install idosal/AgentPolyfill/${path} --enable`)
+const HERMES_INSTALL_NOTES = 'Each plugin installs from its own folder in this repository, with its Python code and bundled Node helper. Node 20 or newer must be on the gateway\'s PATH; `AGENTPOLYFILL_NODE` can name another executable. Events and Skills use only the servers named in `plugins.entries.<plugin id>.settings.servers` in your profile\'s `config.yaml`. Events also needs `plugins.entries.mcp-events.allow_gateway_injection: true` to start a turn; without it, watches store events but cannot wake a session. The Events and Skills guides show the configuration entries. Remove Events with `hermes plugins remove mcp-events`, or Skills with `hermes plugins remove mcp-skills`. Events keeps watches, events, cursors, wake counts and its log in `$HERMES_HOME/mcp-events/`; Skills keeps its stubs in `$HERMES_HOME/mcp-skills/` and what each session loaded in Hermes\'s plugin state. Disable Server Cards or ARD with `hermes plugins disable mcp-server-cards` or `hermes plugins disable ard-discovery`. Added servers remain in `mcp_servers` in `config.yaml`; `hermes mcp remove <name>`, then `/reload-mcp`, removes one. Ownership records are in `$HERMES_HOME/mcp-server-cards/added.json` and `$HERMES_HOME/ard-discovery/added.json`.'
+const HERMES_BEHAVIOR = 'Events and Skills open their own MCP connections, so a local server runs twice. They leave alone servers signed in through Hermes (`auth: oauth`) and entries that take `${VAR}` from Hermes\'s `.env`. They read no stored credentials. Events leaves `events: true` servers to Hermes\'s webhook delivery; its own poll and push watches resume at the first session or turn after a gateway restart. A wake starts with `[mcp-events]`; Hermes receives it as a user message, so the prefix says the plugin sent it. Skills are listed as `mcp-skills:<server>-<name>` from the next session. Hermes asks before loading; deny and type the `/mcp-skills show` line to read SKILL.md first. A kept approval covers that version only, and another server\'s resource read asks each time. Where Hermes approves without asking (`--yolo`, `/yolo`, `hermes -z` or `approvals.mode: off`), the forms refuse each step that needs your own yes: a watch, a skill load, a registry search and a server addition. Hermes\'s unattended approve modes (`approvals.cron_mode`, `single_query_mode` or `unattended_mode: approve`) still approve these steps where nobody is present, and a kept session or always answer covers its exact step. Server Cards and ARD write `mcp_servers` in `config.yaml`, after Hermes\'s approval; `/reload-mcp` connects the server. ARD has no default registry: name one or set `ARD_DISCOVERY_REGISTRY` in the gateway\'s environment. Its prompt names the exact endpoint and query; session and always cover only that exact query to that endpoint, and different words ask again. Referrals need separate calls and approvals. Neither card form compares the card with live server metadata (S-3).'
+const HERMES_APPS = 'Apps has no Hermes form yet.'
 // Each host's own installs and examples, where they differ from home.json's.
-const FORMS = { Pi: PI_FORMS, OpenCode: OPENCODE_FORMS, Antigravity: ANTIGRAVITY_FORMS, 'Copilot CLI': COPILOT_FORMS }
+const FORMS = { Pi: PI_FORMS, OpenCode: OPENCODE_FORMS, Antigravity: ANTIGRAVITY_FORMS, 'Copilot CLI': COPILOT_FORMS, Hermes: HERMES_FORMS }
 
 // Skills in Claude Code: no polyfill. What Claude Code's changelog says, and no more.
 const CLAUDE_CODE_SKILLS = 'There is no Skills polyfill for Claude Code: Claude Code lists skills from MCP servers itself, in beta from 2.1.332 (https://code.claude.com/docs/en/changelog). A beta may not be on for every account or server yet. If you installed the `mcp-skills` plugin for Claude Code before, remove it with `/plugin uninstall mcp-skills@agent-polyfill`.'
@@ -350,7 +369,7 @@ function homeMarkdown() {
       '',
       ...hosts.map(({ name }) => `- ${name}`),
     ]
-    const block = (command) => [command.startsWith('/') ? '```' : command.startsWith('{') ? '```json' : '```bash', command, '```']
+    const block = (command, language) => [language ? `\`\`\`${language}` : command.startsWith('/') ? '```' : command.startsWith('{') ? '```json' : '```bash', command, '```']
     if (p.addStep) lines.push('', p.addStep)
     for (const host of hosts) {
       const form = FORMS[host.name]?.[p.plugin]
@@ -359,8 +378,8 @@ function homeMarkdown() {
       const command = form?.command ?? host.command
       const start = host.start ?? `start \`${command}\``
       lines.push('', `**${host.name}**`, '')
-      if (add?.startsWith('{')) lines.push(`In \`${host.config}\`:`, '')
-      if (add) lines.push(...block(add), '', `Then ${start} and ask: "${ask}"`)
+      if (add?.startsWith('{') || form?.language === 'yaml') lines.push(`In \`${host.config}\`:`, '')
+      if (add) lines.push(...block(add, form?.language), '', `Then ${start} and ask: "${ask}"`)
       else lines.push(`Nothing to set up. ${start[0].toUpperCase()}${start.slice(1)} and ask: "${ask}"`)
     }
     if (p.then) lines.push('', p.then)
@@ -441,6 +460,16 @@ ${COPILOT_INSTALL_NOTES}
 
 ${COPILOT_BUILT_IN}
 
+**Hermes Agent** (v0.23.4, the version tested; Node 20 or newer on the gateway's machine). In a terminal:
+
+\`\`\`bash
+${INSTALL_HERMES.join('\n')}
+\`\`\`
+
+${HERMES_INSTALL_NOTES}
+
+${HERMES_APPS}
+
 **T3 Code.** ${T3_NOTE}
 
 Beyond MCP, ARD is a draft. Every search asks you first and goes to a registry you choose. Install it separately:
@@ -451,6 +480,7 @@ Beyond MCP, ARD is a draft. Every search asks you first and goes to a registry y
 - **OpenCode:** \`${OPENCODE_FORMS['ard-discovery'].add}\` (included in the commands above).
 - **Antigravity:** \`agy plugin install ./polyfills/ard/antigravity/plugin\` from the clone (included in the commands above).
 - **Copilot CLI:** \`copilot plugin install ard-discovery@agent-polyfill\`, with the marketplace added (included in the commands above).
+- **Hermes:** \`hermes plugins install idosal/AgentPolyfill/polyfills/ard/hermes/plugin --enable\` (included in the commands above).
 
 ${videoLine({ file: media.launch.file, seconds: media.launch.seconds, description: media.launch.description })}
 
@@ -506,9 +536,9 @@ AgentPolyfill makes polyfills for agent protocols: it brings more of MCP to the 
 
 ${hostTable()}
 
-The MCP polyfills implement Events (SEP-3415), Skills (SEP-2640), Server Cards (SEP-2127) and Apps (MCP Apps 2026-01-26). It's an early proof of concept: some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs (${origin}/guide/how-it-works.md). ${PI_APPS_LIMIT} ${OPENCODE_APPS_LIMIT} ${ANTIGRAVITY_APPS_LIMIT} ${COPILOT_BUILT_IN}
+The MCP polyfills implement Events (SEP-3415), Skills (SEP-2640), Server Cards (SEP-2127) and Apps (MCP Apps 2026-01-26). It's an early proof of concept: some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs (${origin}/guide/how-it-works.md). ${PI_APPS_LIMIT} ${OPENCODE_APPS_LIMIT} ${ANTIGRAVITY_APPS_LIMIT} ${COPILOT_BUILT_IN} ${HERMES_APPS}
 
-Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A search sends the words of your request to the ARD registry you choose and asks you first every time, so ARD is installed separately. Checked in Pi 1.6.0: domain discovery, and an approved search of the repository's demo registry. Checked in OpenCode 2.4.1: reading buildkite.com's \`ard.json\`, and a search of the repository's demo registry after OpenCode asked (no public registry that takes an unauthenticated search was found). In Antigravity, every registry search and every addition is put to you in Antigravity's approval card. Checked in Copilot CLI 1.0.115: domain discovery, and a search of the repository's demo registry going out only after Copilot's tool prompt and the plugin's form. In Pi, OpenCode and Copilot CLI, adding through ARD is checked by the forms' tests only.
+Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A search sends the words of your request to the ARD registry you choose and asks you first every time, so ARD is installed separately. Checked in Pi 1.6.0: domain discovery, and an approved search of the repository's demo registry. Checked in OpenCode 2.4.1: reading buildkite.com's \`ard.json\`, and a search of the repository's demo registry after OpenCode asked (no public registry that takes an unauthenticated search was found). In Antigravity, every registry search and every addition is put to you in Antigravity's approval card. Checked in Copilot CLI 1.0.115: domain discovery, and a search of the repository's demo registry going out only after Copilot's tool prompt and the plugin's form. In Pi, OpenCode and Copilot CLI, adding through ARD is checked by the forms' tests only. Checked in Hermes v0.23.4: domain discovery of buildkite.com; search, referrals and adding are checked by the form's tests only.
 
 ## Install
 
@@ -518,6 +548,7 @@ Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A
 - **OpenCode 2.4 or newer (tested with 2.4.1; Git; no Node):** one \`opencode plugin add\` per polyfill, from GitHub, after Pi's below.
 - **Antigravity (App v2.35.1 and CLI v1.5.17; not supported in the IDE; Node 20 or newer on \`PATH\`; installing needs the Antigravity CLI):** use the Antigravity clone commands after OpenCode's below.
 - **Copilot CLI 1.0.115 (the version tested):** from a terminal, from a clone: \`${INSTALL_COPILOT.join(' && ')}\`. ARD is in those commands. Events needs experimental mode (\`copilot --experimental\`); Server Cards and ARD need Node 20 or newer. There is no bundle; the notes follow Antigravity's below.
+- **Hermes Agent v0.23.4 (the version tested; Node 20 or newer on the gateway):** one plugin per form; the commands and required settings follow Copilot's below.
 - **T3 Code:** not a host of its own here; see the T3 Code paragraph below.
 
 \`\`\`bash
@@ -596,6 +627,25 @@ Copilot can approve a tool call without asking you: in assisted mode (an LLM rev
 | Events | \`MCP_EVENTS_OFF=1\` |
 | Server Cards | \`MCP_SERVER_CARDS_DISABLED=1\` |
 | ARD | \`ARD_DISCOVERY_DISABLED=1\` |
+
+Hermes Agent, one plugin per form:
+
+\`\`\`bash
+${INSTALL_HERMES.join('\n')}
+\`\`\`
+
+${HERMES_INSTALL_NOTES}
+
+${HERMES_BEHAVIOR}
+
+When Hermes supports a form itself, disable it with \`hermes plugins disable <plugin id>\`. Events already leaves servers with \`events: true\` to Hermes, from the next turn after the setting changes.
+
+| Hermes form | Off switch |
+|---|---|
+| Events | \`hermes plugins disable mcp-events\` |
+| Skills | \`hermes plugins disable mcp-skills\` |
+| Server Cards | \`hermes plugins disable mcp-server-cards\` |
+| ARD | \`hermes plugins disable ard-discovery\` |
 
 ${T3_NOTE}
 

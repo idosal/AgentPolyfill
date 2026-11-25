@@ -245,6 +245,49 @@ To try one for a single run without installing, replace `<polyfill>` with
 copilot --experimental --plugin-dir ./AgentPolyfill/polyfills/<polyfill>/copilot/plugin
 ```
 
+### Hermes Agent
+
+Hermes Agent v0.23.4 (the version tested), with Node 20 or newer on the
+gateway's machine. Install each plugin from its folder in this repository:
+
+```bash
+hermes plugins install idosal/AgentPolyfill/polyfills/events/hermes/plugin --enable
+hermes plugins install idosal/AgentPolyfill/polyfills/skills/hermes/plugin --enable
+hermes plugins install idosal/AgentPolyfill/polyfills/server-cards/hermes/plugin --enable
+```
+
+ARD is a draft from outside MCP. Install it separately:
+
+```bash
+hermes plugins install idosal/AgentPolyfill/polyfills/ard/hermes/plugin --enable
+```
+
+Each plugin carries its Python code and bundled Node helper; no npm install
+is needed. `AGENTPOLYFILL_NODE` can name another Node executable. Apps has
+no Hermes form yet. ARD carries its own add and remove tools and can run
+beside Server Cards.
+
+Events and Skills use only the servers you name in the plugin's settings.
+In `~/.hermes/config.yaml` (or your profile's), merge these settings with any
+entries you already have:
+
+```yaml
+plugins:
+  entries:
+    mcp-events:
+      settings:
+        servers: [feeds]
+      allow_gateway_injection: true
+    mcp-skills:
+      settings:
+        servers: [huggingface]
+```
+
+These names must also have entries under `mcp_servers`; the first runs below
+show them. The server list is the plugin's own grant, separate from Hermes's
+`mcp_allowlist`. Without `allow_gateway_injection`, Events stores events but
+cannot wake a session; `list_watches` says so.
+
 ### T3 Code
 
 [T3 Code](https://github.com/pingdotgg/t3code) runs the Codex, Claude Code
@@ -461,6 +504,41 @@ Each Copilot form's README has the rest:
 [Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/copilot) and
 [ARD discovery](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/copilot).
 
+### In Hermes
+
+| | Hermes Agent | What else it needs |
+|---|---|---|
+| Events | v0.23.4 (the version tested) | Node 20 or newer on the gateway's PATH. Servers named in `plugins.entries.mcp-events.settings.servers`; `allow_gateway_injection` to wake a session. Poll and push; webhook stays with Hermes. |
+| Skills | v0.23.4 (the version tested) | Node 20 or newer on the gateway's PATH. Servers named in `plugins.entries.mcp-skills.settings.servers`. Newly found skills are listed from the next session. |
+| Server Cards, ARD | v0.23.4 (the version tested) | Node 20 or newer on the gateway's PATH. Hermes's approval for additions and searches; `/reload-mcp` to connect an added server. |
+| Apps | not yet | |
+
+By default Hermes lists plugin tools behind Tool Search, and a small model may
+not find them there: with `tools.tool_search.enabled: off` in `config.yaml`
+it sees them directly.
+
+The Python plugin runs in Hermes's gateway and starts its Node helper there.
+Approvals go through Hermes's own once/session/always/deny prompt on the
+session's surface, and fail closed where nobody can answer. A lasting ARD
+search approval covers only that exact query to that endpoint; different
+words ask again. Where Hermes approves without asking (`--yolo`, `/yolo`, `hermes -z`,
+`approvals.mode: off`), the plugins refuse a watch, a skill load, a registry
+search and a server addition instead; unattended approve modes still approve
+them.
+
+Events and Skills open their own connections, so a local server runs twice.
+They leave alone a server that uses Hermes's sign-in, or whose entry takes
+`${VAR}` from Hermes's `.env`. Events also leaves `events: true` servers to
+Hermes's own webhook delivery. The configuration is read again at every turn
+and tool call. After a gateway restart, watches resume at the first session
+or turn.
+
+Each Hermes form's README has the rest:
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/hermes),
+[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/hermes),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/hermes) and
+[ARD discovery](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/hermes).
+
 ### In T3 Code
 
 T3 Code 0.1.11 is the version tested, with Codex 0.172.0.
@@ -511,6 +589,19 @@ agy mcp add feeds https://event-feeds.idosalomon.workers.dev/mcp
 
 ```bash [Copilot CLI]
 copilot mcp add --transport=http feeds https://event-feeds.idosalomon.workers.dev/mcp
+```
+
+```yaml [Hermes]
+# config.yaml in your Hermes profile
+mcp_servers:
+  feeds:
+    url: https://event-feeds.idosalomon.workers.dev/mcp
+plugins:
+  entries:
+    mcp-events:
+      settings:
+        servers: [feeds]
+      allow_gateway_injection: true
 ```
 
 :::
@@ -579,6 +670,12 @@ For the demo button:
   the event and tells you what you typed. The wake's first line says the
   plugin sent it, not you. Checked in Copilot CLI 1.0.115: a watch set
   through Copilot's tool prompt, an idle wake and the read.
+- **Hermes:** start `hermes`, with the demo server and plugin settings above
+  in your profile's `config.yaml`. Hermes makes a private button page and
+  asks you to approve the watch. Type a message on the page and press the
+  button. The idle session gets a message starting `[mcp-events]`, reads the
+  event with `get_event`, and tells you what you typed. Stop it with
+  "Stop watching the demo button."
 
 [More on Events](./events)
 
@@ -603,6 +700,18 @@ pi mcp add huggingface --url https://huggingface.co/mcp
 
 ```bash [Antigravity]
 agy mcp add huggingface https://huggingface.co/mcp
+```
+
+```yaml [Hermes]
+# config.yaml in your Hermes profile
+mcp_servers:
+  huggingface:
+    url: https://huggingface.co/mcp
+plugins:
+  entries:
+    mcp-skills:
+      settings:
+        servers: [huggingface]
 ```
 
 :::
@@ -660,6 +769,18 @@ isn't met: once a served skill is loaded, the plugin's hook asks before a
 `read_resource` from another server, naming both, but Antigravity (CLI
 1.5.17, App 2.35.1) ignores that question (no card; the read goes ahead).
 
+In Hermes, the plugin looks at the server during your first turn. From the
+next session, skills appear as `mcp-skills:huggingface-<name>`, each marked
+with its server. `list_skills` and `load_skill` reach them at once. Ask:
+
+> Use the Hugging Face local-models skill: which GGUF quantization should I use to run a 7B model on a 16 GB Mac?
+
+Hermes views the stub and calls `load_skill`. Its approval names the skill,
+server and files. To read SKILL.md first, deny and type the `/mcp-skills show`
+line in the question; the model never sees that preview. A kept approval
+covers that version only, and a changed skill asks again. While a served
+skill is loaded, reading another server's resource asks each time.
+
 [More on Skills](./skills)
 
 ### Server Cards
@@ -702,6 +823,12 @@ Then add **Neon Docs** (no sign-in):
   `/mcp reload` (or start a new session) to use it.
   `copilot mcp remove neon-docs` removes it again. For a server that needs
   sign-in, Copilot offers it when it first connects (`/mcp auth <name>`).
+- **Hermes:** ask "Add Neon Docs" and approve the prompt naming the server,
+  URL, headers with their values (secrets as `${VAR}` references), transport, file and undo action. It writes `mcp_servers` in
+  `config.yaml`. Run `/reload-mcp` or start a new session to connect it.
+  `hermes mcp remove neon-docs`, then `/reload-mcp`, removes it again.
+  If the result names an OAuth challenge, run `hermes mcp login <name>`
+  before reloading. The plugin never handles the sign-in.
 
 [More on Server Cards](./server-cards)
 
@@ -778,6 +905,25 @@ checked. The add step is the Server Cards form's, and is checked by the
 form's tests only.
 [More on ARD](./ard)
 
+### ARD in Hermes
+
+Ask "Use ARD to discover the MCP servers neon.com publishes." Discovery
+reads public documents and sends no query to a registry. To search, name a
+registry or set `ARD_DISCOVERY_REGISTRY` in the gateway's environment; none
+is chosen for you. Hermes's approval names the exact endpoint and query.
+Session and always cover only that exact query to that endpoint; different
+words ask again. Each referral requires its own call and approval.
+
+Adding is a separate approval through `ard_add_mcp_server`. The server goes
+in `mcp_servers` in `config.yaml`; `/reload-mcp` connects it.
+`ard_remove_mcp_server` removes an unchanged entry this plugin added, after
+approval, and `/reload-mcp` disconnects it.
+
+The recorded live run used a scripted model to read buildkite.com's
+`ard.json` and card. Search, referrals and additions were checked with local
+fixtures in Hermes; no live registry search was sent.
+[More on ARD](./ard)
+
 ### Apps
 
 Apps runs in Claude Code. Availability in each host is listed in the
@@ -827,6 +973,10 @@ configuration works with Events and Skills:
   from `${VAR}`, except variables Copilot strips from extensions
   (`GITHUB_TOKEN`, for one). The plugin never reads Copilot's stored
   credentials.
+- **Hermes:** Events and Skills leave alone `auth: oauth` servers and
+  entries that take `${VAR}` from Hermes's `.env`. Local commands and URLs
+  with headers written in `config.yaml` work, if named in the plugin's
+  `settings.servers`. Neither form reads Hermes's stored credentials.
 
 Server Cards is different: it adds a server to the host's own config, and the
 host connects it with its own sign-in. [How it works](./how-it-works) says
@@ -957,3 +1107,28 @@ server expires it. Uninstalling leaves Events' data in `~/.copilot/mcp-events/`
 events. Servers added through Server Cards or ARD stay in
 `~/.copilot/mcp-config.json`; remove each with `copilot mcp remove <name>`.
 The marketplace stays until `copilot plugin marketplace remove agent-polyfill`.
+
+In Hermes, use the host's own switches:
+
+| | Off without uninstalling |
+|---|---|
+| Events | `hermes plugins disable mcp-events` |
+| Skills | `hermes plugins disable mcp-skills` |
+| Server Cards | `hermes plugins disable mcp-server-cards` |
+| ARD discovery | `hermes plugins disable ard-discovery` |
+
+Remove Events with `hermes plugins remove mcp-events`, or Skills with
+`hermes plugins remove mcp-skills`.
+
+Events already stands down for servers with `events: true`, from the next
+turn after you set it. Hermes handles their webhook delivery itself.
+
+Events keeps its watches, events, cursors, wake counts and log in
+`$HERMES_HOME/mcp-events/`. Skills keeps stubs in `$HERMES_HOME/mcp-skills/`,
+and what each session loaded in Hermes's plugin state. Server Cards and ARD
+keep removal records in `$HERMES_HOME/mcp-server-cards/added.json` and
+`$HERMES_HOME/ard-discovery/added.json`; discovery state lives in memory.
+Disabling either leaves added servers in `mcp_servers` in `config.yaml`.
+Ask the plugin to remove an unchanged entry it added, or use
+`hermes mcp remove <name>`, then `/reload-mcp`. Removal leaves environment
+variables and OAuth tokens alone.

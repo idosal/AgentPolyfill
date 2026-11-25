@@ -172,6 +172,9 @@ for each host:
   has one, which holds a Copilot extension; Skills doesn't, because Copilot
   has Skills over MCP built in). It installs from a clone added as a
   marketplace.
+- **Hermes Agent:** a Python plugin in `hermes/`, installed from `plugin/`,
+  with a bundled Node helper. Each installs with
+  `hermes plugins install idosal/AgentPolyfill/polyfills/<extension>/hermes/plugin --enable`.
 
 The Pi examples are
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi),
@@ -203,6 +206,12 @@ The Copilot CLI examples are
 [Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/copilot)
 and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/copilot).
 Skills and Apps have no Copilot form: Copilot has them built in.
+
+The Hermes examples are
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/hermes),
+[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/hermes),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/hermes) and
+[ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/hermes). Apps has no Hermes form yet.
 
 Bringing a polyfill to another host is a new adapter: find how the host lets
 it reach the wire (a connection of its own, a tool call, a way to wake an idle
@@ -260,6 +269,15 @@ it: Events in a Copilot dialog, by default, and Server Cards and ARD in a form
 before adding a server or sending a search. Each has an off switch because
 native support cannot be detected. Their READMEs, `SECURITY.md` and
 `docs/conformance.md` record what was checked.
+
+The Hermes forms put the host tools, hooks and approvals in Python, inside
+the gateway, and run the existing client rules in a bundled Node helper.
+Events and Skills open their own connections to explicitly named servers;
+Events leaves webhook servers to Hermes. Server Cards and ARD write
+`mcp_servers` with Hermes's config API, and need `/reload-mcp` to connect.
+The READMEs give the tests and limits. The shared harness in
+[`tools/hermes`](https://github.com/idosal/AgentPolyfill/tree/main/tools/hermes)
+runs the forms' tests in Hermes v0.23.4, with no account or API key.
 
 ## Your own, listed in the community directory
 

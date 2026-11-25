@@ -1,0 +1,10 @@
+name: mcp-server-cards
+version: "0.1.0"
+description: Discover and validate MCP Server Cards (SEP-2127); add or remove servers with Hermes approval.
+author: Ido Salomon
+provides_tools:
+  - discover_mcp_servers
+  - add_mcp_server
+  - remove_mcp_server
+provides_hooks:
+  - pre_tool_call

@@ -1,0 +1,5 @@
+{
+  "name": "agentpolyfill-hermes-shared",
+  "private": true,
+  "type": "module"
+}

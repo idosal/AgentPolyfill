@@ -65,6 +65,10 @@ copilot plugin marketplace add ./AgentPolyfill
 copilot plugin install mcp-server-cards@agent-polyfill
 ```
 
+```bash [Hermes]
+hermes plugins install idosal/AgentPolyfill/polyfills/server-cards/hermes/plugin --enable
+```
+
 :::
 
 ### In Claude Code
@@ -161,6 +165,18 @@ Remove it with `copilot plugin uninstall mcp-server-cards@agent-polyfill`.
 Servers you added stay in `~/.copilot/mcp-config.json`; remove one with
 `copilot mcp remove <name>`.
 
+### In Hermes
+
+Hermes Agent v0.23.4 (the version tested), with Node 20 or newer on the
+gateway's PATH. `AGENTPOLYFILL_NODE` can name its executable. The plugin
+ships its Python code and bundled helper; no npm install is needed.
+
+Disable it with `hermes plugins disable mcp-server-cards`. Added servers
+stay in `mcp_servers` in `config.yaml`. Ask to remove an unchanged server the
+plugin added, or use `hermes mcp remove <name>`, then `/reload-mcp`. The
+removal record is `$HERMES_HOME/mcp-server-cards/added.json`; discovery state
+lives in memory and must be fetched again after a restart.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/claude-code)
@@ -169,6 +185,7 @@ The sections below name the host where behavior differs. Full guides by host:
 - [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/opencode)
 - [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/antigravity)
 - [Copilot CLI](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/copilot)
+- [Hermes](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/hermes)
 
 ## Try it
 
@@ -180,6 +197,7 @@ Nothing to set up. Start your host:
 - **OpenCode:** `opencode`.
 - **Antigravity:** the App or `agy`.
 - **Copilot CLI:** `copilot`.
+- **Hermes:** `hermes`.
 
 Ask:
 
@@ -198,6 +216,11 @@ Then add **Neon Docs** (no sign-in):
 - **Copilot CLI:** ask "Add Neon Docs". Copilot's tool prompt comes first,
   then the plugin's form: choose "Add it". Run `/mcp reload` (or start a new
   session) to use it. `copilot mcp remove neon-docs` removes it again.
+- **Hermes:** ask "Add Neon Docs" and approve Hermes's prompt. The entry
+  goes in `mcp_servers` in `config.yaml`. Run `/reload-mcp` or start a new
+  session to connect it. `hermes mcp remove neon-docs`, then `/reload-mcp`,
+  removes it again. If the result calls for OAuth, use
+  `hermes mcp login <name>` before reloading.
 
 For one behind a sign-in, ask about
 buildkite.com; once it's added, the host asks you to sign in (in Claude Code,
@@ -313,6 +336,34 @@ credentials. Where nobody can be asked (`copilot -p`, even with
 `--allow-all-tools` or `--yolo`), Copilot declines the form, and nothing is
 written.
 
+### In Hermes
+
+`discover_mcp_servers` reads the domain's AI Catalog and checks each card.
+Refused cards remain visible with their reasons. Only a valid card shown in
+this session can be added, at its exact endpoint. Ask to add one; Hermes's
+approval names the server, URL, headers with their values (secrets as `${VAR}` references), transport, configuration file and undo
+action. A decline writes nothing, and an unanswerable approval fails closed.
+Hermes owns once/session/always choices; a lasting approval covers matching
+actions. Existing names are refused. Where Hermes approves without asking
+(`--yolo`, `/yolo`, `hermes -z`, `approvals.mode: off`), an addition is refused instead,
+since Hermes would answer for you; a removal still goes to Hermes. Hermes's
+unattended approve modes (`approvals.cron_mode`, `single_query_mode` or
+`unattended_mode: approve`) still approve an addition where nobody is present,
+and a kept "session" or "always" answer covers its exact addition.
+
+The plugin writes `mcp_servers.<name>` in your profile's `config.yaml` with
+Hermes's own config API. Run `/reload-mcp` to connect it and refresh the
+tools, or start a new session. Secret inputs stay environment-variable
+references for you to set; never send their values to the agent. The plugin
+reads no credential files. After approval, an anonymous probe of an endpoint
+without secret inputs can detect a Bearer challenge. The result then tells
+you to run `hermes mcp login <name>` before reloading; the plugin never signs in.
+
+`remove_mcp_server` asks before removing an unchanged entry this plugin
+recorded in `added.json`. If you edited it, use Hermes's own remove command.
+Removal leaves environment variables and OAuth tokens alone; `/reload-mcp`
+disconnects the server.
+
 ### A domain that redirects
 
 Some domains answer with a redirect to another domain: `neon.tech` sends its
@@ -341,6 +392,10 @@ starts in turns the plugin off; so does `agy plugin disable mcp-server-cards`.
 In Copilot CLI, `MCP_SERVER_CARDS_DISABLED=1` registers no tools and fetches
 nothing.
 
+In Hermes, `hermes plugins disable mcp-server-cards` stops its tools and
+helper. `MCP_SERVER_CARDS_DISABLED=1` also registers nothing. Added servers
+stay in Hermes's configuration.
+
 In Claude Code, in `/config`, under the plugin:
 
 | Setting | Default | What it does |
@@ -363,6 +418,9 @@ In OpenCode, `server_cards_discover_mcp_servers` reads and checks the cards,
 In Copilot CLI, the tools are `discover_mcp_servers` and `add_mcp_server`,
 which adds a server only after your accept in the form. There is no
 `present_server_cards` tool in the Copilot form either.
+
+In Hermes, the tools are `discover_mcp_servers`, `add_mcp_server` and
+`remove_mcp_server`. Adding and removing go through Hermes's own approval.
 
 The table below is for Claude Code.
 
@@ -466,6 +524,22 @@ in the same catalogs, and local (stdio) servers, which cards do not describe.
   plugin's form ("Your answer", **Don't add it** first), and **Add it**
   writes the server. VS Code runs the question's lines together in one
   paragraph.
+
+### In Hermes
+
+- **Connecting is separate.** `/reload-mcp` or a new session connects a saved
+  server. Saving alone does not mean it is connected.
+- **No live card comparison.** The card isn't compared with
+  `server/discover` metadata (S-3).
+- **No custom picker.** The model presents results and asks for missing
+  non-secret inputs; Hermes owns the approval choices.
+- **OAuth detection is bounded.** Secret-bearing endpoints aren't probed;
+  endpoints without a Bearer challenge need manual `auth: oauth` setup.
+- **Rediscover after a restart.** The displayed cards and cache live in
+  memory per session. Removal records persist.
+- **Protocol filtering stops at the pinned handshake revisions.** A card
+  advertising only the stateless 2026 protocol is refused pending verification.
+  External edits can still race a removal; the plugin checks what was saved.
 
 ### In T3 Code
 
@@ -594,6 +668,23 @@ Neon Docs on neon.com and, after Copilot's tool prompt and **Add it**,
 writes `neon-docs` with `copilot mcp add`. In `copilot -p`, with `--yolo`
 too, Copilot declines the form and nothing is written.
 
+### In Hermes
+
+Discovery checks the address when it connects, so a public name resolving
+to a private address is refused. Routing headers such as `Host` are refused
+too. Adding and removing go through Hermes's approval, keyed to the entry,
+and no addition is made where Hermes approves without asking.
+Secret inputs stay references, and the plugin never handles OAuth tokens.
+Removal is limited to unchanged entries it recorded. See
+[Hermes's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/hermes/SECURITY.md).
+
+The [README's test and interop record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/hermes/README.md#interop)
+shows neon.com's catalog and cards read through Hermes v0.23.4 with a
+scripted model, Neon Docs added after approval, and five tools offered to
+the model after `/reload-mcp`. Local tests cover declines, removals, OAuth
+challenges, secret references and session isolation. There are no upstream
+Server Cards client scenarios.
+
 ## When the host supports Server Cards itself
 
 - **Claude Code:** there is no Server Card support to detect yet. When it
@@ -615,6 +706,9 @@ too, Copilot declines the form and nothing is written.
   uninstall the plugin, disable it
   (`copilot plugin disable mcp-server-cards@agent-polyfill`), or set
   `MCP_SERVER_CARDS_DISABLED=1`.
+- **Hermes:** v0.23.4 has no native Server Cards support to detect. Disable
+  the plugin with `hermes plugins disable mcp-server-cards`, or set
+  `MCP_SERVER_CARDS_DISABLED=1`, when that ships.
 
 ## More
 

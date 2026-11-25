@@ -9,7 +9,7 @@ where that is tested.
 at commit `2eb3a8e` (12 November 2026), the same revision the Pi and OpenCode
 forms implement. The rule ids, and each rule's text in full, are in
 [the shared rule list](../../core/docs/sep-2640-client-rules.md); the rows
-here shorten the text. This page describes version 0.1.6 of the Codex plugin.
+here shorten the text. This page describes version 0.1.7 of the Codex plugin.
 
 **Status** is one of: **met**; **exception** (met, with a limit stated in the
 row); **not met**; **n/a** (the rule governs something this plugin does not do).

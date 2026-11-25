@@ -5,7 +5,9 @@ from an MCP server to a Claude Code session, how often events may wake that sess
 one server's webhook posts can crowd out another's at the relay. A fourth models how often events
 wake a Codex session in the Codex form, mcp-events for Codex (`polyfills/events/codex`), whose
 rules for waking differ ([`wakeCodex.qnt`](#wakecodexqnt-how-often-events-wake-a-codex-session)).
-Each is written in [Quint](https://quint-lang.org) (`delivery.qnt`, `wake.qnt`, `relay.qnt`,
+A fifth, in TLA+ only, models the same for the Hermes form
+([`WakeHermes.tla`](#wakehermestla-how-often-events-wake-a-hermes-session)).
+The first four are written in [Quint](https://quint-lang.org) (`delivery.qnt`, `wake.qnt`, `relay.qnt`,
 `wakeCodex.qnt`) and, by hand from the Quint file, in TLA+ (`Delivery.tla`, `Wake.tla`,
 `Relay.tla`, `WakeCodex.tla`) for the TLC model checker.
 
@@ -533,3 +535,49 @@ told, after the person's call, that waking stopped), and the helper dies before 
 the record of the notice gone, the new helper would not start paused, and would wake the session
 at once. So a helper that starts before the answer counts the notice as given
 (`noticeInFlightTest`).
+
+## `WakeHermes.tla`: how often events wake a Hermes session
+
+The Hermes form, mcp-events for Hermes (`polyfills/events/hermes`), hands a batch to its Python
+half, which calls Hermes's `ctx.inject_message`; that is its only way to start a turn. The wake
+budget and the hand-over's write-ahead record are the shared client's and the Codex form's
+(`hermes/src/session.ts` follows `codex/src/threads.ts`). `WakeHermes.tla` is adapted by hand from
+`WakeCodex.tla`, with the same state where the two agree, and is written in **TLA+ only**: there is
+no Quint model of it, so nothing is replayed between the two (`conform.mjs` doesn't cover it).
+
+What differs from Codex, and so in the model:
+
+- **The answer.** `inject_message` says True (`Taken`: an idle session starts a turn, a busy one
+  runs it next) or False (`NotTaken`: the record is dropped, tried again). No answer within 30
+  seconds counts as handed over (`NoAnswer`, as `codex queue` timing out). There is no session it
+  can never reach, so no `unwakeable` and no `NoWakeUnwakeable`.
+- **Dropped after it was taken (`DROPS`).** True means the gateway took the message for dispatch,
+  not that the turn ran: it can still drop it (`TakenDropped`).
+- **Who wrote.** The plugin counts every turn as the person's except one that starts with its own
+  `[mcp-events]` line (its `pre_llm_call` hook); Hermes's hooks don't say who started a turn.
+  `OTHERS` says which other turns the session sees: `"ours"` (the plugin's own wakes), `"plugin"`
+  (another plugin's `inject_message`), `"gateway"` (Hermes's own, such as a background job's
+  result).
+- **Restart.** When the gateway starts again, the helper resumes the saved watches by itself
+  (`HelperStarts`), with the same reading of the record as the Codex form.
+
+The invariants are `WakeCodex.tla`'s, less `NoWakeUnwakeable`; `OnlyUnheardSkipped` also allows a
+batch the gateway dropped, and `OnlyUnheardNotDropped` is the same without that allowance.
+
+TLC 1.7.4, four workers. The bounds are the Codex model's:
+an hour of four units, a gap of one, two wakes an hour, the pause lifting after an hour, at most two
+events waiting, the gateway stopping between any two steps.
+
+| Configuration | Bounds | Invariants | Result | States | Depth |
+| --- | --- | --- | --- | --- | --- |
+| `WakeHermesKept` | the clock from 0 to 12 (three hours; the pause lifts twice); only the plugin's own turns besides the person's | all nine | hold | 15,073,537 | 77 |
+| `WakeHermesDrops` | as `WakeHermesKept`, with the gateway dropping a message it took | all nine | hold | 23,116,092 | 77 |
+| `WakeHermesDropped` | as `WakeHermesDrops`, the clock to 10 | `OnlyUnheardNotDropped` | violated, as documented: a dropped batch is counted, not shown | 108 | 7 |
+| `WakeHermesOthers` | other plugins' and Hermes's own turns, the clock to 10 | `OnlyThePerson` | violated, as documented: such a turn ends the pause | 115 | 8 |
+| `WakeHermesOthersHour` | another plugin's turns, the clock to 10 | `WithinHour` | violated, as documented: more than the hour's wakes between two of the person's turns | 27,437 | 17 |
+| `WakeHermesSkipped` | the clock to 10 | `NothingLost` | violated, as documented: at most once | 45 | 6 |
+| `WakeHermesNoRecord` | the write-ahead record taken out, the clock to 10 | `WithinHour` | violated: what the record is for (a wake Hermes took and the helper never heard of goes uncounted) | 7,198 | 14 |
+
+Run them with the others: `node model/check.mjs WakeHermesKept.cfg …`. The two that hold need
+about 3 GB of state on disk (`MODEL_STATE_MB=3000`); `check.mjs` removes each configuration's
+state when it ends, so at most one is on disk at a time.

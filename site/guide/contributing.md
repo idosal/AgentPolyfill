@@ -49,6 +49,7 @@ polyfills/<extension>/
   opencode/      the OpenCode adapter
   antigravity/   the Antigravity adapter
   copilot/       the GitHub Copilot CLI adapter
+  hermes/        the Hermes Agent adapter
 ```
 
 - `<extension>` is the extension's short name: `apps`, `events`, `skills`,
@@ -57,11 +58,12 @@ polyfills/<extension>/
   adapter. Events and Skills use this layout. Apps has no Pi or OpenCode
   form, and no Antigravity form: the Antigravity App renders MCP Apps itself.
   Skills and Apps have no Copilot form: Copilot has them built in.
+  Hermes has Events, Skills, Server Cards and ARD; Apps is not yet available.
 
 Inside an adapter's folder, the installable form goes in a subfolder (`mod/`
-in the Apps polyfill, `extension/` in Pi, `plugin/` in OpenCode, Antigravity
-and Copilot CLI), holding the host's manifest and only what it runs; tests,
-build scripts, benchmarks and design notes go beside it. The folder is
+in the Apps polyfill, `extension/` in Pi, `plugin/` in OpenCode, Antigravity,
+Copilot CLI and Hermes), holding the host's manifest and only what it runs;
+tests, build scripts, benchmarks and design notes go beside it. The folder is
 self-contained, so code from `core/` reaches it by bundling, never by an
 import from outside it. Installation differs by host:
 
@@ -83,6 +85,9 @@ import from outside it. Installation differs by host:
 - **Copilot CLI:** loads a plugin from a local marketplace where it is,
   without copying it, so the clone must stay. From a marketplace on GitHub,
   Copilot keeps its own copy.
+- **Hermes Agent:** installs each `plugin/` folder on its own. It holds
+  Python code and `dist/helper.mjs`, bundled from the shared TypeScript.
+  Shared Python modules are copied into it by the build, with freshness tests.
 
 One plugin folder can carry both `.claude-plugin/plugin.json` and
 `.codex-plugin/plugin.json`. The plugin's name is unique in the repository, and
@@ -151,6 +156,11 @@ Install instructions depend on the host:
   experimental mode (every Copilot extension does).
   [Getting started](./getting-started#github-copilot-cli) has the tested
   steps.
+- **Hermes Agent:**
+  `hermes plugins install idosal/AgentPolyfill/polyfills/<extension>/hermes/plugin --enable`.
+  State the Node requirement on the gateway's machine, and any plugin
+  settings or grants. [Getting started](./getting-started#hermes-agent) has
+  the steps for the shipped forms.
 
 ### 4. List it for its host
 
@@ -173,6 +183,8 @@ Install instructions depend on the host:
 - **Copilot CLI:** add an entry to `.github/plugin/marketplace.json` (Copilot
   found the marketplace there when a clone was added as a marketplace). Keep
   its `version` equal to the plugin's.
+- **Hermes Agent:** give the install command for the plugin's own folder,
+  as the four shipped forms do. Each README documents that install directly.
 
 Then add it to the polyfills table in the repository's README, in its host's
 column.
@@ -191,6 +203,12 @@ depending on every polyfill. Add the polyfill's own tests as a workflow in
   OpenCode itself, the release pinned in `tools/opencode`, on Linux, macOS
   and Windows, and checks that the committed `plugin/server.js` is what its sources build.
 - **Copilot CLI:** `copilot-<extension>-test.yml`.
+- **Hermes Agent:** one workflow for every form, `hermes-test.yml`; add a
+  new form's steps there. The harness in
+  [`tools/hermes`](https://github.com/idosal/AgentPolyfill/tree/main/tools/hermes)
+  runs pinned Hermes v0.23.4 in temporary `HOME` and `HERMES_HOME` folders,
+  with a scripted model and local fixtures. Tests check that each installed
+  bundle and copied Python module match their sources.
 
 A polyfill that ships built files also gets a release workflow, run on its
 own tags, `<plugin>-v<version>`.
@@ -229,6 +247,9 @@ beside the others. Events and Skills share one `core/`, with these forms:
   `plugin/`.
 - **Copilot CLI:** a plugin in `copilot/`, installed from `plugin/` (Events
   has one; Skills doesn't, because Copilot has Skills built in).
+- **Hermes Agent:** a Python plugin in `hermes/`, with the installable
+  Python code and Node helper in `plugin/`. Events and Skills use their
+  existing client rules, with shared gateway code in `tools/hermes`.
 
 1. **Find the host's way in.** What can third-party code do there: run code
    inside the host or beside it, call tools, ask the user, start a turn in an

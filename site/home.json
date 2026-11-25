@@ -11,7 +11,8 @@
         "Pi",
         "OpenCode",
         "Antigravity",
-        "Copilot CLI"
+        "Copilot CLI",
+        "Hermes"
       ],
       "id": "io.modelcontextprotocol/events",
       "line": "The agent watches events on your MCP servers, by poll, push or webhook, and an event wakes an idle session.",
@@ -21,8 +22,9 @@
       "add": "claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev/mcp",
       "addCodex": "codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp",
       "addCopilot": "copilot mcp add --transport=http feeds https://event-feeds.idosalomon.workers.dev/mcp",
+      "addHermes": "mcp_servers:\n  feeds:\n    url: https://event-feeds.idosalomon.workers.dev/mcp\nplugins:\n  entries:\n    mcp-events:\n      settings:\n        servers: [feeds]\n      allow_gateway_injection: true",
       "ask": "Give me a demo button and tell me what I type when I press it",
-      "then": "- Codex: a woken session is a Codex CLI session (the terminal app or `codex exec`). A chat in the ChatGPT desktop app keeps its events but can't be woken, so ask it for `recent_events`.\n- Pi: add the demo server with `pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp`, then ask to watch for new earthquakes. Confirm the watch in Pi's dialog. An event wakes an idle session with a message starting `[mcp-events]` that says the extension sent it; Pi reads the event and answers.\n- OpenCode: add the demo server with `\"mcp\": {\"feeds\": {\"type\": \"remote\", \"url\": \"https://event-feeds.idosalomon.workers.dev/mcp\"}}` in `opencode.json`. OpenCode asks before the watch starts, naming the server and the event type. Press the button: the idle session wakes with a message from the plugin, which the TUI shows as `◈ mcp-events: new events` and OpenCode Desktop doesn't show, and the model reads the event and answers.\n- Antigravity: add the demo server with `agy mcp add feeds https://event-feeds.idosalomon.workers.dev/mcp` (in CLI 1.5.17's own help, not in Antigravity's docs; the App doesn't ship `agy`, so there, use Customizations > Installed > MCP Servers). This demo was not checked in Antigravity. A watch asks in Antigravity's approval card. New events reach the conversation at its next model call, through the plugin's `PreInvocation` hook (checked in CLI 1.5.17; Antigravity's plugins page doesn't list it among plugin hooks), as fixed text with a count and the plugin's own watch ids. To wake an idle App conversation, turn on the plugin's sidecar with `\"sidecars\": {\"mcp-events/wake\": {\"enabled\": true}}` in `~/.gemini/config/config.json`. CLI conversations can't be woken. The IDE documents no plugin hooks, so the forms aren't supported there.\n- Copilot CLI: Events is a Copilot extension, so start `copilot --experimental` (or, per Copilot's help, run `/settings experimental on` once (not checked)). The first session asks once whether the extension may have elevated permissions. A watch asks twice: Copilot's tool prompt for `watch_event`, then the plugin's own dialog, which names the server, the event type, the filters and the note and says events will start turns. An event wakes the idle session with a turn Copilot marks as an automation, whose first line says the plugin sent it; Copilot reads the event with `get_event` and answers.",
+      "then": "- Codex: a woken session is a Codex CLI session (the terminal app or `codex exec`). A chat in the ChatGPT desktop app keeps its events but can't be woken, so ask it for `recent_events`.\n- Pi: add the demo server with `pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp`, then ask to watch for new earthquakes. Confirm the watch in Pi's dialog. An event wakes an idle session with a message starting `[mcp-events]` that says the extension sent it; Pi reads the event and answers.\n- OpenCode: add the demo server with `\"mcp\": {\"feeds\": {\"type\": \"remote\", \"url\": \"https://event-feeds.idosalomon.workers.dev/mcp\"}}` in `opencode.json`. OpenCode asks before the watch starts, naming the server and the event type. Press the button: the idle session wakes with a message from the plugin, which the TUI shows as `◈ mcp-events: new events` and OpenCode Desktop doesn't show, and the model reads the event and answers.\n- Antigravity: add the demo server with `agy mcp add feeds https://event-feeds.idosalomon.workers.dev/mcp` (in CLI 1.5.17's own help, not in Antigravity's docs; the App doesn't ship `agy`, so there, use Customizations > Installed > MCP Servers). This demo was not checked in Antigravity. A watch asks in Antigravity's approval card. New events reach the conversation at its next model call, through the plugin's `PreInvocation` hook (checked in CLI 1.5.17; Antigravity's plugins page doesn't list it among plugin hooks), as fixed text with a count and the plugin's own watch ids. To wake an idle App conversation, turn on the plugin's sidecar with `\"sidecars\": {\"mcp-events/wake\": {\"enabled\": true}}` in `~/.gemini/config/config.json`. CLI conversations can't be woken. The IDE documents no plugin hooks, so the forms aren't supported there.\n- Copilot CLI: Events is a Copilot extension, so start `copilot --experimental` (or, per Copilot's help, run `/settings experimental on` once (not checked)). The first session asks once whether the extension may have elevated permissions. A watch asks twice: Copilot's tool prompt for `watch_event`, then the plugin's own dialog, which names the server, the event type, the filters and the note and says events will start turns. An event wakes the idle session with a turn Copilot marks as an automation, whose first line says the plugin sent it; Copilot reads the event with `get_event` and answers.\n- Hermes: add the YAML above to your profile's `config.yaml`, then start `hermes`. Hermes makes a private button page and asks you to approve the watch. Type a message on the page and press the button. The idle session gets a message starting `[mcp-events]`, reads the event and tells you what you typed. The plugin polls and takes push events; servers with `events: true` are left to Hermes's own webhook delivery.",
       "link": "/guide/events"
     },
     {
@@ -33,7 +35,8 @@
         "Codex",
         "Pi",
         "OpenCode",
-        "Antigravity"
+        "Antigravity",
+        "Hermes"
       ],
       "id": "io.modelcontextprotocol/skills",
       "line": "Skills an MCP server serves show up next to your own, load only after you say yes to each one, and are checked against the server's digests.",
@@ -41,9 +44,10 @@
       "alt": "In Codex, in the ChatGPT desktop app, asked what skills the Hugging Face MCP server serves, Codex lists its 25 skills, all visible in Codex. Asked which GGUF quantization to use for a 7B model on a 16 GB Mac, Codex asks in its own form whether to load the skill huggingface-local-models from that server, saying its 4 files are each checked against the server's SHA-256 digest when read, with Do not load it, Show me its SKILL.md first, and Load it. After Load it, Codex answers from the skill: Q4_K_M.",
       "addStep": "Try it with Hugging Face's public MCP server (no sign-in):",
       "addCodex": "codex mcp add huggingface --url https://huggingface.co/mcp",
+      "addHermes": "mcp_servers:\n  huggingface:\n    url: https://huggingface.co/mcp\nplugins:\n  entries:\n    mcp-skills:\n      settings:\n        servers: [huggingface]",
       "ask": "Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?",
-      "then": "- Codex: the served skills appear in the `$` list after you ask once to list the served skills, from the next turn.\n- Pi: add the server with `pi mcp add huggingface --url https://huggingface.co/mcp`. Skills appear as `mcp-huggingface-<name>`, marked with their server. Loading one asks: \"Don't load it\", \"Show me its SKILL.md first\", or \"Load it\".\n- OpenCode: add the server with `\"mcp\": {\"huggingface\": {\"type\": \"remote\", \"url\": \"https://huggingface.co/mcp\", \"oauth\": false}}` in `opencode.json`. Skills appear in OpenCode's own skill list as `mcp-skills:huggingface:<name>`, marked with their server. Loading one takes two steps: OpenCode's skill tool returns the plugin's note, then the model calls `mcp_skills_load_skill` and OpenCode asks: \"Allow once\", \"Allow always\" or \"Reject\".\n- Antigravity: add the server with `agy mcp add huggingface https://huggingface.co/mcp`, or in the App under Customizations > Installed > MCP Servers. Served skills appear as placeholder folders in `~/.gemini/config/skills/`. Loading a new or changed one is put to you in Antigravity's approval card, yes or no; an approved, unchanged skill gets only Antigravity's usual MCP question, which allow rules can skip.",
-      "note": "Claude Code needs no polyfill for this: it lists skills from MCP servers itself, in beta from 2.1.332. Nor does Copilot CLI: 1.0.115 declares Skills over MCP to every server (in its initialize; listing or loading a served skill in Copilot was not checked).",
+      "then": "- Codex: the served skills appear in the `$` list after you ask once to list the served skills, from the next turn.\n- Pi: add the server with `pi mcp add huggingface --url https://huggingface.co/mcp`. Skills appear as `mcp-huggingface-<name>`, marked with their server. Loading one asks: \"Don't load it\", \"Show me its SKILL.md first\", or \"Load it\".\n- OpenCode: add the server with `\"mcp\": {\"huggingface\": {\"type\": \"remote\", \"url\": \"https://huggingface.co/mcp\", \"oauth\": false}}` in `opencode.json`. Skills appear in OpenCode's own skill list as `mcp-skills:huggingface:<name>`, marked with their server. Loading one takes two steps: OpenCode's skill tool returns the plugin's note, then the model calls `mcp_skills_load_skill` and OpenCode asks: \"Allow once\", \"Allow always\" or \"Reject\".\n- Antigravity: add the server with `agy mcp add huggingface https://huggingface.co/mcp`, or in the App under Customizations > Installed > MCP Servers. Served skills appear as placeholder folders in `~/.gemini/config/skills/`. Loading a new or changed one is put to you in Antigravity's approval card, yes or no; an approved, unchanged skill gets only Antigravity's usual MCP question, which allow rules can skip.\n- Hermes: add the YAML above to your profile's `config.yaml`, then start `hermes`. The plugin looks at the server during your first turn. From the next session, skills appear as `mcp-skills:huggingface-<name>`, marked with their server; `list_skills` and `load_skill` reach them at once. Hermes asks before a load. To read SKILL.md first, deny and type the `/mcp-skills show` line in the question.",
+      "note": "Claude Code needs no polyfill for this: it lists skills from MCP servers itself, in beta from 2.1.332. Nor does Copilot CLI: 1.0.115 declares Skills over MCP to every server (in its initialize; listing or loading a served skill in Copilot was not checked). Hermes has a Skills form; its served skills are listed from the next session.",
       "link": "/guide/skills"
     },
     {
@@ -56,7 +60,8 @@
         "Pi",
         "OpenCode",
         "Antigravity",
-        "Copilot CLI"
+        "Copilot CLI",
+        "Hermes"
       ],
       "id": "",
       "line": "Name a company and the agent finds the MCP servers its domain publishes, and adds the one you pick. Servers behind OAuth work.",
@@ -64,7 +69,7 @@
       "alt": "In Claude Code, What MCP servers does neon.com publish? lists Neon and Neon Docs from neon.com's own catalog, each with an Add button, and Add on Neon Docs marks it added, with a note to run /mcp to connect or sign in. Then the same in Codex, in the ChatGPT desktop app: Codex lists the two servers, and asked to add Neon Docs, shows its own form naming the host, the URL, the headers (none) and the Server Card it came from, with Don't add it and Add it. After Add it, neon-docs is in Codex's config; codex mcp remove neon-docs undoes it.",
       "add": "",
       "ask": "What MCP servers does neon.com publish?",
-      "then": "Then add Neon Docs (no sign-in):\n\n- Claude Code: press Add.\n- Codex: choose \"Add it\" in its form.\n- Pi: choose \"Add it\" in its dialog, which names the host, URL, headers, configuration file and undo command. Pi saves the server and connects it for the current session.\n- OpenCode: ask \"Add Neon Docs\" and allow it when OpenCode asks. In the TUI the prompt says only \"Call tool mcp_server_cards_add\", with \"Allow once\" and \"Reject\"; the name and URL are on the model's call line above it. The server is in OpenCode's MCP servers at once, for this project, and OpenCode connects it.\n- Antigravity: approve the addition in Antigravity's approval card. The plugin then writes the server to `~/.gemini/config/mcp_config.json`.\n- Copilot CLI: Copilot's tool prompt comes first, then the plugin's form, where you choose \"Add it\". Run `/mcp reload` to connect it; `copilot mcp remove neon-docs` removes it again.",
+      "then": "Then add Neon Docs (no sign-in):\n\n- Claude Code: press Add.\n- Codex: choose \"Add it\" in its form.\n- Pi: choose \"Add it\" in its dialog, which names the host, URL, headers, configuration file and undo command. Pi saves the server and connects it for the current session.\n- OpenCode: ask \"Add Neon Docs\" and allow it when OpenCode asks. In the TUI the prompt says only \"Call tool mcp_server_cards_add\", with \"Allow once\" and \"Reject\"; the name and URL are on the model's call line above it. The server is in OpenCode's MCP servers at once, for this project, and OpenCode connects it.\n- Antigravity: approve the addition in Antigravity's approval card. The plugin then writes the server to `~/.gemini/config/mcp_config.json`.\n- Copilot CLI: Copilot's tool prompt comes first, then the plugin's form, where you choose \"Add it\". Run `/mcp reload` to connect it; `copilot mcp remove neon-docs` removes it again.\n- Hermes: ask \"Add Neon Docs\" and approve Hermes's prompt. The server is saved in `mcp_servers` in `config.yaml`; run `/reload-mcp` to connect it. `hermes mcp remove neon-docs`, followed by `/reload-mcp`, removes it again.",
       "link": "/guide/server-cards"
     },
     {
@@ -81,14 +86,14 @@
       "addStep": "Try it with the hosted arcade (classic shareware games from archive.org):",
       "add": "claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp",
       "ask": "Find a shareware game in the arcade and load it",
-      "note": "Available only in Claude Code. The Antigravity App shows MCP Apps itself.",
+      "note": "Available only in Claude Code. The Antigravity App shows MCP Apps itself. Apps has no Hermes form yet.",
       "link": "/guide/apps"
     }
   ],
   "audiences": [
     {
       "title": "If you use an agent host",
-      "text": "Install steps and a first run for each host. Pi installs Events, Skills and Server Cards with one line from this repository on GitHub, and OpenCode installs each plugin from it with Git; nothing for either is published to npm. Antigravity plugins install from a clone with the Antigravity CLI (the App doesn't ship `agy`), and nothing is published to Antigravity's Marketplace. Copilot CLI installs from a clone added as a marketplace.",
+      "text": "Install steps and a first run for each host. Pi installs Events, Skills and Server Cards with one line from this repository on GitHub, and OpenCode installs each plugin from it with Git; nothing for either is published to npm. Antigravity plugins install from a clone with the Antigravity CLI (the App doesn't ship `agy`), and nothing is published to Antigravity's Marketplace. Copilot CLI installs from a clone added as a marketplace. Hermes Agent installs each plugin from its folder in this repository.",
       "link": "/guide/getting-started",
       "linkText": "Getting started"
     },
@@ -116,7 +121,8 @@
         "Pi",
         "OpenCode",
         "Antigravity",
-        "Copilot CLI"
+        "Copilot CLI",
+        "Hermes"
       ],
       "id": "",
       "line": "Finds MCP servers through a domain's ard.json, or by searching an ARD registry you choose, and hands the cards to Server Cards.",
@@ -126,8 +132,9 @@
       "add": "/plugin install ard-discovery --marketplace idosal/AgentPolyfill",
       "addCodex": "codex plugin marketplace add idosal/AgentPolyfill && codex plugin add ard-discovery@agent-polyfill",
       "addCopilot": "git clone https://github.com/idosal/AgentPolyfill.git && copilot plugin marketplace add ./AgentPolyfill && copilot plugin install ard-discovery@agent-polyfill",
+      "addHermes": "hermes plugins install idosal/AgentPolyfill/polyfills/ard/hermes/plugin --enable",
       "ask": "What MCP servers does buildkite.com list through ARD?",
-      "then": "A domain lookup sends no query to a registry. A search sends the words of your request to the registry you chose, so every search asks you first and names where it's going. In OpenCode's TUI, the prompt says only \"Call tool ard_search\": the query and the registry you named are on the model's call line above it, and nothing on screen names a registry a referral names.",
+      "then": "A domain lookup sends no query to a registry. A search sends the words of your request to the registry you chose, so every search asks you first and names where it's going. In OpenCode's TUI, the prompt says only \"Call tool ard_search\": the query and the registry you named are on the model's call line above it, and nothing on screen names a registry a referral names.\n\n- Hermes: approve the prompt naming the endpoint and exact query. \"Session\" and \"always\" cover only that exact query to that endpoint; different words ask again. Each referral needs its own call and approval. Adding a result needs a separate approval, then `/reload-mcp` to connect it. Where Hermes approves without asking (`--yolo`, `/yolo`, `hermes -z`, `approvals.mode: off`), the plugin refuses the search and the addition instead. Hermes's unattended approve modes (`approvals.cron_mode`, `single_query_mode` or `unattended_mode: approve`) still approve them where nobody is present, and a kept \"session\" or \"always\" answer covers its exact search or addition.",
       "link": "/guide/ard",
       "note": "Installed separately from the others: a search sends your words to the registry you chose, so every search asks you first."
     }

@@ -1,0 +1,30 @@
+{
+  "name": "mcp-skills-hermes",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A Hermes Agent plugin that adds the client side of the MCP Skills extension (SEP-2640): skills served by your MCP servers are listed among Hermes's skills, and loaded on demand after Hermes asks you.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test --no-warnings \"test/*-test.ts\"",
+    "typecheck": "tsc --noEmit -p .",
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "0.28.2",
+    "typescript": "^5.9.3"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idosal/AgentPolyfill.git",
+    "directory": "polyfills/skills/hermes"
+  }
+}

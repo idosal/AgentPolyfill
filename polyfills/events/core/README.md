@@ -5,10 +5,11 @@ The client side of MCP Events
 shared by every form of the Events polyfill:
 [`../claude-code`](../claude-code) for Claude Code,
 [`../codex`](../codex) for Codex, [`../pi`](../pi) for Pi,
-[`../opencode`](../opencode) for OpenCode, [`../t3`](../t3) for T3 Code and
-[`../copilot`](../copilot) for GitHub Copilot CLI. (The Copilot form also runs
-the Codex form's session code, `../codex/src/threads.ts`.) It isn't installed by itself: each form
-bundles it into its own plugin folder.
+[`../opencode`](../opencode) for OpenCode, [`../t3`](../t3) for T3 Code,
+[`../copilot`](../copilot) for GitHub Copilot CLI and
+[`../hermes`](../hermes) for Hermes Agent. (The Copilot form also runs the
+Codex form's session code, `../codex/src/threads.ts`.) It isn't installed by
+itself: each form bundles it into its own plugin folder.
 
 What is here:
 

@@ -25,6 +25,9 @@ What runs in each host:
   Events is a Copilot extension and needs Copilot's experimental mode. Skills
   and Apps have no Copilot form: Copilot CLI has Skills over MCP built in, and
   VS Code's Copilot harness turns MCP Apps on (from its source; no app was drawn there).
+- **Hermes Agent:** Events, Skills, Server Cards and ARD, as Hermes plugins.
+  Events adds poll and push; webhook delivery is Hermes's own. Apps has no
+  Hermes form yet.
 
 See [Getting started](/guide/getting-started) for installation. In Pi,
 `pi install git:github.com/idosal/AgentPolyfill` installs Events, Skills and
@@ -38,6 +41,11 @@ Nothing is published to Antigravity's Marketplace either; its plugins install
 from a clone, with the Antigravity CLI (the App doesn't ship `agy`).
 In Copilot CLI, add a clone of the repository as a marketplace and install
 each plugin from it; that is the install that was tested.
+
+In Hermes Agent, install each plugin with
+`hermes plugins install idosal/AgentPolyfill/polyfills/<extension>/hermes/plugin --enable`.
+Events and Skills then need the servers named in their settings in
+`config.yaml`, and Events the grant to start a turn.
 
 ## Not affiliated
 

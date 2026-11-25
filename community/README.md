@@ -51,6 +51,7 @@ Open a pull request that adds one object to the `polyfills` array:
   | OpenCode | `"OpenCode"` |
   | Antigravity | `"Antigravity"` |
   | GitHub Copilot CLI | `"Copilot CLI"` |
+  | Hermes Agent | `"Hermes"` |
 
   Other hosts are welcome too.
 - **`summary`**: one plain sentence.
@@ -61,8 +62,10 @@ Open a pull request that adds one object to the `polyfills` array:
   in `plugins` in `opencode.json`. For an Antigravity plugin, give the
   `agy plugin install` line and the folder it takes. For a Copilot CLI plugin,
   give the marketplace and `copilot plugin install` lines, and say if it needs
-  experimental mode (every Copilot extension does). The repository's README
-  states the spec revision, its limits and what it sends where.
+  experimental mode (every Copilot extension does). For a Hermes Agent
+  plugin, give the `hermes plugins install` line and the settings it needs
+  in `config.yaml`. The repository's README states the spec revision, its
+  limits and what it sends where.
 - **`maintainer`**: your GitHub handle.
 - **`contract`**: where it stands on this project's
   [contract](../docs/polyfill-contract.md), as you state it:
@@ -107,6 +110,12 @@ ARD; Copilot has Skills and Apps built in. Its marketplace is
 (checked in Copilot CLI 1.0.105; not checked in 1.0.115, in the interactive
 TUI, or in VS Code). The [root README](../README.md#install) has
 the steps.
+
+This repository's Hermes Agent forms are in `polyfills/<polyfill>/hermes/`,
+with the installable plugin in `plugin/`. They cover Events, Skills, Server
+Cards and ARD; Apps has no Hermes form yet. `hermes plugins install` installs
+each one from its folder on GitHub; there is no marketplace file. The
+[root README](../README.md#install) has the install lines.
 
 ## What gets listed
 

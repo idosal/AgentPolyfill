@@ -15,7 +15,7 @@ shipped the extension yet, used by real people against real servers. Each one
 here names the spec revision it implements. Events and Skills have a test for
 every client rule and run against servers their authors didn't write. Skills
 passes the official conformance suite's Skills client scenarios in the Codex,
-Pi and Antigravity forms; the suite was not run for the OpenCode form. The
+Pi, Antigravity and Hermes forms; the suite was not run for the OpenCode form. The
 shared Events client passes the Events client scenarios proposed
 upstream (still an open pull request in the conformance suite); the Pi
 end-to-end run has limits listed below. Apps checks the spec requirement by
@@ -38,6 +38,8 @@ extension's `core/`. Host results are listed separately:
   v2.35.1 and CLI v1.5.17.
 - **Copilot CLI:** the fifth table gives its results, checked in Copilot CLI
   1.0.115.
+- **Hermes Agent:** the sixth table gives its results, checked in Hermes Agent
+  v0.23.4.
 
 ## What each one has been checked against
 
@@ -52,7 +54,7 @@ extension's `core/`. Host results are listed separately:
 Skills isn't in this table. Claude Code lists skills from MCP servers itself,
 in beta from 2.1.332, so there is no polyfill for it, and this project hasn't
 checked Claude Code's own support against SEP-2640. The Skills forms' results
-are under Codex (its README), Pi, OpenCode and Antigravity.
+are under Codex (its README), Pi, OpenCode, Antigravity and Hermes.
 
 Each one also says where it steps outside the spec. Events, by default, also
 talks to servers that advertise events in the form from before SEP-3415, and
@@ -121,6 +123,19 @@ Not checked in Copilot CLI: how a model of GitHub's choosing uses the tools.
 An install from GitHub, rather than from a clone, was checked in Copilot CLI
 1.0.105, and not in 1.0.115, in the interactive TUI, or in VS Code. Not
 checked in VS Code: the question Events asks before a watch.
+
+### Hermes Agent
+
+| Polyfill | Client rules and conformance | Checked in Hermes |
+|---|---|---|
+| Events | The shared client's clause table holds. The Events scenarios in conformance PR #541 pass the 14 checks that apply, through the bundled helper; the webhook scenario's three are unverified, not violated, as Hermes owns webhook delivery. hookbench's reference server passes 6 of 6 through Hermes. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/hermes/docs/conformance.md). | v0.23.4: a watch approved in Hermes, an event while the session was idle, the session waking and reading it; the hosted event-feeds demo by poll; the same through Hermes's shared gateway. |
+| Skills | The Codex client rules, all 60 in the table. The four upstream Skills client scenarios pass through the helper. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/hermes/docs/conformance.md). | v0.23.4: Hugging Face's server, its 25 skills listed as stubs, one loaded after Hermes's approval and checked against its digest, and a file it refers to read. |
+| Server Cards | Shared rules and Hermes tests for approval, config writes, removal, OAuth and session isolation. S-3, comparison with the live server, is not met. The suite has no Server Card scenarios. [README](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/hermes/README.md#tests). | v0.23.4: neon.com's Neon Docs found, added after Hermes's approval, and its tools reaching the model after `/reload-mcp`. |
+| ARD (v0.91 draft, beyond MCP) | Shared rules and Hermes tests for search, referrals, additions and coexistence with Server Cards. No upstream ARD conformance run. [README](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/hermes/README.md#tests). | v0.23.4: buildkite.com's `ard.json` and card read. Not checked against a public registry; search and adding are checked by the form's tests only. |
+| Apps | Not yet. | None. |
+
+Not checked in Hermes: how a model of your choosing uses the tools, and
+Windows.
 
 ## What a polyfill can tell you about a spec
 

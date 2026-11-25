@@ -10,13 +10,13 @@ and what happened.
 Each polyfill's own `SECURITY.md` describes what it checks and what it does
 not protect against:
 
-| Polyfill | Claude Code | Codex | Pi | OpenCode | Antigravity | Copilot CLI |
-|---|---|---|---|---|---|---|
-| Events | [SECURITY.md](polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](polyfills/events/codex/SECURITY.md) | [SECURITY.md](polyfills/events/pi/SECURITY.md) | [SECURITY.md](polyfills/events/opencode/SECURITY.md) | [SECURITY.md](polyfills/events/antigravity/SECURITY.md) | [SECURITY.md](polyfills/events/copilot/SECURITY.md) |
-| Apps | [SECURITY.md](polyfills/apps/claude-code/SECURITY.md) | not available | not available | not available | no form; the App shows MCP Apps itself | no polyfill: built into Copilot for graphical hosts |
-| Skills | no polyfill: built into Claude Code, in beta from 2.1.332 | [SECURITY.md](polyfills/skills/codex/SECURITY.md) | [SECURITY.md](polyfills/skills/pi/SECURITY.md) | [SECURITY.md](polyfills/skills/opencode/SECURITY.md) | [SECURITY.md](polyfills/skills/antigravity/SECURITY.md) | no polyfill: built into Copilot |
-| Server Cards | [SECURITY.md](polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](polyfills/server-cards/opencode/SECURITY.md) | [SECURITY.md](polyfills/server-cards/antigravity/SECURITY.md) | [SECURITY.md](polyfills/server-cards/copilot/SECURITY.md) |
-| ARD | [SECURITY.md](polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](polyfills/ard/codex/SECURITY.md) | [SECURITY.md](polyfills/ard/pi/SECURITY.md) | [SECURITY.md](polyfills/ard/opencode/SECURITY.md) | [SECURITY.md](polyfills/ard/antigravity/SECURITY.md) | [SECURITY.md](polyfills/ard/copilot/SECURITY.md) |
+| Polyfill | Claude Code | Codex | Pi | OpenCode | Antigravity | Copilot CLI | Hermes |
+|---|---|---|---|---|---|---|---|
+| Events | [SECURITY.md](polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](polyfills/events/codex/SECURITY.md) | [SECURITY.md](polyfills/events/pi/SECURITY.md) | [SECURITY.md](polyfills/events/opencode/SECURITY.md) | [SECURITY.md](polyfills/events/antigravity/SECURITY.md) | [SECURITY.md](polyfills/events/copilot/SECURITY.md) | [SECURITY.md](polyfills/events/hermes/SECURITY.md) |
+| Apps | [SECURITY.md](polyfills/apps/claude-code/SECURITY.md) | not available | not available | not available | no form; the App shows MCP Apps itself | no polyfill: built into Copilot for graphical hosts | not available |
+| Skills | no polyfill: built into Claude Code, in beta from 2.1.332 | [SECURITY.md](polyfills/skills/codex/SECURITY.md) | [SECURITY.md](polyfills/skills/pi/SECURITY.md) | [SECURITY.md](polyfills/skills/opencode/SECURITY.md) | [SECURITY.md](polyfills/skills/antigravity/SECURITY.md) | no polyfill: built into Copilot | [SECURITY.md](polyfills/skills/hermes/SECURITY.md) |
+| Server Cards | [SECURITY.md](polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](polyfills/server-cards/opencode/SECURITY.md) | [SECURITY.md](polyfills/server-cards/antigravity/SECURITY.md) | [SECURITY.md](polyfills/server-cards/copilot/SECURITY.md) | [SECURITY.md](polyfills/server-cards/hermes/SECURITY.md) |
+| ARD | [SECURITY.md](polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](polyfills/ard/codex/SECURITY.md) | [SECURITY.md](polyfills/ard/pi/SECURITY.md) | [SECURITY.md](polyfills/ard/opencode/SECURITY.md) | [SECURITY.md](polyfills/ard/antigravity/SECURITY.md) | [SECURITY.md](polyfills/ard/copilot/SECURITY.md) | [SECURITY.md](polyfills/ard/hermes/SECURITY.md) |
 
 In T3 Code, which runs Codex, Claude Code, OpenCode and other agents for
 you, the plugins above run as they do in those hosts (checked with Codex). Events has a form of its own there, for Codex
@@ -35,6 +35,22 @@ registry search or a server addition. None auto-approves or reads Pi's
 stored credentials (`mcp-auth.json`, `auth.json`). Pi's permissions remain
 the boundary. Skills also asks before a cross-server read while a served
 skill is loaded, naming both servers (SEP-2640 X8).
+
+Hermes Agent runs plugins in its gateway, with your permissions. Each Hermes
+polyfill puts its consequential step (a watch, a skill load, a registry search
+or a server addition) to Hermes's own approval, through a `pre_tool_call`
+approve directive, and Hermes fails closed where nobody can answer. Where
+Hermes would approve without asking (`--yolo`, `/yolo`, `hermes -z`,
+`approvals.mode: off`), or a polyfill can't tell, it refuses that step
+instead; Hermes's unattended approve modes (`approvals.cron_mode`,
+`single_query_mode`, `unattended_mode: approve`) still approve where nobody is
+present, as you set them to, and a kept "session" or "always" answer covers
+exactly what the question showed, in those runs too. None
+reads Hermes's stored credentials (`mcp-tokens/`, `.env`, `auth.json`), and
+Events and Skills fill in no `${VAR}` from `.env`. Skills also asks before a
+cross-server read while a served skill is loaded, naming both servers
+(SEP-2640 X8), and before every resource read if it can't tell what a session
+loaded.
 
 OpenCode's shipped permission rules allow every action. Each OpenCode
 polyfill puts its consequential step (a watch, a skill load, a registry

@@ -38,18 +38,18 @@ documents and adds a server to Claude Code's own config, only when you press
 Each polyfill's own `SECURITY.md` describes what it checks and what it does
 not protect against, in each host:
 
-| Polyfill | Claude Code | Codex | Pi | OpenCode | Antigravity | Copilot CLI |
-|---|---|---|---|---|---|---|
-| Events | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/SECURITY.md) |
-| Skills | no polyfill: built into Claude Code, in beta from 2.1.332 | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/SECURITY.md) | no polyfill: built into Copilot CLI |
-| Server Cards | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/antigravity/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/SECURITY.md) |
-| Apps | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md) | not available | not available | not available | no form; the App shows MCP Apps itself | no polyfill: built into VS Code's Copilot harness; none in the terminal |
-| ARD | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/antigravity/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/copilot/SECURITY.md) |
+| Polyfill | Claude Code | Codex | Pi | OpenCode | Antigravity | Copilot CLI | Hermes |
+|---|---|---|---|---|---|---|---|
+| Events | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/hermes/SECURITY.md) |
+| Skills | no polyfill: built into Claude Code, in beta from 2.1.332 | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/SECURITY.md) | no polyfill: built into Copilot CLI | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/hermes/SECURITY.md) |
+| Server Cards | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/antigravity/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/hermes/SECURITY.md) |
+| Apps | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md) | not available | not available | not available | no form; the App shows MCP Apps itself | no polyfill: built into VS Code's Copilot harness; none in the terminal | not yet |
+| ARD | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/antigravity/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/copilot/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/hermes/SECURITY.md) |
 
 The following per-polyfill summaries describe the Claude Code forms;
 [Pi's security notes](#in-pi), [OpenCode's](#in-opencode),
-[Antigravity's](#in-antigravity) and [Copilot CLI's](#in-copilot-cli) follow
-them.
+[Antigravity's](#in-antigravity), [Copilot CLI's](#in-copilot-cli) and
+[Hermes's](#in-hermes) follow them.
 
 ### Events
 
@@ -89,7 +89,7 @@ servers itself, in beta from 2.1.332 ([Skills](./skills#claude-code)). That is
 Claude Code's own feature, and this project doesn't describe or vouch for how
 it handles a served skill. The Skills forms for
 [Codex](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md),
-[Pi](#in-pi) and [OpenCode](#in-opencode) have their own accounts.
+[Pi](#in-pi), [OpenCode](#in-opencode) and [Hermes](#in-hermes) have their own accounts.
 
 ### Server Cards
 
@@ -376,6 +376,69 @@ by you. Server Cards and ARD store nothing on disk; servers you add stay in
 `~/.copilot/mcp-config.json`. See
 [Turning one off](./getting-started#turning-one-off) for off switches,
 uninstalling and removing saved data.
+
+## In Hermes
+
+The Python plugin runs in Hermes's gateway and starts a Node helper. Actions
+go through Hermes's own approval on the session's surface, with once,
+session, always or deny. An unanswerable approval fails closed. What the
+model does afterwards still uses Hermes's ordinary approvals.
+
+- **Events:** starting and stopping a watch go through approval, keyed by
+  the whole watch. Its question shows the server, event type, filters, note
+  and replay window. A wake carries no server-written text and only reaches
+  the session that set the watch. Hermes receives it as a user message, so
+  `[mcp-events]` identifies its source. The injection grant covers the
+  profile, chat apps included, even though the plugin uses only that session.
+  A watch wakes at most once a minute, a session 30 times an hour. No watch
+  starts in `--yolo`, `/yolo`, `hermes -z` or `approvals.mode: off`; in a session that
+  approves without asking, an event from a watch started before can lead to
+  actions without a prompt. Unattended approve modes still approve a watch
+  where nobody is present, and a kept answer covers its exact watch.
+- **Skills:** approvals are bound to the server, URI and manifest hash.
+  A changed skill asks again; a dynamic skill asks every time. Each file is
+  checked before the model sees it. To preview SKILL.md, deny and type the
+  `/mcp-skills show` line; the preview is shown only to you. Resource reads
+  from another server ask each time, including after a restart; through Tool
+  Search too, as read in Hermes's source, not tested. The generic resource tool cannot bypass a served skill's load.
+  Loads and cross-server reads are refused in `--yolo`, `/yolo`, `hermes -z` or
+  `approvals.mode: off`; unattended approve modes still approve them.
+  Telling uses Hermes's unpublished gate test; where it can't be evaluated,
+  they're refused too.
+- **Server Cards:** an approval names the exact change, including the server,
+  URL, headers with their values (secrets as `${VAR}` references), transport, file and undo. Existing names are refused. Secret inputs
+  stay environment-variable references, and the plugin never handles OAuth
+  tokens. Fetching checks the address when it connects, refusing a public
+  name resolving to a private address; routing headers are refused too.
+  There is no live card comparison. `/reload-mcp` connects an added server.
+  Removal is limited to an unchanged entry this plugin recorded. No server is
+  added in `--yolo`, `/yolo`, `hermes -z` or `approvals.mode: off`;
+  unattended approve modes still approve one where nobody is present, and a
+  kept answer covers its exact addition. Hermes's own later connection to an
+  added server isn't address-checked, and a same-name entry written between
+  the plugin's check and Hermes's save would be replaced.
+- **ARD:** no registry is chosen for you. The approval names the endpoint and
+  exact query. Session and always cover only that exact query to that
+  endpoint; different words ask again. Referrals need separate calls and
+  approvals. Adding uses the Server Cards checks and a separate approval. No
+  search is sent and no server added in `--yolo`, `/yolo`, `hermes -z` or
+  `approvals.mode: off`; unattended approve modes still approve them where
+  nobody is present, and a kept answer covers its exact search or addition.
+- **Apps:** no Hermes form yet.
+
+Events and Skills connect only to servers named in their own
+`plugins.entries.<plugin id>.settings.servers`. They read `config.yaml` as
+written, stay in their own profile, and leave alone `auth: oauth` servers
+and entries that take `${VAR}` from Hermes's `.env`. Events also leaves
+`events: true` servers to Hermes. Neither reads stored credentials, and the
+helpers run without model-provider keys in their environment.
+
+Events keeps watches, events, cursors, wake counts and a log in
+`$HERMES_HOME/mcp-events/`. Skills keeps stubs in `$HERMES_HOME/mcp-skills/`
+and what each session loaded in Hermes's plugin state. Server Cards and ARD
+keep discovery state in memory and ownership fingerprints in their own
+`added.json` files. Added servers stay in `config.yaml` when a plugin is
+disabled. See [Turning one off](./getting-started#turning-one-off).
 
 ## In T3 Code
 

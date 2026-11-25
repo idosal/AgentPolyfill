@@ -60,6 +60,13 @@ tool prompt comes first, then the plugin's form names the registry and the
 exact query. Where nobody can be asked (`copilot -p`, even with `--yolo`),
 Copilot declines the form and nothing is sent. Copilot has no bundle; this
 plugin is installed separately too.
+
+In Hermes, name the registry or set `ARD_DISCOVERY_REGISTRY` in the
+gateway's environment. Every search goes through Hermes's approval, naming
+the exact endpoint and query. Session and always cover only that exact query
+to that endpoint; different words ask again. A referral needs a separate
+call and approval; a decline or an unanswerable approval sends no query.
+
 :::
 
 It implements ARD v0.91 at commit `f073b1ea9b`: §5.1 (domain discovery), §5.3
@@ -98,6 +105,10 @@ agy plugin install ./polyfills/ard/antigravity/plugin
 git clone https://github.com/idosal/AgentPolyfill.git
 copilot plugin marketplace add ./AgentPolyfill
 copilot plugin install ard-discovery@agent-polyfill
+```
+
+```bash [Hermes]
+hermes plugins install idosal/AgentPolyfill/polyfills/ard/hermes/plugin --enable
 ```
 
 :::
@@ -187,6 +198,22 @@ It works on its own, with its own `add_mcp_server`, the one from the Server
 Cards Copilot form. Installing `mcp-server-cards` beside it is optional;
 Copilot keeps the two tools apart by server name.
 
+### In Hermes
+
+Hermes Agent v0.23.4 (the version tested), with Node 20 or newer on the
+gateway's PATH. `AGENTPOLYFILL_NODE` can name another executable. The plugin
+ships its Python code and bundled helper, with no npm install needed.
+
+It works on its own, with `ard_add_mcp_server` and `ard_remove_mcp_server`.
+Those names avoid a collision with Server Cards, so both plugins can run
+together. Each owns its own additions.
+
+Disable it with `hermes plugins disable ard-discovery`. Servers stay in
+`mcp_servers` in `config.yaml`; ask the plugin to remove an unchanged entry
+it added, or use `hermes mcp remove <name>`, then `/reload-mcp`. Its removal
+record is `$HERMES_HOME/ard-discovery/added.json`. Discovery state lives in
+memory; rediscover after restarting the helper or gateway.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/claude-code)
@@ -195,6 +222,7 @@ The sections below name the host where behavior differs. Full guides by host:
 - [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/opencode)
 - [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/antigravity)
 - [Copilot CLI](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/copilot)
+- [Hermes](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/hermes)
 
 ## Try it
 
@@ -215,6 +243,11 @@ Then ask to add it:
 - **Copilot CLI:** after Copilot's tool prompt, accept the plugin's form.
   Run `/mcp reload`, and sign in when Copilot asks (`/mcp auth buildkite`).
   Adding through this plugin is checked by the form's tests only.
+- **Hermes:** approve the addition, then run `/reload-mcp`. If the result
+  names an OAuth challenge, use `hermes mcp login <name>` first. The README's
+  first question is "Use ARD to discover the MCP servers neon.com publishes."
+  Checked in Hermes v0.23.4: discovery of buildkite.com's `ard.json` and card.
+  Search and adding are checked by the form's tests only.
 
 To try search, start the demo registry from a clone of the repository (it is a
 demo, not a real registry: it reads the live catalogs of ten publishers and
@@ -233,6 +266,9 @@ The query stays local with this demo; fetching cards and checking publishers
 still makes public GETs. This search was checked in Pi 1.6.0, OpenCode 2.4.1
 and Copilot CLI 1.0.115: it goes out only after the host's or the plugin's
 search question.
+
+Not checked in Hermes: a search of a public registry. The form's tests cover
+an approved search, a referral approved separately and an addition.
 
 ## Using it, step by step
 
@@ -337,6 +373,32 @@ after `/mcp reload`. Where nobody can be asked (`copilot -p`, with
 `--allow-all-tools` or `--yolo`), Copilot declines the form, so nothing is
 sent or written.
 
+### In Hermes
+
+`ard_discover` reads a domain's ARD manifest and AI Catalog sources, and
+checks the cards. It is read-only. `ard_search` sends up to 300 plain
+characters to one registry endpoint after Hermes's approval. No registry
+is built in. The question shows the endpoint and full query. Session and
+always cover only that exact query to that endpoint. The approval key includes
+the endpoint, query and referral; different words ask again. Where Hermes
+approves without asking (`--yolo`, `/yolo`, `hermes -z`, `approvals.mode: off`), the
+plugin refuses the search, and an addition, instead: Hermes would answer for
+you, and both need your own yes. Hermes's unattended approve modes
+(`approvals.cron_mode`, `single_query_mode` or `unattended_mode: approve`)
+still approve them where nobody is present, and a kept "session" or "always"
+answer covers its exact search or addition.
+
+A referral is returned for another `ard_search` call with `referral: true`.
+It needs its own approval and must be a referral this session received for
+that exact query. Referrals stop after one hop. The plugin checks publisher
+catalogs, labels unconfirmed results and prefers a publisher's own card.
+
+Adding needs a separate approval through `ard_add_mcp_server`, using the
+[Server Cards Hermes flow](./server-cards#using-it-step-by-step). It writes
+`mcp_servers` in `config.yaml`; `/reload-mcp` connects the server. The
+`ard_remove_mcp_server` tool removes only unchanged entries this plugin added,
+with another approval. Neither operation removes secrets or token files.
+
 ## Settings
 
 In Pi, use `ARD_DISCOVERY_REGISTRY` for your chosen registry and
@@ -364,6 +426,11 @@ can't detect native ARD support. Copilot 1.0.115's own discovery, a built-in
 `discover-resources` skill searching a catalogue Copilot is given (by its
 text; not checked), wasn't seen to read `ard.json` or speak ARD's registry search,
 so the plugin doesn't stand down for it.
+
+In Hermes, `ARD_DISCOVERY_REGISTRY` goes in the gateway's environment.
+`hermes plugins disable ard-discovery` or `ARD_DISCOVERY_DISABLED=1` turns
+the plugin off, leaving approved servers in Hermes's configuration. Hermes
+v0.23.4 has no native ARD support to detect.
 
 In Claude Code, in `/config`, under the plugin:
 
@@ -441,6 +508,19 @@ In Claude Code, in `/config`, under the plugin:
   plugin's server loads, but no search or add was checked there. Its add
   form is the Server Cards form, which was checked there.
 - **Adding is checked by the form's tests only.**
+
+### In Hermes
+
+- **A lasting approval covers one request.** Session and always cover that
+  exact query to that endpoint only; different words ask again.
+- **Referrals require separate calls and approvals.** Receiving one is not
+  permission to send your query there.
+- **The Server Cards limits apply.** Connecting needs `/reload-mcp`; there
+  is no live card comparison, OAuth detection is bounded, and cards with
+  only the stateless 2026 protocol are refused pending verification.
+- **Only MCP cards are offered for addition.** Other artifact types are ignored.
+- **No live registry search was sent.** The live run covered domain discovery
+  with a scripted model; searches and additions used local test fixtures.
 
 ### In T3 Code
 
@@ -539,6 +619,23 @@ documents the shared ARD and Server Cards rules and Copilot's questions
 1.0.115: `ard_discover` reading buildkite.com's catalogs, and a search of
 the demo registry going out only after the tool prompt and "Send the
 search".
+
+### In Hermes
+
+Every search goes through Hermes's approval, naming the endpoint and query,
+and none is sent where Hermes approves without asking. A kept session or
+always answer covers that exact query to that endpoint only; different words
+ask again. A referral needs its own approval. Adding
+uses the Server Cards checks and a separate approval. Fetching checks the
+address at connection time, refusing private addresses behind public names.
+The plugin reads no credential files. See
+[Hermes's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/hermes/SECURITY.md).
+
+The [README](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/hermes/README.md#tests)
+records tests in Hermes v0.23.4 for declined and approved searches, separate
+referral approvals, additions and coexistence with Server Cards. With a
+scripted model, the live run read buildkite.com's `ard.json` and validated
+its card. No live registry search or upstream ARD conformance run is claimed.
 
 ## More
 

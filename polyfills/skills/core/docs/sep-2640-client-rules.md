@@ -5,7 +5,7 @@ lists every one of those rules and gives each an id. It says nothing about any
 host: whether a form meets a rule, how, and where that is tested is in that
 form's own conformance page, which uses these ids:
 [Codex](../../codex/docs/conformance.md), [Pi](../../pi/docs/conformance.md),
-[OpenCode](../../opencode/docs/conformance.md).
+[OpenCode](../../opencode/docs/conformance.md), [Hermes](../../hermes/docs/conformance.md).
 
 **The source** is SEP-2640, status Final:
 [`seps/2640-skills-extension.md`](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md)

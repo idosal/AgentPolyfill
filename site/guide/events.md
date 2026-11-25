@@ -23,6 +23,8 @@ Final). The forms fill these gaps:
   gated calls are refused.
 - **Copilot CLI:** no Events support in Copilot CLI 1.0.115; the polyfill is
   a plugin holding a Copilot extension, so it needs experimental mode.
+- **Hermes:** Hermes Agent v0.23.4 delivers webhooks itself. The plugin adds
+  poll and push, and leaves servers with `events: true` to Hermes.
 
 <Recording
   cut="events"
@@ -61,6 +63,10 @@ agy plugin install ./polyfills/events/antigravity/plugin
 git clone https://github.com/idosal/AgentPolyfill.git
 copilot plugin marketplace add ./AgentPolyfill
 copilot plugin install mcp-events@agent-polyfill
+```
+
+```bash [Hermes]
+hermes plugins install idosal/AgentPolyfill/polyfills/events/hermes/plugin --enable
 ```
 
 :::
@@ -146,6 +152,16 @@ TUI, or in VS Code. To remove it, run
 `copilot plugin uninstall mcp-events@agent-polyfill`. Watches and events stay
 in `~/.copilot/mcp-events/`; delete that folder too to remove them.
 
+**In Hermes** (v0.23.4, the version tested), Node 20 or newer must be on the
+gateway's PATH; `AGENTPOLYFILL_NODE` can name another executable. Name the
+servers in `plugins.entries.mcp-events.settings.servers` in your profile's
+`config.yaml`, and set `allow_gateway_injection: true` in that plugin entry
+to let an event start a turn. The demo below includes both. Without the
+injection grant, events are stored but sessions cannot be woken.
+
+Remove it with `hermes plugins remove mcp-events`. Watches, events, cursors,
+wake counts and `mcp-events.log` are kept in `$HERMES_HOME/mcp-events/`.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/claude-code)
@@ -154,6 +170,7 @@ The sections below name the host where behavior differs. Full guides by host:
 - [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/opencode)
 - [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity)
 - [Copilot CLI](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/copilot)
+- [Hermes](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/hermes)
 
 ## Try it
 
@@ -187,6 +204,19 @@ agy mcp add feeds https://event-feeds.idosalomon.workers.dev/mcp
 copilot mcp add --transport=http feeds https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
+```yaml [Hermes]
+# config.yaml in your Hermes profile
+mcp_servers:
+  feeds:
+    url: https://event-feeds.idosalomon.workers.dev/mcp
+plugins:
+  entries:
+    mcp-events:
+      settings:
+        servers: [feeds]
+      allow_gateway_injection: true
+```
+
 :::
 
 Start your host in the same folder:
@@ -205,6 +235,9 @@ Start your host in the same folder:
   Antigravity.
 - **Copilot CLI:** `copilot --experimental`. Copilot's tool prompt comes
   first, then the plugin's own question before the watch starts.
+- **Hermes:** `hermes`, with the YAML above merged into your profile's
+  `config.yaml`. Hermes asks you to approve the watch. The wake starts with
+  `[mcp-events]`; the model reads the event and tells you what you typed.
 
 For the button demo, ask:
 
@@ -380,6 +413,27 @@ answers. A watch belongs to the Copilot session that set it;
 Copilot CLI 1.0.115: a watch set through Copilot's tool prompt, an idle
 session waking and the event read.
 
+### In Hermes
+
+Starting and stopping a watch go through Hermes's own approval, on the
+session's surface: once, session, always or deny. The question shows the
+whole watch, including the server, event type, filters and note. A kept
+approval covers that exact watch only. Where Hermes approves without asking
+(`--yolo`, `/yolo`, `hermes -z`, `approvals.mode: off`), no watch starts: a watch starts
+turns later by itself, so it needs your own yes. Stopping one still goes to
+Hermes. Reading events asks nothing.
+
+An event starts a turn through `ctx.inject_message`, in the session that
+set the watch. A busy session handles it after the current turn. The wake
+names the watch, your server's name and event ids; it contains no text from
+the server. Hermes receives it as a user message, so its first line says
+that the plugin sent it. The model calls `get_event` to read the payload.
+
+Saved watches resume from their cursors at the first session or turn after
+a gateway restart. Checked in Hermes v0.23.4: the hosted button demo by poll,
+and a watch and a wake through Hermes's shared gateway, which the TUI and
+Desktop attach to.
+
 ## What Claude can do with it
 
 The mod gives Claude six tools. You do not call them yourself; you ask in
@@ -446,6 +500,14 @@ header, written out or from `${VAR}`. Copilot's sign-in can't be used, and
 neither can a variable Copilot strips from extensions. See
 [Copilot's limits](#limits).
 
+In Hermes, local commands and URLs with or without headers work, if named
+in `plugins.entries.mcp-events.settings.servers`. The helper opens its own
+connection. Servers with `events: true`, `auth: oauth`, disabled entries,
+and entries that take `${VAR}` from Hermes's `.env` are left alone. Client
+certificates, per-user identity headers and legacy SSE aren't supported.
+`list_event_types` names each server left alone and why. The configuration
+is read again at every turn and tool call.
+
 ### In Claude Code
 
 - Servers that implement the Events extension (SEP-3415), over stdio or
@@ -485,6 +547,11 @@ Copilot forms. The plugin reads `~/.mcp-events/relay.json`, which the relay's
 setup writes. Copilot's
 [relay notes](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/README.md#webhook-delivery-the-relay)
 link to the setup.
+
+Hermes uses its own webhook delivery, with `events: true` on a server and a
+public address for its webhook listener. This form adds poll and push only;
+it uses none of these relays and leaves those servers to Hermes. A webhook-only
+event type gets a reply pointing to Hermes's `events: true` setting.
 
 Some servers deliver only by webhook, and a webhook needs a public https
 address, which Claude Code on your machine does not have. A relay is that
@@ -570,6 +637,18 @@ Checked in Copilot CLI 1.0.115 on macOS. The tests also run on Linux in CI.
 Not checked on Windows. Not checked in VS Code: the plugin's own watch
 question.
 
+### In Hermes
+
+The Python plugin runs in the gateway, where CLI, TUI, Desktop and chat-app
+sessions run. The Node helper runs on the gateway's machine. The injection
+grant can reach any session in that profile, including chat apps; the
+plugin only wakes the session that set the watch.
+
+Checked in Hermes Agent v0.23.4, including the shared gateway the TUI and
+Desktop attach to. With Tool Search on (Hermes's default) a model may not find
+the tools; `tools.tool_search.enabled: off` lists them directly. Not checked
+on Windows.
+
 ## Settings
 
 In Pi, set environment variables before starting `pi`. `MCP_EVENTS_OFF=1`
@@ -606,6 +685,12 @@ watch, leaving watches to Copilot's rules alone. It can't detect native
 Events support. The full
 [Copilot settings table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/README.md#settings)
 lists its controls.
+
+In Hermes, set the server list and injection grant in the plugin's entry in
+`config.yaml`. `MCP_EVENTS_WAKES_PER_HOUR`, `MCP_EVENTS_WAKE_GAP_S` and
+`MCP_EVENTS_PRE_STANDARD` go in the gateway's environment. Disable the form
+with `hermes plugins disable mcp-events`. It already leaves `events: true`
+servers to Hermes; there is no detection of future native poll or push support.
 
 The table below is for Claude Code.
 
@@ -743,6 +828,26 @@ Environment variables, for example in the `env` block of
   `-p` has nobody to answer the plugin's question, so a watch is refused, and
   the session ends with the prompt. `--acp` loads no extensions.
 
+### In Hermes
+
+- **Its own connection.** A local server runs twice. Hermes's OAuth sign-in
+  and secrets from `.env` are out of reach.
+- **A wake is a user message.** Its `[mcp-events]` prefix identifies the
+  plugin. Hooks can't tell who started a turn, so another plugin's turn can
+  count as you writing and end the wake pause early.
+- **A broad injection grant.** `allow_gateway_injection` covers the whole
+  profile, chat apps included; the plugin wakes only the watch's session.
+- **Watches resume at the first session or turn,** not at gateway startup.
+  Configuration changes take effect at the next turn or tool call, not at
+  `/reload-mcp` itself.
+- **Limited wakes.** A watch wakes at most once a minute, a session 30 times
+  an hour, then one notice and a pause. `recent_events` lists what waited.
+  After a crash, an event can be announced twice or not at all; it stays stored.
+- **No new watches in YOLO.** `--yolo`, `/yolo`, `hermes -z` and `approvals.mode: off`
+  refuse new watches, and so does a plugin that can't tell. Unattended approve
+  modes still approve them. Telling uses Hermes's unpublished gate test.
+- **Not tested on Windows.**
+
 ## Security
 
 ### In Claude Code
@@ -858,6 +963,23 @@ conformance PR #541 pass 17 of 17, end to end through the bundled extension.
 hookbench's reference server passes 7 of 7, and this repository's
 event-feeds 3 of 3. See
 [Copilot's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/docs/conformance.md).
+
+### In Hermes
+
+A watch goes through Hermes's approval, keyed by the whole watch, and none
+starts where Hermes approves without asking. The wake
+contains nothing the server wrote; payloads reach the model as tool results,
+marked with their server. What the model does next uses Hermes's ordinary
+approvals. In YOLO or `approvals.mode: off`, an event from a watch started
+before can lead to actions without a prompt. Only the session that set the watch is woken, and only
+servers named in the plugin's settings are used. The plugin reads no stored
+credentials. See [Hermes's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/hermes/SECURITY.md).
+
+The [conformance record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/hermes/docs/conformance.md)
+covers the shared client and Hermes's wake and approval rules. The upstream
+suite passed all 14 applicable checks through the helper; webhook checks
+were unverified, not violated, because Hermes owns that delivery. hookbench's
+reference server passes 6 of 6 through Hermes.
 
 ## The mod's own runtime
 

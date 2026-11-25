@@ -1,17 +1,17 @@
 ---
-description: mcp-skills adds the client side of the MCP Skills extension (SEP-2640) to Codex, Pi, OpenCode and Antigravity. Skills your MCP servers serve are listed, approved once, loaded, and checked against the server's digests. Install and limits are listed per host. Claude Code lists skills from MCP servers itself, in beta, and Copilot CLI has Skills over MCP built in.
+description: mcp-skills adds the client side of the MCP Skills extension (SEP-2640) to Codex, Pi, OpenCode, Antigravity and Hermes Agent. Skills your MCP servers serve are listed, approved once, loaded, and checked against the server's digests. Install and limits are listed per host. Claude Code lists skills from MCP servers itself, in beta, and Copilot CLI has Skills over MCP built in.
 ---
 
 # Skills
 
-`mcp-skills` lets Codex, Pi, OpenCode and Antigravity use the [skills](https://agentskills.io/) your
+`mcp-skills` lets Codex, Pi, OpenCode, Antigravity and Hermes use the [skills](https://agentskills.io/) your
 MCP servers serve: they appear next to your own skills, the agent loads one
 when a task calls for it, and reads the files it refers to as it needs them.
 The skill's content is not installed locally, and you approve each skill once.
 It adds the client side of
 the MCP **Skills** extension, `io.modelcontextprotocol/skills`
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md),
-Final). The Codex, Pi, OpenCode and Antigravity forms below supply MCP Skills support those
+Final). The Codex, Pi, OpenCode, Antigravity and Hermes forms below supply MCP Skills support those
 hosts haven't shipped natively yet (for Codex, openai/codex#48000). Claude Code
 has its own, in beta: see [Claude Code](#claude-code). Copilot CLI has Skills
 over MCP built in: see [Copilot CLI](#copilot-cli).
@@ -79,6 +79,10 @@ opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/skills/ope
 git clone https://github.com/idosal/AgentPolyfill.git
 cd AgentPolyfill
 agy plugin install ./polyfills/skills/antigravity/plugin
+```
+
+```bash [Hermes]
+hermes plugins install idosal/AgentPolyfill/polyfills/skills/hermes/plugin --enable
 ```
 
 :::
@@ -158,12 +162,25 @@ Remove it with `agy plugin uninstall mcp-skills`. Its state stays in
 `~/.gemini/config/skills/mcp-skills-served--*`; delete those too to remove
 them.
 
+### In Hermes
+
+Hermes Agent v0.23.4 (the version tested), with Node 20 or newer on the
+gateway's PATH. `AGENTPOLYFILL_NODE` can name another executable. Name the
+servers in `plugins.entries.mcp-skills.settings.servers` in your profile's
+`config.yaml`; the demo below includes this. This is the plugin's own grant,
+separate from Hermes's `mcp_allowlist`.
+
+Remove it with `hermes plugins remove mcp-skills`. Its stubs are kept in
+`$HERMES_HOME/mcp-skills/`; what each session loaded is kept in Hermes's
+plugin state.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi)
 - [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/opencode)
 - [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/antigravity)
+- [Hermes](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/hermes)
 
 ## Try it
 
@@ -190,6 +207,18 @@ pi mcp add huggingface --url https://huggingface.co/mcp
 agy mcp add huggingface https://huggingface.co/mcp
 ```
 
+```yaml [Hermes]
+# config.yaml in your Hermes profile
+mcp_servers:
+  huggingface:
+    url: https://huggingface.co/mcp
+plugins:
+  entries:
+    mcp-skills:
+      settings:
+        servers: [huggingface]
+```
+
 :::
 
 In Codex, the served skills appear in the `$` list after you ask once to list
@@ -204,6 +233,11 @@ the served skills, from the next turn. Start your host in the same folder:
   help, not in Antigravity's docs. The App doesn't ship `agy`; there, add
   the server under Customizations > Installed > MCP Servers, or in
   `~/.gemini/config/mcp_config.json`.
+- **Hermes:** `hermes`, with the YAML above in your profile's `config.yaml`.
+  The plugin looks at the server on the first turn; skills are listed from
+  the next session as `mcp-skills:huggingface-<name>`. `list_skills` and
+  `load_skill` reach them at once. You can ask "Use the Hugging Face
+  local-models skill" with the question below.
 
 Ask something one of its skills covers:
 
@@ -291,6 +325,24 @@ CLI: once a served skill is loaded, the plugin's hook asks before a
 `read_resource` from another server, naming both, but CLI 1.5.17 ignores
 that question (no card; the read goes ahead).
 
+### In Hermes
+
+Hermes lists a stub for each served skill, marked with its server. It says
+to use `load_skill`. Hermes's own approval names the skill, server, files and
+size, with once, session, always and deny. A kept approval covers that
+version only; a changed skill asks again, and a dynamic skill asks every
+time. To read SKILL.md first, deny and type the
+`/mcp-skills show <server> <skill URI>` line in the question. That preview is checked against its digest
+and shown to you only. Then ask for the skill again if you want it.
+
+The files are fetched only as needed and checked against the manifest.
+While a served skill is loaded, Hermes asks before each resource read from
+another server, naming both. That stays in force after a restart. Through
+Tool Search it should too (Hermes runs the hook for each call it makes, read
+in Hermes's source); that isn't tested. Hermes's generic resource tool cannot read served skill files
+in place of `load_skill`. Turn one off with `skills.disabled`, using its
+`mcp-skills:` name.
+
 ## Which servers work
 
 In Codex, a local command, a URL with no credentials and a URL with
@@ -321,6 +373,13 @@ logs or shows those values. A header can be added with
 that need Antigravity's own sign-in are skipped. It never opens
 `~/.gemini/antigravity/mcp_oauth_tokens.json`.
 
+In Hermes, only servers named in the plugin's `settings.servers` are used.
+Local commands and URLs with headers in `config.yaml` work. `auth: oauth`,
+entries that take `${VAR}` from `.env`, client certificates, per-user identity
+headers and legacy SSE don't. Disabled servers are left alone. `list_skills`
+names each server it left alone and why. The plugin reads no stored credentials
+and reads the configuration again at every turn and tool call.
+
 ## How it works
 
 Each form does the same things, with the same client code underneath
@@ -333,8 +392,8 @@ Each form does the same things, with the same client code underneath
 - **Listing.** The skills are added to the host's own skill list, each marked
   with its server.
 - **Approving.** Before a skill is loaded, you're asked: in Codex's form, in a
-  Pi dialog, through OpenCode's permission rules, or in Antigravity's approval
-  card.
+  Pi dialog, through OpenCode's permission rules, in Antigravity's approval
+  card, or through Hermes's approval.
 - **Loading.** The form fetches `SKILL.md` from that server, checks its size and
   SHA-256 digest against what the server published, compares its frontmatter
   with the published one field by field, and only then hands the text to the
@@ -419,6 +478,24 @@ protocol, no vendor extension.
 - **Not in the IDE.** The IDE documents no plugin hooks, so the forms aren't
   supported there, and their gated calls are refused.
 
+### In Hermes
+
+- **Its own connection.** A local server runs twice. Hermes's OAuth sign-in
+  and entries that take secrets from `.env` are out of reach.
+- **New skills are listed from the next session.** The first session's
+  first turn discovers them; `list_skills` and `load_skill` reach them at once.
+  At most 100 are listed; `list_skills` reaches every one.
+- **Previewing takes a step of your own.** Deny, then type `/mcp-skills show`.
+  A dynamic skill is generated again at load time and may differ from the preview.
+- **No served skills in YOLO.** `--yolo`, `/yolo`, `hermes -z` and `approvals.mode: off`
+  refuse loads and cross-server reads. Unattended approve modes still approve
+  them. Telling uses Hermes's unpublished gate test; where it can't be
+  evaluated (another Hermes version, `plugins.isolation: host`), loads are
+  refused too.
+- **Tool Search.** With Tool Search on (Hermes's default) a model may not
+  find `load_skill`; `tools.tool_search.enabled: off` lists it directly.
+- **Not checked on Windows.**
+
 ### In T3 Code
 
 T3 Code runs Codex, Claude Code or OpenCode for you, and the form for the
@@ -488,6 +565,16 @@ before a cross-server read while a skill is loaded, but Antigravity (CLI
 1.5.17, App 2.35.1) ignores that question. See
 [Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/SECURITY.md).
 
+### In Hermes
+
+The approval is bound to the server, skill URI and manifest hash; a different
+version cannot load under that answer. Dynamic skills ask each time.
+Every file is checked against its size and digest. Cross-server resource
+reads ask each time, and Hermes's generic resource tool cannot bypass a skill
+load. What the model does after loading uses Hermes's own approvals. The
+plugin reads only granted servers in its own profile and no stored credentials.
+See [Hermes's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/hermes/SECURITY.md).
+
 ## How it is tested
 
 Every rule the Skills extension sets for a client has an id in
@@ -535,6 +622,15 @@ a new skill's load approved, a changed one asked about again, and a declined
 load, which reads nothing. The official MCP conformance suite's four
 SEP-2640 client scenarios pass (suite at `c8625de`).
 
+### In Hermes
+
+The [conformance table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/hermes/docs/conformance.md)
+covers all 60 client rules using the Codex form's client logic. All four
+upstream Skills client scenarios passed through the helper. Tests in Hermes
+v0.23.4 cover approvals, changed versions, previews, cross-server reads and
+listing in the next session. Hugging Face's server passes 4 of 4 through
+Hermes.
+
 ## Settings
 
 In Codex there is nothing to set. For the rare case that needs it,
@@ -562,13 +658,19 @@ turns the plugin off; so does `agy plugin disable mcp-skills`. It cannot
 detect native Skills support: Antigravity tells plugins nothing about its
 MCP client's extensions. See the [Antigravity settings](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/README.md#settings-and-stand-down).
 
+In Hermes, `plugins.entries.mcp-skills.settings.servers` lists the servers
+the plugin may use. `skills.disabled` turns off individual served skills.
+`hermes plugins disable mcp-skills` turns off the form. Hermes v0.23.4 has
+no native MCP Skills support to detect; disable it when that ships.
+
 ## More
 
 On GitHub, each form's folder has its full README, its `SECURITY.md` and its
 conformance table:
 [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex),
 [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi),
-[OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/opencode) and
-[Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/antigravity).
+[OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/opencode),
+[Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/antigravity) and
+[Hermes](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/hermes).
 [What hosts would need to change](./how-it-works) says what each host would
 need to offer for these forms to work with every server.

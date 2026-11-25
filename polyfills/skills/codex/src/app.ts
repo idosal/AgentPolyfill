@@ -19,7 +19,16 @@ export type Decision = 'load' | 'show' | 'no';
 export type Asked = { decision: Decision } | { unavailable: string };
 /** Puts a question to the person (an MCP elicitation, through Codex). */
 export type Ask = (message: string, choices: Decision[]) => Promise<Asked>;
-export type CallContext = { ask: Ask; /** Codex's thread, from the call's `_meta`: what a load is held for. */ thread?: string };
+export type CallContext = {
+    ask: Ask;
+    /** Codex's thread, from the call's `_meta`: what a load is held for. */
+    thread?: string;
+    /**
+     * For a host that asks the person before the call (Hermes): the version they were asked about,
+     * by its manifest hash, or a "dynamic" skill. Any other version is refused, unasked.
+     */
+    expect?: { hash?: string; dynamic?: boolean };
+};
 export type ToolAnswer = { text: string; isError?: boolean };
 
 export type AppOptions = {
@@ -32,6 +41,9 @@ export type AppOptions = {
     log?: (line: string) => void;
     connectTimeoutMs?: number;
     now?: () => number;
+    /** Another host's form of the plugin: its `clientInfo`, and what it says of a server that needs a sign-in. */
+    client?: { name: string; version: string };
+    signInNote?: string;
 };
 
 /** A server found not to serve skills is not connected to again for this long: a day. */
@@ -141,7 +153,7 @@ export class App {
             this.skipped.push(name);
             return;
         }
-        const c = new Connection(name, cfg, { client: CLIENT, signInNote: SIGN_IN });
+        const c = new Connection(name, cfg, { client: this.#o.client ?? CLIENT, signInNote: this.#o.signInNote ?? SIGN_IN });
         try {
             await c.connect(this.#o.connectTimeoutMs ?? 10_000);
         } catch {
@@ -358,6 +370,8 @@ export class App {
         const { entry } = listed;
         if (listed.declined) throw new LocalError(`this skill is not loaded: ${listed.declined}`);
         const hash = await manifestHash(entry);
+        if (ctx.expect && !(ctx.expect.dynamic ? hash === undefined : hash !== undefined && hash === ctx.expect.hash))
+            throw new LocalError('this skill is not the version the user was asked about (the server changed it in between), so it is not loaded: load it again, and the user is asked about it as it is now');
         const fingerprint = fingerprintOf(this.conns.get(server)!.cfg);
         const approval = hash === undefined ? undefined : { server, fingerprint, uri: entry.uri, hash };
         let asked = false;

@@ -1,5 +1,5 @@
 ---
-description: What makes something a polyfill, how the polyfills plug into each host (Claude Code, Codex, Pi, OpenCode, Antigravity, Copilot CLI), where they stop, and the four generic host changes that would remove the limits in each.
+description: What makes something a polyfill, how the polyfills plug into each host (Claude Code, Codex, Pi, OpenCode, Antigravity, Copilot CLI, Hermes Agent), where they stop, and the four generic host changes that would remove the limits in each.
 ---
 
 # How it works
@@ -54,6 +54,9 @@ host ships one of these extensions, turn that polyfill off:
   (`copilot plugin disable mcp-events@agent-polyfill`), or use its own
   setting (`MCP_EVENTS_OFF=1`, `MCP_SERVER_CARDS_DISABLED=1`,
   `ARD_DISCOVERY_DISABLED=1`).
+- **Hermes:** disable the plugin with `hermes plugins disable <plugin id>`.
+  Events already leaves servers with `events: true` to Hermes's own webhook
+  delivery, from the next turn after the setting changes.
 
 [Getting started](./getting-started#turning-one-off) has the full list.
 
@@ -97,6 +100,11 @@ Each host lets outside code in, in its own way.
   a turn with `session.send`, opens dialogs, and calls a server's tools or
   reads its resources over Copilot's own connection. VS Code's Copilot harness
   runs the same runtime; Events was checked end to end there.
+- **Hermes Agent** runs Python plugins inside the gateway. A plugin can
+  register tools and skills, put a tool call to Hermes's own approval, start
+  a turn with `ctx.inject_message`, and call a server's tools over Hermes's
+  connection. Each form here starts a bundled Node helper for the client
+  rules. Events adds poll and push and leaves webhook servers to Hermes.
 
 That's the host half of almost any extension. The protocol half is missing in
 each. No host lets a plugin send an extension's own methods, such as
@@ -114,12 +122,12 @@ with its own sign-in.
 Four small, generic changes would remove the limit, in each host. None of
 them names an extension:
 
-| Change | Claude Code today | Codex today | Pi today | OpenCode today | Antigravity today | Copilot CLI today |
-|---|---|---|---|---|---|---|
-| Send any MCP method over the host's connection | missing | missing (its client can, internally) | missing (its client can, internally) | missing (its client sends `events/*` for itself) | missing | missing (tool calls and resource reads only) |
-| Read what the server advertised | missing | mostly there | missing (its client keeps it) | missing (its client keeps it) | missing | missing (instructions only) |
-| Deliver a server's notifications to the plugin | missing | only for OpenAI's hosted apps server | missing | missing (its client takes Events push for its automations only) | missing (none documented) | `list_changed` only |
-| Raw tool results; declare a client extension | missing | declaring only by Codex's own client | structured results reach hooks; no tool `_meta`, no declaring | raw results not checked; declaring only by OpenCode's own client, for Events | missing; the App declares the Apps extension itself | raw tool results; declaring only by Copilot itself |
+| Change | Claude Code today | Codex today | Pi today | OpenCode today | Antigravity today | Copilot CLI today | Hermes today |
+|---|---|---|---|---|---|---|---|
+| Send any MCP method over the host's connection | missing | missing (its client can, internally) | missing (its client can, internally) | missing (its client sends `events/*` for itself) | missing | missing (tool calls and resource reads only) | missing (its client sends `events/*` for its webhook support) |
+| Read what the server advertised | missing | mostly there | missing (its client keeps it) | missing (its client keeps it) | missing | missing (instructions only) | missing |
+| Deliver a server's notifications to the plugin | missing | only for OpenAI's hosted apps server | missing | missing (its client takes Events push for its automations only) | missing (none documented) | `list_changed` only | missing |
+| Raw tool results; declare a client extension | missing | declaring only by Codex's own client | structured results reach hooks; no tool `_meta`, no declaring | raw results not checked; declaring only by OpenCode's own client, for Events | missing; the App declares the Apps extension itself | raw tool results; declaring only by Copilot itself | `structuredContent` only; no declaring |
 
 The first two are enough for Events (by poll and webhook) and Skills to work
 with every server you've signed in to; in Pi, Events also needs Pi's own
@@ -144,7 +152,8 @@ runs for the plugin). Copilot runs an *extension* (`extension.mjs`, in a
 plugin or a folder of your own) as a child process that joins the session
 with `joinSession()` from `@github/copilot-sdk/extension`, which Copilot
 provides. Extensions are experimental: they load only with `--experimental`.
-The Copilot column names that SDK's calls. T3 Code is different again: it
+The Copilot column names that SDK's calls. Hermes runs a Python plugin in
+the gateway; its column names the plugin context and Hermes modules. T3 Code is different again: it
 isn't a host plugins load into, but an app that runs Codex, Claude Code and
 other agents (OpenCode among them)
 for you, so most of its column is "through the agent", and that agent's
@@ -152,26 +161,26 @@ column then applies. What it adds of its own is a way to message a thread,
 and the thread's id in the environment of the MCP servers Codex starts for
 it.
 
-| What a polyfill needs | Claude Code (a mod) | Codex (a plugin, or an app-server client) | Pi (an extension) | OpenCode (a V2 server plugin) | Antigravity (a plugin) | Copilot CLI (an extension, or an MCP server in a plugin) | T3 Code (an app that runs Codex, Claude Code and other agents; no plugins of its own) |
-|---|---|---|---|---|---|---|---|
-| Add tools the model can call | `$.tool.register` | An MCP server in the plugin, or `dynamicTools` for an app-server client | `pi.registerTool`. Tool names are shared by every extension, and the first one registered under a name wins. | `ctx.tool.transform`, in a namespace of the plugin's (the model sees `<namespace>_<name>`) | An MCP server in the plugin's `mcp_config.json` | `joinSession({ tools })`, or an MCP server in a plugin (not experimental) | Through the agent: a Codex plugin or MCP server, a Claude Code mod. T3 Code adds its own `t3-code` server to every thread. |
-| Draw its own UI | `ui.render` hooks | No. The desktop app shows a server's MCP App; nothing draws in the terminal. | Yes: custom components, overlays, `pi.registerToolRenderer`, images (Kitty, iTerm2), and mouse input in its default fullscreen mode | TUI slots and routes (terminal text), and, experimentally, desktop panels with an embedded web view | Only as an MCP App: the App shows a server's views itself (v2.34.0 and later). The CLI and IDE show text. | MCP Apps turned on in VS Code's harness (from its source; not checked there); canvases in graphical hosts, per the SDK's types (not checked); nothing drawn in the terminal | No. It shows a server's MCP App itself. A mod asking for its pane's focus ends the turn. |
-| Ask the person | A permission hook that answers "ask" | MCP elicitation, from the plugin's MCP server | `ctx.ui.confirm`, `select`, `input`; relayed to the client in RPC mode, unavailable in print and JSON modes | `ctx.permission.assert`, under OpenCode's permission rules, with actions a plugin names itself. OpenCode's default rule allows every action; the polyfills turn that into `ask` for their own actions with an `evaluate` hook (`ctx.permission.hook`). | A `PreToolUse` hook that answers `force_ask`: Antigravity's approval card, yes or no. Its MCP client declares elicitation but cancels every request (checked). | An extension's `session.ui.select`, `confirm`, `input` (shown in the TUI, during a turn in VS Code; they throw where nobody can be asked); MCP elicitation from a plugin's MCP server, declined in `copilot -p`, even with `--yolo` | The agent's approvals, shown in the thread. An MCP elicitation only if T3 Code can answer it with Approve or Decline; any other form is cancelled unseen. |
-| Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `pi.sendMessage(…, { triggerTurn: true })`, shown as the extension's own message | `ctx.session.synthetic` with `resume: true`, stored as synthetic rather than the user's | `agentapi send-message <conversation_id>`, from a plugin's sidecar, in the App only (checked). Sidecars are off until you turn each one on. | `session.send({ prompt, source: "automation-…" })`, marked as carrying no human authority. VS Code's harness shows such a turn only when it carries a `clientTurnId`, and then as a plain message | `t3 thread send <thread> -`, on the machine it runs on, with no sign-in. `codex queue` reaches T3 Code's app server, but the thread doesn't show the turn. |
-| Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives | The extension runs in that session (`ctx.sessionManager.getSessionId()`) | The tool executor's `sessionID` | Not for an MCP server. Hooks get `conversationId`, and a `PreToolUse` hook can add it to the call's arguments (`overwrite`). | The extension joins one session (`SESSION_ID`); a tool handler gets `sessionId` | `T3CODE_THREAD_ID` in the environment of Codex's stdio MCP servers (not documented); not set for Claude Code's |
-| Know the person wrote | The `prompt.submit` hook | `turn_trigger` in the turn metadata of a tool call | The `input` event, with its source | `ctx.session.hook('prompt')`, which a synthetic message doesn't run | Partly: hooks get `lastUserInput`; a sidecar's message arrives as a system message, not as the person's (checked) | A `user.message` session event with no `source`; a turn an extension starts carries its own | No: Codex's turn metadata has no `turn_trigger` there |
-| Add skills | A mod can add to the text of the session's skill listing (`prompt.attachment`), as the Skills mod did before it was removed. From 2.1.332 Claude Code lists skills from MCP servers itself, in beta ([changelog](https://code.claude.com/docs/en/changelog)). | A plugin's skills folder, read when the plugin loads; `~/.agents/skills` | `resources_discover` returns skill folders, read at start and at `/reload` | `ctx.skill.transform`, with no file, but with the skill's text given when it is listed | A plugin's `skills/` (read-only, replaced on update); `~/.gemini/config/skills/`, documented as read again before each turn (not checked) | A plugin's `skills` folder; skills an MCP server serves, natively (SEP-2640, declared to every server in 1.0.115's `initialize`; no served skill was listed or loaded) | Through the agent; it lists the agent's skills in its composer |
-| Gate a tool call | Permission hooks that allow, deny or ask | Hooks that can deny, not ask | `tool_call` handlers that can block, and ask with `ctx.ui`, for the model's calls and codemode's nested calls | `ctx.tool.hook('execute.before')`, which can refuse a call or put it to the permission rules first, for the model's calls and Code Mode's | `PreToolUse` hooks that allow, deny, ask or `force_ask`, and rewrite arguments (`overwrite`). A lazily loaded MCP tool, the default, is seen as `call_mcp_tool`, whatever its server; an eager one as `mcp_<server>_<tool>` (checked). In CLI 1.5.17 a `PreToolUse` hook that fails makes the call fail, and a `force_ask` on the built-in `read_resource` is ignored. | In its default mode, Copilot CLI 1.0.115 asks before each tool call, read-only ones included; VS Code's Copilot harness ran a read-only tool without asking. Assisted mode (an LLM review, which an organisation can make the default) or allow-all approve without the person. An extension's `onPreToolUse` hook can allow, deny or ask (after the elevated-permission question) | Through the agent |
-| Add a server | `claude mcp add` | `codex mcp add` | `pi mcp add` (saved), `pi.registerMcpServer` (this session, connected at once) | `ctx.mcp.transform` (in memory; a plugin keeps what it added and adds it again on each load) | `agy mcp add` and `agy mcp remove` (in CLI 1.5.17's own help, not in Antigravity's docs); the App ships no `agy`, so a plugin edits `~/.gemini/config/mcp_config.json` | `copilot mcp add` (saved to `mcp-config.json`), connected after `/mcp reload` or in the next session; an extension can call `session.rpc.mcp.reload` | Through the agent (`codex mcp add`, `claude mcp add`), then **Restart agent session** |
-| Call a server's tool over the host's connection, with its sign-in | `$.mcp.call(server, tool, args)` | `mcpServer/tool/call` | Indirectly: an MCP tool is a Pi tool (`mcp__<server>__<tool>`), callable with `ctx.executeTool` | No | No. Only an MCP App view can call its own server's tools. | `session.rpc.mcp.callTool({ serverName, toolName, arguments })` (experimental) | Only through the agent (a Claude Code mod's `$.mcp.call`) |
-| Ask whether the host would use a server | `$.mcp.connect(server)` | `mcpServerStatus/list` (start-up and sign-in state) | No. An extension reads `mcp.json` itself. | `ctx.mcp.list()` (connected, pending, disabled, failed, needs sign-in) | No | `session.rpc.mcp.listConfigured()` (enabled after trust and policy) and `list()` (status). Not how to reach it | No |
-| Read a resource over the host's connection | Only indirectly, by calling the built-in `ReadMcpResourceTool`. You get text or a saved file, without the resource's `_meta`. | `mcpServer/resource/read`, with `_meta` | Only indirectly, through Pi's `read_mcp_resource` tool, which leaves out `ui://` resources | No. The model's `opencode_read_mcp_resource` tool reads one; a plugin can only see that call (`ctx.tool.hook`). | No. An App view reads `antigravity-file://` only. | `session.rpc.mcp.resources.read`, `list`, `listTemplates`; `prompts.list`, `get` | No (it reads an MCP App's `ui://` resource itself) |
-| Send any other MCP method | No | No. Codex's MCP client has a generic `send_custom_request`, but `app-server` doesn't expose it. | No. Pi's `McpClient` has `request(method, params)`, but the MCP extension doesn't expose its clients. | No. OpenCode's client sends `events/*` for itself. | No | No. `session.mcp.externalClient.exchange` exists, but it's a private, internal transport | No |
-| See what a server advertised | No | Mostly: capabilities (including `extensions`) and `serverInfo` are in `mcpServerStatus/list`. The negotiated protocol revision isn't. | No | No | No | No: `session.rpc.mcp.list` carries a server's status and `instructions` only | No |
-| Receive a server's notifications | No | Only from OpenAI's hosted apps server. `mcpServer/event/stream/*` refuses any other server. Elicitation requests are relayed. | No | No. OpenCode takes Events push notifications itself, for its automations; a plugin sees only OpenCode's own events (`mcp.tools.changed` and the like). | No. None are documented. | Only `tools`, `resources` and `prompts` `list_changed`, as session events. Elicitation requests are relayed | No |
-| See a tool's `_meta`, its `outputSchema`, or a result as the server sent it | No | Not checked yet | A result's `structuredContent` reaches `tool_result` hooks and codemode; a tool's `_meta` doesn't | Not checked yet | No. `PostToolUse` gets the call and any error, not the result. | `callTool` returns the MCP result; not checked for `_meta` on the model's own calls | No (it reads `_meta.ui` itself, for MCP Apps) |
-| Declare a client extension to servers | No | Only Codex's own client (the terminal or the desktop app) can, and its declaration goes to every server. A plugin or the config can't. | No. Pi's `McpClient` takes capabilities from its caller, but the MCP extension sets none for others. | No. OpenCode's own client declares Events to every server. | No. The App declares the Apps extension itself. | Only Copilot's own runtime (it declares Skills and Tasks to every server). A plugin can't | No |
-| Protocol revision of the host's own connection | 2026-07-28 back to 2024-11-05 | 2025-06-18 (2026-07-28 behind a feature flag that is off) | Up to 2025-11-25 | Not checked yet | Not checked yet | `server/discover` at 2026-07-28 first, then `initialize` at 2025-11-25 (checked in 1.0.115) | The agent's |
+| What a polyfill needs | Claude Code (a mod) | Codex (a plugin, or an app-server client) | Pi (an extension) | OpenCode (a V2 server plugin) | Antigravity (a plugin) | Copilot CLI (an extension, or an MCP server in a plugin) | Hermes Agent (a Python plugin) | T3 Code (an app that runs Codex, Claude Code and other agents; no plugins of its own) |
+|---|---|---|---|---|---|---|---|---|
+| Add tools the model can call | `$.tool.register` | An MCP server in the plugin, or `dynamicTools` for an app-server client | `pi.registerTool`. Tool names are shared by every extension, and the first one registered under a name wins. | `ctx.tool.transform`, in a namespace of the plugin's (the model sees `<namespace>_<name>`) | An MCP server in the plugin's `mcp_config.json` | `joinSession({ tools })`, or an MCP server in a plugin (not experimental) | `ctx.register_tool` (listed behind Tool Search by default) | Through the agent: a Codex plugin or MCP server, a Claude Code mod. T3 Code adds its own `t3-code` server to every thread. |
+| Draw its own UI | `ui.render` hooks | No. The desktop app shows a server's MCP App; nothing draws in the terminal. | Yes: custom components, overlays, `pi.registerToolRenderer`, images (Kitty, iTerm2), and mouse input in its default fullscreen mode | TUI slots and routes (terminal text), and, experimentally, desktop panels with an embedded web view | Only as an MCP App: the App shows a server's views itself (v2.34.0 and later). The CLI and IDE show text. | MCP Apps turned on in VS Code's harness (from its source; not checked there); canvases in graphical hosts, per the SDK's types (not checked); nothing drawn in the terminal | Only in Desktop (`@hermes/plugin-sdk` panes). Elsewhere text, with `ctx.post_message`. | No. It shows a server's MCP App itself. A mod asking for its pane's focus ends the turn. |
+| Ask the person | A permission hook that answers "ask" | MCP elicitation, from the plugin's MCP server | `ctx.ui.confirm`, `select`, `input`; relayed to the client in RPC mode, unavailable in print and JSON modes | `ctx.permission.assert`, under OpenCode's permission rules, with actions a plugin names itself. OpenCode's default rule allows every action; the polyfills turn that into `ask` for their own actions with an `evaluate` hook (`ctx.permission.hook`). | A `PreToolUse` hook that answers `force_ask`: Antigravity's approval card, yes or no. Its MCP client declares elicitation but cancels every request (checked). | An extension's `session.ui.select`, `confirm`, `input` (shown in the TUI, during a turn in VS Code; they throw where nobody can be asked); MCP elicitation from a plugin's MCP server, declined in `copilot -p`, even with `--yolo` | Hermes's own approval, from a `pre_tool_call` hook (`{"action": "approve", "message", "rule_key"}`): once, session, always or deny, on the session's surface, failing closed where nobody can answer. `ctx.ask_choice` is for slash commands only. | The agent's approvals, shown in the thread. An MCP elicitation only if T3 Code can answer it with Approve or Decline; any other form is cancelled unseen. |
+| Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `pi.sendMessage(…, { triggerTurn: true })`, shown as the extension's own message | `ctx.session.synthetic` with `resume: true`, stored as synthetic rather than the user's | `agentapi send-message <conversation_id>`, from a plugin's sidecar, in the App only (checked). Sidecars are off until you turn each one on. | `session.send({ prompt, source: "automation-…" })`, marked as carrying no human authority. VS Code's harness shows such a turn only when it carries a `clientTurnId`, and then as a plain message | `ctx.inject_message(text, session_key=…)`, once `allow_gateway_injection` is granted | `t3 thread send <thread> -`, on the machine it runs on, with no sign-in. `codex queue` reaches T3 Code's app server, but the thread doesn't show the turn. |
+| Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives | The extension runs in that session (`ctx.sessionManager.getSessionId()`) | The tool executor's `sessionID` | Not for an MCP server. Hooks get `conversationId`, and a `PreToolUse` hook can add it to the call's arguments (`overwrite`). | The extension joins one session (`SESSION_ID`); a tool handler gets `sessionId` | A tool handler gets `session_id`; the session key is `HERMES_SESSION_KEY` (`get_session_env`) | `T3CODE_THREAD_ID` in the environment of Codex's stdio MCP servers (not documented); not set for Claude Code's |
+| Know the person wrote | The `prompt.submit` hook | `turn_trigger` in the turn metadata of a tool call | The `input` event, with its source | `ctx.session.hook('prompt')`, which a synthetic message doesn't run | Partly: hooks get `lastUserInput`; a sidecar's message arrives as a system message, not as the person's (checked) | A `user.message` session event with no `source`; a turn an extension starts carries its own | Not directly: `pre_llm_call` sees each turn's message but not who started it, so a plugin's own injected turn and another plugin's look like typed input | No: Codex's turn metadata has no `turn_trigger` there |
+| Add skills | A mod can add to the text of the session's skill listing (`prompt.attachment`), as the Skills mod did before it was removed. From 2.1.332 Claude Code lists skills from MCP servers itself, in beta ([changelog](https://code.claude.com/docs/en/changelog)). | A plugin's skills folder, read when the plugin loads; `~/.agents/skills` | `resources_discover` returns skill folders, read at start and at `/reload` | `ctx.skill.transform`, with no file, but with the skill's text given when it is listed | A plugin's `skills/` (read-only, replaced on update); `~/.gemini/config/skills/`, documented as read again before each turn (not checked) | A plugin's `skills` folder; skills an MCP server serves, natively (SEP-2640, declared to every server in 1.0.115's `initialize`; no served skill was listed or loaded) | `ctx.register_skill(name, path)`, listed from the next session when added while Hermes runs | Through the agent; it lists the agent's skills in its composer |
+| Gate a tool call | Permission hooks that allow, deny or ask | Hooks that can deny, not ask | `tool_call` handlers that can block, and ask with `ctx.ui`, for the model's calls and codemode's nested calls | `ctx.tool.hook('execute.before')`, which can refuse a call or put it to the permission rules first, for the model's calls and Code Mode's | `PreToolUse` hooks that allow, deny, ask or `force_ask`, and rewrite arguments (`overwrite`). A lazily loaded MCP tool, the default, is seen as `call_mcp_tool`, whatever its server; an eager one as `mcp_<server>_<tool>` (checked). In CLI 1.5.17 a `PreToolUse` hook that fails makes the call fail, and a `force_ask` on the built-in `read_resource` is ignored. | In its default mode, Copilot CLI 1.0.115 asks before each tool call, read-only ones included; VS Code's Copilot harness ran a read-only tool without asking. Assisted mode (an LLM review, which an organisation can make the default) or allow-all approve without the person. An extension's `onPreToolUse` hook can allow, deny or ask (after the elevated-permission question) | `pre_tool_call` can block a call or put it to Hermes's approval, for any tool, the host's own and other plugins' included | Through the agent |
+| Add a server | `claude mcp add` | `codex mcp add` | `pi mcp add` (saved), `pi.registerMcpServer` (this session, connected at once) | `ctx.mcp.transform` (in memory; a plugin keeps what it added and adds it again on each load) | `agy mcp add` and `agy mcp remove` (in CLI 1.5.17's own help, not in Antigravity's docs); the App ships no `agy`, so a plugin edits `~/.gemini/config/mcp_config.json` | `copilot mcp add` (saved to `mcp-config.json`), connected after `/mcp reload` or in the next session; an extension can call `session.rpc.mcp.reload` | No `ctx` API. A plugin writes `mcp_servers` in `config.yaml` (`hermes_cli.config`) and Hermes connects it after `/reload-mcp` | Through the agent (`codex mcp add`, `claude mcp add`), then **Restart agent session** |
+| Call a server's tool over the host's connection, with its sign-in | `$.mcp.call(server, tool, args)` | `mcpServer/tool/call` | Indirectly: an MCP tool is a Pi tool (`mcp__<server>__<tool>`), callable with `ctx.executeTool` | No | No. Only an MCP App view can call its own server's tools. | `session.rpc.mcp.callTool({ serverName, toolName, arguments })` (experimental) | `ctx.call_mcp(server, tool, args)`, for servers in the plugin's `mcp_allowlist` | Only through the agent (a Claude Code mod's `$.mcp.call`) |
+| Ask whether the host would use a server | `$.mcp.connect(server)` | `mcpServerStatus/list` (start-up and sign-in state) | No. An extension reads `mcp.json` itself. | `ctx.mcp.list()` (connected, pending, disabled, failed, needs sign-in) | No | `session.rpc.mcp.listConfigured()` (enabled after trust and policy) and `list()` (status). Not how to reach it | No. A plugin reads `mcp_servers` from `config.yaml`; the reader that renders it as Hermes's client sees it is internal. | No |
+| Read a resource over the host's connection | Only indirectly, by calling the built-in `ReadMcpResourceTool`. You get text or a saved file, without the resource's `_meta`. | `mcpServer/resource/read`, with `_meta` | Only indirectly, through Pi's `read_mcp_resource` tool, which leaves out `ui://` resources | No. The model's `opencode_read_mcp_resource` tool reads one; a plugin can only see that call (`ctx.tool.hook`). | No. An App view reads `antigravity-file://` only. | `session.rpc.mcp.resources.read`, `list`, `listTemplates`; `prompts.list`, `get` | Only indirectly, with `ctx.dispatch_tool("mcp__<server>__read_resource", …)`: model-shaped text | No (it reads an MCP App's `ui://` resource itself) |
+| Send any other MCP method | No | No. Codex's MCP client has a generic `send_custom_request`, but `app-server` doesn't expose it. | No. Pi's `McpClient` has `request(method, params)`, but the MCP extension doesn't expose its clients. | No. OpenCode's client sends `events/*` for itself. | No | No. `session.mcp.externalClient.exchange` exists, but it's a private, internal transport | No. Hermes's own Events support sends `events/*` over its connection (`session.send_request`), but `ctx` doesn't expose it. | No |
+| See what a server advertised | No | Mostly: capabilities (including `extensions`) and `serverInfo` are in `mcpServerStatus/list`. The negotiated protocol revision isn't. | No | No | No | No: `session.rpc.mcp.list` carries a server's status and `instructions` only | No. Held internally, and its MCP SDK drops an `events` capability while parsing. | No |
+| Receive a server's notifications | No | Only from OpenAI's hosted apps server. `mcpServer/event/stream/*` refuses any other server. Elicitation requests are relayed. | No | No. OpenCode takes Events push notifications itself, for its automations; a plugin sees only OpenCode's own events (`mcp.tools.changed` and the like). | No. None are documented. | Only `tools`, `resources` and `prompts` `list_changed`, as session events. Elicitation requests are relayed | No. The client's handler is internal and handles `list_changed` only. Form elicitation is native. | No |
+| See a tool's `_meta`, its `outputSchema`, or a result as the server sent it | No | Not checked yet | A result's `structuredContent` reaches `tool_result` hooks and codemode; a tool's `_meta` doesn't | Not checked yet | No. `PostToolUse` gets the call and any error, not the result. | `callTool` returns the MCP result; not checked for `_meta` on the model's own calls | Partly: `ctx.call_mcp` returns `structuredContent` | No (it reads `_meta.ui` itself, for MCP Apps) |
+| Declare a client extension to servers | No | Only Codex's own client (the terminal or the desktop app) can, and its declaration goes to every server. A plugin or the config can't. | No. Pi's `McpClient` takes capabilities from its caller, but the MCP extension sets none for others. | No. OpenCode's own client declares Events to every server. | No. The App declares the Apps extension itself. | Only Copilot's own runtime (it declares Skills and Tasks to every server). A plugin can't | No: the client's capabilities come from its MCP SDK | No |
+| Protocol revision of the host's own connection | 2026-07-28 back to 2024-11-05 | 2025-06-18 (2026-07-28 behind a feature flag that is off) | Up to 2025-11-25 | Not checked yet | Not checked yet | `server/discover` at 2026-07-28 first, then `initialize` at 2025-11-25 (checked in 1.0.115) | 2025-11-25 by handshake first; 2026-07-28 (`server/discover`) only for a server that refuses the handshake, or with `protocol: stateless` on the server | The agent's |
 
 The row that matters most is "send any other MCP method". Because no host
 has it, each polyfill that speaks an extension's protocol (Events, Skills,
@@ -215,10 +224,16 @@ headers for the method, or takes them from the caller.
   server admission and tool permission checks". A
   `session.rpc.mcp.request({ serverName, method, params })` beside them,
   returning the raw result, would close it.
+- **Hermes:** `ctx.call_mcp` calls tools, but a plugin can't send the
+  `events/*` requests Hermes already uses for its own webhook delivery.
+  A `ctx.mcp_request(server, method, params)` over the native client, behind
+  the per-server `mcp_allowlist`, would let Events and Skills use it too.
 
 This change alone brings servers behind OAuth to Events in Claude Code and
 Copilot CLI, to Events and Skills in Codex and OpenCode, and to Skills in Pi,
-and removes their second connection.
+and removes their second connection. In Hermes it would let Events and
+Skills use the host's connection too, with capabilities and push notifications
+covered by changes 2 and 3.
 Events in Pi also needs Pi's client to speak protocol revision 2026-07-28,
 which SEP-3415 is defined for ([In Pi](#in-pi)).
 
@@ -240,6 +255,10 @@ to a server that hasn't declared them, so a polyfill has to be able to check.
 - **Copilot:** `session.rpc.mcp.list` already has a `serverMetadata` per
   server, holding only `instructions`. Adding `capabilities`, `serverInfo` and
   the revision there would close it.
+- **Hermes:** a plugin can't see the server's capabilities, and Hermes's
+  SDK drops an `events` capability while parsing. A
+  `ctx.mcp_server_info(server)` with capabilities, extensions and the
+  negotiated revision would close this gap.
 
 ### 3. Deliver a server's notifications to the plugin
 
@@ -262,6 +281,9 @@ resource updates.
 - **Copilot:** the three `list_changed` notifications already reach
   `session.on(...)`. A `session.on("mcp.notification")` for the rest would
   close it.
+- **Hermes:** a plugin receives no server notifications. Push needs the
+  notifications on its `events/stream` request too; a callback per request,
+  or `ctx.mcp_subscribe`, would supply them with change 1.
 
 ### 4. Raw tool results, and declaring a client extension
 
@@ -287,6 +309,8 @@ do.
 - **Copilot:** the same: its runtime declares its own extensions (Skills and
   Tasks in 1.0.115) and a plugin can't add one. `callTool` returns the result
   as the server sent it.
+- **Hermes:** `ctx.call_mcp` returns `structuredContent`. Plugins cannot
+  declare a client extension; capabilities come from Hermes's MCP SDK.
 
 ## What each extension needs
 
@@ -300,7 +324,9 @@ do.
 Changes 1 and 2 are enough for Events (by poll and webhook) and for Skills to
 work with every server you've signed in to: Events in Claude Code and
 Copilot CLI, and both in Codex and OpenCode. In Pi they're enough for Skills; Events also needs
-Pi's client to speak 2026-07-28.
+Pi's client to speak 2026-07-28. In Hermes, poll and Skills need the native
+request and capability calls; push also needs notifications on its request.
+Webhook delivery is already Hermes's own.
 
 Server Cards doesn't need any of the four to work. A card is a public document
 you read before connecting, and the server it describes is added to the host's
@@ -543,6 +569,47 @@ the live server.
 - **Let an MCP server ask Copilot to reload its servers.** A server added with
   `copilot mcp add` connects only after `/mcp reload` or in the next session.
 
+### In Hermes
+
+- **Mark a turn a plugin started.** `ctx.inject_message` puts the text in the
+  conversation as the user's (another role only gets a `[role]` prefix), and
+  hooks can't tell it from typed input. Hermes already marks the turns its
+  gateway starts (`display_kind`); the same for a plugin's turn, and the
+  turn's origin in `pre_llm_call`, would let Events tell a wake from the
+  person writing without relying on a prefix.
+- **Scope the injection grant.** `allow_gateway_injection` lets a plugin start
+  turns in any session of its profile, chat apps included. A grant limited to
+  sessions that called the plugin would be enough for Events.
+- **A hook for the gateway starting.** In `register()` a plugin can't tell the
+  gateway from a short `hermes` command, so Events resumes saved watches at the
+  first session or turn, not when the gateway starts.
+- **List skills added at runtime in open sessions.** A skill registered while
+  Hermes runs is listed from the next session.
+- **An approval with choices of its own,** for a tool. Skills' "show me its
+  SKILL.md first" has no place in once / session / always / deny, so the
+  question tells you to deny and type `/mcp-skills show`, a step of your own.
+- **Add an MCP server and connect it from `ctx`.** Server Cards writes
+  `config.yaml` with `hermes_cli.config`, then needs `/reload-mcp`.
+- **Say whether approvals are bypassed.** With `--yolo`, `/yolo`, `hermes -z` or
+  `approvals.mode: off`, Hermes answers a plugin's approval itself, so the
+  forms refuse there each step that needs a person's yes: a watch, a skill
+  load (rules X5 and X8), a registry search and a server addition.
+  Telling that takes the test Hermes's approval gate uses
+  (`tools.approval._yolo_active()`, which covers `hermes -z`, and
+  `approval_context._get_approval_mode()`, with
+  `tools.approval.is_approval_bypass_active_for_session` for the named
+  session), none of it on Hermes's published
+  plugin API, so where it can't be evaluated the forms refuse too. The
+  approval mode in hook arguments, or a published call, would do.
+- **A hook when the MCP configuration reloads.** The forms read `mcp_servers`
+  again at each turn and tool call, so a change (`events: true`, a server
+  removed) takes effect at the next turn, not at `/reload-mcp`.
+- **List the MCP servers to a plugin.** No plugin call does. The forms read
+  `mcp_servers` from `config.yaml` as written (`read_raw_config`) and leave
+  alone an entry that takes `${VAR}` from `.env`, where Hermes keeps secrets.
+  `ctx.mcp_request` (change 1) would make both unnecessary: the plugin names a
+  server, and Hermes connects with its own configuration and secrets.
+
 ### In T3 Code
 
 T3 Code passes MCP through to the agent it runs, so the four changes are the
@@ -596,6 +663,10 @@ has the details:
   question before it may skip tool prompts or register hooks. A raw MCP pipe
   is the same kind of grant, and could be asked the same way, naming the
   method prefixes.
+
+- **Grants, in Hermes.** `ctx.call_mcp` already uses a per-server
+  `mcp_allowlist`. The same scope on a general request call would let
+  Events and Skills use Hermes's connection without reading its secrets.
 
 ## What these changes don't cover
 

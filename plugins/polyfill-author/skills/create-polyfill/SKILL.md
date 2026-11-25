@@ -1,6 +1,6 @@
 ---
 name: create-polyfill
-description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, Pi, OpenCode, Antigravity, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod, extension or gateway server; or to change or review an existing polyfill. Not for JavaScript or browser polyfills.
+description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, Pi, OpenCode, Antigravity, Hermes Agent, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod, extension or gateway server; or to change or review an existing polyfill. Not for JavaScript or browser polyfills.
 ---
 
 # Create a polyfill
@@ -279,6 +279,26 @@ How a polyfill is built depends on what the host lets third-party code do.
   part 3. Events, Server Cards and ARD have Copilot forms; Copilot has Skills
   and Apps built in. They were tested with Copilot CLI 1.0.115; Events and a
   Server Cards add also in VS Code 1.147.0's Copilot harness.
+- **Hermes Agent:** a Hermes plugin in `polyfills/<polyfill>/hermes/`, with
+  its installable folder in `plugin/`: a Python half (`__init__.py`, which
+  Hermes loads in its gateway) and the polyfill's existing TypeScript bundled
+  as a Node helper (`dist/helper.mjs`) it starts, so the spec's client rules
+  keep one implementation. Shared Python modules and the test harness are in
+  `tools/hermes`; the form's build copies the modules into `plugin/`. Keep to
+  Hermes's published plugin API (`hermes plugins validate` flags anything
+  else); where a form needs an unpublished call, say so in its README. A
+  consequential step goes to Hermes's own approval from a `pre_tool_call`
+  hook, which fails closed where nobody can answer. Where Hermes would
+  approve without asking (`--yolo`, `/yolo`, `hermes -z`,
+  `approvals.mode: off`), refuse the step instead, as all four forms do with
+  `tools/hermes/shared/_servers.py`'s `approvals_bypassed`: it evaluates the
+  test Hermes's approval gate uses (unpublished), and where that can't be
+  evaluated it refuses too, rather than guess. Read the existing Hermes forms' README, SECURITY.md and
+  `docs/conformance.md` before writing part 3. Events, Skills, Server Cards
+  and ARD have Hermes forms; Apps doesn't yet. Checked in Hermes Agent
+  v0.23.4, which `tools/hermes/setup.sh` installs from its release tag.
+  Install with
+  `hermes plugins install idosal/AgentPolyfill/polyfills/<polyfill>/hermes/plugin --enable`.
 - **Another host with an in-process extension layer:** read its extension API
   for the installed version and build the route table from that. Do not assume
   it matches Claude Code's.

@@ -1,4 +1,5 @@
-// Model-checks the TLA+ models in this folder (Wake.tla, Delivery.tla, Relay.tla, WakeCodex.tla:
+// Model-checks the TLA+ models in this folder (Wake.tla, Delivery.tla, Relay.tla, WakeCodex.tla,
+// WakeHermes.tla (TLA+ only):
 // wake.qnt, delivery.qnt, relay.qnt and wakeCodex.qnt in TLA+) with TLC, each configuration against
 // what it should give: every invariant it names holds, or the one named is violated (a defect of an
 // earlier version that must still be found, a defect found and not yet fixed, a documented limit,
@@ -75,6 +76,17 @@ const RUNS = [
   ["WakeCodexBefore.cfg", "MCWakeCodex.tla", "OnlyThePerson"],
   ["WakeCodexBeforeHour.cfg", "MCWakeCodex.tla", "WithinHour"],
   ["WakeCodexShortLift.cfg", "MCWakeCodex.tla", "WithinHour"],
+  // WakeHermes.tla, mcp-events for Hermes 0.1.0 (README.md, "WakeHermes.tla").
+  ["WakeHermesKept.cfg", "MCWakeHermes.tla", "holds"],
+  ["WakeHermesDrops.cfg", "MCWakeHermes.tla", "holds"],
+  // Documented limits: a message the gateway took and dropped; turns another plugin or Hermes
+  // starts count as the person's; delivery is at most once.
+  ["WakeHermesDropped.cfg", "MCWakeHermes.tla", "OnlyUnheardNotDropped"],
+  ["WakeHermesOthers.cfg", "MCWakeHermes.tla", "OnlyThePerson"],
+  ["WakeHermesOthersHour.cfg", "MCWakeHermes.tla", "WithinHour"],
+  ["WakeHermesSkipped.cfg", "MCWakeHermes.tla", "NothingLost"],
+  // The write-ahead record taken out: the check must see what it is for.
+  ["WakeHermesNoRecord.cfg", "MCWakeHermes.tla", "WithinHour"],
 ];
 
 const java = process.env.JAVA ?? "java";
