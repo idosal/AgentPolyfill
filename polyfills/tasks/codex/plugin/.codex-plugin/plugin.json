@@ -1,0 +1,21 @@
+{
+  "name": "mcp-tasks",
+  "version": "0.1.0",
+  "description": "MCP Tasks (SEP-2663) for Codex: a tool of one of your MCP servers can run as a long task on the server. You approve each start in Codex's own form, and the idle session is woken when the task finishes.",
+  "author": { "name": "Ido Salomon", "url": "https://github.com/idosal" },
+  "homepage": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/tasks/codex",
+  "repository": "https://github.com/idosal/AgentPolyfill",
+  "license": "Apache-2.0",
+  "keywords": ["mcp", "tasks", "sep-2663", "polyfill"],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "MCP Tasks",
+    "shortDescription": "Run a server's tool as a long task; the idle session is woken when it finishes",
+    "longDescription": "Adds the client side of the MCP Tasks extension (SEP-2663) to Codex. Codex can start a tool of one of your MCP servers as a task; you approve each start in Codex's own form, with the server, the tool and its arguments in front of you. The task is followed at the server's pace, and the session is woken when it finishes or needs your input.",
+    "developerName": "Ido Salomon",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": ["Which of my MCP servers can run tasks?", "What are my tasks doing?"],
+    "websiteURL": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/tasks/codex"
+  }
+}

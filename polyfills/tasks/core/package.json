@@ -1,0 +1,14 @@
+{
+  "name": "mcp-tasks-core",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The client side of MCP Tasks (SEP-2663, io.modelcontextprotocol/tasks) shared by the Tasks polyfills: its own connection that declares the extension per request, the task store, the poller, and the rules for a server's answers.",
+  "engines": { "node": ">=20" },
+  "scripts": { "typecheck": "tsc --noEmit -p ." },
+  "dependencies": { "@modelcontextprotocol/client": "2.4.0", "zod": "4.6.7" },
+  "devDependencies": { "@types/node": "^22.10.0", "typescript": "^5.9.3" },
+  "license": "Apache-2.0",
+  "author": { "name": "Ido Salomon", "url": "https://github.com/idosal" },
+  "repository": { "type": "git", "url": "git+https://github.com/idosal/AgentPolyfill.git", "directory": "polyfills/tasks/core" }
+}
