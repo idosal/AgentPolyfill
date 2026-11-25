@@ -39,6 +39,12 @@ cd AgentPolyfill
 pi install ./polyfills/skills/pi/extension
 ```
 
+```bash [Antigravity]
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+agy plugin install ./polyfills/skills/antigravity/plugin
+```
+
 :::
 
 ### In Claude Code
@@ -84,11 +90,22 @@ with `pi remove ./polyfills/skills/pi/extension`. Approvals and skill stubs
 stay in `mcp-skills/` in Pi's agent folder (`~/.pi/agent`, or
 `PI_CODING_AGENT_DIR`); delete that folder too to remove them.
 
+### In Antigravity
+
+Node 20 or newer on `PATH`. Nothing is published to Antigravity's
+Marketplace; install from a clone. `agy plugin install` copies the folder to
+`~/.gemini/config/plugins/mcp-skills`, which the App and the CLI both read.
+Remove it with `agy plugin uninstall mcp-skills`. Its state stays in
+`~/.gemini/agentpolyfill/mcp-skills/`, and its placeholders in
+`~/.gemini/config/skills/mcp-skills-served--*`; delete those too to remove
+them.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi)
+- [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/antigravity)
 
 ## Try it
 
@@ -109,6 +126,10 @@ codex mcp add huggingface --url https://huggingface.co/mcp
 pi mcp add huggingface --url https://huggingface.co/mcp
 ```
 
+```bash [Antigravity]
+agy mcp add huggingface https://huggingface.co/mcp
+```
+
 :::
 
 In Codex, the served skills appear in the `$` list after you ask once to list
@@ -117,6 +138,9 @@ the served skills, from the next turn. Start your host in the same folder:
 - **Claude Code:** `claude`.
 - **Codex:** `codex`.
 - **Pi:** `pi`; served skills appear as `mcp-<server>-<name>`.
+- **Antigravity:** `agy`, or the App. The App doesn't ship `agy`; there, add
+  the server under Customizations > Installed > MCP Servers, or in
+  `~/.gemini/config/mcp_config.json`.
 
 Ask something one of its skills covers:
 
@@ -182,6 +206,16 @@ codemode's nested calls. Print and JSON modes cannot ask, so they load only
 skills already approved and unchanged, and refuse cross-server reads that
 need approval. Skills a server adds mid-session appear after `/reload`.
 
+### In Antigravity
+
+Served skills appear as placeholder folders in `~/.gemini/config/skills/`,
+which Antigravity reads before each turn. Loading one is put to you in
+Antigravity's approval card, yes or no. An approved skill loads again with no
+question while it is unchanged. Editors on `agy acp` see the tool and its
+arguments in the card, not the question. X8 isn't met, as in Codex: the
+plugin can't put a question in front of Antigravity's own resource reads, so
+the loaded skill tells the model to ask you first.
+
 ## Which servers work
 
 In Pi, local (stdio) servers, public URLs and URLs with an `Authorization`
@@ -189,6 +223,13 @@ header in `mcp.json` work. Header values may be written out, `${VARIABLE}` or
 `!command`. Servers signed in through Pi (`/mcp`, `pi mcp login`, OAuth or
 `auth.provider`) are out of reach; `list_skills` says why. The extension
 never reads `mcp-auth.json` or `auth.json`.
+
+In Antigravity, the plugin connects to the servers in
+`~/.gemini/config/mcp_config.json`, using any header values there, and never
+logs or shows those values. A header can be added with
+`agy mcp add --header "Authorization: Bearer <token>" <name> <url>`. Servers
+that need Antigravity's own sign-in are skipped. It never opens
+`~/.gemini/antigravity/mcp_oauth_tokens.json`.
 
 The table below is for Claude Code.
 
@@ -265,6 +306,19 @@ protocol, no vendor extension.
 - **The cross-server question has a boundary.** It cannot intercept a read
   another extension makes through its own MCP connection.
 
+### In Antigravity
+
+- **No sign-in through Antigravity.** Servers behind Antigravity's own
+  sign-in can't be reached.
+- **Yes or no.** The approval card has no other choices and can't be
+  approved for good. Editors on `agy acp` see the tool and its arguments,
+  not the question.
+- **X8 isn't met.** The plugin can't put a question in front of
+  Antigravity's own resource reads; the loaded skill tells the model to ask
+  you first.
+- **The IDE's agent wasn't run.** IDE 2.8.0 stayed signed out, and its hooks
+  page lists no plugin hooks, so the plugin probably doesn't work there.
+
 ## Security
 
 ### In Claude Code
@@ -307,6 +361,19 @@ See [Pi's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfil
 An AI reviewer who did not build the Pi forms reviewed them, and checked
 the fixes again. They have not been audited by a person.
 
+### In Antigravity
+
+Loading a served skill is put to you in Antigravity's approval card, and
+nothing is auto-approved: no `auto_approve`, no permission overrides. The
+hook leaves a one-use ticket for exactly that call, and the MCP server loads
+the skill only with it. Read-only tools go through Antigravity's usual MCP
+approval. The plugin writes only its own folder and its placeholders, and
+never opens a sign-in store. X8 isn't met: a cross-server read while a
+skill is loaded isn't put to you first. See
+[Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/SECURITY.md).
+The Antigravity forms are awaiting the independent AI review the other forms
+had.
+
 ## How it is tested
 
 ### In Claude Code
@@ -342,12 +409,28 @@ against Hugging Face records two skills approved and loaded, reference files
 read and an answer from them, including a run with "Show me its SKILL.md
 first".
 
+### In Antigravity
+
+[Antigravity's conformance table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/conformance.md)
+maps the client rules for this form. The live run on 25 November 2026 (App
+v2.35.1, CLI v1.5.16) approved and declined skill loads in the App and over
+`agy acp`. Against Hugging Face's server, the plugin listed its 25 skills
+and loaded one after approval. The official MCP conformance suite's four
+SEP-2640 client scenarios pass (suite at `c8625de`, 25 November 2026;
+[record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/evidence/conformance.txt)).
+
 ## Settings
 
 In Pi, `MCP_SKILLS_OFF=1` turns the extension off. Server-level `skip` is
 set in `mcp-skills/settings.json` in Pi's agent folder. Pi's extension cannot
 detect native Skills support: remove it or use the off switch when that
 ships. See the [Pi settings](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/README.md#settings).
+
+In Antigravity, `MCP_SKILLS_DISABLED=1` in the environment Antigravity starts
+in, or `"off": true` in `~/.gemini/agentpolyfill/mcp-skills/settings.json`,
+turns the plugin off; so does `agy plugin disable mcp-skills`. It cannot
+detect native Skills support: Antigravity tells plugins nothing about its
+MCP client's extensions. See the [Antigravity settings](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/README.md#settings-and-stand-down).
 
 ### In Claude Code
 

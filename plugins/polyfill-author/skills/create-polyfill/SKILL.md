@@ -1,6 +1,6 @@
 ---
 name: create-polyfill
-description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, Pi, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod, extension or gateway server; or to change or review an existing polyfill. Not for JavaScript or browser polyfills.
+description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, Pi, Antigravity, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod, extension or gateway server; or to change or review an existing polyfill. Not for JavaScript or browser polyfills.
 ---
 
 # Create a polyfill
@@ -225,6 +225,15 @@ How a polyfill is built depends on what the host lets third-party code do.
   tested with Pi 1.6.0 and require Node 22 or newer. Install from a local
   clone with `pi install ./polyfills/<polyfill>/pi/extension`; nothing for
   Pi is published to npm or Pi's package gallery.
+- **Antigravity:** an Antigravity plugin in `polyfills/<polyfill>/antigravity/`,
+  with its MCP server (`mcp_config.json`) and `PreToolUse` hook (`hooks.json`)
+  in `plugin/`. Read the existing Antigravity forms' README, SECURITY.md and
+  `docs/conformance.md` before writing part 3. Events, Skills, Server Cards
+  and ARD have Antigravity forms; Apps does not, as the App shows MCP Apps
+  itself. The forms were run with App v2.35.1 and CLI v1.5.16 (ARD in the
+  CLI only; the IDE not at all) and need Node 20 or newer. Install from a local clone with
+  `agy plugin install ./polyfills/<polyfill>/antigravity/plugin`; nothing is
+  published to Antigravity's Marketplace.
 - **Another host with an in-process extension layer:** read its extension API
   for the installed version and build the route table from that. Do not assume
   it matches Claude Code's.

@@ -14,8 +14,8 @@ A polyfill can be that client-side implementation, in hosts that haven't
 shipped the extension yet, used by real people against real servers. Each one
 here names the spec revision it implements. Events and Skills have a test for
 every client rule and run against servers their authors didn't write. Skills
-passes the official conformance suite's Skills client scenarios in each host
-form. The shared Events client passes the Events client scenarios proposed
+passes the official conformance suite's Skills client scenarios in Claude
+Code, Codex, Pi and Antigravity. The shared Events client passes the Events client scenarios proposed
 upstream (still an open pull request in the conformance suite); the Pi
 end-to-end run has limits listed below. Apps checks the spec requirement by
 requirement in its design notes. Whether a polyfill counts as an independent
@@ -32,6 +32,8 @@ extension's `core/`. Host results are recorded separately:
   and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex).
 - **Pi:** the second table gives its conformance and live-run evidence,
   checked with Pi 1.6.0.
+- **Antigravity:** the third table gives its conformance pages and live-run
+  evidence, checked with App v2.35.1 and CLI v1.5.16.
 
 ## What each one has been checked against
 
@@ -69,6 +71,21 @@ failed. The shared-client run covers all 17 checks. The live runs above used
 Pi's RPC mode; scripts answered the dialogs. They do not establish how the
 selectors appear in the terminal UI.
 
+### Antigravity
+
+| Polyfill | Client rules and conformance | Recorded live run |
+|---|---|---|
+| Events | The Events scenarios in conformance PR #541 (suite at `c8625de`) pass 17 of 17 checks, through the form's MCP server and its ticket hook. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/conformance.md), [record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/evidence/conformance.txt). | Against the repository's local deploys demo: approvals approved and declined in the App and over `agy acp`; delivery at the next turn in the CLI, an idle App conversation woken by the sidecar, and a wake during a running turn. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/live-run.md). |
+| Skills | The official suite's four SEP-2640 client scenarios pass (suite at `c8625de`). X8 is not met. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/conformance.md), [record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/evidence/conformance.txt). | Approvals approved and declined in the App and over `agy acp`. Hugging Face's server: its 25 skills listed, and one loaded after approval. |
+| Server Cards | [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/antigravity/docs/conformance.md). | Approvals approved and declined in the App and over `agy acp`. |
+| ARD (v0.91 draft, beyond MCP) | [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/antigravity/docs/conformance.md). | Run in the CLI only: approvals approved and declined. A search in the App wasn't run. |
+| Apps | No form: the App renders MCP Apps itself (v2.34.0 and later). | None. |
+
+The live run was on 25 November 2026, on macOS, with a test HOME and the
+person signed in. It did not cover the IDE's agent (IDE 2.8.0 stayed signed
+out, and its hooks page lists no plugin hooks), a webhook watch, or an ARD
+search in the App.
+
 ## What a polyfill can tell you about a spec
 
 Building a client to the letter, in a host that wasn't designed for the
@@ -84,6 +101,9 @@ you first):
 - **Pi:** met. Its `tool_call` hook can block and ask, including codemode's
   nested calls. Reads through another extension's own connection pass no
   hook of the Skills extension.
+- **Antigravity:** can't be met yet, as in Codex. The plugin can't put a
+  question in front of Antigravity's own resource reads, so the loaded skill
+  tells the model to ask the person first.
 
 ## If your extension needs a client
 

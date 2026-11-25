@@ -45,17 +45,19 @@ polyfills/<extension>/
   claude-code/   the Claude Code adapter
   codex/         the Codex adapter
   pi/            the Pi adapter
+  antigravity/   the Antigravity adapter
 ```
 
 - `<extension>` is the extension's short name: `apps`, `events`, `skills`,
   `server-cards`, `ard`.
 - `core/` holds what does not depend on the host; each host folder holds its
-  adapter. Events and Skills use this layout. Apps has no Pi form.
+  adapter. Events and Skills use this layout. Apps has no Pi form, and no
+  Antigravity form: the Antigravity App renders MCP Apps itself.
 
 Inside an adapter's folder, the installable form goes in a subfolder (`mod/`
-in the Apps polyfill, `extension/` in Pi), holding the host's manifest and
-only what it runs; tests, build scripts, benchmarks and design notes go beside
-it. The folder is self-contained, so code from `core/` reaches it by
+in the Apps polyfill, `extension/` in Pi, `plugin/` in Antigravity), holding
+the host's manifest and only what it runs; tests, build scripts, benchmarks
+and design notes go beside it. The folder is self-contained, so code from `core/` reaches it by
 bundling, never by an import from outside it. Installation differs by host:
 
 - **Claude Code:** copies only the plugin folder.
@@ -63,6 +65,10 @@ bundling, never by an import from outside it. Installation differs by host:
 - **Pi:** loads `extension/` from its local path; it is not copied. The
   folder holds a manifest and one bundled file, with nothing for the user
   to build. The clone must stay in place.
+- **Antigravity:** `agy plugin install` copies `plugin/` to
+  `~/.gemini/config/plugins/<name>`, which the App and the CLI both read.
+  The folder holds the MCP server (`mcp_config.json`) and the hooks
+  (`hooks.json`).
 
 One plugin folder can carry both `.claude-plugin/plugin.json` and
 `.codex-plugin/plugin.json`. The plugin's name is unique in the repository, and
@@ -97,6 +103,11 @@ Install instructions depend on the host:
   tested version and Node 22 or newer as the requirement. Nothing for Pi is
   published to npm or Pi's package gallery; don't offer a package install.
   [Getting started](./getting-started#pi) has the tested steps.
+- **Antigravity:** clone the repository, then
+  `agy plugin install ./polyfills/<extension>/antigravity/plugin`. State
+  Node 20 or newer on `PATH` as the requirement, and the App and CLI versions
+  it was run with. Nothing is published to Antigravity's Marketplace.
+  [Getting started](./getting-started#antigravity) has the steps.
 
 ### 4. List it for its host
 
@@ -108,6 +119,9 @@ Install instructions depend on the host:
 - **Pi:** document the local `extension/` install path. There is no Pi
   bundle, and none of these forms is published to npm or Pi's package
   gallery.
+- **Antigravity:** document the local `plugin/` install path and
+  `agy plugin uninstall <plugin>`. None of these forms is published to
+  Antigravity's Marketplace.
 
 Then add it to the polyfills table in the repository's README, in its host's
 column.
@@ -149,6 +163,8 @@ beside the others. Events and Skills share one `core/`, with these forms:
 - **Claude Code:** a mod in `claude-code/`.
 - **Codex:** a plugin in `codex/`.
 - **Pi:** an extension in `pi/`, with the installable bundle in `extension/`.
+- **Antigravity:** a plugin in `antigravity/`, with the installable folder in
+  `plugin/`.
 
 1. **Find the host's way in.** What can third-party code do there: run code
    inside the host or beside it, call tools, ask the user, start a turn in an

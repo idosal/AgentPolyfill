@@ -40,6 +40,11 @@ install it by name.
 In Pi, name the registry or set `ARD_DISCOVERY_REGISTRY`. Every search asks
 in a Pi dialog, showing the exact query and endpoint; without a UI it is
 refused. Pi has no bundle; this extension is installed separately too.
+
+In Antigravity, name the registry or set `ARD_DISCOVERY_REGISTRY` in the
+environment Antigravity starts in; there is no default. Every search is put
+to you in Antigravity's approval card, yes or no, and the card can't be
+approved for good. The plugin is installed separately too.
 :::
 
 It implements ARD v0.91 at commit `f073b1ea9b`: §5.1 (domain discovery), §5.3
@@ -62,6 +67,12 @@ codex plugin add ard-discovery@agent-polyfill
 git clone https://github.com/idosal/AgentPolyfill.git
 cd AgentPolyfill
 pi install ./polyfills/ard/pi/extension
+```
+
+```bash [Antigravity]
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+agy plugin install ./polyfills/ard/antigravity/plugin
 ```
 
 :::
@@ -94,11 +105,25 @@ required. Its add tool is `ard_add_mcp_server`, so it can run beside Server
 Cards' `add_mcp_server`: Pi shares tool names across extensions and keeps
 the first registration of a name.
 
+### In Antigravity
+
+Node 20 or newer on `PATH`. Nothing is published to Antigravity's
+Marketplace; install from a clone. `agy plugin install` copies the folder to
+`~/.gemini/config/plugins/ard-discovery`, which the App and the CLI both
+read. Remove it with `agy plugin uninstall ard-discovery`. Servers you added
+stay in `~/.gemini/config/mcp_config.json`; remove one with
+`agy mcp remove <name>`.
+
+This form carries the Server Cards checks and add step itself, as the Codex
+and Pi forms do; it doesn't need `mcp-server-cards` installed. It was run in
+the CLI only, not in the App.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi)
+- [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/antigravity)
 
 ## Try it
 
@@ -113,6 +138,8 @@ Then ask to add it:
 - **Pi:** choose "Add it" in the extension's dialog. This add step is
   covered by real-Pi tests with a scripted model and a local server; it was
   **not completed in the live run**.
+- **Antigravity:** approve the addition in Antigravity's approval card. The
+  plugin then writes the server to `~/.gemini/config/mcp_config.json`.
 
 To try search, start the demo registry from a clone of the repository (it is a
 demo, not a real registry: it reads the live catalogs of ten publishers and
@@ -174,11 +201,25 @@ the server for the session. Use `/mcp` or `pi mcp login <name>` if sign-in
 is needed. Print and JSON modes cannot ask, so searches and additions are
 refused; RPC clients relay the dialogs.
 
+### In Antigravity
+
+There is no default registry: a search names one, or uses
+`ARD_DISCOVERY_REGISTRY` from the environment Antigravity starts in. Every
+registry search, and every addition, is put to you in Antigravity's
+approval card: yes or no, and never approved for good. An addition writes
+`~/.gemini/config/mcp_config.json` only after your yes. Editors on `agy acp`
+see the tool and its arguments in the card, not the question.
+
 ## Settings
 
 In Pi, use `ARD_DISCOVERY_REGISTRY` for your chosen registry and
 `ARD_DISCOVERY_DISABLED=1` to turn the form off. It cannot detect native ARD
 support: remove it or use the off switch when Pi supports ARD itself.
+
+In Antigravity, the same two settings apply, in the environment Antigravity
+starts in: `ARD_DISCOVERY_REGISTRY` and `ARD_DISCOVERY_DISABLED=1`.
+`agy plugin disable ard-discovery` turns it off too. It cannot detect native
+ARD support either.
 
 In Claude Code, in `/config`, under the plugin:
 
@@ -216,6 +257,17 @@ In Claude Code, in `/config`, under the plugin:
   asked in chat instead of calling `ard_add_mcp_server`, and `mcp.json`
   stayed empty. Additions are covered by real-Pi tests with a scripted model
   and a local server, not by that live run.
+
+### In Antigravity
+
+- **A search discloses its query** to the registry you chose, after your
+  yes in the approval card.
+- **The Server Cards Antigravity limits apply:** a card that needs a secret
+  can't be added. See [Server Cards](./server-cards#limits).
+- **Yes or no.** Editors on `agy acp` see the tool and its arguments, not
+  the question.
+- **Not run in the App.** ARD was run in the CLI only; a search in the App
+  hasn't been run.
 
 ## Security
 
@@ -255,6 +307,18 @@ documents the shared ARD and Server Cards rules, Pi's questions and the
 tested add path. No upstream conformance run or independent public-registry
 run is claimed. The [live-run transcript](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/docs/live-run.md)
 shows discovery and the approved demo search, and stops before addition.
+
+### In Antigravity
+
+Each search and each addition is put to you in Antigravity's approval card,
+and nothing is auto-approved: no `auto_approve`, no permission overrides. The
+hook leaves a one-use ticket for exactly that call, and the MCP server acts
+only with it. The plugin writes only its own folder,
+`~/.gemini/agentpolyfill/ard-discovery/`, and, after your approval,
+`~/.gemini/config/mcp_config.json`. It never opens a sign-in store. See
+[Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/antigravity/SECURITY.md).
+The Antigravity forms are awaiting the independent AI review the other forms
+had.
 
 ## More
 

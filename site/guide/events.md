@@ -14,6 +14,8 @@ Final). The forms fill these gaps:
 - **Claude Code:** no native Events support yet; the polyfill is a mod (plugin).
 - **Codex:** no Events support for your own servers; the polyfill is a plugin.
 - **Pi:** no native Events support in Pi 1.6.0; the polyfill is an extension.
+- **Antigravity:** the polyfill is a plugin, run in the App and the CLI
+  (`agy`); the IDE wasn't run.
 
 <Recording
   cut="events"
@@ -40,6 +42,12 @@ cd AgentPolyfill
 pi install ./polyfills/events/pi/extension
 ```
 
+```bash [Antigravity]
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+agy plugin install ./polyfills/events/antigravity/plugin
+```
+
 :::
 
 **In Claude Code** (2.1.326 or newer, with Node 20 or newer or Bun), the
@@ -61,11 +69,21 @@ so keep the clone; `git pull` there updates it. To remove it, run
 events stay in `mcp-events/` in Pi's agent folder (`~/.pi/agent`, or
 `PI_CODING_AGENT_DIR`); delete that folder too to remove them.
 
+**In Antigravity** (Node 20 or newer on `PATH`), install from a clone:
+nothing is published to Antigravity's Marketplace. `agy plugin install`
+copies the folder to `~/.gemini/config/plugins/mcp-events`, which the App and
+the CLI both read. To wake an idle App conversation, the plugin's sidecar
+must be on: add `"sidecars": {"mcp-events/wake": {"enabled": true}}` to
+`~/.gemini/config/config.json`. The plugin never edits that file. To remove
+it, run `agy plugin uninstall mcp-events`. Its state is in
+`~/.gemini/agentpolyfill/mcp-events/`; delete that folder too to remove it.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi)
+- [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity)
 
 ## Try it
 
@@ -85,6 +103,10 @@ codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
+```bash [Antigravity]
+agy mcp add feeds https://event-feeds.idosalomon.workers.dev/mcp
+```
+
 :::
 
 Start your host in the same folder:
@@ -94,6 +116,10 @@ Start your host in the same folder:
 - **Pi:** `pi`. Ask "Watch for new earthquakes from the feeds server and tell
   me where each one was." Confirm the watch in Pi's dialog; stop it with
   "Stop watching the earthquakes."
+- **Antigravity:** `agy`, or the App. The App doesn't ship `agy`; there, add
+  the server under Customizations > Installed > MCP Servers, or in
+  `~/.gemini/config/mcp_config.json`. This demo is for trying: it wasn't run
+  in Antigravity, whose live run used the repository's local deploys demo.
 
 For the button demo, ask:
 
@@ -187,6 +213,18 @@ session and resumes with it; a local (stdio) watch resumes only in the same
 folder. The [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/live-run.md)
 shows approval, an idle session waking, the answer and stopping the watch.
 
+### In Antigravity
+
+A watch goes through Antigravity's usual MCP approval. An MCP server isn't
+told which conversation calls it, so the plugin's `PreToolUse` hook passes
+the conversation id to the call in a one-use ticket. New events reach the
+conversation at its next model call, through a `PreInvocation` hook, in the
+App and the CLI. In the App, the plugin's sidecar wakes an idle conversation
+with `agentapi send-message`, once you turn it on. CLI conversations can't be
+woken. The IDE wasn't run. The [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/live-run.md)
+records delivery at the next turn in the CLI, an idle App conversation woken
+by the sidecar, and a wake during a running turn.
+
 ## What Claude can do with it
 
 The mod gives Claude six tools. You do not call them yourself; you ask in
@@ -233,6 +271,12 @@ In Pi, servers offering Events over stdio or Streamable HTTP work with
 push, poll or webhook delivery. Credentials must be in Pi's configuration;
 Pi's stored sign-ins cannot be used. See [Pi's limits](#limits).
 
+In Antigravity, the plugin connects to the servers in
+`~/.gemini/config/mcp_config.json`, using any header values there
+(`agy mcp add --header "Authorization: Bearer <token>" <name> <url>` writes
+one). Servers that need Antigravity's own sign-in are skipped. See
+[Antigravity's limits](#limits).
+
 ### In Claude Code
 
 - Servers that implement the Events extension (SEP-3415), over stdio or
@@ -255,7 +299,8 @@ Pi uses the shared Events relay client. A relay of your own, the public relay
 provides the public address. Webhook delivery needs a connection carrying
 credentials. The setup command below is for Claude Code; Pi's
 [relay instructions](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/README.md#webhook-delivery-the-relay)
-link to the shared setup and trade-offs.
+link to the shared setup and trade-offs. In Antigravity, a webhook watch
+hasn't been run yet.
 
 Some servers deliver only by webhook, and a webhook needs a public https
 address, which Claude Code on your machine does not have. A relay is that
@@ -309,6 +354,14 @@ In the interactive terminal and RPC mode, for as long as the session stays
 open. RPC clients relay the extension's dialogs. Print and JSON modes can
 list and read events but cannot start a watch.
 
+### In Antigravity
+
+In the App, the CLI (`agy`) and editors on `agy acp`. Only App
+conversations can be woken, and only with the sidecar on. The IDE's agent
+wasn't run: IDE 2.8.0 stayed signed out, and its hooks page lists no plugin
+hooks. Without the hooks every Events call is refused, so the plugin
+probably doesn't work in the IDE at all.
+
 ## Settings
 
 In Pi, set environment variables before starting `pi`. `MCP_EVENTS_OFF=1`
@@ -316,6 +369,15 @@ turns the extension off. It cannot detect native Events support; remove it
 or use that switch when Pi supports Events itself. The full
 [Pi settings table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/README.md#settings)
 lists its controls.
+
+In Antigravity, `MCP_EVENTS_OFF=1` in the environment Antigravity starts in,
+or `{"MCP_EVENTS_OFF": "1"}` in `~/.gemini/agentpolyfill/mcp-events/settings.json`,
+turns the plugin off; so does `agy plugin disable mcp-events`. It cannot
+detect native Events support: Antigravity tells plugins nothing about its MCP
+client's extensions. The sidecar is turned on in
+`~/.gemini/config/config.json`, as under [Install](#install). The
+[Antigravity README](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/README.md#settings-and-state)
+has its settings and state.
 
 The table below is for Claude Code.
 
@@ -382,6 +444,16 @@ Environment variables, for example in the `env` block of
 - **Off with Pi's MCP support.** With `--no-mcp`, `-builtin:mcp` in the
   extension settings, or a replacement MCP extension, Events stands down too.
 
+### In Antigravity
+
+- **Wakes only in the App.** Only App conversations can be woken, and only
+  with the sidecar on. CLI conversations get new events at their next model
+  call.
+- **No sign-in through Antigravity.** Servers behind Antigravity's own
+  sign-in can't be reached.
+- **Not run yet:** a webhook watch, and the IDE's agent. The IDE lists no
+  plugin hooks, and without them every Events call is refused.
+
 ## Security
 
 ### In Claude Code
@@ -438,6 +510,24 @@ Pi's own client also connects to the suite's server. See
 [Pi's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/conformance.md).
 An AI reviewer who did not build the Pi forms reviewed them, and checked
 the fixes again. They have not been audited by a person.
+
+### In Antigravity
+
+A watch goes through Antigravity's usual MCP approval, and nothing is
+auto-approved. The plugin reads `~/.gemini/config/mcp_config.json`, which
+can hold API keys in headers, to connect to your servers, and never logs or
+shows those values. It never opens `~/.gemini/antigravity/mcp_oauth_tokens.json`
+or any sign-in store, and writes only its own folder,
+`~/.gemini/agentpolyfill/mcp-events/`. See
+[Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/SECURITY.md)
+and its [conformance page](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/conformance.md).
+By default Antigravity asks before any MCP tool: the App's card, and in the
+CLI its default mode, `request-review`. The Events scenarios in conformance
+PR #541 (suite at `c8625de`, 25 November 2026) pass 17 of 17 checks, through
+the form's MCP server and its ticket hook
+([record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/evidence/conformance.txt)).
+The Antigravity forms are awaiting the independent AI review the other forms
+had.
 
 ## The mod's own runtime
 

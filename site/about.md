@@ -15,9 +15,13 @@ What runs in each host:
 - **Codex:** Events, Skills, Server Cards and ARD.
 - **Pi:** Events, Skills, Server Cards and ARD, as Pi extensions. Apps has no
   Pi form.
+- **Antigravity:** Events, Skills, Server Cards and ARD, as Antigravity
+  plugins. Apps has no Antigravity form: the App renders MCP Apps itself.
 
 See [Getting started](/guide/getting-started) for installation. Nothing for Pi
 is published to npm or Pi's package gallery; install from a repository clone.
+Nothing is published to Antigravity's Marketplace either; its plugins install
+from a clone too.
 
 ## Not affiliated
 

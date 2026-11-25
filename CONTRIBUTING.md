@@ -51,6 +51,7 @@ polyfills/<extension>/
   claude-code/   the Claude Code adapter
   codex/         the Codex adapter
   pi/            the Pi adapter
+  antigravity/   the Antigravity adapter
 ```
 
 - `<extension>` is the extension's short name: `apps`, `events`, `skills`,
@@ -67,13 +68,14 @@ polyfills/<extension>/
 | Claude Code | mod (plugin) | `polyfills/<extension>/claude-code/` |
 | Codex | plugin | `polyfills/<extension>/codex/` |
 | Pi | extension | `polyfills/<extension>/pi/` |
+| Antigravity | plugin | `polyfills/<extension>/antigravity/` |
 
 The Apps polyfill, [`polyfills/apps/claude-code`](polyfills/apps/claude-code),
 is a complete example of one adapter. Inside an adapter's folder:
 
 - **The installable plugin or extension goes in a subfolder** (`mod/` in the
-  Apps polyfill; `extension/` in a Pi form). It holds the host's manifest and
-  only what the plugin or extension runs.
+  Apps polyfill; `extension/` in a Pi form; `plugin/` in an Antigravity form).
+  It holds the host's manifest and only what the plugin or extension runs.
   Tests, build scripts, benchmarks and design notes go beside it, not in it.
   If the plugin's own top folder holds a `package.json`, Claude Code runs
   `npm install` there when someone installs it, so keep any `package.json`
@@ -90,6 +92,7 @@ is a complete example of one adapter. Inside an adapter's folder:
   | Claude Code | Copied on install; carries `.claude-plugin/plugin.json`. |
   | Codex | Copied on install; carries `.codex-plugin/plugin.json`, which can sit beside another host's manifest. |
   | Pi | A separate `pi/extension/` folder with a manifest and one bundled file. Pi loads the local path in place, so the clone must stay. |
+  | Antigravity | A separate `antigravity/plugin/` folder: the MCP server in `mcp_config.json` and the hooks in `hooks.json`. `agy plugin install` copies it to `~/.gemini/config/plugins/<name>`, which the App and the CLI both read. |
 
 - **A marketplace plugin's name** is unique in this repository. The same
   name is used in the marketplace entries, in release tags and in the
@@ -133,6 +136,11 @@ It states:
     The current forms need Pi 1.6.0 (the version tested) and Node 22 or
     newer. Nothing for Pi is published to npm or Pi's package gallery.
     For one run, use `pi -e ./polyfills/<extension>/pi/extension`.
+  - In Antigravity: from the same clone,
+    `agy plugin install ./polyfills/<extension>/antigravity/plugin`. The
+    current forms need Node 20 or newer on `PATH` and were run with App
+    v2.35.1 and CLI v1.5.16 (ARD in the CLI only). Nothing is published to Antigravity's
+    Marketplace. Remove one with `agy plugin uninstall <plugin>`.
   - Then what else it needs, and every step and question a new user meets
     between installation and the extension working, with what happens when
     they say no. Anything beyond "install, add a server, ask" needs a reason.
@@ -152,8 +160,9 @@ If a contract rule isn't met yet, the README says so.
 ### 4. Add it to the marketplace
 
 Each host that has a marketplace has its own marketplace file in this
-repository (Pi has none; see the end of this step). For Claude Code, add an
-entry to [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json):
+repository (Pi has none, and Antigravity has no file here; see the end of
+this step). For Claude Code, add an entry to
+[`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json):
 
 ```json
 {
@@ -198,6 +207,14 @@ steps and keep the installable folder at `polyfills/<extension>/pi/extension`.
 removal, and say what data remains. Add the form to the root README's Pi
 column; Apps has no Pi form.
 
+For Antigravity, there is no marketplace file here either, and nothing is
+published to Antigravity's Marketplace. Each form installs on its own.
+Document `agy plugin install` from a clone and keep the installable folder
+at `polyfills/<extension>/antigravity/plugin`. Include
+`agy plugin uninstall <plugin>` for removal, and say what data remains. Add
+the form to the root README's Antigravity column; Apps has no Antigravity
+form, because the App shows MCP Apps itself.
+
 ### 5. Add its CI
 
 Every push and pull request runs [`ci.yml`](.github/workflows/ci.yml). It
@@ -212,7 +229,9 @@ checks that:
 Plugins listed in the marketplaces are included in those checks
 automatically. Pi forms need their own workflow; see
 [`pi-events-test.yml`](.github/workflows/pi-events-test.yml) and
-[`pi-skills-test.yml`](.github/workflows/pi-skills-test.yml).
+[`pi-skills-test.yml`](.github/workflows/pi-skills-test.yml). The Antigravity
+forms are tested in
+[`antigravity-test.yml`](.github/workflows/antigravity-test.yml).
 
 Add the polyfill's own tests as `.github/workflows/<plugin>-test.yml`,
 filtered to its folder. Copy
@@ -256,6 +275,7 @@ one `core/` with these forms:
 - `claude-code/`: a Claude Code mod.
 - `codex/`: a Codex plugin.
 - `pi/`: a Pi extension, installed from `pi/extension/`.
+- `antigravity/`: an Antigravity plugin, installed from `antigravity/plugin/`.
 
 1. **Find the host's way in.** What can third-party code do there? It may run
    code inside the host or beside it, call tools, ask the user, or start a

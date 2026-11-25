@@ -38,6 +38,9 @@ Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`,
 so an extension cannot get an App's UI through Pi. Pi's terminal could draw
 one in principle, but no Pi Apps form is built or tested.
 
+Apps has no Antigravity form. The Antigravity App renders MCP Apps itself
+(v2.34.0 and later); the CLI and IDE show text only.
+
 The plugin is one zip, attached to a release of the repository and checked
 against the SHA-256 in the repository's marketplace file before Claude Code
 unpacks it. It carries a small helper program for each platform and needs

@@ -145,6 +145,9 @@ for each host:
 - **Pi:** an extension in `pi/`, with a manifest and bundled file in
   `extension/`. It installs from a local clone; nothing for Pi is published
   to npm or Pi's package gallery.
+- **Antigravity:** a plugin in `antigravity/`, with its MCP server and hooks
+  in `plugin/`. It installs from a local clone with `agy plugin install`;
+  nothing is published to Antigravity's Marketplace.
 
 The Pi examples are
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi),
@@ -153,6 +156,14 @@ The Pi examples are
 and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi).
 Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`;
 its terminal could draw an App in principle, but nothing is built or tested.
+
+The Antigravity examples are
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity),
+[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/antigravity),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/antigravity)
+and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/antigravity).
+Apps has no Antigravity form: the App renders MCP Apps itself (v2.34.0 and
+later), and the CLI and IDE show text only.
 
 Bringing a polyfill to another host is a new adapter: find how the host lets
 it reach the wire (a connection of its own, a tool call, a way to wake an idle
@@ -170,6 +181,17 @@ switch because native support cannot be detected. Their READMEs,
 `SECURITY.md`, `docs/conformance.md` and `docs/live-run.md` record what was
 checked. ARD's live run did not complete the add step; addition was checked
 in real Pi with a scripted model and a local server.
+
+The Antigravity forms show it from another side. Antigravity documents no
+MCP elicitation, and its client cancels every request without showing it, so
+each form asks through its `PreToolUse` hook, which answers `force_ask` with
+Antigravity's own approval card. An MCP server isn't told which conversation
+calls it, but hooks are, so the hook passes the conversation id to the call
+in a one-use ticket. Only the App can wake an idle conversation, through a
+sidecar the person turns on. X8 can't be met, as in Codex, and each form has
+an off switch because native support cannot be detected. Their READMEs, `SECURITY.md`,
+`docs/conformance.md` and Events' `docs/live-run.md` record what was
+checked. The IDE's agent wasn't run.
 
 ## Your own, listed in the community directory
 

@@ -51,6 +51,12 @@ cd AgentPolyfill
 pi install ./polyfills/server-cards/pi/extension
 ```
 
+```bash [Antigravity]
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+agy plugin install ./polyfills/server-cards/antigravity/plugin
+```
+
 :::
 
 ### In Claude Code
@@ -80,11 +86,21 @@ so keep the clone; `git pull` there updates it. Remove it from the same
 folder with `pi remove ./polyfills/server-cards/pi/extension`. Servers you
 added stay in `mcp.json`; remove one with `pi mcp remove <name>`.
 
+### In Antigravity
+
+Node 20 or newer on `PATH`. Nothing is published to Antigravity's
+Marketplace; install from a clone. `agy plugin install` copies the folder to
+`~/.gemini/config/plugins/mcp-server-cards`, which the App and the CLI both
+read. Remove it with `agy plugin uninstall mcp-server-cards`. Servers you
+added stay in `~/.gemini/config/mcp_config.json`; remove one with
+`agy mcp remove <name>`.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi)
+- [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/antigravity)
 
 ## Try it
 
@@ -93,6 +109,7 @@ Nothing to set up. Start your host:
 - **Claude Code:** `claude`.
 - **Codex:** `codex`.
 - **Pi:** `pi`.
+- **Antigravity:** the App or `agy`.
 
 Ask:
 
@@ -104,6 +121,8 @@ Then add **Neon Docs** (no sign-in):
 - **Codex:** choose "Add it" in Codex's own form.
 - **Pi:** ask "Add Neon Docs", then choose "Add it" in Pi's dialog. It is
   saved and registered for the current session, without a restart.
+- **Antigravity:** approve the addition in Antigravity's approval card. The
+  plugin then writes the server to `~/.gemini/config/mcp_config.json`.
 
 For one behind a sign-in, ask about
 buildkite.com; once it's added, the host asks you to sign in (in Claude Code,
@@ -161,6 +180,14 @@ check `/mcp` if connection fails. For sign-in, use `/mcp` or
 Print and JSON modes cannot ask, so additions are refused. RPC clients
 relay the dialog to you.
 
+### In Antigravity
+
+Ask to add a server it found. The addition is put to you in Antigravity's
+approval card, yes or no, and the card can't be approved for good. Only a yes
+writes the server to `~/.gemini/config/mcp_config.json`; the plugin reads
+that file first to check names. Editors on `agy acp` see the tool and its
+arguments in the card, not the question.
+
 ### A domain that redirects
 
 Some domains answer with a redirect to another domain: `neon.tech` sends its
@@ -175,6 +202,9 @@ decision, and the polyfill never uses `extensionsInfo`.
 ## Settings
 
 In Pi, `MCP_SERVER_CARDS_DISABLED=1` registers no tools and fetches nothing.
+
+In Antigravity, `MCP_SERVER_CARDS_DISABLED=1` in the environment Antigravity
+starts in turns the plugin off; so does `agy plugin disable mcp-server-cards`.
 
 In Claude Code, in `/config`, under the plugin:
 
@@ -239,6 +269,16 @@ in the same catalogs, and local (stdio) servers, which cards do not describe.
 - **Discover again after a session change.** New, resumed, forked and
   reloaded sessions forget shown cards. Disabled or replaced MCP support,
   or a failed connection, can prevent added tools from becoming available.
+
+### In Antigravity
+
+- **No card that needs a secret.** Antigravity's personal `mcp_config.json`
+  reads no `${VAR}`, and the plugin never writes a secret, so such a card
+  can't be added.
+- **Yes or no.** The approval card has no other choices. Editors on
+  `agy acp` see the tool and its arguments, not the question.
+- **The IDE's agent wasn't run.** IDE 2.8.0 stayed signed out, and its hooks
+  page lists no plugin hooks, so the plugin probably doesn't work there.
 
 ## Security
 
@@ -305,6 +345,20 @@ records neon.com's servers being listed, the add question, and Neon Docs
 saved in `mcp.json` and connected for the session. It does not establish a
 completed Neon Docs tool call.
 
+### In Antigravity
+
+Every addition is put to you in Antigravity's approval card, and nothing is
+auto-approved: no `auto_approve`, no permission overrides. The hook leaves a
+one-use ticket for exactly that call, and the MCP server adds only with it.
+Read-only tools go through Antigravity's usual MCP approval. The plugin reads
+`~/.gemini/config/mcp_config.json`, which can hold API keys in headers, to
+check names, and never logs or shows those values. It writes only that file,
+after your approval, and its own folder, `~/.gemini/agentpolyfill/mcp-server-cards/`.
+It never opens `~/.gemini/antigravity/mcp_oauth_tokens.json`. See
+[Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/antigravity/SECURITY.md).
+The Antigravity forms are awaiting the independent AI review the other forms
+had.
+
 ## When the host supports Server Cards itself
 
 - **Claude Code:** there is no Server Card support to detect yet. When it
@@ -312,6 +366,9 @@ completed Neon Docs tool call.
   and fetches nothing.
 - **Pi:** native support cannot be detected automatically. Remove the
   extension or set `MCP_SERVER_CARDS_DISABLED=1` when it ships.
+- **Antigravity:** native support can't be detected: Antigravity tells
+  plugins nothing about its MCP client's extensions. Disable or uninstall
+  the plugin, or set `MCP_SERVER_CARDS_DISABLED=1`, when it ships.
 
 ## More
 

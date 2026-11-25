@@ -116,6 +116,32 @@ To try one for a single run without installing, replace `<polyfill>` with
 pi -e ./polyfills/<polyfill>/pi/extension
 ```
 
+### Antigravity
+
+Google Antigravity's App, CLI (`agy`) and IDE share one plugin format. The
+forms were run in the App and the CLI; the IDE wasn't run. The plugins' hooks
+run `node`, so Node 20 or newer must be on `PATH`. Nothing is
+published to Antigravity's Marketplace. From a clone of this repository,
+install the plugins you want:
+
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+agy plugin install ./polyfills/events/antigravity/plugin
+agy plugin install ./polyfills/skills/antigravity/plugin
+agy plugin install ./polyfills/server-cards/antigravity/plugin
+agy plugin install ./polyfills/ard/antigravity/plugin
+```
+
+`agy plugin install` copies the folder to `~/.gemini/config/plugins/<name>`,
+which the App and the CLI both read. Apps has no Antigravity form: the App
+renders MCP Apps itself (v2.34.0 and later), and the CLI and IDE show text
+only.
+
+Events can wake an idle App conversation only through its sidecar, which is
+off until you add `"sidecars": {"mcp-events/wake": {"enabled": true}}` to
+`~/.gemini/config/config.json`. The plugin never edits that file.
+
 ## Requirements
 
 ### In Claude Code
@@ -182,6 +208,34 @@ Each Pi form's README has the rest:
 [Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi) and
 [ARD discovery](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi).
 
+### In Antigravity
+
+| | Antigravity | What else it needs |
+|---|---|---|
+| Events | App v2.35.1, CLI v1.5.16 (the versions run) | Node 20 or newer on `PATH`. Waking an idle App conversation needs the sidecar on; CLI conversations get new events at their next model call. |
+| Skills | App v2.35.1, CLI v1.5.16 (the versions run) | Node 20 or newer on `PATH`. A skill load needs an answer in the approval card. |
+| Server Cards | App v2.35.1, CLI v1.5.16 (the versions run) | Node 20 or newer on `PATH`. An addition needs an answer in the approval card. |
+| ARD | CLI v1.5.16 (the version run; not run in the App) | Node 20 or newer on `PATH`. An addition or a registry search needs an answer in the approval card. |
+| Apps | no form | The App renders MCP Apps itself (v2.34.0 and later); the CLI and IDE show text only. |
+
+Antigravity documents no MCP elicitation, and its MCP client cancels every
+request without showing it. So each plugin asks through its `PreToolUse`
+hook, which answers `force_ask`: Antigravity's own approval card, which shows
+the hook's question and can't be approved for good. The hook leaves a one-use
+ticket for exactly that call, and the MCP server acts only with it. Editors
+on `agy acp` see the tool and its arguments, not the question.
+
+The IDE's agent wasn't run: IDE 2.8.0 stayed signed out, and its hooks page
+lists no plugin hooks. Without the hooks every Events call is refused, so the
+plugins probably don't work in the IDE at all. A webhook watch wasn't run
+either.
+
+Each Antigravity form's README has the rest:
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity),
+[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/antigravity),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/antigravity) and
+[ARD discovery](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/antigravity).
+
 ## First run
 
 Events and Apps each have a hosted demo server to try them against, Skills
@@ -205,7 +259,15 @@ codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
+```bash [Antigravity]
+agy mcp add feeds https://event-feeds.idosalomon.workers.dev/mcp
+```
+
 :::
+
+The Antigravity App doesn't ship `agy`. There, add the server under
+Customizations > Installed > MCP Servers, or in
+`~/.gemini/config/mcp_config.json`.
 
 For the demo button:
 
@@ -234,6 +296,14 @@ For the demo button:
   folder. The [Pi live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/live-run.md)
   records a confirmed watch, idle wake, event read, answer and stop against
   a local ticket server.
+- **Antigravity:** try the same question. A watch goes through
+  Antigravity's usual MCP approval. New events reach the conversation at its
+  next model call. An idle App conversation wakes only with the sidecar on
+  ([Install](#antigravity)); CLI conversations can't be woken. The feeds demo
+  wasn't run in Antigravity: the [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/live-run.md)
+  used the repository's local deploys demo, and records delivery at the next
+  turn in the CLI, an idle App conversation woken by the sidecar, and a wake
+  during a running turn.
 
 [More on Events](./events)
 
@@ -253,6 +323,10 @@ codex mcp add huggingface --url https://huggingface.co/mcp
 pi mcp add huggingface --url https://huggingface.co/mcp
 ```
 
+```bash [Antigravity]
+agy mcp add huggingface https://huggingface.co/mcp
+```
+
 :::
 
 - **Claude Code:** `/mcp-skills` lists what it serves.
@@ -262,6 +336,11 @@ pi mcp add huggingface --url https://huggingface.co/mcp
   `mcp-<server>-<name>`, with descriptions marked
   `[MCP server "<server>", not a local skill]`. Pi can choose one for the
   task, or you can name it with `/skill:mcp-...`.
+- **Antigravity:** in the App, add the server under Customizations >
+  Installed > MCP Servers. Served skills appear as placeholder folders in
+  `~/.gemini/config/skills/`, which Antigravity reads before each turn. In
+  the live run the plugin listed Hugging Face's 25 skills and loaded one
+  after approval.
 
 Then ask a question one of its skills covers:
 
@@ -278,6 +357,10 @@ server asks "mcp-skills: reach another MCP server?", naming both servers
 The [Pi live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/docs/live-run.md)
 used Hugging Face's server, loaded two skills after approval, read reference
 files and answered from them; a second run previewed each skill first.
+In Antigravity the question is the approval card, yes or no. An approved,
+unchanged skill loads again with no question. X8 isn't met there, as in
+Codex: the plugin can't put a question in front of Antigravity's own
+resource reads, so the loaded skill tells the model to ask you first.
 
 [More on Skills](./skills)
 
@@ -302,6 +385,10 @@ Then add **Neon Docs** (no sign-in):
   connects without a restart. Decline or close the dialog and nothing is
   added. This was shown in the [Pi live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/docs/live-run.md).
   For a server that needs sign-in, use `/mcp` or `pi mcp login <name>`.
+- **Antigravity:** approve the addition in Antigravity's approval card. The
+  plugin then writes the server to `~/.gemini/config/mcp_config.json`. A card
+  that needs a secret can't be added: Antigravity's personal
+  `mcp_config.json` reads no `${VAR}`, and the plugin never writes a secret.
 
 [More on Server Cards](./server-cards)
 
@@ -326,10 +413,23 @@ chat instead of calling `ard_add_mcp_server`. Addition is covered by tests
 in real Pi with a scripted model and a local server.
 [More on ARD](./ard)
 
+### ARD in Antigravity
+
+The Antigravity form carries the Server Cards checks and add step itself; it
+needs no other polyfill installed. There is no default registry: name one in
+your request, or set `ARD_DISCOVERY_REGISTRY` in the environment Antigravity
+starts in. Every registry search, and every addition, is put to you in
+Antigravity's approval card. An addition writes
+`~/.gemini/config/mcp_config.json`. ARD was run in the CLI only, not in the
+App.
+[More on ARD](./ard)
+
 ### Apps
 
 Apps runs in Claude Code. Availability in each host is listed in the
-[polyfills table](./introduction#the-polyfills).
+[polyfills table](./introduction#the-polyfills). The Antigravity App renders
+MCP Apps itself (v2.34.0 and later), with no polyfill; its CLI and IDE show
+text only.
 
 ```bash
 claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp
@@ -358,6 +458,12 @@ configuration works with Events and Skills:
   `Authorization` header in `mcp.json` works, written out or resolved from
   `${VARIABLE}` or `!command`. The extensions never read `mcp-auth.json` or
   `auth.json`.
+- **Antigravity:** a server that needs Antigravity's own sign-in is skipped.
+  A header works: `agy mcp add --header "Authorization: Bearer <token>" <name> <url>`
+  writes it to `~/.gemini/config/mcp_config.json`. The plugins read that
+  file, header values included, to connect, and never log or show those
+  values. They never open
+  `~/.gemini/antigravity/mcp_oauth_tokens.json` or any sign-in store.
 
 Server Cards is different: it adds a server to the host's own config, and the
 host connects it with its own sign-in. [How it works](./how-it-works) says
@@ -405,3 +511,24 @@ and events, and `mcp-skills/` to remove approvals and skill stubs. If you set
 Servers added through Server Cards or ARD remain in `mcp.json`; remove each
 with `pi mcp remove <name>`, then `/reload` or start a new session to refresh
 an already running Pi.
+
+In Antigravity, disable or uninstall the plugin
+(`agy plugin disable mcp-events`, `agy plugin uninstall mcp-events`, and the
+same for `mcp-skills`, `mcp-server-cards` and `ard-discovery`), or use its
+own setting, in the environment Antigravity starts in:
+
+| | Off without uninstalling | Remove |
+|---|---|---|
+| Events | `MCP_EVENTS_OFF=1`, or `{"MCP_EVENTS_OFF": "1"}` in `~/.gemini/agentpolyfill/mcp-events/settings.json` | `agy plugin uninstall mcp-events` |
+| Skills | `MCP_SKILLS_DISABLED=1`, or `"off": true` in `~/.gemini/agentpolyfill/mcp-skills/settings.json` | `agy plugin uninstall mcp-skills` |
+| Server Cards | `MCP_SERVER_CARDS_DISABLED=1` | `agy plugin uninstall mcp-server-cards` |
+| ARD discovery | `ARD_DISCOVERY_DISABLED=1` | `agy plugin uninstall ard-discovery` |
+
+No Antigravity form detects native support: Antigravity tells plugins
+nothing about its MCP client's extensions. The plugins write only their own folder, `~/.gemini/agentpolyfill/<plugin>/`;
+Skills' placeholders, `~/.gemini/config/skills/mcp-skills-served--*`; and,
+for Server Cards and ARD after your approval,
+`~/.gemini/config/mcp_config.json`. Delete the first two to remove what they
+stored. A server added through Server Cards or ARD stays in
+`mcp_config.json`; remove it with `agy mcp remove <name>`, or delete its
+entry from that file.

@@ -50,6 +50,7 @@ const HOSTS = [
   { name: 'Claude Code', command: 'claude', addKey: 'add', form: 'Mod (plugin)', polyfills: 'Events, Skills, Server Cards, Apps, ARD' },
   { name: 'Codex', command: 'codex', addKey: 'addCodex', form: 'Plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
   { name: 'Pi', command: 'pi', addKey: 'addPi', form: 'Extension', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
+  { name: 'Antigravity', command: 'agy', start: 'open the Antigravity App or start `agy`', addKey: 'addAntigravity', form: 'Plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form (the App renders MCP Apps itself)' },
 ]
 // Pi's source installs and examples, for the Markdown served to agents.
 const PI_FORMS = {
@@ -77,6 +78,32 @@ const INSTALL_PI = [
 ]
 const PI_INSTALL_NOTES = 'Nothing for Pi is published to npm or Pi\'s package gallery. There is no bundle: install each extension separately. Pi cannot install one folder of a git repository, so use a local clone. Each extension is bundled, with nothing to build. Pi loads each path where it is; keep the clone and run `git pull` there to update it. For one run without installing, use `pi -e ./polyfills/<polyfill>/pi/extension`. Remove it from the same folder with `pi remove ./polyfills/<polyfill>/pi/extension` (`<polyfill>` is `events`, `skills`, `server-cards` or `ard`). Data stays in `mcp-events/` and `mcp-skills/` in Pi\'s agent folder (`~/.pi/agent`, or `PI_CODING_AGENT_DIR`); delete those to remove it. Added servers stay in `mcp.json`; undo with `pi mcp remove <name>`.'
 const PI_APPS_LIMIT = 'Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`, so an extension cannot get an App\'s UI through Pi. Its terminal could draw one in principle, but no Pi Apps form is built or tested.'
+// Antigravity's source installs and examples, for the Markdown served to agents.
+const ANTIGRAVITY_FORMS = {
+  'mcp-events': {
+    path: 'polyfills/events/antigravity/plugin',
+    add: 'agy mcp add feeds https://event-feeds.idosalomon.workers.dev/mcp',
+  },
+  'mcp-skills': {
+    path: 'polyfills/skills/antigravity/plugin',
+    add: 'agy mcp add huggingface https://huggingface.co/mcp',
+  },
+  'mcp-server-cards': {
+    path: 'polyfills/server-cards/antigravity/plugin',
+  },
+  'ard-discovery': {
+    path: 'polyfills/ard/antigravity/plugin',
+    add: 'agy plugin install ./polyfills/ard/antigravity/plugin',
+  },
+}
+const INSTALL_ANTIGRAVITY = [
+  'git clone https://github.com/idosal/AgentPolyfill.git',
+  'cd AgentPolyfill',
+  ...Object.values(ANTIGRAVITY_FORMS).map(({ path }) => `agy plugin install ./${path}`),
+]
+const ANTIGRAVITY_INSTALL_NOTES = 'Nothing is published to Antigravity\'s Marketplace; each plugin installs separately. `agy plugin install` copies the folder to `~/.gemini/config/plugins/<name>`, which the App and the CLI both read. Uninstall one with `agy plugin uninstall <name>` (`mcp-events`, `mcp-skills`, `mcp-server-cards` or `ard-discovery`). Events wakes an idle App conversation only through its sidecar, which is off until you add `"sidecars": {"mcp-events/wake": {"enabled": true}}` to `~/.gemini/config/config.json`; the plugin never edits that file. The plugins write only their own folder, `~/.gemini/agentpolyfill/<plugin>/`; Skills\' placeholders, `~/.gemini/config/skills/mcp-skills-served--*`; and, for Server Cards and ARD after your approval, `~/.gemini/config/mcp_config.json`.'
+const ANTIGRAVITY_ADD_NOTES = 'To add a server in the CLI: `agy mcp add <name> <url>`, with `--header "Authorization: Bearer <token>"` for a header; `agy mcp remove <name>` removes it. Both edit `~/.gemini/config/mcp_config.json`. The App doesn\'t ship `agy`; there, use Customizations > Installed > MCP Servers or edit that file.'
+const ANTIGRAVITY_APPS_LIMIT = 'Apps has no Antigravity form. Antigravity\'s App renders MCP Apps itself (v2.34.0 and later); the CLI and IDE show text only.'
 
 function hostTable() {
   return ['| Host | Form | Polyfills |', '|---|---|---|', ...HOSTS.map(({ name, form, polyfills }) => `| ${name} | ${form} | ${polyfills} |`)].join('\n')
@@ -255,7 +282,7 @@ function homeMarkdown() {
   const notice = html(poc[1].replace(/<strong>([\s\S]*?)<\/strong>/g, '**$1**'))
   const card = (p) => {
     const cut = media.cuts.find((c) => c.name === p.cut)
-    const pi = PI_FORMS[p.plugin]
+    const forms = { Pi: PI_FORMS[p.plugin], Antigravity: ANTIGRAVITY_FORMS[p.plugin] }
     const hosts = HOSTS.filter(({ name }) => p.hosts.includes(name))
     const lines = [
       `### ${p.name} (\`${p.plugin}\`)`,
@@ -271,15 +298,17 @@ function homeMarkdown() {
     const block = (command) => [command.startsWith('/') ? '```' : '```bash', command, '```']
     if (p.addStep) lines.push('', p.addStep)
     for (const host of hosts) {
-      const add = host.name === 'Pi' ? pi?.add ?? p[host.addKey] : p[host.addKey]
-      const ask = host.name === 'Pi' ? pi?.ask ?? p.ask : p.ask
+      const form = forms[host.name]
+      const add = form?.add ?? p[host.addKey]
+      const ask = form?.ask ?? p.ask
+      const start = host.start ?? `start \`${host.command}\``
       lines.push('', `**${host.name}**`, '')
-      if (add) lines.push(...block(add), '', `Then start \`${host.command}\` and ask: "${ask}"`)
-      else lines.push(`Nothing to set up. Start \`${host.command}\` and ask: "${ask}"`)
+      if (add) lines.push(...block(add), '', `Then ${start} and ask: "${ask}"`)
+      else lines.push(`Nothing to set up. ${start[0].toUpperCase()}${start.slice(1)} and ask: "${ask}"`)
     }
     if (p.then) lines.push('', p.then)
     if (p.note) lines.push('', p.note)
-    if (p.plugin === 'mcp-apps-cli') lines.push('', PI_APPS_LIMIT)
+    if (p.plugin === 'mcp-apps-cli') lines.push('', PI_APPS_LIMIT, '', ANTIGRAVITY_APPS_LIMIT)
     lines.push('', videoLine({ file: cut.file, seconds: cut.seconds, description: p.alt }), '', `The ${p.name} guide: ${resolveLink(p.link, 'index')}`)
     return lines.join('\n')
   }
@@ -323,11 +352,24 @@ ${PI_INSTALL_NOTES}
 
 ${PI_APPS_LIMIT}
 
+**Antigravity** (App v2.35.1 and CLI v1.5.16, the versions run; ARD in the CLI only; the IDE wasn't run; Node 20 or newer on \`PATH\`). From a clone:
+
+\`\`\`bash
+${INSTALL_ANTIGRAVITY.join('\n')}
+\`\`\`
+
+${ANTIGRAVITY_INSTALL_NOTES}
+
+${ANTIGRAVITY_ADD_NOTES}
+
+${ANTIGRAVITY_APPS_LIMIT}
+
 Beyond MCP, ARD is a draft. Every search asks you first and goes to a registry you choose. Install it separately:
 
 - **Claude Code:** \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`; it isn't in the bundle.
 - **Codex:** \`codex plugin add ard-discovery@agent-polyfill\`.
 - **Pi:** \`pi install ./polyfills/ard/pi/extension\` from the clone (included in the commands above).
+- **Antigravity:** \`agy plugin install ./polyfills/ard/antigravity/plugin\` from the clone (included in the commands above).
 
 ${videoLine({ file: media.launch.file, seconds: media.launch.seconds, description: media.launch.description })}
 
@@ -383,15 +425,16 @@ AgentPolyfill makes polyfills for agent protocols: it brings more of MCP to the 
 
 ${hostTable()}
 
-The MCP polyfills implement Events (SEP-3415), Skills (SEP-2640), Server Cards (SEP-2127) and Apps (MCP Apps 2026-01-26). It's an early proof of concept: some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs (${origin}/guide/how-it-works.md). ${PI_APPS_LIMIT}
+The MCP polyfills implement Events (SEP-3415), Skills (SEP-2640), Server Cards (SEP-2127) and Apps (MCP Apps 2026-01-26). It's an early proof of concept: some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs (${origin}/guide/how-it-works.md). ${PI_APPS_LIMIT} ${ANTIGRAVITY_APPS_LIMIT}
 
-Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A search sends the words of your request to the ARD registry you choose and asks you first every time, so ARD is installed separately. Pi's live run showed domain discovery and an approved search of the repository's demo registry, but did not complete the add step; additions are covered by real-Pi tests with a scripted model and a local server.
+Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A search sends the words of your request to the ARD registry you choose and asks you first every time, so ARD is installed separately. Pi's live run showed domain discovery and an approved search of the repository's demo registry, but did not complete the add step; additions are covered by real-Pi tests with a scripted model and a local server. In Antigravity, every registry search and every addition is put to you in Antigravity's approval card.
 
 ## Install
 
 - **Claude Code 2.1.329 or newer:** every MCP polyfill, the \`agent-polyfill\` bundle, from a terminal: \`${INSTALL_CLI}\`. At the prompt of a \`claude\` session it is \`${INSTALL}\`. Start a new session for the plugins to load. ARD is separate: \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`.
 - **Codex 0.170 or newer (Node 20 or newer):** from a terminal: \`${INSTALL_CODEX.join(' && ')}\`. ARD is separate: \`codex plugin add ard-discovery@agent-polyfill\`. There is no bundle.
 - **Pi 1.6.0 (the version tested; Node 22 or newer):** use the clone commands below.
+- **Antigravity (App v2.35.1 and CLI v1.5.16, the versions run, ARD in the CLI only; Node 20 or newer on \`PATH\`):** use the Antigravity clone commands after Pi's below.
 
 \`\`\`bash
 ${INSTALL_PI.join('\n')}
@@ -407,6 +450,27 @@ Pi runs tools without asking unless a permission extension asks. Each polyfill a
 |---|---|
 | Events | \`MCP_EVENTS_OFF=1\` |
 | Skills | \`MCP_SKILLS_OFF=1\` |
+| Server Cards | \`MCP_SERVER_CARDS_DISABLED=1\` |
+| ARD | \`ARD_DISCOVERY_DISABLED=1\` |
+
+Antigravity, from a clone:
+
+\`\`\`bash
+${INSTALL_ANTIGRAVITY.join('\n')}
+\`\`\`
+
+${ANTIGRAVITY_INSTALL_NOTES}
+
+${ANTIGRAVITY_ADD_NOTES}
+
+In Antigravity, an MCP server isn't told which conversation calls it, and Antigravity's MCP client cancels every elicitation request without showing it. So each plugin pairs its MCP server with a \`PreToolUse\` hook, which passes the conversation id to the call and asks through Antigravity's own approval card (\`force_ask\`). The hook leaves a one-use ticket for exactly that call, and the server acts only with it. New events reach a conversation at its next model call in the App and the CLI; only App conversations can be woken, through the sidecar. The IDE wasn't run; its hooks page lists no plugin hooks, and without them every Events call is refused. Events and Skills read \`~/.gemini/config/mcp_config.json\`, header values included, and can't reach servers behind Antigravity's own sign-in. A card that needs a secret can't be added: Antigravity's personal \`mcp_config.json\` reads no \`\${VAR}\`, and the plugin never writes a secret. Skills doesn't meet X8, as in Codex: the plugin can't put a question in front of Antigravity's own resource reads, so the loaded skill tells the model to ask the person first. ARD carries the Server Cards checks and add step itself, and has no default registry: name one, or set \`ARD_DISCOVERY_REGISTRY\` in the environment Antigravity starts in.
+
+Antigravity's own approval system is the boundary. Each form's own actions (an addition, a registry search, a skill load) ask in the approval card, which is yes or no and can't be approved for good; nothing is auto-approved. Read-only tools and Events watches go through Antigravity's usual MCP approval, which by default asks before any MCP tool (the App's card; the CLI's default mode, \`request-review\`). Upstream conformance (suite at c8625de, 25 November 2026): Skills passes all four client scenarios; Events passes 17 of 17 checks of conformance PR #541, through the form's MCP server and its ticket hook. Editors on \`agy acp\` see the tool and its arguments, not the question. The forms never open \`~/.gemini/antigravity/mcp_oauth_tokens.json\` or any sign-in store. The IDE's agent wasn't run (IDE 2.8.0 stayed signed out, and its hooks page lists no plugin hooks), and neither were a webhook watch or an ARD search in the App. The Antigravity forms are awaiting the independent AI review the other forms had. None of them detects native support; Antigravity tells plugins nothing about its MCP client's extensions. Disable or uninstall the plugin (\`agy plugin disable <name>\`), or use its off switch:
+
+| Antigravity form | Off switch |
+|---|---|
+| Events | \`MCP_EVENTS_OFF=1\`, or \`{"MCP_EVENTS_OFF": "1"}\` in \`~/.gemini/agentpolyfill/mcp-events/settings.json\` |
+| Skills | \`MCP_SKILLS_DISABLED=1\`, or \`"off": true\` in \`~/.gemini/agentpolyfill/mcp-skills/settings.json\` |
 | Server Cards | \`MCP_SERVER_CARDS_DISABLED=1\` |
 | ARD | \`ARD_DISCOVERY_DISABLED=1\` |
 

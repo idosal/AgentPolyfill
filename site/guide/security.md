@@ -8,6 +8,7 @@ These are third-party plugins and extensions that run with your permissions.
 None of them reads the host's stored credentials. They have been reviewed by
 an AI reviewer that did not build them, and not audited by a person. The Pi
 forms had an independent AI review, fixes and a check of those changes too.
+The Antigravity forms are awaiting that review.
 
 ## Reporting a problem
 
@@ -40,16 +41,17 @@ documents and adds a server to Claude Code's own config, only when you press
 Each polyfill's own `SECURITY.md` describes what it checks and what it does
 not protect against, in each host:
 
-| Polyfill | Claude Code | Codex | Pi |
-|---|---|---|---|
-| Events | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/SECURITY.md) |
-| Skills | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md) |
-| Server Cards | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md) |
-| Apps | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md) | not available | not available |
-| ARD | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md) |
+| Polyfill | Claude Code | Codex | Pi | Antigravity |
+|---|---|---|---|---|
+| Events | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/SECURITY.md) |
+| Skills | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/SECURITY.md) |
+| Server Cards | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/antigravity/SECURITY.md) |
+| Apps | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md) | not available | not available | no form; the App shows MCP Apps itself |
+| ARD | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/antigravity/SECURITY.md) |
 
 The following per-polyfill summaries describe the Claude Code forms;
-[Pi's security notes](#in-pi) follow them.
+[Pi's security notes](#in-pi) and [Antigravity's](#in-antigravity) follow
+them.
 
 ### Events
 
@@ -190,6 +192,50 @@ tokens. Server Cards and ARD keep their discovery state in memory; servers
 you add stay in `mcp.json`. See [Turning one off](./getting-started#turning-one-off)
 for off switches, uninstalling and removing saved data.
 
+## In Antigravity
+
+Antigravity's own approval system is the boundary. Each form's own actions
+(an addition, a registry search, a skill load) ask by default, through a
+`PreToolUse` hook that answers `force_ask`: Antigravity's approval card,
+which shows the hook's question and can't be approved for good. Nothing is
+auto-approved: no `auto_approve`, no permission overrides. The hook leaves a
+one-use ticket for exactly that call, and the MCP server acts only with it.
+No ticket, nothing done. Read-only tools and Events watches go through
+Antigravity's usual MCP approval, which by default asks before any MCP tool:
+the App's card, and in the CLI its default mode, `request-review` (checked
+live).
+
+- **Events:** a watch goes through Antigravity's usual MCP approval. The
+  hook passes the conversation id to the call in the same ticket. New events
+  reach the conversation at its next model call. The sidecar that wakes an
+  idle App conversation is off until you turn it on; the plugin never edits
+  `~/.gemini/config/config.json`.
+- **Skills:** loading a served skill is put to you in the approval card, yes
+  or no. An approved, unchanged skill loads again with no question. X8 isn't
+  met, as in Codex: the plugin can't put a question in front of
+  Antigravity's own resource reads, so the loaded skill tells the model to
+  ask you first.
+- **Server Cards:** an addition is put to you in the approval card, then
+  written to `~/.gemini/config/mcp_config.json`. A card that needs a secret
+  can't be added: that file reads no `${VAR}`, and the plugin never writes a
+  secret.
+- **ARD:** no registry is set by default. Every registry search, and every
+  addition, is put to you in the approval card. The form carries the Server
+  Cards checks itself.
+- **Apps:** no form. The App renders MCP Apps itself (v2.34.0 and later).
+
+The forms read `~/.gemini/config/mcp_config.json`, which can hold header
+values (API keys), to connect to your servers (Events, Skills) and to check
+names (Server Cards). They never log or show those values. They never open
+`~/.gemini/antigravity/mcp_oauth_tokens.json` or any sign-in store, and
+servers that need Antigravity's own sign-in are skipped.
+
+They write only their own folder, `~/.gemini/agentpolyfill/<plugin>/`;
+Skills' placeholders, `~/.gemini/config/skills/mcp-skills-served--*`; and,
+for Server Cards and ARD after your approval,
+`~/.gemini/config/mcp_config.json`. Editors on `agy acp` see the tool and its
+arguments in the card, not the question.
+
 ## What was checked, and how
 
 - **Tests.** A test for each client rule of Events and Skills. For Server Cards
@@ -210,6 +256,7 @@ for off switches, uninstalling and removing saved data.
   build them. The Events, Apps, Server Cards and ARD `SECURITY.md` files record
   a review on 24 November 2026 and what became of its findings. No person has
   audited any of them. The Pi forms had a separate independent AI review,
-  followed by fixes and a check of the changes.
+  followed by fixes and a check of the changes. The Antigravity forms have
+  not been through that review yet; they are queued for it.
 
 Each `SECURITY.md` says what was considered, not that nothing is left.
