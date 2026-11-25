@@ -1,0 +1,33 @@
+{
+  "name": "mcp-events-t3",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "MCP Events (SEP-3415) for T3 Code threads: Codex in a T3 Code thread can watch events on your MCP servers, and an event starts a turn in the idle thread that asked for it, through T3 Code's own `t3 thread send`.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1 --no-warnings \"test/*-test.ts\"",
+    "typecheck": "tsc --noEmit -p .",
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "smol-toml": "1.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "0.28.2",
+    "typescript": "^5.9.3"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idosal/AgentPolyfill.git",
+    "directory": "polyfills/events/t3"
+  }
+}

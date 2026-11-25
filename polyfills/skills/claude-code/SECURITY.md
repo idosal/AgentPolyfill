@@ -1,7 +1,7 @@
 # Security
 
-This covers `mcp-skills` for Claude Code. The Codex form has its own:
-[SECURITY.md](../codex/SECURITY.md).
+This covers `mcp-skills` for Claude Code. The other forms have their own:
+[Codex](../codex/SECURITY.md), [Pi](../pi/SECURITY.md), [OpenCode](../opencode/SECURITY.md).
 
 The mod puts text from MCP servers in front of a model that can run commands
 on your machine. The Skills extension (SEP-2640) says how a client must handle
