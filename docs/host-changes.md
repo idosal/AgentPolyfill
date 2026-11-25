@@ -11,23 +11,23 @@ it in each host, and what each extension needs from them.
 None of the changes names an extension. They are generic, and any future
 extension would use them the same way.
 
-We checked Claude Code against the mod API types in 2.1.330, Codex against
-CLI 0.170.0 (its `app-server` protocol, as
-`codex app-server generate-json-schema` prints it) and its source at
-`rust-v0.172.0`, Pi against 1.6.0 (its extension API types, its built-in
-MCP extension's source, and the Pi forms' tests, run in Pi itself), and
-OpenCode against the V2 plugin API of 2.4.1 (`@opencode/plugin`'s
-declarations, a running OpenCode, and its source on `dev` at `b0cda20`),
-T3 Code against 0.1.11 (its source at commit `5a156a2a`, and the T3
-Events form running in it, with Codex 0.172.0), and Copilot CLI against npm
-`@github/copilot` 1.0.115 (the SDK its extensions get, its unpacked runtime,
-and the forms running in it) and `github/copilot-sdk` at `03056de9`.
-VS Code's Copilot harness runs Copilot's runtime, so the Copilot column holds
-there too, except where a row says otherwise. Of the forms, Events (a wake)
-and a Server Cards add were checked in VS Code 1.147.0. In VS Code, ARD's
-search and add haven't been checked.
-Google Antigravity is closed source: we checked it against its documentation
-(read on 2026-11-25) and in CLI v1.5.17, CLI v1.5.16 and App v2.35.1.
+This page is for these versions:
+
+- Claude Code 2.1.330 (its mod API types).
+- Codex CLI 0.170.0 (its `app-server` protocol, as
+  `codex app-server generate-json-schema` prints it) and its source at
+  `rust-v0.172.0`.
+- Pi 1.6.0 (its extension API types and its built-in MCP extension's source).
+- OpenCode 2.4.1 (the V2 plugin API: `@opencode/plugin`'s declarations, and
+  its source on `dev` at `b0cda20`).
+- T3 Code 0.1.11 (its source at commit `5a156a2a`), with Codex 0.172.0.
+- Copilot CLI: npm `@github/copilot` 1.0.115 (the SDK its extensions get and
+  its runtime) and `github/copilot-sdk` at `03056de9`. VS Code's Copilot
+  harness runs Copilot's runtime, so the Copilot column holds there too,
+  except where a row says otherwise. Checked in VS Code 1.147.0: Events (a
+  wake) and a Server Cards add. Not checked in VS Code: ARD's search and add.
+- Google Antigravity, which is closed source: its documentation as of
+  2026-11-25, CLI 1.5.17 and 1.5.16, and App 2.35.1.
 
 ## How a plugin plugs in today
 
