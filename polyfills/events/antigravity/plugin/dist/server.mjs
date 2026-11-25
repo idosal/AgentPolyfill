@@ -698,7 +698,7 @@ async function runHook(handlers2, dir, server) {
 }
 
 // polyfills/events/codex/src/version.ts
-var VERSION = "0.1.6";
+var VERSION = "0.1.7";
 
 // polyfills/events/codex/src/words.ts
 var RELAY_SETUP = "A relay of your own (a small Cloudflare Worker on your account) is set up from a clone of the AgentPolyfill repository: cd polyfills/events/claude-code/mod/relay && npm install && npx wrangler login && npm run setup. Codex and Claude Code share it.";
@@ -28389,8 +28389,8 @@ function readConfig(file) {
   try {
     const text = readFileSync9(file, "utf8").replace(/^﻿/, "");
     parsed = text.trim() ? JSON.parse(text) : {};
-  } catch (err) {
-    return { error: `${file} is not JSON the plugin can read (${err instanceof Error ? err.message : String(err)}); it was left as it is` };
+  } catch {
+    return { error: `${file} is not JSON the plugin can read; it was left as it is` };
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return { error: `${file} does not hold a JSON object; it was left as it is` };
   const c = parsed;

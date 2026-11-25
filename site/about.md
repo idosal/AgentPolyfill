@@ -11,17 +11,27 @@ bring more of MCP to the clients you already use, before those clients
 support it. Today that's four MCP extensions and one open draft beyond MCP.
 What runs in each host:
 
-- **Claude Code:** Events, Skills, Server Cards, Apps and ARD.
+- **Claude Code:** Events, Server Cards, Apps and ARD. Skills needs no
+  polyfill there: Claude Code lists skills from MCP servers itself, in beta
+  from 2.1.332.
 - **Codex:** Events, Skills, Server Cards and ARD.
 - **Pi:** Events, Skills, Server Cards and ARD, as Pi extensions. Apps has no
   Pi form.
+- **OpenCode:** Events, Skills, Server Cards and ARD, as OpenCode plugins.
+  Apps has no OpenCode form.
 - **Antigravity:** Events, Skills, Server Cards and ARD, as Antigravity
   plugins. Apps has no Antigravity form: the App renders MCP Apps itself.
 
-See [Getting started](/guide/getting-started) for installation. Nothing for Pi
-is published to npm or Pi's package gallery; install from a repository clone.
+See [Getting started](/guide/getting-started) for installation. In Pi,
+`pi install git:github.com/idosal/AgentPolyfill` installs Events, Skills and
+Server Cards together. A clone is the alternative for one form, and the way
+to install ARD separately: its search sends your request's words to a registry
+after asking each time, so it is left out as it is from the Claude Code bundle.
+Nothing for Pi is published to npm or Pi's package gallery.
+Nothing for OpenCode is published to npm either; OpenCode installs each plugin
+from the repository on GitHub, with Git.
 Nothing is published to Antigravity's Marketplace either; its plugins install
-from a clone too.
+from a clone.
 
 ## Not affiliated
 

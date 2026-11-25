@@ -14,8 +14,9 @@ A polyfill can be that client-side implementation, in hosts that haven't
 shipped the extension yet, used by real people against real servers. Each one
 here names the spec revision it implements. Events and Skills have a test for
 every client rule and run against servers their authors didn't write. Skills
-passes the official conformance suite's Skills client scenarios in Claude
-Code, Codex, Pi and Antigravity. The shared Events client passes the Events client scenarios proposed
+passes the official conformance suite's Skills client scenarios in the Codex,
+Pi and Antigravity forms; no run is recorded for the OpenCode form. The
+shared Events client passes the Events client scenarios proposed
 upstream (still an open pull request in the conformance suite); the Pi
 end-to-end run has limits listed below. Apps checks the spec requirement by
 requirement in its design notes. Whether a polyfill counts as an independent
@@ -32,7 +33,9 @@ extension's `core/`. Host results are recorded separately:
   and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex).
 - **Pi:** the second table gives its conformance and live-run evidence,
   checked with Pi 1.6.0.
-- **Antigravity:** the third table gives its conformance pages and live-run
+- **OpenCode:** the third table gives its conformance and live-run
+  evidence, checked with OpenCode 2.4.1.
+- **Antigravity:** the fourth table gives its conformance pages and live-run
   evidence, checked with App v2.35.1 and CLI v1.5.16.
 
 ## What each one has been checked against
@@ -42,9 +45,13 @@ extension's `core/`. Host results are recorded separately:
 | | Revision | Client rules | Someone else's servers or documents | Upstream conformance |
 |---|---|---|---|---|
 | [Events](./events) | SEP-3415, Final | Every client-side rule, clause by clause, with the code and the test for each ([conformance.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/docs/conformance.md)) | Three interop runs against servers built on Mastra's `@mastra/mcp` | The suite's Events client scenarios (an unmerged pull request): 17 of 17, run on 0.5.0 |
-| [Skills](./skills) | SEP-2640, Final | 60 rules: 54 met, 3 met with a stated limit, 3 that do not apply ([conformance.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/docs/conformance.md)) | Hugging Face and TogoMCP, every skill loaded and every file verified; the official TypeScript SDK's Skills server and client | The official suite's client scenarios for SEP-2640: 4 of 4 |
 | [Apps](./apps) | MCP Apps 2026-01-26, Stable, plus `ui/download-file` from the draft | Requirement by requirement: each MUST, SHOULD and MAY, with its test where it has one; one MUST, the default CSP, is not met, on purpose ([COMPLIANCE.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/docs/COMPLIANCE.md)) | Not stated as a separate run | The suite has no client scenarios for MCP Apps yet, so there is nothing of it to run |
 | [Server Cards](./server-cards) | SEP-2127, Final (extension Beta); ext-server-card at `28db12c9b4`; AI Catalog v0.9 | One row per rule, with the test that covers it (108 tests); two rules are met by design, and the one to check a card against the live server is not met ([README](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/README.md#client-rules)) | The live catalogs and cards of Buildkite, GitHub, Hugging Face, Neon, Netlify, Notion, Context7, Exa, Supabase and Zapier; ajv with the official schema gives the same verdict on all eleven cards | The suite has no Server Card scenarios |
+
+Skills isn't in this table. Claude Code lists skills from MCP servers itself,
+in beta from 2.1.332, so there is no polyfill for it, and this project hasn't
+checked Claude Code's own support against SEP-2640. The Skills forms' results
+are under Codex (its README), Pi, OpenCode and Antigravity.
 
 Each one also says where it steps outside the spec. Events, by default, also
 talks to servers that advertise events in the form from before SEP-3415, and
@@ -71,6 +78,22 @@ failed. The shared-client run covers all 17 checks. The live runs above used
 Pi's RPC mode; scripts answered the dialogs. They do not establish how the
 selectors appear in the terminal UI.
 
+### OpenCode
+
+| Polyfill | Client rules and conformance | Recorded live run |
+|---|---|---|
+| Events | The shared client, bundled unchanged; its clause table holds (with `MCP_EVENTS_PRE_STANDARD=off`, 80 clauses met and 6 not applicable). The upstream Events scenarios were run against that client in the Claude Code and Codex forms, not through OpenCode. The form's own tests check listing, poll, push and webhook delivery, resuming after a restart and the permission question in OpenCode. It departs from contract rule 4: it watches push events that OpenCode's automations also take. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/docs/conformance.md). | A real model and the fixture events server: a watch asked about, an idle session woken, the answer. AgentPolyfill's event-feeds server by poll, and a webhook through the public relay, each waking a session. Also in the TUI and in OpenCode Desktop. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md). |
+| Skills | 60 rules: 54 met, 4 met with a stated exception, 1 not applicable, and 1 not met, X13b (letting you read a skill before it loads), which needs a change in OpenCode. X8 is met, also from a Code Mode program, in subagents and after a restart; so is V4. No official-suite run is recorded. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/docs/conformance.md). | Hugging Face's public server: its 25 skills in OpenCode's list, two loaded after OpenCode asked, each bound to its digest, reference files read and an answer from them; the X8 question from a Code Mode program. A skill also loaded in the TUI and in OpenCode Desktop. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md). |
+| Server Cards | 28 rules: 26 met, 1 met with a stated exception (I-4: an SSE remote is refused), and 1 not met, S-3, comparison with the live server. No upstream Server Card scenarios were run. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/opencode/docs/conformance.md). | neon.com's two cards found; Neon Docs added after OpenCode asked, connected, and its `search_docs` tool called. Also added and connected in the TUI. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md). |
+| ARD (v0.91 draft, beyond MCP) | 19 rules: 17 met, 1 partly met (R-8, as in the other forms), and 1 met with a stated exception (Q-3: the TUI's prompt doesn't name a referred registry). Adding is tested in OpenCode with a scripted model and a local server. No upstream ARD conformance run. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/opencode/docs/conformance.md). | buildkite.com's `ard.json` read, and a search of the repository's demo registry sent after OpenCode asked. **No server was added through it.** ARD wasn't tried in the TUI or in OpenCode Desktop. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md). |
+| Apps | No OpenCode form: OpenCode has no MCP Apps support, and a plugin can't read a `ui://` resource or a tool's `_meta` over OpenCode's connection. | None. |
+
+The tests run each form in OpenCode 2.4.1, in a throwaway home, with a
+scripted stand-in for a model, on Linux, macOS and Windows. The live runs
+used OpenCode's free models through its server's API; Events, Skills and
+Server Cards were also run in its TUI, and Events and Skills in OpenCode
+Desktop.
+
 ### Antigravity
 
 | Polyfill | Client rules and conformance | Recorded live run |
@@ -96,11 +119,14 @@ four generic changes, none of which names an extension. One example: SEP-2640's
 rule X8 (a skill from one server reading another server's resources is put to
 you first):
 
-- **Claude Code:** met, with one stated limit.
 - **Codex:** can't be met yet, because Codex doesn't let a plugin ask.
 - **Pi:** met. Its `tool_call` hook can block and ask, including codemode's
   nested calls. Reads through another extension's own connection pass no
   hook of the Skills extension.
+- **OpenCode:** met. A hook on OpenCode's resource read puts a read of
+  another server to OpenCode's permission rules, per call, naming both
+  servers, whatever the read is named (from a Code Mode program too), in
+  subagents and after a restart.
 - **Antigravity:** can't be met yet, as in Codex. The plugin can't put a
   question in front of Antigravity's own resource reads, so the loaded skill
   tells the model to ask the person first.

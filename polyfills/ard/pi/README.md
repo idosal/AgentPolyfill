@@ -4,9 +4,8 @@ Pi finds MCP servers through Agentic Resource Discovery (ARD): in what a
 domain lists, or by asking a registry for a server that can do a task. You
 choose the registry, and Pi asks before every search and every addition.
 
-Also available for [Claude Code](../claude-code/README.md) and
-[Codex](../codex/README.md). All three use the same ARD registry client and
-Server Cards modules.
+Also available for Claude Code, Codex and OpenCode: [ard-discovery for Claude Code](../claude-code/README.md), [ard-discovery for Codex](../codex/README.md), [ard-discovery for OpenCode](../opencode/README.md).
+All four use the same ARD registry client and Server Cards modules.
 
 > Search the registry I named for an MCP server that can check why my CI build failed.
 
@@ -15,16 +14,23 @@ default. Name one in your request or set `ARD_DISCOVERY_REGISTRY`. The
 extension never supplies a registry on your behalf. With neither, it refuses
 the search and asks Pi to ask you which registry to use.
 
-ARD is a draft, not an MCP specification. This form implements its consumer
+ARD is a draft published by the ards-project on GitHub, not an MCP
+specification. This form implements its consumer
 side for MCP Server Cards only. Each card is checked; a result counts as
 confirmed only when the publisher's own catalog lists it. The registry's
 ranking is relevance, not trust.
 
 ## Install
 
-Nothing is published to npm or Pi's package gallery yet, so install it from a
-clone of this repository. You need **Pi 1.6.0**, the version it was tested
-with, and **Node 22 or newer**, which Pi needs anyway:
+Install ARD on its own from a clone. It is left out of
+`pi install git:github.com/idosal/AgentPolyfill`, which installs Events,
+Skills and Server Cards together. The reason is the same as for the Claude
+Code bundle: ARD's search sends the words of your request to a registry
+after asking you each time.
+
+Nothing is published to npm or Pi's package gallery. You need **Pi 1.6.0**,
+the version it was tested with, and **Node 22 or newer**, which Pi needs
+anyway:
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git

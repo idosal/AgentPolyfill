@@ -14,9 +14,10 @@ listed in the [community directory](#listing-a-polyfill-in-the-community-directo
 
 ## Adding a polyfill
 
-A polyfill implements the client side of one published MCP extension inside one
+A polyfill implements the client side of one published extension inside one
 host that has not shipped it, and does nothing once the host supports the
-extension itself. Each one is a folder in the repository.
+extension itself. The extension is an MCP extension, or a spec for agents
+published outside MCP, such as ARD. Each one is a folder in the repository.
 
 ### 1. Meet the contract
 
@@ -45,26 +46,34 @@ polyfills/<extension>/
   claude-code/   the Claude Code adapter
   codex/         the Codex adapter
   pi/            the Pi adapter
+  opencode/      the OpenCode adapter
   antigravity/   the Antigravity adapter
 ```
 
 - `<extension>` is the extension's short name: `apps`, `events`, `skills`,
   `server-cards`, `ard`.
 - `core/` holds what does not depend on the host; each host folder holds its
-  adapter. Events and Skills use this layout. Apps has no Pi form, and no
-  Antigravity form: the Antigravity App renders MCP Apps itself.
+  adapter. Events and Skills use this layout. Apps has no Pi or OpenCode
+  form, and no Antigravity form: the Antigravity App renders MCP Apps itself.
 
 Inside an adapter's folder, the installable form goes in a subfolder (`mod/`
-in the Apps polyfill, `extension/` in Pi, `plugin/` in Antigravity), holding
-the host's manifest and only what it runs; tests, build scripts, benchmarks
-and design notes go beside it. The folder is self-contained, so code from `core/` reaches it by
-bundling, never by an import from outside it. Installation differs by host:
+in the Apps polyfill, `extension/` in Pi, `plugin/` in OpenCode and
+Antigravity), holding the host's manifest and only what it runs; tests, build
+scripts, benchmarks and design notes go beside it. The folder is
+self-contained, so code from `core/` reaches it by bundling, never by an
+import from outside it. Installation differs by host:
 
 - **Claude Code:** copies only the plugin folder.
 - **Codex:** copies only the plugin folder.
-- **Pi:** loads `extension/` from its local path; it is not copied. The
-  folder holds a manifest and one bundled file, with nothing for the user
-  to build. The clone must stay in place.
+- **Pi:** the Git install clones the repository under `~/.pi/agent/git/`
+  and loads the three extensions from there. A local install loads
+  `extension/` where it is, so that clone must stay. The folder holds a
+  manifest and one bundled file, with nothing for the user to build.
+- **OpenCode:** loads `plugin/` itself, fetched from GitHub by the folder's
+  path (`opencode plugin add`, with Git) or from a clone's folder named in
+  `plugins` in `opencode.json`. The folder holds one bundled file,
+  `server.js`, and a small `package.json` that names it, plus licence notices
+  where the bundle holds other packages' code (the Events and Skills forms).
 - **Antigravity:** `agy plugin install` copies `plugin/` to
   `~/.gemini/config/plugins/<name>`, which the App and the CLI both read.
   The folder holds the MCP server (`mcp_config.json`) and the hooks
@@ -98,11 +107,32 @@ Install instructions depend on the host:
 
 - **Claude Code:** `/plugin install <plugin> --marketplace idosal/AgentPolyfill`.
 - **Codex:** `codex plugin marketplace add idosal/AgentPolyfill && codex plugin add <plugin>@agent-polyfill`.
-- **Pi:** clone the repository, then
-  `pi install ./polyfills/<extension>/pi/extension`. State Pi 1.6.0 as the
+- **Pi:** lead with `pi install git:github.com/idosal/AgentPolyfill`, which
+  installs Events, Skills and Server Cards together. Keep the clone path,
+  `pi install ./polyfills/<extension>/pi/extension`, as the alternative for
+  one form. ARD is installed separately from a clone because its search
+  sends your request's words to a registry after asking each time, the same
+  reason it is left out of the Claude Code bundle. State Pi 1.6.0 as the
   tested version and Node 22 or newer as the requirement. Nothing for Pi is
-  published to npm or Pi's package gallery; don't offer a package install.
-  [Getting started](./getting-started#pi) has the tested steps.
+  published to npm or Pi's package gallery. Document
+  `pi update --extensions` for installed packages and
+  `pi remove git:github.com/idosal/AgentPolyfill` to remove all three and
+  Pi's repository copy. For a local install, use
+  `pi remove ./polyfills/<extension>/pi/extension` from the same clone.
+  Use one way per form: repository addresses and local paths identify
+  separate packages, so installing both loads a form twice. Removal leaves
+  `mcp-events/` and `mcp-skills/` in Pi's agent folder and added servers in
+  `mcp.json`. [Getting started](./getting-started#pi) has the steps,
+  including one run without installing.
+- **OpenCode:**
+  `opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/<extension>/opencode/plugin'`,
+  removed with `opencode plugin remove` and the same text. State OpenCode
+  2.4 as the requirement and 2.4.1 as the tested version; OpenCode runs the
+  plugin, so no Node. Nothing is published to npm. Give the clone's form too,
+  the folder in `plugins` in `opencode.json`, and say what stays after
+  removal. [Getting started](./getting-started#opencode) has the tested
+  steps; `tools/opencode/install-check.ts` repeats the install from GitHub in
+  a throwaway home.
 - **Antigravity:** clone the repository, then
   `agy plugin install ./polyfills/<extension>/antigravity/plugin`. State
   Node 20 or newer on `PATH` as the requirement, and the App and CLI versions
@@ -116,9 +146,14 @@ Install instructions depend on the host:
   the list in its README (CI fails until the two lists match).
 - **Codex:** add an entry to `.agents/plugins/marketplace.json` (a `local`
   source with the plugin folder's path).
-- **Pi:** document the local `extension/` install path. There is no Pi
-  bundle, and none of these forms is published to npm or Pi's package
-  gallery.
+- **Pi:** add `./polyfills/<extension>/pi/extension/dist/index.js` to the
+  root `package.json`'s `pi.extensions` to include a new form in the
+  one-line install. ARD is left out on purpose because of its registry
+  search. Keep the local `extension/` install path documented too. None of
+  these forms is published to npm or Pi's package gallery.
+- **OpenCode:** there is no marketplace file and no bundle. Each plugin is
+  installed from GitHub by its folder's path, so the install line in its
+  README is its listing. Nothing is published to npm.
 - **Antigravity:** document the local `plugin/` install path and
   `agy plugin uninstall <plugin>`. None of these forms is published to
   Antigravity's Marketplace.
@@ -130,10 +165,19 @@ column.
 
 Every push and pull request runs the repository checks: valid manifests,
 `claude plugin validate` for the marketplace and every plugin, and the bundle
-depending on every polyfill. Add the polyfill's own tests as
-`.github/workflows/<plugin>-test.yml`, filtered to its folder. A polyfill that
-ships built files also gets a release workflow, run on its own tags,
-`<plugin>-v<version>`.
+depending on every polyfill. Add the polyfill's own tests as a workflow in
+`.github/workflows/`, filtered to its folder, named by host:
+
+- **Claude Code:** `<plugin>-test.yml`.
+- **Codex:** `codex-<extension>-test.yml`.
+- **Pi:** `pi-<extension>-test.yml`.
+- **OpenCode:** `opencode-<extension>-test.yml`. It runs the form's tests in
+  a real OpenCode, the release pinned in `tools/opencode`, in a throwaway
+  home with a scripted stand-in for a model, on Linux, macOS and Windows,
+  and checks that the committed `plugin/server.js` is what its sources build.
+
+A polyfill that ships built files also gets a release workflow, run on its
+own tags, `<plugin>-v<version>`.
 
 ### 6. Before you open the pull request
 
@@ -143,6 +187,9 @@ For a Claude Code form, validate its marketplace and plugin:
 claude plugin validate .
 claude plugin validate polyfills/<extension>/<host>/<plugin subfolder>
 ```
+
+For an OpenCode form, run `npm run check` in its folder: it fails when the
+committed `plugin/server.js` isn't what the sources build.
 
 Run the polyfill's tests, and do one recorded run in the real host against a
 server you did not write. Say in the pull request what you ran and what you saw.
@@ -160,9 +207,12 @@ copy, is
 An extension keeps one folder and one polyfill name; each host gets an adapter
 beside the others. Events and Skills share one `core/`, with these forms:
 
-- **Claude Code:** a mod in `claude-code/`.
+- **Claude Code:** a mod in `claude-code/` (Events has one; Skills doesn't,
+  because Claude Code lists served skills itself).
 - **Codex:** a plugin in `codex/`.
 - **Pi:** an extension in `pi/`, with the installable bundle in `extension/`.
+- **OpenCode:** a V2 server plugin in `opencode/`, with the bundle in
+  `plugin/`.
 - **Antigravity:** a plugin in `antigravity/`, with the installable folder in
   `plugin/`.
 

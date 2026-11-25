@@ -10,13 +10,21 @@ and what happened.
 Each polyfill's own `SECURITY.md` describes what it checks and what it does
 not protect against:
 
-| Polyfill | Claude Code | Codex | Pi | Antigravity |
-|---|---|---|---|---|
-| Events | [SECURITY.md](polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](polyfills/events/codex/SECURITY.md) | [SECURITY.md](polyfills/events/pi/SECURITY.md) | [SECURITY.md](polyfills/events/antigravity/SECURITY.md) |
-| Apps | [SECURITY.md](polyfills/apps/claude-code/SECURITY.md) | not available | not available | no form; the App shows MCP Apps itself |
-| Skills | [SECURITY.md](polyfills/skills/claude-code/SECURITY.md) | [SECURITY.md](polyfills/skills/codex/SECURITY.md) | [SECURITY.md](polyfills/skills/pi/SECURITY.md) | [SECURITY.md](polyfills/skills/antigravity/SECURITY.md) |
-| Server Cards | [SECURITY.md](polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](polyfills/server-cards/antigravity/SECURITY.md) |
-| ARD | [SECURITY.md](polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](polyfills/ard/codex/SECURITY.md) | [SECURITY.md](polyfills/ard/pi/SECURITY.md) | [SECURITY.md](polyfills/ard/antigravity/SECURITY.md) |
+| Polyfill | Claude Code | Codex | Pi | OpenCode | Antigravity |
+|---|---|---|---|---|---|
+| Events | [SECURITY.md](polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](polyfills/events/codex/SECURITY.md) | [SECURITY.md](polyfills/events/pi/SECURITY.md) | [SECURITY.md](polyfills/events/opencode/SECURITY.md) | [SECURITY.md](polyfills/events/antigravity/SECURITY.md) |
+| Apps | [SECURITY.md](polyfills/apps/claude-code/SECURITY.md) | not available | not available | not available | no form; the App shows MCP Apps itself |
+| Skills | no polyfill: built into Claude Code, in beta from 2.1.332 | [SECURITY.md](polyfills/skills/codex/SECURITY.md) | [SECURITY.md](polyfills/skills/pi/SECURITY.md) | [SECURITY.md](polyfills/skills/opencode/SECURITY.md) | [SECURITY.md](polyfills/skills/antigravity/SECURITY.md) |
+| Server Cards | [SECURITY.md](polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](polyfills/server-cards/opencode/SECURITY.md) | [SECURITY.md](polyfills/server-cards/antigravity/SECURITY.md) |
+| ARD | [SECURITY.md](polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](polyfills/ard/codex/SECURITY.md) | [SECURITY.md](polyfills/ard/pi/SECURITY.md) | [SECURITY.md](polyfills/ard/opencode/SECURITY.md) | [SECURITY.md](polyfills/ard/antigravity/SECURITY.md) |
+
+In T3 Code, which runs Codex, Claude Code, OpenCode and other agents for
+you, the plugins above run as they do in those hosts (checked with Codex). Events has a form of its own there, for Codex
+threads: [mcp-events for T3 Code](polyfills/events/t3/SECURITY.md). It is an
+MCP server Codex starts, and a watcher process that keeps running after T3
+Code closes, until no thread has a watch, and wakes a thread with T3 Code's
+`t3 thread send`. The turn it starts runs in the thread's own permission
+mode. It reads no stored credentials, Codex's or T3 Code's.
 
 These are third-party plugins and extensions that run with your permissions
 in each host. They have been reviewed by an AI reviewer that did not build
@@ -29,6 +37,17 @@ registry search or a server addition. None auto-approves or reads Pi's
 stored credentials (`mcp-auth.json`, `auth.json`). Pi's permissions remain
 the boundary. Skills also asks before a cross-server read while a served
 skill is loaded, naming both servers (SEP-2640 X8).
+
+OpenCode's shipped permission rules allow every action. Each OpenCode
+polyfill puts its consequential step (a watch, a skill load, a registry
+search or a server addition) to OpenCode's rules and makes it ask by
+default; a `deny` or `ask` rule you write wins, and with nobody there to
+answer, OpenCode refuses. None answers a question itself or reads
+OpenCode's stored credentials, OAuth tokens included. OpenCode's rules
+remain the boundary. Skills also asks before a cross-server read while a
+served skill is loaded, naming both servers (SEP-2640 X8). OpenCode 2.4.1's
+TUI shows each of these questions only as "Call tool `<action>`"; the details
+are on the model's call line just above it.
 
 Each Antigravity polyfill puts its own actions to you in Antigravity's
 approval card: a server addition, a registry search or a skill load. The card

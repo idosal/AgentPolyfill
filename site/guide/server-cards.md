@@ -46,9 +46,11 @@ codex plugin add mcp-server-cards@agent-polyfill
 ```
 
 ```bash [Pi]
-git clone https://github.com/idosal/AgentPolyfill.git
-cd AgentPolyfill
-pi install ./polyfills/server-cards/pi/extension
+pi install git:github.com/idosal/AgentPolyfill
+```
+
+```bash [OpenCode]
+opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/server-cards/opencode/plugin'
 ```
 
 ```bash [Antigravity]
@@ -78,13 +80,56 @@ Codex's own form.
 
 ### In Pi
 
-Pi 1.6.0 (the version tested), with Node 22 or newer. Nothing for Pi is
-published to npm or Pi's package gallery; install from a clone. The extension
-is bundled, with nothing to build. For one run without installing, use
-`pi -e ./polyfills/server-cards/pi/extension`. Pi loads the path where it is,
-so keep the clone; `git pull` there updates it. Remove it from the same
-folder with `pi remove ./polyfills/server-cards/pi/extension`. Servers you
-added stay in `mcp.json`; remove one with `pi mcp remove <name>`.
+Pi 1.6.0 (the version tested), with Node 22 or newer. The command above
+installs Events, Skills and Server Cards together.
+Pi clones the repository under `~/.pi/agent/git/` and loads the three
+extensions from there. Nothing is published to npm or Pi's package gallery,
+and nothing is built.
+
+Update installed packages with `pi update --extensions`. Remove all three
+and Pi's copy of the repository with
+`pi remove git:github.com/idosal/AgentPolyfill`. For one run of all three
+without installing, use `pi -e git:github.com/idosal/AgentPolyfill`.
+
+To install only Server Cards, use a clone:
+
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+pi install ./polyfills/server-cards/pi/extension
+```
+
+Pi loads the local path where it is, so keep the clone. From the same folder,
+`pi remove ./polyfills/server-cards/pi/extension` removes that local install;
+`pi -e ./polyfills/server-cards/pi/extension` runs it once without installing.
+Use one way per form: Pi tells packages apart by repository address or local
+path, so a form installed both ways loads twice.
+
+[ARD](./ard#install) is left out of the one-line install, as it is from the
+Claude Code bundle: its search sends the words of your request to a registry
+after asking each time. Install it separately from a clone.
+
+Removal leaves watches and events in `mcp-events/`, and approvals and skill
+stubs in `mcp-skills/`, in Pi's agent folder (`~/.pi/agent`, or
+`PI_CODING_AGENT_DIR`); delete those folders too to remove that data.
+Servers you added stay in `mcp.json`; remove one with
+`pi mcp remove <name>`.
+
+### In OpenCode
+
+OpenCode 2.4 or newer (tested with 2.4.1), and nothing else: no account, no
+key, no Node. The plugin isn't on npm: the command fetches it from GitHub,
+with Git, and adds it to `plugins` in your global
+`~/.config/opencode/opencode.json`, so it runs in every project from the next
+time OpenCode opens one. A commit in place of `main` pins one version. From a
+clone, put the folder `polyfills/server-cards/opencode/plugin` in `plugins`
+in an `opencode.json` instead. To remove it, run `opencode plugin remove`
+with the same text; OpenCode's downloaded copy stays in
+`~/.cache/opencode/npm/` (a `git-AgentPolyfill-…` folder), which you can
+delete. Removing it stops adding the servers it added, which were never in
+your configuration files. Its list of them stays in OpenCode's plugin storage
+(OpenCode's own database) and comes back if you install it again; remove a
+server with `server_cards_remove_mcp_server` first to drop it from the list.
 
 ### In Antigravity
 
@@ -100,6 +145,7 @@ The sections below name the host where behavior differs. Full guides by host:
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi)
+- [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/opencode)
 - [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/antigravity)
 
 ## Try it
@@ -109,6 +155,7 @@ Nothing to set up. Start your host:
 - **Claude Code:** `claude`.
 - **Codex:** `codex`.
 - **Pi:** `pi`.
+- **OpenCode:** `opencode`.
 - **Antigravity:** the App or `agy`.
 
 Ask:
@@ -121,13 +168,17 @@ Then add **Neon Docs** (no sign-in):
 - **Codex:** choose "Add it" in Codex's own form.
 - **Pi:** ask "Add Neon Docs", then choose "Add it" in Pi's dialog. It is
   saved and registered for the current session, without a restart.
+- **OpenCode:** ask "Add Neon Docs", then allow it when OpenCode asks. It is
+  in OpenCode's MCP servers at once, and OpenCode connects it.
 - **Antigravity:** approve the addition in Antigravity's approval card. The
   plugin then writes the server to `~/.gemini/config/mcp_config.json`.
 
 For one behind a sign-in, ask about
 buildkite.com; once it's added, the host asks you to sign in (in Claude Code,
-through `/mcp`). In Claude Code, `claude mcp remove neon-docs -s local`
-removes it again.
+through `/mcp`). In OpenCode, sign in with `opencode mcp auth <name>`, in a
+terminal. In Claude Code, `claude mcp remove neon-docs -s local`
+removes it again; in OpenCode, ask for it to be removed, which OpenCode asks
+you about too.
 
 ## Using it, step by step
 
@@ -180,6 +231,33 @@ check `/mcp` if connection fails. For sign-in, use `/mcp` or
 Print and JSON modes cannot ask, so additions are refused. RPC clients
 relay the dialog to you.
 
+### In OpenCode
+
+`server_cards_discover_mcp_servers` reads the domain's
+`/.well-known/ai-catalog.json` and the `rel="ai-catalog"` links on its home
+page, then fetches and checks each card. Ask to add one it found:
+`server_cards_add_mcp_server` adds only a card a discovery showed in this
+session, at the URL that card gives, and only if OpenCode has no server of
+that name from anywhere else. OpenCode asks you first. Its shipped rules
+allow every action, so the plugin makes additions ask by default, and "Allow
+always" saves nothing: each addition is asked about on its own. In OpenCode
+2.4.1's TUI the prompt says only "Call tool mcp_server_cards_add" and offers
+only "Allow once" and "Reject". The model's call line just above it gives
+the name, the card's identifier and the URL; the host, headers and undo the
+request carries aren't shown. With nobody there to answer, OpenCode refuses
+the question.
+
+Approved, the server is in OpenCode's MCP servers at once, and OpenCode
+connects it with its own client, so its tools, its sign-in and its
+permission rules are OpenCode's. For a server behind a sign-in, run
+`opencode mcp auth <name>`. What it adds is kept per project, in the plugin's
+OpenCode storage, and added again each time OpenCode loads the plugin there.
+It never writes your configuration files, and never replaces a server you
+have. `server_cards_remove_mcp_server` takes away a server it added, after
+OpenCode asks. A card that needs a secret isn't added: the answer gives you
+the entry for `opencode.json`, with `{env:VAR}` where the secret goes, and
+the variable to set.
+
 ### In Antigravity
 
 Ask to add a server it found. The addition is put to you in Antigravity's
@@ -203,6 +281,13 @@ decision, and the polyfill never uses `extensionsInfo`.
 
 In Pi, `MCP_SERVER_CARDS_DISABLED=1` registers no tools and fetches nothing.
 
+In OpenCode, `MCP_SERVER_CARDS_DISABLED=1`, or the plugin option `off`, does
+nothing without being uninstalled. `MCP_SERVER_CARDS_ASK_BY_DEFAULT=0`, or
+`askByDefault: false`, leaves additions and removals to OpenCode's rules
+alone, under whose default a server is added without a prompt. Set a
+variable in the environment OpenCode starts in, and an option in the object
+form of the plugin's entry in `plugins`.
+
 In Antigravity, `MCP_SERVER_CARDS_DISABLED=1` in the environment Antigravity
 starts in turns the plugin off; so does `agy plugin disable mcp-server-cards`.
 
@@ -219,6 +304,11 @@ In Claude Code, in `/config`, under the plugin:
 In Pi, `discover_mcp_servers` reads and checks the cards, and `add_mcp_server`
 asks before running `pi mcp add` and registering the server for the session.
 There is no `present_server_cards` tool in the Pi form.
+
+In OpenCode, `server_cards_discover_mcp_servers` reads and checks the cards,
+`server_cards_add_mcp_server` adds one after OpenCode's rules allow it, and
+`server_cards_remove_mcp_server` removes one it added. There is no
+`present_server_cards` tool in the OpenCode form.
 
 The table below is for Claude Code.
 
@@ -270,6 +360,29 @@ in the same catalogs, and local (stdio) servers, which cards do not describe.
   reloaded sessions forget shown cards. Disabled or replaced MCP support,
   or a failed connection, can prevent added tools from becoming available.
 
+### In OpenCode
+
+- **No live card comparison.** S-3 is not met: comparing a card with the
+  live server (`server/discover`) needs a request over OpenCode's
+  connection, which a plugin can't send.
+- **Streamable HTTP only.** OpenCode 2.4 connects remote servers over
+  streamable HTTP; a card whose remote is SSE is refused.
+- **Secrets by hand.** A card that needs a secret, in a header or the URL,
+  isn't added. The answer gives you the entry for `opencode.json`, with
+  `{env:VAR}` where the secret goes, and the variable to set.
+- **Per project.** An added server is in the project it was added in only.
+  To have it in every project, put it in your global `opencode.json`.
+- **What the TUI's prompt shows.** Only "Call tool mcp_server_cards_add",
+  with "Allow once" and "Reject"; the name and URL are on the model's call
+  line above it, and the host, headers and undo aren't on screen. The plugin
+  refuses a URL other than the one the card gives.
+- **DNS is not checked for private addresses.** As in the Codex form, whose
+  fetch code it bundles: addresses named directly are refused, at every
+  redirect hop too, but a public name that resolves to a private address is
+  not caught.
+- **Not tried yet:** an addition from OpenCode Desktop, and Windows by hand
+  (CI runs the tests there).
+
 ### In Antigravity
 
 - **No card that needs a secret.** Antigravity's personal `mcp_config.json`
@@ -279,6 +392,16 @@ in the same catalogs, and local (stdio) servers, which cards do not describe.
   `agy acp` see the tool and its arguments, not the question.
 - **The IDE's agent wasn't run.** IDE 2.8.0 stayed signed out, and its hooks
   page lists no plugin hooks, so the plugin probably doesn't work there.
+
+### In T3 Code
+
+T3 Code runs Codex, Claude Code or OpenCode for you, and this polyfill's
+forms for them load there. With Codex, the question it asks before adding a server ("Add it") is
+an MCP elicitation form, and T3 Code shows such a form only when it can
+answer it with Approve or Decline; it cancels this one without showing it, so
+the step is refused as if you had said no. Nothing is approved for you.
+Not run live in T3 Code.
+[T3 Code](https://github.com/idosal/AgentPolyfill/blob/main/docs/t3-code.md) has the details.
 
 ## Security
 
@@ -345,6 +468,36 @@ records neon.com's servers being listed, the add question, and Neon Docs
 saved in `mcp.json` and connected for the session. It does not establish a
 completed Neon Docs tool call.
 
+### In OpenCode
+
+Discovery sends plain GETs, with no cookies or credentials, bounded in size
+and number. It takes no step from a public catalog, card or redirect to a
+local or private address, and follows redirects itself, holding each hop to
+that rule. Every addition is put to OpenCode's permission rules and asked
+about by default; the plugin never answers a prompt and never turns anything
+into `allow`. A URL is taken only from a card a discovery showed in this
+session, and a secret never passes through the model or the plugin. It never
+reads OpenCode's stored credentials, runs no sign-in of its own, and holds no
+token. Under OpenCode's default rules the model can still edit
+`opencode.json` itself, and add a server that way, unless your rules ask
+about edits. See
+[OpenCode's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/opencode/SECURITY.md).
+
+[OpenCode's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/opencode/docs/conformance.md)
+records 28 rules: 26 met, 1 met with a stated exception (I-4: an SSE remote
+is refused), and 1 not met, S-3, the check against the live server. Its tests
+run the plugin in OpenCode 2.4.1, in a throwaway home, against a local web
+with a catalog, two cards and a small MCP server, with a scripted model; CI
+runs them on Linux, macOS and Windows. There is no upstream Server Cards
+scenario run to report. The
+[live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md)
+records neon.com's two cards found, Neon Docs added after OpenCode asked and
+connected, with its four tools in the model's tools, and, in one run, its
+`search_docs` tool called with results. In the TUI too, Neon Docs was added
+and connected.
+An AI reviewer who did not build the OpenCode forms reviewed them. They have
+not been audited by a person.
+
 ### In Antigravity
 
 Every addition is put to you in Antigravity's approval card, and nothing is
@@ -366,6 +519,8 @@ had.
   and fetches nothing.
 - **Pi:** native support cannot be detected automatically. Remove the
   extension or set `MCP_SERVER_CARDS_DISABLED=1` when it ships.
+- **OpenCode:** 2.4.1 has no Server Card support to detect. When it ships,
+  set `MCP_SERVER_CARDS_DISABLED=1` or remove the plugin.
 - **Antigravity:** native support can't be detected: Antigravity tells
   plugins nothing about its MCP client's extensions. Disable or uninstall
   the plugin, or set `MCP_SERVER_CARDS_DISABLED=1`, when it ships.

@@ -33,7 +33,7 @@ ASSUME ALLOW \in BOOLEAN /\ LIFT \in Nat /\ RECORD \in BOOLEAN /\ MAX_TIME \in N
        /\ GAP \in Nat /\ PER_HOUR \in Nat /\ PENDING \in Nat
 
 \* What Codex says started the turn a call is made in (turn_trigger); "none": no turn metadata.
-PersonsTriggers == {"user", "exec", "realtime", "voice", "none"}
+PersonsTriggers == {"user", "composer", "exec", "realtime", "none"}
 OtherTriggers == {"queue", "hook", "none"}
 
 \* The state, as in wakeCodex.qnt:
@@ -49,7 +49,7 @@ VARIABLE s
 MaxOf(a, b) == IF a > b THEN a ELSE b
 Recent(l, t) == SelectSeq(l, LAMBDA x : t - x < HOUR)
 IsThePersons(allow, trigger) ==
-    IF allow THEN trigger \in {"user", "exec", "realtime", "voice"} ELSE trigger # "queue"
+    IF allow THEN trigger \in {"user", "composer", "exec", "realtime"} ELSE trigger # "queue"
 QuietFrom(lift, t) == IF lift > 0 THEN t + lift ELSE 1000
 Pause(b, lift, t) == [b EXCEPT !.paused = TRUE, !.noticeHanded = FALSE,
                                !.pausedAt = IF lift > 0 THEN t ELSE b.pausedAt]

@@ -1,0 +1,2 @@
+# One line ending everywhere: the committed bundle is compared byte for byte with a fresh build.
+* text=auto eol=lf

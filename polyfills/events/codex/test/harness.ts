@@ -5,7 +5,7 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -18,7 +18,25 @@ export const FIXTURE = join(ROOT, '..', 'claude-code', 'test', 'fixture-events-s
 export const FAKE_CODEX = join(ROOT, 'test', 'fake-codex.mjs');
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-export const temp = (prefix = 'mcp-events-codex-') => mkdtempSync(join(tmpdir(), prefix));
+/** Every folder a test made, removed when its file's tests end. */
+const made: string[] = [];
+export const temp = (prefix = 'mcp-events-codex-') => {
+    const dir = mkdtempSync(join(tmpdir(), prefix));
+    made.push(dir);
+    return dir;
+};
+export function cleanup(): void {
+    // A removal that still fails (something is writing there) leaves the folder rather than failing the tests.
+    for (const dir of made.splice(0)) {
+        try {
+            rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+        } catch {
+            // left in the temporary directory
+        }
+    }
+}
+// Each test file runs in a process of its own: when it ends, however it ends, its folders go.
+process.on('exit', cleanup);
 export const newThread = () => randomUUID();
 
 export async function waitFor<T>(fn: () => T | undefined | false | Promise<T | undefined | false>, timeoutMs = 10000, what = 'condition'): Promise<T> {
@@ -151,8 +169,12 @@ export class Helper {
         return r;
     }
 
-    /** A tools/call as Codex makes it: the session's id in `_meta`, and the turn's metadata. */
-    async call(name: string, args: Json, thread: string, trigger = 'composer'): Promise<{ text: string; isError: boolean }> {
+    /**
+     * A tools/call as Codex makes it: the session's id in `_meta`, and the turn's metadata. By default
+     * from a turn the person typed in the Codex TUI ("user"), which is what lets the plugin wake the
+     * session; a test that means a woken turn says "queue".
+     */
+    async call(name: string, args: Json, thread: string, trigger = 'user'): Promise<{ text: string; isError: boolean }> {
         const r = await this.request('tools/call', {
             name,
             arguments: args,

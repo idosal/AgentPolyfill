@@ -1,6 +1,6 @@
 ---
 name: create-polyfill
-description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, Pi, Antigravity, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod, extension or gateway server; or to change or review an existing polyfill. Not for JavaScript or browser polyfills.
+description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, Pi, OpenCode, Antigravity, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod, extension or gateway server; or to change or review an existing polyfill. Not for JavaScript or browser polyfills.
 ---
 
 # Create a polyfill
@@ -222,9 +222,35 @@ How a polyfill is built depends on what the host lets third-party code do.
   manifest and bundle in `extension/`. Read the existing Pi forms' README,
   SECURITY.md and `docs/conformance.md` before writing part 3. Events,
   Skills, Server Cards and ARD have Pi forms; Apps does not. The forms were
-  tested with Pi 1.6.0 and require Node 22 or newer. Install from a local
-  clone with `pi install ./polyfills/<polyfill>/pi/extension`; nothing for
-  Pi is published to npm or Pi's package gallery.
+  tested with Pi 1.6.0 and require Node 22 or newer. Lead install instructions
+  with `pi install git:github.com/idosal/AgentPolyfill`: Events, Skills and
+  Server Cards together, loaded from Pi's copy of the repository under
+  `~/.pi/agent/git/`. Nothing for Pi is published to npm or Pi's package
+  gallery, and nothing is built on install. List a new Pi form's
+  `./polyfills/<polyfill>/pi/extension/dist/index.js` in the root
+  `package.json`'s `pi.extensions` to include it. ARD is left out on purpose,
+  as in the Claude Code bundle: its search sends the words of your request
+  to a registry after asking each time. For ARD or any one form alone,
+  clone `https://github.com/idosal/AgentPolyfill.git`, enter `AgentPolyfill`,
+  and use `pi install ./polyfills/<polyfill>/pi/extension`; Pi loads the
+  path where it is, so keep the clone. Use one way per form: repository
+  addresses and local paths identify separate packages, so installing both
+  loads a form twice. Document `pi update --extensions` for installed
+  packages, `pi remove git:github.com/idosal/AgentPolyfill` for all three
+  and Pi's repository copy, and `pi remove ./polyfills/<polyfill>/pi/extension`
+  from the same clone for a local install. For one run without installing,
+  use `pi -e git:github.com/idosal/AgentPolyfill` or the local extension path.
+  Removal leaves `mcp-events/` and `mcp-skills/` in Pi's agent folder and
+  added servers in `mcp.json`.
+- **OpenCode:** a V2 server plugin in `polyfills/<polyfill>/opencode/`, with
+  its bundle and `package.json` in `plugin/`; OpenCode runs it inside its own
+  server, once per project folder. Read the existing OpenCode forms' README,
+  SECURITY.md and `docs/conformance.md` before writing part 3. Events,
+  Skills, Server Cards and ARD have OpenCode forms; Apps does not. The forms
+  need OpenCode 2.4 or newer and were tested with 2.4.1, the version pinned
+  in `tools/opencode`. Install with
+  `opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/<polyfill>/opencode/plugin'`;
+  nothing for OpenCode is published to npm.
 - **Antigravity:** an Antigravity plugin in `polyfills/<polyfill>/antigravity/`,
   with its MCP server (`mcp_config.json`) and `PreToolUse` hook (`hooks.json`)
   in `plugin/`. Read the existing Antigravity forms' README, SECURITY.md and

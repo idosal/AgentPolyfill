@@ -4,7 +4,7 @@ Claude finds MCP servers through Agentic Resource Discovery (ARD): in what a
 domain lists, or by asking an ARD registry for a server that can do a task.
 You choose the registry, and Claude Code asks you before every search.
 
-Also available for Codex: [ard-discovery for Codex](../codex/README.md).
+Also available for Codex, Pi and OpenCode: [ard-discovery for Codex](../codex/README.md), [ard-discovery for Pi](../pi/README.md), [ard-discovery for OpenCode](../opencode/README.md).
 
 > Search for an MCP server that can check why my CI build failed.
 
@@ -38,7 +38,8 @@ other people's servers.
 - Every result says which registries were asked.
 - Discovery by domain sends nothing but plain `GET`s to that domain.
 
-ARD is a draft, not an MCP specification. The revision this plugin follows is
+ARD is a draft published by the ards-project on GitHub, not an MCP
+specification. The revision this plugin follows is
 in [Spec and conformance](#spec-and-conformance).
 
 ## Install

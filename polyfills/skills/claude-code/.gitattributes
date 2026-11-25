@@ -1,3 +1,0 @@
-# One line ending everywhere: the committed bundle is compared byte for byte with a fresh build,
-# which a checkout with Windows line endings would not reproduce.
-* text=auto eol=lf

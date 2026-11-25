@@ -9,6 +9,7 @@
         "Claude Code",
         "Codex",
         "Pi",
+        "OpenCode",
         "Antigravity"
       ],
       "id": "io.modelcontextprotocol/events",
@@ -19,7 +20,7 @@
       "add": "claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev/mcp",
       "addCodex": "codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp",
       "ask": "Give me a demo button and tell me what I type when I press it",
-      "then": "- Codex: a woken session is a Codex CLI session (the terminal app or `codex exec`). A chat in the ChatGPT desktop app keeps its events but can't be woken, so ask it for `recent_events`.\n- Pi: add the demo server with `pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp`, then ask to watch for new earthquakes. Confirm the watch in Pi's dialog. An event wakes an idle session with a message starting `[mcp-events]` that says the extension sent it; Pi reads the event and answers.\n- Antigravity: add the demo server with `agy mcp add feeds https://event-feeds.idosalomon.workers.dev/mcp` (the App doesn't ship `agy`; there, use Customizations > Installed > MCP Servers). This demo wasn't run in Antigravity. New events reach the conversation at its next model call. To wake an idle App conversation, turn on the plugin's sidecar with `\"sidecars\": {\"mcp-events/wake\": {\"enabled\": true}}` in `~/.gemini/config/config.json`. CLI conversations can't be woken, and the IDE wasn't run.",
+      "then": "- Codex: a woken session is a Codex CLI session (the terminal app or `codex exec`). A chat in the ChatGPT desktop app keeps its events but can't be woken, so ask it for `recent_events`.\n- Pi: add the demo server with `pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp`, then ask to watch for new earthquakes. Confirm the watch in Pi's dialog. An event wakes an idle session with a message starting `[mcp-events]` that says the extension sent it; Pi reads the event and answers.\n- OpenCode: add the demo server with `\"mcp\": {\"feeds\": {\"type\": \"remote\", \"url\": \"https://event-feeds.idosalomon.workers.dev/mcp\"}}` in `opencode.json`. OpenCode asks before the watch starts, naming the server and the event type. Press the button: the idle session wakes with a message from the plugin, which the TUI shows as `◈ mcp-events: new events` and OpenCode Desktop doesn't show, and the model reads the event and answers.\n- Antigravity: add the demo server with `agy mcp add feeds https://event-feeds.idosalomon.workers.dev/mcp` (the App doesn't ship `agy`; there, use Customizations > Installed > MCP Servers). This demo wasn't run in Antigravity. New events reach the conversation at its next model call. To wake an idle App conversation, turn on the plugin's sidecar with `\"sidecars\": {\"mcp-events/wake\": {\"enabled\": true}}` in `~/.gemini/config/config.json`. CLI conversations can't be woken, and the IDE wasn't run.",
       "link": "/guide/events"
     },
     {
@@ -27,9 +28,9 @@
       "plugin": "mcp-skills",
       "spec": "SEP-2640, Final",
       "hosts": [
-        "Claude Code",
         "Codex",
         "Pi",
+        "OpenCode",
         "Antigravity"
       ],
       "id": "io.modelcontextprotocol/skills",
@@ -37,10 +38,10 @@
       "cut": "skills",
       "alt": "In Codex, in the ChatGPT desktop app, asked what skills the Hugging Face MCP server serves, Codex lists its 25 skills, all visible in Codex. Asked which GGUF quantization to use for a 7B model on a 16 GB Mac, Codex asks in its own form whether to load the skill huggingface-local-models from that server, saying its 4 files are each checked against the server's SHA-256 digest when read, with Do not load it, Show me its SKILL.md first, and Load it. After Load it, Codex answers from the skill: Q4_K_M.",
       "addStep": "Try it with Hugging Face's public MCP server (no sign-in):",
-      "add": "claude mcp add --transport http huggingface https://huggingface.co/mcp",
       "addCodex": "codex mcp add huggingface --url https://huggingface.co/mcp",
       "ask": "Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?",
-      "then": "- Claude Code: `/mcp-skills` lists what it serves.\n- Codex: the served skills appear in the `$` list after you ask once to list the served skills, from the next turn.\n- Pi: add the server with `pi mcp add huggingface --url https://huggingface.co/mcp`. Skills appear as `mcp-huggingface-<name>`, marked with their server. Loading one asks: \"Don't load it\", \"Show me its SKILL.md first\", or \"Load it\".\n- Antigravity: add the server with `agy mcp add huggingface https://huggingface.co/mcp`, or in the App under Customizations > Installed > MCP Servers. Served skills appear as placeholder folders in `~/.gemini/config/skills/`. Loading one is put to you in Antigravity's approval card, yes or no; an approved, unchanged skill loads again with no question.",
+      "then": "- Codex: the served skills appear in the `$` list after you ask once to list the served skills, from the next turn.\n- Pi: add the server with `pi mcp add huggingface --url https://huggingface.co/mcp`. Skills appear as `mcp-huggingface-<name>`, marked with their server. Loading one asks: \"Don't load it\", \"Show me its SKILL.md first\", or \"Load it\".\n- OpenCode: add the server with `\"mcp\": {\"huggingface\": {\"type\": \"remote\", \"url\": \"https://huggingface.co/mcp\", \"oauth\": false}}` in `opencode.json`. Skills appear in OpenCode's own skill list as `mcp-skills:huggingface:<name>`, marked with their server. Loading one takes two steps: OpenCode's skill tool returns the plugin's note, then the model calls `mcp_skills_load_skill` and OpenCode asks: \"Allow once\", \"Allow always\" or \"Reject\".\n- Antigravity: add the server with `agy mcp add huggingface https://huggingface.co/mcp`, or in the App under Customizations > Installed > MCP Servers. Served skills appear as placeholder folders in `~/.gemini/config/skills/`. Loading one is put to you in Antigravity's approval card, yes or no; an approved, unchanged skill loads again with no question.",
+      "note": "Claude Code needs no polyfill for this: it lists skills from MCP servers itself, in beta from 2.1.332.",
       "link": "/guide/skills"
     },
     {
@@ -51,6 +52,7 @@
         "Claude Code",
         "Codex",
         "Pi",
+        "OpenCode",
         "Antigravity"
       ],
       "id": "",
@@ -59,7 +61,7 @@
       "alt": "In Claude Code, What MCP servers does neon.com publish? lists Neon and Neon Docs from neon.com's own catalog, each with an Add button, and Add on Neon Docs marks it added, with a note to run /mcp to connect or sign in. Then the same in Codex, in the ChatGPT desktop app: Codex lists the two servers, and asked to add Neon Docs, shows its own form naming the host, the URL, the headers (none) and the Server Card it came from, with Don't add it and Add it. After Add it, neon-docs is in Codex's config; codex mcp remove neon-docs undoes it.",
       "add": "",
       "ask": "What MCP servers does neon.com publish?",
-      "then": "Then add Neon Docs (no sign-in):\n\n- Claude Code: press Add.\n- Codex: choose \"Add it\" in its form.\n- Pi: choose \"Add it\" in its dialog, which names the host, URL, headers, configuration file and undo command. Pi saves the server and connects it for the current session.\n- Antigravity: approve the addition in Antigravity's approval card. The plugin then writes the server to `~/.gemini/config/mcp_config.json`.",
+      "then": "Then add Neon Docs (no sign-in):\n\n- Claude Code: press Add.\n- Codex: choose \"Add it\" in its form.\n- Pi: choose \"Add it\" in its dialog, which names the host, URL, headers, configuration file and undo command. Pi saves the server and connects it for the current session.\n- OpenCode: ask \"Add Neon Docs\" and allow it when OpenCode asks. In the TUI the prompt says only \"Call tool mcp_server_cards_add\", with \"Allow once\" and \"Reject\"; the name and URL are on the model's call line above it. The server is in OpenCode's MCP servers at once, for this project, and OpenCode connects it.\n- Antigravity: approve the addition in Antigravity's approval card. The plugin then writes the server to `~/.gemini/config/mcp_config.json`.",
       "link": "/guide/server-cards"
     },
     {
@@ -83,7 +85,7 @@
   "audiences": [
     {
       "title": "If you use an agent host",
-      "text": "Install steps and a first run for each host. Pi extensions install from a repository clone; nothing for Pi is published to npm or Pi's package gallery. Antigravity plugins install from a clone too, and nothing is published to Antigravity's Marketplace.",
+      "text": "Install steps and a first run for each host. Pi installs Events, Skills and Server Cards with one line from this repository on GitHub, and OpenCode installs each plugin from it with Git; nothing for either is published to npm. Antigravity plugins install from a clone, and nothing is published to Antigravity's Marketplace.",
       "link": "/guide/getting-started",
       "linkText": "Getting started"
     },
@@ -109,17 +111,18 @@
         "Claude Code",
         "Codex",
         "Pi",
+        "OpenCode",
         "Antigravity"
       ],
       "id": "",
       "line": "Finds MCP servers through a domain's ard.json, or by searching an ARD registry you choose, and hands the cards to Server Cards.",
       "cut": "ard",
       "alt": "In Claude Code, What does buildkite.com list via ARD? shows Buildkite's MCP server, listed by buildkite.com, with an Add button. Then a search of a local demo ARD registry for a server that checks CI builds: Claude Code first asks whether to send the query to that registry and up to three it refers to, and after Yes the result lists Buildkite and Netlify, each confirmed by its own domain, and says where the query went.",
-      "addStep": "Not in the bundle. Install it on its own:",
+      "addStep": "Not in the Claude Code bundle or Pi's one-line install. Install it on its own:",
       "add": "/plugin install ard-discovery --marketplace idosal/AgentPolyfill",
       "addCodex": "codex plugin marketplace add idosal/AgentPolyfill && codex plugin add ard-discovery@agent-polyfill",
       "ask": "What MCP servers does buildkite.com list through ARD?",
-      "then": "A domain lookup sends no query to a registry. A search sends the words of your request to the registry you chose, so every search asks you first and names where it's going.",
+      "then": "A domain lookup sends no query to a registry. A search sends the words of your request to the registry you chose, so every search asks you first and names where it's going. In OpenCode's TUI, the prompt says only \"Call tool ard_search\": the query and the registry you named are on the model's call line above it, and nothing on screen names a registry a referral names.",
       "link": "/guide/ard",
       "note": "Installed separately from the others: a search sends your words to the registry you chose, so every search asks you first."
     }

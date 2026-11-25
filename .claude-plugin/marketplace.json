@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "agent-polyfill",
-      "description": "Every MCP polyfill in this marketplace in one install (MCP Apps, Events, Skills and Server Cards); it adds nothing of its own",
+      "description": "Every MCP polyfill in this marketplace in one install (MCP Apps, Events and Server Cards); it adds nothing of its own",
       "source": "./plugins/agent-polyfill"
     },
     {
@@ -24,11 +24,6 @@
         "url": "https://github.com/idosal/AgentPolyfill/releases/download/mcp-apps-cli-v0.1.4/mcp-apps-cli-0.1.4.zip",
         "sha256": "ef72edd3cb9fd0408ce344a03e3326f6d38c3ac9056f72f73fb0eb87b4132fa4"
       }
-    },
-    {
-      "name": "mcp-skills",
-      "description": "MCP Skills (SEP-2640): skills served by your MCP servers are listed for Claude, loaded when a task needs one, and checked against the server's manifest",
-      "source": "./polyfills/skills/claude-code/mod"
     },
     {
       "name": "mcp-server-cards",

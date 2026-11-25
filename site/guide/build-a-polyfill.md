@@ -31,10 +31,15 @@ so other agents that read skills can use them too.
 ## The contract
 
 Every polyfill in this repository meets these rules. Where one does not yet, its
-README says so. The full text is in
+README says so: the OpenCode form of Events watches push events that
+OpenCode's automations also take, a stated departure from rule 4. The full
+text is in
 [`docs/polyfill-contract.md`](https://github.com/idosal/AgentPolyfill/blob/main/docs/polyfill-contract.md).
 
-1. **One published extension, client side, and nothing else.** It adds no
+1. **One published extension, client side, and nothing else.** The extension
+   is an MCP extension (a SEP, or an extension repository under
+   `modelcontextprotocol`), or a spec for agents published outside MCP, such
+   as ARD, labelled as that wherever it is listed. It adds no
    methods, fields, capabilities or policy of its own. One exception is allowed:
    an earlier form of the same extension that servers in real use still speak,
    mapped onto the spec's behaviour, with one setting that turns it off, and
@@ -140,11 +145,25 @@ for each host, which wires that core into what the host lets third-party code
 do. Events and Skills are built that way, with one `core/` and an adapter
 for each host:
 
-- **Claude Code:** a mod in `claude-code/`.
+- **Claude Code:** a mod in `claude-code/` (Events has one; Skills doesn't,
+  because Claude Code lists served skills itself).
 - **Codex:** a plugin in `codex/`.
 - **Pi:** an extension in `pi/`, with a manifest and bundled file in
-  `extension/`. It installs from a local clone; nothing for Pi is published
-  to npm or Pi's package gallery.
+  `extension/`. `pi install git:github.com/idosal/AgentPolyfill` installs
+  Events, Skills and Server Cards together; a local clone is the
+  alternative for one form. Nothing for Pi is published to npm or Pi's
+  package gallery. List a new form's
+  `./polyfills/<extension>/pi/extension/dist/index.js` in the root
+  `package.json`'s `pi.extensions` to include it in the one-line install.
+  ARD is left out on purpose, as in the Claude Code bundle: its search
+  sends your request's words to a registry after asking each time. Install
+  it separately from a clone; [Getting started](./getting-started#pi) has
+  both install paths.
+- **OpenCode:** a V2 server plugin in `opencode/`, with one bundled file,
+  `server.js`, in `plugin/`. OpenCode runs it inside its own server, once per
+  project folder. It installs from GitHub by its folder's path
+  (`opencode plugin add`, with Git) or from a clone; nothing is published to
+  npm.
 - **Antigravity:** a plugin in `antigravity/`, with its MCP server and hooks
   in `plugin/`. It installs from a local clone with `agy plugin install`;
   nothing is published to Antigravity's Marketplace.
@@ -156,6 +175,15 @@ The Pi examples are
 and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi).
 Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`;
 its terminal could draw an App in principle, but nothing is built or tested.
+
+The OpenCode examples are
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/opencode),
+[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/opencode),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/opencode)
+and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/opencode).
+Apps has no OpenCode form. OpenCode has no MCP Apps support, and a plugin
+can't read a `ui://` resource or a tool's `_meta` over OpenCode's connection;
+that was looked into, not built.
 
 The Antigravity examples are
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity),
@@ -181,6 +209,22 @@ switch because native support cannot be detected. Their READMEs,
 `SECURITY.md`, `docs/conformance.md` and `docs/live-run.md` record what was
 checked. ARD's live run did not complete the add step; addition was checked
 in real Pi with a scripted model and a local server.
+
+The OpenCode forms show the same. An OpenCode plugin can add tools, start a
+turn in an idle session, ask through OpenCode's own permission rules, add a
+skill to its list and an MCP server to its servers, and see a tool call
+before it runs. It can't send an MCP method over OpenCode's connection or
+read a resource. So Events and Skills need their own connections and cannot
+use OpenCode's OAuth sign-in, while Server Cards adds a server that OpenCode
+connects itself. The Skills form meets X8 with a hook on OpenCode's resource
+read. OpenCode's shipped rules allow every action, so each form makes its own
+actions ask by default. OpenCode takes push events for its automations but
+skips event types it can't check, so the Events form watches every type and
+states its departure from rule 4. Their READMEs, `SECURITY.md` and
+`docs/conformance.md` record what was checked: tests in a real OpenCode with
+a scripted model, and live runs in
+[`tools/opencode/live-run.md`](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md).
+ARD's live runs did not add a server; addition was checked by its tests.
 
 The Antigravity forms show it from another side. Antigravity documents no
 MCP elicitation, and its client cancels every request without showing it, so

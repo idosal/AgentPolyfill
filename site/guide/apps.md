@@ -38,6 +38,12 @@ Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`,
 so an extension cannot get an App's UI through Pi. Pi's terminal could draw
 one in principle, but no Pi Apps form is built or tested.
 
+Apps has no OpenCode form. OpenCode 2.4.1 has no MCP Apps support of its own,
+and its TUI draws only terminal text. OpenCode Desktop's experimental panels
+can embed a web view, but a plugin can't read a `ui://` resource or a tool's
+`_meta` over OpenCode's connection, and there is no place in the
+conversation to draw a view. That was looked into, not built.
+
 Apps has no Antigravity form. The Antigravity App renders MCP Apps itself
 (v2.34.0 and later); the CLI and IDE show text only.
 
@@ -143,6 +149,12 @@ from an app always asks.
 
 The design notes list the rest, with what Claude Code could add to remove each:
 [`docs/DESIGN.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/docs/DESIGN.md).
+
+### In T3 Code
+
+[T3 Code](https://github.com/pingdotgg/t3code) shows MCP Apps itself, for
+Codex and for Claude Code 2.1.301 or newer, on desktop, web and phone. Don't
+use this polyfill for Claude Code sessions run from T3 Code.
 
 ## Spec
 
