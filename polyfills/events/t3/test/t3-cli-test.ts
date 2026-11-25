@@ -9,7 +9,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
 import { findT3, sendMessage } from '../src/waker.ts';
-import { temp, waitFor } from './harness.ts';
+import { cleanup, temp, waitFor } from './harness.ts';
 
 const cli = process.env.T3_CLI;
 const skip = cli ? false : 'set T3_CLI to the t3 package\'s dist/bin.mjs to run this';
@@ -18,8 +18,10 @@ const home = temp();
 const env = { PATH: process.env.PATH, HOME: join(home, 'home'), T3CODE_HOME: join(home, 't3'), T3CODE_TELEMETRY_ENABLED: 'false', T3CODE_NO_BROWSER: '1', MCP_EVENTS_T3_BIN: cli };
 mkdirSync(env.HOME, { recursive: true });
 let server: ChildProcess | undefined;
-after(() => {
+after(async () => {
     server?.kill('SIGTERM');
+    await new Promise((r) => setTimeout(r, 1000));
+    cleanup();
 });
 
 test('with no T3 Code server running, the wake is "tried again later"', { skip }, async () => {

@@ -27,6 +27,7 @@ import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { EventsConnection, preStandardPolicy } from '../../core/src/events-client.ts';
@@ -84,8 +85,7 @@ const freePort = () =>
         });
     });
 
-// A short folder, so the watcher's socket fits in the state folder.
-const dir = mkdtempSync(join(process.platform === 'win32' ? process.env.TEMP ?? '.' : '/tmp', 'me3c-'));
+const dir = mkdtempSync(join(tmpdir(), 'me3c-'));
 // Webhook: the stand-in is plain http on this machine, asks for no credentials and never delivers.
 // The client subscribes by webhook only on an authenticated connection and only to an https address,
 // so for this scenario alone its testing switch is on, and the "public" address is its own receiver.

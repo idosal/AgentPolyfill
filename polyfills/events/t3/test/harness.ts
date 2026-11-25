@@ -5,7 +5,7 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -18,8 +18,17 @@ export const FIXTURE = join(ROOT, '..', 'claude-code', 'test', 'fixture-events-s
 export const FAKE_T3 = join(ROOT, 'test', 'fake-t3.mjs');
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-// A short folder, so the watcher's socket can sit in the state folder.
-export const temp = () => mkdtempSync(join(process.platform === 'win32' ? tmpdir() : '/tmp', 'me3-'));
+/** Every folder a test made, removed by cleanup() when its file's tests end. */
+const made: string[] = [];
+/** A folder in the temporary directory (TMPDIR). Where its path is too long for a socket, the watcher puts the socket in a private folder of its own there. */
+export const temp = () => {
+    const dir = mkdtempSync(join(tmpdir(), 'me3-'));
+    made.push(dir);
+    return dir;
+};
+export function cleanup(): void {
+    for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
+}
 /** A thread id as T3 Code makes one for a thread started by `t3 thread start`. */
 export const newThread = () => `mcp:${randomUUID()}`;
 
