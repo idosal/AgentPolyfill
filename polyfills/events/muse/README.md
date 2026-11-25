@@ -52,6 +52,39 @@ Muse gives the plugin, `~/.local/share/muse/plugins/data/mcp-events`. To drop
 the marketplace too, if no other plugin of it is installed:
 `muse plugins marketplace remove agent-polyfill`. Nothing else is left behind.
 
+## How you say yes
+
+**Muse offers plugins no approval dialog.** In the other hosts, the polyfills
+ask you through a prompt the host draws itself, which the model can't answer:
+
+- **Claude Code:** its permission dialog.
+- **Codex:** its approval prompt, or an MCP form.
+- **Pi:** a dialog.
+- **OpenCode:** its permission prompt (the polyfills set their own actions to
+  ask).
+
+Muse has nothing like that for a plugin. Its MCP client offers no form, and a
+hook's `ask` goes to Muse's approval judge, a model that may approve with
+nobody asked. So in Muse, **your yes is a phrase you type, checked by the
+plugin's hook**:
+
+- **The question.** The answer to a watch, or to stopping one, is the
+  question, ending with a phrase that names what it approves, such as
+  `watch tickets ticket.created 4821` (or `unwatch …` to stop one).
+- **The check.** The plugin's `UserPromptSubmit` hook reads your next message.
+  Only a message that is exactly that phrase approves it, in the same session,
+  within 15 minutes, once.
+- **Only you.** Muse runs that hook only for messages you type. Nothing a
+  model can put into a session runs it: scheduled prompts, monitors,
+  subagents, other sessions, goals and workflows were each [checked
+  live](docs/live-run.md#what-can-send-the-phrase).
+
+What a host's prompt gives you that this doesn't: you read the question as the
+model relays it in the chat. The phrase names the server and what's on it, so
+you type the names of what you approve, but the other details are only in the
+question. With Muse's experimental session-protocol gates on, any program you
+run can drive the session, and could type the phrase too.
+
 ## Try it
 
 Add the hosted demo server (no sign-in):

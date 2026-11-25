@@ -9,6 +9,10 @@ says.
 
 ## The boundary
 
+**Plainly:** Muse offers plugins no approval dialog. Where Claude Code, Codex,
+Pi and OpenCode ask you through a prompt the host draws itself, here adding a
+server is a command you run yourself: the plugin writes nothing.
+
 Muse's own configuration is the boundary. Adding a server to it is something
 only you do here.
 

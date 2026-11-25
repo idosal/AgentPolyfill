@@ -9,6 +9,14 @@ says.
 
 ## The boundary
 
+**Plainly:** Muse offers plugins no approval dialog. Where Claude Code, Codex,
+Pi and OpenCode show you a prompt the host draws itself, which the model can't
+answer, here consent is a phrase you type, checked by the plugin's
+`UserPromptSubmit` hook. That holds because Muse runs the hook only for messages
+you type; each way a model can put text into a session was [tried](../../events/muse/docs/live-run.md#what-can-send-the-phrase), and none
+ran it. The weaker part: you read the question as the model relays it, so the
+phrase names what it approves.
+
 Loading a skill puts a server's text into the conversation, so it waits for
 your yes. Muse can't be relied on to ask:
 

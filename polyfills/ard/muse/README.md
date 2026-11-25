@@ -32,6 +32,24 @@ To remove it: `muse plugins remove ard-discovery --delete-data`.
 - **Left behind:** servers you added with its command stay in Muse's settings.
   `muse mcp remove <name>` undoes one.
 
+## How you say yes
+
+**Muse offers plugins no approval dialog.** In the other hosts, the polyfills
+ask you through a prompt the host draws itself, which the model can't answer:
+
+- **Claude Code:** its permission dialog.
+- **Codex:** its approval prompt, or an MCP form.
+- **Pi:** a dialog.
+- **OpenCode:** its permission prompt (the polyfills set their own actions to
+  ask).
+
+Muse has nothing like that for a plugin. Its MCP client offers no form, and a
+tool call that isn't read-only goes to Muse's approval judge, a model that may
+approve with nobody asked. So in Muse, this plugin never adds a server itself,
+and sends no search to a registry. It gives you the `muse mcp add …` command,
+quoted so that what you see is what runs, and **you run it yourself**, in a
+terminal or after `!` at the Muse prompt. Not running it is saying no.
+
 ## What it does in Muse
 
 - **`ard_discover(domain)`** reads the domain's `/.well-known/ard.json`, its AI
