@@ -1,7 +1,8 @@
 // What runs the helper, and `/mcp-events setup`, the mod's own copy of Bun for a machine with no
 // Node and no Bun: run by `claude plugin test mod` against the engine itself, with stand-ins for the
 // machine beneath it (the programs it can run, the files it sees) and for the helper. Adapted from
-// the mcp-skills mod's tests of the same mechanism (polyfills/skills/claude-code/mod/hooks/gates.test.ts).
+// the tests of the same mechanism in the mcp-skills mod for Claude Code (its mod/hooks/gates.test.ts;
+// that mod has been removed from this repository and is in its history).
 
 import { expect, mock, test } from 'claude-code/testing'
 import type { EngineInterface, On } from 'claude-code'

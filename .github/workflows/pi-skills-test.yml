@@ -1,6 +1,6 @@
 # The Skills polyfill for Pi (polyfills/skills/pi, extension mcp-skills), on any
-# change in its folder, in the Skills core it bundles, in the Claude adapter's
-# test fixtures it reuses, or in the notices tool:
+# change in its folder, in the Skills core it bundles (which also holds the
+# test fixtures the forms share), or in the notices tool:
 # - its tests in a real Pi (the release in its devDependencies, with its own
 #   agent directory and home, and a scripted stand-in model): a served skill is
 #   listed and loads after the user approves it, the cross-server read is asked
@@ -16,8 +16,6 @@ on:
     paths:
       - "polyfills/skills/pi/**"
       - "polyfills/skills/core/**"
-      - "polyfills/skills/claude-code/test/harness.ts"
-      - "polyfills/skills/claude-code/test/fixture-skills-server.ts"
       - "polyfills/events/pi/test/http-fixture.ts"
       - "polyfills/events/pi/src/pi-config.ts"
       - "tools/bundle-notices.mjs"
@@ -28,8 +26,6 @@ on:
     paths:
       - "polyfills/skills/pi/**"
       - "polyfills/skills/core/**"
-      - "polyfills/skills/claude-code/test/harness.ts"
-      - "polyfills/skills/claude-code/test/fixture-skills-server.ts"
       - "polyfills/events/pi/test/http-fixture.ts"
       - "polyfills/events/pi/src/pi-config.ts"
       - "tools/bundle-notices.mjs"
@@ -61,11 +57,9 @@ jobs:
         with:
           node-version: 22
       # The Skills logic and the connection, shared with the other adapters.
+      # The test fixtures (polyfills/skills/core/test-fixtures) need nothing installed.
       - run: npm ci
         working-directory: polyfills/skills/core
-      # The test fixtures this adapter reuses from the Claude Code adapter import its code.
-      - run: npm ci
-        working-directory: polyfills/skills/claude-code
       - run: npm ci
       - run: npm run typecheck
       - name: Third-party notices for the bundle are up to date
