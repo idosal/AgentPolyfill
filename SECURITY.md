@@ -10,13 +10,13 @@ and what happened.
 Each polyfill's own `SECURITY.md` describes what it checks and what it does
 not protect against:
 
-| Polyfill | Claude Code | Codex | Pi | OpenCode | Antigravity |
-|---|---|---|---|---|---|
-| Events | [SECURITY.md](polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](polyfills/events/codex/SECURITY.md) | [SECURITY.md](polyfills/events/pi/SECURITY.md) | [SECURITY.md](polyfills/events/opencode/SECURITY.md) | [SECURITY.md](polyfills/events/antigravity/SECURITY.md) |
-| Apps | [SECURITY.md](polyfills/apps/claude-code/SECURITY.md) | not available | not available | not available | no form; the App shows MCP Apps itself |
-| Skills | no polyfill: built into Claude Code, in beta from 2.1.332 | [SECURITY.md](polyfills/skills/codex/SECURITY.md) | [SECURITY.md](polyfills/skills/pi/SECURITY.md) | [SECURITY.md](polyfills/skills/opencode/SECURITY.md) | [SECURITY.md](polyfills/skills/antigravity/SECURITY.md) |
-| Server Cards | [SECURITY.md](polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](polyfills/server-cards/opencode/SECURITY.md) | [SECURITY.md](polyfills/server-cards/antigravity/SECURITY.md) |
-| ARD | [SECURITY.md](polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](polyfills/ard/codex/SECURITY.md) | [SECURITY.md](polyfills/ard/pi/SECURITY.md) | [SECURITY.md](polyfills/ard/opencode/SECURITY.md) | [SECURITY.md](polyfills/ard/antigravity/SECURITY.md) |
+| Polyfill | Claude Code | Codex | Pi | OpenCode | Antigravity | Copilot CLI |
+|---|---|---|---|---|---|---|
+| Events | [SECURITY.md](polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](polyfills/events/codex/SECURITY.md) | [SECURITY.md](polyfills/events/pi/SECURITY.md) | [SECURITY.md](polyfills/events/opencode/SECURITY.md) | [SECURITY.md](polyfills/events/antigravity/SECURITY.md) | [SECURITY.md](polyfills/events/copilot/SECURITY.md) |
+| Apps | [SECURITY.md](polyfills/apps/claude-code/SECURITY.md) | not available | not available | not available | no form; the App shows MCP Apps itself | no polyfill: built into Copilot for graphical hosts |
+| Skills | no polyfill: built into Claude Code, in beta from 2.1.332 | [SECURITY.md](polyfills/skills/codex/SECURITY.md) | [SECURITY.md](polyfills/skills/pi/SECURITY.md) | [SECURITY.md](polyfills/skills/opencode/SECURITY.md) | [SECURITY.md](polyfills/skills/antigravity/SECURITY.md) | no polyfill: built into Copilot |
+| Server Cards | [SECURITY.md](polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](polyfills/server-cards/opencode/SECURITY.md) | [SECURITY.md](polyfills/server-cards/antigravity/SECURITY.md) | [SECURITY.md](polyfills/server-cards/copilot/SECURITY.md) |
+| ARD | [SECURITY.md](polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](polyfills/ard/codex/SECURITY.md) | [SECURITY.md](polyfills/ard/pi/SECURITY.md) | [SECURITY.md](polyfills/ard/opencode/SECURITY.md) | [SECURITY.md](polyfills/ard/antigravity/SECURITY.md) | [SECURITY.md](polyfills/ard/copilot/SECURITY.md) |
 
 In T3 Code, which runs Codex, Claude Code, OpenCode and other agents for
 you, the plugins above run as they do in those hosts (checked with Codex). Events has a form of its own there, for Codex
@@ -70,3 +70,21 @@ gated calls are refused. The forms read
 never log or show those values, and never open
 `~/.gemini/antigravity/mcp_oauth_tokens.json` or any other sign-in store.
 Antigravity's approval system remains the boundary.
+
+In Copilot CLI, Copilot's own prompts are the boundary. In its default mode,
+Copilot CLI 1.0.115 asked before each tool call, read-only ones included;
+VS Code's Copilot harness ran a read-only tool without asking. Either can
+approve a call without the person: in assisted mode (an LLM review, which an
+organisation can make the default) or with everything allowed. So each Copilot polyfill asks before its
+consequential step itself, after Copilot's tool prompt: a watch in the
+extension's own dialog, a registry search or a server addition in the
+plugin's form. Copilot declines those where nobody can be asked
+(`copilot -p`, even with `--yolo`). Copilot's permission rules still apply to
+every tool; only the Events extension's four read-only tools skip its prompt,
+after you grant the extension elevated permissions. Events uses only the
+servers Copilot enables for the session, lets go of one you switch off, and
+runs no project's server Copilot wouldn't run. `ard_search` is marked not
+read-only, so a host that runs read-only tools unasked, as VS Code's harness
+did, doesn't run it unasked. None reads
+Copilot's stored credentials (the keychain, `~/.copilot/mcp-oauth-config/`,
+signed-in accounts in `config.json`).

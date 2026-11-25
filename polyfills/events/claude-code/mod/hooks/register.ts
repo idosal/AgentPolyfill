@@ -74,7 +74,7 @@ const dataFolder = async ($: EngineInterface) => (await $.process.hookEnv()).CLA
  * What runs the helper: Node 20 or newer, or Bun. Claude Code itself needs neither, so a machine may
  * have none. And a Claude Code that was not started from a shell (the desktop app, an editor) may not
  * have the PATH a terminal has, so a runtime that is installed is looked for where it usually is.
- * (The same order as the mcp-skills mod's.)
+ * (The same order as the mcp-skills mod for Claude Code had: removed, in history at commit ed2279a6.)
  */
 async function runtime($: EngineInterface): Promise<string[]> {
   const version = async (command: string) => {
@@ -163,7 +163,8 @@ async function runtime($: EngineInterface): Promise<string[]> {
  * unattended run's), and only after they answer yes in Claude Code's own question dialog, which
  * names what is downloaded and from where: a download that is then run is theirs to agree to. The
  * question comes once this command has answered (a dialog opened from inside the command would wait
- * on it), and the fetch after that; a notice says how it ended. (As the mcp-skills mod does.)
+ * on it), and the fetch after that; a notice says how it ended. (As the removed mcp-skills mod did:
+ * in history at commit ed2279a6.)
  */
 async function setup($: EngineInterface, what: string, origin: { kind?: string } | undefined): Promise<string> {
   if (origin?.kind !== 'composer' && origin?.kind !== 'bridge') return 'This downloads a program and runs it, so it is done only when you type it yourself: /mcp-events setup, at the prompt of a `claude` session.'

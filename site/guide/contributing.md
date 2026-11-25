@@ -48,6 +48,7 @@ polyfills/<extension>/
   pi/            the Pi adapter
   opencode/      the OpenCode adapter
   antigravity/   the Antigravity adapter
+  copilot/       the GitHub Copilot CLI adapter
 ```
 
 - `<extension>` is the extension's short name: `apps`, `events`, `skills`,
@@ -55,11 +56,12 @@ polyfills/<extension>/
 - `core/` holds what does not depend on the host; each host folder holds its
   adapter. Events and Skills use this layout. Apps has no Pi or OpenCode
   form, and no Antigravity form: the Antigravity App renders MCP Apps itself.
+  Skills and Apps have no Copilot form: Copilot has them built in.
 
 Inside an adapter's folder, the installable form goes in a subfolder (`mod/`
-in the Apps polyfill, `extension/` in Pi, `plugin/` in OpenCode and
-Antigravity), holding the host's manifest and only what it runs; tests, build
-scripts, benchmarks and design notes go beside it. The folder is
+in the Apps polyfill, `extension/` in Pi, `plugin/` in OpenCode, Antigravity
+and Copilot CLI), holding the host's manifest and only what it runs; tests,
+build scripts, benchmarks and design notes go beside it. The folder is
 self-contained, so code from `core/` reaches it by bundling, never by an
 import from outside it. Installation differs by host:
 
@@ -78,6 +80,9 @@ import from outside it. Installation differs by host:
   `~/.gemini/config/plugins/<name>`, which the App and the CLI both read.
   The folder holds the MCP server (`mcp_config.json`) and the hooks
   (`hooks.json`).
+- **Copilot CLI:** loads a plugin from a local marketplace where it is,
+  without copying it, so the clone must stay. From a marketplace on GitHub,
+  Copilot keeps its own copy.
 
 One plugin folder can carry both `.claude-plugin/plugin.json` and
 `.codex-plugin/plugin.json`. The plugin's name is unique in the repository, and
@@ -139,6 +144,13 @@ Install instructions depend on the host:
   newer on `PATH` as the requirement, and the App and CLI versions it was
   run with. Nothing is published to Antigravity's Marketplace.
   [Getting started](./getting-started#antigravity) has the steps.
+- **Copilot CLI:** `copilot plugin marketplace add idosal/AgentPolyfill`,
+  then `copilot plugin install <plugin>@agent-polyfill`. From a clone,
+  `copilot plugin marketplace add ./AgentPolyfill` is the install tested with
+  1.0.115; from GitHub, the install was checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code. Say if it needs
+  experimental mode (every Copilot extension does).
+  [Getting started](./getting-started#github-copilot-cli) has the tested
+  steps.
 
 ### 4. List it for its host
 
@@ -158,6 +170,9 @@ Install instructions depend on the host:
 - **Antigravity:** document the local `plugin/` install path and
   `agy plugin uninstall <plugin>`. None of these forms is published to
   Antigravity's Marketplace.
+- **Copilot CLI:** add an entry to `.github/plugin/marketplace.json` (Copilot
+  found the marketplace there when a clone was added as a marketplace). Keep
+  its `version` equal to the plugin's.
 
 Then add it to the polyfills table in the repository's README, in its host's
 column.
@@ -176,6 +191,7 @@ depending on every polyfill. Add the polyfill's own tests as a workflow in
   a real OpenCode, the release pinned in `tools/opencode`, in a throwaway
   home with a scripted stand-in for a model, on Linux, macOS and Windows,
   and checks that the committed `plugin/server.js` is what its sources build.
+- **Copilot CLI:** `copilot-<extension>-test.yml`.
 
 A polyfill that ships built files also gets a release workflow, run on its
 own tags, `<plugin>-v<version>`.
@@ -216,6 +232,8 @@ beside the others. Events and Skills share one `core/`, with these forms:
   `plugin/`.
 - **Antigravity:** a plugin in `antigravity/`, with the installable folder in
   `plugin/`.
+- **Copilot CLI:** a plugin in `copilot/`, installed from `plugin/` (Events
+  has one; Skills doesn't, because Copilot has Skills built in).
 
 1. **Find the host's way in.** What can third-party code do there: run code
    inside the host or beside it, call tools, ask the user, start a turn in an

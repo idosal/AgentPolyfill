@@ -1,15 +1,28 @@
-// The ARD search and discovery rules shared by every host's form: what a
-// search may hold, where it goes, the question that names both, and how its
-// results are shown. Kept apart from main.ts, which starts the Codex server
-// when it is the program node runs: another form imports this module instead.
+// ard-discovery's tools: ard_discover, ard_search and add_mcp_server, for the
+// host a form names (Codex by default; the Copilot form, polyfills/ard/copilot,
+// passes its own name and its own add_mcp_server). The search is in two parts,
+// prepareSearch (checks a call and works out where it would go, sending
+// nothing) and runSearch (sends an approved one), so a form that asks the
+// person its own way (the Antigravity form, polyfills/ard/antigravity, through
+// its PreToolUse hook) runs the same rules. A host gives one plugin's
+// MCP server no way to call another's tools, so this plugin carries the Server
+// Cards core itself (the same modules, bundled) and shows and adds what it
+// finds with the same checks as mcp-server-cards. Nothing here starts a
+// server: src/main.ts does.
 
 import { hasMarkup, hasUserinfo } from '../../../server-cards/claude-code/mod/hooks/card'
 import { discover, type DiscoverOptions } from '../../../server-cards/claude-code/mod/hooks/discover'
-import { formatOffered } from '../../../server-cards/claude-code/mod/hooks/format'
+import { formatDiscovery, formatOffered } from '../../../server-cards/claude-code/mod/hooks/format'
 import { readOffered } from '../../../server-cards/claude-code/mod/hooks/offer'
-import { Session, shownText } from '../../../server-cards/codex/src/tools'
+import type { Tool } from '../../../server-cards/codex/src/mcp'
+import { addTool, askPerson, Session, shownText } from '../../../server-cards/codex/src/tools'
 import { HIDDEN, search, searchEndpoint } from '../../claude-code/mod/hooks/registry'
+import { originOf } from '../../claude-code/mod/hooks/urls'
 
+export { search, searchEndpoint, originOf }
+
+export const DISCOVER = 'ard_discover'
+export const SEARCH = 'ard_search'
 export const BY = 'ard-discovery (ARD v0.91 draft)'
 // ARD v0.91 §5.1: a consumer resolving a domain MUST fetch /.well-known/ard.json
 // (a manifest, which need not carry specVersion) and MUST honour rel="ard".
@@ -19,8 +32,9 @@ export const SHOWN_QUERY = 300
 /** The longest registry the question names, and so the longest searched (as in the Claude Code form). */
 export const SHOWN_REGISTRY = 200
 // The plugin ships with no registry: which one sees the person's words is theirs to choose.
-export const NO_REGISTRY =
-  'No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as `registry`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment Codex starts in. Nothing was sent.'
+export const noRegistry = (hostName = 'Codex') =>
+  `No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as \`registry\`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment ${hostName} starts in. Nothing was sent.`
+export const NO_REGISTRY = noRegistry()
 /** Characters that display as something else or as nothing, tag characters among them (registry.ts HIDDEN, as in the Claude Code form). */
 const UNSEEN = HIDDEN
 /**
@@ -32,6 +46,7 @@ const UNSEEN = HIDDEN
 const MARKUP = /[`<>[\]]/
 
 const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
+const refuse = (text: string) => ({ text: shownText(text), isError: true })
 /** Why a registry could not be named in the form exactly as it is searched, or undefined (as in the Claude Code form). */
 const unshowable = (registry: string, from: string) =>
   registry.length > SHOWN_REGISTRY || UNSEEN.test(registry) || /\s/.test(registry)
@@ -44,7 +59,6 @@ export const SEARCH_CHOICES = { yes: { value: 'search', title: 'Send the search'
 /** The registry setting: ARD_DISCOVERY_REGISTRY. Unset or empty, no registry is chosen for the person: a search names its own. */
 export const registrySetting = (env: NodeJS.ProcessEnv) => (env.ARD_DISCOVERY_REGISTRY ?? '').trim()
 
-
 /** A search as the person is asked about it: the query, the endpoints it goes to, and the question. */
 export type PreparedSearch = { query: string; endpoints: string[]; question: string } | { refuse: string }
 
@@ -52,9 +66,10 @@ export type PreparedSearch = { query: string; endpoints: string[]; question: str
  * Checks an ard_search call and works out where it would go, sending nothing:
  * the query as the person will see it, the registry endpoints (a domain's
  * catalogs are read to find them, a GET with no query), and the question that
- * names both. Each host's form asks it in its own way.
+ * names both. Each host's form asks it in its own way; `hostName` is where the
+ * person sets ARD_DISCOVERY_REGISTRY.
  */
-export async function prepareSearch(session: Session, args: Record<string, unknown>, defaultRegistry: string): Promise<PreparedSearch> {
+export async function prepareSearch(session: Session, args: Record<string, unknown>, defaultRegistry: string, hostName = 'Codex'): Promise<PreparedSearch> {
   const query = (str(args.query) ?? '').trim()
   if (!query) return { refuse: 'Give `query`: what the person needs, in plain words.' }
   // What is sent is what the question showed (security review R1).
@@ -64,7 +79,7 @@ export async function prepareSearch(session: Session, args: Record<string, unkno
   const asked = (str(args.registry) ?? defaultRegistry).trim()
   // No registry is chosen for the person: with none set and none named,
   // there is nothing to ask about, and nothing is sent.
-  if (!asked) return { refuse: NO_REGISTRY }
+  if (!asked) return { refuse: noRegistry(hostName) }
   // The form names the registry as it is searched, as it shows the query.
   const unnamed = unshowable(asked, str(args.registry) !== undefined ? 'The `registry` in this search' : 'ARD_DISCOVERY_REGISTRY')
   if (unnamed) return { refuse: unnamed }
@@ -126,3 +141,79 @@ export async function runSearch(session: Session, query: string, endpoints: stri
   const hosts = [...new Set(s.entries.map(x => new URL(x.listedIn).host))].join(', ')
   return shownText(`${lines.join('\n')}\n\n${formatOffered(r, `the ARD registry at ${hosts}`)}`)
 }
+
+/** The host a form serves: its name in the words, and its add_mcp_server (the Codex form's by default). */
+/**
+ * What differs by host: its name in what the tools say, its add tool, and whether `ard_search` is
+ * marked read-only. A search sends the person's words to a third party, so a host whose permission
+ * rules read the hint marks it not read-only (`searchReadOnly: false`, as the Pi form does).
+ */
+export type ArdHost = { name: string; addTool: (session: Session, discoverName: string, foundBy: string) => Tool; searchReadOnly?: boolean }
+const CODEX_HOST: ArdHost = { name: 'Codex', addTool }
+
+export function tools(session: Session, defaultRegistry: string, h: ArdHost = CODEX_HOST): Tool[] {
+  const discoverTool: Tool = {
+    name: DISCOVER,
+    description:
+      'Find the MCP servers a domain publishes through Agentic Resource Discovery (ARD, a v0.91 draft): reads https://<domain>/.well-known/ard.json and rel="ard" links on the page, beside the AI Catalog (/.well-known/ai-catalog.json), fetches each MCP Server Card they list and checks it against the schema. ' +
+      `Use when the person wants to connect ${h.name} to a service by its domain and asks for ARD, or the AI Catalog lists nothing. Read-only: public documents from that domain and the card URLs its catalogs name.`,
+    inputSchema: {
+      type: 'object',
+      properties: { domain: { type: 'string', description: 'A domain ("buildkite.com") or a page URL on it.' } },
+      required: ['domain'],
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+    run: async args => {
+      const domain = str(args.domain) ?? ''
+      const target = originOf(domain)
+      if ('error' in target) return refuse(target.error)
+      const d = await discover(session.deps, domain, ARD_SOURCES)
+      if ('error' in d) return refuse(d.error)
+      session.remember(d)
+      return { text: formatDiscovery(d) }
+    },
+  }
+
+  const searchTool: Tool = {
+    name: SEARCH,
+    description:
+      'Search an ARD registry for MCP servers that can do a task, described in plain words ("check why my CI build failed"). ' +
+      'The query text is sent to a third party: the registry ' +
+      (defaultRegistry
+        ? `(${defaultRegistry} unless \`registry\` names another)`
+        : '(none is configured: pass `registry` with the one the person names. Do not choose a registry for them; if they have not named one, ask which)') +
+      `, which ranks other people's servers. Its referrals are followed one hop. ${h.name} asks the person in a form before anything is sent, naming the registry and the query; without that form, or if they decline, nothing is sent. ` +
+      "Each result's card is fetched and checked, and so is whether the publisher's own domain lists the server. " +
+      'Use when the person asks to find a server for a task, or a task needs a capability no tool in this session has and the person has not named a service. ' +
+      'Say which registry answered, that its order is relevance, not trust, and which results their publisher confirms.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'What the person needs, in plain words, on one line and at most 300 characters. It is sent to the registry.' },
+        registry: {
+          type: 'string',
+          description:
+            'A registry base URL, or a domain whose catalog lists a registry (an application/ai-registry+json entry): the one the person names. ' +
+            (defaultRegistry ? 'Leave it out to use the configured registry.' : 'No registry is configured, so a search without it is refused.'),
+        },
+      },
+      required: ['query'],
+    },
+    annotations: h.searchReadOnly === false ? { readOnlyHint: false, destructiveHint: false, openWorldHint: true } : { readOnlyHint: true, openWorldHint: true },
+    run: async (args, ctx) => {
+      const p = await prepareSearch(session, args, defaultRegistry, h.name)
+      if ('refuse' in p) return refuse(p.refuse)
+      // Every search is put to the person first, with the words and where they
+      // go (security review M2); refused with no form, or a decline or close.
+      const ok = await askPerson(ctx, p.question, SEARCH_CHOICES.yes, SEARCH_CHOICES.no)
+      if ('why' in ok) return refuse(`Nothing was sent: ${ok.why}.`)
+      return { text: await runSearch(session, p.query, p.endpoints) }
+    },
+  }
+
+  return [discoverTool, searchTool, h.addTool(session, DISCOVER, `${DISCOVER} or ${SEARCH}`)]
+}
+
+export const INSTRUCTIONS =
+  'Agentic Resource Discovery (ARD v0.91 draft) for MCP servers: ard_discover reads a domain\'s ard.json and AI Catalog; ard_search sends a query to an ARD registry, a third party, after the person approves it in a form; add_mcp_server adds a server either one showed, after the person approves that too. ' +
+  "A registry's order is relevance, not trust; a result is confirmed only when its publisher's own catalog lists it."

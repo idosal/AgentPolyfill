@@ -15,7 +15,7 @@ import { antigravityDeps, useAntigravityHost } from '../../../server-cards/antig
 import { digestOf, ownArgs, redeemTicket, runHook, runStop, stateDir, TICKET_ARG, type Handler } from '../../../server-cards/antigravity/src/gate'
 import { ADD, addHandler, addTool, setServerName, SharedSession } from '../../../server-cards/antigravity/src/tools'
 import { originOf } from '../../claude-code/mod/hooks/urls'
-import { ARD_SOURCES, NO_REGISTRY, prepareSearch, registrySetting, runSearch } from '../../codex/src/search'
+import { ARD_SOURCES, prepareSearch, registrySetting, runSearch } from '../../codex/src/ard'
 
 // What the tests run against.
 export * from '../../../server-cards/antigravity/src/antigravity'
@@ -28,12 +28,6 @@ export const DISCOVER = 'ard_discover'
 export const SEARCH = 'ard_search'
 /** The plugin's MCP server as Antigravity names it: `<plugin>_<key in mcp_config.json>`. */
 export const SERVER = 'ard-discovery_ard'
-
-/** The Codex form's words for "no registry", with Antigravity's place to set one. */
-const noRegistry = (text: string) =>
-  text === NO_REGISTRY
-    ? 'No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as `registry`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment Antigravity starts in. Nothing was sent.'
-    : text
 
 const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
 const refuse = (text: string) => ({ text: shownText(text), isError: true })
@@ -92,8 +86,8 @@ export function tools(session: SharedSession, defaultRegistry: string): Tool[] {
     },
     annotations: { readOnlyHint: true, openWorldHint: true },
     run: async args => {
-      const prepared = await prepareSearch(session, ownArgs(args), defaultRegistry)
-      if ('refuse' in prepared) return refuse(noRegistry(prepared.refuse))
+      const prepared = await prepareSearch(session, ownArgs(args), defaultRegistry, 'Antigravity')
+      if ('refuse' in prepared) return refuse(prepared.refuse)
       // Every search is put to the person first, with the words and where
       // they go (security review M2): the hook asked about exactly these.
       const t = redeemTicket(session.dir, args[TICKET_ARG], SEARCH, searchDigest(prepared.query, prepared.endpoints), Date.now(), SERVER)
@@ -109,8 +103,8 @@ export function handlers(session: SharedSession, defaultRegistry: string): Recor
   return {
     [ADD]: addHandler(session, DISCOVER),
     [SEARCH]: async args => {
-      const p = await prepareSearch(session, args, defaultRegistry)
-      if ('refuse' in p) return { deny: shownText(noRegistry(p.refuse)) }
+      const p = await prepareSearch(session, args, defaultRegistry, 'Antigravity')
+      if ('refuse' in p) return { deny: shownText(p.refuse) }
       return { ask: p.question, digest: searchDigest(p.query, p.endpoints) }
     },
   }

@@ -18,6 +18,7 @@
 import { randomBytes } from 'node:crypto';
 import { dirname } from 'node:path';
 import { errorCode, EventsConnection, EventsError, type DeliveryMode, type Occurrence } from './events-client.ts';
+import { shownEvent } from './format.ts';
 import { mailboxIdOf } from './relay-protocol.ts';
 import { dropLegacyMailboxKey, legacyMailboxKey, readRelaySettings, RelayClient, serverMailboxKey } from './relay.ts';
 import { host } from './host.ts';
@@ -106,7 +107,9 @@ export class WatchManager {
     #log: (s: string) => void;
     #env: NodeJS.ProcessEnv;
     #timeout: number;
-    #runs = new Map<string, { ac: AbortController; done: Promise<void>; unwatch: boolean }>();
+    #runs = new Map<string, { ac: AbortController; done: Promise<void>; unwatch: boolean; revoke?: boolean }>();
+    /** Servers the host has withdrawn from this session (suspend): nothing more is taken from them. */
+    #withdrawn = new Set<string>();
     /** When a watch last had its event type listed again after the server ended it, so that it does not loop. */
     #relisted = new Map<string, number>();
     /** Where webhooks arrive: with a relay, one mailbox per MCP server (by name); otherwise one receiver (''). */
@@ -276,6 +279,37 @@ export class WatchManager {
         return w;
     }
 
+    /**
+     * The host no longer lets this session use `server` (switched off or removed mid-session): its
+     * watches stop listening, their webhook subscriptions are ended, and they wait, saved, until a
+     * session has the server again. Nothing is removed.
+     */
+    async suspend(server: string): Promise<void> {
+        // From now on nothing from this server is connected to or stored, whatever is still in flight
+        // (a reconnect, a poll's answer, a webhook delivery already on its way).
+        this.#withdrawn.add(server);
+        const runs = this.watches.filter((w) => w.server === server).map((w) => [w, this.#runs.get(w.id)] as const);
+        // A webhook subscription is ended on the server and its address retired, lasting or not: the
+        // host no longer lets this session use the server. (The caller keeps the connection until this
+        // returns, so the unsubscribe can go out.) The saved watch stays, and subscribes afresh when a
+        // session has the server again.
+        for (const [, r] of runs) if (r) r.revoke = true;
+        for (const [, r] of runs) r?.ac.abort();
+        await Promise.race([Promise.allSettled(runs.map(([, r]) => r?.done)), sleep(5000)]);
+        for (const [w] of runs) if (w.status !== 'ended') this.#status(w, 'error', 'its server is not available in this session');
+        if (this.owner) this.#saveNow();
+    }
+
+    /**
+     * Starts the saved watches of `server` that are not running: its connection arrived after they
+     * were loaded (they were marked unavailable then), or it is back. Only in the process that runs them.
+     */
+    resume(server: string): void {
+        if (!this.owner) return;
+        this.#withdrawn.delete(server);
+        for (const w of this.watches) if (w.server === server && w.status !== 'ended' && !this.#runs.has(w.id) && this.connections.has(server)) this.#run(w);
+    }
+
     async remove(id: string): Promise<Watch> {
         if (!this.owner) throw new LocalError(`another ${host.other} (pid ${this.holder?.pid}) runs ${host.scope} watches; stop the watch from there`);
         const w = this.watches.find((x) => x.id === id);
@@ -361,10 +395,12 @@ export class WatchManager {
 
     async #conn(name: string): Promise<EventsConnection> {
         const conn = this.connections.get(name);
-        if (!conn) throw new LocalError(`server ${name} is not configured`);
+        if (!conn || this.#withdrawn.has(name)) throw new LocalError(conn ? 'its server is not available in this session' : `server ${name} is not configured`);
         if (!conn.connected) {
             await conn.connect(this.#timeout);
             await conn.list();
+            // Withdrawn while it reconnected: not used.
+            if (this.#withdrawn.has(name)) throw new LocalError('its server is not available in this session');
         }
         // Nothing is sent to a server that does not (or no longer does) advertise the extension.
         if (!conn.declaration) throw new LocalError('the server does not advertise the Events extension');
@@ -392,7 +428,7 @@ export class WatchManager {
 
     #fail(w: Watch, why: string): void {
         this.#status(w, 'error', why);
-        this.notice(`Watch ${w.id} (${w.server} · ${w.event}) stopped: ${why}`, w.id);
+        this.notice(`Watch ${w.id} (${w.server} · ${shownEvent(w.event)}) stopped: ${why}`, w.id);
     }
 
     notice(text: string, watch?: string): void {
@@ -417,7 +453,7 @@ export class WatchManager {
                 const type = conn?.eventTypes.find((t) => t.name === w.event);
                 if (conn && type) {
                     w.mode = this.#mode(conn, type.delivery);
-                    this.notice(`Watch ${w.id} (${w.server} · ${w.event}): ${how} (error ${code}); the event type is still offered, so the watch starts again against it as it is now.`, w.id);
+                    this.notice(`Watch ${w.id} (${w.server} · ${shownEvent(w.event)}): ${how} (error ${code}); the event type is still offered, so the watch starts again against it as it is now.`, w.id);
                     this.#status(w, 'starting');
                     return 'restart';
                 }
@@ -425,7 +461,7 @@ export class WatchManager {
                 // the list could not be read, or no mode fits any more: the watch ends below
             }
         }
-        this.notice(`Watch ${w.id} (${w.server} · ${w.event}) ended: ${how}${code !== undefined ? ` (${describeError({ code }).replace(/^the server answered /, '')})` : ''}. It has been removed.`, w.id);
+        this.notice(`Watch ${w.id} (${w.server} · ${shownEvent(w.event)}) ended: ${how}${code !== undefined ? ` (${describeError({ code }).replace(/^the server answered /, '')})` : ''}. It has been removed.`, w.id);
         w.status = 'ended';
         this.project.watches = this.watches.filter((x) => x.id !== w.id);
         this.#relisted.delete(w.id);
@@ -443,6 +479,8 @@ export class WatchManager {
 
     async #deliver(w: Watch, o: Occurrence, cursor: string | null | undefined | typeof KEEP): Promise<void> {
         if (!o || typeof o.eventId !== 'string' || o.eventId.length > 512) return;
+        // Nothing is taken from a server the host has withdrawn from this session (and so nothing is acknowledged).
+        if (this.#withdrawn.has(w.server)) throw new LocalError('its server is not available in this session');
         // A session that no longer runs this project's watches takes nothing (and so acknowledges nothing).
         if (!this.#stillOwner()) throw new LocalError('another session runs this project\'s watches now');
         const position = cursor === KEEP ? w.cursor : typeof cursor === 'string' && cursor.length <= MAX_CURSOR ? cursor : null;
@@ -455,7 +493,7 @@ export class WatchManager {
                 // cannot be measured: treated as too large
             }
             if (size > MAX_EVENT_BYTES) {
-                this.notice(`Watch ${w.id} (${w.server} · ${w.event}): one event was too large or too deeply nested to show, and was skipped.`, w.id);
+                this.notice(`Watch ${w.id} (${w.server} · ${shownEvent(w.event)}): one event was too large or too deeply nested to show, and was skipped.`, w.id);
                 w.seen.push(o.eventId);
                 if (w.seen.length > SEEN_LIMIT) w.seen.splice(0, w.seen.length - SEEN_LIMIT);
                 w.cursor = position;
@@ -496,11 +534,14 @@ export class WatchManager {
             try {
                 conn = await this.#conn(w.server);
             } catch (e) {
+                if (signal.aborted) break;
                 this.#status(w, 'retrying', describeError(e));
                 await sleep(jitter(backoff), signal);
                 backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
                 continue;
             }
+            // Stopped while it reconnected: no stream is opened.
+            if (signal.aborted) break;
             // On Streamable HTTP a dead connection is told from a quiet one by the heartbeat: no message
             // for three times the granted interval, counted from `active`. On stdio the end of the
             // server's output is the signal, and the heartbeat only moves the cursor.
@@ -542,7 +583,7 @@ export class WatchManager {
                         if (typeof a.heartbeatMs === 'number' && Number.isFinite(a.heartbeatMs) && a.heartbeatMs > 0) heartbeat = a.heartbeatMs;
                         // With no cursor supplied there was no position to be skipped past when the stream opened.
                         // Once it is open there is one: `active` again mid-stream with `truncated` is a gap.
-                        if (a.truncated && (sent !== null || confirmed)) this.notice(`Watch ${w.id} (${w.server} · ${w.event}): some events were skipped; the server could not replay from where this watch left off.`, w.id);
+                        if (a.truncated && (sent !== null || confirmed)) this.notice(`Watch ${w.id} (${w.server} · ${shownEvent(w.event)}): some events were skipped; the server could not replay from where this watch left off.`, w.id);
                         confirmed = true;
                         inOrder(() => {
                             this.#cursor(w, a.cursor);
@@ -618,10 +659,11 @@ export class WatchManager {
         while (!signal.aborted) {
             try {
                 const conn = await this.#conn(w.server);
+                if (signal.aborted) break;
                 const sent = w.cursor;
                 const r = await conn.poll({ name: w.event, arguments: w.arguments, cursor: w.cursor, maxEvents: 100, ...(w.maxAgeMs ? { maxAgeMs: w.maxAgeMs } : {}) });
                 // With no cursor supplied there was no position to be skipped past.
-                if (r.truncated && sent !== null) this.notice(`Watch ${w.id} (${w.server} · ${w.event}): some events were skipped; the server could not replay from where this watch left off.`, w.id);
+                if (r.truncated && sent !== null) this.notice(`Watch ${w.id} (${w.server} · ${shownEvent(w.event)}): some events were skipped; the server could not replay from where this watch left off.`, w.id);
                 const before = w.events;
                 let taken = 0;
                 for (const o of r.events) {
@@ -804,7 +846,7 @@ export class WatchManager {
                 },
                 onGap: (cursor) => {
                     this.#cursor(w, cursor);
-                    this.notice(`Watch ${w.id} (${w.server} · ${w.event}): some events were skipped (the server reported a gap).`, w.id);
+                    this.notice(`Watch ${w.id} (${w.server} · ${shownEvent(w.event)}): some events were skipped (the server reported a gap).`, w.id);
                 },
                 onTerminated: (err) => {
                     over = { code: err?.code };
@@ -834,12 +876,13 @@ export class WatchManager {
             while (!signal.aborted && !over && !refused) {
                 try {
                     const conn = await this.#conn(w.server);
+                    if (signal.aborted) break;
                     const sent = w.cursor;
                     const r = await conn.subscribe({ name: w.event, arguments: w.arguments, delivery: { mode: 'webhook', url, secret }, cursor: w.cursor, ttlMs: sink.lasting ? TTL_LASTING_MS : TTL_SESSION_MS, ...(w.maxAgeMs ? { maxAgeMs: w.maxAgeMs } : {}) });
                     subscribed = true;
                     w.subscriptionId = r.id;
                     // With no cursor supplied there was no position to be skipped past.
-                    if (r.truncated && sent !== null) this.notice(`Watch ${w.id} (${w.server} · ${w.event}): some events were skipped; the server could not replay from where this watch left off.`, w.id);
+                    if (r.truncated && sent !== null) this.notice(`Watch ${w.id} (${w.server} · ${shownEvent(w.event)}): some events were skipped; the server could not replay from where this watch left off.`, w.id);
                     this.#cursor(w, r.cursor);
                     const ds = r.deliveryStatus as { active?: boolean; lastError?: string; throttled?: boolean } | undefined;
                     if (ds && ds.active === false) this.#log(`watch ${w.id}: delivery suspended by the server (${['connection_refused', 'timeout', 'tls_error', 'http_4xx', 'http_5xx', 'challenge_failed'].includes(String(ds.lastError)) ? ds.lastError : 'no known reason given'}); refreshing to resume`);
@@ -871,7 +914,8 @@ export class WatchManager {
             // A session-only address dies with this process, so its subscription ends either way.
             // A lasting one ends only when the watch does: unwatched, or ended by the server.
             const gone = !!over || refused;
-            const ending = !sink.lasting || this.#runs.get(w.id)?.unwatch === true || gone;
+            const run = this.#runs.get(w.id);
+            const ending = !sink.lasting || run?.unwatch === true || run?.revoke === true || gone;
             // After the server has ended it, there is no subscription left to end.
             if (subscribed && ending && !gone) {
                 const conn = this.connections.get(w.server);

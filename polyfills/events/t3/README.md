@@ -264,6 +264,17 @@ MCP server what T3 Code's own client supports.
   doesn't tell an MCP server who started a turn, so writing to the thread
   doesn't lift the pause, as it does in the Codex form.
 - **A new server needs `--stop`** before the watcher sees it.
+- **After upgrading the `t3` from npm, run `t3 --version` once.** That `t3` is
+  a launcher: the first time a version runs, it downloads that version of T3
+  Code (for 0.1.12, 152 MB on macOS and 186 MB on Linux) into the T3 Code
+  home. If you upgrade it while T3 Code keeps running, the next wake is that
+  first run. A wake that hasn't finished after 60 seconds is stopped, and it
+  counts as handed over because it may have reached the thread: its events
+  are still stored (`recent_events` lists them), but the thread may get no
+  message for them. The stopped download leaves a partial
+  `runtime/versions/<version>.staging-…` folder in the T3 Code home, and the
+  next wake starts it again. A download that fails is tried again later, like
+  T3 Code not running.
 - **Not checked live:** the approval prompt for `watch_event` in a thread
   whose mode asks (the live run's thread was in Full access, the isolated
   install's default); a T3 Code environment on another machine (the server and
@@ -303,7 +314,11 @@ Nothing else is added: no methods, fields or capabilities of its own.
   server, one watcher for many threads, resuming after a restart, T3 Code not
   running, a thread T3 Code no longer knows).
 - `test/t3-cli-test.ts`: the wake against the real `t3` 0.1.11 in a throwaway
-  home.
+  home. T3 Code runs the agent CLIs it finds when it starts, and `gh` for a
+  GitHub token, so the test gives it a PATH of its own (only `node`, `sh`,
+  `tar`, `gzip`, `ps`) and a login shell that reads no startup file. The file
+  fails if T3 Code reports an agent CLI installed, or if anything writes to the
+  throwaway HOME.
 - [`docs/live-run.md`](docs/live-run.md): a real run in T3 Code 0.1.11 with
   Codex 0.172.0.
 

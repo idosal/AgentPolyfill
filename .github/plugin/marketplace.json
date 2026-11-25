@@ -1,0 +1,28 @@
+{
+  "name": "agent-polyfill",
+  "description": "MCP extensions for hosts that haven't shipped them yet: the GitHub Copilot CLI plugins",
+  "owner": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "plugins": [
+    {
+      "name": "mcp-events",
+      "description": "MCP Events (SEP-3415): Copilot can watch events on your MCP servers (poll, push or webhook) and act when one fires, even while the session sits idle. Needs Copilot's experimental mode.",
+      "version": "0.1.0",
+      "source": "./polyfills/events/copilot/plugin"
+    },
+    {
+      "name": "mcp-server-cards",
+      "description": "MCP Server Cards (SEP-2127): Copilot finds the MCP servers a domain publishes, checks their Server Cards, and adds one to its configuration once you approve it in a form",
+      "version": "0.1.0",
+      "source": "./polyfills/server-cards/copilot/plugin"
+    },
+    {
+      "name": "ard-discovery",
+      "description": "Agentic Resource Discovery (ARD v0.91, a draft outside MCP): find MCP servers through a domain's ard.json or by searching an ARD registry (each search asks you first), and add one once you approve it",
+      "version": "0.1.1",
+      "source": "./polyfills/ard/copilot/plugin"
+    }
+  ]
+}

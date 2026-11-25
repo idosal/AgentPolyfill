@@ -21,6 +21,10 @@ What runs in each host:
   Apps has no OpenCode form.
 - **Antigravity:** Events, Skills, Server Cards and ARD, as Antigravity
   plugins. Apps has no Antigravity form: the App renders MCP Apps itself.
+- **Copilot CLI:** Events, Server Cards and ARD, as Copilot CLI plugins.
+  Events is a Copilot extension and needs Copilot's experimental mode. Skills
+  and Apps have no Copilot form: Copilot CLI has Skills over MCP built in, and
+  VS Code's Copilot harness turns MCP Apps on (from its source; no app was drawn there).
 
 See [Getting started](/guide/getting-started) for installation. In Pi,
 `pi install git:github.com/idosal/AgentPolyfill` installs Events, Skills and
@@ -32,6 +36,8 @@ Nothing for OpenCode is published to npm either; OpenCode installs each plugin
 from the repository on GitHub, with Git.
 Nothing is published to Antigravity's Marketplace either; its plugins install
 from a clone, with the Antigravity CLI (the App doesn't ship `agy`).
+In Copilot CLI, add a clone of the repository as a marketplace and install
+each plugin from it; that is the install that was tested.
 
 ## Not affiliated
 
@@ -43,7 +49,7 @@ this isn't working-group output.
 
 Model Context Protocol and MCP are trademarks of LF Projects, LLC. Claude and
 Claude Code are trademarks of Anthropic, PBC. OpenAI and Codex are trademarks
-of OpenAI.
+of OpenAI. GitHub Copilot is a trademark of GitHub, Inc.
 
 ## Licence
 

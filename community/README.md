@@ -50,6 +50,7 @@ Open a pull request that adds one object to the `polyfills` array:
   | Pi | `"Pi"` |
   | OpenCode | `"OpenCode"` |
   | Antigravity | `"Antigravity"` |
+  | GitHub Copilot CLI | `"Copilot CLI"` |
 
   Other hosts are welcome too.
 - **`summary`**: one plain sentence.
@@ -58,7 +59,9 @@ Open a pull request that adds one object to the `polyfills` array:
   if it needs a clone, include the clone steps and local path. For an
   OpenCode plugin, give the `opencode plugin add` line, or the folder to put
   in `plugins` in `opencode.json`. For an Antigravity plugin, give the
-  `agy plugin install` line and the folder it takes. The repository's README
+  `agy plugin install` line and the folder it takes. For a Copilot CLI plugin,
+  give the marketplace and `copilot plugin install` lines, and say if it needs
+  experimental mode (every Copilot extension does). The repository's README
   states the spec revision, its limits and what it sends where.
 - **`maintainer`**: your GitHub handle.
 - **`contract`**: where it stands on this project's
@@ -96,6 +99,13 @@ Cards and ARD; Apps has no Antigravity form, because the App shows MCP Apps
 itself. Nothing is published to Antigravity's Marketplace. Each installs from
 a clone with `agy plugin install`, which needs the Antigravity CLI (the App
 doesn't ship `agy`), as the [root README](../README.md#install) shows.
+
+This repository's Copilot CLI forms are in `polyfills/<polyfill>/copilot/`,
+with the installable plugin in `plugin/`. They cover Events, Server Cards and
+ARD; Copilot has Skills and Apps built in. Its marketplace is
+`.github/plugin/marketplace.json`, installed from a clone (tested with 1.0.115) or from GitHub
+(checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code). The [root README](../README.md#install) has
+the steps.
 
 ## What gets listed
 

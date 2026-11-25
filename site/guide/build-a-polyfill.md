@@ -168,6 +168,10 @@ for each host:
   in `plugin/`. It installs from a local clone with `agy plugin install`,
   which needs the Antigravity CLI (the App doesn't ship `agy`); nothing is
   published to Antigravity's Marketplace.
+- **Copilot CLI:** a plugin in `copilot/`, installed from `plugin/` (Events
+  has one, which holds a Copilot extension; Skills doesn't, because Copilot
+  has Skills over MCP built in). It installs from a clone added as a
+  marketplace.
 
 The Pi examples are
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi),
@@ -193,6 +197,12 @@ The Antigravity examples are
 and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/antigravity).
 Apps has no Antigravity form: the App renders MCP Apps itself (v2.34.0 and
 later), and the CLI and IDE show text only.
+
+The Copilot CLI examples are
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/copilot),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/copilot)
+and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/copilot).
+Skills and Apps have no Copilot form: Copilot has them built in.
 
 Bringing a polyfill to another host is a new adapter: find how the host lets
 it reach the wire (a connection of its own, a tool call, a way to wake an idle
@@ -241,6 +251,19 @@ switch because native support cannot be detected. Their READMEs,
 `SECURITY.md`, `docs/conformance.md` and Events' `docs/live-run.md` record
 what was checked. The IDE documents no plugin hooks, so the forms aren't
 supported there, and their gated calls are refused.
+
+The Copilot CLI forms show the same from another side. Only an extension can
+start a turn (`session.send`), so Events is an extension and needs Copilot's
+experimental mode; Server Cards and ARD are MCP servers in plugins and don't.
+Events needs its own connection and cannot use Copilot's sign-in. Copilot's
+own tool prompt comes before each tool that acts. Copilot can approve a call
+without the person, in assisted mode (an LLM review, which an organisation can
+make the default) or with allow-all, so each form asks its own question after
+it: Events in a Copilot dialog, by default, and Server Cards and ARD in a form
+before adding a server or sending a search. Each has an off switch because
+native support cannot be detected. Their READMEs, `SECURITY.md` and
+`docs/conformance.md` (and Events' `docs/live-run.md`) record what was
+checked. The live runs in Copilot CLI used a scripted model on the machine.
 
 ## Your own, listed in the community directory
 

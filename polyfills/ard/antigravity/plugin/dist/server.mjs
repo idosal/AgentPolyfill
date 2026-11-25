@@ -2157,25 +2157,26 @@ var search = async (post, text, endpoints) => {
   return out;
 };
 
-// polyfills/ard/codex/src/search.ts
+// polyfills/ard/codex/src/ard.ts
 var BY = "ard-discovery (ARD v0.91 draft)";
 var ARD_SOURCES = { catalogs: [{ url: "/.well-known/ard.json", requireVersion: false }], rels: ["ard"], by: BY };
 var SHOWN_QUERY = 300;
 var SHOWN_REGISTRY = 200;
-var NO_REGISTRY = "No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as `registry`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment Codex starts in. Nothing was sent.";
+var noRegistry = (hostName = "Codex") => `No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as \`registry\`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment ${hostName} starts in. Nothing was sent.`;
+var NO_REGISTRY = noRegistry();
 var UNSEEN = HIDDEN;
 var MARKUP = /[`<>[\]]/;
 var str2 = (v) => typeof v === "string" ? v : void 0;
 var unshowable = (registry, from) => registry.length > SHOWN_REGISTRY || UNSEEN.test(registry) || /\s/.test(registry) ? `${from} must be at most ${SHOWN_REGISTRY} characters, with no spaces, control characters or direction marks, so the form names exactly where the search goes. Nothing was sent.` : void 0;
 var registrySetting = (env) => (env.ARD_DISCOVERY_REGISTRY ?? "").trim();
-async function prepareSearch(session, args, defaultRegistry) {
+async function prepareSearch(session, args, defaultRegistry, hostName = "Codex") {
   const query = (str2(args.query) ?? "").trim();
   if (!query) return { refuse: "Give `query`: what the person needs, in plain words." };
   if (query.length > SHOWN_QUERY) return { refuse: `Keep the search under ${SHOWN_QUERY} characters, so the person sees all of it before it is sent.` };
   if (UNSEEN.test(query)) return { refuse: "Write the search on one line, without control characters, direction marks or hidden characters, so the person sees exactly what is sent." };
   if (MARKUP.test(query)) return { refuse: "Write the search in plain words, without `, <, > or square brackets, so the form shows exactly what is sent." };
   const asked = (str2(args.registry) ?? defaultRegistry).trim();
-  if (!asked) return { refuse: NO_REGISTRY };
+  if (!asked) return { refuse: noRegistry(hostName) };
   const unnamed = unshowable(asked, str2(args.registry) !== void 0 ? "The `registry` in this search" : "ARD_DISCOVERY_REGISTRY");
   if (unnamed) return { refuse: unnamed };
   let endpoints = [];
@@ -2235,7 +2236,6 @@ var VERSION = "0.1.0";
 var DISCOVER = "ard_discover";
 var SEARCH = "ard_search";
 var SERVER = "ard-discovery_ard";
-var noRegistry = (text) => text === NO_REGISTRY ? "No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as `registry`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment Antigravity starts in. Nothing was sent." : text;
 var str3 = (v) => typeof v === "string" ? v : void 0;
 var refuse2 = (text) => ({ text: shownText(text), isError: true });
 var searchDigest = (query, endpoints) => digestOf({ query, endpoints });
@@ -2276,8 +2276,8 @@ function tools(session, defaultRegistry) {
     },
     annotations: { readOnlyHint: true, openWorldHint: true },
     run: async (args) => {
-      const prepared = await prepareSearch(session, ownArgs(args), defaultRegistry);
-      if ("refuse" in prepared) return refuse2(noRegistry(prepared.refuse));
+      const prepared = await prepareSearch(session, ownArgs(args), defaultRegistry, "Antigravity");
+      if ("refuse" in prepared) return refuse2(prepared.refuse);
       const t = redeemTicket(session.dir, args[TICKET_ARG], SEARCH, searchDigest(prepared.query, prepared.endpoints), Date.now(), SERVER);
       if (!t.ok) return refuse2(`Nothing was sent: ${t.why}.`);
       return { text: await runSearch(session, prepared.query, prepared.endpoints) };
@@ -2289,8 +2289,8 @@ function handlers(session, defaultRegistry) {
   return {
     [ADD]: addHandler(session, DISCOVER),
     [SEARCH]: async (args) => {
-      const p = await prepareSearch(session, args, defaultRegistry);
-      if ("refuse" in p) return { deny: shownText(noRegistry(p.refuse)) };
+      const p = await prepareSearch(session, args, defaultRegistry, "Antigravity");
+      if ("refuse" in p) return { deny: shownText(p.refuse) };
       return { ask: p.question, digest: searchDigest(p.query, p.endpoints) };
     }
   };

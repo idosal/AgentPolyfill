@@ -262,6 +262,23 @@ How a polyfill is built depends on what the host lets third-party code do.
   local clone with the Antigravity CLI (the App doesn't ship `agy`):
   `agy plugin install ./polyfills/<polyfill>/antigravity/plugin`; nothing is
   published to Antigravity's Marketplace.
+- **GitHub Copilot CLI:** a Copilot plugin in `polyfills/<polyfill>/copilot/`,
+  with its installable folder in `plugin/` and an entry in
+  `.github/plugin/marketplace.json`. A polyfill that only needs tools and a
+  form is an MCP server in the plugin, which needs no experimental mode. One
+  that must wake a session or watch the session's events is a Copilot
+  *extension* (`extension.mjs`, joining with `@github/copilot-sdk/extension`,
+  the name both Copilot CLI and VS Code's Copilot harness resolve): Copilot
+  loads extensions only in experimental mode, and the whole extension API is
+  experimental. Copilot can approve a call without the person (assisted mode,
+  which an organisation can make the default, or allow-all), and VS Code's
+  Copilot harness runs read-only tools without asking, so a
+  consequential step asks the person itself: an extension through
+  `session.ui`, an MCP server through an elicitation form. Read the existing
+  Copilot forms' README, SECURITY.md and `docs/conformance.md` before writing
+  part 3. Events, Server Cards and ARD have Copilot forms; Copilot has Skills
+  and Apps built in. They were tested with Copilot CLI 1.0.115; Events and a
+  Server Cards add also in VS Code 1.147.0's Copilot harness.
 - **Another host with an in-process extension layer:** read its extension API
   for the installed version and build the route table from that. Do not assume
   it matches Claude Code's.

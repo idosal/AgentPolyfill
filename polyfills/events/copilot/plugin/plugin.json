@@ -1,0 +1,14 @@
+{
+  "name": "mcp-events",
+  "version": "0.1.0",
+  "description": "MCP Events (SEP-3415) for GitHub Copilot CLI: Copilot can watch events on your MCP servers (poll, push or webhook) and act when one fires, even while the session sits idle. Needs Copilot's experimental mode (extensions).",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "homepage": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/copilot",
+  "repository": "https://github.com/idosal/AgentPolyfill",
+  "license": "Apache-2.0",
+  "keywords": ["mcp", "events", "sep-3415", "polyfill"],
+  "extensions": "extensions/"
+}

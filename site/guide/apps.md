@@ -47,6 +47,12 @@ conversation to draw a view. That was looked into, not built.
 Apps has no Antigravity form. The Antigravity App renders MCP Apps itself
 (v2.34.0 and later); the CLI and IDE show text only.
 
+Apps has no Copilot form, because Copilot has MCP Apps built in where they
+can be drawn: VS Code's Copilot harness turns them on (from its source; no app was drawn there). The Copilot CLI
+terminal draws none and doesn't declare MCP Apps to servers, and Copilot's
+extensions have no UI hooks like the ones this plugin uses in Claude Code
+([why](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/README.md#skills-and-apps-in-copilot)).
+
 The plugin is one zip, attached to a release of the repository and checked
 against the SHA-256 in the repository's marketplace file before Claude Code
 unpacks it. It carries a small helper program for each platform and needs

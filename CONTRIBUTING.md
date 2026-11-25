@@ -54,6 +54,7 @@ polyfills/<extension>/
   pi/            the Pi adapter
   opencode/      the OpenCode adapter
   antigravity/   the Antigravity adapter
+  copilot/       the GitHub Copilot CLI adapter
 ```
 
 - `<extension>` is the extension's short name: `apps`, `events`, `skills`,
@@ -72,14 +73,15 @@ polyfills/<extension>/
 | Pi | extension | `polyfills/<extension>/pi/` |
 | OpenCode | V2 server plugin | `polyfills/<extension>/opencode/` |
 | Antigravity | plugin | `polyfills/<extension>/antigravity/` |
+| Copilot CLI | plugin; for Events, an extension inside it | `polyfills/<extension>/copilot/` |
 
 The Apps polyfill, [`polyfills/apps/claude-code`](polyfills/apps/claude-code),
 is a complete example of one adapter. Inside an adapter's folder:
 
 - **The installable plugin or extension goes in a subfolder** (`mod/` in the
-  Apps polyfill; `extension/` in a Pi form; `plugin/` in an OpenCode or
-  Antigravity form). It holds the host's manifest and only what the plugin or
-  extension runs.
+  Apps polyfill; `extension/` in a Pi form; `plugin/` in an OpenCode,
+  Antigravity or Copilot form). It holds the host's manifest and only what
+  the plugin or extension runs.
   Tests, build scripts, benchmarks and design notes go beside it, not in it.
   If the plugin's own top folder holds a `package.json`, Claude Code runs
   `npm install` there when someone installs it, so keep any `package.json`
@@ -98,6 +100,7 @@ is a complete example of one adapter. Inside an adapter's folder:
   | Pi | A separate `pi/extension/` folder with a manifest and one bundled file. The Git install loads the three extensions from Pi's copy of the repository under `~/.pi/agent/git/`. A local install loads its path in place, so that clone must stay. |
   | OpenCode | A separate `opencode/plugin/` folder: one bundled file, `server.js`, the bundle's licence notices where it holds other packages' code, and a small `package.json` that names it, which `opencode plugin add` installs from GitHub. OpenCode runs it inside its own server, once per project folder. |
   | Antigravity | A separate `antigravity/plugin/` folder: the MCP server in `mcp_config.json` and the hooks in `hooks.json`. `agy plugin install` copies it to `~/.gemini/config/plugins/<name>`, which the App and the CLI both read. |
+  | Copilot CLI | A separate `copilot/plugin/` folder with `plugin.json`: an MCP server's `.mcp.json` and bundle, or for Events `extensions/mcp-events/extension.mjs`, and the bundle's licence notices. A marketplace added from a clone loads it in place; one added from GitHub is copied. |
 
 - **A marketplace plugin's name** is unique in this repository. The same
   name is used in the marketplace entries, in release tags and in the
@@ -162,6 +165,12 @@ It states:
     documents no plugin hooks, so the forms aren't supported there. Nothing
     is published to Antigravity's Marketplace. Remove one with
     `agy plugin uninstall <plugin>`.
+  - In Copilot CLI: clone the repository, run
+    `copilot plugin marketplace add ./AgentPolyfill`, then
+    `copilot plugin install <plugin>@agent-polyfill` (tested with 1.0.115;
+    Events needs `copilot --experimental`). From GitHub,
+    `copilot plugin marketplace add idosal/AgentPolyfill`, checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code. `copilot plugin uninstall
+    <plugin>@agent-polyfill` removes one.
   - Then what else it needs, and every step and question a new user meets
     between installation and the extension working, with what happens when
     they say no. Anything beyond "install, add a server, ask" needs a reason.
@@ -182,7 +191,8 @@ If a contract rule isn't met yet, the README says so.
 
 Each host that has a marketplace has its own marketplace file in this
 repository (Pi and OpenCode have none, and Antigravity has no file here; see
-the end of this step). For Claude Code, add an entry to
+the end of this step; Copilot's is `.github/plugin/marketplace.json`). For
+Claude Code, add an entry to
 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json):
 
 ```json
@@ -253,6 +263,15 @@ Document `agy plugin install` from a clone, which needs the Antigravity CLI
 `agy plugin uninstall <plugin>` for removal, and say what data remains. Add
 the form to the root README's Antigravity column; Apps has no Antigravity
 form, because the App shows MCP Apps itself.
+
+For Copilot CLI, add an entry to
+[`.github/plugin/marketplace.json`](.github/plugin/marketplace.json), with
+the same name, a description and the version, and
+`"source": "./polyfills/<extension>/copilot/plugin"`. Say what data remains:
+`~/.copilot/mcp-events/` for Events, added servers in `mcp-config.json`, and
+the marketplace entry Copilot keeps until
+`copilot plugin marketplace remove agent-polyfill`. Add the form to the root
+README's Copilot column; Copilot has Skills and Apps built in.
 
 ### 5. Add its CI
 
@@ -328,6 +347,8 @@ one `core/` with these forms:
   install, or installed on its own from `pi/extension/` in a clone.
 - `opencode/`: an OpenCode plugin, installed from `opencode/plugin/`.
 - `antigravity/`: an Antigravity plugin, installed from `antigravity/plugin/`.
+- `copilot/`: a Copilot CLI plugin, installed from `copilot/plugin/` (Events
+  only; Copilot has Skills built in).
 
 1. **Find the host's way in.** What can third-party code do there? It may run
    code inside the host or beside it, call tools, ask the user, or start a

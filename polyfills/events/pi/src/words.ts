@@ -3,7 +3,7 @@
 
 import type { HostWords } from '../../core/src/host.ts';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.1.1';
 export const CUSTOM_TYPE = 'mcp-events';
 
 const RELAY_SETUP = 'A relay of your own (a small Cloudflare Worker on your account) is set up from a clone of the AgentPolyfill repository: cd polyfills/events/claude-code/mod/relay && npm install && npx wrangler login && npm run setup. Claude Code, Codex and Pi share it.';
