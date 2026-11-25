@@ -1,0 +1,30 @@
+{
+  "mcp-skills-approval": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp_mcp-skills_skills_(load_skill|read_skill_file|list_skill_directory)|read_resource",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./dist/server.mjs --hook",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "node ./dist/server.mjs --hook pre-invocation",
+        "timeout": 10
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node ./dist/server.mjs --hook stop",
+        "timeout": 10
+      }
+    ]
+  }
+}

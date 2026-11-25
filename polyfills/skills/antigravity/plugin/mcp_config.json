@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "skills": {
+      "command": "node",
+      "args": [
+        "${PLUGIN_ROOT}/dist/server.mjs"
+      ],
+      "tools": {
+        "load_skill": {
+          "eager": true
+        },
+        "read_skill_file": {
+          "eager": true
+        },
+        "list_skill_directory": {
+          "eager": true
+        }
+      }
+    }
+  }
+}

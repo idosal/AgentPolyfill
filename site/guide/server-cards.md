@@ -53,6 +53,12 @@ pi install git:github.com/idosal/AgentPolyfill
 opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/server-cards/opencode/plugin'
 ```
 
+```bash [Antigravity]
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+agy plugin install ./polyfills/server-cards/antigravity/plugin
+```
+
 ```bash [Copilot CLI]
 git clone https://github.com/idosal/AgentPolyfill.git
 copilot plugin marketplace add ./AgentPolyfill
@@ -131,6 +137,17 @@ your configuration files. Its list of them stays in OpenCode's plugin storage
 (OpenCode's own database) and comes back if you install it again; remove a
 server with `server_cards_remove_mcp_server` first to drop it from the list.
 
+### In Antigravity
+
+Node 20 or newer on `PATH`. Nothing is published to Antigravity's
+Marketplace; install from a clone, with the Antigravity CLI (the App doesn't
+ship `agy`). `agy plugin install` copies the folder to
+`~/.gemini/config/plugins/mcp-server-cards`, which the App and the CLI both
+read. Remove it with `agy plugin uninstall mcp-server-cards`. Servers you
+added stay in `~/.gemini/config/mcp_config.json`; remove one with
+`agy mcp remove <name>` (in CLI 1.5.17's own help, not in Antigravity's
+docs).
+
 ### In Copilot CLI
 
 Copilot CLI 1.0.115 (the version tested), with Node 20 or newer on your
@@ -149,6 +166,7 @@ The sections below name the host where behavior differs. Full guides by host:
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi)
 - [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/opencode)
+- [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/antigravity)
 - [Copilot CLI](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/copilot)
 
 ## Try it
@@ -159,6 +177,7 @@ Nothing to set up. Start your host:
 - **Codex:** `codex`.
 - **Pi:** `pi`.
 - **OpenCode:** `opencode`.
+- **Antigravity:** the App or `agy`.
 - **Copilot CLI:** `copilot`.
 
 Ask:
@@ -173,6 +192,8 @@ Then add **Neon Docs** (no sign-in):
   saved and registered for the current session, without a restart.
 - **OpenCode:** ask "Add Neon Docs", then allow it when OpenCode asks. It is
   in OpenCode's MCP servers at once, and OpenCode connects it.
+- **Antigravity:** approve the addition in Antigravity's approval card. The
+  plugin then writes the server to `~/.gemini/config/mcp_config.json`.
 - **Copilot CLI:** ask "Add Neon Docs". Copilot's tool prompt comes first,
   then the plugin's form: choose "Add it". Run `/mcp reload` (or start a new
   session) to use it. `copilot mcp remove neon-docs` removes it again.
@@ -180,7 +201,9 @@ Then add **Neon Docs** (no sign-in):
 For one behind a sign-in, ask about
 buildkite.com; once it's added, the host asks you to sign in (in Claude Code,
 through `/mcp`). In OpenCode, sign in with `opencode mcp auth <name>`, in a
-terminal. In Claude Code, `claude mcp remove neon-docs -s local`
+terminal. In Antigravity, use Authenticate in Customizations > Installed >
+MCP Servers (`/mcp` in the CLI); signing in after an addition hasn't been
+checked yet. In Claude Code, `claude mcp remove neon-docs -s local`
 removes it again; in OpenCode, ask for it to be removed, which OpenCode asks
 you about too.
 
@@ -262,6 +285,17 @@ OpenCode asks. A card that needs a secret isn't added: the answer gives you
 the entry for `opencode.json`, with `{env:VAR}` where the secret goes, and
 the variable to set.
 
+### In Antigravity
+
+Ask to add a server it found. The addition is put to you in Antigravity's
+approval card, yes or no; the CLI's card shows the question's first two
+lines, with the URL, header names and file. The App greys out the card's
+"always allow" choices; the CLI's card still lists them. Only a yes writes
+the server to `~/.gemini/config/mcp_config.json`; the plugin reads that file
+first to check names. Editors on `agy acp` see the tool and its arguments in
+the card, not the question; the call must carry the server's name, URL,
+header names and file, so those are among the arguments.
+
 ### In Copilot CLI
 
 `discover_mcp_servers` reads the domain's AI Catalog and checks each card;
@@ -299,6 +333,9 @@ nothing without being uninstalled. `MCP_SERVER_CARDS_ASK_BY_DEFAULT=0`, or
 alone, under whose default a server is added without a prompt. Set a
 variable in the environment OpenCode starts in, and an option in the object
 form of the plugin's entry in `plugins`.
+
+In Antigravity, `MCP_SERVER_CARDS_DISABLED=1` in the environment Antigravity
+starts in turns the plugin off; so does `agy plugin disable mcp-server-cards`.
 
 In Copilot CLI, `MCP_SERVER_CARDS_DISABLED=1` registers no tools and fetches
 nothing.
@@ -398,6 +435,18 @@ in the same catalogs, and local (stdio) servers, which cards do not describe.
   not caught.
 - **Not tried yet:** an addition from OpenCode Desktop, and Windows by hand
   (CI runs the tests there).
+
+### In Antigravity
+
+- **No card that needs a secret.** Antigravity's personal `mcp_config.json`
+  reads no `${VAR}`, and the plugin never writes a secret, so such a card
+  can't be added.
+- **Yes or no.** The approval card has no other choices. Editors on
+  `agy acp` see the tool and its arguments, not the question.
+- **Not checked yet:** signing in to a server after an addition, and these
+  builds in the App.
+- **Not in the IDE.** The IDE documents no plugin hooks, so the forms aren't
+  supported there, and their gated calls are refused.
 
 ### In Copilot CLI
 
@@ -523,6 +572,22 @@ and connected.
 An AI reviewer who did not build the OpenCode forms reviewed them. They have
 not been audited by a person.
 
+### In Antigravity
+
+Every addition is put to you in Antigravity's approval card, through
+`force_ask`, and nothing is auto-approved: no `auto_approve`, no permission
+overrides. The hook leaves a one-use ticket for exactly that call, and the
+MCP server adds only with it. Read-only tools get Antigravity's usual MCP
+question, which allow rules can skip. Whether
+`--dangerously-skip-permissions` also skips `force_ask` hasn't been
+checked. The plugin reads
+`~/.gemini/config/mcp_config.json`, which can hold API keys in headers, to
+check names, and never logs or shows those values. It writes only that file,
+after your approval, and its own folder, `~/.gemini/agentpolyfill/mcp-server-cards/`.
+It never opens `~/.gemini/antigravity/mcp_oauth_tokens.json`. See
+[Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/antigravity/SECURITY.md).
+The independent AI review of the Antigravity forms is in progress.
+
 ### In Copilot CLI
 
 Discovery sends plain GETs without cookies or credentials. Every addition
@@ -548,6 +613,9 @@ found Neon and Neon Docs on neon.com and, after Copilot's tool prompt and
   extension or set `MCP_SERVER_CARDS_DISABLED=1` when it ships.
 - **OpenCode:** 2.4.1 has no Server Card support to detect. When it ships,
   set `MCP_SERVER_CARDS_DISABLED=1` or remove the plugin.
+- **Antigravity:** native support can't be detected: Antigravity tells
+  plugins nothing about its MCP client's extensions. Disable or uninstall
+  the plugin, or set `MCP_SERVER_CARDS_DISABLED=1`, when it ships.
 - **Copilot CLI:** 1.0.115 doesn't read Server Cards from a domain, so there
   is nothing to detect yet. Its SDK types declare a catalogue API that
   accepts the card media type (`mcp.planInstall`), and a built-in

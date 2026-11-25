@@ -1,0 +1,12 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "mcp-skills",
+  "displayName": "MCP Skills",
+  "version": "0.1.0",
+  "description": "Load skills served by your MCP servers (SEP-2640), after approving each version.",
+  "suggestedPrompts": ["List the skills my MCP servers serve."],
+  "author": { "name": "Ido Salomon", "url": "https://github.com/idosal" },
+  "repository": "https://github.com/idosal/AgentPolyfill",
+  "license": "Apache-2.0",
+  "keywords": ["mcp", "skills", "sep-2640", "polyfill"]
+}

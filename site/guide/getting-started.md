@@ -175,6 +175,41 @@ yourself, in the global configuration or a project's `opencode.json`:
 
 OpenCode loads it the next time it opens the project.
 
+### Antigravity
+
+The forms are plugins for Google Antigravity's App and CLI (`agy`). These
+builds were run in App 2.35.1 and CLI 1.5.17. The IDE documents no plugin hooks, so the forms
+aren't supported there, and their gated calls are refused. The plugins'
+hooks run `node`, so Node 20 or newer must be on `PATH`. Nothing is
+published to Antigravity's Marketplace. Installing needs the Antigravity CLI:
+`agy plugin install` is a CLI command, and the App doesn't ship `agy`. From a
+clone of this repository, install the plugins you want:
+
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+agy plugin install ./polyfills/events/antigravity/plugin
+agy plugin install ./polyfills/skills/antigravity/plugin
+agy plugin install ./polyfills/server-cards/antigravity/plugin
+```
+
+`ard-discovery`, for ARD (a draft from outside MCP), installs the same way,
+from the same clone. Every search asks you first and goes to a registry you
+choose:
+
+```bash
+agy plugin install ./polyfills/ard/antigravity/plugin
+```
+
+`agy plugin install` copies the folder to `~/.gemini/config/plugins/<name>`,
+which the App and the CLI both read. Apps has no Antigravity form: the App
+renders MCP Apps itself (v2.34.0 and later), and the CLI and IDE show text
+only.
+
+Events can wake an idle App conversation only through its sidecar, which is
+off until you add `"sidecars": {"mcp-events/wake": {"enabled": true}}` to
+`~/.gemini/config/config.json`. The plugin never edits that file.
+
 ### GitHub Copilot CLI
 
 Copilot CLI 1.0.115 (the version tested). From a clone of this repository,
@@ -349,6 +384,44 @@ Each OpenCode form's README has the rest:
 [Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/opencode) and
 [ARD discovery](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/opencode).
 
+### In Antigravity
+
+| | Antigravity | What else it needs |
+|---|---|---|
+| Events | CLI v1.5.17 (these builds); App v2.35.1 (earlier builds) | Node 20 or newer on `PATH`. A watch needs an answer in the approval card. Waking an idle App conversation needs the sidecar on; CLI conversations get new events at their next model call. |
+| Skills | CLI v1.5.17 (these builds); App v2.35.1 (earlier builds) | Node 20 or newer on `PATH`. Loading a new or changed skill needs an answer in the approval card. |
+| Server Cards | CLI v1.5.17 (these builds); App v2.35.1 (earlier builds) | Node 20 or newer on `PATH`. An addition needs an answer in the approval card. |
+| ARD | CLI v1.5.17 (the version run; not run in the App) | Node 20 or newer on `PATH`. An addition or a registry search needs an answer in the approval card. |
+| Apps | no form | The App renders MCP Apps itself (v2.34.0 and later); the CLI and IDE show text only. |
+
+Antigravity documents no MCP elicitation, and its MCP client cancels every
+request without showing it. So each plugin asks through its `PreToolUse`
+hook, which answers `force_ask`: Antigravity's own approval card, with the
+hook's question (the CLI's card shows its first two lines). The App greys
+out the card's "always allow" choices; the CLI's card still lists them. The
+hook leaves a one-use ticket for exactly that call, and the MCP server acts
+only with it. Editors on `agy acp` see the tool and its arguments, not the
+question.
+
+Watches, new or changed skill loads, additions and searches ask through
+`force_ask`. The other Events tools, an approved unchanged skill load and
+skill file reads pass with a ticket and then get Antigravity's usual MCP
+question, which allow rules can skip. By default that question is asked: the
+interactive CLI starts in auto mode, where an MCP tool call still asks, and
+headless `agy -p` reports `request-review` and denies a call nobody answers.
+Whether `--dangerously-skip-permissions` also skips `force_ask` hasn't been
+checked. In CLI 1.5.17 a `PreToolUse` hook that fails makes the call fail.
+
+The IDE documents no plugin hooks, so the forms aren't supported there, and
+their gated calls are refused. A webhook watch wasn't run, and these builds
+haven't been run in the App yet.
+
+Each Antigravity form's README has the rest:
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity),
+[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/antigravity),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/antigravity) and
+[ARD discovery](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/antigravity).
+
 ### In Copilot CLI
 
 | | Copilot CLI | What else it needs |
@@ -438,11 +511,20 @@ pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 }
 ```
 
+```bash [Antigravity]
+agy mcp add feeds https://event-feeds.idosalomon.workers.dev/mcp
+```
+
 ```bash [Copilot CLI]
 copilot mcp add --transport=http feeds https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
 :::
+
+`agy mcp add` is in CLI 1.5.17's own help, not in Antigravity's docs. The
+Antigravity App doesn't ship `agy`. There, add the server under
+Customizations > Installed > MCP Servers, or in
+`~/.gemini/config/mcp_config.json`.
 
 For the demo button:
 
@@ -485,6 +567,18 @@ For the demo button:
   wake 30 times an hour. Watches resume when OpenCode next opens the project.
   The [OpenCode live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md#public-infrastructure)
   records a demo button pressed on this server and the idle session woken.
+- **Antigravity:** try the same question. A watch asks in Antigravity's
+  approval card, through the plugin's `force_ask`. New events reach the
+  conversation at its next model call, through the plugin's `PreInvocation`
+  hook (seen live in the CLI; Antigravity's plugins page doesn't list
+  `PreInvocation` among plugin hooks), as fixed text with a count and the
+  plugin's own watch ids. An idle App conversation wakes only with the
+  sidecar on ([Install](#antigravity)); CLI conversations can't be woken. The
+  feeds demo wasn't run in Antigravity: the [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/live-run.md)
+  used the repository's local deploys demo. It records, in CLI 1.5.17, a
+  watch approved and one declined, and delivery at the next turn; with
+  earlier builds, an idle App conversation woken by the sidecar and a wake
+  during a running turn.
 - **Copilot CLI:** start `copilot --experimental`. The first session asks
   once whether the extension may have elevated permissions; choose **Yes**.
   A watch asks twice: Copilot's tool prompt for `watch_event`, then the
@@ -518,6 +612,10 @@ pi mcp add huggingface --url https://huggingface.co/mcp
 }
 ```
 
+```bash [Antigravity]
+agy mcp add huggingface https://huggingface.co/mcp
+```
+
 :::
 
 - **Codex:** the served skills appear in the `$` list after you ask once to
@@ -531,6 +629,11 @@ pi mcp add huggingface --url https://huggingface.co/mcp
   `[MCP server "huggingface", not a local skill] …`.
   `mcp_skills_list_skills` lists them, and each server it left alone, with
   the reason.
+- **Antigravity:** in the App, add the server under Customizations >
+  Installed > MCP Servers. Served skills appear as placeholder folders in
+  `~/.gemini/config/skills/`, which Antigravity documents reading before
+  each turn. In a live run of earlier builds the plugin listed Hugging Face's
+  25 skills and loaded one after approval.
 
 Then ask a question one of its skills covers:
 
@@ -561,6 +664,13 @@ own read of another server's resource is asked about, naming both servers
 loaded two Hugging Face skills after OpenCode asked, and answered from them.
 In that run, under OpenCode's default rules, the model also ran a command a
 loaded skill described, without a prompt.
+
+In Antigravity the question is the approval card, yes or no, for a new or
+changed skill. An approved, unchanged skill skips the plugin's question and
+gets only Antigravity's usual MCP question, which allow rules can skip. X8
+isn't met: once a served skill is loaded, the plugin's hook asks before a
+`read_resource` from another server, naming both, but Antigravity (CLI
+1.5.17, App 2.35.1) ignores that question (no card; the read goes ahead).
 
 [More on Skills](./skills)
 
@@ -594,6 +704,10 @@ Then add **Neon Docs** (no sign-in):
   in a terminal. Ask OpenCode to remove Neon Docs to take it out again
   (`server_cards_remove_mcp_server`). The [OpenCode live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md#in-opencodes-tui)
   added Neon Docs in the TUI, and OpenCode connected it.
+- **Antigravity:** approve the addition in Antigravity's approval card. The
+  plugin then writes the server to `~/.gemini/config/mcp_config.json`. A card
+  that needs a secret can't be added: Antigravity's personal
+  `mcp_config.json` reads no `${VAR}`, and the plugin never writes a secret.
 - **Copilot CLI:** ask "Add Neon Docs". Copilot asks before it runs each of
   the plugin's tools, then shows the plugin's form, naming the host, URL,
   headers, the file it writes and the undo command: choose **Add it**. Run
@@ -654,6 +768,16 @@ unauthenticated search was found. Addition is covered by tests in real
 OpenCode with a scripted model and a local server.
 [More on ARD](./ard)
 
+### ARD in Antigravity
+
+The Antigravity form carries the Server Cards checks and add step itself; it
+needs no other polyfill installed. There is no default registry: name one in
+your request, or set `ARD_DISCOVERY_REGISTRY` in the environment Antigravity
+starts in. Every registry search, and every addition, is put to you in
+Antigravity's approval card. An addition writes
+`~/.gemini/config/mcp_config.json`. ARD was run in the App and the CLI.
+[More on ARD](./ard)
+
 ### ARD in Copilot CLI
 
 Ask "What does buildkite.com list in its ard.json?", then "Add it". Copilot
@@ -674,7 +798,9 @@ plugin's server as Copilot starts it.
 ### Apps
 
 Apps runs in Claude Code. Availability in each host is listed in the
-[polyfills table](./introduction#the-polyfills).
+[polyfills table](./introduction#the-polyfills). The Antigravity App renders
+MCP Apps itself (v2.34.0 and later), with no polyfill; its CLI and IDE show
+text only.
 
 ```bash
 claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp
@@ -707,6 +833,12 @@ configuration works with Events and Skills:
   (`opencode mcp auth`) is out of reach; the polyfill's list tool names each
   server it left alone, and why. The headers in a server's OpenCode
   configuration work. The plugins never read OpenCode's stored credentials.
+- **Antigravity:** a server that needs Antigravity's own sign-in is skipped.
+  A header works: `agy mcp add --header "Authorization: Bearer <token>" <name> <url>`
+  writes it to `~/.gemini/config/mcp_config.json`. The plugins read that
+  file, header values included, to connect, and never log or show those
+  values. They never open
+  `~/.gemini/antigravity/mcp_oauth_tokens.json` or any sign-in store.
 - **Copilot CLI:** Events can't use a server you sign in to through Copilot
   (`/mcp auth`, OAuth). A header in `mcp-config.json` works, written out or
   from `${VAR}`, except variables Copilot strips from extensions
@@ -804,6 +936,27 @@ never in your configuration files, so they go with the plugin, but its list
 of them stays in that storage and comes back if you install it again: ask
 OpenCode to remove each one first (`server_cards_remove_mcp_server` or
 `ard_remove_mcp_server`).
+
+In Antigravity, disable or uninstall the plugin
+(`agy plugin disable mcp-events`, `agy plugin uninstall mcp-events`, and the
+same for `mcp-skills`, `mcp-server-cards` and `ard-discovery`), or use its
+own setting, in the environment Antigravity starts in:
+
+| | Off without uninstalling | Remove |
+|---|---|---|
+| Events | `MCP_EVENTS_OFF=1`, or `{"MCP_EVENTS_OFF": "1"}` in `~/.gemini/agentpolyfill/mcp-events/settings.json` | `agy plugin uninstall mcp-events` |
+| Skills | `MCP_SKILLS_DISABLED=1`, or `"off": true` in `~/.gemini/agentpolyfill/mcp-skills/settings.json` | `agy plugin uninstall mcp-skills` |
+| Server Cards | `MCP_SERVER_CARDS_DISABLED=1` | `agy plugin uninstall mcp-server-cards` |
+| ARD discovery | `ARD_DISCOVERY_DISABLED=1` | `agy plugin uninstall ard-discovery` |
+
+No Antigravity form detects native support: Antigravity tells plugins
+nothing about its MCP client's extensions. The plugins write only their own folder, `~/.gemini/agentpolyfill/<plugin>/`;
+Skills' placeholders, `~/.gemini/config/skills/mcp-skills-served--*`; and,
+for Server Cards and ARD after your approval,
+`~/.gemini/config/mcp_config.json`. Delete the first two to remove what they
+stored. A server added through Server Cards or ARD stays in
+`mcp_config.json`; remove it with `agy mcp remove <name>` (in CLI 1.5.17's
+own help, not in Antigravity's docs), or delete its entry from that file.
 
 In Copilot CLI, set the off switch in the environment Copilot starts in, or
 disable or uninstall the plugin:

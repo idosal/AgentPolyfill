@@ -1,0 +1,30 @@
+{
+  "ard-discovery-approval": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp_ard-discovery_ard_(ard_search|add_mcp_server)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./dist/server.mjs --hook",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "node ./dist/server.mjs --hook pre-invocation",
+        "timeout": 10
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node ./dist/server.mjs --hook stop",
+        "timeout": 10
+      }
+    ]
+  }
+}

@@ -19,6 +19,8 @@ What runs in each host:
   Pi form.
 - **OpenCode:** Events, Skills, Server Cards and ARD, as OpenCode plugins.
   Apps has no OpenCode form.
+- **Antigravity:** Events, Skills, Server Cards and ARD, as Antigravity
+  plugins. Apps has no Antigravity form: the App renders MCP Apps itself.
 - **Copilot CLI:** Events, Server Cards and ARD, as Copilot CLI plugins.
   Events is a Copilot extension and needs Copilot's experimental mode. Skills
   and Apps have no Copilot form: Copilot CLI has Skills over MCP built in, and
@@ -32,6 +34,8 @@ after asking each time, so it is left out as it is from the Claude Code bundle.
 Nothing for Pi is published to npm or Pi's package gallery.
 Nothing for OpenCode is published to npm either; OpenCode installs each plugin
 from the repository on GitHub, with Git.
+Nothing is published to Antigravity's Marketplace either; its plugins install
+from a clone, with the Antigravity CLI (the App doesn't ship `agy`).
 In Copilot CLI, add a clone of the repository as a marketplace and install
 each plugin from it; that is the install that was tested.
 

@@ -47,6 +47,7 @@ polyfills/<extension>/
   codex/         the Codex adapter
   pi/            the Pi adapter
   opencode/      the OpenCode adapter
+  antigravity/   the Antigravity adapter
   copilot/       the GitHub Copilot CLI adapter
 ```
 
@@ -54,14 +55,15 @@ polyfills/<extension>/
   `server-cards`, `ard`.
 - `core/` holds what does not depend on the host; each host folder holds its
   adapter. Events and Skills use this layout. Apps has no Pi or OpenCode
-  form. Skills and Apps have no Copilot form: Copilot has them built in.
+  form, and no Antigravity form: the Antigravity App renders MCP Apps itself.
+  Skills and Apps have no Copilot form: Copilot has them built in.
 
 Inside an adapter's folder, the installable form goes in a subfolder (`mod/`
-in the Apps polyfill, `extension/` in Pi, `plugin/` in OpenCode and Copilot
-CLI), holding the host's manifest and only what it runs; tests, build
-scripts, benchmarks and design notes go beside it. The folder is self-contained, so code from
-`core/` reaches it by bundling, never by an import from outside it.
-Installation differs by host:
+in the Apps polyfill, `extension/` in Pi, `plugin/` in OpenCode, Antigravity
+and Copilot CLI), holding the host's manifest and only what it runs; tests,
+build scripts, benchmarks and design notes go beside it. The folder is
+self-contained, so code from `core/` reaches it by bundling, never by an
+import from outside it. Installation differs by host:
 
 - **Claude Code:** copies only the plugin folder.
 - **Codex:** copies only the plugin folder.
@@ -74,6 +76,10 @@ Installation differs by host:
   `plugins` in `opencode.json`. The folder holds one bundled file,
   `server.js`, and a small `package.json` that names it, plus licence notices
   where the bundle holds other packages' code (the Events and Skills forms).
+- **Antigravity:** `agy plugin install` copies `plugin/` to
+  `~/.gemini/config/plugins/<name>`, which the App and the CLI both read.
+  The folder holds the MCP server (`mcp_config.json`) and the hooks
+  (`hooks.json`).
 - **Copilot CLI:** loads a plugin from a local marketplace where it is,
   without copying it, so the clone must stay. From a marketplace on GitHub,
   Copilot keeps its own copy.
@@ -132,6 +138,12 @@ Install instructions depend on the host:
   removal. [Getting started](./getting-started#opencode) has the tested
   steps; `tools/opencode/install-check.ts` repeats the install from GitHub in
   a throwaway home.
+- **Antigravity:** clone the repository, then
+  `agy plugin install ./polyfills/<extension>/antigravity/plugin`, which
+  needs the Antigravity CLI (the App doesn't ship `agy`). State Node 20 or
+  newer on `PATH` as the requirement, and the App and CLI versions it was
+  run with. Nothing is published to Antigravity's Marketplace.
+  [Getting started](./getting-started#antigravity) has the steps.
 - **Copilot CLI:** `copilot plugin marketplace add idosal/AgentPolyfill`,
   then `copilot plugin install <plugin>@agent-polyfill`. From a clone,
   `copilot plugin marketplace add ./AgentPolyfill` is the install tested with
@@ -155,6 +167,9 @@ Install instructions depend on the host:
 - **OpenCode:** there is no marketplace file and no bundle. Each plugin is
   installed from GitHub by its folder's path, so the install line in its
   README is its listing. Nothing is published to npm.
+- **Antigravity:** document the local `plugin/` install path and
+  `agy plugin uninstall <plugin>`. None of these forms is published to
+  Antigravity's Marketplace.
 - **Copilot CLI:** add an entry to `.github/plugin/marketplace.json` (Copilot
   found the marketplace there when a clone was added as a marketplace). Keep
   its `version` equal to the plugin's.
@@ -214,6 +229,8 @@ beside the others. Events and Skills share one `core/`, with these forms:
 - **Codex:** a plugin in `codex/`.
 - **Pi:** an extension in `pi/`, with the installable bundle in `extension/`.
 - **OpenCode:** a V2 server plugin in `opencode/`, with the bundle in
+  `plugin/`.
+- **Antigravity:** a plugin in `antigravity/`, with the installable folder in
   `plugin/`.
 - **Copilot CLI:** a plugin in `copilot/`, installed from `plugin/` (Events
   has one; Skills doesn't, because Copilot has Skills built in).

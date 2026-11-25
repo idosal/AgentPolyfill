@@ -51,6 +51,7 @@ const HOSTS = [
   { name: 'Codex', command: 'codex', addKey: 'addCodex', form: 'Plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
   { name: 'Pi', command: 'pi', addKey: 'addPi', form: 'Extension', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
   { name: 'OpenCode', command: 'opencode', addKey: 'addOpenCode', config: 'opencode.json', form: 'V2 server plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
+  { name: 'Antigravity', command: 'agy', start: 'open the Antigravity App or start `agy`', addKey: 'addAntigravity', form: 'Plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form (the App renders MCP Apps itself)' },
   { name: 'Copilot CLI', command: 'copilot', addKey: 'addCopilot', form: 'Plugin (Events: an extension)', polyfills: 'Events, Server Cards, ARD; no Skills or Apps form: Copilot has both built in' },
 ]
 // Pi's installs and examples, for the Markdown served to agents.
@@ -106,6 +107,35 @@ const OPENCODE_FORMS = {
 const INSTALL_OPENCODE = Object.values(OPENCODE_FORMS).map(({ path }) => `opencode plugin add 'github:idosal/AgentPolyfill#main::path:${path}'`)
 const OPENCODE_INSTALL_NOTES = 'Nothing for OpenCode is published to npm. There is no bundle: install each plugin separately. OpenCode fetches each one from this repository on GitHub with Git, and runs it itself, so no Node is needed. Each command adds the plugin to `plugins` in the global `~/.config/opencode/opencode.json`, so it runs in every project from the next time OpenCode opens one. `#main` installs what the main branch holds; a commit in its place pins one version. From a clone, you can instead add a plugin\'s folder (`polyfills/<polyfill>/opencode/plugin`) to `plugins` in the global or a project\'s `opencode.json`. Remove one with `opencode plugin remove` and the same text it was added with. OpenCode keeps its downloaded copy in `~/.cache/opencode/npm/` (a `git-AgentPolyfill-…` folder), which can be deleted. Events leaves its watches, stored events and log in `~/.local/share/opencode/mcp-events/`, and Skills its log in `~/.local/share/opencode/mcp-skills/`; delete those to remove them. "Allow always" answers, the skills each session loaded, and the list of servers Server Cards and ARD added stay in OpenCode\'s plugin storage (its own database). An added server comes back if the plugin is installed again, unless it was removed first, with `server_cards_remove_mcp_server` or `ard_remove_mcp_server`.'
 const OPENCODE_APPS_LIMIT = 'Apps has no OpenCode form. OpenCode has no MCP Apps support: a plugin cannot read a `ui://` resource or a tool\'s `_meta` over OpenCode\'s connection, and there is no place to draw in the conversation. The desktop app\'s experimental panels can embed a web view, but an OpenCode Apps form was only assessed, not built.'
+// Antigravity's source installs and examples, for the Markdown served to agents.
+const ANTIGRAVITY_FORMS = {
+  'mcp-events': {
+    path: 'polyfills/events/antigravity/plugin',
+    add: 'agy mcp add feeds https://event-feeds.idosalomon.workers.dev/mcp',
+  },
+  'mcp-skills': {
+    path: 'polyfills/skills/antigravity/plugin',
+    add: 'agy mcp add huggingface https://huggingface.co/mcp',
+  },
+  'mcp-server-cards': {
+    path: 'polyfills/server-cards/antigravity/plugin',
+  },
+  'ard-discovery': {
+    path: 'polyfills/ard/antigravity/plugin',
+    add: 'agy plugin install ./polyfills/ard/antigravity/plugin',
+  },
+}
+const INSTALL_ANTIGRAVITY = [
+  'git clone https://github.com/idosal/AgentPolyfill.git',
+  'cd AgentPolyfill',
+  ...Object.entries(ANTIGRAVITY_FORMS).flatMap(([name, { path }]) => [
+    ...(name === 'ard-discovery' ? ['# Beyond MCP: ARD, a draft; every search asks you first'] : []),
+    `agy plugin install ./${path}`,
+  ]),
+]
+const ANTIGRAVITY_INSTALL_NOTES = 'Nothing is published to Antigravity\'s Marketplace; each plugin installs separately. Installing needs the Antigravity CLI: the App doesn\'t ship `agy`. `agy plugin install` copies the folder to `~/.gemini/config/plugins/<name>`, which the App and the CLI both read. Uninstall one with `agy plugin uninstall <name>` (`mcp-events`, `mcp-skills`, `mcp-server-cards` or `ard-discovery`). Events wakes an idle App conversation only through its sidecar, which is off until you add `"sidecars": {"mcp-events/wake": {"enabled": true}}` to `~/.gemini/config/config.json`; the plugin never edits that file. The plugins write only their own folder, `~/.gemini/agentpolyfill/<plugin>/`; Skills\' placeholders, `~/.gemini/config/skills/mcp-skills-served--*`; and, for Server Cards and ARD after your approval, `~/.gemini/config/mcp_config.json`.'
+const ANTIGRAVITY_ADD_NOTES = 'To add a server in the CLI: `agy mcp add <name> <url>`, with `--header "Authorization: Bearer <token>"` for a header; `agy mcp remove <name>` removes it. Both are in CLI 1.5.17\'s own help, not in Antigravity\'s docs, and both edit `~/.gemini/config/mcp_config.json`. The App doesn\'t ship `agy`; there, use Customizations > Installed > MCP Servers or edit that file.'
+const ANTIGRAVITY_APPS_LIMIT = 'Apps has no Antigravity form. Antigravity\'s App renders MCP Apps itself (v2.34.0 and later); the CLI and IDE show text only.'
 // Copilot CLI's plugins, from a clone added as a marketplace (the install
 // that was tested), and what differs per form on the home page's cards.
 const COPILOT_FORMS = {
@@ -122,7 +152,7 @@ const COPILOT_INSTALL_NOTES = 'This install, from a clone, is the one tested. Co
 const COPILOT_BUILT_IN = 'Copilot has Skills over MCP and MCP Apps built in, so there is no Copilot form of either. Copilot CLI 1.0.115 declares Skills to every server (seen in its initialize; no served skill was listed or loaded in Copilot). VS Code\'s Copilot harness turns MCP Apps on (from its source; no app was drawn there); the terminal draws none.'
 const COPILOT_APPS = 'Apps has no Copilot form. Copilot has MCP Apps built in where they can be drawn: VS Code\'s Copilot harness turns them on (from its source; no app was drawn there). The Copilot CLI terminal draws none.'
 // Each host's own installs and examples, where they differ from home.json's.
-const FORMS = { Pi: PI_FORMS, OpenCode: OPENCODE_FORMS, 'Copilot CLI': COPILOT_FORMS }
+const FORMS = { Pi: PI_FORMS, OpenCode: OPENCODE_FORMS, Antigravity: ANTIGRAVITY_FORMS, 'Copilot CLI': COPILOT_FORMS }
 
 // Skills in Claude Code: no polyfill. What Claude Code's changelog says, and no more.
 const CLAUDE_CODE_SKILLS = 'There is no Skills polyfill for Claude Code: Claude Code lists skills from MCP servers itself, in beta from 2.1.332 (https://code.claude.com/docs/en/changelog). A beta may not be on for every account or server yet. If you installed the `mcp-skills` plugin for Claude Code before, remove it with `/plugin uninstall mcp-skills@agent-polyfill`.'
@@ -327,14 +357,15 @@ function homeMarkdown() {
       const add = form?.add ?? p[host.addKey]
       const ask = form?.ask ?? p.ask
       const command = form?.command ?? host.command
+      const start = host.start ?? `start \`${command}\``
       lines.push('', `**${host.name}**`, '')
       if (add?.startsWith('{')) lines.push(`In \`${host.config}\`:`, '')
-      if (add) lines.push(...block(add), '', `Then start \`${command}\` and ask: "${ask}"`)
-      else lines.push(`Nothing to set up. Start \`${command}\` and ask: "${ask}"`)
+      if (add) lines.push(...block(add), '', `Then ${start} and ask: "${ask}"`)
+      else lines.push(`Nothing to set up. ${start[0].toUpperCase()}${start.slice(1)} and ask: "${ask}"`)
     }
     if (p.then) lines.push('', p.then)
     if (p.note) lines.push('', p.note)
-    if (p.plugin === 'mcp-apps-cli') lines.push('', PI_APPS_LIMIT, '', OPENCODE_APPS_LIMIT, '', COPILOT_APPS)
+    if (p.plugin === 'mcp-apps-cli') lines.push('', PI_APPS_LIMIT, '', OPENCODE_APPS_LIMIT, '', ANTIGRAVITY_APPS_LIMIT, '', COPILOT_APPS)
     lines.push('', videoLine({ file: cut.file, seconds: cut.seconds, description: p.alt }), '', `The ${p.name} guide: ${resolveLink(p.link, 'index')}`)
     return lines.join('\n')
   }
@@ -388,6 +419,18 @@ ${OPENCODE_INSTALL_NOTES}
 
 ${OPENCODE_APPS_LIMIT}
 
+**Antigravity** (App v2.35.1 and CLI v1.5.17; not supported in the IDE, which documents no plugin hooks; Node 20 or newer on \`PATH\`). From a clone, with the Antigravity CLI:
+
+\`\`\`bash
+${INSTALL_ANTIGRAVITY.join('\n')}
+\`\`\`
+
+${ANTIGRAVITY_INSTALL_NOTES}
+
+${ANTIGRAVITY_ADD_NOTES}
+
+${ANTIGRAVITY_APPS_LIMIT}
+
 **Copilot CLI** (1.0.115, the version tested). In a terminal, from a clone:
 
 \`\`\`bash
@@ -406,6 +449,7 @@ Beyond MCP, ARD is a draft. Every search asks you first and goes to a registry y
 - **Codex:** \`codex plugin add ard-discovery@agent-polyfill\`.
 - **Pi:** \`pi install ./polyfills/ard/pi/extension\` from a clone; it is left out of the one-line install.
 - **OpenCode:** \`${OPENCODE_FORMS['ard-discovery'].add}\` (included in the commands above).
+- **Antigravity:** \`agy plugin install ./polyfills/ard/antigravity/plugin\` from the clone (included in the commands above).
 - **Copilot CLI:** \`copilot plugin install ard-discovery@agent-polyfill\`, with the marketplace added (included in the commands above).
 
 ${videoLine({ file: media.launch.file, seconds: media.launch.seconds, description: media.launch.description })}
@@ -462,9 +506,9 @@ AgentPolyfill makes polyfills for agent protocols: it brings more of MCP to the 
 
 ${hostTable()}
 
-The MCP polyfills implement Events (SEP-3415), Skills (SEP-2640), Server Cards (SEP-2127) and Apps (MCP Apps 2026-01-26). It's an early proof of concept: some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs (${origin}/guide/how-it-works.md). ${PI_APPS_LIMIT} ${OPENCODE_APPS_LIMIT} ${COPILOT_BUILT_IN}
+The MCP polyfills implement Events (SEP-3415), Skills (SEP-2640), Server Cards (SEP-2127) and Apps (MCP Apps 2026-01-26). It's an early proof of concept: some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs (${origin}/guide/how-it-works.md). ${PI_APPS_LIMIT} ${OPENCODE_APPS_LIMIT} ${ANTIGRAVITY_APPS_LIMIT} ${COPILOT_BUILT_IN}
 
-Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A search sends the words of your request to the ARD registry you choose and asks you first every time, so ARD is installed separately. Pi's live run showed domain discovery and an approved search of the repository's demo registry, but did not complete the add step; additions are covered by real-Pi tests with a scripted model and a local server. OpenCode's live run read buildkite.com's \`ard.json\` and sent a search to the repository's demo registry after OpenCode asked (no public registry that takes an unauthenticated search was found); additions are covered by tests in real OpenCode with a scripted model and a local server. In Copilot CLI 1.0.115, with a scripted model, domain discovery ran, and a search of the repository's demo registry on 127.0.0.1 went out only after Copilot's tool prompt and the plugin's form; no server was added through ARD there.
+Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A search sends the words of your request to the ARD registry you choose and asks you first every time, so ARD is installed separately. Pi's live run showed domain discovery and an approved search of the repository's demo registry, but did not complete the add step; additions are covered by real-Pi tests with a scripted model and a local server. OpenCode's live run read buildkite.com's \`ard.json\` and sent a search to the repository's demo registry after OpenCode asked (no public registry that takes an unauthenticated search was found); additions are covered by tests in real OpenCode with a scripted model and a local server. In Antigravity, every registry search and every addition is put to you in Antigravity's approval card. In Copilot CLI 1.0.115, with a scripted model, domain discovery ran, and a search of the repository's demo registry on 127.0.0.1 went out only after Copilot's tool prompt and the plugin's form; no server was added through ARD there.
 
 ## Install
 
@@ -472,7 +516,8 @@ Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A
 - **Codex 0.170 or newer (Node 20 or newer):** from a terminal: \`${INSTALL_CODEX.join(' && ')}\`. ARD is separate: \`codex plugin add ard-discovery@agent-polyfill\`. There is no bundle.
 - **Pi 1.6.0 (the version tested; Node 22 or newer):** one line installs Events, Skills and Server Cards together; the commands are below.
 - **OpenCode 2.4 or newer (tested with 2.4.1; Git; no Node):** one \`opencode plugin add\` per polyfill, from GitHub, after Pi's below.
-- **Copilot CLI 1.0.115 (the version tested):** from a terminal, from a clone: \`${INSTALL_COPILOT.join(' && ')}\`. ARD is in those commands. Events needs experimental mode (\`copilot --experimental\`); Server Cards and ARD need Node 20 or newer. There is no bundle; the notes follow OpenCode's below.
+- **Antigravity (App v2.35.1 and CLI v1.5.17; not supported in the IDE; Node 20 or newer on \`PATH\`; installing needs the Antigravity CLI):** use the Antigravity clone commands after OpenCode's below.
+- **Copilot CLI 1.0.115 (the version tested):** from a terminal, from a clone: \`${INSTALL_COPILOT.join(' && ')}\`. ARD is in those commands. Events needs experimental mode (\`copilot --experimental\`); Server Cards and ARD need Node 20 or newer. There is no bundle; the notes follow Antigravity's below.
 - **T3 Code:** not a host of its own here; see the T3 Code paragraph below.
 
 \`\`\`bash
@@ -512,6 +557,27 @@ OpenCode's shipped permission rules allow every action. Each polyfill puts its o
 | ARD | \`ARD_DISCOVERY_DISABLED=1\` | \`ARD_DISCOVERY_ASK_BY_DEFAULT=0\` |
 
 Each also takes the plugin options \`{"off": true}\` and \`{"askByDefault": false}\`, in the object form of its entry in \`plugins\`.
+
+Antigravity, from a clone:
+
+\`\`\`bash
+${INSTALL_ANTIGRAVITY.join('\n')}
+\`\`\`
+
+${ANTIGRAVITY_INSTALL_NOTES}
+
+${ANTIGRAVITY_ADD_NOTES}
+
+In Antigravity, an MCP server isn't told which conversation calls it, and Antigravity's MCP client cancels every elicitation request without showing it. So each plugin pairs its MCP server with a \`PreToolUse\` hook, which passes the conversation id to the call and asks through Antigravity's own approval card (\`force_ask\`). The hook leaves a one-use ticket for exactly that call, and the server acts only with it. A watch asks in the approval card. New events reach a conversation at its next model call, through the plugin's \`PreInvocation\` hook (seen live in the CLI; Antigravity's plugins page doesn't list \`PreInvocation\` among plugin hooks), as fixed text with a count and the plugin's own watch ids, nothing a server wrote. Only App conversations can be woken, through the sidecar. A watch restarts when its conversation next calls the plugin, as a resumed CLI conversation did. The IDE documents no plugin hooks, so the forms aren't supported there, and their gated calls are refused. Events and Skills read \`~/.gemini/config/mcp_config.json\`, header values included, and can't reach servers behind Antigravity's own sign-in. A card that needs a secret can't be added: Antigravity's personal \`mcp_config.json\` reads no \`\${VAR}\`, and the plugin never writes a secret. Skills doesn't meet X8: once a served skill is loaded, its hook asks (\`force_ask\`) before a \`read_resource\` from another server, but Antigravity (CLI 1.5.17, App 2.35.1) ignores that question, shows no card and lets the read go ahead. ARD carries the Server Cards checks and add step itself, and has no default registry: name one, or set \`ARD_DISCOVERY_REGISTRY\` in the environment Antigravity starts in.
+
+Antigravity's own approval system is the boundary. Each form's own actions (a watch, a new or changed skill load, an addition, a registry search) ask in the approval card through \`force_ask\`, yes or no; the App greys out its "always allow" choices, and the CLI's card still lists them and shows only the question's first two lines. Nothing is auto-approved. The other Events tools, an approved unchanged skill load and skill file reads pass with a ticket and then get Antigravity's usual MCP question, which allow rules can skip. By default that question is asked: the interactive CLI starts in auto mode, where an MCP tool call still asks, and headless \`agy -p\` reports \`request-review\` and denies a call nobody answers. Whether \`--dangerously-skip-permissions\` also skips \`force_ask\` hasn't been checked. In CLI 1.5.17 a \`PreToolUse\` hook that fails makes the call fail. Upstream conformance (suite at c8625de, 25 November 2026): Skills passes all four client scenarios; Events passes 17 of 17 checks of conformance PR #541, through the form's MCP server and its real hook, with the watch question approved as a person would. Editors on \`agy acp\` see the tool and its arguments, not the question. The forms never open \`~/.gemini/antigravity/mcp_oauth_tokens.json\` or any sign-in store. Not run: a webhook watch, an ARD search in the App, and these builds in the App. The independent AI review of the Antigravity forms is in progress. None of them detects native support; Antigravity tells plugins nothing about its MCP client's extensions. Disable or uninstall the plugin (\`agy plugin disable <name>\`), or use its off switch:
+
+| Antigravity form | Off switch |
+|---|---|
+| Events | \`MCP_EVENTS_OFF=1\`, or \`{"MCP_EVENTS_OFF": "1"}\` in \`~/.gemini/agentpolyfill/mcp-events/settings.json\` |
+| Skills | \`MCP_SKILLS_DISABLED=1\`, or \`"off": true\` in \`~/.gemini/agentpolyfill/mcp-skills/settings.json\` |
+| Server Cards | \`MCP_SERVER_CARDS_DISABLED=1\` |
+| ARD | \`ARD_DISCOVERY_DISABLED=1\` |
 
 Copilot CLI, from a clone added as a marketplace:
 

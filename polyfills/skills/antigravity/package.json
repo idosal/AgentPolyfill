@@ -1,0 +1,23 @@
+{
+  "name": "mcp-skills-antigravity",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "MCP Skills (SEP-2640) for Google Antigravity.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "node build.mjs --tests && node --test --import ./test/temp-home.mjs \"test/.build/*.test.mjs\"",
+    "interop:real": "node build.mjs --interop && node test/.build/interop.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "esbuild": "0.28.2",
+    "typescript": "^5.9.3",
+    "yaml": "2.9.1"
+  }
+}

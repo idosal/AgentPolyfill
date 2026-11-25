@@ -21,7 +21,7 @@
     {
       "name": "ard-discovery",
       "description": "Agentic Resource Discovery (ARD v0.91, a draft outside MCP): find MCP servers through a domain's ard.json or by searching an ARD registry (each search asks you first), and add one once you approve it",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "source": "./polyfills/ard/copilot/plugin"
     }
   ]
