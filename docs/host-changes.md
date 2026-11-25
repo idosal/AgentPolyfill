@@ -231,6 +231,13 @@ the live server.
   Skills polyfill can't write its skill entries when the session opens, and
   you have to ask once to list the served skills. Marking the server required
   starts it, but then no session opens while it can't start.
+- **Say which app a session is open in.** `codex queue` leaves the message
+  in the session's queue, and whichever app server has the session open runs
+  it. Inside an app that runs Codex itself (T3 Code), that's a turn the app
+  doesn't show. A field in `x-codex-turn-metadata` naming the client that
+  shows the session, the app server's `clientInfo` say, would let Events wake
+  only where it's seen. Today it goes by `turn_trigger`, which each app sets
+  for itself, or leaves unset.
 - **Mark a turn that something else started.** Input from `codex queue`
   arrives looking like the person typed it. A turn an extension starts should
   reach the model and the UI marked as the extension's.

@@ -26,18 +26,29 @@ export const temp = () => {
     made.push(dir);
     return dir;
 };
-export function cleanup(): void {
-    // A removal that still fails (something is writing there) leaves the folder rather than failing the tests.
+/** Removes every folder the tests made, with retries; returns the ones still there. */
+function removeMade(): string[] {
+    const left: string[] = [];
     for (const dir of made.splice(0)) {
         try {
-            rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+            rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
         } catch {
-            // left in the temporary directory
+            // judged below, by whether it is still there
         }
+        if (existsSync(dir)) left.push(dir);
     }
+    return left;
 }
-// Also when a test file ends any other way: a failure, an uncaught error, a timeout.
-process.on('exit', cleanup);
+/**
+ * For a test file's `after`, once its processes have ended (teardown() does both): an error on the
+ * way that the retries get past fails nothing; a folder still there afterwards fails the file.
+ */
+export function cleanup(): void {
+    const left = removeMade();
+    if (left.length) throw new Error(`test folders left behind: ${left.join(', ')}`);
+}
+// Also when a test file ends any other way (a failure, an uncaught error, a timeout): best effort.
+process.on('exit', () => void removeMade());
 /** A thread id as T3 Code makes one for a thread started by `t3 thread start`. */
 export const newThread = () => `mcp:${randomUUID()}`;
 
@@ -198,7 +209,22 @@ export async function startServer(w: World, thread: string | undefined, extra: R
     return s;
 }
 
-/** Runs `server --stop` in the world, ending its watcher. */
+/** Ends a test file's servers and watchers, waits for them to exit, then removes its folders (cleanup()). */
+export async function teardown(worlds: World[]): Promise<void> {
+    await Promise.all(
+        started.map(async (s) => {
+            if (s.child.exitCode !== null || s.child.signalCode !== null) return;
+            s.child.stdin!.end();
+            const timer = setTimeout(() => s.child.kill('SIGKILL'), 5000);
+            await s.exited;
+            clearTimeout(timer);
+        })
+    );
+    for (const w of worlds) await stopWatcher(w);
+    cleanup();
+}
+
+/** Runs `server --stop` in the world, ending its watcher; resolves once every watcher the world started has exited. */
 export function stopWatcher(w: World, entry = SERVER): Promise<string> {
     return new Promise<string>((done) => {
         const c = spawn(process.execPath, [...(entry.endsWith('.ts') ? ['--no-warnings'] : []), entry, '--stop'], { env: w.env(undefined), stdio: ['ignore', 'pipe', 'ignore'] });
