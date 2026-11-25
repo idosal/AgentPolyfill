@@ -24,7 +24,7 @@ the test in this form's suite that covers it. "shared registry" tests are
 "adapter" tests are this form's [`adapter.test.ts`](../test/adapter.test.ts).
 This form's `npm test` runs all three, built from the same sources as its
 committed [`plugin/dist/server.mjs`](../plugin/dist/server.mjs). The search
-code is the Codex form's ([`../../codex/src/search.ts`](../../codex/src/search.ts)).
+code is the Codex form's ([`../../codex/src/ard.ts`](../../codex/src/ard.ts)).
 
 ### Domain discovery (§5.1)
 

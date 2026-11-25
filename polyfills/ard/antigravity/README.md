@@ -157,6 +157,6 @@ npm run build
 npm test
 ```
 
-The search rules are the Codex form's (`../codex/src/search.ts`); the gate,
+The search rules are the Codex form's (`../codex/src/ard.ts`); the gate,
 the Antigravity host and the add tool are `mcp-server-cards`'
 (`../../server-cards/antigravity/src`).
