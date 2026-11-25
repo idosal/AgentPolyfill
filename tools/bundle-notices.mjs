@@ -6,8 +6,10 @@
 //
 //   node tools/bundle-notices.mjs polyfills/events/claude-code [--check]
 //   node tools/bundle-notices.mjs polyfills/events/codex --plugin plugin [--check]
+//   node tools/bundle-notices.mjs polyfills/events/pi --plugin extension --entry src/index.ts [--check]
 //
-// --plugin names the installed folder when it is not mod/ (a Codex plugin's).
+// --plugin names the installed folder when it is not mod/ (a Codex plugin's, a
+// Pi extension's). --entry names the bundle's entry when it is not src/helper.ts.
 // --check fails if the file on disk differs from what it would write.
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -20,12 +22,17 @@ const { build } = await import(pathToFileURL(createRequire(join(folder, 'package
 const check = process.argv.includes('--check');
 const pluginAt = process.argv.indexOf('--plugin');
 const plugin = pluginAt > 0 && process.argv[pluginAt + 1] ? process.argv[pluginAt + 1] : 'mod';
+const entryAt = process.argv.indexOf('--entry');
+const entry = entryAt > 0 && process.argv[entryAt + 1] ? process.argv[entryAt + 1] : 'src/helper.ts';
+const bundled = `${entry.replace(/^src\//, 'dist/').replace(/\.ts$/, '.js')}`;
 const LICENSE_FILE = /^(licen[cs]e|copying|notice|unlicense|copyright)/i;
 
 // The same entry and resolution as the polyfill's build.mjs, without writing a bundle.
 const { metafile } = await build({
     absWorkingDir: folder,
-    entryPoints: ['src/helper.ts'],
+    entryPoints: [entry],
+    // A Pi extension leaves Pi's own packages to Pi, as its build.mjs does.
+    external: ['@earendil-works/*'],
     platform: 'node',
     format: 'esm',
     target: 'node20',
@@ -53,7 +60,7 @@ const entries = [...packages.entries()]
 
 const seen = new Set();
 const out = [
-    `Third-party software bundled into ${plugin}/dist/helper.js`,
+    `Third-party software bundled into ${plugin}/${bundled}`,
     '',
     'The helper bundles the npm packages below. Each is listed with the licence',
     'its package.json names and the licence and notice files it ships.',
@@ -73,7 +80,7 @@ const target = join(folder, plugin, 'THIRD_PARTY_LICENSES.txt');
 if (check) {
     const current = existsSync(target) ? readFileSync(target, 'utf8') : '';
     if (current !== text) {
-        console.error(`${target} is out of date: run node tools/bundle-notices.mjs ${process.argv[2]}${plugin === 'mod' ? '' : ` --plugin ${plugin}`}`);
+        console.error(`${target} is out of date: run node tools/bundle-notices.mjs ${process.argv[2]}${plugin === 'mod' ? '' : ` --plugin ${plugin}`}${entryAt > 0 ? ` --entry ${entry}` : ''}`);
         process.exit(1);
     }
     console.log(`${target}: up to date (${seen.size} packages)`);
