@@ -397,16 +397,24 @@ impl RevisionServer {
         if !http {
             return RevisionServer { config: json!({"command": "node", "args": [gate_server(), "revision", log, serves]}), child: None };
         }
-        let mut child = Command::new("node")
+        let mut command = Command::new("node");
+        command
             .args([gate_server(), "revision".into(), log, serves.into(), "http".into()])
             .env_clear()
             .env("PATH", std::env::var("PATH").unwrap_or_default())
             .env("HOME", w.root.join("home"))
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .expect("node");
+            .env("USERPROFILE", w.root.join("home"))
+            .env("TMP", w.root.join("tmp"))
+            .env("TEMP", w.root.join("tmp"));
+        // What Windows itself needs for node to start and open a socket, as
+        // for the helper (Helper::start): without SystemRoot node aborts
+        // there (status 134) before it listens.
+        for name in ["SystemRoot", "SYSTEMROOT", "windir", "PATHEXT", "ComSpec"] {
+            if let Some(value) = std::env::var_os(name) {
+                command.env(name, value);
+            }
+        }
+        let mut child = command.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().expect("node");
         // Its first line is the port it listens on, once it listens: anything
         // else (it exited, or said something else) fails here, with what it said.
         let mut line = String::new();

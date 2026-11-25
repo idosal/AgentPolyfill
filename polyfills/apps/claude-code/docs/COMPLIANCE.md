@@ -367,7 +367,12 @@ revision refused it (`-32022`) and no view of it opened. From 0.1.5 it asks
   (HTTP) in `MCP-Protocol-Version`; for the 2025 revisions, `initialize` at
   2025-11-25 after the refused probe, and `tools/list` in the 2025 form.
   Every one of them says the client renders MCP Apps. Before the fix the
-  2026-07-28 case failed with the reported error.
+  2026-07-28 case failed with the reported error. CI's "mcp-apps-cli: helper
+  and release" workflow runs it, with the rest of `cargo test --workspace`, on
+  each platform the helper is built for: macOS arm64 and x64, Linux x64 and
+  arm64, and Windows x64. Windows first caught a fault in the test itself:
+  its HTTP stand-in was started without the variables Windows needs for node
+  to start.
 - `bench/revision-check.mjs`, against servers built on the TypeScript SDK:
   2.4.0 with `createMcpHandler(..., { legacy: "reject" })` (2026-07-28 only),
   2.4.0 with its default (both), and 1.32.2 with a session-based streamable
