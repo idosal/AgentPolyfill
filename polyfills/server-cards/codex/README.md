@@ -5,6 +5,7 @@ to add one, accept the form Codex shows you, and the server goes into Codex's
 own MCP configuration.
 
 Also available for Claude Code: [mcp-server-cards for Claude Code](../claude-code/README.md).
+The same plugin folder is also the Muse Code form: see [In Muse Code](#in-muse-code).
 
 > What MCP servers does neon.com publish?
 
@@ -51,6 +52,24 @@ To remove it, run `codex plugin remove mcp-server-cards@agent-polyfill`.
 To run it from a clone instead, add the clone as the marketplace,
 `codex plugin marketplace add ./AgentPolyfill`, then run
 `codex plugin add mcp-server-cards@agent-polyfill`.
+
+## In Muse Code
+
+The same folder installs in [Muse Code](../../../docs/muse.md) (1.4.25 or newer):
+
+```bash
+muse plugins marketplace add agent-polyfill https://github.com/idosal/AgentPolyfill
+muse plugins install mcp-server-cards@agent-polyfill
+muse plugins approve mcp-server-cards
+```
+
+Discovery is the same. Adding differs. Muse gives a plugin no way to ask you,
+so `add_mcp_server` writes nothing. It checks the card and the name exactly as
+in Codex, then gives you the `muse mcp add …` command for the server you
+picked, for you to run yourself (in a terminal, or after `!` at the Muse
+prompt). The command shows the URL and every header it writes. A secret stays a
+`${VAR}` reference for you to set. Sign-in is Muse's own: `muse mcp login
+<name>`. [AgentPolyfill in Muse Code](../../../docs/muse.md) has the details.
 
 ## Try it
 

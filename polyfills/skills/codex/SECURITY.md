@@ -252,6 +252,37 @@ tokens.
 - **The server itself.** Verification catches a file that changed between
   listing and reading. It can't tell you the skill was safe to begin with.
 
+## In Muse Code
+
+The same plugin runs in Muse Code ([AgentPolyfill in Muse Code](../../../docs/muse.md)).
+What changes there:
+
+- **Where the stubs go.** The stubs are written to Muse's own skill folder,
+  `~/.config/muse/skills`, one folder each, named `mcp-skills-served--…`. Only
+  folders of that shape are written or removed. A symbolic link in their place
+  is removed, never followed. Codex doesn't read that folder.
+- **Your yes is typed.** Muse's MCP client offers no form, and a hook's `ask`
+  goes to Muse's approval judge, a model that may approve with nobody asked. So
+  `load_skill` records the question for the session with a four-digit code and
+  answers with the question and the phrase `load <code>`.
+  - **Who can say yes.** The plugin's `UserPromptSubmit` hook approves the
+    question only when a message of yours is exactly that phrase, in the same
+    session, within 15 minutes. Muse runs that hook for your messages, not for
+    a turn its timers start, so the model can't send the phrase itself.
+  - **What a yes covers.** The next `load_skill` of that question loads it,
+    once. After that, the approval is kept as in Codex.
+  - **What it doesn't protect against.** The phrase alone doesn't say which
+    skill it approves. The model relays the question, and you rely on it
+    showing you the question as it is. The hook's note in Muse's status line
+    names what you approved, after you type it.
+- **With Muse's session-protocol gates on**
+  (`MUSE_EXPERIMENTAL_TUI_MSP_CLIENT=1 MUSE_EXPERIMENTAL_TUI_SESSION_PROCESS=1`),
+  any local process of your user can attach to the session and start a turn.
+  Muse treats such a turn like one you typed, so that process could send the
+  phrase too.
+- **One script per hook.** The hook is one bundled file, because Muse trusts a
+  hook by its one script.
+
 ## Reporting a problem
 
 If you find a way to make the plugin load content it should refuse, read from

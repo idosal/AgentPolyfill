@@ -5,6 +5,7 @@ domain lists, or by asking an ARD registry for a server that can do a task.
 You choose the registry, and Codex shows you a form before every search.
 
 Also available for Claude Code: [ard-discovery for Claude Code](../claude-code/README.md).
+The same plugin folder is also the Muse Code form: see [In Muse Code](#in-muse-code).
 
 > Find an MCP server that can check why my CI build failed.
 
@@ -54,6 +55,26 @@ You need Codex CLI 0.170.0 or newer (tested with 0.170.0 and 0.172.0) and
 Node.js 20 or newer on your `PATH`. Nothing else: no account, no key.
 
 To remove it, run `codex plugin remove ard-discovery@agent-polyfill`.
+
+## In Muse Code
+
+The same folder installs in [Muse Code](../../../docs/muse.md) (1.4.25 or newer):
+
+```bash
+muse plugins marketplace add agent-polyfill https://github.com/idosal/AgentPolyfill
+muse plugins install ard-discovery@agent-polyfill
+muse plugins approve ard-discovery
+```
+
+There it does two things:
+
+- **`ard_discover`**, by domain.
+- **`add_mcp_server`**, which gives you the `muse mcp add …` command to run
+  yourself, as `mcp-server-cards` does in Muse.
+
+It has no registry search. A search sends your words to someone else's
+service, which needs your yes first, and Muse gives a plugin no way to ask.
+[AgentPolyfill in Muse Code](../../../docs/muse.md) has the details.
 
 ## Try it
 

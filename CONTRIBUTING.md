@@ -236,7 +236,11 @@ adapter beside the others. Events and Skills are the examples: one `core/`, a
 3. **Write the adapter** in `polyfills/<extension>/<host>/`, under the rules
    in [step 2](#2-put-it-in-its-folder): a self-contained plugin folder with
    that host's manifest, `core/` bundled into it, and the host's own tests
-   beside it.
+   beside it. A host that reads another host's plugins and marketplace can
+   share that host's folder instead, with its own manifest beside the other
+   one: Muse Code's forms are the Codex plugin folders with a
+   `.muse-plugin/plugin.json`, and the same bundle told which host it is in
+   ([AgentPolyfill in Muse Code](docs/muse.md)).
 4. **Meet the contract in that host.** It needs its own README (step 3), with
    that host's install line, requirements, limits and stand-down, its own
    `SECURITY.md`, and a recorded run in the real host against a server you
