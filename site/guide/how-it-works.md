@@ -350,7 +350,9 @@ the live server.
   turns `allow` into `ask` for their own actions, and follow OpenCode's
   permission events to keep an "Allow always". That hook can't tell
   OpenCode's default from an `allow` rule you wrote, and the plugin keeps a
-  copy of each "Allow always" that OpenCode's own list doesn't know about. A
+  copy of each "Allow always" that OpenCode's own list doesn't know about,
+  and has to check each request's session against its own project, since
+  OpenCode sends every project's permission events to every project's plugins. A
   default a plugin declares for actions it names (`ask` for
   `mcp_skills_load`), below every rule of yours, would do the same with
   neither problem, and leave the decision with your rules.

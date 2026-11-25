@@ -33,10 +33,15 @@ export const LOADED_KEY = (session: string) => `loaded/${session}`;
 
 type LoadedSkill = { server: string; uri: string };
 
-/** Whether `uri` is a file of the skill whose SKILL.md is `skillUri` (in its folder). */
+/** A URI with its scheme and authority in lower case, as URIs compare them: SKILL://Git-Workflow/… is skill://git-workflow/…. */
+const caseless = (uri: string) => uri.replace(/^([A-Za-z][A-Za-z0-9+.-]*:\/\/[^/]*)/, (m) => m.toLowerCase());
+
+/** Whether `uri` is a file of the skill whose SKILL.md is `skillUri` (in its folder), with scheme and authority compared without case. */
 export function inSkill(skillUri: string, uri: string): boolean {
-    const root = rootOf(skillUri);
-    return root !== undefined && (uri === skillUri || uri.startsWith(`${root}/`));
+    const skill = caseless(skillUri);
+    const file = caseless(uri);
+    const root = rootOf(skill);
+    return root !== undefined && (file === skill || file.startsWith(`${root}/`));
 }
 /** How many parents up a subagent's session is checked. */
 const MAX_DEPTH = 8;

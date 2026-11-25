@@ -11,7 +11,9 @@
 //   `permission.asked` and `permission.replied` events, and when the person
 //   answers one of its requests "Allow always", it keeps the exact patterns that
 //   request offered to save, for this project. A later request whose resources
-//   are all among them stays allowed.
+//   are all among them stays allowed. OpenCode's event stream carries every
+//   project's permission events to every project's instance of a plugin (seen in
+//   2.4.1), so a request counts only when its session belongs to this project.
 // - The hook can't tell OpenCode's default `allow` from a rule the person wrote,
 //   so an `allow` rule in the configuration doesn't skip the question. The plugin
 //   option `askByDefault: false` (or the environment variable the plugin names)
@@ -24,6 +26,7 @@ export type ConsentContext = {
     location: { directory: string; project: { id: string } };
     storage: { get(key: string): Promise<unknown>; set(key: string, value: Json): Promise<void> };
     event: { subscribe(options?: { types?: string[]; signal?: AbortSignal }): AsyncIterable<{ type: string; data?: unknown }> };
+    session: { get(input: { sessionID: string }): Promise<unknown> };
     permission: {
         hook(name: 'evaluate', callback: (event: { readonly action: string; readonly resources: readonly string[]; effect: 'allow' | 'ask' | 'deny'; message?: string }) => void | Promise<void>): Promise<Registration>;
     };
@@ -52,14 +55,27 @@ export async function askByDefault(ctx: ConsentContext, o: { actions: readonly s
     }
     const entry = (action: string, resource: string) => `${action}\n${resource}`;
 
+    /** Whether a session is one of this project's: its own key for "Allow always" is this instance's. */
+    const ours = async (sessionID: unknown): Promise<boolean> => {
+        if (typeof sessionID !== 'string') return false;
+        try {
+            const r = (await ctx.session.get({ sessionID })) as { data?: unknown } | undefined;
+            const s = (r && typeof r === 'object' && 'data' in r ? r.data : r) as { projectID?: unknown; location?: { directory?: unknown } } | undefined;
+            if (!s || typeof s.projectID !== 'string' || typeof s.location?.directory !== 'string') return false;
+            return alwaysKey(o.prefix, { directory: s.location.directory, project: { id: s.projectID } }) === key;
+        } catch {
+            return false;
+        }
+    };
+
     // Requests this plugin's actions made, by id, with the patterns each offered to save.
     const offered = new Map<string, { action: string; save: string[] }>();
     const ac = new AbortController();
     void (async () => {
         try {
             for await (const ev of ctx.event.subscribe({ types: ['permission.asked', 'permission.replied'], signal: ac.signal })) {
-                const d = (ev.data ?? {}) as { id?: unknown; requestID?: unknown; action?: unknown; save?: unknown; reply?: unknown };
-                if (ev.type === 'permission.asked' && typeof d.id === 'string' && typeof d.action === 'string' && actions.has(d.action)) {
+                const d = (ev.data ?? {}) as { id?: unknown; requestID?: unknown; sessionID?: unknown; action?: unknown; save?: unknown; reply?: unknown };
+                if (ev.type === 'permission.asked' && typeof d.id === 'string' && typeof d.action === 'string' && actions.has(d.action) && (await ours(d.sessionID))) {
                     offered.set(d.id, { action: d.action, save: Array.isArray(d.save) ? d.save.filter((x): x is string => typeof x === 'string') : [] });
                     while (offered.size > 500) offered.delete(offered.keys().next().value!);
                 }
@@ -69,6 +85,9 @@ export async function askByDefault(ctx: ConsentContext, o: { actions: readonly s
                     if (!req || d.reply !== 'always' || !req.save.length) continue;
                     for (const p of req.save) kept.add(entry(req.action, p));
                     try {
+                        // Other instances of this project (its other folders) keep to the same list: add to it.
+                        const v = await ctx.storage.get(key).catch(() => undefined);
+                        if (Array.isArray(v)) for (const x of v) if (typeof x === 'string') kept.add(x);
                         await ctx.storage.set(key, [...kept] as unknown as Json);
                     } catch {
                         o.log('an "Allow always" could not be kept; it is asked about again next time');
