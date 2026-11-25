@@ -1,8 +1,7 @@
 # Performance
 
-Measured on 24 November 2026 on one machine (macOS 15, Apple Silicon), against
-the fixture events server in `test/`, which runs as a local process. Reproduce
-with:
+Measured on one machine, on macOS, against the fixture events server in
+`test/`, which runs as a local process. Reproduce with:
 
 ```bash
 npm run perf                                             # the bundle, on the Node on your PATH
@@ -15,9 +14,8 @@ Linux or Windows, or against a remote server.
 
 ## 0.5.0 against 0.4.1
 
-Both bundles on Node 22.23.1, the same machine (macOS 15, Apple Silicon), the
-same day, by `test/perf.ts` (one run each; the idle CPU figures move by tens of
-milliseconds between runs):
+Both bundles on Node 22.23.1, by `test/perf.ts` (one run each; the idle CPU
+figures move by tens of milliseconds between runs):
 
 | | 0.4.1 | 0.5.0 |
 |---|---|---|
@@ -112,11 +110,11 @@ Node 22.23, measured by `test/perf-baseline.ts`:
 | What Claude Code waits for at start | the MCP server's answer, after it has connected to every server: 397 ms with one local server | six tool registrations (see below); the helper starts beside them |
 | Size of what is installed to run | 836 kB (two bundles) | 533 kB (one) |
 
-In Claude Code itself (2.1.329, from the debug log of a live run):
+In Claude Code itself (2.1.329):
 
 | | |
 |---|---|
-| The mod's `session.start` hook, which Claude Code awaits before the first prompt | 145 ms in a `-p` run, 350 ms in a terminal session (six tools registered at once; the first version registered them one after another and took 690 ms) |
+| The mod's `session.start` hook, which Claude Code awaits before the first prompt | 145 ms in a `-p` run, 350 ms in a terminal session (six tools registered at once) |
 | One tool call, hooks module → helper → back | 4 ms |
 | Taking a batch of events and submitting it as a prompt | 3 ms before the turn starts |
 | The catalog's `prompt.compose` hook, per request, with Claude Code's own composition beneath it | 8 to 35 ms |
@@ -152,7 +150,7 @@ for now:
 - The Events client leans on the MCP TypeScript SDK for its transports and
   for protocol revision negotiation (2026-07-28 and the revisions before it,
   over stdio and Streamable HTTP). A rewrite means reimplementing those and
-  proving the conformance clauses and interop runs again with no SDK
+  proving the conformance clauses and interop tests again with no SDK
   underneath.
 - What it would buy is smaller since 0.6.0: a machine with neither Node nor
   Bun can have the mod fetch a copy of Bun for itself (`/mcp-events setup`,

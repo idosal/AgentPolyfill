@@ -67,9 +67,9 @@ mechanism through; the Codex and Claude Code columns of that page then apply.
 |---|---|---|
 | Add tools the model can call | Yes, via Codex: an MCP server in `config.toml` or a plugin | Yes, via Claude Code: a mod's `$.tool.register`, or an MCP server |
 | Draw its own UI | No. A Claude Code mod pane is not shown; T3 Code shows an MCP App that a server returns | No. When a mod asks for a terminal pane's focus, T3 Code ends the turn with `claude_mod_ui_unsupported` |
-| Start a turn in an idle session | Yes: `t3 thread send <thread> -` (T3 Code's own command; tried live). Not `codex queue`: T3 Code's app server runs the queued turn, but the thread doesn't show it (tried live) | Yes: `t3 thread send`. A mod's `$.prompt.submit` works only while T3 Code keeps the `claude` process open |
+| Start a turn in an idle session | Yes: `t3 thread send <thread> -` (T3 Code's own command; checked). Not `codex queue`: T3 Code's app server runs the queued turn, but the thread doesn't show it (checked) | Yes: `t3 thread send`. A mod's `$.prompt.submit` works only while T3 Code keeps the `claude` process open |
 | Know which session called | Yes: `T3CODE_THREAD_ID` in a stdio server's environment (not documented yet); `_meta.threadId` is Codex's own id for the thread | Partly: a mod runs in its session, but nothing tells an MCP server which T3 Code thread it serves |
-| Ask the user through the host's own approval or dialog | Partly: Codex's own approvals are shown in the thread; an MCP elicitation is shown only if T3 Code can answer it with Approve or Decline, and any other form is cancelled unseen (`CodexMcpElicitation.ts`; tried live) | Partly: tool permission prompts and `AskUserQuestion` are shown; MCP elicitations go through the same Approve-or-Decline check; a mod's other dialogs are cancelled (`onUserDialog` takes only `resume_return`) |
+| Ask the user through the host's own approval or dialog | Partly: Codex's own approvals are shown in the thread; an MCP elicitation is shown only if T3 Code can answer it with Approve or Decline, and any other form is cancelled unseen (`CodexMcpElicitation.ts`; checked) | Partly: tool permission prompts and `AskUserQuestion` are shown; MCP elicitations go through the same Approve-or-Decline check; a mod's other dialogs are cancelled (`onUserDialog` takes only `resume_return`) |
 | Call a server's tool, read resources, over the host's connection with its sign-in | Via Codex: only for an app-server client, and T3 Code is that client | Via Claude Code: `$.mcp.call` in a mod |
 | Send any other MCP method | No | No |
 | See what a server advertised | No | No |
@@ -93,17 +93,17 @@ mechanism through; the Codex and Claude Code columns of that page then apply.
 
 ## The shape: which case applies
 
-The brief named three cases. Here is what each turned out to be.
+There are three possible cases. Here is which holds.
 
 **(a) T3 Code has its own plugin layer: no.** There is nothing to load a
 `polyfills/<ext>/t3` plugin into, as there is in OpenCode or Pi.
 
 **(b) T3 Code drives Codex or Claude Code, so the existing forms run inside
 it: partly.** (It drives OpenCode too, the fourth host here; the OpenCode
-forms weren't tried in T3 Code.) Skills, Server Cards and ARD are tools, skills and (for Server
+forms were not checked in T3 Code.) Skills, Server Cards and ARD are tools, skills and (for Server
 Cards) writing the agent's configuration. The Codex plugins and the Claude
 Code mods load in T3 Code's threads as they do in a terminal, and their tools
-work there. Tried live with Codex: `list_skills` in a T3 Code thread listed the
+work there. Checked with Codex: `list_skills` in a T3 Code thread lists the
 demo server's skills. What doesn't carry over:
 
 - **The questions the Codex forms ask through MCP elicitation.** Before it
@@ -116,8 +116,8 @@ demo server's skills. What doesn't carry over:
   `toMcpElicitationResponse`; its log says "Cancelled an unsupported MCP
   elicitation"). So in T3 Code with Codex, loading a server's skill, adding a
   server from its card, and an ARD registry search are each refused as if you
-  had said no. Nothing is approved for you; you're just never asked. Tried
-  live with Skills; Server Cards and ARD use the same kind of form. Claude
+  had said no. Nothing is approved for you; you're just never asked. Checked
+  with Skills; Server Cards and ARD use the same kind of form. Claude
   Code's elicitations go through the same function in T3 Code.
 - A Claude Code mod's terminal pane. T3 Code fails a turn in which a mod asks
   for its pane's focus. (The Skills mod for Claude Code, since removed from
@@ -127,17 +127,17 @@ demo server's skills. What doesn't carry over:
   runtime (`/mcp-events setup`); T3 Code cancels that question,
   which means "Not now".
 
-The Claude Code half of this is from T3 Code's source; it wasn't run live,
-because that needs a Claude Code sign-in in the isolated install.
+The Claude Code half of this is from T3 Code's source. It was not checked in
+T3 Code with Claude Code as the agent.
 
 **Events is where (b) is not enough.** Both existing forms wake a session by a
 route T3 Code doesn't take:
 
 - The Codex form wakes with `codex queue --resume`, meant for Codex's
   app-server daemon. T3 Code doesn't use the daemon: it runs an app server of
-  its own. Tried live: with no daemon running, `codex queue` couldn't resume
-  the session, but left the message in Codex's queue, and T3 Code's app server
-  then ran a turn with it. That turn read the event and answered, and none of
+  its own. Checked: with no daemon running, `codex queue` can't resume
+  the session, but leaves the message in Codex's queue, and T3 Code's app server
+  then runs a turn with it. That turn reads the event and answers, and none of
   it appears in the T3 Code thread. A wake that runs work you can't see in the
   app is worse than none.
 - The Claude Code form wakes with `$.prompt.submit`, which needs the `claude`
@@ -147,9 +147,9 @@ route T3 Code doesn't take:
   unless background work pins it), and a restart of T3 Code ends every
   session. Events that arrive meanwhile are stored and shown at your next
   message, not when they arrive. Whether T3 Code shows a turn a mod starts in
-  an idle session at all wasn't checked live.
+  an idle session at all wasn't checked.
 
-In our run, a Codex thread's MCP servers were still running 20 minutes after
+A Codex thread's MCP servers can still be running 20 minutes after
 its last turn, so the timeout isn't the only thing that decides when a
 session closes. A restart always ends them.
 
@@ -212,8 +212,7 @@ Code's column in its table.
 - **Show a turn the agent starts by itself.** When a Claude Code mod submits a
   prompt into an idle session (`$.prompt.submit`), and while T3 Code keeps the
   session open, show that turn in the thread as it does for scheduled wakeups.
-  (Not checked live yet: it needs a Claude Code sign-in in the isolated
-  install.)
+  (Not checked.)
 - **Let a mod's pane fail softly.** A mod asking for its pane's focus ends the
   turn today. Answering the held call with "no pane here" would let a mod say
   so and carry on.

@@ -14,8 +14,8 @@
 (* they are: model/conform.mjs does that. Quint's init variants are the    *)
 (* constants ALLOW, LIFT and RECORD: TRUE, 4 and TRUE is 0.1.3; RECORD     *)
 (* FALSE is 0.1.2 (no record of the hand-over, no timeout counted, a       *)
-(* failed notice kept as handed over); ALLOW FALSE and LIFT 0 is CX1's fix *)
-(* taken out (0.1.0's rule and pause).                                     *)
+(* failed notice kept as handed over); ALLOW FALSE and LIFT 0 is 0.1.0's   *)
+(* rule and pause.                                                         *)
 (***************************************************************************)
 EXTENDS Integers, Sequences, FiniteSets
 

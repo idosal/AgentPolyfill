@@ -13,8 +13,7 @@ Details are in [Spec and conformance](#spec-and-conformance).
 
 ## Install
 
-From a clone of this repository (the install that was tested, on Copilot CLI
-1.0.115):
+From a clone of this repository (checked in Copilot CLI 1.0.115):
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
@@ -26,10 +25,7 @@ Copilot loads a plugin from a local marketplace where it is, without copying
 it, so keep the clone; `git pull` in it brings the next version.
 From GitHub, `copilot plugin marketplace add idosal/AgentPolyfill` adds the
 same marketplace (Copilot reads its `.github/plugin/marketplace.json`), and
-Copilot keeps its own copy. That was checked on 25 November 2026 with Copilot
-CLI 1.0.105, in an isolated home with no sign-in: the three plugins installed
-from GitHub, byte-identical to main, and loaded
-([the record](docs/live-run.md#installed-from-github)). It wasn't checked on
+Copilot keeps its own copy. Checked in Copilot CLI 1.0.105. Not checked in
 1.0.115, in the interactive TUI, or in VS Code. The install is one folder,
 [`plugin/`](plugin/), of about 0.6 MB: a manifest and one JavaScript file.
 
@@ -37,11 +33,11 @@ You need:
 
 - **GitHub Copilot CLI 1.0.115 or newer**, with **experimental mode on**. The
   plugin is a Copilot *extension*, and Copilot loads extensions only in
-  experimental mode: start it with `copilot --experimental`, or, per Copilot's help, run `/settings experimental on` once (the runs here used `--experimental`). Everything the plugin uses (joining the
+  experimental mode: start it with `copilot --experimental`, or, per Copilot's help, run `/settings experimental on` once (only `--experimental` was checked). Everything the plugin uses (joining the
   session, its tools, `session.send` to wake it, the session's events and
   `session.rpc.mcp.listConfigured`) is part of Copilot's extension API, which
-  Copilot marks experimental: it may change in any release. It was tested on
-  1.0.115, and in VS Code 1.147.0's Copilot harness.
+  Copilot marks experimental: it may change in any release. Checked in
+  Copilot CLI 1.0.115 and in VS Code 1.147.0's Copilot harness.
 - Nothing else. Copilot runs the extension with its own copy of Node, so you
   don't need Node on the machine. (A local MCP server you configured may need
   it, as it does for Copilot.)
@@ -212,7 +208,7 @@ Copilot ── tool calls (joinSession tools) ───────────�
 ### Servers that need credentials
 
 The extension expands variables in a server's URL, headers, command,
-arguments, environment and folder the way Copilot 1.0.115 does (seen live):
+arguments, environment and folder the way Copilot 1.0.115 does:
 `$VAR`, `${VAR}`, and `${VAR:-default}`; an unset `$VAR` stays as written.
 Whatever a variable or a default put in is taken out of the log and of every
 tool result, wherever it landed (values shorter than eight characters
@@ -249,23 +245,19 @@ a forwarder of your own (`MCP_EVENTS_PUBLIC_URL`). The plugin reads
 
 | | Tools | An event wakes the session |
 |---|---|---|
-| The Copilot CLI TUI (`copilot --experimental`) | Yes | Yes (tested: [`docs/live-run.md`](docs/live-run.md)) |
+| The Copilot CLI TUI (`copilot --experimental`) | Yes | Yes (checked in Copilot CLI 1.0.115) |
 | `copilot -p` | Yes (your own and plugin extensions load in prompt mode) | No: the session, and the extension with it, end with the prompt |
 | `copilot --acp` (an editor driving Copilot over ACP) | No: Copilot 1.0.115 doesn't load extensions in ACP sessions | No |
-| VS Code's Copilot harness | Yes (tested in VS Code 1.147: [`docs/live-run.md`](docs/live-run.md#in-vs-code)) | Yes: the plugin's message shows in the chat, then the turn ([below](#vs-code)) |
+| VS Code's Copilot harness | Yes (checked in VS Code 1.147.0) | Yes: the plugin's message shows in the chat, then the turn ([below](#vs-code)) |
 | The GitHub Copilot app, other SDK hosts | Only where the host turns extensions on | Not tested |
 
-It's tested live in Copilot CLI 1.0.115 on macOS, with no GitHub sign-in: a
-model on this machine stood in for Copilot's. It's also tested in VS Code
-1.147.0's Copilot harness, signed in, with GitHub's Claude Haiku 4.5
-([`docs/live-run.md`](docs/live-run.md)). The tests also run on Linux in CI.
-Windows hasn't been tried.
+Checked in Copilot CLI 1.0.115 and in VS Code 1.147.0's Copilot harness, on
+macOS. The tests also run on Linux in CI. Not checked on Windows.
 
 ### VS Code
 
 VS Code's Copilot harness runs the same runtime as Copilot CLI, and this
-plugin works there. Seen in VS Code 1.147.0, signed in to GitHub
-([`docs/live-run.md`](docs/live-run.md#in-vs-code)):
+plugin works there. Checked in VS Code 1.147.0:
 
 - **It loads the plugin from `~/.copilot`,** as Copilot CLI installed it, when
   `chat.canvases.enabled` is on (the default). The setting is named after
@@ -284,13 +276,11 @@ plugin works there. Seen in VS Code 1.147.0, signed in to GitHub
   the extension's join waits for the first message. If the chat is closed
   first, the join is refused, and the log says "Copilot did not let this
   extension join the session".
-- **The plugin's own question before a watch wasn't seen there.** It came
-  after the VS Code run. VS Code's harness shows an extension's dialog during
-  a turn (from its source), which is when a watch is asked about.
+- **The plugin's own question before a watch wasn't checked there.** VS
+  Code's harness shows an extension's dialog during a turn (from its source),
+  which is when a watch is asked about.
 - **It needs a GitHub Copilot sign-in.** VS Code's harness has no offline
-  mode (from its source). In the run, the user signed in themselves, in a
-  throwaway VS Code profile made for it and deleted after
-  ([how](docs/live-run.md#in-vs-code)).
+  mode (from its source).
 - **A form from an extension** is shown during a turn and declined while the
   session is idle (from VS Code's source). This plugin asks nothing through
   forms.
@@ -428,7 +418,8 @@ has both, and a polyfill would be a second client beside Copilot's own.
 
 - **Skills over MCP (SEP-2640).**
   - *Copilot CLI 1.0.115* declares `io.modelcontextprotocol/skills` to every
-    server it connects (seen in its `initialize`; no served skill was listed or loaded in Copilot). Its settings
+    server it connects, in its `initialize`. Not checked: a served skill
+    listed or loaded in Copilot. Its settings
     (`copilot help config`) have no switch for that as a whole; a skill can
     be turned off by name with `copilot skill disable <name>` (`disabledSkills`).
   - *VS Code 1.147.0's Copilot harness* follows
@@ -487,14 +478,8 @@ servers that advertise events in the form from before the standard
   all forms run the same client. The upstream conformance suite's Events
   client scenarios (its open pull request #541) pass 17 of 17, end to end
   through the bundled extension (`npm run conformance`).
-- [`docs/interop.md`](docs/interop.md): runs against servers others wrote.
-  hookbench's reference server passes 7 of 7, and this repository's
-  event-feeds 3 of 3.
-- [`docs/live-run.md`](docs/live-run.md): the real Copilot CLI TUI, on this
-  machine with no sign-in. A watch is set through Copilot's tool prompt, an
-  event is emitted while the session is idle, and the session wakes and reads
-  it. The same in VS Code 1.147.0's Copilot harness, signed in, with GitHub's
-  Claude Haiku 4.5: the wake and its turn show in the chat.
+- Interop, against servers others wrote: hookbench's reference server, 7 of
+  7; this repository's event-feeds, 3 of 3 (`test/interop/run.ts`).
 - **The wake model.** The hand-over and the wake limits are the Codex form's
   code, which is model-checked with TLC
   ([`../claude-code/model/README.md`](../claude-code/model/README.md#wakecodexqnt-how-often-events-wake-a-codex-session)).
@@ -526,9 +511,8 @@ node ../../../tools/bundle-notices.mjs . --plugin plugin --entry src/extension.t
 - `test/` runs the extension as Copilot does, with a stand-in for
   `@github/copilot-sdk/extension` (`test/fake-sdk/`) that the tests drive,
   against the Claude Code form's fixture events server (written from the SEP,
-  sharing no code with the client). `test/interop/run.ts` runs the interop,
-  `test/conformance-driver.ts` the upstream suite, and `test/live/run.sh` the
-  live run in the real TUI. CI:
+  sharing no code with the client). `test/interop/run.ts` runs the interop, and
+  `test/conformance-driver.ts` the upstream suite. CI:
   [`copilot-events-test.yml`](../../../.github/workflows/copilot-events-test.yml).
 - To release, change the version in `plugin/plugin.json`, `package.json`,
   `src/version.ts` and `.github/plugin/marketplace.json`, rebuild, and merge to

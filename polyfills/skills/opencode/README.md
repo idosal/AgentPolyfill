@@ -206,21 +206,18 @@ plugin off with `MCP_SKILLS_OFF=1`, or remove it.
   which is asked about unless "Allow always" covers it as it is. Which
   servers a session loaded skills from is kept on disk, so the V4 and X8
   checks still hold.
-- **Tried live** with a real model and Hugging Face's server: its 25 skills
-  in OpenCode's list, two loaded after OpenCode asked, each bound to its
-  digest ([`live-run.md`](../../../tools/opencode/live-run.md)). In that run,
-  with OpenCode's default rules, the model also ran a command a loaded skill
-  described, without a prompt. CI runs the tests on Linux, macOS and Windows.
+- **Checked in OpenCode 2.4.1 against Hugging Face's server.** With
+  OpenCode's default rules, a command a loaded skill describes runs without a
+  prompt. CI runs the tests on Linux, macOS and Windows.
 - **OpenCode's TUI shows little in the prompt.** In OpenCode 2.4.1's TUI, a
   permission prompt for a plugin's own action says only "Call tool
   mcp_skills_load". The details are on the model's call line just above it, and
-  "Always allow" lists the pattern it would save. Checked in the TUI
-  ([`live-run.md`](../../../tools/opencode/live-run.md#in-opencodes-tui)). The digest and the "not a local skill" note in the
-  request aren't shown, though the saved pattern carries the digest.
-- **In OpenCode Desktop** (2.4.1, tried live): the permission prompt shows
-  the action and the full resource, the skill's digest included, and a
-  Hugging Face skill loaded after "Allow once".
-- **Not tried yet:** Windows by hand (CI runs the tests there).
+  "Always allow" lists the pattern it would save. The digest and the "not a
+  local skill" note in the request aren't shown, though the saved pattern
+  carries the digest.
+- **In OpenCode Desktop** (checked in 2.4.1): the permission prompt shows
+  the action and the full resource, the skill's digest included.
+- **Not checked:** Windows by hand (CI runs the tests there).
 
 [What hosts would need to change](../../../docs/host-changes.md) covers these
 gaps for each host.
@@ -255,10 +252,10 @@ OpenCode:
 
 ### Checked end to end in OpenCode
 
-[`test/e2e.test.ts`](test/e2e.test.ts) runs the plugin in OpenCode 2.4.1, in a
-throwaway home, against the Skills forms' shared fixture server (written
-from the SEP, sharing no code with the client), with a scripted model: the
-served skill in OpenCode's skill list with none of its text; OpenCode's skill
+[`test/e2e.test.ts`](test/e2e.test.ts) runs the plugin in OpenCode 2.4.1,
+against the Skills forms' shared fixture server (written from the SEP,
+sharing no code with the client): the served skill in OpenCode's skill list
+with none of its text; OpenCode's skill
 tool returning the note; a load put to OpenCode's rules, rejected (nothing
 fetched) and approved (verified, fenced); a file read; OpenCode's resource
 read of a loaded skill's file refused (V4); the X8 hook, by either name, in a

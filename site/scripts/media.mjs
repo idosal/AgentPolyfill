@@ -4,7 +4,7 @@
 //
 // Two kinds of video:
 //   - "launch" and "cuts": the launch video and one cut per polyfill, rendered
-//     outside the repository (launch/video/ in the maintainer's checkout). They
+//     outside the repository. They
 //     stay out of git. Each is recorded in media.json with its SHA-256; a build
 //     uses the local file, or downloads it from the release named in
 //     media.json ("release" + file name) and checks it. Their posters are

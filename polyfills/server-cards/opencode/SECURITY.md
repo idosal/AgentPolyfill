@@ -94,7 +94,7 @@ never reads another server's URL, headers or environment.
   the model's call line above it; the plugin refuses a URL other than the one
   the card gives, so that is what is added. The headers and the undo aren't
   shown. OpenCode Desktop shows a plugin action's resource in its prompt
-  (seen for Events and Skills; an addition there wasn't tried), here
+  (checked for Events and Skills, not for an addition), here
   `<name>=<url>`; the headers and the undo are in the request's metadata.
 - **Turning asking off.** With `askByDefault: false` or
   `MCP_SERVER_CARDS_ASK_BY_DEFAULT=0`, OpenCode's rules alone decide, and

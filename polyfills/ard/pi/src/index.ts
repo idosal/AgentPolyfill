@@ -47,7 +47,7 @@ const UNSEEN = HIDDEN
  * Markdown and HTML a host could render in the form: a query such as
  * `check [my CI](https://evil.example/)` would show "check my CI" while the
  * whole text is sent. Refused, so what is sent is exactly what the form shows
- * (the same rule as card URLs, security review C1).
+ * (the same rule as card URLs).
  */
 const MARKUP = /[`<>[\]]/
 
@@ -118,7 +118,7 @@ export function tools(session: Session, defaultRegistry: string): Tool[] {
     run: async (args, ctx, signal) => {
       const query = (str(args.query) ?? '').trim()
       if (!query) return refuse('Give `query`: what the person needs, in plain words.')
-      // What is sent is what the question showed (security review R1).
+      // What is sent is what the question showed.
       if (query.length > SHOWN_QUERY) return refuse(`Keep the search under ${SHOWN_QUERY} characters, so the person sees all of it before it is sent.`)
       if (UNSEEN.test(query)) return refuse('Write the search on one line, without control characters, direction marks or hidden characters, so the person sees exactly what is sent.')
       if (MARKUP.test(query)) return refuse('Write the search in plain words, without `, <, > or square brackets, so the form shows exactly what is sent.')
@@ -151,13 +151,13 @@ export function tools(session: Session, defaultRegistry: string): Tool[] {
       }
       endpoints = [...new Set(endpoints)].slice(0, 3)
       // Each endpoint is shown in the form as it is: it must read as the host
-      // it reaches (security reviews C1 and C3).
+      // it reaches.
       const unclear = endpoints.find(ep => hasMarkup(ep) || hasUserinfo(ep))
       if (unclear)
         return refuse(`The registry ${unclear} holds markup or names a user before its host, so the form could show one host while the query goes to another. Nothing was sent.`)
 
       // Every search is put to the person first, with the words and where they
-      // go (security review M2); refused with no form, or a decline or close.
+      // go; refused with no form, or a decline or close.
       const ok = await askPerson(
         ctx,
         shownText(

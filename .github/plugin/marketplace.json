@@ -15,13 +15,13 @@
     {
       "name": "mcp-server-cards",
       "description": "MCP Server Cards (SEP-2127): Copilot finds the MCP servers a domain publishes, checks their Server Cards, and adds one to its configuration once you approve it in a form",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "source": "./polyfills/server-cards/copilot/plugin"
     },
     {
       "name": "ard-discovery",
       "description": "Agentic Resource Discovery (ARD v0.91, a draft outside MCP): find MCP servers through a domain's ard.json or by searching an ARD registry (each search asks you first), and add one once you approve it",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "source": "./polyfills/ard/copilot/plugin"
     }
   ]

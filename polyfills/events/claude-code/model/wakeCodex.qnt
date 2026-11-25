@@ -9,7 +9,7 @@
 // and counted from that record by the next helper if this one ends before it hears back; a
 // `codex queue` that times out counts as handed over; a notice `codex queue` did not take is no
 // longer kept as handed over. `initUnrecorded` is 0.1.2, without any of these. `initBefore` is
-// 0.1.3 with CX1's fix taken out (0.1.0's rule, which counts a call with no turn metadata as the
+// 0.1.3 with the allowlist and the lift taken out (0.1.0's rule, which counts a call with no turn metadata as the
 // person's, and 0.1.0's pause, which never lifts by itself); `initShortLift` lifts the pause after
 // less than an hour. model/README.md says what was checked.
 module wakeCodex {
@@ -90,7 +90,7 @@ module wakeCodex {
   }
   action init = initWith(true, HOUR, true)            // 0.1.3: the allowlist, the pause lifts after an hour, the hand-over recorded
   action initUnrecorded = initWith(true, HOUR, false) // 0.1.2: no record of the hand-over, no timeout counted, a failed notice kept
-  action initBefore = initWith(false, 0, true)        // CX1's fix taken out: 0.1.0's denylist, and no lift
+  action initBefore = initWith(false, 0, true)        // the allowlist and the lift taken out: 0.1.0's denylist, and no lift
   action initShortLift = initWith(true, 1, true)      // a variant: the pause lifts after a quarter of an hour
 
   action Tick = all { s.now < MAX_TIME, s' = { ...s, now: s.now + 1 } }
@@ -275,7 +275,7 @@ module wakeCodex {
   // The person's own turn ends the pause: what waited is handed over.
   run personTest = spent.then(CallIn(true, "user")).then(Take).then(QueueOk).then(Heard)
     .expect(Kept and not(s.budget.paused) and s.shown == [0, 1, 2] and s.spoke == 2)
-  // CX1's fix taken out: a woken turn's call with no turn metadata counts as the person's, ends
+  // The allowlist and the lift taken out: a woken turn's call with no turn metadata counts as the person's, ends
   // the pause, and the next wake comes at once, a third in the hour.
   run deniedBeforeTest = initAt(false, 0, true, true).then(wakeNow).then(Tick).then(wakeNow).then(Tick)
     .then(Arrive).then(Take).then(QueueOk).then(Heard).then(CallIn(false, "none"))

@@ -10,14 +10,14 @@
 
 import assert from 'node:assert/strict';
 import { existsSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const BASE = (process.argv[2] ?? 'https://event-feeds.idosalomon.workers.dev').replace(/\/$/, '');
 // The polyfill's source: next to this server in the AgentPolyfill repository, or a checkout of its own.
 const inRepo = fileURLToPath(new URL('../../../../polyfills/events/claude-code', import.meta.url));
-const PLUGIN = process.env.MCP_EVENTS_PLUGIN ?? (existsSync(join(inRepo, 'test', 'harness.ts')) ? inRepo : inRepo);
+const PLUGIN = process.env.MCP_EVENTS_PLUGIN ?? (existsSync(join(inRepo, 'test', 'harness.ts')) ? inRepo : undefined);
+if (!PLUGIN) throw new Error("The polyfill's source isn't next to this server: set MCP_EVENTS_PLUGIN to its folder.");
 const h = (await import(pathToFileURL(join(PLUGIN, 'test', 'harness.ts')).href)) as typeof import('./harness-types.ts');
 const ok = (s: string) => console.log(`✓ ${s}`);
 const t0 = Date.now();

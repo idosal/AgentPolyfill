@@ -16,7 +16,6 @@ Final) that doesn't depend on a host. The adapters share it:
 | [`src/upstream.ts`](src/upstream.ts) | How to reach a server, as an adapter read it from its host's configuration. |
 | [`docs/sep-2640-client-rules.md`](docs/sep-2640-client-rules.md) | Every client rule of SEP-2640 with its id and text. Each adapter's `docs/conformance.md` says, by these ids, what that adapter does about each one. |
 | [`test-fixtures/`](test-fixtures/) | What the adapters' tests share: a Skills server written by hand from the SEP, which shares no code with `src/` and serves whatever a scenario file says ([`fixture-skills-server.ts`](test-fixtures/fixture-skills-server.ts)), and builders for skills with correct digests ([`harness.ts`](test-fixtures/harness.ts)). They import nothing that needs installing. |
-| [`tools/pty-drive.py`](tools/pty-drive.py) | Drives a terminal program through a pseudo-terminal from a scenario file and saves its screens. The Codex form's recorded session uses it. |
 
 Nothing here is installed on its own. Each adapter's build bundles `src/` into
 that adapter's plugin folder, which then runs with no imports from outside it.

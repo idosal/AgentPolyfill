@@ -93,7 +93,7 @@ export type WorldOptions = {
     /** More environment for OpenCode (and so for the plugins). */
     env?: Record<string, string>;
     /**
-     * A real model, as `provider/model`, in place of the scripted one: for a live run, by hand. It
+     * A real model, as `provider/model`, in place of the scripted one. It
      * must need no sign-in in this throwaway home (OpenCode's free models do).
      */
     model?: string;

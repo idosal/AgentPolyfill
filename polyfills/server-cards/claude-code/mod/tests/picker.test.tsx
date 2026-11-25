@@ -115,7 +115,7 @@ test('U-4 the picker shows the name it adds, and a press never replaces a server
   await after.unmount()
 })
 
-test('U-5 the picker names the host on its own line (security review C3)', async ($, on) => {
+test('U-5 the picker names the host on its own line', async ($, on) => {
   engine(on)
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   const id = 'toolu_picker_5'

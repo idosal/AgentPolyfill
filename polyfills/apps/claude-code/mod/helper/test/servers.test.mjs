@@ -1,5 +1,5 @@
 // Which MCP server a name means, in the Node helper (servers.mjs): the same
-// cases as the Rust helper's config tests (security review, A1). Each world
+// cases as the Rust helper's config tests. Each world
 // is a home, a config folder, a managed folder and a project in a temporary
 // folder of its own.
 

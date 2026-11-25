@@ -1,3 +1,20 @@
 launch/
 .DS_Store
 __pycache__/
+# Local run scripts, run records and internal notes are not part of the repository.
+live/
+live-run.md
+live-test.ts
+**/docs/evidence/
+**/docs/interop.md
+polyfills/apps/claude-code/helper-rs/PORT.md
+polyfills/apps/claude-code/docs/DESIGN.md
+tools/opencode/live.ts
+tools/opencode/live-events.ts
+tools/opencode/tui-world.ts
+polyfills/apps/claude-code/bench/session.py
+polyfills/apps/claude-code/bench/bursts.py
+polyfills/apps/claude-code/bench/shown.py
+polyfills/apps/claude-code/bench/scenarios/*
+!polyfills/apps/claude-code/bench/scenarios/bloom-scene.json
+docs/hosts-not-shipped.md

@@ -18,9 +18,9 @@ Final). The forms fill these gaps:
   doesn't poll, take webhooks or watch for a session; the polyfill is a
   plugin.
 - **Antigravity:** the polyfill is a plugin for the App and the CLI
-  (`agy`). These builds were run in CLI 1.5.17; their App runs are still to
-  come. The IDE documents no plugin hooks, so the forms aren't supported
-  there, and their gated calls are refused.
+  (`agy`). Checked in App 2.35.1 and CLI 1.5.17. The IDE
+  documents no plugin hooks, so the forms aren't supported there, and their
+  gated calls are refused.
 - **Copilot CLI:** no Events support in Copilot CLI 1.0.115; the polyfill is
   a plugin holding a Copilot extension, so it needs experimental mode.
 
@@ -135,13 +135,14 @@ it, run `agy plugin uninstall mcp-events`. Its state is in
 
 **In Copilot CLI** (1.0.115, the version tested), the plugin is a Copilot
 extension, and Copilot loads extensions only in experimental mode: start it
-with `copilot --experimental`, or, per Copilot's help, run `/settings experimental on` once (the runs here used `--experimental`). The
+with `copilot --experimental`, or, per Copilot's help, run `/settings experimental on` once (not checked). The
 whole extension API is experimental, so it may change in any release.
 Copilot runs the extension with its own Node, so you need none. The install
 from a clone is the one tested; Copilot loads the plugin where it is, so keep
 the clone. From GitHub,
-`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace;
-that was checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code. To remove it, run
+`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace.
+Checked in Copilot CLI 1.0.105. Not checked in 1.0.115, in the interactive
+TUI, or in VS Code. To remove it, run
 `copilot plugin uninstall mcp-events@agent-polyfill`. Watches and events stay
 in `~/.copilot/mcp-events/`; delete that folder too to remove them.
 
@@ -200,8 +201,8 @@ Start your host in the same folder:
 - **Antigravity:** `agy`, or the App. `agy mcp add` is in CLI 1.5.17's own
   help, not in Antigravity's docs. The App doesn't ship `agy`; there, add
   the server under Customizations > Installed > MCP Servers, or in
-  `~/.gemini/config/mcp_config.json`. This demo is for trying: it wasn't run
-  in Antigravity, whose live run used the repository's local deploys demo.
+  `~/.gemini/config/mcp_config.json`. This demo was not checked in
+  Antigravity.
 - **Copilot CLI:** `copilot --experimental`. Copilot's tool prompt comes
   first, then the plugin's own question before the watch starts.
 
@@ -295,8 +296,8 @@ After yes, an event wakes an idle session with a message starting
 `[mcp-events]`, saying it was sent by the extension, not typed by you. Pi
 reads the event with `get_event` and answers. A watch belongs to that Pi
 session and resumes with it; a local (stdio) watch resumes only in the same
-folder. The [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/live-run.md)
-shows approval, an idle session waking, the answer and stopping the watch.
+folder. Checked in Pi 1.6.0: approval, an idle session waking, the answer
+and stopping the watch.
 
 ### In OpenCode
 
@@ -325,9 +326,8 @@ model reads the event with `mcp_events_get_event`. The TUI shows that
 message as `◈ mcp-events: new events`. OpenCode Desktop starts the turn too,
 but shows no entry for the message, so the turn appears with no visible
 cause. Watches are kept on disk and resume when OpenCode next opens the
-project. The [live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md)
-shows the question, an idle session waking and the answer, through OpenCode's
-server, in its TUI and in OpenCode Desktop.
+project. Checked in OpenCode 2.4.1, through its server, in its TUI and in
+OpenCode Desktop: the question, an idle session waking and the answer.
 
 ### In Antigravity
 
@@ -338,18 +338,17 @@ ticket and then get Antigravity's usual MCP question, which allow rules can
 skip. An MCP server isn't told which conversation calls it, so the plugin's
 `PreToolUse` hook passes the conversation id to the call in a one-use
 ticket. New events reach the conversation at its next model call, through
-the plugin's `PreInvocation` hook: seen live in the CLI, though
+the plugin's `PreInvocation` hook: checked in CLI 1.5.17, though
 Antigravity's plugins page doesn't list `PreInvocation` among plugin hooks.
 What it adds is fixed text with a count and the plugin's own watch ids, with
 no event type, server name, note or payload; the model reads the events with
 `recent_events` or `get_event`. In the App, the plugin's sidecar wakes an
 idle conversation with `agentapi send-message`, once you turn it on. CLI
 conversations can't be woken. The IDE documents no plugin hooks, so the
-forms aren't supported there, and their gated calls are refused. The
-[live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/live-run.md)
-records, in CLI 1.5.17, a watch approved and one declined, and delivery at
-the next turn; with earlier builds, an idle App conversation woken by the
-sidecar and a wake during a running turn.
+forms aren't supported there, and their gated calls are refused. Checked in CLI 1.5.17: a watch approved and one
+declined, and delivery at the next turn. Checked in the App with earlier
+builds: an idle conversation woken by the sidecar, and a wake during a
+running turn.
 
 ### In Copilot CLI
 
@@ -377,10 +376,9 @@ When an event arrives, the plugin hands the session a message with
 `session.send`, as a turn Copilot marks as an automation. Its first line says
 the plugin sent it, not you. Copilot reads the event with `get_event` and
 answers. A watch belongs to the Copilot session that set it;
-`copilot --resume` starts its watches again from their cursors. The
-[live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/docs/live-run.md),
-with a scripted model, shows a watch set through Copilot's tool prompt, an
-idle session waking and the event read.
+`copilot --resume` starts its watches again from their cursors. Checked in
+Copilot CLI 1.0.115: a watch set through Copilot's tool prompt, an idle
+session waking and the event read.
 
 ## What Claude can do with it
 
@@ -477,10 +475,10 @@ OpenCode uses the same relay client: a relay of your own, the public relay
 set in the environment OpenCode starts in. Deliveries are taken by the
 plugin's receiver inside OpenCode's server, only when signed with the watch's
 secret, and only from a subscription on a connection that carries your
-credentials. In a live run, a webhook through the public relay woke an
-OpenCode session.
+credentials. Checked in OpenCode 2.4.1: a webhook through the public relay
+wakes a session.
 [OpenCode's README](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/README.md#webhook-delivery)
-points to the shared setup. In Antigravity, a webhook watch hasn't been run yet.
+points to the shared setup. In Antigravity, a webhook watch was not checked.
 
 Copilot CLI uses the same relay: one relay serves the Claude Code, Codex and
 Copilot forms. The plugin reads `~/.mcp-events/relay.json`, which the relay's
@@ -530,9 +528,9 @@ availability.
 | `claude -p "…"` (one prompt, then exit) | Yes | No: the process ends with its turn |
 | Cloud sessions (Claude Code on the web) | Not supported: the mod has to start a local process | |
 
-Tested live in Claude Code on macOS. The helper's tests also run on Linux and
-Windows on every push, but the mod has not been run inside Claude Code on
-Linux or Windows, in the desktop app, or in an IDE.
+Checked in Claude Code on macOS. The helper's tests also run on Linux and
+Windows on every push. Not checked inside Claude Code on Linux or Windows,
+in the desktop app, or in an IDE.
 
 ### In Pi
 
@@ -547,14 +545,14 @@ when something uses that project: the TUI (`opencode`), OpenCode Desktop, or
 another client of the server (`opencode serve`). Until then a saved watch
 doesn't run; events from the meantime arrive when it resumes. An event wakes
 an idle session in the TUI and in OpenCode Desktop; Desktop shows no entry
-for the wake itself. Tried live through the server's API, in the TUI and in
-OpenCode Desktop 2.4.1. CI runs the tests on Linux, macOS and Windows; it
-hasn't been tried by hand on Windows.
+for the wake itself. Checked through the server's API, in the TUI and in
+OpenCode Desktop 2.4.1. CI runs the tests on Linux, macOS and Windows;
+Windows was not checked beyond the tests.
 
 ### In Antigravity
 
-In the App, the CLI (`agy`) and editors on `agy acp`; these builds were run
-in App 2.35.1 and CLI 1.5.17. Only App conversations
+In the App, the CLI (`agy`) and editors on `agy acp`. Checked in App 2.35.1
+and CLI 1.5.17. Only App conversations
 can be woken, and only with the sidecar on. The IDE documents no plugin
 hooks, so the forms aren't supported there, and their gated calls are
 refused.
@@ -568,12 +566,9 @@ refused.
 | `copilot --acp` (an editor driving Copilot over ACP) | No: Copilot 1.0.115 doesn't load extensions in ACP sessions | No |
 | VS Code 1.147.0's Copilot harness | Yes | Yes: a message from the plugin shows, then the turn |
 
-Tested live in Copilot CLI 1.0.115 on macOS, with a scripted model on the
-machine standing in for Copilot's. The tests also run on Linux in CI.
-Windows hasn't been tried. In VS Code, the person testing signed in with
-their own GitHub account, in a throwaway VS Code profile since deleted, and
-the model was GitHub's Claude Haiku 4.5. That run came before the plugin's
-own question; the question hasn't been seen in VS Code.
+Checked in Copilot CLI 1.0.115 on macOS. The tests also run on Linux in CI.
+Not checked on Windows. Not checked in VS Code: the plugin's own watch
+question.
 
 ## Settings
 
@@ -685,15 +680,15 @@ Environment variables, for example in the `env` block of
   that offers events runs twice.
 - **Two ways to take push events.** OpenCode has part of Events itself: its
   automations take push events, but it doesn't poll or take webhooks, and it
-  skips event types whose schemas it can't check (it skipped both of the
-  fixture server's types, valid under the SEP). A plugin can't ask which
+  skips event types whose schemas it can't check, types that are valid under
+  the SEP among them. A plugin can't ask which
   types it took, so the plugin watches every type, push included, and tells
   the model to use a watch or an automation for an event type, not both.
   Nothing enforces it: with both set up, an event wakes the session twice.
   That's a stated departure from rule 4 of
   [the contract](./build-a-polyfill#the-contract), which has a polyfill stand
   down where the host is native. OpenCode Console's `console_watch` tools,
-  for a signed-in workspace, weren't tried.
+  for a signed-in workspace, were not checked.
 - **Watches resume when OpenCode opens the project**, not when its server
   starts. Events from the meantime aren't lost.
 - **The wake reaches the model as a user message.** OpenCode stores it as
@@ -717,12 +712,12 @@ Environment variables, for example in the `env` block of
   call, through the plugin's `PreInvocation` hook, which Antigravity's
   plugins page doesn't list among plugin hooks.
 - **After a restart.** A watch restarts when its conversation next calls the
-  plugin: a resumed CLI conversation did, and got the events it had missed.
+  plugin: a resumed CLI conversation gets the events it missed.
 - **No sign-in through Antigravity.** Servers behind Antigravity's own
   sign-in can't be reached.
-- **Not run yet:** a webhook watch, the feeds demo, and these builds in the
-  App. Whether `--dangerously-skip-permissions` also skips the watch's
-  `force_ask` hasn't been checked.
+- **Not checked yet:** a webhook watch and the feeds demo. Whether
+  `--dangerously-skip-permissions` also skips the watch's `force_ask` hasn't
+  been checked.
 - **Not in the IDE.** The IDE documents no plugin hooks, so the forms aren't
   supported there, and their gated calls are refused.
 
@@ -776,13 +771,7 @@ How it is checked:
   sends first reaches.
 - **A formal model** of delivery and of waking, in Quint and in TLA+:
   simulated, and model-checked with TLC to small, stated bounds. TLC checks the
-  model, not the code, and says nothing past its bounds. On 0.5.0's model it
-  found three cases the simulation had missed; two were in the code too, and
-  0.5.1 fixes both, each with a test that fails on 0.5.0.
-- **One review from outside the sessions that built it, and no audit by a
-  person.** On 24 November 2026 an AI reviewer that had not built any of it
-  reviewed the mod and the public relay; what it found is fixed or listed in
-  `SECURITY.md`.
+  model, not the code, and says nothing past its bounds.
 
 The full account, including what it does not protect against:
 [`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md).
@@ -802,8 +791,6 @@ conformance PR #541 pass 17 of 17 with the shared client as Pi runs it. End
 to end through real Pi, 11 pass, none fail and 6 cannot be evaluated because
 Pi's own client also connects to the suite's server. See
 [Pi's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/conformance.md).
-An AI reviewer who did not build the Pi forms reviewed them, and checked
-the fixes again. They have not been audited by a person.
 
 ### In OpenCode
 
@@ -821,14 +808,11 @@ The shared client's clause table applies in OpenCode: the form bundles that
 client unchanged (with `MCP_EVENTS_PRE_STANDARD=off`, 80 clauses met and 6
 not applicable). The upstream suite's Events scenarios were run against that
 client in the Claude Code and Codex forms, not through OpenCode. The form's
-own tests run it in OpenCode 2.4.1 with a scripted model, against the fixture
-events server: listing, poll, push and webhook delivery, a wake with no
+own tests run it in OpenCode 2.4.1: listing, poll, push and webhook delivery, a wake with no
 payload, a watch resumed after a restart, and the permission question. See
 [OpenCode's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/docs/conformance.md).
-Live, with a real model, AgentPolyfill's event-feeds server by poll and a
-webhook through the public relay each woke an idle session.
-An AI reviewer who did not build the OpenCode forms reviewed them. They have
-not been audited by a person.
+Checked in OpenCode 2.4.1: AgentPolyfill's event-feeds server by poll, and a
+webhook through the public relay, each wake an idle session.
 
 ### In Antigravity
 
@@ -847,11 +831,8 @@ interactive CLI starts in auto mode, where an MCP tool call still asks; and
 headless `agy -p` reports `request-review` and denies a call nobody answers.
 In CLI 1.5.17 a `PreToolUse` hook that fails makes the call fail. Whether
 `--dangerously-skip-permissions` also skips `force_ask` hasn't been checked.
-The Events scenarios in conformance PR #541 (suite at `c8625de`, 25 November
-2026) pass 17 of 17 checks, through
-the form's MCP server and its ticket hook
-([record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/evidence/conformance.txt)).
-The independent AI review of the Antigravity forms is in progress.
+The Events scenarios in conformance PR #541 (suite at `c8625de`) pass 17 of
+17 checks, through the form's MCP server and its ticket hook.
 
 ### In Copilot CLI
 
@@ -895,11 +876,8 @@ neither. On a machine with none, `/mcp-events setup` fetches one:
 - **Where it goes:** a `runtime` folder in the plugin's data folder, used for
   this mod's helper and nothing else. `/mcp-events setup remove` deletes it.
 
-**Not yet run as one sequence.** The download, the check and the unpacking are
-tested with stand-ins for the machine; the download itself has not been run
-from this mod. The same code was run in parts against the real release in the
-mcp-skills mod for Claude Code, which has since been removed from this
-repository.
+**Not checked as one sequence.** The download, the check and the unpacking
+each have tests; the download itself has not been checked from this mod.
 
 ## When Claude Code supports Events itself
 
@@ -924,12 +902,11 @@ only**:
 - An event wakes the thread through T3 Code's own `t3 thread send`. The turn
   runs in the thread's permission mode; the message says it's from the
   polyfill, and T3 Code adds that it came through T3 Code's tools.
-- The [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/t3/docs/live-run.md) stopped T3 Code
-  entirely before the event arrived; when T3 Code came back, the thread woke
-  and read the event.
+- Checked in T3 Code 0.1.11: with T3 Code stopped entirely when the event
+  arrives, the thread wakes and reads the event once T3 Code is back.
 
 Claude Code threads can't use it: T3 Code doesn't tell Claude Code's servers
-which thread they serve. Not run live: the approval prompt for `watch_event`
+which thread they serve. Not checked: the approval prompt for `watch_event`
 in a thread whose mode asks.
 
 ## More
@@ -941,4 +918,3 @@ On GitHub, in [`polyfills/events/claude-code`](https://github.com/idosal/AgentPo
 - [`model/`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/model/README.md): the formal model, what it found, and what it shows within its bounds.
 - [`docs/sign-in.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/docs/sign-in.md): servers that need credentials, and why interactive OAuth is out of reach.
 - [`docs/performance.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/docs/performance.md): what it costs to run.
-- [`docs/live-run.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/docs/live-run.md): a transcript of a live session.

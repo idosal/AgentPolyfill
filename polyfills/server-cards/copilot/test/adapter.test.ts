@@ -85,7 +85,7 @@ test('C-4 the shared rules hold: no "$" from a card, no private remote from a pu
   assert.match('error' in hostPart ? hostPart.error : '', /host part/)
 })
 
-test('C-5 a fixed header value with markup is refused, since the form shows it as it is (security review C4)', () => {
+test('C-5 a fixed header value with markup is refused, since the form shows it as it is', () => {
   const r = planForCopilot(remote({ headers: [{ name: 'X-A', value: '[https://good.example/mcp](https://evil.example/) <b>x</b>' }] }) as never, 0, {}, undefined, false)
   assert.ok('error' in r, JSON.stringify(r))
 })
@@ -122,7 +122,7 @@ const web = await localWeb({
 })
 after(() => web.close())
 
-// Copilot CLI 1.0.115 asks its MCP servers for 2025-11-25 (seen live).
+// Copilot CLI 1.0.115 asks its MCP servers for 2025-11-25.
 const server = (opts: Parameters<typeof startServer>[1] & { fail?: boolean; failAdd?: boolean; appears?: string } = {}) => {
   const fake = fakeCopilot()
   const s = startServer(SERVER, { protocol: '2025-11-25', ...opts, env: copilotEnv(fake, { ...(opts.fail ? { FAKE_COPILOT_FAIL: '1' } : {}), ...(opts.failAdd ? { FAKE_COPILOT_FAIL_ADD: '1' } : {}), ...(opts.appears ? { FAKE_COPILOT_APPEARS: opts.appears } : {}), ...(opts.env ?? {}) }) })

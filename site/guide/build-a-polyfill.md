@@ -75,7 +75,7 @@ The skill asks for seven parts, and the work is done when all seven exist:
 | 3 | Route table | For each thing the extension needs on the wire, how this host lets you reach it, and what that route cannot do. |
 | 4 | Implementation | Code for the rows of part 2, over the routes of part 3. |
 | 5 | Stand-down | What makes the polyfill do nothing when the host supports the extension. |
-| 6 | Proof | A test per row of part 2; a run against a server you did not write; a recorded run in the real host. |
+| 6 | Proof | A test per row of part 2; a run against a server you did not write; a run in the real host. |
 | 7 | Limits and host changes | What it does not do on this host, and for each limit the change in the host that would remove it. |
 
 Parts 1 to 3 come before any code. A deadline changes how many rows of part 2
@@ -211,15 +211,15 @@ installation. Add a marketplace entry where that host uses one.
 [Contributing](./contributing#bringing-a-polyfill-to-another-host) has the
 steps; `create-polyfill` covers it too ("polyfill MCP Apps in Codex").
 
-The Pi forms show why the host's API and the evidence need their own account.
+The Pi forms show why each host needs its own account of what its API allows
+and what was checked.
 Events and Skills need their own connections and cannot use Pi's sign-in;
 the Skills form can meet X8 with Pi's `tool_call` hook, including codemode's
 nested calls. Each form asks before its consequential step, since Pi has no
 tool approval prompt unless a permission extension asks. Each has an off
 switch because native support cannot be detected. Their READMEs,
-`SECURITY.md`, `docs/conformance.md` and `docs/live-run.md` record what was
-checked. ARD's live run did not complete the add step; addition was checked
-in real Pi with a scripted model and a local server.
+`SECURITY.md` and `docs/conformance.md` record what was checked. ARD's add
+step is checked by the form's tests only.
 
 The OpenCode forms show the same. An OpenCode plugin can add tools, start a
 turn in an idle session, ask through OpenCode's own permission rules, add a
@@ -232,10 +232,8 @@ read. OpenCode's shipped rules allow every action, so each form makes its own
 actions ask by default. OpenCode takes push events for its automations but
 skips event types it can't check, so the Events form watches every type and
 states its departure from rule 4. Their READMEs, `SECURITY.md` and
-`docs/conformance.md` record what was checked: tests in a real OpenCode with
-a scripted model, and live runs in
-[`tools/opencode/live-run.md`](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md).
-ARD's live runs did not add a server; addition was checked by its tests.
+`docs/conformance.md` record what was checked. ARD's add step is checked by
+the form's tests only.
 
 The Antigravity forms show it from another side. Antigravity documents no
 MCP elicitation, and its client cancels every request without showing it, so
@@ -248,8 +246,7 @@ another server's resource read, but Antigravity ignores that question (CLI
 1.5.17, App 2.35.1).
 In CLI 1.5.17 a hook that fails makes the call fail. Each form has an off
 switch because native support cannot be detected. Their READMEs,
-`SECURITY.md`, `docs/conformance.md` and Events' `docs/live-run.md` record
-what was checked. The IDE documents no plugin hooks, so the forms aren't
+`SECURITY.md` and `docs/conformance.md` record what was checked. The IDE documents no plugin hooks, so the forms aren't
 supported there, and their gated calls are refused.
 
 The Copilot CLI forms show the same from another side. Only an extension can
@@ -262,8 +259,7 @@ make the default) or with allow-all, so each form asks its own question after
 it: Events in a Copilot dialog, by default, and Server Cards and ARD in a form
 before adding a server or sending a search. Each has an off switch because
 native support cannot be detected. Their READMEs, `SECURITY.md` and
-`docs/conformance.md` (and Events' `docs/live-run.md`) record what was
-checked. The live runs in Copilot CLI used a scripted model on the machine.
+`docs/conformance.md` record what was checked.
 
 ## Your own, listed in the community directory
 

@@ -33,7 +33,7 @@ export function npmCommand(platform = process.platform) {
  * A folder made or found private: a folder, not a link, owned by this user
  * and closed to others. Throws otherwise. Its name may be one another local
  * user can guess (the helper's own temporary folder, in a shared /tmp on
- * Linux), so it is checked, not taken as found (security review, A6).
+ * Linux), so it is checked, not taken as found.
  */
 export function privateFolder(dir, fsImpl) {
   const fs = fsImpl;
@@ -49,7 +49,7 @@ export function privateFolder(dir, fsImpl) {
 
 /**
  * Marks a file the person saved from an app as downloaded from the internet,
- * the way browsers do (security review, A5): macOS's com.apple.quarantine
+ * the way browsers do: macOS's com.apple.quarantine
  * attribute, which Gatekeeper reads, or Windows' Zone.Identifier stream
  * (zone 3, the internet). Linux has no such mark.
  */

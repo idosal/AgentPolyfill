@@ -11,7 +11,7 @@ import type { SessionDeps } from './tools'
 
 /**
  * Protocol revisions Codex 0.170.0 negotiates as an MCP client: it asks for
- * 2025-06-18 in `initialize` (seen in a live session, 2026-11-24), and its rmcp
+ * 2025-06-18 in `initialize`, and its rmcp
  * client accepts the revisions before it. 2026-07-28 is behind the
  * `mcp_2026_07_28` feature, under development and off.
  */

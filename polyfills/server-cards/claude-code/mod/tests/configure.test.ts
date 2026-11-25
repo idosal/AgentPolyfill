@@ -94,7 +94,6 @@ test('A-10 the command for the person keeps the env reference literal', async ()
   )
 })
 
-// Review findings (2026-11-24).
 test('A-11 no "$" from a card or the model: no reference to another environment secret', async () => {
   const card = (r: unknown) => ({ ...buildkite, remotes: [r] }) as unknown as ServerCard
   const viaVariable = card({
@@ -133,7 +132,6 @@ test('A-13 dot segments, other schemes and private remotes are refused; dev loca
   expect('error' in planAdd(dev, 0, {}, 'x', 'local', false)).toBe(true)
 })
 
-// Second review pass (2026-11-24).
 test('A-14 no "$" in a header name either', async () => {
   const card = { ...buildkite, remotes: [{ type: 'streamable-http', url: 'https://x.example/mcp', headers: [{ name: 'X-$', value: 'ok' }] }] } as unknown as ServerCard
   expect('error' in planAdd(card, 0, {}, 'x', 'local')).toBe(true)
@@ -182,7 +180,6 @@ test('A-20 the preview shows where a template really connects', async () => {
   expect(previewUrl(card, 0)).toBe('https://attacker.example/mcp')
 })
 
-// Security review (2026-11-24).
 test('A-21 what is added is printable: no control or formatting character from a card or from Claude', async () => {
   const card = (r: unknown) => ({ ...buildkite, remotes: [r] }) as unknown as ServerCard
   // planAdd also holds the line on its own, for a card that reached it unvalidated.
@@ -196,8 +193,8 @@ test('A-21 what is added is printable: no control or formatting character from a
   expect('error' in planAdd(preset, 0, {}, 'x', 'local')).toBe(true)
 })
 
-// Security review SC3 (2026-11-24): the tag was 32-bit FNV-1a, and a URL for an
-// attacker's card with the same tag as GitHub's was found in 66 seconds.
+// A 32-bit tag (FNV-1a) is too short: a URL for an attacker's card with the same
+// tag as another card's can be found in about a minute.
 test('A-22 SHA-256 is SHA-256 (FIPS 180-4 vectors), and the tag is 80 bits of it', async () => {
   expect(hex(sha256(''))).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
   expect(hex(sha256('abc'))).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
@@ -207,7 +204,7 @@ test('A-22 SHA-256 is SHA-256 (FIPS 180-4 vectors), and the tag is 80 bits of it
   expect(tag('x').length).toBe(16)
 })
 
-test('A-23 the review\'s colliding card gets a different secret reference from GitHub\'s', async () => {
+test('A-23 a colliding card gets a different secret reference from GitHub\'s', async () => {
   const github = {
     $schema: 'https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json',
     name: 'io.github.github/github-mcp-server',
@@ -224,7 +221,7 @@ test('A-23 the review\'s colliding card gets a different secret reference from G
   expect(/^MCP_GITHUB__TOKEN_[A-Z2-7]{16}$/.test(a.plan.envVars[0]!.name)).toBe(true)
 })
 
-test('A-24 a base URL a variable fills in holds no markup either (security review C1)', async () => {
+test('A-24 a base URL a variable fills in holds no markup either', async () => {
   const card = {
     ...fixtures.official.valid.minimal,
     remotes: [{ type: 'streamable-http', url: '{base}/mcp', variables: { base: { isRequired: true } } }],
@@ -235,7 +232,7 @@ test('A-24 a base URL a variable fills in holds no markup either (security revie
   expect('plan' in good && good.plan.url).toBe('https://[::1]:8080/mcp')
 })
 
-test('A-25 a filled-in URL that names a user before its host is refused, and the host is read as a client reads it (security review C3)', async () => {
+test('A-25 a filled-in URL that names a user before its host is refused, and the host is read as a client reads it', async () => {
   const card = {
     ...fixtures.official.valid.minimal,
     remotes: [{ type: 'streamable-http', url: '{base}/mcp', variables: { base: { isRequired: true } } }],

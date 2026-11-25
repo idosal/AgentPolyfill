@@ -67,8 +67,7 @@ instructions to the model, are what tell it apart from what you typed.
   - Only these count: `user` (typed in the TUI), `composer` (sent in the
     ChatGPT desktop app), `exec` (`codex exec`) and `realtime` (voice). Each is
     where Codex 0.172's source sets it, except `composer`. That one is the
-    desktop app's default, read from the installed app and its sessions'
-    records, not run.
+    desktop app's default. Not checked with this version.
   - These don't count: a turn the queue started (this plugin's own wake among
     them), a hook, an automation, a trigger it doesn't know, and a call with no
     turn metadata (a Codex before 0.172).
@@ -84,7 +83,7 @@ instructions to the model, are what tell it apart from what you typed.
   its environment. What Codex prints isn't repeated, only whether it worked.
   - **On macOS and Linux** that is the `codex` program found on PATH (or in
     `MCP_EVENTS_CODEX_BIN`), started directly.
-  - **On Windows** (not tried) the plugin runs only `codex.exe` or, for Codex
+  - **On Windows** (not checked) the plugin runs only `codex.exe` or, for Codex
     installed with npm, Node itself with the package's
     `node_modules\@openai\codex\bin\codex.js`, found beside npm's `codex.cmd`.
     It never runs a `.cmd` or `.bat`, npm's `codex.cmd` included, because

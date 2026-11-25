@@ -36,7 +36,7 @@ different in Codex.
 | STATE-1, PUSH-11 | after a restart, resumed from the saved cursor; what came meanwhile arrives once | `test/spec-test.ts` "STATE-1, PUSH-11" |
 | WH-1, WH-12, RX-1, RX-7 | a fresh `whsec_` secret per subscription; only signed deliveries taken, stored before 2xx; https except on loopback for tests | `test/spec-test.ts` "WH-1, WH-12 (dev), RX-1, RX-7" |
 | SEC-1, SEC-2 | payloads reach the model only as tool results; the wake message carries no server text | `test/spec-test.ts` "SEC-1, SEC-2" |
-| PUSH-14 | a subscription the server ends is removed, and the session told | interop: hookbench "termination" ([`interop.md`](interop.md)) |
+| PUSH-14 | a subscription the server ends is removed, and the session told | interop: hookbench "termination" (`test/interop/run.ts`) |
 | RH-1, RH-4 | `Mcp-Name` and `Mcp-Param-*` on Streamable HTTP | interop: hookbench "routing headers" |
 | WH-7, WH-11 | webhook only on an authenticated connection; `events/unsubscribe` with name, arguments and url | interop: hookbench and outpost-demo "unwatch" |
 
@@ -63,7 +63,7 @@ Code form's driver. It runs the four scenarios
 | How | What plays the client | Result |
 |---|---|---|
 | `npm run conformance` | the shared client in the driver's process, named to the server as this plugin names it (`configureHost(CODEX)`), with a session's state laid out as the helper lays it out | **17 of 17 checks** |
-| `npm run conformance:helper` | end to end: the bundled `plugin/dist/helper.js` started as Codex starts it (an MCP server over stdio, a throwaway `CODEX_HOME` whose `config.toml` names the suite's server, a stand-in `codex`), driven with `list_event_types` and `watch_event` calls that carry a session id | **17 of 17 checks** |
+| `npm run conformance:helper` | end to end: the bundled `plugin/dist/helper.js` started as Codex starts it (an MCP server over stdio, a temporary `CODEX_HOME` whose `config.toml` names the suite's server, a stand-in `codex`), driven with `list_event_types` and `watch_event` calls that carry a session id | **17 of 17 checks** |
 
 - **The one allowance.** In the webhook scenario the suite's stand-in server is
   plain http on this machine and asks for no credentials. The client

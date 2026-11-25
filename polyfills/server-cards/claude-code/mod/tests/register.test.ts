@@ -284,7 +284,7 @@ test('B-10 servers another plugin found are checked here, shown with the finder 
   expect(String(added.result).includes('confirmed by buildkite.com')).toBe(true)
 })
 
-// Security review SC2: a server of the same name in another scope is never replaced.
+// A server of the same name in another scope is never replaced.
 test('B-8 Claude\'s add refuses a name that already exists in any scope', async ($, on) => {
   const runs = engine(on, { current: fixtures.live['mcp.buildkite.com_mcp_server-card'] }, ['buildkite'])
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
@@ -297,7 +297,7 @@ test('B-8 Claude\'s add refuses a name that already exists in any scope', async 
   expect(String(named.result).includes('claude mcp remove buildkite-ci -s local')).toBe(true)
 })
 
-// Security review SC4: the add is always put to a person, naming what is written.
+// The add is always put to a person, naming what is written.
 test('B-9 the permission check asks, naming the server, URL, scope and undo; refuses with nobody to ask', async ($, on) => {
   engine(on, { current: fixtures.live['mcp.buildkite.com_mcp_server-card'] }, [], 'allow')
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
@@ -310,7 +310,7 @@ test('B-9 the permission check asks, naming the server, URL, scope and undo; ref
   expect(reason.includes(SHOWN)).toBe(true)
   expect(reason.includes('.mcp.json')).toBe(true)
   expect(reason.includes('claude mcp remove buildkite -s project')).toBe(true)
-  // The host on its own (security review C3).
+  // The host on its own.
   expect(reason.includes('It connects to the host mcp.buildkite.com, at ')).toBe(true)
   const nobody = await $.tool.check({ tool: ADD, input } as never)
   expect(nobody.decision).toBe('deny')
@@ -347,8 +347,7 @@ test('B-12 a finder\'s further sources are read on the publisher\'s domain: a se
   expect(out.text.includes("CONFIRMED: buildkite.com's own catalog")).toBe(true)
 })
 
-// Security review re-check, the two paths around the SC4 ask, and the
-// pre-merge re-check's M1: another plugin can't add a server, whichever way in.
+// The two paths around the ask: another plugin can't add a server, whichever way in.
 /**
  * A plugin that adds a shown card through its own $.tool.call. Claude Code runs
  * the permission check for such a call, opens no dialog, and turns an ask into
@@ -400,7 +399,7 @@ test('B-14 a check that comes before the card is shown refuses, whatever the rul
   expect(String(late.deny).includes('was not put to one')).toBe(true)
 })
 
-// Security review M1, the optional binding: the run adds only what the person was asked about.
+// The optional binding: the run adds only what the person was asked about.
 test('B-15 a run whose arguments differ from those the person approved (name, scope) adds nothing', async ($, on) => {
   const runs = engine(on, { current: fixtures.live['mcp.buildkite.com_mcp_server-card'] })
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })

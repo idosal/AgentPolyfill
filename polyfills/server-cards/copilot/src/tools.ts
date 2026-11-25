@@ -67,7 +67,7 @@ export function askText(plan: CopilotPlan, card: ServerCard, provenance: string,
   const host = hostOf(plan.url) || '(unknown host)'
   return shownText(
     [
-      // The host first, on its own line too (as the Codex form's form, security review C3).
+      // The host first, on its own line too (as in the Codex form).
       `${host}: add the MCP server "${plan.name}" to Copilot?`,
       `It connects to the host ${host}`,
       `URL: ${plan.url.replace(/\$\{([A-Z0-9_]+)\}/g, '(the value of $$$1)')} (${plan.transport === 'sse' ? 'SSE' : 'streamable HTTP'})`,
@@ -104,10 +104,10 @@ export function addTool(session: Session, discoverName: string, foundBy: string)
       const r = resolveAdd(session, args, discoverName)
       if ('deny' in r) return refuse(r.deny)
       const { plan, card, provenance } = r
-      // Never over a server the person has (security review SC2).
+      // Never over a server the person has.
       if (await isNameTaken(session.deps.run, plan.name))
         return refuse(`A server named "${plan.name}" already exists in Copilot's configuration (or copilot could not say). Ask the person: add it under another name (pass \`name\`), or keep theirs.`)
-      // The person decides every addition (security review SC4): asked through the client's form,
+      // The person decides every addition: asked through the client's form,
       // refused where there is no form or the form is not accepted.
       const file = configPath(session.deps.env)
       const asked = await askPerson(ctx, askText(plan, card, provenance, file), ADD_CHOICES.yes, ADD_CHOICES.no)

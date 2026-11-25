@@ -73,9 +73,8 @@ Run from `polyfills/server-cards/pi`, with Node.js 22 on PATH:
 npm test
 ```
 
-The checked run on 25 November 2026, using Node.js 22.22.1 and Pi 1.6.0,
-passed **117 tests**, with none failed or skipped. The tests need loopback
-access for their local HTTP server.
+It runs **117 tests**. Checked with Node.js 22.22.1 and Pi 1.6.0. The tests
+need loopback access for their local HTTP server.
 
 - **90 shared rule tests:** `card`, `configure`, `discover`, `format` and
   `offer` from [`claude-code/mod/tests`](../../claude-code/mod/tests), against
@@ -104,14 +103,13 @@ The three answer tests are named:
 - `RPC: discover_mcp_servers then add, answer Don't add it; actual Pi CLI and connection`
 - `RPC: discover_mcp_servers then add, answer undefined; actual Pi CLI and connection`
 
-Each copies `extension/` on its own, loads it into real Pi in RPC mode, and
-uses a temporary HOME and agent directory. A scripted model calls discovery
-and addition against the local catalog, card and MCP server in
+Each loads a copy of `extension/` into real Pi, and calls discovery and
+addition against the local catalog, card and MCP server in
 [`harness.ts`](../test/harness.ts). The accepted case inspects the saved
 `mcp.json`, observes `initialize` with `2025-11-25`, and waits for
 `tools/list`. Decline and cancellation leave no configuration file and make
 no request to the MCP endpoint. The local server is our fixture; Pi is the
-independent host. These tests do not use a paid model.
+independent host. These tests need no model account or key.
 
 `real Pi print/JSON mode refuses addition because nobody can be asked`
 runs Pi with `--mode json -p`. It checks the refusal, the absence of
@@ -122,26 +120,15 @@ connecting` checks that the saved headers equal the plan, that the test
 secret is absent from the file and question, and that Pi sends its value
 in the header on `initialize`.
 
-The [live run](live-run.md), recorded on 24 November 2026 (UTC), used Pi
-1.6.0 and a real `gpt-6.2-sol` model against neon.com's published catalog.
-It records discovery of Neon and Neon Docs, the extension's question,
-**Add it**, the saved Neon Docs entry and session registration. The
-[`live/run.ts`](../live/run.ts) script answers the RPC question; this is not
-a record of a person operating the terminal selector. The transcript and
-script do not verify a completed Neon Docs tool call.
+Checked in Pi 1.6.0 against neon.com's published catalog. Not checked there:
+a tool call on the added server.
 
-What this evidence does not establish:
+Not checked:
 
 - S-3's live card comparison, negotiation of each older protocol revision,
   or protection against the final name-write race and private DNS results.
-- The selector's appearance in Pi's terminal UI. The automated and recorded
-  live runs answer through RPC. OAuth sign-in and a public server with secret
-  headers were not exercised by these runs.
-- A new public-server run for this page, or a Pi result inferred from the
-  Claude Code or Codex public-server runs. The Pi evidence is the tests and
-  the linked Pi live run above.
-- An upstream conformance pass. No upstream suite was run for Pi. The
-  [recorded upstream check](../../claude-code/README.md#proof) found no Server
-  Card scenarios in `modelcontextprotocol/conformance` at `96a6f9478b`.
-  That upstream checkout was not rechecked for this page; the Pi test
-  command runs this repository's tests.
+- The selector's appearance in Pi's terminal UI: the tests answer the
+  question through RPC. OAuth sign-in and a public server with secret
+  headers.
+- An upstream conformance pass. `modelcontextprotocol/conformance` at
+  `96a6f9478b` has no Server Card scenarios.

@@ -1,6 +1,6 @@
 [package]
 name = "mcp-apps-cli-helper"
-description = "The mcp-apps-cli helper, in Rust: hosts MCP App views in headless Chrome (see PORT.md)"
+description = "The mcp-apps-cli helper, in Rust: hosts MCP App views in headless Chrome"
 license = "Apache-2.0"
 publish = false
 version = "0.1.0"

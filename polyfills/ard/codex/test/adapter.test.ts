@@ -22,7 +22,7 @@ const web = await localWeb({
   // ard.json only: an ARD manifest needs no specVersion.
   '/.well-known/ard.json': { body: { entries: [{ identifier: 'urn:air:localhost:ci', type: TYPE, url: '{origin}/ci.json' }] } },
   '/ci.json': { body: card('com.example/ci', 'Example CI', '/ci/mcp') },
-  // A registry whose results carry Markdown: in a card's remote URL, and in a card URL (security review C1).
+  // A registry whose results carry Markdown: in a card's remote URL, and in a card URL.
   '/md-registry/search': {
     body: {
       results: [
@@ -147,7 +147,7 @@ test('A-7 with no registry set and none named, the search is refused before any 
   assert.equal(searches().length, before + 1)
 })
 
-test('A-8 a result whose card URL, or whose card\'s remote URL, holds Markdown is refused and never put in a form (security review C1)', async () => {
+test('A-8 a result whose card URL, or whose card\'s remote URL, holds Markdown is refused and never put in a form', async () => {
   const s = server({ answer: human })
   const r = await s.call('ard_search', { query: QUERY, registry: `${web.origin}/md-registry` })
   assert.equal((r.text.match(/REFUSED: [^\n]*square bracket/g) ?? []).length, 2, r.text)
@@ -168,7 +168,7 @@ test('A-9 a query with `, <, > or square brackets is refused before anyone is as
   assert.equal(searches().length, before)
 })
 
-test('A-10 a registry or a result URL that names a user before its host is refused: the form would show one host while the query goes to another (security review C3)', async () => {
+test('A-10 a registry or a result URL that names a user before its host is refused: the form would show one host while the query goes to another', async () => {
   const before = searches().length
   const s = server({ answer: human })
   const named = await s.call('ard_search', { query: QUERY, registry: `http://good.example@${new URL(web.origin).host}` })

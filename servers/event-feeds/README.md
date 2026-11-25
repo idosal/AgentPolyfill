@@ -241,7 +241,7 @@ A button watch polls every 2 s (1,800 requests an hour); a feed watch every 30 s
 npm test                                   # unit tests, against recorded upstream responses (no network)
 node --no-warnings test/smoke.ts <base>    # drives a running server over HTTP (reads the real upstreams)
 node --no-warnings test/interop/run.ts     # the mcp-events client against the deployed server (see the file)
-# the interop run and live/take.sh use the mcp-events polyfill's source: MCP_EVENTS_PLUGIN (default:
+# the interop run uses the mcp-events polyfill's source: MCP_EVENTS_PLUGIN (default:
 # ../../polyfills/events/claude-code in this repository)
 ```
 
@@ -256,9 +256,6 @@ node --no-warnings test/interop/run.ts     # the mcp-events client against the d
   as Claude Code's hooks module does: discovery, a watch, a button press waking the idle session, the
   same press not delivered twice, presses made while the client was closed delivered on reopen from
   the client's cursor, a refused watch, and a real new Hacker News story.
-- `live/take.sh` records a real Claude Code session doing the button demo, with the browser page;
-  `live/edit-zoom.json` is the cut (zooms and captions) behind the Events
-  polyfill's `docs/media/button-demo.mp4`.
 
 The upstream conformance suite (`@modelcontextprotocol/conformance`, 0.1.16) has no Events scenarios
 yet; they are in an open pull request (modelcontextprotocol/conformance#521) and were not run.

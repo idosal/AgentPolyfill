@@ -1,5 +1,5 @@
-// The helper's contract, the parts with no view (helper-rs/PORT.md,
-// milestone 1), checked against either helper: the Node one by default, or
+// The helper's contract, the parts with no view, checked against either
+// helper: the Node one by default, or
 // the binary MCP_APPS_CLI_HELPER names (the Rust port).
 //
 //   node contract-check.mjs

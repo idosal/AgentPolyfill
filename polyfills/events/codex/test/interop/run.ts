@@ -156,11 +156,11 @@ async function feeds() {
 /**
  * hookdeck/mcp-events-outpost-demo: an MCP server whose webhook subscriptions Hookdeck Outpost runs.
  * OUTPOST_LAUNCH is a command line that starts it against the demo's own mock Outpost and prints
- * {"mcp": …, "store": …} (docs/interop.md has the one used). Its tokens map tok-alice to a tenant.
+ * {"mcp": …, "store": …} (launch-outpost.mts is one). Its tokens map tok-alice to a tenant.
  */
 async function outpost() {
     const launch = process.env.OUTPOST_LAUNCH;
-    if (!launch) throw new Error('OUTPOST_LAUNCH must be the command that starts the demo (see docs/interop.md)');
+    if (!launch) throw new Error('OUTPOST_LAUNCH must be the command that starts the demo (see test/interop/launch-outpost.mts)');
     const [cmd, ...args] = launch.split(' ');
     const server = spawn(cmd!, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '';

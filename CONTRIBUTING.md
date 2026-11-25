@@ -160,8 +160,8 @@ It states:
   - In Antigravity: from the same clone,
     `agy plugin install ./polyfills/<extension>/antigravity/plugin`, which
     needs the Antigravity CLI (the App doesn't ship `agy`). The current forms
-    need Node 20 or newer on `PATH`. These builds were run in CLI v1.5.17;
-    earlier builds ran in App v2.35.1 (ARD in the CLI only). The IDE
+    need Node 20 or newer on `PATH`. Checked in App v2.35.1
+    and CLI v1.5.17. The IDE
     documents no plugin hooks, so the forms aren't supported there. Nothing
     is published to Antigravity's Marketplace. Remove one with
     `agy plugin uninstall <plugin>`.
@@ -169,7 +169,9 @@ It states:
     `copilot plugin marketplace add ./AgentPolyfill`, then
     `copilot plugin install <plugin>@agent-polyfill` (tested with 1.0.115;
     Events needs `copilot --experimental`). From GitHub,
-    `copilot plugin marketplace add idosal/AgentPolyfill`, checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code. `copilot plugin uninstall
+    `copilot plugin marketplace add idosal/AgentPolyfill` (checked in Copilot
+    CLI 1.0.105; not checked in 1.0.115, in the interactive TUI, or in VS
+    Code). `copilot plugin uninstall
     <plugin>@agent-polyfill` removes one.
   - Then what else it needs, and every step and question a new user meets
     between installation and the extension working, with what happens when
@@ -295,8 +297,7 @@ It runs on Linux, macOS and Windows, installs the OpenCode pinned in
 [`tools/opencode`](tools/opencode), checks that the committed
 `plugin/server.js` is what the sources build and, where the bundle holds
 other packages' code, that its licence notices are up to date, and runs the
-tests in a real OpenCode, in a throwaway home with a scripted stand-in for a
-model, so no model, key or account is used.
+tests in OpenCode itself. No model, key or account is used.
 
 The Antigravity forms are tested in
 [`antigravity-test.yml`](.github/workflows/antigravity-test.yml).
@@ -329,7 +330,7 @@ claude plugin validate .
 claude plugin validate polyfills/<extension>/<host>/<plugin subfolder>
 ```
 
-Run the polyfill's tests, and do one recorded run in the real host against a
+Run the polyfill's tests, and run it once in the real host against a
 server you didn't write. Say in the pull request what you ran and what you
 saw.
 
@@ -366,7 +367,7 @@ one `core/` with these forms:
    own tests beside it.
 4. **Meet the contract in that host.** It needs its own README (step 3), with
    that host's install line, requirements, limits and stand-down, its own
-   `SECURITY.md`, and a recorded run in the real host against a server you
+   `SECURITY.md`, and a run in the real host against a server you
    didn't write.
 5. **Document installation** using that host's distribution method (step 4),
    list it in a marketplace file where one exists, and add its CI (step 5).

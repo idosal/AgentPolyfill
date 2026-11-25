@@ -12,7 +12,7 @@ import { WAKE_HEADER, WAKE_PROMPT } from './words.ts';
 export const HEARTBEAT_MS = 5000;
 /**
  * The App's own agentapi first: a shim in its data folder, ~/.gemini/antigravity/bin/agentapi,
- * which runs the App's language_server (seen live, App 2.35.1). Only if that isn't there, the first
+ * which runs the App's language_server (App 2.35.1). Only if that isn't there, the first
  * agentapi on the sidecar's PATH (sidecars.md: "agentapi on PATH").
  */
 export function findAgentapi(env: NodeJS.ProcessEnv = process.env): string | undefined {
@@ -38,7 +38,7 @@ export function sendMessage(bin: string, id: string, text: string, env: NodeJS.P
         let settled = false;
         const finish = (r: Sent) => { if (!settled) { settled = true; clearTimeout(timer); resolve(r); } };
         // Only what agentapi needs to reach the App (its ANTIGRAVITY_* address and token) and to run
-        // at all, not the sidecar's whole environment (security review E7). Nothing is logged.
+        // at all, not the sidecar's whole environment. Nothing is logged.
         const childEnv = agentapiEnv(env);
         const child = spawn(bin, ['send-message', id, text], { shell: false, env: childEnv, stdio: 'ignore', windowsHide: true });
         const timer = setTimeout(() => { child.kill('SIGKILL'); finish({ ok: false, why: 'agentapi timed out; it may have accepted the message', maybe: true }); }, timeoutMs);
@@ -87,8 +87,8 @@ export class WakeSidecar {
                 if (request.conversationId !== id || !Number.isFinite(request.after) || request.after > Date.now()) continue;
                 // Only an App conversation can be reached by agentapi: drop any other's request, the events stay stored.
                 if (!wakeable(this.base, id)) { rmSync(join(requestsDir(this.base), name), { force: true }); continue; }
-                // A request is done with once its wake is sent or nothing is left to send (security review
-                // E5); one the budget holds back stays for a later tick. A request rewritten meanwhile stays.
+                // A request is done with once its wake is sent or nothing is left to send;
+                // one the budget holds back stays for a later tick. A request rewritten meanwhile stays.
                 if (await this.wake(id, bin, env)) this.dropRequest(name, request.after);
             } catch { this.log('a wake request could not be processed; events remain stored'); }
         }

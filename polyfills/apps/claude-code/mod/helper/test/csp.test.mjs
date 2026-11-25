@@ -1,4 +1,4 @@
-// CSP sources that name no one site aren't applied (security review, A4):
+// CSP sources that name no one site aren't applied:
 // the same cases as the Rust helper's policy tests.
 
 import assert from "node:assert/strict";

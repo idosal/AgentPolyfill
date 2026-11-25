@@ -17,9 +17,8 @@ none missing.** The upstream conformance suite's Events client scenarios pass
 against this form too ([below](#the-upstream-conformance-suite)).
 
 What this file adds: which rules the Pi form's own tests check end to end, in
-a real Pi 1.6.0 in RPC mode with the bundled extension, a scripted model and
-an agent folder of its own, against the hand-written events server; and
-what is different in Pi.
+a real Pi 1.6.0 with the bundled extension, against the hand-written events
+server; and what is different in Pi. Not checked: Pi's TUI dialog.
 
 ## Checked end to end in this form
 
@@ -55,26 +54,26 @@ The form's other tests check what the SEP leaves to the client:
 
 The official Events client scenarios are in the conformance suite's open
 pull request [modelcontextprotocol/conformance#541](https://github.com/modelcontextprotocol/conformance/pull/541),
-at its head `c8625de3118c2d5dc0561696cddeb0baaf124f2c`, the same revision the
-Codex form ran. [`test/conformance-driver.ts`](../test/conformance-driver.ts)
+at its head `c8625de3118c2d5dc0561696cddeb0baaf124f2c`, the same revision as
+the Codex form. [`test/conformance-driver.ts`](../test/conformance-driver.ts)
 is what the suite starts as the client. It runs the four scenarios
 (`events-client-no-extension`, `-poll`, `-push`, `-webhook`) two ways:
 
 | How | What plays the client | Result |
 |---|---|---|
-| `--suite` | the shared client in the driver's process, named to the server as this extension names it (`configureHost(PI)`), with a session's state laid out as the extension lays it out | **17 of 17 checks** ([output](evidence/conformance-core.txt)) |
-| `--suite --pi` | end to end: a real Pi 1.6.0 in RPC mode with the bundled `extension/dist/index.js`, an agent folder whose `mcp.json` names the suite's server, and the scripted model, which calls `list_event_types` and then `watch_event` for each type listed; the extension's question is answered yes | **11 checks passed, none failed, 6 not evaluated** ([output](evidence/conformance-pi.txt)) |
+| `--suite` | the shared client in the driver's process, named to the server as this extension names it (`configureHost(PI)`), with a session's state laid out as the extension lays it out | **17 of 17 checks** |
+| `--suite --pi` | end to end: a real Pi 1.6.0 with the bundled `extension/dist/index.js`, whose `mcp.json` names the suite's server; every event type listed is watched | **11 checks passed, none failed, 6 not evaluated** |
 
 - **The 6 not evaluated, end to end.** Pi connects every server in `mcp.json`
-  itself when a session starts, so in that run the suite's stand-in server
+  itself when a session starts, so end to end the suite's stand-in server
   also sees Pi's own client. That client speaks revision 2025-11-25, and the
   suite then takes the session for one on the earlier lifecycle. Six checks
   are skipped, or marked not testable, because of that: `Mcp-Name` in the
   poll, push and webhook scenarios and its Base64 form in the poll one, the
   opt-in to `list_changed`, and the re-list on `list_changed`. The one marked
   not testable makes the poll scenario's overall result a fail, although none
-  of its checks failed. The same six checks pass in the run of the shared
-  client, which this form runs unchanged.
+  of its checks failed. The same six checks pass with the shared client
+  (`--suite`), which this form runs unchanged.
 - **The one allowance.** In the webhook scenario the suite's stand-in server is
   plain http on this machine and asks for no credentials. The client
   subscribes by webhook only on an authenticated connection and only at an
@@ -98,10 +97,7 @@ is what the suite starts as the client. It runs the four scenarios
 
 - The webhook relay is the same relay, with the same client code; its tests
   are the Claude Code form's (`test/relay.e2e-test.ts`, and `mod/relay`'s own).
-- Interop runs against other implementations' Events servers are the Codex
-  form's ([`interop.md`](../../codex/docs/interop.md)), with the same client
-  code; from Pi, the form has been run against the hand-written fixture
-  server (with a real model, in the [live run](live-run.md)), an HTTP server
-  behind a token and one behind OAuth, and the hosted demo server (with the
-  scripted model: a watch confirmed, an `hn.story` event waking the idle
-  session, `get_event` reading it).
+- Checks against other implementations' Events servers are the
+  [Codex form](../../codex/README.md)'s, with the same client code. From Pi,
+  the form has been checked against the hand-written fixture server, an HTTP
+  server behind a token and one behind OAuth, and the hosted demo server.

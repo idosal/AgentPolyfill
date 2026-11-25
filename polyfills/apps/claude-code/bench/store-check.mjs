@@ -20,7 +20,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HELPER = path.join(HERE, "..", "mod", "helper");
 // The helper to check: MCP_APPS_CLI_HELPER names another (the Rust port's
-// binary, helper-rs/PORT.md); by default the Node one.
+// binary); by default the Node one.
 const helperCommand = (args) =>
   process.env.MCP_APPS_CLI_HELPER
     ? [process.env.MCP_APPS_CLI_HELPER, args]

@@ -81,10 +81,7 @@ load it. Pi then reads the skill's reference files from the server and
 answers from them. Without `/skill:`, Pi picks a served skill when the task
 fits its description, as it does for any skill.
 
-[`docs/live-run.md`](docs/live-run.md) records this question asked in Pi 1.6.0
-with a real model, against Hugging Face's server: Pi found the served skills in
-its own list, loaded two after one question each, read the reference files it
-needed through codemode, and answered from them.
+Checked in Pi 1.6.0 against Hugging Face's server.
 
 ## How it works
 
@@ -237,7 +234,7 @@ logic every form shares. Every rule, with how it is met on Pi and where it is
 tested, is in [`docs/conformance.md`](docs/conformance.md): 53 met, 6 met with
 a stated exception, 1 not applicable, none unmet. The official MCP
 conformance suite's four SEP-2640 client scenarios pass against this
-extension's App ([output](docs/evidence/conformance.txt)). On Pi:
+extension's App. On Pi:
 
 - **X8 is met.** Pi's `tool_call` hook can block and ask, for the model's
   calls and for codemode's nested calls alike, so a cross-server
@@ -260,15 +257,14 @@ extension's App ([output](docs/evidence/conformance.txt)). On Pi:
 - `test/client-rules-test.ts`: the Codex form's tests of the SEP's client
   rules, run against this form's app (38 tests), against a hand-written server
   that shares no code with the client.
-- `test/pi-test.ts`, in a real Pi 1.6.0 with its own agent directory and home
-  and a scripted stand-in model: a served skill is in Pi's skill list,
-  `/skill:` loads it after you approve it, a no loads nothing and fetches no
-  file; the X8 question, for the model's read, for a codemode script's, for
+- `test/pi-test.ts`, in a real Pi 1.6.0: a served skill is in Pi's skill
+  list, `/skill:` loads it after you approve it, a no loads nothing and
+  fetches no file; the X8 question, for the model's read, for a codemode script's, for
   this extension's own tools, and in a new instance of the extension after a
   clone; Pi's resource tool refused for a loaded skill's own files (V4); and
   with `--no-mcp`, no server reached and no skill listed.
-- `test/hardening-test.ts`, from the security review: a generated skill that
-  changes after you read it is loaded as you read it; two loads asked at once
+- `test/hardening-test.ts`: a generated skill that changes after you read
+  it is loaded as you read it; two loads asked at once
   run one after the other; a call cancelled while you're asked, or while it
   waits for another load, loads and keeps nothing; a server whose `skills/get`
   answer can't be used is asked about as it listed the skill; a server's media
@@ -279,8 +275,8 @@ extension's App ([output](docs/evidence/conformance.txt)). On Pi:
   test holds it to Pi's own entry check); an entry Pi rejects runs nothing;
   the extension runs only with Pi's own MCP support.
 - `test/conformance/`: the official MCP conformance suite's four SEP-2640
-  client scenarios, run against this extension's App
-  ([output](docs/evidence/conformance.txt)).
+  client scenarios, run against this extension's App with
+  `test/conformance/run.sh`.
 - `test/connection-test.ts`: against an HTTP server behind a token (reached,
   with the header resolved as Pi resolves it) and behind OAuth (out of reach,
   with the reason).

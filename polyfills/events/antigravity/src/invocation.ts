@@ -11,7 +11,7 @@ const WATCH_ID = /^w-[0-9a-f]{6}$/;
  * What PreInvocation puts in front of the model: fixed text and the plugin's own tokens (how many,
  * and which of this conversation's watches), nothing a server or the model wrote. Antigravity
  * injects it as a system step ("an out-of-band system instruction", hooks.md), so no event type
- * name, notice, note or payload goes in it (security review E9; the integrator's brief, item 1).
+ * name, notice, note or payload goes in it.
  * The model reads those with recent_events or get_event, whose answers are tool results.
  */
 export function deliveryText(count: number, watches: readonly string[]): string {

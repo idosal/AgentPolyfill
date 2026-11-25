@@ -17,8 +17,8 @@ security decision.
   sign-in.
 - **The plugin's state folder**, `~/.gemini/agentpolyfill/mcp-server-cards/`.
   Anything that can write it, or run the plugin's hook as you, can make a
-  ticket (seen live with the Events form's hook: a ticket made by running the
-  hook command by hand was accepted once). It could also edit
+  ticket (a ticket made by running the hook command by hand is accepted,
+  once). It could also edit
   `mcp_config.json` directly. Antigravity's terminal sandbox, on by default,
   keeps the agent's commands to the workspace and temporary folders; a
   command run outside it (you approved it, Auto mode judged it safe, or the
@@ -30,7 +30,7 @@ security decision.
 ## The boundary: Antigravity's approval card
 
 Antigravity's MCP client declares elicitation but cancels every request
-without showing it (seen live, App 2.35.1 and CLI 1.5.16). So an addition is
+without showing it (App 2.35.1 and CLI 1.5.16). So an addition is
 put to you through the plugin's `PreToolUse` hook:
 
 - **Which calls the hook sees.** `add_mcp_server` is eager
@@ -43,7 +43,7 @@ put to you through the plugin's `PreToolUse` hook:
   plugin's question: the host and the name first, then the URL, the header
   names and the file, then the header values, where the card came from and
   how to undo it. The CLI's card shows the first two lines and hides the rest
-  (seen live); the App's shows it all. `force_ask` ignores any "always allow"
+  (CLI 1.5.17); the App's shows it all. `force_ask` ignores any "always allow"
   you set; the App greys those choices out, the CLI still lists them.
 - **What the arguments say.** The call must name the entry's name, URL,
   header names and file in its own arguments, and both the hook and the
@@ -66,7 +66,7 @@ put to you through the plugin's `PreToolUse` hook:
   gated and goes through Antigravity's usual approval for MCP tools.
 - **When the hook can't run.** In CLI 1.5.17 a `PreToolUse` hook that exits
   non-zero, times out or prints something that isn't JSON makes Antigravity
-  fail the call (seen live). The hook always exits 0 with JSON: `allow` for a
+  fail the call. The hook always exits 0 with JSON: `allow` for a
   call that isn't the plugin's or that it can't read (whose call it is can't
   be told; an addition then carries no ticket and is refused), `deny` for the
   plugin's own call when it can't open its state or anything else goes wrong.
@@ -76,7 +76,7 @@ put to you through the plugin's `PreToolUse` hook:
 
 Antigravity's defaults ask before an MCP tool (the App's card; the
 interactive CLI, which starts in auto mode; headless `agy -p` denies a call
-nobody answers; all seen live). `force_ask` asks even where you have allowed
+nobody answers; checked in App 2.35.1 and CLI 1.5.17). `force_ask` asks even where you have allowed
 MCP tools. Whether `--dangerously-skip-permissions` also skips `force_ask`
 hasn't been checked.
 
@@ -139,7 +139,7 @@ one you were asked about.
   person's behalf.
 - Another program writing `mcp_config.json` at the very same moment: one of
   the two writes could be lost. (A write by Antigravity's `agy mcp add` while
-  the question was open was kept, seen live.)
+  the question is open is kept; checked in CLI 1.5.17.)
 - Disagreement between a card and the live server: the plugin can't send
   `server/discover` over Antigravity's connection.
 - Anything that can write the plugin's state folder, as above.

@@ -1,5 +1,5 @@
-// The security review's follow-up findings on this server (AgentPolyfill launch/security-review.md, D1 to D6),
-// one test each. D2 (label find_hn_story's titles) was later reversed by decision: no label is added.
+// Hardening rules for this server, one test each: a client's share of upstream fetches, GitHub event ids,
+// control characters in text, and IPv4-mapped IPv6 addresses.
 
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
@@ -11,7 +11,7 @@ import { excerpt, plain } from '../src/text.ts';
 import { forgetMemo, PER_CLIENT_MISSES, staleKeyOf, workerLoader } from '../src/upstream.ts';
 import { algoliaPage, decode, fakeLoader, fixtureJson, type Hit } from './helpers.ts';
 
-describe('D1: one client cannot spoil a feed for everyone', () => {
+describe('one client cannot spoil a feed for everyone', () => {
     test('each client gets at most its share of a host\'s fetches; a refused client does not spend the host\'s minute', () => {
         const st = { minute: 0, count: 0, per: new Map<string, number>() };
         const t = 1_795_480_000_000;
@@ -116,7 +116,7 @@ describe('find_hn_story returns titles as plain, capped data (no added label: no
     });
 });
 
-describe('D3: a GitHub eventId is short or hashed', () => {
+describe('a GitHub eventId is short or hashed', () => {
     test('a short, plain feed id is kept; a long or odd one is hashed', () => {
         assert.equal(releaseEventId({ id: 'tag:github.com,2008:Repository/426659329/wrangler@4.167.0', tag: 'wrangler@4.167.0' }), 'tag:github.com,2008:Repository/426659329/wrangler@4.167.0');
         const longTag = 'v1.0.0-' + 'a'.repeat(90);
@@ -129,7 +129,7 @@ describe('D3: a GitHub eventId is short or hashed', () => {
     });
 });
 
-describe('D5: C1 control characters are stripped', () => {
+describe('C1 control characters are stripped', () => {
     test('&#x9b; (CSI) and the rest of U+0080-U+009F become spaces', () => {
         assert.equal(excerpt('a&#x9b;31mb', 50), 'a 31mb');
         assert.equal(plain('x\u0085y\u009fz\u0080w'), 'x y z w');
@@ -137,7 +137,7 @@ describe('D5: C1 control characters are stripped', () => {
     });
 });
 
-describe('D6: IPv4-mapped IPv6 addresses count as their IPv4 address', () => {
+describe('IPv4-mapped IPv6 addresses count as their IPv4 address', () => {
     test('dotted and hex forms', () => {
         assert.equal(clientKeyOf('::ffff:203.0.113.9'), '203.0.113.9');
         assert.equal(clientKeyOf('::FFFF:cb00:7109'), '203.0.113.9');

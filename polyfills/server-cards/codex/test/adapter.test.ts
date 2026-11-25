@@ -209,8 +209,7 @@ test('E-3 an add with a form: the question names the server, URL, headers, file 
     properties: { decision: { type: 'string', title: 'Your answer', enum: ['no', 'add'], enumNames: ["Don't add it", 'Add it'] } },
     required: ['decision'],
   })
-  // The host on its own line (security review C3), then the URL.
-  // The host first (a client may join the lines), and on its own line (security review C3), then the URL.
+  // The host first (a client may join the lines), and on its own line, then the URL.
   assert.ok(q.message.startsWith(`${new URL(web.origin).host}: add the MCP server "example-docs" to Codex?\nIt connects to the host ${new URL(web.origin).host}\nURL: ${web.origin}/mcp\nHeaders: none\n`), q.message)
   assert.ok(q.message.endsWith(`Written to ${s.fake.dir}/config.toml (all your projects).\nTo undo: codex mcp remove example-docs`), q.message)
   assert.deepEqual(adds(s.fake), [['mcp', 'add', 'example-docs', '--url', `${web.origin}/mcp`]])
@@ -277,7 +276,7 @@ test('E-8 stand-down: MCP_SERVER_CARDS_DISABLED registers no tools', async () =>
   assert.deepEqual((await s.request('tools/list', {})).result.tools, [])
 })
 
-test('E-9 a card whose remote URL holds Markdown is refused, so it is never put in a form (security review C1)', async () => {
+test('E-9 a card whose remote URL holds Markdown is refused, so it is never put in a form', async () => {
   const LINK = '/x/[https://good.example/mcp](https://evil.example/)'
   const md = await localWeb({
     '/.well-known/ai-catalog.json': { body: { specVersion: '1.0', entries: [{ identifier: 'urn:air:localhost:md', type: 'application/mcp-server-card+json', url: '{origin}/md.json' }] } },
@@ -294,14 +293,14 @@ test('E-9 a card whose remote URL holds Markdown is refused, so it is never put 
   assert.deepEqual(adds(s.fake), [])
 })
 
-test('C-7 a fixed header value with markup is refused, since the form shows it as it is (security review C4)', async () => {
+test('C-7 a fixed header value with markup is refused, since the form shows it as it is', async () => {
   const r = planForCodex(remote({ headers: [{ name: 'X-A', value: '[https://good.example/mcp](https://evil.example/) <b>x</b>' }] }) as never, 0, {}, undefined, false)
   assert.match('error' in r ? r.error : '', /header X-A holds `, <, > or a square bracket/)
   const ok = planForCodex(remote({ headers: [{ name: 'X-A', value: 'plain-value' }] }) as never, 0, {}, undefined, false)
   assert.ok('plan' in ok)
 })
 
-test('E-10 a card whose remote URL names a user before its host, or holds a backslash, is refused, so it is never put in a form (security review C3)', async () => {
+test('E-10 a card whose remote URL names a user before its host, or holds a backslash, is refused, so it is never put in a form', async () => {
   const at = await localWeb({
     '/.well-known/ai-catalog.json': {
       body: {

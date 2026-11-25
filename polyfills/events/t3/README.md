@@ -57,9 +57,8 @@ You need:
   Without it, events are still stored, but no thread is woken.
 - **Node 20 or newer** on that PATH.
 
-The `codex mcp add` line above was tried in a fresh Codex home (Codex
-0.172.0). It writes this to `config.toml`, and `codex mcp list` then shows the
-server as enabled:
+Checked in Codex 0.172.0: the `codex mcp add` line above writes this to
+`config.toml`, and `codex mcp list` then shows the server as enabled:
 
 ```toml
 [mcp_servers.mcp-events-t3]
@@ -77,8 +76,8 @@ node plugin/dist/server.js --stop
 ```
 
 The first takes the server out of `config.toml`; the second ends the watcher,
-if one is running. Tried in the same fresh Codex home: afterwards `codex mcp
-list` shows no server, and no process of it is left.
+if one is running. Afterwards `codex mcp list` shows no server, and no process
+of it is left.
 
 What stays is its data folder, `~/.codex/mcp-events-t3` (or
 `$CODEX_HOME/mcp-events-t3`, or `MCP_EVENTS_STATE`): every thread's watches
@@ -119,9 +118,7 @@ echo '{"eventId":"t1","name":"ticket.created","timestamp":"2026-11-25T00:00:00Z"
 
 Within a few seconds the thread gets a message that starts with
 `[mcp-events]`, reads the ticket, and summarizes it. That works whether the
-thread was idle, its session closed, or T3 Code was restarted in between. The
-run in [`docs/live-run.md`](docs/live-run.md) stops T3 Code entirely before
-the event arrives.
+thread was idle, its session closed, or T3 Code was restarted in between.
 
 ## How it works
 
@@ -197,14 +194,14 @@ Webhook delivery needs a relay, set up as for the other forms
 
 | | Tools | An event wakes the thread |
 |---|---|---|
-| A T3 Code thread with Codex | Yes | Yes (tested live: [`docs/live-run.md`](docs/live-run.md)) |
+| A T3 Code thread with Codex | Yes | Yes |
 | A T3 Code thread with Claude Code | No: T3 Code doesn't tell Claude Code's servers which thread they serve. Use the [Claude Code mod](../claude-code/README.md); its limits in T3 Code are in [T3 Code](../../../docs/t3-code.md) | |
 | A T3 Code thread with another agent | Not tested | |
 | Codex outside T3 Code | No tools: use the [Codex plugin](../codex/README.md) | |
 
-Tested live with T3 Code 0.1.11 and Codex 0.172.0 on macOS. The tests run on
+Checked in T3 Code 0.1.11 with Codex 0.172.0 on macOS. The tests run on
 Linux and macOS in CI, including the wake against the real `t3` command.
-Windows hasn't been tried.
+Not checked on Windows.
 
 ### Beside the Codex plugin
 
@@ -212,8 +209,8 @@ The [mcp-events plugin for Codex](../codex/README.md) and this server read the
 same `config.toml`, so with both installed a T3 Code thread has two sets of
 the same six tools. Don't use the plugin's in T3 Code. It wakes a session with
 `codex queue`, meant for Codex's own app-server daemon, and T3 Code runs an
-app server of its own. In our run, T3 Code's app server took the queued
-message and ran a turn with it that the T3 Code thread never showed. Remove
+app server of its own. Checked in T3 Code 0.1.11: its app server took the
+queued message and ran a turn with it that the T3 Code thread never showed. Remove
 the plugin if you use Codex only through T3 Code; otherwise, ask for the
 `mcp-events-t3` tools by name.
 
@@ -275,9 +272,8 @@ MCP server what T3 Code's own client supports.
   `runtime/versions/<version>.staging-…` folder in the T3 Code home, and the
   next wake starts it again. A download that fails is tried again later, like
   T3 Code not running.
-- **Not checked live:** the approval prompt for `watch_event` in a thread
-  whose mode asks (the live run's thread was in Full access, the isolated
-  install's default); a T3 Code environment on another machine (the server and
+- **Not checked:** the approval prompt for `watch_event` in a thread
+  whose mode asks; a T3 Code environment on another machine (the server and
   `t3` then run there, which should work the same); Windows.
 - What every host would need to change for this to need no second connection
   is in [What hosts would need to change](../../../docs/host-changes.md).
@@ -313,14 +309,12 @@ Nothing else is added: no methods, fields or capabilities of its own.
 - `test/server-test.ts`: the server and the watcher (watches outliving the
   server, one watcher for many threads, resuming after a restart, T3 Code not
   running, a thread T3 Code no longer knows).
-- `test/t3-cli-test.ts`: the wake against the real `t3` 0.1.11 in a throwaway
-  home. T3 Code runs the agent CLIs it finds when it starts, and `gh` for a
+- `test/t3-cli-test.ts`: the wake against the real `t3` 0.1.11 in a
+  temporary home. T3 Code runs the agent CLIs it finds when it starts, and `gh` for a
   GitHub token, so the test gives it a PATH of its own (only `node`, `sh`,
   `tar`, `gzip`, `ps`) and a login shell that reads no startup file. The file
-  fails if T3 Code reports an agent CLI installed, or if anything writes to the
-  throwaway HOME.
-- [`docs/live-run.md`](docs/live-run.md): a real run in T3 Code 0.1.11 with
-  Codex 0.172.0.
+  fails if T3 Code reports an agent CLI installed, or if anything writes to
+  that HOME.
 
 ## Development
 

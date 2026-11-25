@@ -1,7 +1,7 @@
 {
   "name": "mcp-server-cards-copilot",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "MCP Server Cards (SEP-2127) for GitHub Copilot CLI: the build and tests of the plugin in plugin/.",
   "engines": {

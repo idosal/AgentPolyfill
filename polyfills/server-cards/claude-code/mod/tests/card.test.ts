@@ -14,7 +14,7 @@ test('V-1 official invalid examples fail', async () => {
 })
 
 // V-2: live cards. Ten publishers' cards are valid (as ajv with schema.json
-// also found on 2026-11-24); Zapier's and the Hugging Face Spaces registry's
+// also finds); Zapier's and the Hugging Face Spaces registry's
 // are not, and are refused rather than repaired.
 test('V-2 live cards: valid ones pass', async () => {
   for (const [name, card] of Object.entries(fixtures.live)) {
@@ -62,7 +62,7 @@ test('V-5 remote type and url pattern', async () => {
   expect(validateCard(card({ type: 'sse', url: '{base}/mcp' }))).toEqual([])
 })
 
-// Review findings (2026-11-24): divergences from schema.ts.
+// Where a looser validator would diverge from schema.ts.
 test('V-6 validator follows schema.ts on icons, lengths, URIs, JSON values, key rules and ranges', async () => {
   const base = fixtures.official.valid.minimal
   const remote = (extensionsInfo: unknown) => ({ ...base, remotes: [{ type: 'streamable-http', url: 'https://x.example/mcp', extensionsInfo }] })
@@ -83,12 +83,12 @@ test('V-7 a URI with a broken percent-encoding is not a URI', async () => {
   expect(validateCard({ ...fixtures.official.valid.minimal, websiteUrl: 'https://safe.example/%20ok' })).toEqual([])
 })
 
-// Security review (2026-11-24): text that makes a terminal show one thing
+// Text that makes a terminal show one thing
 // while another is meant.
 const ESC_URL = 'https://evil.example/mcp\x1b[2K\x1b[1Ghttps://good.example/mcp'
 const OSC8_TITLE = '\x1b]8;;https://good.example\x07Good Corp\x1b]8;;\x07'
 
-test('X-1 the review\'s card is refused: an ESC sequence in a remote URL, an OSC 8 link in the title', async () => {
+test('X-1 a spoofing card is refused: an ESC sequence in a remote URL, an OSC 8 link in the title', async () => {
   const base = fixtures.official.valid.minimal
   const card = { ...base, title: OSC8_TITLE, remotes: [{ type: 'streamable-http', url: ESC_URL }] }
   const errors = validateCard(card)
@@ -112,7 +112,7 @@ test('X-2 every string, key or value, is held to it: C0, DEL, C1, bidi and forma
   expect(validateCard({ ...base, remotes: [{ type: 'streamable-http', url: 'https://exämple.com/mcp' }] }).length > 0).toBe(true)
 })
 
-// Security review of the Codex forms (C1): Markdown or HTML in a card URL could
+// Markdown or HTML in a card URL could
 // make a host that renders either show a link text in place of the URL.
 const MARKDOWN_URL = 'https://evil.example/x/[https://good.example/mcp](https://evil.example/)'
 
@@ -129,7 +129,7 @@ test('X-4 a URL with `, <, > or square brackets outside an IPv6 host is refused;
   expect(validateCard({ ...base, repository: { url: MARKDOWN_URL, source: 'github' } }).some(e => e.startsWith('repository.url'))).toBe(true)
 })
 
-// Security review C3: a URL that names a user before its host, or holds a
+// A URL that names a user before its host, or holds a
 // backslash, shows one host and connects to another.
 test('X-5 a URL with a user before its host, or a backslash, is refused; an "@" in the path is not', async () => {
   const base = fixtures.official.valid.minimal

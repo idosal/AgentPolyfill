@@ -28,7 +28,7 @@ test('P-1 a plain remote is a serverUrl entry, named as the card suggests', () =
   assert.deepEqual(r.plan.entry, { serverUrl: 'https://mcp.example.com/mcp' })
 })
 
-test('P-2 a fixed header is kept as it is; one with markup is refused (security review C4)', () => {
+test('P-2 a fixed header is kept as it is; one with markup is refused', () => {
   const ok = planForAntigravity(remote({ headers: [{ name: 'X-Tenant', value: 'acme' }] }) as never, 0, {}, undefined, false)
   assert.ok('plan' in ok)
   assert.deepEqual(ok.plan.entry, { serverUrl: 'https://mcp.example.com/mcp', headers: { 'X-Tenant': 'acme' } })
@@ -118,7 +118,7 @@ test('W-5 a config that is not JSON is refused without quoting it: the file can 
   }
 })
 
-test('W-4 never over a server the person has, whatever its case (security review SC2)', () => {
+test('W-4 never over a server the person has, whatever its case', () => {
   const f = tmpFile()
   mkdirSync(join(f, '..'), { recursive: true })
   writeFileSync(f, JSON.stringify({ mcpServers: { Docs: { serverUrl: 'https://mine.example/' } } }))
@@ -160,11 +160,11 @@ test('G-1 a ticket is good once, for its tool and digest, while fresh', () => {
 })
 
 test('G-6 the surface a conversation lives in, from its transcript path; a ticket carries the hook\'s meta to the server', async () => {
-  assert.equal(surfaceOf('/Users/me/.gemini/antigravity/brain/ec33/.system_generated/logs/transcript.jsonl'), 'app')
-  assert.equal(surfaceOf('/Users/me/.gemini/antigravity-cli/brain/ec33/.system_generated/logs/transcript.jsonl'), 'cli')
+  assert.equal(surfaceOf('/home/me/.gemini/antigravity/brain/ec33/.system_generated/logs/transcript.jsonl'), 'app')
+  assert.equal(surfaceOf('/home/me/.gemini/antigravity-cli/brain/ec33/.system_generated/logs/transcript.jsonl'), 'cli')
   assert.equal(surfaceOf('~/.gemini/antigravity-ide/brain/ec33/x'), 'ide')
   assert.equal(surfaceOf('C:\\Users\\me\\.gemini\\antigravity-cli\\brain\\ec33\\x'), 'cli')
-  for (const v of [undefined, 42, '/tmp/elsewhere/brain/x', '/Users/me/.gemini/antigravity-cloud/brain/x']) assert.equal(surfaceOf(v), 'unknown', String(v))
+  for (const v of [undefined, 42, '/tmp/elsewhere/brain/x', '/home/me/.gemini/antigravity-cloud/brain/x']) assert.equal(surfaceOf(v), 'unknown', String(v))
   const dir = gateDir()
   const out = await answerHook(preToolUse(TOOL, {}), { add_mcp_server: () => ({ pass: 'p', digest: 'd', meta: { surface: 'cli' } }) }, dir)
   assert.deepEqual(redeemTicket(dir, (out.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd'), { ok: true, conversationId: 'ec33ebf9-0cba-4100-8142-c61503f6c587', meta: { surface: 'cli' } })
@@ -221,7 +221,7 @@ test('G-9 the hook leaves out what Antigravity adds to an eager call for its own
 
 test('G-10 a call from an Antigravity IDE conversation is refused: the IDE documents no plugin hooks, and the forms are not supported there', async () => {
   const dir = gateDir()
-  const input = { ...preToolUse(TOOL, {}), transcriptPath: '/Users/me/.gemini/antigravity-ide/brain/ec33/x' }
+  const input = { ...preToolUse(TOOL, {}), transcriptPath: '/home/me/.gemini/antigravity-ide/brain/ec33/x' }
   const out = await answerHook(input, { add_mcp_server: () => ({ ask: 'q', digest: 'd' }) }, dir, Date.now(), 'mcp-server-cards_cards')
   assert.equal(out.decision, 'deny')
   assert.match(String(out.reason), /isn't supported in the Antigravity IDE/)
@@ -389,7 +389,7 @@ test('E-5 the hook always exits 0 with JSON (Antigravity fails a call whose hook
   const r = run('not json')
   assert.equal(r.status, 0)
   assert.deepEqual(JSON.parse(r.stdout), { decision: 'allow' })
-  // A state folder that can't be made (security review E10): another server's call is still let be,
+  // A state folder that can't be made: another server's call is still let be,
   // without the folder ever being touched; this plugin's own call is refused.
   writeFileSync(join(home, 'blocked'), '')
   const env = { AGENTPOLYFILL_STATE_DIR: join(home, 'blocked', 'state') }

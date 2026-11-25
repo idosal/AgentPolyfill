@@ -126,8 +126,8 @@ const SHARED_SUFFIXES: &[&str] = &[
     "com.ru", "com.es", "com.pt", "co.at", "com.eg", "com.sa", "com.pk", "com.ng", "co.ke", "com.co", "com.pe",
 ];
 
-/// A source that names no one site, and so isn't applied (security review,
-/// A4, and its 0.1.1 re-test): `*`; a scheme alone (`https:`); a wildcard
+/// A source that names no one site, and so isn't applied:
+/// `*`; a scheme alone (`https:`); a wildcard
 /// host (`*`, or `*.` over fewer than two labels, such as `*.com`, or over a
 /// suffix in `SHARED_SUFFIXES`, such as `*.workers.dev` or `*.co.uk`); a
 /// wildcard port (`:*`). Without the whole public suffix list, a wildcard over
@@ -427,9 +427,8 @@ mod tests {
         assert_eq!(allowed_csp(&json!({"connectDomains": all}), Some("https://example.com/mcp")), json!({"connectDomains": named}));
     }
 
-    // The 0.1.1 re-test's A4 residual: a wildcard over a suffix anyone can
-    // host under (*.workers.dev, *.github.io) or a country's second level
-    // (*.co.uk) named no one site and still passed.
+    // A wildcard over a suffix anyone can host under (*.workers.dev,
+    // *.github.io) or a country's second level (*.co.uk) names no one site.
     #[test]
     fn wildcards_over_shared_suffixes_are_not_applied() {
         for source in ["https://*.workers.dev", "*.workers.dev", "wss://*.pages.dev", "https://*.github.io", "https://*.vercel.app",

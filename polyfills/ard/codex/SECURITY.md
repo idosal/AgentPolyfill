@@ -106,7 +106,7 @@ The rules of `mcp-server-cards` apply. A result is refused if any of these
 holds `` ` ``, `<`, `>` or a square bracket outside an IPv6 host, or names a
 user before its host: its card URL or remote URL, a registry URL a catalog
 names, or where the result was found. So the form can't show a link text, or
-one host, in place of the URL (security reviews C1 and C3). A registry the
+one host, in place of the URL. A registry the
 request names is held to the same rule before the form is shown. The query is
 shown verbatim, in quotes, and holds none of those characters either.
 

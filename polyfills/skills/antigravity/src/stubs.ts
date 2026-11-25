@@ -7,7 +7,7 @@ import { secrets } from '../../core/src/untrusted.ts';
 
 /**
  * What a server wrote, as a stub or a listing shows it: plain, one line, and with no secret of the
- * configuration in it. Cleaned first, then scrubbed, then cut (security review S2): a secret split
+ * configuration in it. Cleaned first, then scrubbed, then cut: a secret split
  * by a character that shows as nothing is joined again before the scrub looks for it.
  */
 export const plain = (s: unknown, max: number) => plainText(secrets.scrub(plainText(s, 1_000_000)), max);

@@ -9,22 +9,16 @@ commit `2eb3a8e`, the same revision as the [Codex form](../codex/README.md).
 It shares [Skills core](../core/), Codex's approval store and content formatting,
 and the [Antigravity gate](../../server-cards/antigravity/src/gate.ts).
 
-**Run live on 25 November 2026** in the Antigravity App 2.35.1 and CLI
-1.5.17 with a real model, against a local skills server serving one skill in
-five versions: a new skill asked, a changed one asked again, an unchanged
-approved one didn't, a declined load read nothing, and a load sent around the
-hook was refused. The earlier builds also ran against Hugging Face's public
-MCP server. Rule X8 is not met: Antigravity shows no question for the
-plugin's `force_ask` on a resource read (see [Gaps](#gaps-and-the-host-changes-that-would-close-them)).
-The record: [docs/live-run.md](../../events/antigravity/docs/live-run.md#skills).
+Checked in Antigravity App 2.35.1 and CLI 1.5.17. Rule X8 is not met:
+Antigravity shows no question for the plugin's `force_ask` on a resource read
+(see [Gaps](#gaps-and-the-host-changes-that-would-close-them)).
 
 ## Install
 
 You need the Antigravity CLI (`agy`) to install a plugin from a folder: the
 App doesn't ship it. Node 20 or newer must be on your `PATH`, for the MCP
 server and the command hook (the hook runs `node ./dist/server.mjs --hook`
-from the plugin root). From a clone of this repository (the sequence checked
-on 25 November 2026):
+from the plugin root). From a clone of this repository:
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
@@ -53,10 +47,10 @@ That removes the plugin's folder. It leaves:
 
 ### Where it runs
 
-| Surface | Supported | Run live |
+| Surface | Supported | Checked |
 |---|---|---|
-| Antigravity CLI 1.5.17 (macOS) | yes | these builds: new, changed and unchanged loads; a load declined; a load around the hook refused; X8 (the CLI ignores its question) |
-| Antigravity App 2.35.1 (macOS) | yes | these builds: a changed version asked and loaded, one declined, a load around the hook refused; X8 (the App ignores its question too) |
+| Antigravity CLI 1.5.17 (macOS) | yes | new, changed and unchanged loads; a load declined; a load around the hook refused; X8 (the CLI ignores its question) |
+| Antigravity App 2.35.1 (macOS) | yes | a changed version asked and loaded, one declined, a load around the hook refused; X8 (the App ignores its question too) |
 | Antigravity IDE | no | Antigravity documents no plugin hooks for the IDE, so there is no question and no ticket: every load there is refused |
 
 ## Try it
@@ -78,8 +72,7 @@ Ask Antigravity:
 
 That starts discovery if the MCP server has not started already. The plugin
 writes short placeholder skills. A placeholder written when the plugin's
-server starts was found by that conversation's agent (seen live in the CLI:
-it read the `release-notes` placeholder before loading the skill).
+server starts is found by that conversation's agent (CLI 1.5.17).
 Antigravity documents rereading skills before each turn; whether a
 placeholder written in the middle of a conversation shows on its next turn
 hasn't been checked, and the CLI documents `/skills reload` or a new
@@ -163,8 +156,8 @@ current metadata. A skill missing from a listing can still load by URI.
    answers `force_ask` to a `read_resource` from any other server, naming
    both. Antigravity shows no question for it, in the CLI 1.5.17 (in its auto
    mode and in its default mode, `request-review`) or the App 2.35.1 (its
-   Default preset), and the read goes ahead (seen live in all three), so this
-   holds only where Antigravity honours the question.
+   Default preset), and the read goes ahead, so this holds only where
+   Antigravity honours the question.
 
 Server content is untrusted data. Descriptions are bounded, cleaned and then
 scrubbed of known secrets; loaded text is marked with its origin and fenced,
@@ -249,7 +242,6 @@ removed from a conversation by deleting the file.
 | Conversation | Hook tickets for load and supporting reads | Codex call metadata | Pi session |
 | X8 (another server's read after a load) | The hook asks; Antigravity ignores it | Not met | Asks |
 | Stand-down | Explicit setting | Native capability declaration or setting | See the [Pi README](../pi/README.md) |
-| Live evidence | App 2.35.1 and CLI 1.5.17 | Recorded terminal and exec runs | See [its docs](../pi/docs/) |
 
 ## Security
 
@@ -286,23 +278,19 @@ directories and only loopback HTTP. The shared build driver supports
 build byte for byte. The install test copies only `plugin/` to a temporary
 directory, then runs its MCP server and hook and loads a skill.
 
-Local verification on 25 November 2026: **69 tests pass**, with no skips.
-Type checking and the byte-identical bundle check pass. Tests ran on Node
-22.23.1; Node 20 and other operating systems have not been exercised
-separately.
+`npm test` runs **69 tests**. Checked on Node 22. Not checked separately:
+Node 20 and other operating systems.
 
 The upstream SEP-2640 client scenarios (conformance suite at `c8625de`) pass
-4 of 4, rerun with these builds ([evidence](docs/evidence/conformance.txt)).
-The suite's client is `test/interop.ts`, which runs this form's hook handlers
+4 of 4. The suite's client is `test/interop/real.ts`, which runs this form's hook handlers
 in-process, taking a `force_ask` as your yes, and this form's MCP server code:
 
 ```bash
 CONFORMANCE_DIR=/path/to/modelcontextprotocol/conformance bash test/conformance.sh
 ```
 
-`npm run interop:real` (public network, no credentials) is there for a
-scripted run against public servers; the live runs above used Antigravity
-itself instead.
+`npm run interop:real` (public network, no credentials) runs the adapter
+against public servers.
 
 ## Licence
 

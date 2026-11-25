@@ -4,8 +4,7 @@
 //! (`x-mcp-apps-cli-token`); one without it gets 403, before its body is
 //! read. One request per connection: the answer, then the connection closes.
 //! A request's head must arrive within `HEAD_DEADLINE` and the whole request
-//! within `READ_DEADLINE`, and at most `MAX_CONNECTIONS` are open at once
-//! (security review, A7, and its 0.1.1 re-test).
+//! within `READ_DEADLINE`, and at most `MAX_CONNECTIONS` are open at once.
 
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
@@ -29,8 +28,8 @@ const READ_DEADLINE: std::time::Duration = std::time::Duration::from_secs(30);
 const READ_DEADLINE: std::time::Duration = std::time::Duration::from_millis(500);
 /// How long a request's head (its line and headers, where the token is) may
 /// take: the mod sends it at once, so a connection that sends no head soon
-/// frees its slot (the 0.1.1 re-test: 128 idle connections held every slot
-/// for the whole read deadline and locked the mod out, over TCP).
+/// frees its slot (otherwise 128 idle connections hold every slot for the
+/// whole read deadline and lock the mod out, over TCP).
 #[cfg(not(test))]
 const HEAD_DEADLINE: std::time::Duration = std::time::Duration::from_secs(2);
 #[cfg(test)]
@@ -455,7 +454,7 @@ mod tests {
         assert!(rt.block_on(read_request(&mut stream)).is_err());
     }
 
-    // The security review's A7: a request without the token is answered 403
+    // A request without the token is answered 403
     // as soon as its head is read, without waiting for (or holding) the body
     // it announces; one that never arrives whole is dropped at the deadline.
     #[tokio::test]
@@ -505,9 +504,9 @@ mod tests {
         drop(client);
     }
 
-    // The 0.1.1 re-test's A7 residual: 128 connections that send nothing (or
-    // a head that never ends) held every slot for the whole read deadline,
-    // locking the mod out of its helper. Each must send its head within the
+    // 128 connections that send nothing (or a head that never ends) would
+    // hold every slot for the whole read deadline, locking the mod out of
+    // its helper. Each must send its head within the
     // head deadline, so an idle one frees its slot much sooner.
     #[tokio::test]
     async fn a_connection_whose_head_never_ends_is_dropped_at_the_head_deadline() {

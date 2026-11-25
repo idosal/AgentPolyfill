@@ -9,19 +9,14 @@ This plugin implements the client side of MCP Events,
 the **Final text as of 24 November 2026**, the same revision as
 [the Codex form](../codex/README.md). It bundles the same [Events client](../core).
 
-**Run live on 25 November 2026** in the Antigravity App 2.35.1 and CLI 1.5.17
-with a real model, against the [deploys demo](../claude-code/demo), whose
-Events support is Mastra's: in both, a watch approved and one declined, and
-calls that go around the hook refused; in the CLI the event delivered at the
-next turn; in the App an idle conversation woken by the sidecar, which then
-answered from the event. [docs/live-run.md](docs/live-run.md) has the record.
+Checked in Antigravity App 2.35.1 and CLI 1.5.17.
 
 ## Install
 
 You need the Antigravity CLI (`agy`) to install a plugin from a folder: the
 App doesn't ship it. Node 20 or newer must be on Antigravity's `PATH` for the
 plugin's hooks (webhook delivery through a relay needs Node 22 or newer).
-From a clone of this repository (the sequence checked on 25 November 2026):
+From a clone of this repository:
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
@@ -52,10 +47,10 @@ That removes the plugin's folder (and with it the sidecar). It leaves:
 
 ### Where it runs
 
-| Surface | Supported | Run live |
+| Surface | Supported | Checked |
 |---|---|---|
-| Antigravity CLI 1.5.17 (macOS) | yes | these builds: a watch approved and declined, delivery at the next turn, refusals, a broken hook |
-| Antigravity App 2.35.1 (macOS) | yes | these builds: a watch approved, an idle conversation woken by the sidecar, one declined, a call around the hook refused. Earlier builds: a wake during a running turn, restarts |
+| Antigravity CLI 1.5.17 (macOS) | yes | a watch approved and declined, delivery at the next turn, refusals, a broken hook |
+| Antigravity App 2.35.1 (macOS) | yes | a watch approved and declined, an idle conversation woken by the sidecar, a call around the hook refused |
 | Antigravity IDE | no | Antigravity documents no plugin hooks for the IDE, so there is no ticket and no question: every Events call there is refused |
 
 ### Enable idle wakes in the App
@@ -112,11 +107,11 @@ can then use `list_event_types` and `watch_event` to watch it. Press the button.
 With the enabled App sidecar, a plugin message should start a turn. Otherwise,
 send another message yourself: `PreInvocation` announces what arrived, and the
 agent reads it with `recent_events` or `get_event`. To stop, ask “stop watching
-the demo button.” (This feeds demo hasn't been run in Antigravity; the live
-runs used the deploys demo below.)
+the demo button.” (Not checked in Antigravity with this feeds demo; the
+deploys demo below was.)
 
-The live runs used the local [deploys demo](../claude-code/demo) instead
-(Mastra's own Events implementation), added with the CLI's
+Or use the local [deploys demo](../claude-code/demo) (Mastra's own Events
+implementation), added with the CLI's
 `agy mcp add --header "Authorization: Bearer <token>" deploys http://127.0.0.1:4010/mcp`:
 
 > Using the mcp-events plugin, start watching the deploys MCP server for
@@ -141,9 +136,14 @@ filters or note hold a character it can't show, or are longer than it shows,
 is refused, not cut short). It starts with the event type and the server:
 “mcp-events: watch "deploy.finished" on the MCP server "deploys" for this
 conversation?”, then the filters and the note. The CLI's card shows those
-two lines and hides the rest. The other five tools pass the hook with a
-ticket and then get Antigravity's usual question, which your MCP allow rules
-can skip. The plugin never auto-approves a call.
+two lines and hides the rest. The App's card shows the whole question and
+greys out "always allow" (App 2.35.1). The other five tools pass the hook
+with a ticket and then get Antigravity's usual question, which your MCP allow
+rules can skip. The plugin never auto-approves a call.
+
+Antigravity's MCP client declares elicitation but answers every request with
+`cancel` (App 2.35.1 and CLI 1.5.16), so the hook is the only way to reach
+you.
 
 ## How the parts fit
 
@@ -219,8 +219,8 @@ timestamps and replay state before accepting a delivery. Set up a relay using
 the [existing relay instructions](../claude-code/mod/relay/README.md). Put its
 private `{ "url": "https://...", "accessKey": "..." }` settings in
 `~/.gemini/agentpolyfill/mcp-events/relay.json` (mode 0600), or explicitly
-set `MCP_EVENTS_RELAY_FILE` to a relay file you already use. A webhook watch
-hasn't been run in Antigravity.
+set `MCP_EVENTS_RELAY_FILE` to a relay file you already use. Not checked in
+Antigravity: a webhook watch.
 
 `MCP_EVENTS_RELAY=public` opts in to the author's public relay. Event payloads
 pass through it and remain there until collected, for up to 24 hours.
@@ -296,7 +296,7 @@ native Events and this plugin together can produce duplicate subscriptions.
 | Antigravity's MCP servers aren't told which conversation calls them. | Every call goes through the plugin's hook, which ties it to the conversation with a one-use ticket. A call that goes around the hook (through `call_mcp_tool`) is refused. | A conversation id on each MCP call. |
 | No plugin hooks in the IDE. | The plugin doesn't work in the Antigravity IDE: every Events call there is refused. | Plugin hooks in the IDE. |
 | Idle wakes need a sidecar, and only the App runs sidecars. | In the CLI, events wait until you next send a message. In the App, a conversation wakes only if you turn the sidecar on. | A documented way for a plugin to start a turn, in the CLI as in the App. |
-| Antigravity's plugins page doesn't list `PreInvocation` among plugin hooks. | Delivery at the next turn rests on a hook that runs (seen live in CLI 1.5.17) but isn't documented for plugins; an update could stop it. | `PreInvocation` documented for plugins. |
+| Antigravity's plugins page doesn't list `PreInvocation` among plugin hooks. | Delivery at the next turn rests on a hook that runs in CLI 1.5.17 but isn't documented for plugins; an update could stop it. | `PreInvocation` documented for plugins. |
 | A hook's injected step is a system message. | The plugin puts only its own fixed words in it; you and the agent read what a server sent through `recent_events` or `get_event`. | A plugin channel for untrusted data, shown as such. |
 | The plugin is a second MCP client. | A local server may run twice, and a server that needs Antigravity's own sign-in can't be watched. | Plugins able to use the host's own MCP connections and their notifications. |
 | A `PreToolUse` hook that fails makes the call fail (CLI 1.5.17). | If Node isn't on `PATH` or the hook crashes, the plugin's own calls fail; other servers' calls never reach it. | Documented hook failure behaviour. |
@@ -326,7 +326,7 @@ No shared source is copied or modified. This adapter sets
 | Wake budget reset | Person's turn metadata or an hour | An hour; no guessed turn origin |
 | State | `$CODEX_HOME/mcp-events` | `stateDir('mcp-events')` |
 | No-Events discovery cache | One day | Once per server process; no persistent negative cache |
-| Verified in a real host | Codex TUI | App 2.35.1 and CLI 1.5.17 |
+| Checked in | Codex TUI | App 2.35.1 and CLI 1.5.17 |
 
 ## Spec and conformance
 
@@ -340,52 +340,18 @@ Events parameter.
 The upstream Events client scenarios
 ([conformance PR #541](https://github.com/modelcontextprotocol/conformance/pull/541),
 at `c8625de`) pass through this form's MCP server and hook: **17 of 17
-checks**, rerun with these builds on 25 November 2026
-([evidence](docs/evidence/conformance.txt)). [docs/conformance.md](docs/conformance.md)
-maps this form's tests and the upstream run; [docs/interop.md](docs/interop.md)
-gives the runnable local external-server procedure.
+checks**. [docs/conformance.md](docs/conformance.md) maps this form's tests
+and the upstream run. `npm run interop -- http://127.0.0.1:<port>/mcp` drives
+the adapter against an Events server you run on loopback (`test/probe.ts`).
 
-### What the live runs showed
-
-Short version; [docs/live-run.md](docs/live-run.md) has the record and how it
-was made.
-
-1. **Delivery at the next turn (CLI 1.5.17, these builds).** A watch on the
-   deploys demo, a failing deploy, then the next turn's history held one step
-   from the plugin's `PreInvocation` hook, with the fixed text above and the
-   watch id, nothing a server wrote. The model read the event with
-   `recent_events` and `get_event`.
-2. **Declined.** A watch declined: no subscription, nothing saved, and its
-   ticket gone when the conversation's next turn ended.
-3. **Refused.** Through `call_mcp_tool`, with no ticket, a forged ticket, or
-   a replayed one; and with the hook's command broken, Antigravity failed the
-   call itself.
-4. **Another server's tool** still got Antigravity's own question; the hook
-   never saw it.
-5. **Idle wake (App, these builds).** With `mcp-events/wake` enabled, the
-   App showed the plugin's whole watch question with "always allow" greyed
-   out; approved, the conversation went idle. A failing deploy 4 seconds
-   later: the sidecar's `agentapi send-message` woke it, the hook's step held
-   only the fixed text and the watch id, and the agent read the event (each
-   call asked) and answered in one line, as the watch's note asked. A watch
-   declined in the App: nothing saved, no ticket left after the turn. (With
-   the earlier builds, a wake during a running turn was held and put into
-   that turn at its next model call.)
-6. **Recovery.** After a restart, a resumed CLI conversation's
-   `list_watches` restarted its watch, and the events missed in between
-   arrived at the next turn, from the server's cursor.
-7. **Elicitation:** Antigravity's MCP client declares it but answers every
-   request with `cancel`, so the hook is the only way to reach you.
-
-Not run: a webhook watch, and `--dangerously-skip-permissions` against the
-watch question.
+Not checked: a webhook watch, and `--dangerously-skip-permissions` against
+the watch question.
 
 ## Development
 
-This work reused dependencies already installed in `events/codex`,
-`events/core` and `server-cards/antigravity`; npm did not download anything.
-For a fresh checkout, install the pinned dependencies in those folders first.
-The build and typecheck deliberately use Codex's installed esbuild/TypeScript.
+Install the pinned dependencies in `events/codex`, `events/core` and
+`server-cards/antigravity` first. The build and typecheck use the Codex
+form's installed esbuild and TypeScript.
 
 ```bash
 cd polyfills/events/antigravity

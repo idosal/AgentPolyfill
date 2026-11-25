@@ -182,20 +182,18 @@ V-1 to V-3, C-1 to C-3, S-1 to S-6, I-1 to I-4) are the same code and the
 same 90 tests as in the other forms, run here against the committed Pi
 bundle; the Pi form's own tests cover the question, Pi's command line and
 headers, existing names, cancellation, the session, stand-down, redirects
-and body bounds. Real Pi RPC tests run `pi mcp add` for real in an isolated
-agent folder, and check what Pi then connects. One rule isn't met, as in the
-other forms: S-3, the live comparison of a card with the server.
+and body bounds. Tests in a real Pi run `pi mcp add` and check what Pi then
+connects. One rule isn't met, as in the other forms: S-3, the live comparison
+of a card with the server.
 
-[`docs/live-run.md`](docs/live-run.md) records a run in Pi 1.6.0 with a real
-model, against neon.com's published catalog: Pi listed its servers, the
-extension asked before adding Neon Docs, and after "Add it" the server was in
-`mcp.json` and connected for the session. The MCP conformance suite has no
-Server Card scenarios, so there is no upstream run to report.
+Checked in Pi 1.6.0 against neon.com's published catalog. The MCP conformance
+suite has no Server Card scenarios, so there is no upstream result to report.
 
 ## Development
 
+You need Node 22 or newer.
+
 ```bash
-export PATH=$HOME/.nvm/versions/node/v22.22.1/bin:$PATH
 npm run build
 npm run typecheck
 npm test

@@ -1,6 +1,6 @@
-//! The security review's A1 reproduction, kept: a folder with a planted
+//! The helper uses no server Claude Code would not: a folder with a planted
 //! `.mcp.json` (an unapproved entry, a user-scope server's name, a claude.ai
-//! connector's and a plugin's), and the cases it did not run (credentials in
+//! connector's and a plugin's), and further cases (credentials in
 //! a remote entry, a shadow of a user server, an untrusted folder, a
 //! switched-off server, an MCP policy). The real binary is started in each
 //! world and asked to `/discover` every name, as the mod would: no planted
@@ -310,7 +310,7 @@ fn planted_servers_in_a_trusted_folder_are_never_started_or_sent_anything() {
     }));
     let answers = w.discover(&["meshy-mcp-server", "claude_ai_Gmail", "plugin_cloudflare_cloudflare-docs", "github", "switched-off", "approved-remote", "control"]);
 
-    // The reviewer's three markers, and the user's own server the project shadowed.
+    // The three planted markers, and the user's own server the project shadowed.
     for marker in ["repo-meshy", "repo-connector", "repo-plugin", "user-meshy"] {
         assert!(!w.ran(marker), "{marker} ran");
     }

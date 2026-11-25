@@ -9,7 +9,7 @@
 //
 // Each wake also carries a `clientTurnId` of its own. VS Code's Copilot harness shows a turn an
 // extension starts only when it was sent with one: without it, it counts the message as one the
-// runtime injected, runs the turn, and drops everything it says (seen live in VS Code 1.147:
+// runtime injected, runs the turn, and drops everything it says (VS Code 1.147:
 // "Markdown delta emitted with no active turn; dropping"). Copilot CLI shows the turn either way.
 // A wake the person can see is the safer one: what an event sets in motion isn't hidden.
 

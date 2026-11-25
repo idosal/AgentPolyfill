@@ -118,7 +118,7 @@ test('A-6 mcp-server-cards\' answer is read however the host hands it back: obje
   expect(readAnswer({ result: 'plain words' })).toBe(undefined)
 })
 
-// Security review M2: a search sends the person's words to a third party, so each one is put to them first.
+// A search sends the person's words to a third party, so each one is put to them first.
 test('A-7 every search asks the person, naming the registry and the query; refused with nobody to ask; a deny beneath stands', async ($, on) => {
   cards(on)
   const beneath = { decision: 'allow' as 'allow' | 'deny' }
@@ -154,7 +154,7 @@ test('A-8 with nobody to ask (claude -p, a background loop), nothing is sent', a
   expect(handed).toEqual([])
 })
 
-// Security review R1: the ask shows at most 300 characters with control
+// The ask shows at most 300 characters with control
 // characters blanked, so a query the ask could not show whole is not sent.
 test('A-9 a query longer than the ask shows, or with control characters or direction marks, is refused and nothing is sent', async ($, on) => {
   const handed = cards(on)

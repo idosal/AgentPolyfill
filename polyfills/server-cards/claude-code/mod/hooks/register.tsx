@@ -99,8 +99,8 @@ async function press($: EngineInterface, toolUseId: string, id: string) {
     await setPick($, toolUseId, id, { state: 'failed', note: 'error' in first ? first.error : 'Ask Claude to add it.' })
     return
   }
-  // Never over a server the person already has under that name (security
-  // review SC2): the next free name, said so.
+  // Never over a server the person already has under that name:
+  // the next free name, said so.
   const name = await freeName($, first.plan.name)
   if (!name) {
     await setPick($, toolUseId, id, { state: 'failed', note: `Servers named ${first.plan.name} to ${first.plan.name}-9 already exist. Ask Claude to add it under another name.` })
@@ -360,15 +360,15 @@ export const register: Register = (on, options) => {
   }
 
   // The person decides every addition Claude asks for: an ask made by this
-  // hook goes to a person, whatever the rules, allow-lists or auto mode say
-  // (security review SC4), and names what would be written. Where nobody can
+  // hook goes to a person, whatever the rules, allow-lists or auto mode say,
+  // and names what would be written. Where nobody can
   // be asked, the addition is refused. Only Claude's own call is taken: another
   // plugin's $.tool.call is refused here and again at the run, whatever Claude
-  // Code tells this check about who can be asked (security review M1). The
+  // Code tells this check about who can be asked. The
   // calls asked about are recorded with what the person was shown (URL, scope,
   // name), and the run adds only for one of them, unchanged: a call that never
   // met this check is refused, and so is one whose check came before its card
-  // was shown (the re-check's two paths around the ask).
+  // was shown (the two paths around the ask).
   const asked = new Map<string, string>()
   const approvedAs = (plan: Plan, scope: Scope) => `${plan.url}\n${scope}\n${plan.name}`
   const notClaudes = `${ADD} adds a server only for Claude's own call, once a person approved it. Another plugin can show cards with ${PRESENT}; adding one is the person's.`
@@ -410,7 +410,7 @@ export const register: Register = (on, options) => {
     if (approvedAs(plan, scope) !== approved)
       return { deny: `This would add "${plan.name}" (${scope} scope) at ${plan.url}, which is not what the person approved. Ask them again with ${ADD}.` }
     // A local-scope add over a server of the same name in another scope
-    // would replace it for this project (security review SC2).
+    // would replace it for this project.
     if (await isNameTaken($, plan.name))
       return {
         deny: `A server named "${plan.name}" already exists, in this project or one of your scopes, and adding this one would replace it. Ask the person: add it under another name (pass \`name\`), or keep theirs.`,
@@ -441,7 +441,7 @@ export const register: Register = (on, options) => {
                   <Text>
                     {plainText(pick.title)} <Text dimColor>{plainText(pick.url)}</Text>
                   </Text>
-                  {/* The host on its own line: what the URL connects to (security review C3). */}
+                  {/* The host on its own line: what the URL connects to. */}
                   <Text>
                     host <Text bold>{plainText(hostOf(pick.url)) || '(unknown)'}</Text>
                   </Text>

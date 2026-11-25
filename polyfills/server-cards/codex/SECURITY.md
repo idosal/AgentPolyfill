@@ -68,12 +68,12 @@ The rules are the same in both forms:
   space.
 - A remote URL must be printable ASCII, with no `` ` ``, `<`, `>` or square
   brackets outside an IPv6 host. So must every other URL from a card or a
-  finder that is shown (security review C1). So a host that renders the form
+  finder that is shown. So a host that renders the form
   as Markdown or HTML can't show a link text in place of the URL.
 - No URL may name a user before its host or hold a backslash. Either one shows
-  one host and connects to another (C3). The form names the host first, since
+  one host and connects to another. The form names the host first, since
   some clients join its lines, and again on a line of its own.
-- A card's fixed header values hold no markup (C4).
+- A card's fixed header values hold no markup.
 - A header value that would be written, from the card or given, is refused if
   it holds a character that shows as nothing, so the value written is the one
   you were asked about.
@@ -118,7 +118,7 @@ Only Codex's MCP configuration, `$CODEX_HOME/config.toml`
 - **Sign-in:** `codex mcp add` starts a browser sign-in by itself for a server
   that offers OAuth. The plugin stops the command at that point, before any
   registration request, so no browser opens from a tool call. The entry is
-  written by then (checked live). You sign in with `codex mcp login NAME`,
+  written by then (checked in Codex CLI 0.172.0). You sign in with `codex mcp login NAME`,
   which is Codex's own.
 
 ### Secrets

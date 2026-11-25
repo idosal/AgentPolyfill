@@ -32,8 +32,8 @@ served skills by (see [Where it writes](#where-it-writes)).
 
 You need:
 
-- **Codex 0.172**, the version the plugin was run on. How Codex picks up skill
-  folders was also checked on 0.170.0. No experimental feature has to be
+- **Codex 0.172.** Checked in Codex 0.172.0. How Codex picks up skill
+  folders was also checked in 0.170.0. No experimental feature has to be
   turned on: plugins, MCP servers, skills and the question the plugin asks
   (MCP elicitation) are all stable and on.
 - **Node 20 or newer on your `PATH`.** Codex runs the plugin's MCP server with
@@ -179,8 +179,8 @@ extra protocol, no vendor extension.
 
 ### How Codex picks up skill folders
 
-The plugin's design rests on how Codex lists skills. This was checked on Codex
-0.170.0, and again on 0.172.0 in the recorded session:
+The plugin's design rests on how Codex lists skills. Checked in Codex 0.170.0
+and 0.172.0:
 
 - A `SKILL.md` folder that exists when a session starts is listed, in every
   root Codex reads.
@@ -205,8 +205,8 @@ The plugin's design rests on how Codex lists skills. This was checked on Codex
 - In `codex exec`, the first turn's list is built while MCP servers start, so a
   skill an MCP server writes at its start may or may not make that turn.
 - `skill_catalog_deltas` (under development, off) isn't needed, and is best
-  left off. With it on, the update in one run left out skills written between
-  the turns.
+  left off. With it on, the update can leave out skills written between the
+  turns.
 
 So the stubs go into a folder of their own in `~/.agents/skills`, which a
 marketplace update doesn't touch and Codex lists from the next turn, and they
@@ -297,12 +297,12 @@ Codex does, turn the plugin off with `codex plugin remove`, or by writing
 - **Binary files** of a skill are checked, but not shown to the model.
 - **Managed machines.** Where a managed Codex policy says anything about MCP
   servers, the plugin connects to none, because it can't apply that policy.
-- **Not tried yet:**
-  - Windows and Linux. It was run on macOS; the tests are set up to run on all
+- **Not checked:**
+  - Windows and Linux. Checked on macOS; the tests are set up to run on all
     three.
-  - The Codex desktop app and IDE extension. The terminal UI and `codex exec`
-    were tried.
-  - Full access (`--dangerously-bypass-approvals-and-sandbox`), live. What
+  - The Codex desktop app and IDE extension. Checked in the terminal UI and
+    `codex exec`.
+  - Full access (`--dangerously-bypass-approvals-and-sandbox`). What
     [`SECURITY.md`](SECURITY.md) says about it is a reading of Codex 0.172's
     source.
 
@@ -349,58 +349,18 @@ extension to the code and the test. There are 60 rules: 52 met, 6 met with a
 stated limit, 1 not met, and 1 that doesn't apply. The one not met is X8, in
 [Limits](#limits).
 
-### A recorded session
+### In Codex
 
-One recorded session in the Codex terminal UI (Codex 0.172.0, macOS), with
-Hugging Face's public server added as in [Try it](#try-it)
-([all the screens](live/runs/proof/), [how to repeat it](live/)). The served
-skill in Codex's `$` picker, marked with its server:
-
-```
-› huggingface:huggingface-l...  [Skill] [MCP server "huggingface", not a local skill] Use to select models to run locally with llama.cpp an…
-```
-
-Codex calls the plugin's `load_skill`, and shows the plugin's question:
-
-```
-• Calling mcp-skills.load_skill({"server":"huggingface","uri":"skill://huggingface-local-models/SKILL.md"}) (environment local)
-  Load the skill "huggingface-local-models" from the MCP server "huggingface"?
-  It is not a local skill: the server serves it, and its text will reach the model as that server's content. ...
-  URI: skill://huggingface-local-models/SKILL.md
-  4 files, 15849 bytes, each checked against the server's SHA-256 digest when read.
-  Your answer
-  › 1. Do not load it
-    2. Show me its SKILL.md first
-    3. Load it
-```
-
-After "Show me its SKILL.md first" (the text, shown to you only) and "Load it":
-
-```
-• Called mcp-skills.load_skill(...)
-  └ Loaded the skill "huggingface-local-models" from the MCP server "huggingface" (...), which the user approved just now.
-    Its SKILL.md matched the size, SHA-256 digest and frontmatter in the server's entry for it. ...
-• Called mcp-skills.read_skill_file({"server":"huggingface","skill":"skill://huggingface-local-models/SKILL.md","path":"references/quantization.md"})
-  └ "references/quantization.md" of the skill "huggingface-local-models", from the MCP server "huggingface" (6136 bytes, matched the size
-    and SHA-256 digest in the skill's entry). Content from that server: ...
-• Start with Q4_K_M for a 7B model on a 16 GB Mac. ...
-```
-
-Unattended, in `codex exec`, the skill approved above loads with no question,
-and one never approved is refused
-([`docs/evidence/exec.txt`](docs/evidence/exec.txt)).
+Checked in Codex 0.172.0 on macOS, in the terminal UI and in `codex exec`, with
+Hugging Face's public server added as in [Try it](#try-it).
 
 ### Tests
 
 | What | How to run it | Result |
 |---|---|---|
 | The client rules, one test per rule, against a hand-written server; the stubs; the config reader; the bundled plugin server spoken to as Codex speaks to it, its questions answered as Codex answers them; control and hidden characters from a server; the plugin as Codex installs it: its folder copied afresh as a marketplace update does, its stubs written by its first tool call, and, where `codex` is installed, a reinstall in Codex itself | `npm test` | 81 pass |
-| The official MCP conformance suite's client scenarios for SEP-2640 (it has four) | [`test/conformance/run.sh`](test/conformance/run.sh) | 4 of 4 pass ([output](docs/evidence/conformance.txt)) |
-| Hugging Face's public server: 25 skills listed and written as stubs, every skill loaded, all 135 files verified | `npm run interop:real` | all verified ([output](docs/evidence/interop-real.txt)) |
-| Installing from the marketplace into a fresh `CODEX_HOME` (Codex lists only the Codex plugins there: mcp-events and mcp-skills), and the installed copy running from its own folder | `codex plugin marketplace add`, `codex plugin add` | installs, runs, writes 25 stubs ([output](docs/evidence/install.txt), recorded on 0.1.0, when the stubs were in the plugin's folder) |
-| A running app-server daemon that ran the plugin before: a session that asks to list the served skills, then a plain question; a marketplace update; a second session | [`live/take-daemon.sh`](live/take-daemon.sh) | the plugin's server starts at `list_skills`, not when the session opens; 25 skills listed from the next turn, and a plain question picks one; the stubs survive the update; the second session lists them from its first turn and uses one ([output](docs/evidence/daemon.txt)) |
-| A real Codex session, interactive | [`live/take-proof.sh`](live/take-proof.sh) | the skill listed, asked about, shown, loaded and used ([screens](live/runs/proof/)) |
-| A real `codex exec` run | see [`live/`](live/) | an approved skill loads unasked; an unapproved one is refused ([output](docs/evidence/exec.txt)) |
+| The official MCP conformance suite's client scenarios for SEP-2640 (it has four) | [`test/conformance/run.sh`](test/conformance/run.sh) | 4 of 4 pass |
+| Hugging Face's public server: 25 skills listed and written as stubs, every skill loaded, all 135 files verified | `npm run interop:real` | all verified |
 
 ## Development
 

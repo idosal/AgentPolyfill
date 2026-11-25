@@ -66,13 +66,12 @@ to you through the plugin's `PreToolUse` hook:
   as the Pi and OpenCode forms ask. It can't tell which skill (or whether
   one) asked for the read. Antigravity shows no question for it, in CLI
   1.5.17 (auto mode and default mode) or App 2.35.1 (Default preset), and the
-  read goes ahead (seen live in all three, the hook's decision logged): X8
-  isn't met. The plugin doesn't refuse such reads instead: that would block
+  read goes ahead: X8 isn't met. The plugin doesn't refuse such reads instead: that would block
   another server's reads, unrelated ones included, and a plugin never denies
   another server's call.
 - **When the hook can't run.** In CLI 1.5.17 a `PreToolUse` hook that exits
   non-zero, times out or prints something that isn't JSON makes Antigravity
-  fail the call (seen live). The hook always exits 0 with JSON: `allow` for a
+  fail the call. The hook always exits 0 with JSON: `allow` for a
   call it can't read or that isn't its business, `deny` for its own call when
   it can't open its state.
 - **The IDE.** Antigravity documents no plugin hooks for the IDE, so a load
@@ -81,7 +80,8 @@ to you through the plugin's `PreToolUse` hook:
 
 Antigravity's defaults ask before an MCP tool: in the App, in the interactive
 CLI (which starts in auto mode, CLI 1.5.7 and later where available), and
-headless `agy -p` denies a call nobody answers (seen live). If you allow MCP
+headless `agy -p` denies a call nobody answers (checked in App 2.35.1 and
+CLI 1.5.17). If you allow MCP
 tools in your rules, an unchanged approved load and the file reads run without
 a question; a new or changed version still asks. Whether
 `--dangerously-skip-permissions` also skips `force_ask` hasn't been checked.

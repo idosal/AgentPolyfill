@@ -255,17 +255,16 @@ Codex differs.
 | R-8 | A claim to a publisher's name needs that publisher's attestation | §4.5.1 | mcp-server-cards O-2 to O-4, O-8, B-12; A-2 | partly: trust manifests aren't verified. Instead the publisher's own catalogs (`ai-catalog.json` and `ard.json`) are read, and a result is confirmed only if they list the server. The publisher's card is then the one used |
 | Q-1 | Say where the query went | this plugin's own | A-2 | met: the tool's description says it, and every result names each registry asked |
 | Q-2 | The person chooses the registry | this plugin's own | A-5, A-10 | met: none is set by default. A registry named in the request is used, or the one in the `registry` setting. With neither, the search is refused before any ask, and nothing is sent |
-| Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own, from the security review (M2) | A-7, A-8, A-9, A-11, A-12 | met: a hook-made ask that no allow rule or auto mode answers. It is refused with nobody to ask, so nothing is sent. A query or a registry the ask couldn't show exactly is refused, one holding tag characters or other invisible ones among them |
+| Q-3 | Every search is put to the person first, naming the query and the registry | this plugin's own | A-7, A-8, A-9, A-11, A-12 | met: a hook-made ask that no allow rule or auto mode answers. It is refused with nobody to ask, so nothing is sent. A query or a registry the ask couldn't show exactly is refused, one holding tag characters or other invisible ones among them |
 | Q-4 | A registry's own words are shown as one line, with nothing hidden | this plugin's own | L-1 to L-4, A-13 | met: its error messages, the referrals it names, and each result's name and description are one line, capped, with control and invisible characters out. A result whose identifier holds one is skipped |
 | P-1 | A public registry can't refer the client to a local or private address | this plugin's own | P-1 | met |
 | B-1 | Bounds | this plugin's own | R-7 | three registries, three referrals, 50 results read per answer, 10 handed on, 512 KiB per answer |
 
-On 24 November 2026, one public ARD registry was found. It answered searches
-and referred to a second registry, which was followed. But every MCP result it
-returned pointed at an MCP Registry `server.json` rather than a Server Card,
-so `mcp-server-cards` refuses every one (see
-[Findings](#findings-to-report-upstream)). Until a public registry serves
-valid cards, the [demo registry](#demo-registry) stands in.
+The one public ARD registry found returns MCP results that point at an MCP
+Registry `server.json` rather than a Server Card, so `mcp-server-cards`
+refuses every one (see [Findings](#findings-to-report-upstream)). Until a
+public registry serves valid cards, the [demo registry](#demo-registry)
+stands in.
 
 ### Scope
 
@@ -288,19 +287,11 @@ valid cards, the [demo registry](#demo-registry) stands in.
   - A-1 to A-13 run through the plugin as Claude Code loads it, with
     `mcp-server-cards` and the network stood in for.
   - R-1 to R-7, L-1 to L-4 and P-1 test the registry client.
-- **A registry someone else runs:** Hugging Face Discover, including its
-  referral (24 November 2026).
-- **The real host** (Claude Code 2.1.329), with both plugins loaded:
-  - `ard_discover` for buildkite.com read `ai-catalog.json` and `ard.json`,
-    and returned Buildkite's card with the picker.
-  - `ard_search` against the demo registry returned Buildkite and Netlify,
-    both confirmed. Netlify was confirmed by
-    `netlify.com/.well-known/ard.json`, the case where only ARD's sources list
-    a server.
-  - `ard_search` against Hugging Face Discover asked it and the Spaces
-    registry it referred to, and every result was refused as not a Server
-    Card.
-- **Not yet run in the real host:** adding a server found this way. That is
+- **Checked in Claude Code 2.1.329**, with both plugins loaded:
+  `ard_discover` for a domain, and `ard_search` against the demo registry and
+  against Hugging Face Discover, a registry someone else runs, with its
+  referral.
+- **Not checked in Claude Code:** adding a server found this way. That is
   `mcp-server-cards`' add, which is in the same state, as
   [its README](../../server-cards/claude-code/README.md#proof) describes.
 - **Upstream conformance:** the MCP conformance suite has no Server Card or
@@ -308,7 +299,7 @@ valid cards, the [demo registry](#demo-registry) stands in.
 
 ### Findings to report upstream
 
-Found on 24 November 2026, and not yet reported:
+Not yet reported upstream:
 
 - **Hugging Face Discover** (the Space at `huggingface-hf-discover.hf.space`)
   answers searches with entries typed `application/mcp-server-card+json`
