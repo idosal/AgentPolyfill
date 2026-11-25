@@ -19,7 +19,7 @@ Copilot CLI against npm `@github/copilot` 1.0.115 (the SDK its extensions get,
 and live runs) and `github/copilot-sdk` at `03056de9`. VS Code's Copilot
 harness runs Copilot's runtime, so the Copilot column holds there too, except
 where a row says otherwise. Of the forms, Events was run end to end in VS Code
-1.147.0; the other two forms' servers only loaded there.
+1.147.0, and a Server Cards add with its form; ARD's server only loaded there.
 
 ## How a plugin plugs in today
 

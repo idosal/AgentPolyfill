@@ -296,8 +296,10 @@ in the same catalogs, and local (stdio) servers, which cards do not describe.
   even with `--yolo`, so adding works only in the interactive session.
 - **DNS is not checked for private addresses.** A public name that resolves
   to a private address isn't caught. Redirects are checked hop by hop.
-- **Not run in VS Code.** In VS Code 1.147.0's Copilot harness the plugin's
-  server loaded, but no server was added through it there.
+- **In VS Code, the form is one paragraph.** In VS Code 1.147.0's Copilot
+  harness an add worked: VS Code's tool prompt, then the plugin's form
+  ("Your answer", **Don't add it** first), then **Add it** wrote the server.
+  VS Code runs the question's lines together in one paragraph.
 
 ## Security
 

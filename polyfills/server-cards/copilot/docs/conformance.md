@@ -107,9 +107,15 @@ this machine (as in [mcp-events' live run](../../../events/copilot/docs/live-run
   and `${VAR}` references as given, accepts SSE, refuses a name that exists,
   and contacts no server.
 
-**In VS Code's Copilot harness** (VS Code 1.147.0, signed in), the plugin's MCP
-server was started and connected from the same plugin install. No server was
-added through it there, so whether VS Code shows the form is untested.
+**In VS Code's Copilot harness** (VS Code 1.147.0, signed in, GitHub's Claude
+Haiku 4.5), from the same plugin install: `discover_mcp_servers` for neon.com
+ran with no prompt (it is read-only, and the harness's default permission mode
+runs read-only tools without asking); `add_mcp_server` stopped at VS Code's
+tool prompt; then VS Code showed the plugin's form, headed "Your answer", with
+the question and the two choices, **Don't add it** first. It runs the
+question's lines together in one paragraph. **Add it** wrote `neon-docs` to
+`mcp-config.json` (the harness log shows the request as
+`Elicitation request: … mode=form, source=mcp-server-cards`).
 
 What this evidence doesn't establish:
 

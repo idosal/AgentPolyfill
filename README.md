@@ -432,8 +432,10 @@ each extension needs, and the questions they raise about permissions are in
   ([Server Cards](polyfills/server-cards/copilot/docs/conformance.md),
   [ARD](polyfills/ard/copilot/docs/conformance.md)).
 - In VS Code's Copilot harness (1.147.0), Events was run end to end; a wake
-  looks like a typed message whose first line names the plugin. The other
-  two forms' servers loaded there, but no server was added through them.
+  looks like a typed message whose first line names the plugin. Server Cards
+  added a server there, through VS Code's tool prompt and then the plugin's
+  form, which VS Code shows as one paragraph. ARD's server loaded there, but
+  no search was run through it.
 
 ## Other hosts
 

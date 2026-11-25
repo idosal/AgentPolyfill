@@ -283,7 +283,8 @@ In Claude Code, in `/config`, under the plugin:
   only, and a public name that resolves to a private address isn't caught.
   See [Server Cards](./server-cards#limits).
 - **Not run in VS Code.** In VS Code 1.147.0's Copilot harness the plugin's
-  server loaded, but no search or add was run there.
+  server loaded, but no search or add was run through it there. Its add form
+  is the Server Cards form, which VS Code showed and answered there.
 - **What the live run didn't cover:** a search sent to a public registry, and
   an add through `ard_search`, in Copilot itself. Both are covered by tests
   that run the plugin's server as Copilot starts it.

@@ -238,8 +238,9 @@ the prompt, so nothing is woken there. A server that Server Cards or ARD adds
 connects after `/mcp reload`, or in the next session.
 
 In VS Code 1.147.0's Copilot harness, Events was run end to end: a wake shows
-as a message from the plugin, then the turn. The Server Cards and ARD servers
-loaded there, but nothing was added or searched there.
+as a message from the plugin, then the turn. Server Cards added a server
+there, through VS Code's tool prompt and then the plugin's form. ARD's server
+loaded there, but no search was run through it.
 
 Each Copilot form's README has the rest:
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/copilot),
