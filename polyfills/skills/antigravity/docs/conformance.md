@@ -148,7 +148,7 @@ The MCP conformance suite's four Skills client scenarios
 (`sep-2640-client-no-prefetch`, `-verify-digest`, `-verify-size`,
 `-verify-frontmatter`), at `c8625de3118c2d5dc0561696cddeb0baaf124f2c` (the
 same revision as the other forms): **all four pass**. The suite's client is
-`test/interop.ts`, which runs this form's hook handlers in-process (a
+`test/interop/real.ts`, which runs this form's hook handlers in-process (a
 `force_ask` taken as the person's yes) and this form's MCP server code; it
 isn't Antigravity. In the three verify
 scenarios the suite serves a tampered `SKILL.md`; the plugin refuses each (a

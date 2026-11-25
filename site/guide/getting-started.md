@@ -387,10 +387,10 @@ Each OpenCode form's README has the rest:
 
 | | Antigravity | What else it needs |
 |---|---|---|
-| Events | CLI v1.5.17 (these builds); App v2.35.1 (earlier builds) | Node 20 or newer on `PATH`. A watch needs an answer in the approval card. Waking an idle App conversation needs the sidecar on; CLI conversations get new events at their next model call. |
-| Skills | CLI v1.5.17 (these builds); App v2.35.1 (earlier builds) | Node 20 or newer on `PATH`. Loading a new or changed skill needs an answer in the approval card. |
-| Server Cards | CLI v1.5.17 (these builds); App v2.35.1 (earlier builds) | Node 20 or newer on `PATH`. An addition needs an answer in the approval card. |
-| ARD | CLI v1.5.17 (not checked in the App) | Node 20 or newer on `PATH`. An addition or a registry search needs an answer in the approval card. |
+| Events | App v2.35.1 and CLI v1.5.17 | Node 20 or newer on `PATH`. A watch needs an answer in the approval card. Waking an idle App conversation needs the sidecar on; CLI conversations get new events at their next model call. |
+| Skills | App v2.35.1 and CLI v1.5.17 | Node 20 or newer on `PATH`. Loading a new or changed skill needs an answer in the approval card. |
+| Server Cards | App v2.35.1 and CLI v1.5.17 | Node 20 or newer on `PATH`. An addition needs an answer in the approval card. |
+| ARD | App v2.35.1 and CLI v1.5.17 (an addition through ARD was not checked in the App) | Node 20 or newer on `PATH`. An addition or a registry search needs an answer in the approval card. |
 | Apps | no form | The App renders MCP Apps itself (v2.34.0 and later); the CLI and IDE show text only. |
 
 Antigravity documents no MCP elicitation, and its MCP client cancels every
@@ -412,8 +412,7 @@ Whether `--dangerously-skip-permissions` also skips `force_ask` hasn't been
 checked. In CLI 1.5.17 a `PreToolUse` hook that fails makes the call fail.
 
 The IDE documents no plugin hooks, so the forms aren't supported there, and
-their gated calls are refused. A webhook watch was not checked, and these
-builds have not been checked in the App yet.
+their gated calls are refused. A webhook watch was not checked.
 
 Each Antigravity form's README has the rest:
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity),

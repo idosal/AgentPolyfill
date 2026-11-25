@@ -282,7 +282,7 @@ directory, then runs its MCP server and hook and loads a skill.
 Node 20 and other operating systems.
 
 The upstream SEP-2640 client scenarios (conformance suite at `c8625de`) pass
-4 of 4. The suite's client is `test/interop.ts`, which runs this form's hook handlers
+4 of 4. The suite's client is `test/interop/real.ts`, which runs this form's hook handlers
 in-process, taking a `force_ask` as your yes, and this form's MCP server code:
 
 ```bash

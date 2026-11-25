@@ -1,4 +1,4 @@
-//! The mcp-apps-cli helper, in Rust (see PORT.md). It speaks the protocol
+//! The mcp-apps-cli helper, in Rust. It speaks the protocol
 //! the Node helper (`mod/helper/helper.mjs`) does: JSON lines on stdout, and
 //! HTTP requests carrying a token over a Unix socket (or loopback TCP). It
 //! hosts views over Chrome's debugging pipe. Renderer and picture encoding

@@ -31,45 +31,6 @@ PORT=3205 node examples/basic-server-vanillajs/dist/index.js
 
 `mcp-examples.json` points at these ports.
 
-## A real Claude Code session: `session.py`
-
-```bash
-python3 session.py /tmp/bench scenarios/iterm-redraw.json
-```
-
-```bash
-python3 bursts.py /tmp/bench/iterm-redraw.cast
-```
-
-`session.py` starts `claude` with this plugin in a pseudo-terminal that
-answers as iTerm2 3.5, kitty 0.50 or Ghostty 1.4 (the scenario's
-`terminal`), types each step's prompt, waits for its `expect` text and holds
-for `hold` seconds. It writes the cast (all output, timestamped), a text
-snapshot of the screen after each step and, with `"debug": true`, Claude
-Code's debug log. The session starts in this polyfill's folder
-(`polyfills/apps/claude-code`, the parent of `bench/`), or the folder a
-scenario's `cwd` names (relative to the scenario file); Claude Code asks whether to trust a folder
-the first time it runs there, so run `claude` in it once yourself before the
-first scenario. It sends the model's prompts for real, so it uses your
-Claude Code account, and your Claude Code settings: a step that changes one
-(`/theme`, `/config`) changes it for you, so none of these do.
-
-`bursts.py` lists the pictures in a cast: for iTerm2, each burst of inline
-images with its size, how long Claude Code took to write it, and the PNG
-colour types (3 is 256 colours); for kitty and Ghostty, the count of
-graphics commands.
-
-| Scenario | What it shows | On the reference machine |
-| --- | --- | --- |
-| `iterm-redraw.json` | The cohort view, then a four-line reply under it: each streamed line moves the view, and Claude Code writes its picture again | each redraw 89 KB over 0.15 s (224 KB over 0.38 s in full colour) |
-| `kitty-redraw.json` | The same as kitty, which reads pictures from files | short graphics commands, no picture bytes |
-| `open-iterm.json`, `open-cells.json` | One prompt, the cohort view opening, as iTerm2 and as a plain terminal | picture whole and kept (`shown.py`), legend drawn |
-| `iterm-drag.json` | The bloom scene at the page's pixel ratio, dragged for 3 s at 18 moves a second (`drag_view`), cell coordinates as iTerm2 sends | 10.7 pictures a second reach the terminal while dragging |
-| `stream-3d.json` | A three.js scene Claude writes, its tool allowed outright; then a click into the view, ctrl+] and a key | the view opens as Claude starts the call, 53 partial copies of the arguments over 6 s, then the whole 2,276 characters and the result; ctrl+] reaches the app as Escape |
-| `input-keys.json` | The vanilla example in cells: a double click into its text field, then ctrl+a, space, é, an emoji, shift+tab and F5 | the second press a double click; each key arrives as named; F5 pressed as F5, not typed |
-| `stream-3d-auto.json` | The same in auto mode, the tool not allowed outright: auto mode's classifier decides | the view opens as Claude starts the call, no arguments until the classifier allows it 7 s later, then all of them |
-| `doom.json` | DOOM through the arcade example server (`mcp-arcade.example.json`, port 3301): power button, sound card, menus, a held arrow, three clicks, then ctrl+] | in game, walked, ammo 50 → 48, status bar whole; ctrl+] opens DOOM's menu |
-
 ## Checks
 
 Each prints what it found and exits 1 on a failure; the example servers above
@@ -104,8 +65,7 @@ must be up for the last two.
 
 Every check here runs the Node helper by default, and the binary
 `MCP_APPS_CLI_HELPER` names instead: the Rust helper
-(`../mod/helper/bin/<os>-<arch>/mcp-apps-cli-helper`). Real sessions (`session.py`) run whichever helper
-the plugin picks, the Rust one where it carries a binary; set
+(`../mod/helper/bin/<os>-<arch>/mcp-apps-cli-helper`). Set
 `MCP_APPS_CLI_HELPER=node` to compare.
 - `node leak-check.mjs`: a helper ended outright, with views open, leaves no
   Chrome running, and the next helper removes its profile.
@@ -130,10 +90,6 @@ the plugin picks, the Rust one where it carries a binary; set
 - `OPEN_COLS=100 COLORTERM=truecolor node cells-update-check.mjs 8`: the
   same in cells, then Period switched to Weekly; the "Dec 2025" row stays
   whole.
-
-`shown.py` replays a cast with each inline image's cells marked and tells
-how many are still on screen just before the session exits: an image that
-text or an erase wrote over is gone in iTerm2 too.
 
 ## The helper alone: `helper-driver.mjs`
 
