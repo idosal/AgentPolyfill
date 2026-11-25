@@ -1,12 +1,12 @@
 # Conformance: the Skills extension's client rules, for Muse Code
 
-The Muse form of mcp-skills (0.1.7, on Muse Code 1.4.25) is the Codex form's
-code, started with `--host=muse`. So the Codex form's
+The Muse form of mcp-skills (0.1.0, on Muse Code 1.4.25) runs the Codex form's
+code unchanged, in a bundle of its own. So the Codex form's
 [table](../../codex/docs/conformance.md) holds row by row, with its tests,
 except for the rows below. The source is the same: SEP-2640, Final, at commit
 `2eb3a8e`.
 
-Its own tests are in [`../../codex/test/muse-test.ts`](../../codex/test/muse-test.ts),
+Its own tests are in [`../test/muse-test.ts`](../test/muse-test.ts),
 with the Codex form's tests run against the same `App`.
 
 ## Different in Muse

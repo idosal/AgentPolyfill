@@ -104,9 +104,8 @@ Desktop.
 No Muse run used a real model. Every run used Muse's echo provider, or a
 local stand-in for the Responses API on 127.0.0.1 with a made-up key, which
 also answered Muse's approval judge, in an isolated home with no
-`muse login`, with Muse Code 1.4.25 on macOS. The forms' own tests are in the
-Codex suites: `test/muse-test.ts` in Events and Skills, and the M- tests in
-`test/adapter.test.ts` in Server Cards and ARD.
+`muse login`, with Muse Code 1.4.25 on macOS. Each form's own tests are in its
+folder, `polyfills/<extension>/muse/test`.
 
 ## What a polyfill can tell you about a spec
 

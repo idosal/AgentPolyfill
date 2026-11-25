@@ -1,0 +1,83 @@
+# The ARD polyfill for Muse Code (polyfills/ard/muse, plugin ard-discovery): its own bundle,
+# built into the Codex plugin folder beside the Codex bundle, with mcp-server-cards' Muse add.
+# On any change in its folder, in its files in the plugin folder, in the Server Cards Muse form
+# it builds on, or in the sources and shared modules it bundles:
+# - a typecheck, and a rebuild of the Muse bundle that must equal the committed one;
+# - its tests (discovery through ard.json, no registry search, the command, the shared
+#   hidden-character handling, the committed bundle, a copied plugin). They reach no network
+#   beyond 127.0.0.1 and run no real muse.
+
+name: "ard-discovery for Muse Code: tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/ard/muse/**"
+      - "polyfills/ard/codex/package-lock.json"
+      - "polyfills/ard/codex/plugin/.muse-plugin/**"
+      - "polyfills/ard/codex/plugin/muse/**"
+      - "polyfills/ard/claude-code/mod/hooks/**"
+      - "polyfills/server-cards/muse/**"
+      - "polyfills/server-cards/codex/src/**"
+      - "polyfills/server-cards/codex/build.mjs"
+      - "polyfills/server-cards/codex/test/**"
+      - "polyfills/server-cards/claude-code/mod/hooks/**"
+      - ".github/workflows/muse-ard-test.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see the job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/ard/muse/**"
+      - "polyfills/ard/codex/package-lock.json"
+      - "polyfills/ard/codex/plugin/.muse-plugin/**"
+      - "polyfills/ard/codex/plugin/muse/**"
+      - "polyfills/ard/claude-code/mod/hooks/**"
+      - "polyfills/server-cards/muse/**"
+      - "polyfills/server-cards/codex/src/**"
+      - "polyfills/server-cards/codex/build.mjs"
+      - "polyfills/server-cards/codex/test/**"
+      - "polyfills/server-cards/claude-code/mod/hooks/**"
+      - ".github/workflows/muse-ard-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: muse-ard-test-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: polyfills/ard/muse
+
+jobs:
+  test:
+    name: tests (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: polyfills/ard/codex
+      - run: npm ci
+        working-directory: polyfills/server-cards/codex
+      - run: npm run typecheck
+      # The Muse files are installed as committed, beside the Codex bundle: rebuild them,
+      # and fail if that changed anything there.
+      - name: Rebuild the Muse bundles; they must equal the committed ones
+        run: |
+          npm run build
+          if [ -n "$(git status --porcelain -- ../codex/plugin/muse)" ]; then
+            git status --porcelain -- ../codex/plugin/muse
+            echo "::error::../codex/plugin/muse is not what the sources build: run npm run build in polyfills/ard/muse and commit it"
+            exit 1
+          fi
+      - run: npm test

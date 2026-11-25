@@ -1,4 +1,4 @@
-// The helper in Muse Code (--host=muse): Muse's settings as the server list, the session from
+// The Muse Code form's helper: Muse's settings as the server list, the session from
 // MUSE_SESSION_ID, the plugin's settings file, a watch that waits for the person's typed yes, the
 // enterprise-policy and turned-off checks, delivery through the bundled UserPromptSubmit hook,
 // and waking through `muse attach` (a stand-in muse) with the shared takeover and wake cap.
@@ -9,11 +9,18 @@ import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, test } from 'node:test';
 import { sessionDir } from '../../core/src/store.ts';
 import { askTyped, confirmFromPrompt } from '../src/muse-confirm.ts';
 import { applyPluginSettings, attachTurn, inboxDir, museManaged, museWatchQuestion, parseEventsServer, parseMuseServer, putInbox, readMuseServers, serverEnabled, spokeAt, takeInbox } from '../src/muse.ts';
-import { FIXTURE, HELPER, Helper, PLUGIN, ROOT, sleep, temp, waitFor } from './harness.ts';
+import { WAKE_HEADER as CODEX_WAKE_HEADER } from '../../codex/src/threads.ts';
+import { FIXTURE, Helper, PLUGIN, sleep, temp, waitFor } from '../../codex/test/harness.ts';
+import { WAKE_HEADER } from '../src/header.ts';
+
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+/** The Muse form's helper, from its source, as the Codex form's tests run theirs. test/plugin-test.ts checks the bundle. */
+const HELPER = join(ROOT, 'src', 'helper.ts');
 
 const HOOK = join(PLUGIN, 'muse', 'hooks', 'user-prompt-submit.mjs');
 const FAKE_MUSE = join(ROOT, 'test', 'fake-muse.mjs');
@@ -99,7 +106,7 @@ async function call(h: Helper, name: string, args: Record<string, unknown> = {})
 }
 
 async function startMuse(env: Record<string, string>): Promise<Helper> {
-    const h = new Helper(env, HELPER, ['--host=muse']);
+    const h = new Helper(env, HELPER);
     await h.initialize();
     return h;
 }
@@ -127,6 +134,10 @@ async function watchActive(h: Helper, w: World, args: Record<string, unknown> = 
     return id;
 }
 
+test("the hook's first line of a batch is the Codex form's", () => {
+    assert.equal(WAKE_HEADER, CODEX_WAKE_HEADER);
+});
+
 describe('Muse settings', () => {
     const env = { HOME: '/nowhere' };
     test('stdio and HTTP entries are read as Muse writes them', () => {
@@ -147,7 +158,9 @@ describe('Muse settings', () => {
         assert.deepEqual(parseMuseServer({ type: 'http', url: 'https://x.example/mcp', enabled: false }, env, '/cfg'), { skip: 'it is switched off in Muse' });
         assert.match((parseMuseServer({ type: 'http', url: 'https://x.example/mcp', oauth: { clientId: 'c' } }, env, '/cfg') as { skip: string }).skip, /signs in through Muse/);
         assert.match((parseMuseServer({ type: 'sse', url: 'https://x.example/sse' }, env, '/cfg') as { skip: string }).skip, /not supported/);
-        assert.equal(parseEventsServer({ type: 'stdio', command: 'node', args: ['/x/mcp-events/0.1.7/dist/helper.js', '--host=muse'] }, env, '/cfg'), undefined);
+        // Neither form's helper: not as cached by Muse, nor from a clone.
+        for (const path of ['/x/mcp-events/0.1.0/muse/dist/helper.js', '/x/mcp-events/0.1.6/dist/helper.js', '/r/polyfills/events/codex/plugin/muse/dist/helper.js', '/r/polyfills/events/codex/plugin/dist/helper.js', '/r/polyfills/events/muse/src/helper.ts'])
+            assert.equal(parseEventsServer({ type: 'stdio', command: 'node', args: [path] }, env, '/cfg'), undefined, path);
     });
 
     test("the settings file is mcpServers in Muse's user settings (never a project's), narrowed by MCP_EVENTS_SERVERS", () => {

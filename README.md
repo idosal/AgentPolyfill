@@ -855,8 +855,9 @@ says what it checks and what it doesn't protect against.
     ([`polyfills/events/t3`](polyfills/events/t3)), an MCP server for Codex
     threads in T3 Code.
   - `muse/`: the Muse Code forms of Events, Skills, Server Cards and ARD:
-    their README, SECURITY.md and docs. The installable folder is the Codex
-    plugin's, with a `.muse-plugin/plugin.json` beside its Codex manifest.
+    their sources, tests, README, SECURITY.md and docs. The installable folder
+    is the Codex plugin's: a `.muse-plugin/plugin.json` beside its Codex
+    manifest, and the Muse bundles in its `muse/`.
 - **Marketplaces.**
   [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) lists
   everything for Claude Code, including the two plugins in

@@ -1,5 +1,6 @@
-// The same helper in Muse Code (Meta's terminal agent), where the plugin folder's
-// .muse-plugin/plugin.json starts it with `--host=muse`.
+// mcp-events in Muse Code (Meta's terminal agent): what differs from the Codex form, whose code
+// the Muse form's own bundle reuses unchanged (helper.ts; the plugin folder's
+// .muse-plugin/plugin.json starts it).
 //
 // What differs from Codex:
 //
@@ -31,14 +32,12 @@ import { sessionDir, Spool, writeAtomic } from '../../core/src/store.ts';
 import type { ServerTable } from '../../core/src/upstream.ts';
 import { unshowable, visible } from '../../pi/src/words.ts';
 import { findMuse, museManaged, museSettingsPath, parseMuseServer, readMuseSettings, serverEnabled } from './muse-config.ts';
-import type { QueueResult } from './waker.ts';
+import type { QueueResult } from '../../codex/src/waker.ts';
 import { VERSION } from './version.ts';
 
 type Json = Record<string, unknown>;
 const isTable = (v: unknown): v is Json => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** True when the helper was started by the Muse manifest. */
-export const isMuse = (argv: readonly string[] = process.argv): boolean => argv.includes('--host=muse');
 
 /** A Muse session id, as MUSE_SESSION_ID and a hook's `session_id` give it: a UUID. */
 export const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -92,7 +91,11 @@ export function applyPluginSettings(env: NodeJS.ProcessEnv, base: string): { app
 
 /** This plugin's own helper, if someone added it to Muse's settings by hand: connecting to it would loop. */
 function isSelf(arg: string): boolean {
-    return /mcp-events[^\\/]*(?:[\\/][^\\/]+){0,4}[\\/]dist[\\/]helper\.js$/.test(arg) || /[\\/]events[\\/]codex[\\/](?:plugin[\\/]dist[\\/]helper\.js|src[\\/]helper\.ts)$/.test(arg);
+    return (
+        /mcp-events[^\\/]*(?:[\\/][^\\/]+){0,4}[\\/]dist[\\/]helper\.js$/.test(arg) ||
+        /[\\/]events[\\/]codex[\\/](?:plugin[\\/](?:muse[\\/])?dist[\\/]helper\.js|src[\\/]helper\.ts)$/.test(arg) ||
+        /[\\/]events[\\/]muse[\\/]src[\\/]helper\.ts$/.test(arg)
+    );
 }
 
 /**

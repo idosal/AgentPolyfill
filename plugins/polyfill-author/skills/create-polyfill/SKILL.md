@@ -251,16 +251,18 @@ How a polyfill is built depends on what the host lets third-party code do.
   in `tools/opencode`. Install with
   `opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/<polyfill>/opencode/plugin'`;
   nothing for OpenCode is published to npm.
-- **Muse Code:** a plugin that is the Codex plugin's folder with a
-  `.muse-plugin/plugin.json` beside its Codex manifest (Muse reads the Codex
-  marketplace), and docs in `polyfills/<polyfill>/muse/`. Read the existing
+- **Muse Code:** a plugin in the Codex plugin's folder (Muse reads the Codex
+  marketplace): a `.muse-plugin/plugin.json` beside its Codex manifest, and its
+  own bundles in `muse/` there, built from `polyfills/<polyfill>/muse/`, which
+  holds its sources, tests and docs and reuses the Codex sources unchanged.
+  The Codex bundle must stay byte-identical. Read the existing
   Muse forms' README, SECURITY.md and `docs/conformance.md` before writing
   part 3.
   - **No way to ask.** Muse gives a plugin no way to ask the person: its MCP
     client offers no elicitation, and a non-read-only tool call or a hook's
     `ask` goes to its approval judge, a model. So a consequential step waits
     for a phrase the person types, read by a `UserPromptSubmit` hook
-    (`polyfills/events/codex/src/muse-confirm.ts`), or is a command the person
+    (`polyfills/events/muse/src/muse-confirm.ts`), or is a command the person
     runs.
   - **No environment.** Muse passes plugin servers and hooks no environment
     variables; settings go in a file in the plugin's data folder.

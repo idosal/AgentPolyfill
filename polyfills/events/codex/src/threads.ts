@@ -20,16 +20,16 @@
 import { join } from 'node:path';
 import type { EventsConnection } from '../../core/src/events-client.ts';
 import { Delivery, type Batch } from '../../core/src/delivery.ts';
+import { LINE_PREFIX } from '../../core/src/format.ts';
 import { ProjectState, Spool } from '../../core/src/store.ts';
 import { createTools, type ToolAnswer, type Unavailable } from '../../core/src/tools.ts';
 import { secrets } from '../../core/src/untrusted.ts';
 import { WakeBudget, wakeLimits } from '../../core/src/wake.ts';
 import { WatchManager } from '../../core/src/watcher.ts';
-import { WAKE_HEADER } from './header.ts';
 import type { QueueResult, Wake } from './waker.ts';
 
 /** The first line of every wake: the message lands in the conversation as input, so it says whose it is. */
-export { WAKE_HEADER };
+export const WAKE_HEADER = `${LINE_PREFIX} (Sent by the mcp-events plugin, not typed by the user.)`;
 
 export type ThreadOptions = {
     base: string;
@@ -41,12 +41,6 @@ export type ThreadOptions = {
     connectTimeoutMs?: number;
     /** How long the pause past the hour's wakes lasts when the person never writes. Default an hour. */
     liftAfterMs?: number;
-    /**
-     * false: this process stores the session's events and never hands them over. Muse's default: there
-     * the plugin's UserPromptSubmit hook reads the store past the last hand-over with the person's next
-     * message, and is the one that records how far it got.
-     */
-    deliver?: boolean;
 };
 
 const PAUSE_LIFTS_AFTER_MS = 3600 * 1000;
@@ -70,7 +64,6 @@ export class ThreadSession {
     #waking = false;
     #retryMs = 0;
     #stopped = false;
-    readonly #deliver: boolean;
     /** Why the last wake failed, until one succeeds: list_watches says so. */
     lastWakeError?: string;
     /**
@@ -88,7 +81,6 @@ export class ThreadSession {
         const env = o.env ?? process.env;
         this.id = id;
         this.#wake = o.wake;
-        this.#deliver = o.deliver !== false;
         this.#log = (s) => o.log(`[${id.slice(0, 8)}] ${s}`);
         this.#batchMs = Number(env.MCP_EVENTS_BATCH_MS ?? 1000);
         this.#values = env.MCP_EVENTS_WAKE_VALUES === '1';
@@ -167,7 +159,7 @@ export class ThreadSession {
 
     /** A burst is handed over once, a moment after it starts. A look already due sooner stands. */
     announce(afterMs = this.#batchMs): void {
-        if (this.#stopped || !this.#deliver) return;
+        if (this.#stopped) return;
         const at = Date.now() + afterMs;
         if (this.#timer && this.#at <= at) return;
         clearTimeout(this.#timer);

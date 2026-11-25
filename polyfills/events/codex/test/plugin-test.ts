@@ -22,8 +22,6 @@ describe('the plugin folder', () => {
             assert.equal(r.status, 0, r.stderr);
             assert.deepEqual(readdirSync(join(PLUGIN, 'dist')), ['helper.js']);
             assert.ok(readFileSync(join(dir, 'helper.js')).equals(readFileSync(join(PLUGIN, 'dist', 'helper.js'))), 'plugin/dist/helper.js is stale: run npm run build');
-            assert.deepEqual(readdirSync(join(PLUGIN, 'muse', 'hooks')), ['user-prompt-submit.mjs']);
-            assert.ok(readFileSync(join(dir, 'user-prompt-submit.mjs')).equals(readFileSync(join(PLUGIN, 'muse', 'hooks', 'user-prompt-submit.mjs'))), 'plugin/muse/hooks/user-prompt-submit.mjs is stale: run npm run build');
         } finally {
             rmSync(dir, { recursive: true, force: true });
         }
@@ -48,8 +46,6 @@ describe('the plugin folder', () => {
         const read = new Set([...helper.matchAll(/env\.(MCP_EVENTS_[A-Z_]+)/g)].map((m) => m[1]!));
         // For tests on this machine only: plain http and stand-ins (DEV), and a short relay backoff.
         for (const v of ['MCP_EVENTS_DEV', 'MCP_EVENTS_PUBLIC_RELAY_URL', 'MCP_EVENTS_RELAY_BACKOFF_MS']) read.delete(v);
-        // Muse only: there they come from the plugin's settings.json (Muse passes a plugin's server no variables).
-        for (const v of ['MCP_EVENTS_MUSE_WAKE', 'MCP_EVENTS_MUSE_BIN']) read.delete(v);
         assert.deepEqual([...read].filter((v) => !server.env_vars.includes(v)).sort(), [], 'settings the plugin does not forward');
         assert.ok(server.env_vars.includes('CODEX_HOME'));
         // Listed in the Codex marketplace of this repository, by the folder that is installed.
@@ -58,33 +54,12 @@ describe('the plugin folder', () => {
         assert.deepEqual(market.plugins.find((p) => p.name === 'mcp-events')?.source, { source: 'local', path: './polyfills/events/codex/plugin' });
     });
 
-    test('the Muse manifest names the same plugin, and files that are in the folder', () => {
-        const muse = JSON.parse(readFileSync(join(PLUGIN, '.muse-plugin', 'plugin.json'), 'utf8')) as {
-            schemaVersion: number;
-            name: string;
-            version: string;
-            compat: Record<string, string>;
-            capabilities: { skills: { path: string }[]; hooks: { id: string; event: string; command: string[] }[]; mcpServers: { id: string; transport: string; command: string[] }[] };
-        };
-        assert.equal(muse.schemaVersion, 1);
-        assert.equal(muse.name, 'mcp-events');
-        assert.equal(muse.version, VERSION);
-        assert.deepEqual(muse.compat, { source: 'native', manifestDir: '.muse-plugin' });
-        // The server is the same bundle, told it is in Muse; Muse resolves the path against the plugin folder.
-        assert.deepEqual(muse.capabilities.mcpServers, [{ id: 'mcp-events', transport: 'stdio', command: ['node', 'dist/helper.js', '--host=muse'] }]);
-        assert.deepEqual(muse.capabilities.hooks.map((h) => [h.event, h.command]), [['UserPromptSubmit', ['node', 'muse/hooks/user-prompt-submit.mjs']]]);
-        for (const s of muse.capabilities.skills) {
-            assert.ok(existsSync(join(PLUGIN, s.path)), s.path);
-            // Codex lists every SKILL.md under skills/: the Muse skill stays out of it.
-            assert.ok(!s.path.startsWith('skills/'), s.path);
-        }
-    });
-
     test('a copied plugin, with no node_modules and nothing outside it, starts and serves its tools as Codex starts it', async () => {
         const dir = temp('mcp-events-codex-install-');
         const installed = join(dir, 'plugins cache', 'mcp-events', VERSION); // a space in the path, as a cache may have
         mkdirSync(installed, { recursive: true });
         cpSync(PLUGIN, installed, { recursive: true, filter: (p) => !['node_modules', '.DS_Store'].includes(basename(p)) });
+        // The folder also holds the Muse Code form's manifest and files (polyfills/events/muse), which Codex doesn't read.
         assert.deepEqual(readdirSync(installed).sort(), ['.codex-plugin', '.mcp.json', '.muse-plugin', 'THIRD_PARTY_LICENSES.txt', 'dist', 'muse', 'skills']);
         assert.equal(existsSync(join(installed, 'package.json')), false);
         const guard = join(dir, 'isolated.mjs');

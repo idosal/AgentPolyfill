@@ -19,7 +19,6 @@ on:
     paths:
       - "polyfills/events/codex/**"
       - "polyfills/events/core/**"
-      - "polyfills/events/pi/src/words.ts"
       - "polyfills/events/claude-code/test/fixture-events-server.ts"
       - "polyfills/events/claude-code/mod/relay/src/protocol.ts"
       - "tools/bundle-notices.mjs"
@@ -31,7 +30,6 @@ on:
     paths:
       - "polyfills/events/codex/**"
       - "polyfills/events/core/**"
-      - "polyfills/events/pi/src/words.ts"
       - "polyfills/events/claude-code/test/fixture-events-server.ts"
       - "polyfills/events/claude-code/mod/relay/src/protocol.ts"
       - "tools/bundle-notices.mjs"

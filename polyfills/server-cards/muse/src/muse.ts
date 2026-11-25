@@ -1,5 +1,6 @@
-// The same server in Muse Code (Meta's terminal agent), where the plugin folder's
-// .muse-plugin/plugin.json starts it with `--host=muse`.
+// mcp-server-cards in Muse Code (Meta's terminal agent): what differs from the Codex form, whose
+// code the Muse form's own bundle reuses unchanged (main.ts; the plugin folder's
+// .muse-plugin/plugin.json starts it).
 //
 // Discovery is the same. Adding differs, because Muse gives a plugin no way to put a
 // question to the person: its MCP client offers no elicitation, a tool call that is not
@@ -10,16 +11,14 @@
 // terminal, or after `!` at the Muse prompt). Running it is the person's yes, and the
 // command shows the URL and every header it writes.
 
+import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { host, hostOf } from '../../claude-code/mod/hooks/configure'
 import type { ServerCard } from '../../claude-code/mod/hooks/card'
-import { codexRunner, type CodexPlan, type Run } from './codex'
-import type { Tool } from './mcp'
-import { resolveAdd, shownText, type Session } from './tools'
-
-/** True when the server was started by the Muse manifest. */
-export const isMuse = (argv: readonly string[] = process.argv): boolean => argv.includes('--host=muse')
+import type { CodexPlan, Ran, Run } from '../../codex/src/codex'
+import type { Tool } from '../../codex/src/mcp'
+import { resolveAdd, shownText, type Session } from '../../codex/src/tools'
 
 /** Protocol revisions Muse Code 1.4.25 asks for in `initialize` (2025-06-18, seen in a live session) and the ones before it. */
 export const MUSE_PROTOCOL_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05']
@@ -41,8 +40,49 @@ export const museCandidates = (env: NodeJS.ProcessEnv = process.env) => [
   ...(env.HOME ? [`${env.HOME}/.local/bin/muse`] : []),
 ]
 
-/** Runs `muse` (only `muse mcp get`, which reads): the same runner as Codex's, over Muse's places. */
-export const museRunner = (env: NodeJS.ProcessEnv = process.env): Run => codexRunner(env, museCandidates(env), 'muse')
+/** One run of `bin`, as the Codex form's runner does it (../../codex/src/codex.ts). */
+const runOnce = (bin: string, args: readonly string[], opts: Parameters<Run>[1] = {}) =>
+  new Promise<Ran | { failure: string }>(resolve => {
+    let child: ReturnType<typeof spawn>
+    try {
+      child = spawn(bin, args, { stdio: ['pipe', 'pipe', 'pipe'], env: process.env })
+    } catch (err) {
+      return resolve({ failure: err instanceof Error ? err.message : String(err) })
+    }
+    let stdout = ''
+    let stderr = ''
+    const timer = setTimeout(() => child.kill('SIGKILL'), opts.timeoutMs ?? 60_000)
+    child.stdout!.on('data', d => (stdout += d))
+    child.stderr!.on('data', d => (stderr += d))
+    child.on('error', err => {
+      clearTimeout(timer)
+      resolve({ failure: err.message })
+    })
+    child.on('close', code => {
+      clearTimeout(timer)
+      resolve({ exitCode: code ?? -1, stdout, stderr })
+    })
+    child.stdin!.end()
+  })
+
+/** Runs `muse` (only `muse mcp get`, which reads), from the first of Muse's places that runs. */
+export function museRunner(env: NodeJS.ProcessEnv = process.env): Run {
+  let found: string | undefined
+  return async (args, opts) => {
+    if (found) return runOnce(found, args, opts)
+    let failure = ''
+    for (const bin of museCandidates(env)) {
+      const r = await runOnce(bin, args, opts)
+      if ('failure' in r) {
+        failure = r.failure
+        continue
+      }
+      found = bin
+      return r
+    }
+    return { failure: failure || 'muse was not found' }
+  }
+}
 
 /** Taken unless Muse says there is no server of that name; unknown counts as taken. */
 export async function isNameTakenInMuse(run: Run, name: string): Promise<boolean> {

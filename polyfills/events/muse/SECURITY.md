@@ -1,8 +1,9 @@
 # Security
 
 Report a problem privately, as the [repository's SECURITY.md](../../../SECURITY.md)
-says. This page is about mcp-events in Muse Code: the Codex plugin's folder
-and bundle, started by its Muse manifest with `--host=muse`. Everything the
+says. This page is about mcp-events in Muse Code: its own bundle and hook, in
+the Codex plugin's folder, started by its Muse manifest. It reuses the Codex
+form's code unchanged, so everything the
 [Codex form's SECURITY.md](../codex/SECURITY.md) says about the Events client
 (what a server can and can't make it do, webhooks, the relay, sizes) holds
 here. What follows is what differs in Muse.

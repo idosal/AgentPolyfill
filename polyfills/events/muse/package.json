@@ -1,0 +1,25 @@
+{
+  "name": "mcp-events-muse",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "MCP Events (SEP-3415) for Muse Code: watch events on your MCP servers; new events reach the session with your next message. Built from ../codex's sources, into the Codex plugin folder beside the Codex bundle.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test --no-warnings \"test/*-test.ts\"",
+    "typecheck": "../codex/node_modules/.bin/tsc --noEmit -p .",
+    "build": "node build.mjs"
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idosal/AgentPolyfill.git",
+    "directory": "polyfills/events/muse"
+  }
+}

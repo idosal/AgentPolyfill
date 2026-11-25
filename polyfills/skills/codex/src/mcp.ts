@@ -16,12 +16,12 @@ import type { App, Asked, Decision } from './app.ts';
 import { PLUGIN, VERSION } from './version.ts';
 
 type Json = Record<string, unknown>;
-const REVISIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
-const MAX_LINE = 4 * 1024 * 1024;
+export const REVISIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
+export const MAX_LINE = 4 * 1024 * 1024;
 /** How long a question waits for the person. Codex is told to wait as long for the tool (.mcp.json). */
 const ASK_TIMEOUT_MS = 9 * 60 * 1000;
 
-const INSTRUCTIONS = `Skills served by the user's MCP servers (the MCP Skills extension), which Codex does not load by itself. Codex lists them among its skills as ${PLUGIN}:<server>:<name>; the SKILL.md it shows for one only says how to load it. Load a skill with load_skill, giving its server and uri: the user is asked first, and the skill's text comes back marked with the server it came from. Read the files a loaded skill refers to with read_skill_file, never from disk. list_skills lists every served skill, including any not in Codex's list.`;
+export const INSTRUCTIONS = `Skills served by the user's MCP servers (the MCP Skills extension), which Codex does not load by itself. Codex lists them among its skills as ${PLUGIN}:<server>:<name>; the SKILL.md it shows for one only says how to load it. Load a skill with load_skill, giving its server and uri: the user is asked first, and the skill's text comes back marked with the server it came from. Read the files a loaded skill refers to with read_skill_file, never from disk. list_skills lists every served skill, including any not in Codex's list.`;
 
 const identity = { server: { type: 'string', description: 'The MCP server that serves the skill, by its name in the user\'s Codex config.' } };
 export const TOOLS = [
@@ -65,10 +65,6 @@ export type ServeOptions = {
     /** Called with what the client declared at initialize. */
     onInitialize?: (clientCapabilities: Json, clientInfo: Json) => void;
     askTimeoutMs?: number;
-    /** How the person is asked, where it is not an MCP elicitation (Muse: muse.ts museAsk). */
-    ask?: (message: string, choices: Decision[], subject?: readonly string[]) => Promise<Asked>;
-    /** The host's words in place of Codex's, for what the server says (Muse: muse.ts museWords). */
-    words?: (text: string) => string;
 };
 
 export function serve(o: ServeOptions): { done: Promise<void> } {
@@ -93,9 +89,8 @@ export function serve(o: ServeOptions): { done: Promise<void> } {
     };
     const fail = (id: unknown, code: number, message: string) => (typeof id === 'string' || typeof id === 'number') && send({ id, error: { code, message } });
 
-    const words = o.words ?? ((s: string) => s);
     /** One question to the person, through Codex. Only a choice the form offered, given by the person, counts as an answer. */
-    const elicit = (message: string, choices: Decision[]): Promise<Asked> => {
+    const ask = (message: string, choices: Decision[]): Promise<Asked> => {
         if (typeof clientCaps.elicitation !== 'object' || clientCaps.elicitation === null) return Promise.resolve({ unavailable: 'Codex did not offer to put questions to you on this connection' });
         const id = `ask-${next++}`;
         return new Promise<Asked>((done) => {
@@ -119,8 +114,6 @@ export function serve(o: ServeOptions): { done: Promise<void> } {
         });
     };
 
-    const ask = (message: string, choices: Decision[], subject?: readonly string[]): Promise<Asked> => (o.ask ? o.ask(words(message), choices, subject) : elicit(words(message), choices));
-
     const handle = async (m: Json) => {
         const id = m.id;
         const method = m.method;
@@ -136,18 +129,18 @@ export function serve(o: ServeOptions): { done: Promise<void> } {
                 const asked = typeof params.protocolVersion === 'string' ? params.protocolVersion : '';
                 revision = REVISIONS.includes(asked) ? asked : REVISIONS[0]!;
                 o.onInitialize?.(clientCaps, (params.clientInfo ?? {}) as Json);
-                return reply(id, { protocolVersion: revision, capabilities: { tools: { listChanged: false } }, serverInfo: { name: PLUGIN, title: 'MCP Skills (polyfill)', version: VERSION }, instructions: words(INSTRUCTIONS) });
+                return reply(id, { protocolVersion: revision, capabilities: { tools: { listChanged: false } }, serverInfo: { name: PLUGIN, title: 'MCP Skills (polyfill)', version: VERSION }, instructions: INSTRUCTIONS });
             }
             case 'ping':
                 return reply(id, {});
             case 'tools/list':
-                return reply(id, { tools: o.words ? TOOLS.map((t) => ({ ...t, description: words(t.description), inputSchema: JSON.parse(words(JSON.stringify(t.inputSchema))) as Json })) : TOOLS });
+                return reply(id, { tools: TOOLS });
             case 'tools/call': {
                 const meta = (params._meta ?? {}) as Json;
                 const turn = (meta['x-codex-turn-metadata'] ?? {}) as Json;
                 const thread = [meta.threadId, turn.thread_id, turn.session_id].find((x): x is string => typeof x === 'string' && x.length <= 200);
                 const answer = await o.app.call(String(params.name ?? ''), params.arguments, { ask, thread });
-                return reply(id, { content: [{ type: 'text', text: words(answer.text) }], ...(answer.isError ? { isError: true } : {}) });
+                return reply(id, { content: [{ type: 'text', text: answer.text }], ...(answer.isError ? { isError: true } : {}) });
             }
             case 'notifications/cancelled':
                 if (typeof params.requestId === 'string' || typeof params.requestId === 'number') cancelled.add(params.requestId);

@@ -1,6 +1,6 @@
 # SEP-3415 client conformance, in Muse Code
 
-How this client (the Muse form of mcp-events, 0.1.7, on Muse Code 1.4.25)
+How this client (the Muse form of mcp-events, 0.1.0, on Muse Code 1.4.25)
 stands against the **Final** text of SEP-3415, the same revision as the other
 forms.
 
@@ -15,9 +15,10 @@ exception (CAP-2 and CAP-4), 6 not applicable, none missing.** The upstream
 conformance suite's Events client scenarios were not run through Muse.
 
 What this file adds: what this form's own tests check, and what is different
-in Muse. The tests are in [`../../codex/test/muse-test.ts`](../../codex/test/muse-test.ts).
-They run the bundled helper as Muse starts it (`--host=muse`, a cleared
-environment, `MUSE_SESSION_ID`), and the bundled hook as Muse runs it,
+in Muse. The tests are in [`../test/muse-test.ts`](../test/muse-test.ts) and
+[`../test/plugin-test.ts`](../test/plugin-test.ts). They run the helper as Muse
+starts it (a cleared environment, `MUSE_SESSION_ID`; from its source, and the
+committed bundle from a copy of the plugin folder), and the bundled hook as Muse runs it,
 against the hand-written events server of the Claude Code form and a stand-in
 `muse`.
 

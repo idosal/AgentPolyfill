@@ -171,7 +171,8 @@ only by you:
 
 ## In Muse Code
 
-The same plugin runs in Muse Code. What differs there is in
+The plugin folder also holds the Muse Code form, which runs its own bundle
+and reuses this form's code unchanged. What differs there is in
 [its Muse security notes](../muse/SECURITY.md).
 
 ## Reporting a vulnerability

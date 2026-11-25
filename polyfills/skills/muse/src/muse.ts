@@ -1,10 +1,11 @@
-// The same helper in Muse Code (Meta's terminal agent), where the plugin folder's
-// .muse-plugin/plugin.json starts it with `--host=muse`.
+// mcp-skills in Muse Code (Meta's terminal agent): what differs from the Codex form, whose code
+// the Muse form's own bundle reuses unchanged (helper.ts; the plugin folder's
+// .muse-plugin/plugin.json starts it).
 //
 // What differs from Codex:
 //
 //   - The servers: Muse's user settings (~/.config/muse/settings.json), read as mcp-events'
-//     Muse form reads them (polyfills/events/codex/src/muse-config.ts).
+//     Muse form reads them (polyfills/events/muse/src/muse-config.ts).
 //   - Where the stubs go. Muse lists a SKILL.md one folder below one of its skill folders,
 //     never deeper, so the stubs go flat into Muse's own, ~/.config/muse/skills, each in a
 //     folder whose name starts with `mcp-skills-served--`. Codex does not read that folder.
@@ -19,16 +20,14 @@
 //     question afterwards.
 
 import { createHash } from 'node:crypto';
-import { mkdirSync, readdirSync } from 'node:fs';
+import { mkdirSync, readdirSync, rmdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { findMuse, museConfigDir, museManaged, readMuseSettings } from '../../../events/codex/src/muse-config.ts';
+import { findMuse, museConfigDir, museManaged, readMuseSettings } from '../../../events/muse/src/muse-config.ts';
 import { rootOf } from '../../core/src/skills.ts';
 import type { ServerTable } from '../../core/src/upstream.ts';
 import { CONFIRM_TTL_MS, confirmFromPrompt, confirmPhrase, museAsk, museStoreDir } from './muse-confirm.ts';
-import { labelDir, lockStubs, MAX_STUBS, realDir, removePath, renderStub, stubNames, writeIfChanged, type StubSync } from './stubs.ts';
+import { labelDir, MAX_STUBS, realDir, remove as removePath, renderStub, stubNames, writeIfChanged, type StubSync } from '../../codex/src/stubs.ts';
 
-/** True when the helper was started by the Muse manifest. */
-export const isMuse = (argv: readonly string[] = process.argv): boolean => argv.includes('--host=muse');
 
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -66,13 +65,39 @@ const FLAT_DIR = /^mcp-skills-served--([a-z0-9][a-z0-9_-]{0,63}-[0-9a-f]{6})--([
 /** The folder of one served skill's stub, directly in Muse's skill folder. */
 export const flatStubDir = (root: string, label: string, uri: string): string => join(root, `${FLAT_PREFIX}${labelDir(label)}--${sha256(uri).slice(0, 16)}`);
 
+/** Holds Muse's skill folder while one helper writes its stubs there (a folder made and removed), as the Codex form's stubs.ts does in its own. */
+function lockStubs(root: string): () => void {
+    const dir = join(root, `.${FLAT_PREFIX}lock`);
+    for (let i = 0; i < 40; i++) {
+        try {
+            mkdirSync(dir);
+            return () => {
+                try {
+                    rmdirSync(dir);
+                } catch {
+                    // already gone
+                }
+            };
+        } catch {
+            try {
+                // Another session's helper is writing. A lock older than 30 seconds was left behind.
+                if (Date.now() - statSync(dir).mtimeMs > 30_000) rmdirSync(dir);
+            } catch {
+                // gone meanwhile
+            }
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+        }
+    }
+    return () => {};
+}
+
 /**
  * syncStubs (stubs.ts) for Muse: the same stubs, one folder each directly in `root`. Only folders
  * of this plugin's shape are written or removed; those of servers in `keep` are left as they are.
  */
 export function syncFlatStubs(root: string, s: StubSync): { written: number; removed: number; omitted: number } {
     mkdirSync(root, { recursive: true });
-    const unlock = lockStubs(root, `.${FLAT_PREFIX}lock`);
+    const unlock = lockStubs(root);
     let written = 0;
     let removed = 0;
     let omitted = 0;
