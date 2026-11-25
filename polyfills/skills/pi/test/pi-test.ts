@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { Fixture, scenarioOf, skill } from './harness.ts';
-import { Pi, temp, type Rule } from './pi-rpc.ts';
+import { Pi, temp, waitFor, type Rule } from './pi-rpc.ts';
 
 const EXTENSION = fileURLToPath(new URL('../extension/dist/index.js', import.meta.url));
 
@@ -97,6 +97,59 @@ test('X8: while a served skill is loaded, reading another server\'s resource is 
     const read = pi.toolResults('read_mcp_resource').at(-1);
     assert.ok(read?.isError, 'the read was refused');
     assert.ok(!brain(pi).some((r) => r.text.includes('private notes')), 'nothing of the other server\'s resource reached the model');
+});
+
+test('X8 holds in a new instance of the extension (a clone, as after /reload, /resume or /fork): the skill is in the conversation, so the read is asked about', { timeout: 120_000 }, async () => {
+    const s = skill('git-workflow');
+    const docs = new Fixture(scenarioOf([s]));
+    const other = new Fixture({ ...scenarioOf([skill('other-skill')]), files: { 'file:///notes.txt': { text: 'private notes' } } });
+    const w = world({ docs, other }, { exposure: 'direct' });
+    const pi = new Pi({ extensions: [EXTENSION], rules: RULES, agentDir: w.agentDir, answer: (r) => (r.method === 'select' ? 'Load it' : r.method === 'confirm' ? false : undefined) });
+    running.push(pi);
+    await pi.ready();
+    await pi.prompt('/skill:mcp-docs-git-workflow');
+    assert.ok(pi.toolResults('load_skill').some((t) => !t.isError), 'the skill is loaded');
+    // Pi shuts this instance of the extension down and starts a new one, which holds nothing yet.
+    pi.send({ type: 'clone' });
+    await waitFor(() => pi.records.find((r) => r.type === 'response' && r.command === 'clone'), 30000, 'the clone');
+    await pi.prompt('read resource other file:///notes.txt', 60000);
+    const asked = pi.ui.find((u) => u.method === 'confirm');
+    assert.ok(asked, 'the user was asked');
+    assert.match(String(asked.message), /served by the MCP server "docs" is loaded in this session, and Pi wants to read a resource from the MCP server "other"/);
+    assert.ok(pi.toolResults('read_mcp_resource').at(-1)?.isError, 'the read was refused');
+    assert.ok(!brain(pi).some((r) => r.text.includes('private notes')), 'nothing of the other server\'s resource reached the model');
+});
+
+test("V4: a loaded skill's own files are read with read_skill_file, against its entry, not with Pi's resource tool", { timeout: 90_000 }, async () => {
+    const s = skill('git-workflow', { 'references/GUIDE.md': 'Guide\n' });
+    const docs = new Fixture({ ...scenarioOf([s]), files: { ...scenarioOf([s]).files, [`${s.root}/unlisted.md`]: { text: 'not in the manifest' } } });
+    const w = world({ docs }, { exposure: 'direct' });
+    const pi = new Pi({ extensions: [EXTENSION], rules: RULES, agentDir: w.agentDir, answer: (r) => (r.method === 'select' ? 'Load it' : undefined) });
+    running.push(pi);
+    await pi.ready();
+    await pi.prompt('/skill:mcp-docs-git-workflow');
+    assert.ok(pi.toolResults('load_skill').some((t) => !t.isError), 'the skill is loaded');
+    await pi.prompt(`read resource docs ${s.root}/unlisted.md`);
+    const read = pi.toolResults('read_mcp_resource').at(-1);
+    assert.ok(read?.isError, 'the read was refused');
+    assert.match(read.text, /Read it with read_skill_file/);
+    assert.equal(pi.ui.filter((u) => u.method === 'confirm').length, 0, 'nobody is asked: it is refused');
+    assert.ok(!docs.requests('resources/read').some((r) => JSON.stringify(r).includes('unlisted.md')), 'the file was not fetched');
+});
+
+test("with Pi's MCP support off (--no-mcp), the extension reaches no server and lists no skill", { timeout: 90_000 }, async () => {
+    const s = skill('git-workflow');
+    const f = new Fixture(scenarioOf([s]));
+    const w = world({ docs: f });
+    const pi = new Pi({ extensions: [EXTENSION], rules: [{ when: '^list$', call: { name: 'list_skills', args: {} } }], agentDir: w.agentDir, args: ['--no-mcp'] });
+    running.push(pi);
+    await pi.ready();
+    await pi.prompt('list');
+    const listed = pi.toolResults('list_skills').at(-1);
+    assert.ok(listed?.isError, listed?.text);
+    assert.match(listed.text, /Pi's MCP support is off in this session/);
+    assert.doesNotMatch(brain(pi)[0]!.system, /mcp-docs-git-workflow/, 'no served skill is listed');
+    assert.deepEqual(f.requests('initialize'), [], 'the server was not reached');
 });
 
 test('X8 holds for a codemode script too: its nested read of another server\'s resource is asked about', { timeout: 90_000 }, async () => {

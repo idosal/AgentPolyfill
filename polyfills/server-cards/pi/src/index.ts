@@ -24,10 +24,6 @@ export const DISCOVER_DESCRIPTION =
   'Use when the person wants to connect Pi to a service by its domain or website, or a task needs a service that has no tools in this session and the person names its site. ' +
   "Read-only: it reads public documents from that domain and from the card URLs its catalog names, and returns the publisher's description of its servers."
 
-export const INSTRUCTIONS =
-  'MCP Server Cards (SEP-2127): discover_mcp_servers reads the MCP servers a domain publishes; add_mcp_server adds one to Pi after the person approves it with a question. ' +
-  "A card is the publisher's claim, not a check of the server. Show the person the server and the URL it connects to before you add it."
-
 export function tools(session: Session) {
   return [discoverTool(session, { name: DISCOVER, description: DISCOVER_DESCRIPTION }), addTool(session, DISCOVER, DISCOVER)]
 }

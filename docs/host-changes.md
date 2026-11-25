@@ -225,6 +225,12 @@ the live server.
 - **Mark a turn an extension started, to the model.** `pi.sendMessage` shows
   the message as the extension's own in Pi, but the model receives it in the
   user's turn, so the polyfill's first line has to say who sent it.
+- **Give extensions the servers as Pi reads them.** An extension that reaches
+  Pi's servers has to read `mcp.json` itself and repeat Pi's checks of each
+  entry, and can tell whether Pi's MCP support runs in a session only from
+  where the `/mcp` command comes from. A call that returns the entries Pi
+  accepted for the session, or none when its MCP support is off, would
+  replace both. With change 1 neither is needed.
 - **Keep `ui://` resources and tool `_meta` for extensions.** Pi leaves out
   MCP Apps resources because it doesn't render them. An extension that
   renders them needs them, and the tool's `_meta.ui`; with change 1 it can

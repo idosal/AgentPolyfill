@@ -150,31 +150,21 @@ This form follows the same pinned revisions as the other Server Cards forms:
 - [AI Catalog](https://github.com/Agent-Card/ai-catalog/tree/19208af2f8), v0.9
   release candidate, commit `19208af2f8`.
 
-The shared [client rule table](../claude-code/README.md#client-rules) covers
-D-1–D-9, V-1–V-3, C-1–C-3, S-1–S-6 and I-1–I-4. This form runs those 90
-rule tests against its committed Pi bundle. It additionally tests Pi's
-consent, command arguments, headers, existing names, cancellation, session
-reset, stand-down, redirects and body bounds.
-
-Real Pi RPC tests copy `extension/` on its own, discover a local HTTP
-catalog and card, answer yes/no/cancel, inspect the isolated `mcp.json`, and
-observe Pi's `initialize` and `tools/list` requests. They verify Pi negotiates
-`2025-11-25`; the adapter also accepts `2025-06-18`, `2025-03-26` and
-`2024-11-05`. A real print/JSON run verifies that nobody is asked and nothing
-is added. A fresh temporary build must match the committed bundle byte for
-byte. The model is a scripted test provider; no paid model is used.
-
-Contract exceptions and verification limits: no live card comparison (S-3),
-no automatic native-support detection, and no new independent public-server
-interop or upstream conformance run for this Pi port. The local MCP fixture
-is our own; real Pi is the independent host. The other forms' public-server
-evidence is linked in their READMEs and is not claimed as a Pi run. No
-pre-standard Server Card behavior is added here.
+Each client rule, how it is met on Pi and where it is tested, is in
+[`docs/conformance.md`](docs/conformance.md). The shared rules (D-1 to D-9,
+V-1 to V-3, C-1 to C-3, S-1 to S-6, I-1 to I-4) are the same code and the
+same 90 tests as in the other forms, run here against the committed Pi
+bundle; the Pi form's own tests cover the question, Pi's command line and
+headers, existing names, cancellation, the session, stand-down, redirects
+and body bounds. Real Pi RPC tests run `pi mcp add` for real in an isolated
+agent folder, and check what Pi then connects. One rule isn't met, as in the
+other forms: S-3, the live comparison of a card with the server.
 
 [`docs/live-run.md`](docs/live-run.md) records a run in Pi 1.6.0 with a real
 model, against neon.com's published catalog: Pi listed its servers, the
 extension asked before adding Neon Docs, and after "Add it" the server was in
-`mcp.json` and connected for the session.
+`mcp.json` and connected for the session. The MCP conformance suite has no
+Server Card scenarios, so there is no upstream run to report.
 
 ## Development
 

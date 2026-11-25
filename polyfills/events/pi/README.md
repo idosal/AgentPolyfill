@@ -105,7 +105,9 @@ its own, so Pi knows what it can watch without asking.
 
 A watch belongs to the Pi session that set it, by Pi's session id. Resuming
 the session (`pi --resume`, `/resume`) resumes its watches from where they
-stopped.
+stopped. A watch on a local (stdio) server resumes when the session is
+resumed in the same folder: the server is started in the session's folder,
+and a server started elsewhere counts as another server.
 
 ### Which servers it works with
 
@@ -121,7 +123,9 @@ stopped.
   the header.
 
 Servers turned off in Pi (`enabled: false`) or hidden (`exposure: "hidden"`)
-are left alone.
+are left alone, and so is an entry Pi would reject. When Pi's MCP support is
+off for a session (`--no-mcp`, `"extensions": ["-builtin:mcp"]` in the
+settings, or an extension that replaces it), the extension stands down too.
 
 ### Servers that need sign-in
 
@@ -212,6 +216,10 @@ The changes hosts would need are in
   extensions you run, as for anything else in the session.
 - **A session open in two Pi processes.** The first runs the watches; the
   second only lists them, and takes over if the first goes.
+- **Servers are read when a session starts.** A server another extension
+  registers later in the session is reached after `/reload`. Each `!command`
+  value in a server's entry runs when a session starts, once for this
+  extension, as it runs for Pi and for any other extension that reads it.
 - **Sizes.** One event is at most 256 KiB, one answer from a remote server
   4 MiB, and one session's stored events 64 MiB.
 - **Not yet run against other implementations' servers from Pi.** The shared
@@ -249,8 +257,15 @@ advertise events in the form from before the standard
 
 The clause-by-clause table is in the Claude Code form's
 [`docs/conformance.md`](../claude-code/docs/conformance.md), and holds here
-because the client is the same. What this form's own tests check, in a real Pi
-1.6.0 with its own agent directory and home and a scripted stand-in model:
+because the client is the same. This form's
+[`docs/conformance.md`](docs/conformance.md) says which clauses its own tests
+check end to end, what is different in Pi (SEC-3 and SEC-4, where state is
+kept, resuming a stdio watch, CAP-1), and how the upstream conformance
+suite's Events client scenarios went: all 17 checks pass with the shared
+client as this form runs it, and end to end through a real Pi, 11 pass and
+none fails (6 can't be evaluated there, because the suite's server also sees
+Pi's own client). What this form's own tests check, in a real Pi 1.6.0 with
+its own agent directory and home and a scripted stand-in model:
 
 - the user confirms a watch, the session goes idle, an event arrives, and the
   session wakes by itself and reads it; the wake message carries nothing the
@@ -266,8 +281,11 @@ because the client is the same. What this form's own tests check, in a real Pi
 - Pi's configuration is read as Pi reads it: an untrusted project's
   `.pi/mcp.json` is never read and none of its commands run, servers that sign
   in through Pi are left alone, the transport is chosen as Pi chooses it
-  before anything is resolved, and the watch question shows filters and note
-  whole, with hidden characters written out (`test/config-test.ts`);
+  before anything is resolved, an entry Pi rejects is left out (checked
+  against Pi's own entry check), and the watch question shows filters and
+  note whole, with hidden characters written out (`test/config-test.ts`);
+- with Pi's MCP support off (`--no-mcp`), the extension reaches no server and
+  runs no command (`test/lifecycle-test.ts`);
 - a second process that takes over the watches inherits the saved wake count
   and pause (`test/session-test.ts`).
 

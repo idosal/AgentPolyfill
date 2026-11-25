@@ -1060,6 +1060,8 @@ function planForPi(card, remote, values, name, fromLocal) {
     headers[h.name] = h.value;
   }
   const serverName = name ?? p.name;
+  if (serverName.startsWith("-"))
+    return { error: "A Pi server name may not start with -, which Pi's command line reads as an option. Choose another name." };
   const addArgs = ["mcp", "add", serverName, "--url", p.url];
   for (const [key, value] of Object.entries(headers)) addArgs.push("--header", `${key}=${value}`);
   return { plan: { name: serverName, url: p.url, headers, envVars: p.envVars, addArgs } };
@@ -1075,14 +1077,15 @@ function fileHasName(file, name) {
     const servers = config.mcpServers;
     if (servers === void 0) return false;
     if (!servers || typeof servers !== "object" || Array.isArray(servers)) return true;
-    return Object.hasOwn(servers, name);
+    return Object.keys(servers).some((other) => sameName(other, name));
   } catch (error) {
     return error.code !== "ENOENT";
   }
 }
 function isNameTaken(pi, name, file, projectFile) {
-  return fileHasName(file, name) || projectFile !== void 0 && fileHasName(projectFile, name) || pi.getMcpServers().some((server) => server.name === name);
+  return fileHasName(file, name) || projectFile !== void 0 && fileHasName(projectFile, name) || pi.getMcpServers().some((server) => sameName(server.name, name));
 }
+var sameName = (a, b) => a.replace(/-/g, "_") === b.replace(/-/g, "_");
 function runningPiCli(argv = process.argv) {
   try {
     if (!argv[1]) return void 0;
@@ -1442,7 +1445,7 @@ function install(pi, disabled, makeTools, env = process.env) {
   for (const spec of tools2) {
     pi.registerTool({
       name: spec.name,
-      label: spec.name === "add_mcp_server" ? "Add MCP server" : spec.name === "ard_search" ? "Search ARD registry" : "Discover MCP servers",
+      label: spec.name.endsWith("add_mcp_server") ? "Add MCP server" : spec.name === "ard_search" ? "Search ARD registry" : "Discover MCP servers",
       description: spec.description,
       parameters: spec.inputSchema,
       // Pi accepts a plain JSON Schema.
@@ -1605,7 +1608,6 @@ var NAME2 = "mcp-server-cards";
 var VERSION = "0.1.0";
 var DISCOVER = "discover_mcp_servers";
 var DISCOVER_DESCRIPTION = `Find the MCP servers a domain publishes, using the MCP Server Cards extension (SEP-2127): reads https://<domain>/.well-known/ai-catalog.json (the AI Catalog SEP-2127 names) and any rel="ai-catalog" link on the page, fetches each MCP Server Card the catalog lists, and checks it against the Server Card schema. Use when the person wants to connect Pi to a service by its domain or website, or a task needs a service that has no tools in this session and the person names its site. Read-only: it reads public documents from that domain and from the card URLs its catalog names, and returns the publisher's description of its servers.`;
-var INSTRUCTIONS = "MCP Server Cards (SEP-2127): discover_mcp_servers reads the MCP servers a domain publishes; add_mcp_server adds one to Pi after the person approves it with a question. A card is the publisher's claim, not a check of the server. Show the person the server and the URL it connects to before you add it.";
 function tools(session) {
   return [discoverTool(session, { name: DISCOVER, description: DISCOVER_DESCRIPTION }), addTool(session, DISCOVER, DISCOVER)];
 }
@@ -1621,7 +1623,6 @@ export {
   DISCOVER,
   DISCOVER_DESCRIPTION,
   HOST_PROTOCOL_VERSIONS,
-  INSTRUCTIONS,
   INVISIBLE_TEXT,
   MAX_BODY,
   MAX_INLINE_CARD,

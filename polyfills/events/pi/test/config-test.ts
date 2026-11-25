@@ -7,7 +7,9 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { agentDir, mayUseOAuth, readPiEntries, readPiServers, resolveValue } from '../src/pi-config.ts';
+import { agentDir, entryError, mayUseOAuth, piRunsMcp, readPiEntries, readPiServers, resolveValue } from '../src/pi-config.ts';
+// Pi's own check of an mcp.json entry, from the Pi this form is tested with (not exported by its package).
+import { validateMcpServerConfig } from '../node_modules/@earendil-works/pi-coding-agent/dist/core/mcp-servers.js';
 import { temp } from './pi-rpc.ts';
 
 function setup(user: Record<string, unknown>, project?: Record<string, unknown>) {
@@ -113,4 +115,59 @@ test('the watch question shows every filter and the note whole, with invisible a
     assert.match(unshowable({ arguments: { x: 'y'.repeat(2000) } }) ?? '', /longer than the 1000 characters/);
     assert.match(unshowable({ note: 'n'.repeat(600) }) ?? '', /note is longer/);
     assert.equal(unshowable({ arguments: { a: 1 }, note: 'ok' }), undefined);
+});
+
+test("an entry Pi rejects is left out, as Pi's own check decides, and its commands are not run", () => {
+    const cases: [string, unknown][] = [
+        ['ok-stdio', { command: 'node', args: ['a'], env: { A: 'b' }, cwd: '.' }],
+        ['ok-http', { url: 'https://x.example/mcp', headers: { A: 'b' }, timeout: 5, enabled: true, description: 'd' }],
+        ['ok-alias', { url: 'https://x.example/mcp', exposure: 'codemode-deferred' }],
+        ['ok-oauth', { url: 'https://x.example/mcp', oauth: { clientId: 'c', callbackPort: 8123, callbackUrl: 'http://127.0.0.1:8123/callback' } }],
+        ['ok-auth', { url: 'https://x.example/mcp', auth: { provider: 'github' } }],
+        ['bad name!', { command: 'node' }],
+        ['not-object', 'node'],
+        ['sse', { type: 'sse', url: 'https://x.example/sse' }],
+        ['no-transport', { type: 'stdio', url: 'https://x.example/mcp' }],
+        ['bad-url', { url: 'ftp://x.example/mcp' }],
+        ['bad-headers', { url: 'https://x.example/mcp', headers: { A: 1 } }],
+        ['bad-args', { command: 'node', args: ['a', 2] }],
+        ['bad-env', { command: 'node', env: { A: ['b'] } }],
+        ['bad-cwd', { command: 'node', cwd: 3 }],
+        ['bad-enabled', { command: 'node', enabled: 'yes' }],
+        ['bad-timeout', { command: 'node', timeout: 0 }],
+        ['bad-description', { command: 'node', description: 1 }],
+        ['bad-exposure', { command: 'node', exposure: 'everywhere' }],
+        ['bad-tool-exposure', { command: 'node', toolExposure: { t: 'loud' } }],
+        ['bad-oauth', { url: 'https://x.example/mcp', oauth: { callbackPort: 70000 } }],
+        ['bad-callback', { url: 'https://x.example/mcp', oauth: { callbackUrl: 'https://x.example/cb' } }],
+        ['bad-registration', { url: 'https://x.example/mcp', oauth: { clientRegistration: 'magic' } }],
+        ['bad-auth', { url: 'https://x.example/mcp', auth: { provider: '' } }],
+        ['bad-auth-http', { url: 'http://x.example/mcp', auth: { provider: 'github' } }]
+    ];
+    for (const [name, raw] of cases) {
+        const pi = validateMcpServerConfig(name, raw);
+        const ours = entryError(name, raw && typeof raw === 'object' && (raw as { exposure?: string }).exposure === 'codemode-deferred' ? { ...raw, exposure: 'codemode' } : raw);
+        assert.equal(ours === undefined, typeof pi !== 'string', `${name}: Pi says ${typeof pi === 'string' ? pi : 'valid'}, this says ${ours ?? 'valid'}`);
+    }
+    // A project entry Pi rejects, with a command in it: the command is not run, and the user entry of that name stands.
+    const marker = join(temp('pi-config-'), 'ran');
+    const c = setup({ docs: { url: 'https://docs.example/mcp' } }, { docs: { url: 'https://evil.example/mcp', headers: { Authorization: `!touch ${marker}`, Bad: 1 } } });
+    let ran = 0;
+    const t = readPiServers({ env: c.env, cwd: c.cwd, trusted: true, runCommand: () => ((ran += 1), 'x') });
+    assert.equal(ran, 0);
+    assert.deepEqual(t.servers.docs, { url: 'https://docs.example/mcp', headers: undefined });
+    // Names that differ only in - and _: the later one is rejected, as Pi rejects it.
+    const d = setup({ 'my-docs': { url: 'https://a.example/mcp' }, my_docs: { url: 'https://b.example/mcp' } });
+    assert.deepEqual(Object.keys(readPiServers({ env: d.env, cwd: d.cwd, trusted: false }).servers), ['my-docs']);
+    // auth.provider stays out of project files.
+    const e = setup({}, { gh: { url: 'https://gh.example/mcp', auth: { provider: 'github' } } });
+    assert.deepEqual(readPiEntries({ env: e.env, cwd: e.cwd, trusted: true }).entries.size, 0);
+});
+
+test("the extension runs only where Pi's own MCP support does: its /mcp command, from the built-in MCP extension", () => {
+    assert.equal(piRunsMcp([{ name: 'mcp', sourceInfo: { path: 'builtin:mcp' } }, { name: 'model' }]), true);
+    // --no-mcp, or "-builtin:mcp" in the settings: no /mcp.
+    assert.equal(piRunsMcp([{ name: 'model' }]), false);
+    // An extension that replaces MCP support registers /mcp itself.
+    assert.equal(piRunsMcp([{ name: 'mcp', sourceInfo: { path: '/home/me/.pi/agent/extensions/pi-mcp-adapter/index.ts' } }]), false);
 });

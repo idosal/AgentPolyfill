@@ -290,8 +290,15 @@ export class App {
         if (ctx.signal?.aborted) throw new LocalError('the call was cancelled, so the skill is not loaded');
         await this.#ensure(server);
         // The person is asked about the server's entry as it is now (skills/get), not as an earlier
-        // listing had it: what they approve is what is loaded.
-        const listed = await this.host.get(server, uri);
+        // listing had it (Pi lists a server once, at the start). A server whose skills/get answer
+        // can't be used is taken at its listing's word, for a skill it listed. Either way, what
+        // the person approves is what is loaded: the load is held to this entry's files.
+        const listed = await this.host.get(server, uri).catch((e: unknown) => {
+            const known = this.host.listed(server).find((l) => l.entry.uri === uri);
+            if (!known) throw e;
+            this.#log(`${server}: skills/get for ${uri} could not be used (${describeError(e)}); asking about its listed entry`);
+            return known;
+        });
         const { entry } = listed;
         if (listed.declined) throw new LocalError(`this skill is not loaded: ${listed.declined}`);
         const hash = await manifestHash(entry);

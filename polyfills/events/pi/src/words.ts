@@ -129,7 +129,9 @@ export function unshowable(p: { arguments?: unknown; note?: string }): string | 
 /** What the user is asked before a watch starts: in this extension's words, with every name and value shown whole. */
 export function watchQuestion(p: { server: string; event: string; arguments?: unknown; note?: string }, limits: { gapMs: number; perHour: number }): { title: string; message: string } {
     const args = p.arguments && typeof p.arguments === 'object' && Object.keys(p.arguments).length ? ` with the filters ${visible(JSON.stringify(p.arguments))}` : '';
-    const pace = limits.gapMs > 0 || limits.perHour > 0 ? ` (at most once every ${Math.round(limits.gapMs / 1000)} s per watch, ${limits.perHour} times an hour)` : '';
+    // Only the limits that are set: a gap of 0, or no hourly cap, is no limit.
+    const limitsSet = [limits.gapMs > 0 ? `at most once every ${Math.round(limits.gapMs / 1000)} s per watch` : '', limits.perHour > 0 ? `${limits.perHour} times an hour` : ''].filter(Boolean);
+    const pace = limitsSet.length ? ` (${limitsSet.join(', ')})` : '';
     return {
         title: 'mcp-events: start a watch?',
         message:

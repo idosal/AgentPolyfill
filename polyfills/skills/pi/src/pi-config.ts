@@ -32,8 +32,98 @@ const isRecord = (v: unknown): v is Json => typeof v === 'object' && v !== null 
 const strings = (v: unknown): Record<string, string> | undefined => (isRecord(v) ? Object.fromEntries(Object.entries(v).filter((e): e is [string, string] => typeof e[1] === 'string')) : undefined);
 
 /** Pi's server names: letters, digits, `_` and `-`. */
-const SERVER_NAME = /^[A-Za-z0-9_-]{1,64}$/;
+const SERVER_NAME = /^[A-Za-z0-9_-]+$/;
 const OVERRIDE_KEYS = new Set(['enabled', 'exposure', 'toolExposure']);
+
+// Pi 1.6.0's own checks of an mcp.json entry (pi-mcp's validateMcpServerConfig, and Pi's exposure
+// and auth checks in core/mcp-servers.js), mirrored: an extension can't call them, and an entry Pi
+// rejects must not be reached, or have its `!command` values run, by this extension either.
+const EXPOSURES = ['codemode', 'deferred', 'direct', 'hidden'];
+const EXPOSURE_ALIASES: Record<string, string> = { 'codemode-deferred': 'codemode' };
+const LOOPBACK = ['localhost', '127.0.0.1', '[::1]'];
+const stringRecord = (v: unknown) => isRecord(v) && Object.values(v).every((x) => typeof x === 'string');
+const alias = (v: unknown) => (typeof v === 'string' ? (EXPOSURE_ALIASES[v] ?? v) : v);
+const loopbackRedirect = (v: string) => {
+    if (!URL.canParse(v)) return false;
+    const u = new URL(v);
+    return u.protocol === 'http:' && LOOPBACK.includes(u.hostname) && u.search === '' && u.hash === '';
+};
+
+function oauthError(o: unknown): string | undefined {
+    if (o === undefined) return undefined;
+    if (!isRecord(o)) return 'oauth must be an object';
+    if (o.clientId !== undefined && typeof o.clientId !== 'string') return 'oauth.clientId must be a string';
+    if (o.clientSecret !== undefined && typeof o.clientSecret !== 'string') return 'oauth.clientSecret must be a string';
+    const port = o.callbackPort;
+    if (port !== undefined && (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535)) return 'oauth.callbackPort must be a port number';
+    if (o.callbackUrl !== undefined) {
+        if (typeof o.callbackUrl !== 'string' || !loopbackRedirect(o.callbackUrl)) return 'oauth.callbackUrl must be an http URI on localhost, 127.0.0.1, or [::1]';
+        const urlPort = new URL(o.callbackUrl).port;
+        if (urlPort && port !== undefined && Number(urlPort) !== port) return 'oauth.callbackUrl and oauth.callbackPort name different ports';
+    }
+    if (o.scope !== undefined && typeof o.scope !== 'string') return 'oauth.scope must be a string';
+    if (o.clientName !== undefined && (typeof o.clientName !== 'string' || !o.clientName.trim())) return 'oauth.clientName must be a non-empty string';
+    const registration = o.clientRegistration;
+    if (registration !== undefined && registration !== 'auto' && registration !== 'dcr') {
+        if (registration !== 'cimd') return 'oauth.clientRegistration must be "auto", "dcr", or "cimd"';
+        if (o.clientId !== undefined || o.clientName !== undefined) return 'oauth.clientRegistration "cimd" cannot be combined with oauth.clientId or oauth.clientName';
+        if (typeof o.callbackUrl === 'string') {
+            const u = new URL(o.callbackUrl);
+            if (u.hostname === '[::1]' || u.pathname !== '/callback') return 'oauth.clientRegistration "cimd" requires oauth.callbackUrl on localhost or 127.0.0.1 with path /callback';
+        }
+    }
+    const metadata = o.authServerMetadataUrl;
+    if (metadata !== undefined) {
+        const u = typeof metadata === 'string' && URL.canParse(metadata) ? new URL(metadata) : undefined;
+        if (!u || !(u.protocol === 'https:' || (u.protocol === 'http:' && LOOPBACK.includes(u.hostname)))) return 'oauth.authServerMetadataUrl must be an https URL, or http on localhost';
+    }
+    return undefined;
+}
+
+/** Why Pi rejects this entry, or nothing when Pi accepts it. `v` has its exposure aliases resolved. */
+export function entryError(name: string, v: unknown): string | undefined {
+    if (!SERVER_NAME.test(name)) return `invalid server name "${name}"`;
+    if (!isRecord(v)) return `server "${name}" must be an object`;
+    if (v.enabled !== undefined && typeof v.enabled !== 'boolean') return 'enabled must be a boolean';
+    if (v.description !== undefined && typeof v.description !== 'string') return 'description must be a string';
+    if (v.timeout !== undefined && (typeof v.timeout !== 'number' || !(v.timeout > 0))) return 'timeout must be a positive number of seconds';
+    if (v.type === 'sse') return 'legacy SSE transport is not supported';
+    let fields: string | undefined;
+    if (typeof v.url === 'string' && (v.type === undefined || v.type === 'http' || v.type === 'streamable-http')) {
+        if (!URL.canParse(v.url) || !/^https?:$/.test(new URL(v.url).protocol)) fields = 'url must be an http or https URL';
+        else if (v.headers !== undefined && !stringRecord(v.headers)) fields = 'headers must map names to strings';
+        else fields = oauthError(v.oauth);
+        if (!fields && v.auth !== undefined) {
+            if (!isRecord(v.auth) || typeof v.auth.provider !== 'string' || !v.auth.provider) fields = 'auth.provider must be a provider name';
+            else if (new URL(v.url).protocol !== 'https:' && !LOOPBACK.includes(new URL(v.url).hostname)) fields = 'auth requires an https URL';
+        }
+    } else if (typeof v.command === 'string' && (v.type === undefined || v.type === 'stdio')) {
+        if (v.args !== undefined && !(Array.isArray(v.args) && v.args.every((a) => typeof a === 'string'))) fields = 'args must be an array of strings';
+        else if (v.env !== undefined && !stringRecord(v.env)) fields = 'env must map names to strings';
+        else if (v.cwd !== undefined && typeof v.cwd !== 'string') fields = 'cwd must be a string';
+    } else return `server "${name}" needs either "command" (stdio) or "url" (streamable HTTP)`;
+    if (fields) return `server "${name}": ${fields}`;
+    if (v.exposure !== undefined && !EXPOSURES.includes(v.exposure as string)) return `server "${name}": exposure must be one of ${EXPOSURES.join(', ')}`;
+    if (v.toolExposure !== undefined && !(isRecord(v.toolExposure) && Object.values(v.toolExposure).every((x) => EXPOSURES.includes(x as string)))) return `server "${name}": toolExposure must map tool names to exposures`;
+    return undefined;
+}
+
+/** An entry with its exposure aliases resolved, as Pi reads it. */
+const resolvedAliases = (v: Json): Json => ({
+    ...v,
+    ...(v.exposure !== undefined ? { exposure: alias(v.exposure) } : {}),
+    ...(isRecord(v.toolExposure) ? { toolExposure: Object.fromEntries(Object.entries(v.toolExposure).map(([k, x]) => [k, alias(x)])) } : {})
+});
+
+/**
+ * Whether Pi's own MCP support runs in this session: its `/mcp` command is there, from the built-in
+ * MCP extension. With `--no-mcp`, `"extensions": ["-builtin:mcp"]`, or an extension that replaces
+ * MCP support (it registers `/mcp`), Pi reads no mcp.json and connects none of its servers, and
+ * neither does this extension.
+ */
+export function piRunsMcp(commands: { name: string; sourceInfo?: { path?: string } }[]): boolean {
+    return commands.some((c) => c.name === 'mcp' && c.sourceInfo?.path === 'builtin:mcp');
+}
 
 /** Pi's agent directory: PI_CODING_AGENT_DIR, else ~/.pi/agent. A leading `~` is the home directory, as Pi reads it. */
 export function agentDir(env: NodeJS.ProcessEnv = process.env): string {
@@ -69,25 +159,39 @@ export function readPiEntries(o: ReadOptions): { entries: Map<string, { config: 
             errors.push(`${path} is not valid JSON`);
             return;
         }
-        const table = isRecord(parsed) ? parsed.mcpServers : undefined;
-        if (!isRecord(table)) return;
-        for (const [name, value] of Object.entries(table)) {
-            if (!SERVER_NAME.test(name) || !isRecord(value)) continue;
-            const isOverride = value.command === undefined && value.url === undefined && value.type === undefined;
+        if (!isRecord(parsed) || (parsed.mcpServers !== undefined && !isRecord(parsed.mcpServers))) {
+            errors.push(`${path}: expected an object with an "mcpServers" object`);
+            return;
+        }
+        for (const [name, value] of Object.entries((parsed.mcpServers ?? {}) as Json)) {
+            // An entry Pi rejects is not taken, and an earlier one of the same name stands, as in Pi.
+            const isOverride = isRecord(value) && value.command === undefined && value.url === undefined && value.type === undefined;
             if (scope === 'project' && isOverride) {
                 const base = entries.get(name);
                 if (!base || Object.keys(value).some((k) => !OVERRIDE_KEYS.has(k))) continue;
-                entries.set(name, { config: { ...base.config, ...value }, source: base.source });
+                const merged = resolvedAliases({ ...base.config, ...(value as Json) });
+                const why = entryError(name, merged);
+                if (why) errors.push(`${path}: ${why}`);
+                else entries.set(name, { config: merged, source: base.source });
                 continue;
             }
-            entries.set(name, { config: value, source: path });
+            const config = isRecord(value) ? resolvedAliases(value) : value;
+            const why = entryError(name, config);
+            if (why) {
+                errors.push(`${path}: ${why}`);
+                continue;
+            }
+            // Names that differ only in `-` and `_` would share a namespace in Pi: the later one is rejected.
+            if ([...entries.keys()].some((other) => other !== name && ns(other) === ns(name))) continue;
+            if (scope === 'project' && (config as Json).auth !== undefined && typeof (config as Json).url === 'string') continue;
+            entries.set(name, { config: config as Json, source: path });
         }
     };
+    const ns = (n: string) => n.replace(/-/g, '_');
     read(join(agentDir(env), 'mcp.json'), 'global');
     if (o.trusted) read(join(o.cwd, '.pi', 'mcp.json'), 'project');
     // Registered servers come after: a name mcp.json defines takes precedence. Names that differ only
-    // in `-` and `_` are the same server to Pi.
-    const ns = (n: string) => n.replace(/-/g, '_');
+    // in `-` and `_` are the same server to Pi. Pi refuses to register an entry it would reject.
     for (const r of o.registered ?? []) {
         if (!SERVER_NAME.test(r.name) || !isRecord(r.config)) continue;
         if ([...entries.keys()].some((k) => ns(k) === ns(r.name))) continue;

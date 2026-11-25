@@ -172,33 +172,21 @@ This form follows the same pinned revisions as the other ARD forms:
   candidate at `19208af2f8`, as detailed in the
   [Server Cards form](../../server-cards/pi/README.md#spec-and-conformance).
 
-The shared [ARD client rules](../claude-code/README.md#client-rules) and
-[Server Cards rules](../../server-cards/claude-code/README.md#client-rules)
-run against this form's committed bundle: eight registry tests and 88 card,
-configuration, discovery, format and provenance tests. Pi-specific tests
-cover exact search consent, no default registry, no UI, malformed input,
-separate add consent and the Server Cards Pi adapter's checks.
-
-Real Pi 1.6.0 RPC tests use an isolated agent directory and a local server
-serving both well-known catalogs, a card, a registry search endpoint and MCP.
-They answer search and add dialogs both ways, inspect the exact POST and
-`mcp.json`, and observe Pi connecting without a reload. A copied `extension/`
-folder also loads on its own; a real print/JSON run refuses additions. A
-fresh build must be byte-identical to the shipping bundle. The model is
-scripted; tests need no paid model or external registry.
-
-Contract exceptions and verification limits: ARD is not an MCP extension
-under the repository contract's first rule; it is deliberately separate.
-No native-support detector, live card comparison, independent public-registry
-interop or upstream conformance run is claimed for this Pi port. The local
-registry and MCP fixture are our own. Other forms' public-server evidence is
-linked in their READMEs and is not a Pi run. No additional legacy dialect
-is introduced.
+Each rule, how it is met on Pi and where it is tested, is in
+[`docs/conformance.md`](docs/conformance.md). The shared rules are the same
+code and tests as in the other forms, run here against the committed Pi
+bundle: ARD's 12 registry tests and the Server Cards core's 90. The Pi
+form's own tests cover the search question (the exact query and registry,
+no default registry, no UI), hidden characters, a registry's text, the
+separate add question and the Server Cards Pi adapter's checks. Real Pi RPC
+tests use an isolated agent folder and a local server for both well-known
+catalogs, a card, a registry search endpoint and MCP.
 
 [`docs/live-run.md`](docs/live-run.md) records a run in Pi 1.6.0 with a real
 model, reading buildkite.com's `ard.json`, and a registry search against the
 repository's demo registry that the extension asked about, naming the registry
-and the exact query, before anything was sent.
+and the exact query, before anything was sent. ARD is not an MCP extension,
+and the MCP conformance suite has no ARD scenarios.
 
 ## Development
 

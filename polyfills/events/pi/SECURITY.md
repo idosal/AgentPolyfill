@@ -36,7 +36,9 @@ names the server, the event type, its filters and the note, and says that its
 events will start turns by themselves. Filters and note are shown whole, with
 any character that shows nothing or changes how text reads (controls,
 direction marks, zero-width and tag characters) written out; a watch with more
-than the question can show is refused, never shown cut short. Where nobody can
+than the question can show is refused, never shown cut short, and so is one
+whose filters or note hold a value your MCP configuration keeps secret, which
+the question would have to hide. Where nobody can
 be asked (print and JSON modes), no watch is started, and a watch whose tool
 call Pi cancels while you're being asked isn't started either.
 
@@ -64,7 +66,14 @@ call Pi cancels while you're being asked isn't started either.
   so a permission extension can tell them apart.
 - **It connects only where Pi does, and with only what Pi's configuration
   holds.** Each server's transport is chosen as Pi chooses it, and an entry
-  Pi would reject is left alone, before any value in it is resolved.
+  Pi would reject is left alone, before any value in it is resolved: the
+  extension applies Pi 1.6.0's own checks of an entry, and a test holds them
+  to Pi's own function.
+  - When Pi's MCP support is off for a session (`--no-mcp`,
+    `"extensions": ["-builtin:mcp"]` in the settings, or an extension that
+    replaces it), Pi reads no `mcp.json` and connects no server, and the
+    extension stands down: it reads no configuration, runs no command and
+    reaches no server, and its tools say why.
   - It reads the servers Pi reads: `mcp.json` in Pi's agent directory, the
     project's `.pi/mcp.json` only once you trust the project, and the servers
     other extensions register.
@@ -73,7 +82,9 @@ call Pi cancels while you're being asked isn't started either.
   - Credentials come only from the server's own configuration: its `headers`
     and `env`, with `${VARIABLE}` and `!command` values resolved as Pi
     resolves them. A `!command` is run through your shell, as Pi
-    runs it, and only for a server Pi itself connects.
+    runs it, and only for a server Pi itself connects. It runs when a
+    session starts, once for this extension, as it runs for Pi and for any
+    other extension that reads the same entry.
   - A server that signs in through Pi (`/mcp`, `pi mcp login`, an `oauth`
     setting, `auth.provider`) is left alone. **It never reads Pi's stored
     credentials** (`mcp-auth.json`, `auth.json`).
