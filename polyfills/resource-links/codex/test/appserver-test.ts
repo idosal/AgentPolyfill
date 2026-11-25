@@ -20,18 +20,25 @@ after(() => {
     for (const p of started) p.kill();
 });
 
-function setup(loaded: string[] = []) {
+function setup(loaded: string[] = [], extra: Record<string, string> = {}) {
     const home = mkdtempSync(join(tmpdir(), 'rl-codex-home-'));
     const log = join(home, 'requests.jsonl');
-    const env = { ...process.env, FAKE_LOADED: loaded.join(','), FAKE_LOG: log };
+    const env = { ...process.env, FAKE_LOADED: loaded.join(','), FAKE_LOG: log, ...extra };
     const reader = new AppServerReader(home, env, () => {}, { command: [process.execPath, FAKE] });
     readers.push(reader);
     const requests = () =>
         readFileSync(log, 'utf8')
             .split('\n')
             .filter(Boolean)
-            .map((l) => JSON.parse(l) as { via: string; method: string; params: Record<string, unknown> });
-    return { home, env, reader, requests };
+            .map((l) => JSON.parse(l) as { via: string; method: string; params: Record<string, unknown>; answer?: Record<string, unknown> })
+            .filter((q) => !q.answer);
+    const answers = () =>
+        readFileSync(log, 'utf8')
+            .split('\n')
+            .filter(Boolean)
+            .map((l) => JSON.parse(l) as { answer?: Record<string, unknown> })
+            .flatMap((q) => (q.answer ? [q.answer] : []));
+    return { home, env, reader, requests, answers };
 }
 
 /** Starts the stand-in as Codex's daemon, at the socket path Codex uses (a link to a short path). */
@@ -53,6 +60,17 @@ test('with no daemon, a read goes through a stdio app server, without a thread i
     assert.deepEqual(reads, [{ via: 'stdio', method: 'mcpServer/resource/read', params: { server: 'docs', uri: 'fixture://docs/report.txt' } }]);
     // The reader sends Codex only these requests: nothing else is asked of it.
     assert.deepEqual([...new Set(requests().map((q) => q.method))].sort(), ['initialize', 'initialized', 'mcpServer/resource/read']);
+});
+
+test("a question from Codex's app server (an approval) is answered with an error: the plugin decides nothing", async () => {
+    const { reader, answers } = setup([], { FAKE_ASK: '1' });
+    const r = await reader.read('docs', 'fixture://docs/report.txt', undefined);
+    assert.ok('contents' in r, JSON.stringify(r));
+    const [a, ...more] = answers();
+    assert.equal(more.length, 0);
+    assert.equal(a?.id, 'ask-1');
+    assert.equal(a?.result, undefined);
+    assert.equal((a?.error as { code?: number })?.code, -32601);
 });
 
 test('an image comes back as the base64 blob Codex returns', async () => {

@@ -7,7 +7,9 @@
 //   node fake-app-server.ts                 JSON-RPC over stdio (codex app-server)
 //   node fake-app-server.ts --listen <sock> the daemon: WebSocket frames over a Unix socket
 //
-// Env: FAKE_LOADED (comma-separated thread ids it has), FAKE_LOG (one JSON line per request).
+// Env: FAKE_LOADED (comma-separated thread ids it has), FAKE_LOG (one JSON line per request,
+// and per answer from the client), FAKE_ASK (over stdio, before each read, ask the client
+// an approval question, as Codex's app server asks its own client).
 
 import { spawn } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
@@ -36,6 +38,10 @@ function fixtureRead(server: string, uri: string): Promise<Json> {
 }
 
 async function handle(m: Json): Promise<Json | undefined> {
+    if (m.method === undefined) {
+        if (process.env.FAKE_LOG) appendFileSync(process.env.FAKE_LOG, JSON.stringify({ via: 'stdio', answer: m }) + '\n');
+        return undefined;
+    }
     if (process.env.FAKE_LOG) appendFileSync(process.env.FAKE_LOG, JSON.stringify({ via: process.argv.includes('--listen') ? 'daemon' : 'stdio', method: m.method, params: m.params }) + '\n');
     if (m.id === undefined) return undefined;
     const p = (m.params ?? {}) as Json;
@@ -55,6 +61,10 @@ const at = process.argv.indexOf('--listen');
 if (at < 0) {
     createInterface({ input: process.stdin }).on('line', async (l) => {
         const m = JSON.parse(l) as Json;
+        if (process.env.FAKE_ASK && m.method === 'mcpServer/resource/read') {
+            process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: 'ask-1', method: 'item/commandExecution/requestApproval', params: { command: 'true' } }) + '\n');
+            await new Promise((done) => setTimeout(done, 200));
+        }
         const a = await handle(m);
         if (a) process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, ...a }) + '\n');
     });

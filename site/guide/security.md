@@ -47,8 +47,10 @@ not protect against, in each host:
 | Server Cards | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md) |
 | Apps | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md) | not available | not available |
 | ARD | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md) |
+| Resource links | none needed: [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/resource-links/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/resource-links/codex/SECURITY.md) | not available |
 
-The following per-polyfill summaries describe the Claude Code forms;
+The following per-polyfill summaries describe the Claude Code forms, and the
+Codex form for resource links, which has no Claude Code form;
 [Pi's security notes](#in-pi) follow them.
 
 ### Events
@@ -128,6 +130,24 @@ lists each finding of the review of 24 November 2026 and where it stands.
 
 [ARD `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md)
 
+### Resource links (Codex)
+
+- A link is a server's tool output, so it gets no more trust than that
+  server. The plugin reads only links a tool returned in the same Codex
+  session, as its hook noted them; a URI from anywhere else is refused.
+- A link is read from the server whose tool returned it with nothing asked,
+  as Codex's own reader asks nothing. Reading it from another server asks
+  you first, each time, with "Don't read it" first; under `codex exec`
+  nobody can be asked and nothing is read.
+- A resource the server marked for the user only isn't given to the model.
+- Codex does the reading, over the session's own connection in the terminal
+  UI, or a connection Codex opens under `codex exec`. The plugin connects to
+  no server, holds no credential and answers no question for you.
+- Codex's own `read_mcp_resource` stays, and reads any URI from any server
+  with nothing asked. The plugin can't change that.
+
+[Resource links `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/resource-links/codex/SECURITY.md)
+
 ## In Pi
 
 Pi's own security model is the boundary: extensions run in its process with
@@ -194,8 +214,10 @@ for off switches, uninstalling and removing saved data.
 
 - **Tests.** A test for each client rule of Events and Skills. For Server Cards
   and ARD, one row per rule with the test that covers it (Server Cards: two
-  rules met by design, and one not met; ARD: one partly met). For Apps,
-  requirement-by-requirement compliance notes.
+  rules met by design, and one not met; ARD: one partly met). For resource
+  links in Codex, one row per spec statement about links
+  ([conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/resource-links/codex/docs/conformance.md)): one exception
+  (subscriptions). For Apps, requirement-by-requirement compliance notes.
 - **Formal models.**
   - Events: a model of delivery and of waking, in Quint and in TLA+, simulated,
     and model-checked with TLC to small, stated bounds. TLC checks the model,
@@ -208,7 +230,8 @@ for off switches, uninstalling and removing saved data.
     exhaustive within them and says nothing past them.
 - **Review.** The polyfills have been reviewed by an AI reviewer that did not
   build them. The Events, Apps, Server Cards and ARD `SECURITY.md` files record
-  a review on 24 November 2026 and what became of its findings. No person has
+  a review on 24 November 2026 and what became of its findings. Resource
+  links is waiting for that review. No person has
   audited any of them. The Pi forms had a separate independent AI review,
   followed by fixes and a check of the changes.
 

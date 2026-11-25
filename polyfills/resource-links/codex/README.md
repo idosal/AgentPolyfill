@@ -11,7 +11,10 @@ Claude Code handles resource links itself, so there is no Claude Code form.
 It implements the client side of resource links in tool results, from the
 core MCP spec: **MCP 2025-11-25, Server > Tools > Tool Result > Resource
 Links**, which reads the same as 2025-06-18. Resource links aren't an
-extension, so there's no SEP. The host-neutral rules are in
+extension, so there's no SEP. The repository's
+[contract](../../../docs/polyfill-contract.md) is written for extensions; here
+the spec revision stands where an extension's identifier would, and the rest
+of the contract applies as written. The host-neutral rules are in
 [`../core`](../core/), and the reasoning is in [`../DESIGN.md`](../DESIGN.md).
 
 ## Why
@@ -68,6 +71,31 @@ marketplace (`codex plugin marketplace add <clone>`). It also works without
 installing from a marketplace: the recorded run below installs it from a
 copy of [`mod/`](mod/).
 
+This sequence, then a removal, was run on Codex 0.172.0 in a throwaway Codex
+home: [`live/runs/install/install.txt`](live/runs/install/install.txt). The
+hook review is in the [recorded session](#a-recorded-session). Installing
+needs no sign-in. Using the plugin needs Codex signed in, as Codex itself
+does.
+
+### Uninstall
+
+```bash
+codex plugin remove mcp-resource-links@agent-polyfill
+```
+
+That removes the plugin and its entry in `config.toml`. To stop using it for
+a while instead, set `MCP_RESOURCE_LINKS_DISABLED=1` (see [Settings](#settings)).
+
+### What it leaves behind
+
+`codex plugin remove` leaves `$CODEX_HOME/mcp-resource-links/`: the links
+noted per session and the plugin's log (URIs and server names, no contents).
+Delete the folder to remove them. While the plugin is installed, the hook
+removes a session's notes 7 days after its last link, the next time it runs;
+the log isn't trimmed. The plugin changes nothing else in your Codex home. If
+you trusted its hook, Codex keeps that decision in `config.toml` under
+`[hooks.state]`; removal wasn't checked for it.
+
 ## Try it
 
 Any server whose tools return resource links works. To see it with the test
@@ -100,9 +128,9 @@ halves.
      model is told why;
    - anything else: refused.
 3. **Codex reads it.** The plugin asks Codex's app server
-   (`mcpServer/resource/read`). In the terminal UI and the desktop app,
-   sessions run in Codex's app-server daemon, and the read uses the session's
-   own connection to the server. Under `codex exec` there's no daemon session
+   (`mcpServer/resource/read`). In the terminal UI, sessions run in Codex's
+   app-server daemon, and the read uses the session's own connection to the
+   server. Under `codex exec` there's no daemon session
    to use, so the plugin starts `codex app-server` and Codex opens a fresh
    connection for the read. Either way it's Codex's configuration and sign-in
    (OAuth included). The plugin never sees a credential.
@@ -155,12 +183,12 @@ plugin can't tell. When Codex does, turn the plugin off
   plugin can't change `read_mcp_resource`.
 - **Under `codex exec`, a read opens a new connection.** A resource that lives
   only inside one connection to a local (stdio) server, made by the tool call
-  and kept in memory, can't be read there. In the terminal UI and the desktop
-  app, the session's own connection is used.
+  and kept in memory, can't be read there. In the terminal UI, the session's
+  own connection is used.
 - **The hook must be trusted.** Until it is, no link is read.
-- **Plugin hooks in the desktop app** run only for a plugin installed there by
-  hand ([host changes](../../../docs/host-changes.md)). Not tested in the
-  desktop app.
+- **The desktop app wasn't tested.** Plugin hooks there run only for a plugin
+  installed there by hand ([host changes](../../../docs/host-changes.md)), and
+  whether a read uses the session's connection there wasn't checked.
 - **Content for you only isn't shown to you either.** The model is told it's
   there and where, but no plugin can put a document in front of you in Codex.
 - **Subscriptions.** The spec says a linked resource "can be subscribed to".
@@ -180,8 +208,10 @@ table.
 
 ## Spec and conformance
 
-The spec puts no MUST or SHOULD on a client about resource links. What the
-plugin follows, and where:
+The spec puts no MUST or SHOULD on a client about resource links. Every
+statement in the spec that bears on a client's handling of a link, with its
+status (met, or an exception and why), is in
+[`docs/conformance.md`](docs/conformance.md). In short:
 
 | Spec text (2025-11-25) | What the plugin does | Test |
 |---|---|---|

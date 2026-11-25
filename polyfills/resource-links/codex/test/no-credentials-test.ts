@@ -1,7 +1,8 @@
-// No code or script in this polyfill touches a host's stored credentials. The probe
-// and proof scripts have the person sign in inside a throwaway home instead; nothing
-// copies, reads or passes on a sign-in file, a keychain entry or a key. This test fails
-// if any of them names one.
+// Nothing in this polyfill touches a host's stored credentials. The probe and proof
+// scripts have the person sign in inside a throwaway home instead; nothing copies,
+// reads or passes on a sign-in file, a keychain entry or a key. This test fails if any
+// file of the polyfill (code, scripts, tests, docs and recorded runs) names one, or if
+// a script names the person's own Codex or Claude Code home.
 
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -11,8 +12,8 @@ import { fileURLToPath } from 'node:url';
 
 const polyfill = fileURLToPath(new URL('../..', import.meta.url));
 const self = fileURLToPath(import.meta.url);
-const CODE = new Set(['.sh', '.bash', '.py', '.mjs', '.cjs', '.js', '.ts', '.toml', '.json']);
-const SKIP = new Set(['node_modules', 'runs', '.git']);
+const CHECKED = new Set(['.sh', '.bash', '.py', '.mjs', '.cjs', '.js', '.ts', '.toml', '.json', '.jsonl', '.yml', '.yaml', '.md', '.txt', '.log']);
+const SKIP = new Set(['node_modules', '.git']);
 const rel = (p: string) => relative(polyfill, p).split(sep).join('/');
 
 // Each host's credential stores, and the ways a script could take a credential along.
@@ -33,11 +34,11 @@ function files(dir: string): string[] {
     return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
         const p = join(dir, e.name);
         if (e.isDirectory()) return SKIP.has(e.name) ? [] : files(p);
-        return CODE.has(extname(e.name)) && p !== self ? [p] : [];
+        return CHECKED.has(extname(e.name)) && p !== self ? [p] : [];
     });
 }
 
-test("no code or script in the polyfill names a host's stored credentials", () => {
+test("no file of the polyfill names a host's stored credentials", () => {
     const found: string[] = [];
     for (const p of files(polyfill)) {
         const lines = readFileSync(p, 'utf8').split('\n');
@@ -55,7 +56,7 @@ test('the check finds a script that copies a sign-in file', () => {
     assert.ok(HOMES.some(([, re]) => re.test(line)));
 });
 
-test('the probe and proof scripts are among the files checked', () => {
+test('the scripts, the docs and the recorded runs are among the files checked', () => {
     const checked = files(polyfill).map(rel);
-    for (const s of ['probe/run.sh', 'probe/summarize.py', 'codex/live/take-proof.sh']) assert.ok(checked.includes(s), s);
+    for (const s of ['probe/run.sh', 'probe/summarize.py', 'codex/live/take-proof.sh', 'codex/README.md', 'codex/live/runs/proof/transcript.txt', 'probe/runs/before/codex-image_link.txt']) assert.ok(checked.includes(s), s);
 });

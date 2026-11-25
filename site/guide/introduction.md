@@ -37,6 +37,7 @@ a new extension, without waiting on one company's roadmap.
 | [Server Cards](./server-cards) | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | `mcp-server-cards` | `mcp-server-cards` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi) |
 | [Apps](./apps) | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | `mcp-apps-cli` | not yet | not available |
 | [ARD](./ard) (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | `ard-discovery` | `ard-discovery` | [extension](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi) |
+| [Resource links](./resource-links) (core spec) | [MCP 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/server/tools#resource-links), Tools > Resource Links | not needed, handled natively, with caveats | `mcp-resource-links` | not measured |
 
 The Pi forms were tested with Pi 1.6.0 and need Node 22 or newer. Nothing for
 Pi is published to npm or Pi's package gallery. Install the extensions from
@@ -73,6 +74,14 @@ All of them are early. Here is what each one does, and where it stops:
   Ghostty, text cells everywhere else. There is no Pi form: Pi 1.6.0 leaves
   out `ui://` resources and tool `_meta`, so an extension can't get an App's
   UI. Nothing for Apps in Pi is built or tested.
+- **Resource links.** When a tool's result links to a resource, the model
+  can read it and see it: text as text, images as images. Claude Code does
+  this itself, so nothing is installed there, though it drops a link's type
+  and annotations, reads content marked for the user only, and reads a link
+  from another server without asking. Codex hands the model a linked image
+  as base64 text; its plugin returns images as images, reads through Codex's
+  own connection, and asks you before reading a link from another server.
+  Pi wasn't measured. Resource links are core spec, not an extension.
 
 Events and Skills can't use a host's OAuth sign-in. Apps has the same limit
 in its available form. In Pi, Events and Skills open their own connections,

@@ -8,11 +8,12 @@ aside: false
 AgentPolyfill is a community project by
 [Ido Salomon](https://github.com/idosal): polyfills for agent protocols. They
 bring more of MCP to the clients you already use, before those clients
-support it. Today that's four MCP extensions and one open draft beyond MCP.
-What runs in each host:
+support it. Today that's four MCP extensions, one core MCP feature (resource
+links) and one open draft beyond MCP. What runs in each host:
 
-- **Claude Code:** Events, Skills, Server Cards, Apps and ARD.
-- **Codex:** Events, Skills, Server Cards and ARD.
+- **Claude Code:** Events, Skills, Server Cards, Apps and ARD. Resource links
+  need nothing: Claude Code handles them itself.
+- **Codex:** Events, Skills, Server Cards, ARD and resource links.
 - **Pi:** Events, Skills, Server Cards and ARD, as Pi extensions. Apps has no
   Pi form.
 

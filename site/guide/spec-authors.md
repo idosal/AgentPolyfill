@@ -28,8 +28,10 @@ extension's `core/`. Host results are recorded separately:
 - **Codex:** each form's README gives its results:
   [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex),
   [Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex),
-  [Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex)
-  and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex).
+  [Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex),
+  [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex)
+  and [resource links](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/resource-links/codex),
+  which has the [Codex table](#codex) below.
 - **Pi:** the second table gives its conformance and live-run evidence,
   checked with Pi 1.6.0.
 
@@ -43,6 +45,18 @@ extension's `core/`. Host results are recorded separately:
 | [Skills](./skills) | SEP-2640, Final | 60 rules: 54 met, 3 met with a stated limit, 3 that do not apply ([conformance.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/docs/conformance.md)) | Hugging Face and TogoMCP, every skill loaded and every file verified; the official TypeScript SDK's Skills server and client | The official suite's client scenarios for SEP-2640: 4 of 4 |
 | [Apps](./apps) | MCP Apps 2026-01-26, Stable, plus `ui/download-file` from the draft | Requirement by requirement: each MUST, SHOULD and MAY, with its test where it has one; one MUST, the default CSP, is not met, on purpose ([COMPLIANCE.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/docs/COMPLIANCE.md)) | Not stated as a separate run | The suite has no client scenarios for MCP Apps yet, so there is nothing of it to run |
 | [Server Cards](./server-cards) | SEP-2127, Final (extension Beta); ext-server-card at `28db12c9b4`; AI Catalog v0.9 | One row per rule, with the test that covers it (108 tests); two rules are met by design, and the one to check a card against the live server is not met ([README](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/README.md#client-rules)) | The live catalogs and cards of Buildkite, GitHub, Hugging Face, Neon, Netlify, Notion, Context7, Exa, Supabase and Zapier; ajv with the official schema gives the same verdict on all eleven cards | The suite has no Server Card scenarios |
+
+Resource links need no Claude Code form: Claude Code reads them itself
+([what it does](./resource-links#in-claude-code)).
+
+### Codex
+
+Only resource links has a table here; the other Codex forms give their
+results in their READMEs, as above.
+
+| | Revision | Spec statements about links | Someone else's servers | Upstream conformance |
+|---|---|---|---|---|
+| [Resource links](./resource-links) | MCP 2025-11-25, Tools > Resource Links (core spec), at `9850cae` | 14 rows: 11 met, 1 met by Codex, 1 not applicable, 1 exception (subscriptions) ([conformance.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/resource-links/codex/docs/conformance.md)) | None: a test server of this repository only | Not run |
 
 Each one also says where it steps outside the spec. Events, by default, also
 talks to servers that advertise events in the form from before SEP-3415, and

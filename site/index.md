@@ -7,7 +7,7 @@ description: "Polyfills for agent protocols: bring more of MCP to the clients yo
 hero:
   name: AgentPolyfill
   text: Polyfills for agent protocols
-  tagline: Bring more of MCP to the clients you already use. Find Apps, Skills, Events, Server Cards and ARD for your host below.
+  tagline: Bring more of MCP to the clients you already use. Find Apps, Skills, Events, Server Cards, ARD and resource links for your host below.
   image:
     light: /mark-light.svg
     dark: /mark-dark.svg
@@ -36,6 +36,8 @@ hero:
   <h2>The polyfills</h2>
   <p class="lede">Each one implements an MCP extension's client side, to spec, and steps aside once the host ships its own. Servers don't change.</p>
   <PolyfillCards />
+  <h3 class="beyond">MCP core spec</h3>
+  <p class="lede"><a href="/guide/resource-links">Resource links</a>: when a tool's result links to a resource, the model reads it and sees it, text as text and images as images. Claude Code does this itself, so nothing is installed there. In Codex, <code>mcp-resource-links</code> reads links through Codex, returns images as images, and asks you before reading a link from another server.</p>
   <h3 class="beyond">Beyond MCP</h3>
   <PolyfillCards group="beyond" />
   <p class="closing">Building a polyfill, bringing one to another host, or writing a spec? <a href="/guide/build-a-polyfill">Build a polyfill</a> · <a href="/guide/community">Community</a> · <a href="/guide/spec-authors">For spec authors</a></p>

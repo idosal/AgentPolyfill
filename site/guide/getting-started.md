@@ -66,15 +66,20 @@ form asks nothing. Say no to the marketplace and nothing is installed.
 
 ### Codex
 
-Codex 0.170 or newer (Skills was tested on 0.172), with Node 20 or newer on
-the `PATH` Codex runs with. In a terminal:
+Codex 0.170 or newer (Skills and resource links were tested on 0.172), with
+Node 20 or newer on the `PATH` Codex runs with. In a terminal:
 
 ```bash
 codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add mcp-events@agent-polyfill
 codex plugin add mcp-skills@agent-polyfill
 codex plugin add mcp-server-cards@agent-polyfill
+codex plugin add mcp-resource-links@agent-polyfill
 ```
+
+`mcp-resource-links` brings a hook. The next time Codex starts, it says
+**Hooks need review**; trust the plugin's hook there or in `/hooks`, and the
+plugin works from then on ([Resource links](./resource-links#in-codex)).
 
 Codex has no bundle, so add the ones you want. Apps isn't in Codex yet.
 `ard-discovery` is added by name, for the same reason as in Claude Code:
@@ -146,13 +151,18 @@ Code's own dialog. What is fetched and how it's checked is on the
 | Events | 0.170 or newer | Node 20 or newer. A watch wakes a Codex CLI session (the terminal app or `codex exec`). |
 | Skills | 0.172 (the version it was tested on) | Node 20 or newer |
 | Server Cards, ARD | 0.170 or newer | Node 20 or newer |
+| Resource links | 0.172 (the version it was tested on) | Node 20 or newer, and trusting the plugin's hook once |
 | Apps | not yet | |
 
 Each Codex plugin's README has the rest:
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex),
 [Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex),
-[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex) and
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex),
+[resource links](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/resource-links/codex) and
 [ARD discovery](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex).
+
+Claude Code needs nothing for resource links: it handles them itself
+([Resource links](./resource-links#in-claude-code)).
 
 ### In Pi
 
@@ -382,7 +392,10 @@ The environment variables go, for example, in the `env` block of
 `~/.claude/settings.json`.
 
 In Codex, remove the plugin: `codex plugin remove mcp-events@agent-polyfill`,
-and the same for `mcp-skills`, `mcp-server-cards` and `ard-discovery`.
+and the same for `mcp-skills`, `mcp-server-cards`, `mcp-resource-links` and
+`ard-discovery`. `mcp-resource-links` can also be turned off with
+`MCP_RESOURCE_LINKS_DISABLED=1`; removing it leaves its notes in
+`$CODEX_HOME/mcp-resource-links/`.
 
 In Pi, set the off switch in the environment Pi starts with, or remove the
 extension from the same repository folder you installed from:

@@ -32,7 +32,8 @@ host ships one of these extensions, turn that polyfill off:
   its own setting (`MCP_EVENTS_OFF=1`, `MCP_SKILLS_OFF=1`, or `disabled` in
   `/config` for Server Cards and ARD).
 - **Codex:** remove the plugin
-  (`codex plugin remove mcp-events@agent-polyfill`).
+  (`codex plugin remove mcp-events@agent-polyfill`), or for resource links
+  set `MCP_RESOURCE_LINKS_DISABLED=1`.
 - **Pi:** remove the extension (`pi remove ./polyfills/events/pi/extension`
   from your clone), or use its own setting (`MCP_EVENTS_OFF=1`,
   `MCP_SKILLS_OFF=1`, `MCP_SERVER_CARDS_DISABLED=1`, `ARD_DISCOVERY_DISABLED=1`).

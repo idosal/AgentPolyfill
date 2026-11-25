@@ -32,6 +32,7 @@ const community = JSON.parse(readFileSync(join(site, '..', 'community', 'polyfil
 const SECTIONS = [
   ['Start', ['guide/introduction', 'guide/getting-started']],
   ['Polyfills for MCP extensions', ['guide/events', 'guide/skills', 'guide/server-cards', 'guide/apps']],
+  ['MCP core spec', ['guide/resource-links']],
   ['Beyond MCP', ['guide/ard']],
   ['Build', ['guide/build-a-polyfill', 'guide/spec-authors', 'guide/contributing', 'guide/community']],
   ['Reference', ['guide/how-it-works', 'guide/security']],
@@ -45,11 +46,12 @@ const INSTALL_CODEX = [
   'codex plugin add mcp-events@agent-polyfill',
   'codex plugin add mcp-skills@agent-polyfill',
   'codex plugin add mcp-server-cards@agent-polyfill',
+  'codex plugin add mcp-resource-links@agent-polyfill',
 ]
 const HOSTS = [
-  { name: 'Claude Code', command: 'claude', addKey: 'add', form: 'Mod (plugin)', polyfills: 'Events, Skills, Server Cards, Apps, ARD' },
-  { name: 'Codex', command: 'codex', addKey: 'addCodex', form: 'Plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
-  { name: 'Pi', command: 'pi', addKey: 'addPi', form: 'Extension', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
+  { name: 'Claude Code', command: 'claude', addKey: 'add', form: 'Mod (plugin)', polyfills: 'Events, Skills, Server Cards, Apps, ARD; resource links need nothing (handled natively)' },
+  { name: 'Codex', command: 'codex', addKey: 'addCodex', form: 'Plugin', polyfills: 'Events, Skills, Server Cards, ARD, resource links; no Apps form' },
+  { name: 'Pi', command: 'pi', addKey: 'addPi', form: 'Extension', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form; resource links not measured' },
 ]
 // Pi's source installs and examples, for the Markdown served to agents.
 const PI_FORMS = {
@@ -337,6 +339,10 @@ ${lede}
 
 ${cards.join('\n\n')}
 
+## MCP core spec
+
+Resource links (MCP 2025-11-25, Tools > Resource Links): when a tool's result links to a resource, the model reads it and sees it, text as text and images as images. Claude Code does this itself, so nothing is installed there. In Codex, \`mcp-resource-links\` reads links through Codex, returns images as images, and asks you before reading a link from another server: \`codex plugin add mcp-resource-links@agent-polyfill\`, then trust its hook when Codex says "Hooks need review". Pi wasn't measured. The Resource links guide: ${resolveLink('/guide/resource-links', 'index')}
+
 ## Beyond MCP
 
 ${beyondCards.join('\n\n')}
@@ -383,7 +389,7 @@ AgentPolyfill makes polyfills for agent protocols: it brings more of MCP to the 
 
 ${hostTable()}
 
-The MCP polyfills implement Events (SEP-3415), Skills (SEP-2640), Server Cards (SEP-2127) and Apps (MCP Apps 2026-01-26). It's an early proof of concept: some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs (${origin}/guide/how-it-works.md). ${PI_APPS_LIMIT}
+The MCP polyfills implement Events (SEP-3415), Skills (SEP-2640), Server Cards (SEP-2127) and Apps (MCP Apps 2026-01-26), and, in Codex, resource links in tool results (core spec, MCP 2025-11-25). It's an early proof of concept: some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs (${origin}/guide/how-it-works.md). ${PI_APPS_LIMIT}
 
 Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A search sends the words of your request to the ARD registry you choose and asks you first every time, so ARD is installed separately. Pi's live run showed domain discovery and an approved search of the repository's demo registry, but did not complete the add step; additions are covered by real-Pi tests with a scripted model and a local server.
 

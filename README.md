@@ -1,8 +1,9 @@
 # AgentPolyfill
 
 Polyfills for agent protocols. Bring more of MCP to the clients you already
-use. Plugins and extensions add Apps, Skills, Events, Server Cards and ARD;
-the table below shows which run in each host.
+use. Plugins and extensions add Apps, Skills, Events, Server Cards and ARD,
+and resource links where a host handles them only in part; the table below
+shows which run in each host.
 
 > **An early proof of concept.** It works today, and it has real gaps. Events,
 > Skills and Apps can't reach servers behind OAuth yet, Apps runs only in
@@ -47,15 +48,19 @@ Or install just one, with its name in place of `agent-polyfill`:
 `ard-discovery` adds ARD; it isn't in the bundle, so install it by name. Then
 start a new `claude` session.
 
-**Codex** (0.170 or newer; Skills was tested on 0.172; Node 20 or newer). In a
-terminal:
+**Codex** (0.170 or newer; Skills and resource links were tested on 0.172;
+Node 20 or newer). In a terminal:
 
 ```
 codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add mcp-events@agent-polyfill
 codex plugin add mcp-skills@agent-polyfill
 codex plugin add mcp-server-cards@agent-polyfill
+codex plugin add mcp-resource-links@agent-polyfill
 ```
+
+`mcp-resource-links` brings a hook: the next time Codex starts it says
+**Hooks need review**, and the plugin works once you trust its hook.
 
 Beyond MCP, ARD (a draft; every search asks you first and goes to a registry
 you choose):
@@ -92,6 +97,7 @@ There are [more ways to install](#more-ways-to-install) further down.
 | Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) | [`mcp-server-cards`](polyfills/server-cards/pi) |
 | Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet | not available |
 | ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) | [`ard-discovery`](polyfills/ard/pi) |
+| Resource links (core spec) | [MCP 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25/server/tools#resource-links), Tools > Resource Links | [not needed, handled natively](polyfills/resource-links/claude-code), with caveats | [`mcp-resource-links`](polyfills/resource-links/codex) | not measured |
 
 All of them are early. Here is what each one does, and where it stops:
 
@@ -130,6 +136,20 @@ All of them are early. Here is what each one does, and where it stops:
   Ghostty, text cells everywhere else. This form runs in Claude Code. No Pi
   form is built or tested: Pi 1.6.0 leaves out `ui://` resources and tool
   `_meta`, so an extension can't get an App's UI.
+
+- **Resource links.** When a tool's result links to a resource, the model
+  can read it and see it: text as text, images as images. Claude Code does
+  this itself, so nothing is installed there. It does drop a link's type,
+  size and annotations from what the model sees, reads a resource the
+  server marked for the user only, and reads a link from another server
+  without asking ([what it does](polyfills/resource-links/claude-code/README.md)).
+  Codex reads text links, but hands the model a linked image as base64
+  text, so whether the model sees it depends on the model. Its plugin reads
+  links through Codex's own connection, returns images as images, asks you
+  before reading a link from a server other than the one that returned it,
+  and never gives the model content marked for you only. Pi wasn't
+  measured. Resource links are core spec, not an extension, so the
+  polyfill names the spec revision where others name a SEP.
 
 Events, Skills and Apps can't reach servers behind OAuth yet, in any host
 where these forms run.
@@ -484,8 +504,9 @@ you can disable or uninstall separately. Start a new `claude` session for
 plugins to load.
 
 **Codex.** With the marketplace added, `codex plugin add <name>@agent-polyfill`
-installs one (`mcp-events`, `mcp-skills`, `mcp-server-cards` or
-`ard-discovery`), and `codex plugin remove <name>@agent-polyfill` removes it.
+installs one (`mcp-events`, `mcp-skills`, `mcp-server-cards`,
+`mcp-resource-links` or `ard-discovery`), and
+`codex plugin remove <name>@agent-polyfill` removes it.
 Codex has no bundle.
 
 **Pi.** From the clone, use `pi -e ./polyfills/<polyfill>/pi/extension` for
@@ -521,11 +542,15 @@ problem privately.
 
 - **`polyfills/<extension>/`**: one folder per extension, with a subfolder per
   host it runs in, and a `core/` next to them when the hosts share code.
-  [`events`](polyfills/events) and [`skills`](polyfills/skills) have a core.
+  [`events`](polyfills/events), [`skills`](polyfills/skills) and
+  [`resource-links`](polyfills/resource-links) have a core.
+  `resource-links/claude-code/` holds only a README and SECURITY.md saying
+  why nothing is installed there.
   Each host's forms live in a folder named for it:
 
   - `claude-code/`: mods for Events, Skills, Server Cards, ARD and Apps.
-  - `codex/`: plugins for Events, Skills, Server Cards and ARD.
+  - `codex/`: plugins for Events, Skills, Server Cards, ARD and resource
+    links.
   - `pi/`: extensions for Events, Skills, Server Cards and ARD, each with
     an installable `extension/` folder and its own README and SECURITY.md.
 - **Marketplaces.**

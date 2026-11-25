@@ -76,7 +76,7 @@ export default defineConfig({
       { text: 'Guide', link: '/guide/introduction', activeMatch: '^/guide/(introduction|getting-started|how-it-works|security)' },
       {
         text: 'Polyfills',
-        activeMatch: '^/guide/(events|apps|skills|server-cards|ard)',
+        activeMatch: '^/guide/(events|apps|skills|server-cards|resource-links|ard)',
         items: [
           {
             text: 'MCP extensions',
@@ -86,6 +86,10 @@ export default defineConfig({
               { text: 'Server Cards', link: '/guide/server-cards' },
               { text: 'Apps', link: '/guide/apps' },
             ],
+          },
+          {
+            text: 'MCP core spec',
+            items: [{ text: 'Resource links', link: '/guide/resource-links' }],
           },
           {
             text: 'Beyond MCP',
@@ -123,6 +127,10 @@ export default defineConfig({
             { text: 'Server Cards', link: '/guide/server-cards' },
             { text: 'Apps', link: '/guide/apps' },
           ],
+        },
+        {
+          text: 'MCP core spec',
+          items: [{ text: 'Resource links', link: '/guide/resource-links' }],
         },
         {
           text: 'Beyond MCP',

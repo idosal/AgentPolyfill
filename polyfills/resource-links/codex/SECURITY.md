@@ -88,8 +88,8 @@ direction characters removed.
 
 The plugin answers no question for you, and doesn't change how Codex approves
 any tool. Its app-server client answers every request Codex's app server
-sends it (an approval, a question) with "not handled", so nothing is decided
-in your place there either.
+sends it (an approval, a question) with an error ("mcp-resource-links does
+not answer this"), so nothing is decided in your place there either.
 
 ### What is kept
 
@@ -99,7 +99,8 @@ in your place there either.
 - `$CODEX_HOME/mcp-resource-links/mcp-resource-links.log`: what was noted,
   read, refused or asked, with URIs and server names. No contents.
 
-Uninstalling the plugin leaves that folder. Delete it to remove the notes.
+Uninstalling the plugin leaves that folder (checked with `codex plugin
+remove` on Codex 0.172.0). Delete it to remove the notes and the log.
 
 ## Threats
 
@@ -115,8 +116,8 @@ Uninstalling the plugin leaves that folder. Delete it to remove the notes.
 | T8 | A server labels a file `image/png` to get other bytes shown as an image, or sends an SVG | The first bytes must be the format's; only PNG, JPEG, GIF, WebP | `links-test.ts`: "bytes are not its type", "JPEG, GIF and WebP" |
 | T9 | Text in a link or URI poses as the plugin's own words (new lines, direction marks) in the question or a refusal | Server text there is one cleaned, bounded line; contents come after a line naming their origin | `links-test.ts`: "one bounded line" |
 | T10 | The hook changes or blocks a tool's result | It prints nothing and always exits 0 | `hook-test.ts` |
-| T11 | The plugin's credentials or a second connection widen what a server gets | There are none: Codex reads with its own connection and sign-in | `appserver-test.ts`: only `initialize`, `initialized` and `mcpServer/resource/read` are sent |
-| T12 | The plugin answers an approval in your place on Codex's app server | Every request from the app server is answered "not handled" | `appserver.ts` (`rpc`), by reading; no test triggers one |
+| T11 | The plugin's credentials or a connection of its own widen what a server gets | There are none. The plugin connects to no MCP server: Codex reads, with its own connection and sign-in (the session's connection on the daemon; under `codex exec`, a connection Codex opens for the read) | `appserver-test.ts`: only `initialize`, `initialized` and `mcpServer/resource/read` are sent, with the session's thread on the daemon; `no-credentials-test.ts`: no code names a credential store |
+| T12 | The plugin answers an approval in your place on Codex's app server | Every request from the app server is answered with an error, never a result | `appserver-test.ts`: "a question from Codex's app server (an approval) is answered with an error" |
 
 ## What it does not protect against
 

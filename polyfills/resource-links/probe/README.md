@@ -39,8 +39,9 @@ to.
 Your own Claude Code settings, Codex config and MCP servers aren't used.
 
 A test, [`../codex/test/no-credentials-test.ts`](../codex/test/no-credentials-test.ts),
-fails if a script in this polyfill names a host's sign-in file, a keychain
-entry or your own Codex or Claude Code home.
+fails if any file in this polyfill (code, tests, docs, recorded runs) names
+a host's sign-in file, a keychain entry or a key variable, or if a script
+names your own Codex or Claude Code home.
 
 ## How the kept runs were made
 
