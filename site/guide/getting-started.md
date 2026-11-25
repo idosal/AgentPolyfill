@@ -45,9 +45,9 @@ install just one:
 
 :::
 
-`ard-discovery` isn't in the bundle, because a search sends the words of your
-request to the ARD registry you choose. Install it by name, and it brings
-`mcp-server-cards` with it.
+`ard-discovery` is for ARD, a draft from outside MCP. It isn't in the bundle,
+because a search sends the words of your request to the ARD registry you
+choose. Install it by name, and it brings `mcp-server-cards` with it.
 
 In a terminal, use `claude plugin install` with the same arguments:
 
@@ -77,7 +77,8 @@ codex plugin add mcp-server-cards@agent-polyfill
 ```
 
 Codex has no bundle, so add the ones you want. Apps isn't in Codex yet.
-`ard-discovery` is added by name, for the same reason as in Claude Code:
+`ard-discovery`, for ARD (a draft from outside MCP), is added by name, for the
+same reason as in Claude Code:
 
 ```bash
 codex plugin add ard-discovery@agent-polyfill
