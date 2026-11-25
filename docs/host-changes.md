@@ -38,7 +38,17 @@ API. The Codex column names that API's methods.
 | See a tool's `_meta`, its `outputSchema`, or a result as the server sent it | No | Not checked yet |
 | Declare a client extension to servers | No | Only Codex's own client (the terminal or the desktop app) can, and its declaration goes to every server. A plugin or the config can't. |
 
-The row that matters most is "send any other MCP method". Because neither host
+Muse Code (Meta's terminal agent, checked at 1.4.25) is built like Codex: a
+plugin brings MCP servers, skills and hooks shaped like Claude Code's, and its
+own forms of these polyfills live in the Codex plugin folders. It has none of
+the protocol rows above, and less of the host ones: its MCP client declares no
+capabilities, and it gives plugins only a tool result's text. A server learns
+its session from `MUSE_SESSION_ID`. A plugin can't start a turn by default.
+And nothing a plugin does can put a question to the person, because a hook's
+`ask` goes to Muse's approval judge, a model. Its lines are below, and
+[AgentPolyfill in Muse Code](muse.md) has the details.
+
+The row that matters most is "send any other MCP method". Because no host
 has it, each polyfill that speaks an extension's protocol (Events, Skills,
 Apps) opens a second connection to the server, built from your MCP settings.
 That connection only has the headers written in your config. It can't use the
@@ -172,6 +182,36 @@ the live server.
 - **Mark a turn that something else started.** Input from `codex queue`
   arrives looking like the person typed it. A turn an extension starts should
   reach the model and the UI marked as the extension's.
+
+### In Muse Code
+
+- **Let a plugin ask the person.** Muse's MCP client offers no elicitation.
+  A tool call that isn't read-only goes to the approval judge, a model that may
+  approve it with nobody asked. A hook's `ask` goes there too, and the card,
+  when there is one, names the tool, not its arguments or the hook's reason.
+  Elicitation in the client, or a hook `ask` that always reaches the person and
+  shows the reason, would let Skills, Server Cards and ARD ask as they do
+  elsewhere. Today Skills takes a typed phrase, Server Cards and ARD hand the
+  person a command to run, and ARD drops registry search.
+- **A turn from outside.** The session-protocol terminal is behind two
+  undocumented launch gates (`MUSE_EXPERIMENTAL_TUI_MSP_CLIENT`,
+  `MUSE_EXPERIMENTAL_TUI_SESSION_PROCESS`). With them on, any local process can
+  attach and start turns, with no consent step. Turning it on by default with a
+  consent step, or giving a session's own plugins a verified sender for
+  `muse session-message send` (refused today as `sender_unverified`), would
+  give Events real wake.
+- **The four changes above, in Muse's session protocol.** A generic MCP request
+  next to `mcpServer/readInventory`, the server's capabilities and
+  notifications, and a tool result's `structuredContent` and `_meta` passed to
+  hooks.
+- **Pass a plugin's server the variables it names.** Muse starts plugin servers
+  and hooks with a cleared environment, so a polyfill's settings and a server's
+  header secrets can't reach them.
+- **Start a plugin's server in the plugin's folder, or allow `cwd`.** Muse starts
+  it in the session's workspace and refuses `cwd`. So a Codex-format plugin
+  whose `.mcp.json` names `./dist/helper.js` closes at startup, with "the
+  transport closed unexpectedly" and none of the server's output. Muse could
+  also record a server's standard error.
 
 ## Questions these changes raise
 

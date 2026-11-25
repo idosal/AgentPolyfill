@@ -143,6 +143,18 @@ catalogs and cards in memory for one session, and nothing on disk.
   with a field is never accepted by itself. Codex putting the approval mode in
   a tool call's metadata is the proper fix.
 
+## In Muse Code
+
+The same plugin runs in Muse Code ([AgentPolyfill in Muse Code](../../../docs/muse.md)).
+
+- **No search.** A search sends your query to a third party, and Muse gives a
+  plugin no way to ask you first, so `ard_search` isn't offered there. Nothing
+  is ever sent to a registry from Muse.
+- **Discovery** by domain sends only GETs, as in Codex.
+- **`add_mcp_server`** writes nothing. It answers with the `muse mcp add …`
+  command for you to run yourself, as described in
+  [mcp-server-cards' security notes](../../server-cards/codex/SECURITY.md#in-muse-code).
+
 ## Reporting
 
 Report a security issue privately, through this repository's
