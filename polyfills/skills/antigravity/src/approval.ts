@@ -57,7 +57,7 @@ export function question(server: string, entry: SkillEntry, store: Store): strin
     const resources = entry.resources === 'dynamic' ? [] : entry.resources;
     const nested = nestedIn(store.dir, server, entry.uri);
     return [
-        // The CLI's card shows a question's first two lines and hides the rest (seen live, CLI 1.5.17).
+        // The CLI's card shows a question's first two lines and hides the rest (CLI 1.5.17).
         `Load the skill ${JSON.stringify(entry.frontmatter.name)} from the MCP server ${JSON.stringify(server)}?`,
         `${store.wasApproved(server, entry.uri) ? 'It has changed on the server (or the server has moved) since you last approved it' : 'This is a new skill approval: you have not approved this version before'} · URI ${entry.uri}`,
         entry.resources === 'dynamic' ? 'The server generates its content and publishes no digests, so it cannot be verified. Approval is required at every load.' : `${resources.length} files, ${resources.reduce((n, r) => n + r.size, 0)} bytes; each is checked against the server\'s SHA-256 digest when read.`,
@@ -72,7 +72,7 @@ export function question(server: string, entry: SkillEntry, store: Store): strin
  * Rule X8: once a skill served by one MCP server is loaded in a conversation, a resource read from
  * another server is put to the person first, naming both, as the Pi and OpenCode forms do. It
  * can't tell which skill (or whether one) asked for it. Antigravity's agent reads MCP resources
- * with its `read_resource` tool ({ServerName, Uri}; seen live, CLI 1.5.17), which the plugin's
+ * with its `read_resource` tool ({ServerName, Uri}; CLI 1.5.17), which the plugin's
  * PreToolUse hook sees. The answer is `force_ask` or the plain `allow`; the call is never altered.
  */
 export function crossServerRead(input: Record<string, unknown>, store: Store, env: NodeJS.ProcessEnv): Record<string, unknown> | undefined {

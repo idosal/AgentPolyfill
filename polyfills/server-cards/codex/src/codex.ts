@@ -84,7 +84,7 @@ export const planForCodex = (
         error: `The header ${h.name} mixes a secret with other text (${h.value}). Codex takes a header's whole value from one environment variable, or a bearer token; this card's header can be added only by hand.`,
       }
     // A fixed value is shown in the form as it is: no markup a host could
-    // render as something else (security review C4).
+    // render as something else.
     else if (hasMarkup(h.value))
       return { error: `The header ${h.name} holds \`, <, > or a square bracket (${h.value}), which could show as something else in the form.` }
     else httpHeaders[h.name] = h.value

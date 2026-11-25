@@ -214,8 +214,8 @@ Apps needs from a host.
   answers only requests that carry its per-session token, on a local endpoint
   only you can open.
 
-[SECURITY.md](SECURITY.md) lists what was reviewed, what is checked and what
-isn't protected, and how to report a security issue.
+[SECURITY.md](SECURITY.md) lists what is checked and what isn't
+protected, and how to report a security issue.
 
 ## Spec and conformance
 

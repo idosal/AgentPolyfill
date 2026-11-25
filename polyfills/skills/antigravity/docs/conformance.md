@@ -2,7 +2,7 @@
 
 Revision: **Final, commit `2eb3a8e`**, [published specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md).
 Rule IDs follow the [Codex table](../../codex/docs/conformance.md). This table
-describes Antigravity adapter 0.1.0. It does not claim full conformance.
+describes Antigravity adapter 0.1.1. It does not claim full conformance.
 
 “Met” describes this adapter's tested behavior. “Limit” identifies a host or
 implementation boundary; “not met” is an unmet rule. Antigravity delivers the

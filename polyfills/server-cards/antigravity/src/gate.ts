@@ -17,7 +17,7 @@
 // turned off), the call is refused, never done unasked.
 //
 // A hook that exits non-zero, times out or prints something that isn't JSON
-// makes Antigravity fail the call (seen live, CLI 1.5.17, 2026-11-25: "JSON
+// makes Antigravity fail the call (CLI 1.5.17: "JSON
 // hook ... failed: command failed: exit status 1"). So the hook always exits
 // 0 with a JSON answer, and it runs only for this plugin's own tools: their
 // eager names, `mcp_<server>_<tool>` (each plugin's mcp_config.json marks them
@@ -35,7 +35,7 @@ export const TICKET_ARG = 'agentpolyfill_ticket'
 /**
  * How long a ticket waits for its call: an hour at most. The ticket is issued
  * when the hook runs, before Antigravity's approval card is answered, and a
- * person may leave the card open (an hour, in the live run of 2026-11-25). A
+ * person may leave the card open for as long as that. A
  * ticket also ends at the conversation's next model call and at the end of
  * its turn: the plugin's `PreInvocation` and `Stop` hooks remove every unused
  * ticket of the conversation (`revokeConversation`). A step's tool calls are
@@ -166,7 +166,7 @@ export function redeemTicket(dir: string, nonce: unknown, tool: string, digest: 
  * Which Antigravity surface a conversation lives in, from where the hook says
  * its transcript is: `<app_data_dir>/brain/<id>/...`, where the app data dir is
  * ~/.gemini/antigravity (App), ~/.gemini/antigravity-cli (CLI) or
- * ~/.gemini/antigravity-ide (IDE) (hooks.md; seen live for the App and CLI).
+ * ~/.gemini/antigravity-ide (IDE) (hooks.md).
  */
 export type Surface = 'app' | 'cli' | 'ide' | 'unknown'
 export const surfaceOf = (transcriptPath: unknown): Surface => {
@@ -218,14 +218,14 @@ export const eagerName = (server: string, tool: string) => `mcp_${server}_${tool
 
 /**
  * An argument Antigravity adds to an eager tool's call for its own display
- * (seen live, CLI 1.5.17) and takes out before the server gets the call. The
+ * (CLI 1.5.17) and takes out before the server gets the call. The
  * hook leaves it out, so its digest is of what the server gets.
  */
 export const HOST_ARGS = ['toolSummary'] as const
 
 /**
  * Which call of this plugin's server a PreToolUse input is, however
- * Antigravity named it (seen live in CLI 1.5.16, 2026-11-25; mcp.md, "Tool
+ * Antigravity named it (CLI 1.5.16; mcp.md, "Tool
  * loading"):
  *
  * - lazy (the default): `call_mcp_tool` with `{ServerName, ToolName,

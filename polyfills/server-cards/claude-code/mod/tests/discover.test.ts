@@ -317,7 +317,6 @@ test('P-1 a local catalog (development) may point at a local card', async () => 
   expect(d.servers[0]!.card?.name).toBe(CARD.name)
 })
 
-// Review findings (2026-11-24).
 test('P-3 spellings of local names are private too', async () => {
   for (const host of ['localhost.', 'printer.local.', 'printer', '127.1.2.3', '[::1]', '[fd00::1]', '169.254.169.254', '100.64.0.1'])
     expect([host, isPrivateHost(host)]).toEqual([host, true])
@@ -407,7 +406,6 @@ test('C-7 C-8 a 304 updates the stored validator and directives; Age counts agai
   expect(calls.filter(c => c.url === 'https://e2.example/.well-known/ard.json').length).toBe(2)
 })
 
-// Second review pass (2026-11-24).
 test('T-2 an IPv6 literal is a valid target', async () => {
   expect(parseTarget('https://[2001:4860:4860::8888]/')).toEqual({ origin: 'https://[2001:4860:4860::8888]', page: 'https://[2001:4860:4860::8888]/', isLocal: false })
 })
@@ -475,7 +473,7 @@ test('DEF-2 by default rel="ard" is not followed; rel="ai-catalog" (AI Catalog) 
   expect(d.servers.map(s => s.identifier)).toEqual(['x'])
 })
 
-test('P-6 a catalog\'s card or registry URL with markup is not used (security review C1)', async () => {
+test('P-6 a catalog\'s card or registry URL with markup is not used', async () => {
   const { deps, calls } = web({
     'https://example.com/.well-known/ai-catalog.json': {
       body: catalog([
@@ -491,7 +489,7 @@ test('P-6 a catalog\'s card or registry URL with markup is not used (security re
   expect(calls.some(c => c.url.startsWith('https://cards.example/'))).toBe(false)
 })
 
-test('P-7 a catalog\'s card or registry URL that names a user before its host is not used (security review C3)', async () => {
+test('P-7 a catalog\'s card or registry URL that names a user before its host is not used', async () => {
   const { deps, calls } = web({
     'https://example.com/.well-known/ai-catalog.json': {
       body: catalog([

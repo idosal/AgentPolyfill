@@ -11,8 +11,8 @@ export const MAX_SHOWN = { server: 64, event: 120, note: 200, filters: 200 } as 
 const UNSHOWABLE = /[\p{Cc}\u2028\u2029\p{Default_Ignorable_Code_Point}]/u;
 
 /**
- * Why the question couldn't show this watch exactly, or undefined. The watch made is the watch shown
- * (security review): nothing is cut short or taken out, as in the Copilot form.
+ * Why the question couldn't show this watch exactly, or undefined. The watch made is the watch shown:
+ * nothing is cut short or taken out, as in the Copilot form.
  */
 export function unshowable(args: Record<string, unknown>): string | undefined {
     const filters = args.arguments && typeof args.arguments === 'object' ? JSON.stringify(args.arguments) : '';
@@ -28,14 +28,14 @@ export function unshowable(args: Record<string, unknown>): string | undefined {
 const shown = (v: unknown) => JSON.stringify(String(v ?? ''));
 
 /**
- * The question Antigravity's approval card shows before a watch starts (security review E1): a
+ * The question Antigravity's approval card shows before a watch starts: a
  * watch subscribes on a server and can wake this conversation later, so it is put to the person
  * every time, as every other form does, whatever their MCP rules or mode allow.
  */
 export function watchQuestion(args: Record<string, unknown>): string {
     const filters = args.arguments && typeof args.arguments === 'object' && Object.keys(args.arguments).length ? JSON.stringify(args.arguments) : 'none';
     const replay = typeof args.maxAgeMs === 'number' && args.maxAgeMs > 0 ? `When it resumes, it replays up to ${Math.round(args.maxAgeMs / 60_000)} minutes of missed events.` : '';
-    // The CLI's card shows a question's first two lines and hides the rest (seen live, CLI 1.5.17).
+    // The CLI's card shows a question's first two lines and hides the rest (CLI 1.5.17).
     return [
         `mcp-events: watch ${shown(args.event)} on the MCP server ${shown(args.server)} for this conversation?`,
         `Filters: ${filters} · note saved with the watch: ${args.note ? shown(args.note) : 'none'}`,

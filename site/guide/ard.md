@@ -466,8 +466,7 @@ keeps no store: adding a server is `mcp-server-cards`' job, and needs you.
 - A public registry can't refer it to a local or private address.
 
 A search result can't impersonate a publisher, and every search is put to
-you. An AI reviewer that did not build it reviewed it; no person has audited
-it.
+you.
 
 The full account:
 [`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md).
@@ -482,8 +481,6 @@ not read-only because it sends your query. The extension reads no stored
 credentials. A publisher's catalog can confirm a result, but cannot approve
 an addition. See
 [Pi's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md).
-An AI reviewer who did not build the Pi forms reviewed them, and checked
-the fixes again. They have not been audited by a person.
 
 [Pi's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/docs/conformance.md)
 documents the shared ARD and Server Cards rules, Pi's questions and the
@@ -512,8 +509,6 @@ and Windows. No upstream
 conformance run or public-registry run is claimed. Checked in OpenCode
 2.4.1: buildkite.com's `ard.json` read, and a search of the demo registry
 sent after OpenCode asked. Adding is checked by the form's tests only.
-An AI reviewer who did not build the OpenCode forms reviewed them. They have
-not been audited by a person.
 
 ### In Antigravity
 

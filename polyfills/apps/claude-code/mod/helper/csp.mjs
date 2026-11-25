@@ -3,8 +3,8 @@
 // (helper-rs/src/policy.rs).
 
 /**
- * A source that names no one site, and so isn't applied (security review,
- * A4): `*`; a scheme alone (`https:`); a wildcard host (`*`, or `*.` over
+ * A source that names no one site, and so isn't applied:
+ * `*`; a scheme alone (`https:`); a wildcard host (`*`, or `*.` over
  * fewer than two labels, such as `*.com`); a wildcard port (`:*`). Without
  * the public suffix list, a wildcard over a two-label suffix such as
  * `*.co.uk` still passes.

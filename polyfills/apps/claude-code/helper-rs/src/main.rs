@@ -130,7 +130,7 @@ async fn run() -> Result<()> {
     ready[listening.0] = json!(listening.1);
     out::emit(&ready);
     if let (Ok(file), "socket") = (std::env::var("MCP_APPS_CLI_SOCKET_FILE"), listening.0) {
-        // A test aid (bench/session.py): the socket and its token, for the person only.
+        // A test aid: the socket and its token, for the person only.
         tmp::write_private(&PathBuf::from(file), &format!("{}\n{}\n", listening.1, helper.token));
     }
 

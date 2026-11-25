@@ -60,7 +60,7 @@ export const hasMarkup = (s: string) => /[`<>[\]]/.test(s.replace(/^([a-z][a-z0-
 /**
  * Whether a URL names a user before its host: an `@` in its authority, or a
  * user name or password as a URL parser reads it. `https://good.example@evil.example/`
- * reads as one host and connects to the other (security review C3).
+ * reads as one host and connects to the other.
  */
 export const hasUserinfo = (s: string) => {
   if (/^[a-z][a-z0-9+.-]*:\/\/[^/?#\\]*@/i.test(s)) return true
@@ -117,7 +117,7 @@ const NAME = /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/
 // URL is what the person sees and what is added, so it holds no space,
 // control, non-ASCII, `, <, >, or square bracket outside an IPv6 host; and no
 // backslash, which a URL parser reads as "/" (so `https://evil.example\@good.example/`
-// connects to evil.example; security review C3).
+// connects to evil.example).
 const URL_CHAR = '[\\x21-\\x3b\\x3d\\x3f-\\x5a\\x5e\\x5f\\x61-\\x7e]'
 const IPV6_HOST = '\\[[0-9A-Fa-f:.]+\\]'
 /** An http(s) URL that shows as itself: printable ASCII, and no markup (see hasMarkup). */

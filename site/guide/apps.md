@@ -201,10 +201,8 @@ bounds, the server gate checked over every case, and property-based tests.
   requests that carry its per-session token, on a local endpoint only you can
   open.
 
-It has had no audit by a person. An AI reviewer that did not build it
-reviewed it; its findings, and where each stands, are listed in
-[`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md),
-with what isn't protected.
+[`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md)
+lists what is checked and what isn't protected.
 
 ## When Claude Code supports MCP Apps itself
 

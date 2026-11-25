@@ -459,8 +459,6 @@ loaded asks first, naming both servers. After you approve a skill, Pi's own
 permissions apply: Pi runs tools without asking unless a permission extension
 asks. Tool annotations let permission extensions distinguish the calls.
 See [Pi's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md).
-An AI reviewer who did not build the Pi forms reviewed them, and checked
-the fixes again. They have not been audited by a person.
 
 ### In OpenCode
 
@@ -528,8 +526,6 @@ Face's server: its 25 skills in OpenCode's list, two loaded after OpenCode
 asked, each bound to its digest, reference files read and an answer from
 them, and the X8 question from a Code Mode program. Loading a skill was also
 checked in the TUI and in OpenCode Desktop.
-An AI reviewer who did not build the OpenCode forms reviewed them. They have
-not been audited by a person.
 
 ### In Antigravity
 

@@ -21,7 +21,7 @@ if (process.argv.includes('--tests') || process.argv.includes('--interop')) {
 if (process.argv.includes('--interop')) {
     await wrapped.build({ entryPoints: [resolve(root, 'test/interop/real.ts')], outfile: resolve(root, 'test/.build/interop.mjs'), bundle: true, platform: 'node', format: 'esm', target: 'node20' });
 } else {
-    await build({ esbuild: wrapped, root, name: 'mcp-skills', version: '0.1.0' });
+    await build({ esbuild: wrapped, root, name: 'mcp-skills', version: '0.1.1' });
     // The shared driver recreates .build; put the independently written fixture there afterwards.
     if (process.argv.includes('--tests')) await esbuild.build({ entryPoints: [resolve(root, '../core/test-fixtures/fixture-skills-server.ts')], outfile: resolve(root, 'test/.build/fixture.mjs'), bundle: true, platform: 'node', format: 'esm', target: 'node20' });
 }

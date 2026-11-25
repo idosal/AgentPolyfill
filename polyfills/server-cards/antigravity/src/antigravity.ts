@@ -74,7 +74,7 @@ export const planForAntigravity = (
   for (const h of p.headers) {
     if (Object.keys(headers).some(k => k.toLowerCase() === h.name.toLowerCase())) return { error: `The card sets the header ${h.name} twice.` }
     // A fixed value is shown in the question as it is: no markup a host could
-    // render as something else (security review C4).
+    // render as something else.
     if (hasMarkup(h.value)) return { error: `The header ${h.name} holds \`, <, > or a square bracket (${h.value}), which could show as something else in the question.` }
     headers[h.name] = h.value
   }

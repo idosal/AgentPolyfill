@@ -155,8 +155,8 @@ export const register: Register = (on, options) => {
     return { result: r.text }
   }).catch(($, e, next) => ({ deny: `${PLUGIN}: discovery failed.` }))
 
-  // Every search is put to the person first, with the words and where they go
-  // (security review M2): a search sends what Claude wrote to a registry
+  // Every search is put to the person first, with the words and where they go:
+  // a search sends what Claude wrote to a registry
   // someone else runs, so no allow rule or auto mode answers it, and with
   // nobody to ask it is refused.
   on('tool.check', { tool: `mcp__${PLUGIN}__${SEARCH}` }, async ($, e, next) => {
@@ -186,7 +186,7 @@ export const register: Register = (on, options) => {
     const input = e as Record<string, unknown>
     const query = (str(input.query) ?? '').trim()
     if (!query) return { deny: 'Give `query`: what the person needs, in plain words.' }
-    // What is sent is what the ask showed (security review R1): no longer than
+    // What is sent is what the ask showed: no longer than
     // the ask shows, and no control characters, which the ask would blank.
     if (query.length > SHOWN_QUERY)
       return { deny: `Keep the search under ${SHOWN_QUERY} characters, so the person sees all of it before it is sent.` }

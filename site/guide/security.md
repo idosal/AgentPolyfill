@@ -1,12 +1,11 @@
 ---
-description: How the AgentPolyfill polyfills treat server content, what each one checks, how they were reviewed, and how to report a problem privately.
+description: How the AgentPolyfill polyfills treat server content, what each one checks, and how to report a problem privately.
 ---
 
 # Security
 
 These are third-party plugins and extensions that run with your permissions.
-None of them reads the host's stored credentials. They have been reviewed by
-an AI reviewer that did not build them, and not audited by a person.
+None of them reads the host's stored credentials.
 
 ## Reporting a problem
 
@@ -81,7 +80,7 @@ them.
   shown to you.
 
 [Apps `SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md)
-lists each finding of its review and where it stands.
+lists what it checks and what isn't protected.
 
 ### Skills
 
@@ -408,7 +407,5 @@ notes apply. Two things differ:
   - Apps: a TLA+ model of which server a view's app comes from and what it may
     make happen, checked with TLC within stated bounds; what TLC reports is
     exhaustive within them and says nothing past them.
-- **Review.** The polyfills have been reviewed by an AI reviewer that did not
-  build them. No person has audited any of them.
 
 Each `SECURITY.md` says what was considered, not that nothing is left.

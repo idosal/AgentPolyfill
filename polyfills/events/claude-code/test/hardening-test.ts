@@ -137,7 +137,7 @@ describe('a relay that misbehaves', () => {
             send({ t: 'delivery', seq: 'one', hook: HOOK, headers: {}, body: '{}', receivedAt: 1 });
             send({ t: 'delivery', seq: 1, hook: HOOK, headers: { 'webhook-id': { nested: true } }, body: '{}', receivedAt: 1 });
             send({ t: 'ask', id: 7, hook: HOOK });
-            // (A frame larger than any delivery ends the connection: review-test.ts.)
+            // (A frame larger than any delivery ends the connection: client-hardening-test.ts.)
             const ts = Math.floor(Date.now() / 1000);
             const body = JSON.stringify({ eventId: 'real', name: 'x', timestamp: 't', data: {} });
             send({ t: 'ok', n: m.n, queued: 1 });

@@ -515,8 +515,7 @@ with the official schema gives the same verdict on all eleven). Adding a
 server end to end in Claude Code (added, then connected and used) was not
 checked; the recording at the top of this page shows **Add** pressed and the
 server written to the config, not connected. The MCP conformance suite has no
-Server Card scenarios. An AI reviewer that did not build it reviewed it, and
-no person has audited it.
+Server Card scenarios.
 
 The full account:
 [`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md).
@@ -531,8 +530,6 @@ credential. Pi runs tools without asking unless a permission extension asks;
 the polyfill supplies its own add question, and its `readOnlyHint`
 annotations let permission extensions distinguish discovery from addition.
 See [Pi's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md).
-An AI reviewer who did not build the Pi forms reviewed them, and checked
-the fixes again. They have not been audited by a person.
 
 [Pi's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/docs/conformance.md)
 records the shared client rules and Pi-specific checks; S-3 remains unmet.
@@ -565,8 +562,6 @@ OpenCode 2.4.1: neon.com's two cards found, Neon Docs added after OpenCode
 asked and connected, with its four tools in the model's tools, and its
 `search_docs` tool called with results. Adding and connecting Neon Docs was
 also checked in the TUI.
-An AI reviewer who did not build the OpenCode forms reviewed them. They have
-not been audited by a person.
 
 ### In Antigravity
 

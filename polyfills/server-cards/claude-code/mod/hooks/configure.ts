@@ -90,8 +90,8 @@ const VAR = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g
 /**
  * 80 bits of SHA-256 over the card's name and the remote's URL, in base32: a tag
  * that ties a secret's name to one card. Both inputs are the card author's to
- * choose, so the tag has to resist a second preimage (security review SC3: a
- * 32-bit FNV tag was matched in a minute).
+ * choose, so the tag has to resist a second preimage (a
+ * 32-bit FNV tag can be matched in a minute).
  */
 export const tag = (s: string) => base32(sha256(s), 80)
 
@@ -235,7 +235,7 @@ export const planAdd = (
   if (!/^[\x21-\x7e]+$/.test(url)) return { error: 'The URL holds a space, a control character or a non-ASCII character.' }
   if (!PLAIN_URL.test(url)) return { error: 'The URL holds `, <, >, a backslash or a square bracket outside an IPv6 host, which could show as something else.' }
   const probe = url.replace(/\$\{[A-Z0-9_]+\}/g, 'x')
-  // A user before the host shows one host and connects to another (security review C3).
+  // A user before the host shows one host and connects to another.
   if (hasUserinfo(probe)) return { error: `${url}: the URL names a user before its host (an "@"), so it would show one host and connect to another.` }
   let parsed: URL
   try {

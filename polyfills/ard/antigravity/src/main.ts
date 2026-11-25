@@ -89,7 +89,7 @@ export function tools(session: SharedSession, defaultRegistry: string): Tool[] {
       const prepared = await prepareSearch(session, ownArgs(args), defaultRegistry, 'Antigravity')
       if ('refuse' in prepared) return refuse(prepared.refuse)
       // Every search is put to the person first, with the words and where
-      // they go (security review M2): the hook asked about exactly these.
+      // they go: the hook asked about exactly these.
       const t = redeemTicket(session.dir, args[TICKET_ARG], SEARCH, searchDigest(prepared.query, prepared.endpoints), Date.now(), SERVER)
       if (!t.ok) return refuse(`Nothing was sent: ${t.why}.`)
       return { text: await runSearch(session, prepared.query, prepared.endpoints) }

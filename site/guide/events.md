@@ -771,12 +771,7 @@ How it is checked:
   sends first reaches.
 - **A formal model** of delivery and of waking, in Quint and in TLA+:
   simulated, and model-checked with TLC to small, stated bounds. TLC checks the
-  model, not the code, and says nothing past its bounds. On 0.5.0's model it
-  found three cases the simulation had missed; two were in the code too, and
-  0.5.1 fixes both, each with a test that fails on 0.5.0.
-- **One review by an AI reviewer that did not build it, and no audit by a
-  person.** The review covered the mod and the public relay; what it found
-  is fixed or listed in `SECURITY.md`.
+  model, not the code, and says nothing past its bounds.
 
 The full account, including what it does not protect against:
 [`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md).
@@ -796,8 +791,6 @@ conformance PR #541 pass 17 of 17 with the shared client as Pi runs it. End
 to end through real Pi, 11 pass, none fail and 6 cannot be evaluated because
 Pi's own client also connects to the suite's server. See
 [Pi's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/conformance.md).
-An AI reviewer who did not build the Pi forms reviewed them, and checked
-the fixes again. They have not been audited by a person.
 
 ### In OpenCode
 
@@ -820,8 +813,6 @@ payload, a watch resumed after a restart, and the permission question. See
 [OpenCode's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/docs/conformance.md).
 Checked in OpenCode 2.4.1: AgentPolyfill's event-feeds server by poll, and a
 webhook through the public relay, each wake an idle session.
-An AI reviewer who did not build the OpenCode forms reviewed them. They have
-not been audited by a person.
 
 ### In Antigravity
 

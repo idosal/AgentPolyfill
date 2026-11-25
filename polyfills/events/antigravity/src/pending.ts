@@ -11,7 +11,7 @@ export const requestsDir = (base: string) => join(base, 'wake-requests');
 /**
  * Where a conversation lives, as its hook last said. Only the App runs
  * sidecars, and agentapi reaches only the App's conversations: only a
- * conversation recorded as the App's is sent a wake (security review E8). A
+ * conversation recorded as the App's is sent a wake. A
  * CLI, IDE or unknown one waits for its next model call.
  */
 export function recordSurface(base: string, id: string, surface: Surface) {

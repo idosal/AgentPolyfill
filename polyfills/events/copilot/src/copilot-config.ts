@@ -14,8 +14,8 @@
 //     then `.mcp.json` / `.github/mcp.json` from the repository root down to the working folder
 //     (a nearer file wins; a folder's `.github/mcp.json` is ignored when it has a `.mcp.json`);
 //   - `$VAR`, `${VAR}` and `${VAR:-default}` in a server's command, args, env, cwd, url and
-//     headers are expanded from this extension's environment, as Copilot expands them (seen live
-//     in 1.0.115). Copilot strips sensitive variables (GITHUB_TOKEN, say) from an extension, so a
+//     headers are expanded from this extension's environment, as Copilot expands them
+//     (1.0.115). Copilot strips sensitive variables (GITHUB_TOKEN, say) from an extension, so a
 //     server that needs one this extension lacks is left out with the reason (Copilot itself
 //     would pass the reference on unexpanded);
 //   - a server that signs in through Copilot (OAuth, `/mcp auth`) is left alone: Copilot keeps

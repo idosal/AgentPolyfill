@@ -1,6 +1,6 @@
 // SHA-256 (FIPS 180-4), synchronous, over the UTF-8 bytes of a string. Used for
 // the tag that ties a secret's environment variable to one card, where a
-// collision would hand one card's secret to another (security review SC3), so
+// collision would hand one card's secret to another, so
 // a short non-cryptographic hash will not do. crypto.subtle is asynchronous,
 // and the tag is needed where a plan is drawn synchronously.
 

@@ -359,14 +359,13 @@ in this session. A URL is never taken from the conversation.
 
 - **Per rule:** 110 tests, run with `claude plugin test mod`.
   - They cover the official example cards (`examples/ServerCard`, valid and
-    invalid) and fixtures of my own for edge cases.
+    invalid) and this form's own fixtures for edge cases.
   - Nineteen of them (B-1 to B-15, U-1 to U-4) run through the plugin as
     Claude Code loads it. The engine's network, `claude mcp add` and connect
     are stood in for.
   - The picker is drawn on the terminal, desktop, VS Code and mobile
     surfaces, and a press of **Add** is followed to the exact `claude mcp add`
     it runs.
-- **No audit by a person.** The polyfill was reviewed by an AI reviewer.
 - **A limit of one test:** B-13 tests that a call from another plugin is
   refused for coming from another plugin. The test kit gives such a call
   nobody to ask, so it can't show whether a real host would.

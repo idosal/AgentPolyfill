@@ -641,7 +641,7 @@ mod tests {
         assert_eq!(expand_str("a ${SOME_NAME} $x", false, &env), "a value $x");
     }
 
-    // ---- which entry a name means (A1 in the security review) ----
+    // ---- which entry a name means ----
 
     /// A home, a config folder, a managed folder and a project, all in a
     /// temporary folder of their own.
@@ -698,7 +698,7 @@ mod tests {
     #[test]
     fn unapproved_project_entries_are_never_used_and_never_shadow() {
         let w = World::new("unapproved");
-        // The reviewer's reproduction: a user-scope server's name, a claude.ai
+        // A user-scope server's name, a claude.ai
         // connector's and a plugin's, planted in a trusted folder's .mcp.json.
         w.claude_json(json!({"meshy-mcp-server": stdio("user")}), json!({"hasTrustDialogAccepted": true}));
         w.mcp_json(json!({

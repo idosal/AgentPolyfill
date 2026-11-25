@@ -66,7 +66,7 @@ pub fn private_folder(folder: &Path) -> Result<()> {
 
 /// Marks a file the person saved from an app as downloaded from the
 /// internet, the way browsers do, so the system treats it as such when it
-/// is opened (security review, A5): macOS's `com.apple.quarantine`
+/// is opened: macOS's `com.apple.quarantine`
 /// attribute, which Gatekeeper reads, and Windows' `Zone.Identifier` stream
 /// (Mark of the Web, zone 3: the internet). Linux has no such mark.
 pub fn mark_downloaded(path: &Path) -> std::io::Result<()> {

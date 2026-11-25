@@ -292,7 +292,7 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
     const toResult = (a: { text: string; isError?: true }): ToolResult => (a.isError ? { textResultForLlm: a.text, resultType: 'failure' } : a.text);
 
     // Copilot may refuse the join (VS Code's harness pre-warms sessions and discards some before
-    // they are used: seen live, error -32603). Then there is no session to serve: said once, and
+    // they are used: error -32603). Then there is no session to serve: said once, and
     // this process ends without fuss.
     const joinOrEnd = (config: Parameters<JoinSession>[0]) =>
         joinSession(config).catch((e: unknown) => {

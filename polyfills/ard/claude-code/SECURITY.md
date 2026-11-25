@@ -125,8 +125,6 @@ request in Claude Code's prompt.
 - Every search is put to you first, and refused with nobody to ask (A-7,
   A-8).
 
-This mod has had no audit by a person. It was reviewed by an AI reviewer.
-
 ## Reporting
 
 Report a security issue privately, through this repository's

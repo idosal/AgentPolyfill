@@ -6,7 +6,7 @@ import { secrets } from '../../core/src/untrusted.ts';
 import type { Store } from '../../codex/src/store.ts';
 
 export const NAME = 'mcp-skills';
-export const VERSION = '0.1.0';
+export const VERSION = '0.1.1';
 export const homeOf = (env: NodeJS.ProcessEnv) => env.HOME || homedir();
 export const configPath = (env: NodeJS.ProcessEnv) => join(homeOf(env), '.gemini', 'config', 'mcp_config.json');
 export const isOff = (env: NodeJS.ProcessEnv, store: Store) => /^(1|true|yes|on)$/i.test(env.MCP_SKILLS_DISABLED ?? '') || store.settings().off === true;
@@ -50,7 +50,7 @@ export function readConfig(env: NodeJS.ProcessEnv, store: Store): ServerTable {
     // taken out of the log, the stubs and every listing, also when a server echoes it back.
     for (const cfg of Object.values(table.servers)) {
         secrets.add(...Object.values(('headers' in cfg && cfg.headers) || {}), ...Object.values(('env' in cfg && cfg.env) || {}));
-        // A URL's query can carry a key too (security review S2), as the Codex and Pi forms register.
+        // A URL's query can carry a key too, as the Codex and Pi forms register.
         if ('url' in cfg) try { const u = new URL(cfg.url); secrets.add(u.username, u.password, ...u.searchParams.values()); } catch {}
     }
     return table;
