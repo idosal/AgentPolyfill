@@ -14,9 +14,10 @@ listed in the [community directory](#listing-a-polyfill-in-the-community-directo
 
 ## Adding a polyfill
 
-A polyfill implements the client side of one published MCP extension inside one
+A polyfill implements the client side of one published extension inside one
 host that has not shipped it, and does nothing once the host supports the
-extension itself. Each one is a folder in the repository.
+extension itself. The extension is an MCP extension, or a spec for agents
+published outside MCP, such as ARD. Each one is a folder in the repository.
 
 ### 1. Meet the contract
 

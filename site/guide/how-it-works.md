@@ -7,9 +7,11 @@ description: What makes something a polyfill, how the polyfills plug into each h
 ## What makes something a polyfill
 
 1. It implements one published extension, client side, and nothing else: no
-   extra protocol and no vendor additions. The one exception is an earlier
-   form of the same extension that servers still speak, listed in the
-   polyfill's README and switched off with one setting.
+   extra protocol and no vendor additions. The extension is an MCP extension,
+   or a spec for agents published outside MCP, such as ARD, and is labelled
+   as that. The one exception is an earlier form of the same extension that
+   servers still speak, listed in the polyfill's README and switched off with
+   one setting.
 2. It names the spec revision it implements.
 3. Every client rule in the spec has a test, and it runs against servers
    someone else wrote.
