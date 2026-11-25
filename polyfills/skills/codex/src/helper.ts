@@ -12,6 +12,10 @@
 //
 // On disk: the stubs (~/.agents/skills/mcp-skills-served), and the plugin's store
 // (store.ts) in $CODEX_HOME/mcp-skills. No skill content, no tokens.
+//
+// Muse Code starts the same file from the plugin's .muse-plugin/plugin.json, with --host=muse:
+// see muse.ts for what differs there (Muse's settings, stubs in Muse's own skill folder, and the
+// person's yes typed as a message of their own, which the plugin's UserPromptSubmit hook reads).
 
 import { appendFileSync, chmodSync, existsSync, mkdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -22,14 +26,16 @@ import { App } from './app.ts';
 import { codexHomeOf, readCodexConfig, readSkillRules } from './config.ts';
 import { declaresSkills, serve } from './mcp.ts';
 import { Store } from './store.ts';
+import { isMuse, museAsk, museSession, museStoreDir, museStubRoot, museWords, readMuseSkillsConfig, syncFlatStubs } from './muse.ts';
 import { removeOldStubs, stubRootOf } from './stubs.ts';
 import { VERSION } from './version.ts';
 
 const env = process.env;
+const onMuse = isMuse();
 // The bundle is <plugin>/dist/helper.js: the plugin's folder is the one above it.
 const pluginRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const codexHome = codexHomeOf(env, pluginRoot);
-const store = new Store(env.MCP_SKILLS_STATE ? resolve(env.MCP_SKILLS_STATE) : join(codexHome, 'mcp-skills'));
+const store = new Store(onMuse ? museStoreDir(env) : env.MCP_SKILLS_STATE ? resolve(env.MCP_SKILLS_STATE) : join(codexHome, 'mcp-skills'));
 
 const logFile = join(store.dir, 'mcp-skills.log');
 try {
@@ -50,13 +56,13 @@ process.on('unhandledRejection', (e) => log(`unexpected failure (${describeError
 process.on('uncaughtException', (e) => log(`unexpected failure (${describeError(e)})`));
 
 const settings = store.settings();
-const config = readCodexConfig(codexHome, env, { only: settings.servers, skip: settings.skip });
+const config = onMuse ? { ...readMuseSkillsConfig(env, { only: settings.servers, skip: settings.skip }), skillRules: [] } : readCodexConfig(codexHome, env, { only: settings.servers, skip: settings.skip });
 // The home folder as Codex finds it for ~/.agents/skills: HOME, or on Windows the user's profile.
 const home = (process.platform === 'win32' ? env.USERPROFILE : env.HOME) || homedir();
-const stubRoot = env.MCP_SKILLS_STUBS ? resolve(env.MCP_SKILLS_STUBS) : stubRootOf(home);
+const stubRoot = env.MCP_SKILLS_STUBS ? resolve(env.MCP_SKILLS_STUBS) : onMuse ? museStubRoot(env) : stubRootOf(home);
 // Up to 0.1.4 the stubs were in the plugin's own folder, which Codex replaces on every marketplace update.
 try {
-    const old = removeOldStubs(pluginRoot);
+    const old = onMuse ? 0 : removeOldStubs(pluginRoot);
     if (old) log(`removed ${old} folder(s) of stubs an earlier version left in the plugin's folder`);
 } catch (e) {
     log(`the old stubs in the plugin's folder could not be removed (${describeError(e)})`);
@@ -65,17 +71,20 @@ const app = new App({
     table: config.table,
     store,
     stubRoot,
-    skillRules: () => readSkillRules(config.file),
+    // Muse turns a listed skill off itself (muse skills disable): it is not in Muse's list, so it is not offered.
+    skillRules: () => (onMuse ? [] : readSkillRules(config.file)),
+    ...(onMuse ? { syncStubs: syncFlatStubs } : {}),
     log,
     connectTimeoutMs: Number(env.MCP_SKILLS_CONNECT_TIMEOUT_MS ?? 10_000)
 });
-log(`mcp-skills ${VERSION}: ${Object.keys(config.table.servers).length} server(s) to look at in ${config.file}; stubs in ${stubRoot}`);
+log(`mcp-skills ${VERSION}${onMuse ? ' for Muse' : ''}: ${Object.keys(config.table.servers).length} server(s) to look at in ${config.file}; stubs in ${stubRoot}`);
 
 const { done } = serve({
     app,
     input: process.stdin,
     output: process.stdout,
     log,
+    ...(onMuse ? { ask: museAsk(store.dir, museSession(env)), words: museWords } : {}),
     onInitialize: (caps, info) => {
         log(`client ${oneLine(String(info.name ?? ''), 60)} ${oneLine(String(info.version ?? ''), 30)}`);
         if (declaresSkills(caps)) app.standDown('the client declares the MCP Skills extension itself');
