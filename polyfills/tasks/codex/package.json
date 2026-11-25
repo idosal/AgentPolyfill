@@ -1,0 +1,18 @@
+{
+  "name": "mcp-tasks-codex",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "A Codex plugin that adds the client side of MCP Tasks (SEP-2663): a server's tool can run as a long task, the person approves each start in Codex's own form, and the idle session is woken when the task finishes.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test --no-warnings \"test/*-test.ts\"",
+    "typecheck": "tsc --noEmit -p .",
+    "build": "node build.mjs"
+  },
+  "dependencies": { "smol-toml": "1.9.1" },
+  "devDependencies": { "@types/node": "^22.10.0", "esbuild": "0.28.2", "typescript": "^5.9.3" },
+  "license": "Apache-2.0",
+  "author": { "name": "Ido Salomon", "url": "https://github.com/idosal" },
+  "repository": { "type": "git", "url": "git+https://github.com/idosal/AgentPolyfill.git", "directory": "polyfills/tasks/codex" }
+}
