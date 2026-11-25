@@ -69,6 +69,8 @@ test('R-3 approved: the query is posted once, as the hook showed it; without the
   assert.equal(searches().length, before + 1)
   assert.deepEqual(JSON.parse(searches().at(-1)!.body), { query: { text: QUERY, filter: { type: [TYPE] } }, federation: 'referrals', pageSize: 10 })
   assert.match(r.text, /identifier: urn:air:localhost:ci/)
+  // Q-1: the result says where the query went.
+  assert.match(r.text, /The query text was sent to: 127\.0\.0\.1:\d+/)
   const again = await s.call('ard_search', { query: QUERY, ...h.out.overwrite })
   assert.equal(again.isError, true)
   assert.equal(searches().length, before + 1)

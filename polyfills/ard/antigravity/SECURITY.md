@@ -17,6 +17,12 @@ when its publisher's own catalog lists it.
   and each addition.
 - **Antigravity:** its approval card, its hooks, its MCP connection and its
   sign-in.
+- **The plugin's state folder**, `~/.gemini/agentpolyfill/ard-discovery/`.
+  Anything that can write it, or run the plugin's hook as you, can make a
+  ticket for a search or an addition. Antigravity's terminal sandbox, on by
+  default, keeps the agent's commands to the workspace and temporary folders;
+  a command run outside it (you approved it, Auto mode judged it safe, or the
+  sandbox is off, as in Turbo) can reach the folder.
 - **Not a registry, a publisher or the model:** none of them chooses where a
   search goes, what it says, or what is added.
 
@@ -25,16 +31,34 @@ when its publisher's own catalog lists it.
 As in [`mcp-server-cards` for Antigravity](../../server-cards/antigravity/SECURITY.md#the-boundary-antigravitys-approval-card):
 Antigravity cancels MCP elicitation without showing it, so the plugin's
 `PreToolUse` hook puts each `ard_search` and each `add_mcp_server` to you with
-`force_ask`, and leaves a one-use ticket (4 hours) for exactly that call. The
+`force_ask`, and leaves a one-use ticket for exactly that call (an hour at
+most, named by its SHA-256, removed when the conversation's turn ends). The
 MCP server sends a search, or writes an entry, only with that ticket. Nothing
-is auto-approved. `ard_discover`, which only reads, goes through Antigravity's
-usual approval for MCP tools.
+is auto-approved. `ard_discover`, which only reads, isn't gated and goes
+through Antigravity's usual approval for MCP tools.
+
+The two gated tools are eager, and the hook's matcher takes their eager names
+only: it never sees another server's call, and one of them called through
+`call_mcp_tool` carries no ticket and is refused. In CLI 1.5.17 a hook that
+fails or times out (this one's timeout is 60 seconds, since it may read a
+registry's catalogs) makes Antigravity fail the call, so nothing is sent.
+Antigravity documents no plugin hooks for the IDE: there, every search and
+addition is refused.
 
 For a search, the ticket is for the query and the exact registry endpoints the
-question named. To name the endpoints of a registry given by its domain, the
-hook reads that domain's catalogs (GETs, no query); the server reads them
-again before sending, and a search whose endpoints changed is refused rather
-than sent somewhere you weren't shown.
+question named. The question's first line names the endpoints and that up to
+three registries they refer to may be asked; its second is the query (the
+CLI's card shows those two lines). To name the endpoints of a registry given
+by its domain, the hook reads that domain's catalogs (GETs, no query); the
+server reads them again before sending, and a search whose endpoints changed
+is refused rather than sent somewhere you weren't shown.
+
+**In an editor.** An editor connected to `agy acp` gets the tool's name and
+arguments, not the hook's question. For a search, the person sees the query
+and the registry argument as given (a domain, say), not the endpoints it
+resolves to or the one-hop referrals. For an addition, the arguments name
+what is written (the name, URL, header names and file), as in
+`mcp-server-cards`.
 
 ## What the plugin does
 
