@@ -25,8 +25,7 @@ These are the rows where Copilot uses its own host behaviour or adds a
 restriction, plus the live-comparison gap and the hand-over rules that don't
 apply here. Rule IDs follow the [Claude Code](../../claude-code/README.md#client-rules),
 [Codex](../../codex/README.md#client-rules) and
-[Pi](../../pi/docs/conformance.md) tables. In the test column, C-1 to C-9
-(the Copilot plan) and E-1 to E-10 (the server as Copilot runs it) are in
+[Pi](../../pi/docs/conformance.md) tables. In the test column, C-1 to C-10 (the Copilot plan and its command) and E-1 to E-12 (the server as Copilot runs it) are in
 [`adapter.test.ts`](../test/adapter.test.ts). Shared tests are named
 separately. The runs in Copilot itself are in [Proof](#proof).
 
@@ -36,11 +35,12 @@ form doesn't do.
 
 | # | Rule | Status | How Copilot meets it, and limits | Tests |
 |---|---|---|---|---|
-| P-1 | Never replace a server the person has | met | A name `copilot mcp get` knows, or can't rule out (it fails, or answers in a way the plugin doesn't recognise), is refused before the person is asked, and checked again before writing. `copilot mcp add` itself refuses a name that exists (1.0.115, checked by hand), so a name written in between isn't overwritten either. | E-5, E-7 |
+| P-1 | Never replace a server the person has | met | A name `copilot mcp get` knows, or can't rule out (it fails, or answers in a way the plugin doesn't recognise), is refused before the person is asked, and checked again before writing. `copilot mcp add` itself refuses a name that exists (1.0.115, checked by hand), so a name written in between isn't overwritten either. A failed `copilot mcp add` claims nothing and gives the entry to add by hand. | E-5, E-7, E-11, E-12 |
 | P-2 | A person approves every addition | met | Two questions, both Copilot's own: its tool prompt before `add_mcp_server` runs (unless the person allowed the tool), then an MCP elicitation form naming the server, host, URL, headers, the file written and the undo command, with a required choice and **Don't add it** first. Only **Add it** adds. Decline, close, a missing or different choice, a failed form, or no form support at all adds nothing. Copilot declines the form where nobody can be asked: `copilot -p`, with `--allow-all-tools` and with `--yolo` (seen live). | E-3, E-4, E-9 |
-| P-3 | Add only what was shown, as shown | met | A valid card shown by `discover_mcp_servers` in this session, at the URL the tool call gives, is the only thing added. The write is `copilot mcp add`, run with no shell, from the `copilot` that started the server (`COPILOT_CLI_PATH`), then `PATH` and the usual install places, in the session's folder (`COPILOT_SESSION_CWD`). | E-3, E-5 |
+| P-3 | Add only what was shown, as shown | met | A valid card shown by `discover_mcp_servers` in this session, at the URL the tool call gives, is the only thing added. The write is `copilot mcp add`, run with no shell, from the `copilot` that started the server (`COPILOT_CLI_PATH`), else one in an absolute `PATH` entry or the usual install places (P-6), in the session's folder (`COPILOT_SESSION_CWD`). | E-3, E-5 |
 | P-4 | Nothing from a card is read as an option of `copilot mcp add` | met | Every option is written `--option=value`: a header name may legally start with `-`, and Copilot 1.0.115 refuses `--header -x: v` but takes `--header=-x: v` whole. The name (a slug) and the URL (http or https) are checked again just before the command runs. | C-7 |
 | P-5 | One value per header | met | A card that sets one header twice, in any letter case, is refused, so the form, the command and the file can't disagree. | C-8 |
+| P-6 | Run only a `copilot` that can be trusted | met | The `copilot` that started the plugin (`COPILOT_CLI_PATH`), else one in an absolute `PATH` entry, then the usual install places; only an absolute path to an executable file. The command runs in the session's folder, so an empty or relative `PATH` entry, which could find a `copilot` in the repository, is skipped. | C-10 |
 | I-2 | Handle `isSecret` values securely | met | A secret is written as a `${VAR}` reference named for this card alone, also inside a value (`Token ${VAR}`) and in a URL path. A secret value the model offers is ignored; a `$` from a card is refused. The person is told which variable to set. Copilot expands the reference when it connects (seen against a local server). | C-2, C-3, C-4, E-6 |
 | I-3 | Choose a remote by its `supportedProtocolVersions` | met | Copilot's revisions are listed in [`src/host.ts`](../src/host.ts) (`COPILOT_PROTOCOL_VERSIONS`). A declared list with none of them is refused, naming them. Copilot 1.0.115 initialises at `2025-11-25` (seen live); negotiation of each older revision isn't tested. | C-6 |
 | I-4 | Transport `streamable-http` or `sse` | met | Both: `--transport=http` and `--transport=sse`. | C-1, C-3 |
@@ -60,9 +60,7 @@ and words ([`src/host.ts`](../src/host.ts)).
 
 Stand-down is manual: `MCP_SERVER_CARDS_DISABLED=1` registers no tools (E-8),
 and `copilot plugin disable mcp-server-cards@agent-polyfill` stops the
-plugin. Nothing detects native support. Copilot 1.0.115 reads Server Cards
-from a catalogue of its own, through an experimental API and a built-in
-skill, but nothing seen in it discovers them from a domain, which is what this
+plugin. Nothing detects native support. Copilot 1.0.115's SDK types declare an experimental catalogue API, `mcp.planInstall` among it, that accepts the Server Card media type, and it has a built-in catalogue skill; neither was run, and nothing seen in it discovers cards from a domain, which is what this
 plugin does (what was checked, and what wasn't, is in the
 [README](../README.md#copilots-own-catalogue)). So the plugin doesn't stand
 down for it. Disable or uninstall it when Copilot reads a domain's catalog
@@ -77,21 +75,21 @@ npm ci
 npm test
 ```
 
-The checked run on 25 November 2026, with Node.js 22.23.1, passed **111
+The checked run on 25 November 2026, with Node.js 22.23.1, passed **114
 tests**, none failed or skipped. The tests need loopback access for their
 local web server.
 
 - **90 shared rule tests:** `card`, `configure`, `discover`, `format` and
   `offer` from [`claude-code/mod/tests`](../../claude-code/mod/tests),
   against the committed bundle.
-- **9 plan tests:** C-1 to C-9, the Copilot plan and its command line.
-- **10 server tests:** E-1 to E-10, the bundled server over stdio as Copilot
+- **10 plan tests:** C-1 to C-10, the Copilot plan, its command line, and which `copilot` is run.
+- **12 server tests:** E-1 to E-12, the bundled server over stdio as Copilot
   starts it, with a stand-in `copilot` that parses options as Copilot 1.0.115
   does, and a web on 127.0.0.1.
 - **2 bundle tests:** the committed bundle is what the sources build, and the
   installed folder holds what the manifest names.
 
-**In Copilot itself,** 25 November 2026, Copilot CLI 1.0.115 on macOS, with an
+**In Copilot itself** ([the record](live-run.md)), 25 November 2026, Copilot CLI 1.0.115 on macOS, with an
 isolated `HOME` and `COPILOT_HOME`, no GitHub sign-in, and a scripted model on
 this machine (as in [mcp-events' live run](../../../events/copilot/docs/live-run.md)):
 
@@ -112,8 +110,7 @@ this machine (as in [mcp-events' live run](../../../events/copilot/docs/live-run
   and `${VAR}` references as given, accepts SSE, refuses a name that exists,
   and contacts no server.
 
-**In VS Code's Copilot harness** (VS Code 1.147.0, signed in, GitHub's Claude
-Haiku 4.5), from the same plugin install: `discover_mcp_servers` for neon.com
+**In VS Code's Copilot harness** (VS Code 1.147.0, GitHub's Claude Haiku 4.5, in a throwaway VS Code profile the user signed in to themselves: [who, how and which profile](../../../events/copilot/docs/live-run.md#in-vs-code); the user's real `~/.copilot` was neither read nor written), from the same plugin install: `discover_mcp_servers` for neon.com
 ran with no prompt (it is read-only, and the harness's default permission mode
 runs read-only tools without asking); `add_mcp_server` stopped at VS Code's
 tool prompt; then VS Code showed the plugin's form, headed "Your answer", with

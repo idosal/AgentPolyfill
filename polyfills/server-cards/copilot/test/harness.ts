@@ -21,8 +21,15 @@ const write = s => fs.writeFileSync(state, JSON.stringify(s))
 const args = process.argv.slice(2)
 fs.appendFileSync(process.env.FAKE_COPILOT_LOG, JSON.stringify({ args, cwd: process.cwd() }) + '\\n')
 if (process.env.FAKE_COPILOT_FAIL === '1') { console.error('Error: something broke'); process.exit(3) }
+if (args[0] === 'mcp' && args[1] === 'add' && process.env.FAKE_COPILOT_FAIL_ADD === '1') { console.error('Error: could not write the configuration'); process.exit(1) }
 if (args[0] === 'mcp' && args[1] === 'get') {
   const s = read()
+  // FAKE_COPILOT_APPEARS names a server that appears after the first time it is looked up.
+  if (process.env.FAKE_COPILOT_APPEARS === args[2]) {
+    const seen = state + '.seen'
+    if (fs.existsSync(seen)) { console.log(args[2] + '\\n  Type: http'); process.exit(0) }
+    fs.writeFileSync(seen, '1')
+  }
   if (s[args[2]]) { console.log(args[2] + '\\n  Type: ' + s[args[2]].type); process.exit(0) }
   console.error('Error: Server "' + args[2] + '" not found.\\n\\nAvailable servers:\\n  ' + Object.keys(s).join('\\n  ')); process.exit(1)
 }

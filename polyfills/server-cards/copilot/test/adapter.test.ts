@@ -2,11 +2,12 @@
 // forms. All against plugin/dist/server.mjs.
 
 import assert from 'node:assert/strict'
-import { writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { COPILOT_PROTOCOL_VERSIONS, formatServer, host, isCompatible, planForCopilot, useCopilotHost } from '../plugin/dist/server.mjs'
+import { COPILOT_PROTOCOL_VERSIONS, copilotCandidates, formatServer, host, isCompatible, planForCopilot, useCopilotHost } from '../plugin/dist/server.mjs'
 import { copilotEnv, fakeCopilot, localWeb, startServer } from './harness'
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
@@ -122,9 +123,9 @@ const web = await localWeb({
 after(() => web.close())
 
 // Copilot CLI 1.0.115 asks its MCP servers for 2025-11-25 (seen live).
-const server = (opts: Parameters<typeof startServer>[1] & { fail?: boolean } = {}) => {
+const server = (opts: Parameters<typeof startServer>[1] & { fail?: boolean; failAdd?: boolean; appears?: string } = {}) => {
   const fake = fakeCopilot()
-  const s = startServer(SERVER, { protocol: '2025-11-25', ...opts, env: copilotEnv(fake, { ...(opts.fail ? { FAKE_COPILOT_FAIL: '1' } : {}), ...(opts.env ?? {}) }) })
+  const s = startServer(SERVER, { protocol: '2025-11-25', ...opts, env: copilotEnv(fake, { ...(opts.fail ? { FAKE_COPILOT_FAIL: '1' } : {}), ...(opts.failAdd ? { FAKE_COPILOT_FAIL_ADD: '1' } : {}), ...(opts.appears ? { FAKE_COPILOT_APPEARS: opts.appears } : {}), ...(opts.env ?? {}) }) })
   after(() => s.stop())
   return { ...s, fake }
 }
@@ -209,13 +210,13 @@ test('E-6 a secret header is written as a ${VAR} reference, never a value, and t
   await s.call('discover_mcp_servers', { domain: web.origin })
   const r = await s.call('add_mcp_server', { domain: web.origin, identifier: 'urn:air:localhost:keyed', url: `${web.origin}/keyed/mcp` })
   assert.equal(r.isError, false, r.text)
-  assert.match(s.asked[0]!.message, /Headers: X-API-Key: <the value of \$MCP_KEYED__X_API_KEY_[A-Z2-7]{16}>/)
+  assert.match(s.asked[0]!.message, /Headers: X-API-Key: \(the value of \$MCP_KEYED__X_API_KEY_[A-Z2-7]{16}\)/)
   const entry = s.fake.entries().keyed
   assert.match(entry.headers['X-API-Key'], /^\$\{MCP_KEYED__X_API_KEY_[A-Z2-7]{16}\}$/)
   assert.match(r.text, /reads a secret from the environment: MCP_KEYED__X_API_KEY_/)
 })
 
-test('E-7 when copilot mcp add fails, nothing is claimed, and the entry to add by hand is given', async () => {
+test('E-7 when copilot can\'t say whether the name is taken, it counts as taken: nothing is asked or written', async () => {
   const s = server({ answer: { action: 'accept', afterMs: 50 }, fail: true })
   await s.call('discover_mcp_servers', { domain: web.origin })
   const r = await s.call('add_mcp_server', addDocs)
@@ -266,4 +267,51 @@ test("E-10 a card's text that shows as nothing (tag characters, a soft hyphen, a
   assert.doesNotMatch(s.asked[0]!.message, hidden)
   assert.doesNotMatch(r.text, hidden)
   assert.match(s.asked[0]!.message + r.text, /Your API key from the dashboard/)
+})
+
+test('E-11 when copilot mcp add itself fails after the person accepted, nothing is claimed, and the entry to add by hand is given', async () => {
+  const s = server({ answer: { action: 'accept', afterMs: 50 }, failAdd: true })
+  await s.call('discover_mcp_servers', { domain: web.origin })
+  const r = await s.call('add_mcp_server', addDocs)
+  assert.equal(r.isError, true)
+  assert.equal(s.asked.length, 1)
+  assert.match(r.text, /copilot mcp add failed: Error: could not write the configuration/)
+  assert.match(r.text, /The person can add it by hand: put this under "mcpServers" in /)
+  assert.match(r.text, /"example-docs": \{/)
+  assert.doesNotMatch(r.text, /^Added /m)
+  assert.deepEqual(s.fake.entries(), {})
+})
+
+test('E-12 a server of that name that appears while the person is asked is not overwritten: the name is checked again before writing', async () => {
+  const s = server({ answer: { action: 'accept', afterMs: 50 }, appears: 'example-docs' })
+  await s.call('discover_mcp_servers', { domain: web.origin })
+  const r = await s.call('add_mcp_server', addDocs)
+  assert.equal(r.isError, true)
+  assert.equal(s.asked.length, 1)
+  assert.match(r.text, /appeared in Copilot's configuration while the person was asked\. Nothing was written/)
+  assert.equal(adds(s.fake).length, 0)
+})
+
+test('C-10 copilot is run only by an absolute path to an executable: an empty or relative PATH entry, which would find one in the session\'s folder, is skipped', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'copilot-candidates-'))
+  after(() => rmSync(dir, { recursive: true, force: true }))
+  const bin = (sub: string, exec = true) => {
+    mkdirSync(join(dir, sub), { recursive: true })
+    const p = join(dir, sub, 'copilot')
+    writeFileSync(p, '#!/bin/sh\n')
+    chmodSync(p, exec ? 0o755 : 0o644)
+    return p
+  }
+  const started = bin('started')
+  const onPath = bin('bin')
+  bin('notexec', false)
+  const env = { COPILOT_CLI_PATH: started, PATH: ['', '.', 'relative/bin', join(dir, 'notexec'), join(dir, 'bin')].join(':'), HOME: dir }
+  const got = copilotCandidates(env)
+  assert.equal(got[0], started)
+  assert.ok(got.includes(onPath))
+  assert.ok(got.every((p: string) => p.startsWith('/')), JSON.stringify(got))
+  assert.ok(!got.includes(join(dir, 'notexec', 'copilot')))
+  assert.ok(!got.includes('copilot'))
+  // A relative COPILOT_CLI_PATH is not taken either.
+  assert.ok(!copilotCandidates({ COPILOT_CLI_PATH: 'copilot', PATH: '' }).includes('copilot'))
 })

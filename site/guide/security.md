@@ -307,7 +307,8 @@ dialog, by default, and Server Cards and ARD in the plugin's form.
 - **ARD:** no registry is selected by default. Every search names the exact
   query and the registry in the form; only "Send the search" sends it.
   `ard_search` is marked not read-only, since it sends your words to a third
-  party and Copilot's default mode runs read-only tools without asking.
+  party, and VS Code's Copilot harness runs read-only tools without asking
+  (Copilot CLI 1.0.115 asked before them).
   Adding uses the Server Cards form's checks and its own form.
 - **Skills and Apps:** built into Copilot; there is no Copilot form.
 

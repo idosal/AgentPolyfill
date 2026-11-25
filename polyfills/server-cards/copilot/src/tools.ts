@@ -63,14 +63,14 @@ export function resolveAdd(session: Session, args: Record<string, unknown>, disc
 
 /** The question put to the person: the server, the URL, the headers, where it is written, and the undo. */
 export function askText(plan: CopilotPlan, card: ServerCard, provenance: string, file: string) {
-  const headers = plan.headers.map(h => `${h.name}: ${h.value.replace(/\$\{([A-Z0-9_]+)\}/g, '<the value of $$$1>')}`)
+  const headers = plan.headers.map(h => `${h.name}: ${h.value.replace(/\$\{([A-Z0-9_]+)\}/g, '(the value of $$$1)')}`)
   const host = hostOf(plan.url) || '(unknown host)'
   return shownText(
     [
       // The host first, on its own line too (as the Codex form's form, security review C3).
       `${host}: add the MCP server "${plan.name}" to Copilot?`,
       `It connects to the host ${host}`,
-      `URL: ${plan.url.replace(/\$\{([A-Z0-9_]+)\}/g, '<the value of $$$1>')} (${plan.transport === 'sse' ? 'SSE' : 'streamable HTTP'})`,
+      `URL: ${plan.url.replace(/\$\{([A-Z0-9_]+)\}/g, '(the value of $$$1)')} (${plan.transport === 'sse' ? 'SSE' : 'streamable HTTP'})`,
       headers.length ? `Headers: ${headers.join('; ')}` : 'Headers: none',
       `From the Server Card ${card.name}, ${provenance}.`,
       `Written to ${file} (all your projects).`,

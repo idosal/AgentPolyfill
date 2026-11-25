@@ -9,7 +9,7 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -22,7 +22,16 @@ export const FIXTURE = join(ROOT, '..', 'claude-code', 'test', 'fixture-events-s
 const REGISTER = join(ROOT, 'test', 'fake-sdk', 'register.mjs');
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-export const temp = (prefix = 'mcp-events-copilot-') => mkdtempSync(join(tmpdir(), prefix));
+// Every folder made here is removed when the test process ends, failed or not.
+const made: string[] = [];
+process.on('exit', () => {
+    for (const d of made) rmSync(d, { recursive: true, force: true });
+});
+export const temp = (prefix = 'mcp-events-copilot-') => {
+    const d = mkdtempSync(join(tmpdir(), prefix));
+    made.push(d);
+    return d;
+};
 export const newSession = () => randomUUID();
 
 export async function waitFor<T>(fn: () => T | undefined | false | Promise<T | undefined | false>, timeoutMs = 10000, what = 'condition'): Promise<T> {

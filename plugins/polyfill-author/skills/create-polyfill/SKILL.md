@@ -259,8 +259,9 @@ How a polyfill is built depends on what the host lets third-party code do.
   *extension* (`extension.mjs`, joining with `@github/copilot-sdk/extension`,
   the name both Copilot CLI and VS Code's Copilot harness resolve): Copilot
   loads extensions only in experimental mode, and the whole extension API is
-  experimental. Copilot's default mode runs read-only tools without asking and
-  can approve others without the person (assisted mode, allow-all), so a
+  experimental. Copilot can approve a call without the person (assisted mode,
+  which an organisation can make the default, or allow-all), and VS Code's
+  Copilot harness runs read-only tools without asking, so a
   consequential step asks the person itself: an extension through
   `session.ui`, an MCP server through an elicitation form. Read the existing
   Copilot forms' README, SECURITY.md and `docs/conformance.md` before writing

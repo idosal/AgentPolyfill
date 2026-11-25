@@ -114,14 +114,18 @@ with these differences:
   ```
 
 - Where nobody can be asked (`copilot -p`, with `--allow-all-tools` or
-  `--yolo`), Copilot declines the form, so nothing is sent or written.
+  `--yolo`), Copilot declines the form, so nothing is sent or written. That
+  was seen with the Server Cards plugin's add form; the search form is the
+  same kind of request and wasn't tried there itself.
 - An add goes through `copilot mcp add`, with `${VAR}` references for
   secrets, into `~/.copilot/mcp-config.json`, and connects after `/mcp reload`.
 
-Copilot 1.0.115 also has a discovery of its own, a built-in
-`discover-resources` skill whose `catalog_search` searches a remote catalogue
-GitHub runs. It doesn't read `ard.json` or speak ARD's registry search, so
-the two don't overlap, and this plugin doesn't stand down for it.
+Copilot 1.0.115 also has a discovery of its own: a built-in
+`discover-resources` skill whose `catalog_search` searches a catalogue Copilot
+is given, by the skill's own text and the SDK's types. Neither was run. Nothing
+seen in Copilot's runtime reads `ard.json` or speaks ARD's registry search
+(its compiled core couldn't be searched), so this plugin doesn't stand down for
+it ([what was checked](../../server-cards/copilot/README.md#copilots-own-catalogue)).
 
 ## Settings
 
@@ -184,12 +188,12 @@ Each rule, how Copilot meets it and where it is tested, is in
 [`docs/conformance.md`](docs/conformance.md). All forms follow the same ARD
 and Server Cards rules with the same code; here the shared tests (ARD's 12
 registry tests and the Server Cards core's 90) run against the committed
-bundle, and this form's own (A-1 to A-19) run the bundled server over stdio
+bundle, and this form's own (A-1 to A-20) run the bundled server over stdio
 as Copilot starts it: consent, what is sent, what a registry may say, hidden
 characters, and the add flow. One rule isn't met, as in every form: S-3, the
 live comparison of a card with the server.
 
-In Copilot CLI 1.0.115 itself, with a scripted stand-in model, `ard_discover`
+In Copilot CLI 1.0.115 itself ([the record](docs/live-run.md)), with a scripted stand-in model, `ard_discover`
 read buildkite.com's catalogs, and a search against the demo registry on
 127.0.0.1 went out only after Copilot's tool prompt and **Send the search** in
 the plugin's form. Search has been run against no registry but that one. The MCP

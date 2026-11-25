@@ -321,9 +321,9 @@ when the request names none (unset by default), and
 `ARD_DISCOVERY_DISABLED=1` or
 `copilot plugin disable ard-discovery@agent-polyfill` turns the plugin off. It
 can't detect native ARD support. Copilot 1.0.115's own discovery, a built-in
-`discover-resources` skill searching a catalogue GitHub runs, doesn't read
-`ard.json` or speak ARD's registry search, so the plugin doesn't stand down
-for it.
+`discover-resources` skill searching a catalogue Copilot is given (by its
+text; not run), wasn't seen to read `ard.json` or speak ARD's registry search,
+so the plugin doesn't stand down for it.
 
 In Claude Code, in `/config`, under the plugin:
 
@@ -474,14 +474,15 @@ not been audited by a person.
 Each search and each addition needs Copilot's tool prompt, then its own answer
 in the plugin's form: only "Send the search" sends, and only "Add it" adds.
 `ard_search` is marked not read-only, since it sends your words to a third
-party and Copilot's default mode runs read-only tools without asking.
+party, and VS Code's Copilot harness runs read-only tools without asking
+(Copilot CLI 1.0.115 asked before them).
 `ard_discover` is read-only. What is sent is what the form shows. The
 plugin stores nothing on disk and never reads Copilot's stored credentials.
 See [Copilot's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/copilot/SECURITY.md).
 
 [Copilot's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/copilot/docs/conformance.md)
 documents the shared ARD and Server Cards rules and Copilot's questions
-(123 tests). No upstream conformance run is claimed. In Copilot CLI 1.0.115,
+(124 tests). No upstream conformance run is claimed. In Copilot CLI 1.0.115,
 with a scripted model, `ard_discover` read buildkite.com's catalogs, and a
 search of the demo registry on 127.0.0.1 went out only after the tool prompt
 and "Send the search".

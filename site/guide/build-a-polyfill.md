@@ -229,8 +229,9 @@ The Copilot CLI forms show the same from another side. Only an extension can
 start a turn (`session.send`), so Events is an extension and needs Copilot's
 experimental mode; Server Cards and ARD are MCP servers in plugins and don't.
 Events needs its own connection and cannot use Copilot's sign-in. Copilot's
-own tool prompt comes before each tool that acts. Copilot's default mode can
-approve a call without the person, so each form asks its own question after
+own tool prompt comes before each tool that acts. Copilot can approve a call
+without the person, in assisted mode (an LLM review, which an organisation can
+make the default) or with allow-all, so each form asks its own question after
 it: Events in a Copilot dialog, by default, and Server Cards and ARD in a form
 before adding a server or sending a search. Each has an off switch because
 native support cannot be detected. Their READMEs, `SECURITY.md` and

@@ -147,9 +147,9 @@ plugin's form: choose **Add it**. Neon Docs needs no sign-in. Run
 
 ### Copilot's own catalogue
 
-Copilot 1.0.115 has a discovery of its own, and it does read Server Cards. What
-was checked, in the runtime Copilot unpacks (in its cache folder, 25 November
-2026):
+Copilot 1.0.115 has a discovery of its own, and its SDK's types say it accepts
+Server Cards; nothing of it was run. What was checked, in the runtime Copilot
+unpacks (in its cache folder, 25 November 2026):
 
 - **A built-in skill, `discover-resources`** (`builtin-skills/discover-resources/SKILL.md`),
   whose `catalog_search` and `catalog_select` tools search a catalogue Copilot
@@ -202,8 +202,9 @@ The plugin reads these from the environment Copilot starts in.
 
 ### When Copilot supports Server Cards itself
 
-Copilot reads Server Cards from its own catalogue ([above](#copilots-own-catalogue)),
-but not from a domain, which is SEP-2127's discovery, so there is nothing to
+Copilot's SDK types declare a catalogue API, `mcp.planInstall` among it, that
+accepts the Server Card media type (not run; [above](#copilots-own-catalogue)),
+but nothing seen in it reads Server Cards from a domain, which is SEP-2127's discovery, so there is nothing to
 stand down for yet, and the plugin has nothing to detect. When Copilot reads a
 domain's catalog itself, uninstall the plugin, disable it
 (`copilot plugin disable mcp-server-cards@agent-polyfill`), or set
@@ -230,7 +231,9 @@ for every host.
 - **A public name that resolves to a private address isn't caught,** because
   Node's `fetch` resolves names itself. Redirects are checked hop by hop.
 - **In VS Code, the form shows as one paragraph.** VS Code 1.147.0's Copilot
-  harness runs the plugin from the same `~/.copilot`, and an add worked there:
+  harness runs the plugin from the same `~/.copilot` (in the run, a throwaway
+  one: the user's real `~/.copilot` was neither read nor written), and an add
+  worked there ([the record](docs/live-run.md#in-vs-code)):
   `add_mcp_server` stopped at VS Code's tool prompt, then VS Code showed the
   plugin's form ("Your answer", the question, **Don't add it** first), and
   **Add it** wrote the server. It runs the question's lines (server, URL,
@@ -267,12 +270,12 @@ Each client rule, how Copilot meets it and where it is tested, is in
 V-1 to V-3, C-1 to C-3, S-1 to S-6, I-1 to I-4) are the same code and the
 same 90 tests as in the other forms, run here against the committed bundle.
 This form's own tests cover the Copilot plan and its command line (C-1 to
-C-9) and the server as Copilot starts it (E-1 to E-10): the form, existing
+C-10) and the server as Copilot starts it (E-1 to E-12): the form, existing
 names, secrets, headers, failure, stand-down and hidden characters. One rule
 isn't met, as in the other forms: S-3, the live comparison of a card with the
 server.
 
-In Copilot CLI 1.0.115 itself, the plugin was installed from a clone as a
+In Copilot CLI 1.0.115 itself ([the record](docs/live-run.md)), the plugin was installed from a clone as a
 marketplace, found Neon and Neon Docs on neon.com, and after Copilot's tool
 prompt and **Add it** in the plugin's form, wrote `neon-docs` with
 `copilot mcp add`. In `copilot -p`, with `--yolo` too, Copilot declined the

@@ -1578,7 +1578,8 @@ ${plan.toml}`);
 // polyfills/server-cards/copilot/src/copilot.ts
 import { spawn } from "node:child_process";
 import { homedir as homedir2 } from "node:os";
-import { join as join2 } from "node:path";
+import { accessSync, constants, statSync } from "node:fs";
+import { delimiter, isAbsolute, join as join2 } from "node:path";
 var SAFE_NAME = /^[a-z0-9][a-z0-9-]{0,63}$/;
 var planForCopilot = (card, remoteIndex, values, name, fromLocal) => {
   const planned = planAdd(card, remoteIndex, values, name, "user", fromLocal);
@@ -1606,13 +1607,20 @@ var planForCopilot = (card, remoteIndex, values, name, fromLocal) => {
 };
 var copilotHome = (env = process.env) => env.COPILOT_HOME?.trim() || join2(env.HOME || homedir2(), ".copilot");
 var configPath2 = (env = process.env) => join2(copilotHome(env), "mcp-config.json");
-var copilotCandidates = (env = process.env) => [
-  ...env.COPILOT_CLI_PATH ? [env.COPILOT_CLI_PATH] : [],
-  "copilot",
-  ...env.HOME ? [`${env.HOME}/.local/bin/copilot`] : [],
-  "/opt/homebrew/bin/copilot",
-  "/usr/local/bin/copilot"
-];
+var executable = (path) => {
+  if (!path || !isAbsolute(path)) return void 0;
+  try {
+    accessSync(path, constants.X_OK);
+    return statSync(path).isFile() ? path : void 0;
+  } catch {
+    return void 0;
+  }
+};
+var copilotCandidates = (env = process.env) => {
+  const onPath = (env.PATH ?? "").split(delimiter).filter((d) => d && isAbsolute(d)).map((d) => join2(d, "copilot"));
+  const all = [env.COPILOT_CLI_PATH, ...onPath, ...env.HOME && isAbsolute(env.HOME) ? [join2(env.HOME, ".local/bin/copilot")] : [], "/opt/homebrew/bin/copilot", "/usr/local/bin/copilot"];
+  return [...new Set(all.map(executable).filter((p) => !!p))];
+};
 var runOnce = (bin, args, cwd, timeoutMs) => new Promise((resolve2) => {
   let child;
   try {
@@ -1724,14 +1732,14 @@ ${identifier}`);
   return { card, provenance, plan: planned.plan };
 }
 function askText2(plan, card, provenance, file) {
-  const headers = plan.headers.map((h) => `${h.name}: ${h.value.replace(/\$\{([A-Z0-9_]+)\}/g, "<the value of $$$1>")}`);
+  const headers = plan.headers.map((h) => `${h.name}: ${h.value.replace(/\$\{([A-Z0-9_]+)\}/g, "(the value of $$$1)")}`);
   const host2 = hostOf(plan.url) || "(unknown host)";
   return shownText(
     [
       // The host first, on its own line too (as the Codex form's form, security review C3).
       `${host2}: add the MCP server "${plan.name}" to Copilot?`,
       `It connects to the host ${host2}`,
-      `URL: ${plan.url.replace(/\$\{([A-Z0-9_]+)\}/g, "<the value of $$$1>")} (${plan.transport === "sse" ? "SSE" : "streamable HTTP"})`,
+      `URL: ${plan.url.replace(/\$\{([A-Z0-9_]+)\}/g, "(the value of $$$1)")} (${plan.transport === "sse" ? "SSE" : "streamable HTTP"})`,
       headers.length ? `Headers: ${headers.join("; ")}` : "Headers: none",
       `From the Server Card ${card.name}, ${provenance}.`,
       `Written to ${file} (all your projects).`,

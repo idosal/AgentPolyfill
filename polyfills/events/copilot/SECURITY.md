@@ -109,6 +109,12 @@ so Copilot's stripping of sensitive variables from extensions holds.
     too), nothing more from it is stored (not even a delivery or an answer
     already on its way), and its connection closes. Before a resumed
     session's saved watches start, the extension asks Copilot afresh.
+  - **A second copy of each local server.** The extension connects to each
+    server itself, beside Copilot's own connection. It does so at the first
+    call of any of its tools, `list_event_types` included, which runs with no
+    prompt, so a local (stdio) server Copilot enables for the session is
+    started a second time then, with the command, arguments and environment
+    in its entry, as Copilot starts it.
   - Credentials come only from the server's own entry (`headers`, with
     `$VAR`, `${VAR}` and `${VAR:-default}` expanded from the extension's
     environment, as Copilot does). Every value a variable or a default put in

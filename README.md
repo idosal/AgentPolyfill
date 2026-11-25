@@ -111,14 +111,20 @@ Each line adds one plugin to your global `opencode.json`; OpenCode has no
 bundle. OpenCode runs the plugins itself, so you don't need Node. They load
 the next time OpenCode opens a project.
 
-**GitHub Copilot CLI** (1.0.115, the version tested; Node 20 or newer). From a
-clone, added as a marketplace:
+**GitHub Copilot CLI** (1.0.115, the version tested). From a clone, added as a
+marketplace:
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
 copilot plugin marketplace add ./AgentPolyfill
 copilot plugin install mcp-events@agent-polyfill
 copilot plugin install mcp-server-cards@agent-polyfill
+```
+
+Beyond MCP, ARD (a draft published by the ards-project on GitHub; every search
+asks you first and goes to a registry you choose):
+
+```bash
 copilot plugin install ard-discovery@agent-polyfill
 ```
 
@@ -126,9 +132,11 @@ That is the install that was tested. Copilot loads a local marketplace's
 plugins where they are, so keep the clone. Once these plugins are on the
 default branch, `copilot plugin marketplace add idosal/AgentPolyfill` adds the
 same marketplace from GitHub; that hasn't been tested yet. Events is a Copilot
-extension, and Copilot loads extensions only in its experimental mode
-(`copilot --experimental`, or `/settings experimental on`). Server Cards and
-ARD are MCP servers and need no experimental mode. Copilot has Skills over MCP
+extension, and Copilot loads extensions only in its experimental mode: start
+it with `copilot --experimental` (Copilot's help also names
+`/settings experimental on`; the runs here used `--experimental`). Copilot
+runs Events with its own Node. Server Cards and ARD are MCP servers: they need
+no experimental mode, and need Node 20 or newer on your `PATH`. Copilot has Skills over MCP
 and MCP Apps built in, so there is no Copilot form of those
 ([why](polyfills/events/copilot/README.md#skills-and-apps-in-copilot)).
 
@@ -217,7 +225,7 @@ All of them are early. Here is what each one does, and where it stops:
   meets X8: once a session has loaded a served skill, OpenCode's own resource
   read of another server is asked about, per call, naming both servers,
   including in Code Mode and in subagents. Copilot needs no polyfill for
-  Skills: Copilot CLI 1.0.115 declares Skills over MCP to every server
+  Skills: Copilot CLI 1.0.115 declares Skills over MCP to every server (seen in its `initialize`; no served skill was listed or loaded in Copilot)
   ([how it's switched](polyfills/events/copilot/README.md#skills-and-apps-in-copilot)).
 - **Server Cards.** Name a company and the agent finds the MCP servers its domain
   publishes, checks each card against the schema, and adds the one you pick
@@ -244,7 +252,7 @@ All of them are early. Here is what each one does, and where it stops:
   OpenCode 2.4.1 has no MCP Apps support, a plugin can't read a `ui://`
   resource or a tool's `_meta` over OpenCode's connection, and there is no
   place in the conversation for a plugin to draw. Copilot needs no form:
-  VS Code's Copilot harness renders MCP Apps itself, and Copilot CLI's
+  VS Code's Copilot harness turns MCP Apps on itself (from its source; no app was drawn there), and Copilot CLI's
   terminal draws none.
 
 Events, Skills and Apps can't reach servers behind OAuth yet, in any host
@@ -286,8 +294,9 @@ OpenCode's TUI or in OpenCode Desktop.
 
 In Copilot, each `ard_search` goes through Copilot's tool prompt, then the
 plugin's form, which names the registry endpoint and the exact query; only
-"Send the search" sends. `ard_search` is marked not read-only, so Copilot's
-default mode doesn't run it unasked. There is no default registry: name one or
+"Send the search" sends. `ard_search` is marked not read-only, so a host that
+runs read-only tools unasked, as VS Code's Copilot harness did, doesn't run it
+unasked. There is no default registry: name one or
 set `ARD_DISCOVERY_REGISTRY`. `add_mcp_server` adds a server as the Copilot
 Server Cards form does. In Copilot CLI, with a scripted stand-in model,
 `ard_discover` read buildkite.com's `ard.json` and a search went to the
@@ -304,7 +313,7 @@ Skills (openai/codex#48000). OpenCode 2.4's own client takes Events by push,
 for its automations; it doesn't poll or take webhooks, and it skips event
 types whose schemas it can't check. It doesn't support Skills, Server Cards
 or Apps. Copilot has Skills over MCP and MCP Apps (in graphical hosts)
-itself, and reads Server Cards from a catalogue of its own, not from a domain
+itself, and its SDK's types declare a catalogue API that accepts Server Cards (not run), but nothing seen in it reads them from a domain
 ([what was checked](polyfills/server-cards/copilot/README.md#copilots-own-catalogue)).
 Hosts add extensions all the time, so check the
 matrix for today's picture. Claude Code's
@@ -696,8 +705,9 @@ What T3 Code would need to change is in
 ## Other hosts
 
 We haven't found a documented way for third-party code to send requests over
-the host's MCP connection in Cursor or VS Code, and ChatGPT runs no
-third-party code on the client side. For those, the only polyfill would be a
+the host's MCP connection in Cursor or in VS Code's own chat, and ChatGPT runs
+no third-party code on the client side. (VS Code's Copilot harness is another
+matter: it runs Copilot CLI's runtime, and the Copilot forms run there.) For those, the only polyfill would be a
 gateway: an MCP server that presents an extension as plain tools. That's a
 weaker form (for Events, the model would have to poll, and nothing would wake
 it), and none is shipped here: we built one for Grok Bot and left it out.
@@ -951,8 +961,9 @@ permissions:
   OpenCode's rules remain the boundary.
 - **Copilot CLI:** a plugin, and for Events an extension, a child process of
   Copilot's. Copilot's own prompts are the boundary, and its rules apply to
-  every tool. Its default mode can approve a call without you (assisted mode,
-  allow-all), so each polyfill asks before its consequential step itself: a
+  every tool. It can approve a call without you, in assisted mode (an LLM
+  review, which an organisation can make the default) or with allow-all, so
+  each polyfill asks before its consequential step itself: a
   watch in the plugin's dialog, a registry search or a server addition in the
   plugin's form. It never answers for you.
 - **T3 Code:** the plugins of the agent it runs, as above. The T3 Events form

@@ -22,7 +22,7 @@ What runs in each host:
 - **Copilot CLI:** Events, Server Cards and ARD, as Copilot CLI plugins.
   Events is a Copilot extension and needs Copilot's experimental mode. Skills
   and Apps have no Copilot form: Copilot CLI has Skills over MCP built in, and
-  VS Code's Copilot harness draws MCP Apps.
+  VS Code's Copilot harness turns MCP Apps on (from its source; no app was drawn there).
 
 See [Getting started](/guide/getting-started) for installation. In Pi,
 `pi install git:github.com/idosal/AgentPolyfill` installs Events, Skills and

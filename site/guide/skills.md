@@ -53,8 +53,9 @@ has the rest.
 
 There is no Copilot form, on purpose. Copilot CLI 1.0.115 has Skills over MCP
 built in: it declares `io.modelcontextprotocol/skills` to every server it
-connects, and VS Code 1.147.0's Copilot harness has it on by default. A
-polyfill would be a second client
+connects (seen in its `initialize`), and VS Code 1.147.0's Copilot harness has
+it on by default (from its source). No served skill was listed or loaded in
+Copilot. A polyfill would be a second client
 ([why](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/README.md#skills-and-apps-in-copilot)).
 
 ## Install

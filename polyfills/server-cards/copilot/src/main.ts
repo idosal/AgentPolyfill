@@ -44,9 +44,11 @@ export function tools(session: Session) {
 
 export function start(env: NodeJS.ProcessEnv = process.env) {
   useCopilotHost()
-  // Stand-down (contract rule 4): Copilot doesn't read Server Cards (no ai-catalog in 1.0.115; its
-  // own catalog_search is a different, remote search). When it does, uninstall the plugin, or set
-  // this to register nothing.
+  // Stand-down (contract rule 4): Copilot 1.0.115 doesn't read Server Cards from a domain (no AI
+  // Catalog or .well-known path in its runtime's JavaScript or SDK types). Its SDK types declare a
+  // catalogue API, mcp.planInstall among it, that accepts the card media type, for a catalogue
+  // Copilot is given; that wasn't run (README, "Copilot's own catalogue"). When Copilot reads a
+  // domain's catalog, uninstall the plugin, or set this to register nothing.
   const off = /^(1|true|on|yes)$/i.test(env.MCP_SERVER_CARDS_DISABLED ?? '')
   const session = new Session(copilotDeps(env, `${NAME}/${VERSION} (Copilot polyfill)`))
   serve({

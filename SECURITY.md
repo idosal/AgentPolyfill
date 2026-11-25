@@ -48,10 +48,11 @@ served skill is loaded, naming both servers (SEP-2640 X8). OpenCode 2.4.1's
 TUI shows each of these questions only as "Call tool `<action>`"; the details
 are on the model's call line just above it.
 
-In Copilot CLI, Copilot's own prompts are the boundary. Copilot's default mode
-asks before a tool call that isn't read-only, but can approve one without the
-person: in assisted mode (an LLM review, which an organisation can make the
-default) or with everything allowed. So each Copilot polyfill asks before its
+In Copilot CLI, Copilot's own prompts are the boundary. In its default mode,
+Copilot CLI 1.0.115 asked before each tool call, read-only ones included;
+VS Code's Copilot harness ran a read-only tool without asking. Either can
+approve a call without the person: in assisted mode (an LLM review, which an
+organisation can make the default) or with everything allowed. So each Copilot polyfill asks before its
 consequential step itself, after Copilot's tool prompt: a watch in the
 extension's own dialog, a registry search or a server addition in the
 plugin's form. Copilot declines those where nobody can be asked
@@ -60,6 +61,7 @@ every tool; only the Events extension's four read-only tools skip its prompt,
 after you grant the extension elevated permissions. Events uses only the
 servers Copilot enables for the session, lets go of one you switch off, and
 runs no project's server Copilot wouldn't run. `ard_search` is marked not
-read-only, so Copilot's default mode doesn't run it unasked. None reads
+read-only, so a host that runs read-only tools unasked, as VS Code's harness
+did, doesn't run it unasked. None reads
 Copilot's stored credentials (the keychain, `~/.copilot/mcp-oauth-config/`,
 signed-in accounts in `config.json`).

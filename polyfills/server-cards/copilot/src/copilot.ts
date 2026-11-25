@@ -10,7 +10,8 @@
 
 import { spawn } from 'node:child_process'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { accessSync, constants, statSync } from 'node:fs'
+import { delimiter, isAbsolute, join } from 'node:path'
 import { hasMarkup, type ServerCard } from '../../claude-code/mod/hooks/card'
 import { planAdd, type Plan } from '../../claude-code/mod/hooks/configure'
 import type { Ran, Run } from '../../codex/src/codex'
@@ -67,14 +68,28 @@ export const copilotHome = (env: NodeJS.ProcessEnv = process.env) => env.COPILOT
 /** The file Copilot keeps your MCP servers in. */
 export const configPath = (env: NodeJS.ProcessEnv = process.env) => join(copilotHome(env), 'mcp-config.json')
 
-/** Where `copilot` is: the one that started this server (COPILOT_CLI_PATH), then PATH and the usual install places. */
-export const copilotCandidates = (env: NodeJS.ProcessEnv = process.env) => [
-  ...(env.COPILOT_CLI_PATH ? [env.COPILOT_CLI_PATH] : []),
-  'copilot',
-  ...(env.HOME ? [`${env.HOME}/.local/bin/copilot`] : []),
-  '/opt/homebrew/bin/copilot',
-  '/usr/local/bin/copilot',
-]
+/** An absolute path to an executable file, or undefined. */
+const executable = (path: string | undefined) => {
+  if (!path || !isAbsolute(path)) return undefined
+  try {
+    accessSync(path, constants.X_OK)
+    return statSync(path).isFile() ? path : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Where `copilot` is: the one that started this server (COPILOT_CLI_PATH), then each absolute PATH
+ * entry, then the usual install places. Only absolute paths to an executable file: the command runs
+ * in the session's folder, so an empty or relative PATH entry (which would find a `copilot` in the
+ * repository) is skipped, and no bare name is left for the system to look up.
+ */
+export const copilotCandidates = (env: NodeJS.ProcessEnv = process.env): string[] => {
+  const onPath = (env.PATH ?? '').split(delimiter).filter(d => d && isAbsolute(d)).map(d => join(d, 'copilot'))
+  const all = [env.COPILOT_CLI_PATH, ...onPath, ...(env.HOME && isAbsolute(env.HOME) ? [join(env.HOME, '.local/bin/copilot')] : []), '/opt/homebrew/bin/copilot', '/usr/local/bin/copilot']
+  return [...new Set(all.map(executable).filter((p): p is string => !!p))]
+}
 
 const runOnce = (bin: string, args: readonly string[], cwd: string | undefined, timeoutMs: number) =>
   new Promise<Ran | { failure: string }>(resolve => {

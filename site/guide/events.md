@@ -115,7 +115,7 @@ stay in OpenCode's plugin storage (OpenCode's own database).
 
 **In Copilot CLI** (1.0.115, the version tested), the plugin is a Copilot
 extension, and Copilot loads extensions only in experimental mode: start it
-with `copilot --experimental`, or run `/settings experimental on` once. The
+with `copilot --experimental`, or, per Copilot's help, run `/settings experimental on` once (the runs here used `--experimental`). The
 whole extension API is experimental, so it may change in any release.
 Copilot runs the extension with its own Node, so you need none. The install
 from a clone is the one tested; Copilot loads the plugin where it is, so keep

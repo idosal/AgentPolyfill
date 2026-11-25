@@ -3,8 +3,10 @@
 This covers `mcp-server-cards` for GitHub Copilot CLI. The other forms have
 their own: [Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md),
 [Pi](../pi/SECURITY.md).
-Where this file says nothing different, the Codex form's SECURITY.md applies:
-this form runs its MCP server, its fetch and its form code unchanged.
+For what is fetched and how a form is checked, the Codex form's SECURITY.md
+applies: this form runs its MCP server, its fetch and its form code unchanged.
+Its statements about Codex's own modes and approvals don't apply here; what
+Copilot does is below.
 
 This plugin reads documents that strangers publish on the web: catalogs and
 Server Cards. It turns one of those cards into an entry in your Copilot MCP
@@ -16,7 +18,12 @@ and the plugin adds no policy of its own beyond asking you.
 
 - **You.** The servers you accept in the form.
 - **Copilot:** its tool prompt, its form, its sign-in, and the `copilot`
-  command (the one that started the plugin, `COPILOT_CLI_PATH`).
+  command: the one that started the plugin (`COPILOT_CLI_PATH`), else the
+  first `copilot` in an absolute `PATH` entry, then `~/.local/bin`,
+  `/opt/homebrew/bin` and `/usr/local/bin`. Only an absolute path to an
+  executable file is run: the command runs in your session's folder, so an
+  empty or relative `PATH` entry, which could find a `copilot` in the
+  repository, is skipped.
 - **Not the publishers.** A catalog can list anything, and a card can claim
   anything. The SEP says a card is advisory and never authoritative for
   security decisions.
@@ -52,8 +59,23 @@ and the plugin adds no policy of its own beyond asking you.
   - **Where nobody can be asked,** Copilot declines the form. Seen in
     `copilot -p` with `--allow-all-tools` and with `--yolo`: allowing tools
     doesn't answer a form.
+  - **Copilot's modes and the form.** The form is the plugin's own question,
+    not Copilot's tool prompt. In the interactive session, `--yolo`,
+    `--allow-all-tools` and allow-all skip Copilot's tool prompt; whether
+    Copilot still shows the form there, and what autopilot mode does with it,
+    weren't checked. Only in `copilot -p` was it seen declined.
   - **Never over yours:** a name `copilot mcp get` knows, or can't rule out,
     is refused before you're asked and again before writing.
+  - **How it learns which names you have.** It never reads
+    `mcp-config.json` itself. It runs `copilot mcp get <name>` in your
+    session's folder (`COPILOT_SESSION_CWD`), so it sees the workspace's
+    servers as the session does. That output is only matched against
+    Copilot's "not found" message and then dropped; any other answer counts
+    as taken.
+  - **When `copilot mcp add` fails,** up to 600 characters of its error
+    output go back to Copilot's model with the failure, so you can see why,
+    with the entry to add by hand. What 1.0.115 prints there was recorded
+    only for a name that exists (it names the server and how to remove it).
   - **Secrets:** never a value. A card's secret becomes a `${VAR}` reference,
     named for that card alone, which Copilot expands from its environment when
     it connects. You set the variable. Nothing a card or the model supplies
@@ -65,8 +87,10 @@ and the plugin adds no policy of its own beyond asking you.
 
 ## What is stored
 
-Nothing on disk. The cards a session showed are kept in memory, in the
-plugin's process, for that session.
+Nothing on disk, unless you set `MCP_SERVER_CARDS_LOG`: then a log of the
+plugin's steps goes to that file. It holds no header values, no environment,
+and nothing `copilot mcp get` printed. The cards a session showed are kept in
+memory, in the plugin's process, for that session.
 
 ## Reporting a vulnerability
 

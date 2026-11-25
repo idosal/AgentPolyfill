@@ -294,3 +294,13 @@ test("A-19 ard_discover is read-only; ard_search is not, since it sends the pers
   assert.equal(search.annotations.openWorldHint, true)
   assert.equal(add.annotations.readOnlyHint, false)
 })
+
+test('A-20 a search form the person closes (cancel) sends nothing, and the answer says so', async () => {
+  const before = searches().length
+  const s = server({ answer: { action: 'cancel' } })
+  const r = await s.call('ard_search', { query: QUERY })
+  assert.equal(r.isError, true, r.text)
+  assert.equal(s.asked.length, 1)
+  assert.match(r.text, /Nothing was sent/)
+  assert.equal(searches().length, before)
+})

@@ -155,9 +155,9 @@ Install instructions depend on the host:
 - **OpenCode:** there is no marketplace file and no bundle. Each plugin is
   installed from GitHub by its folder's path, so the install line in its
   README is its listing. Nothing is published to npm.
-- **Copilot CLI:** add an entry to `.github/plugin/marketplace.json`, which
-  Copilot reads before `.claude-plugin/marketplace.json`. Keep its `version`
-  equal to the plugin's.
+- **Copilot CLI:** add an entry to `.github/plugin/marketplace.json` (Copilot
+  found the marketplace there when a clone was added as a marketplace). Keep
+  its `version` equal to the plugin's.
 
 Then add it to the polyfills table in the repository's README, in its host's
 column.

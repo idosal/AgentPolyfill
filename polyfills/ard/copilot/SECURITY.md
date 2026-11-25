@@ -5,14 +5,19 @@ own: [Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md),
 [Pi](../pi/SECURITY.md).
 
 This plugin runs the Codex form's tools unchanged, with Copilot's name and
-Copilot's `add_mcp_server`. So the Codex form's SECURITY.md applies here as it
-stands: what is trusted, what a search sends and to whom (one `POST` of the
+Copilot's `add_mcp_server`. So the Codex form's SECURITY.md applies here for
+what a search sends and to whom (one `POST` of the
 query to the registry you name or set, and to at most three it refers to, one
 hop, only after you accept that search in the form), what is shown, and what
-isn't followed. For adding a server, [`mcp-server-cards` for
-Copilot](../../server-cards/copilot/SECURITY.md) applies: only Copilot's user
-MCP configuration, through `copilot mcp add`, after your accept, with secrets
-as `${VAR}` references, never values.
+isn't followed. Its statements about Codex's own modes and approvals don't
+apply here; what Copilot does is below. For adding a server,
+[`mcp-server-cards` for Copilot](../../server-cards/copilot/SECURITY.md)
+applies in full: only Copilot's user MCP configuration, through
+`copilot mcp add`, after your accept, with secrets as `${VAR}` references,
+never values; the same `copilot` command, found the same way (an absolute path
+only); names checked with `copilot mcp get` in your session's folder, never by
+reading `mcp-config.json`; and a failed add's error output (up to 600
+characters) returned to the model.
 
 What is particular to Copilot:
 
@@ -30,10 +35,18 @@ What is particular to Copilot:
   errors, result names and descriptions) reach the answer as one line each,
   with such characters taken out. Both are main's shared checks
   (`registry.ts`).
-- **Where nobody can be asked,** Copilot declines the form: seen in
-  `copilot -p` with `--allow-all-tools` and with `--yolo`.
-- **Nothing on disk.** What a session found is kept in the plugin's memory for
-  that session.
+- **Where nobody can be asked,** Copilot declines the form. That was seen
+  with the Server Cards plugin's add form, in `copilot -p` with
+  `--allow-all-tools` and with `--yolo`; the search form is the same kind of
+  request (an MCP elicitation form), and wasn't tried there itself.
+- **Copilot's modes and the form.** In the interactive session, `--yolo`,
+  `--allow-all-tools` and allow-all skip Copilot's tool prompt; whether
+  Copilot still shows the form there, and what autopilot mode does with it,
+  weren't checked.
+- **Nothing on disk,** unless you set `ARD_DISCOVERY_LOG` (or
+  `MCP_SERVER_CARDS_LOG`): then a log of the plugin's steps goes to that file,
+  with no header values and no environment. What a session found is kept in
+  the plugin's memory for that session.
 - **It never reads Copilot's stored credentials** (the keychain,
   `~/.copilot/mcp-oauth-config/`, signed-in accounts in `config.json`).
 

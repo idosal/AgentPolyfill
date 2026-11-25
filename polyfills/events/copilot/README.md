@@ -34,8 +34,7 @@ You need:
 
 - **GitHub Copilot CLI 1.0.115 or newer**, with **experimental mode on**. The
   plugin is a Copilot *extension*, and Copilot loads extensions only in
-  experimental mode: start it with `copilot --experimental`, or run
-  `/settings experimental on` once. Everything the plugin uses (joining the
+  experimental mode: start it with `copilot --experimental`, or, per Copilot's help, run `/settings experimental on` once (the runs here used `--experimental`). Everything the plugin uses (joining the
   session, its tools, `session.send` to wake it, the session's events and
   `session.rpc.mcp.listConfigured`) is part of Copilot's extension API, which
   Copilot marks experimental: it may change in any release. It was tested on
@@ -295,7 +294,7 @@ plugin works there. Seen in VS Code 1.147.0, signed in to GitHub
 
 ### If something doesn't work
 
-- Check experimental mode is on (`/settings experimental on`), and that
+- Check experimental mode is on (start Copilot with `--experimental`; Copilot's help also names `/settings experimental on`), and that
   `/extensions manage` lists `mcp-events` as running.
 - Ask Copilot "what can you watch?" If a server you expected is missing, it's
   listed under `unavailable`, with the reason.
@@ -426,7 +425,7 @@ has both, and a polyfill would be a second client beside Copilot's own.
 
 - **Skills over MCP (SEP-2640).**
   - *Copilot CLI 1.0.115* declares `io.modelcontextprotocol/skills` to every
-    server it connects (seen in its `initialize`). Its settings
+    server it connects (seen in its `initialize`; no served skill was listed or loaded in Copilot). Its settings
     (`copilot help config`) have no switch for that as a whole; a skill can
     be turned off by name with `copilot skill disable <name>` (`disabledSkills`).
   - *VS Code 1.147.0's Copilot harness* follows

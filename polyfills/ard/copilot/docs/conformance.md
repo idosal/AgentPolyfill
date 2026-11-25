@@ -40,7 +40,7 @@ whose add flow this plugin bundles.
 |---|---|---|---|
 | Q-1: Say where the query went | met | The answer lists each endpoint contacted and its result or failure. The search tool's description says the query goes to a third party and that a registry's order is relevance, not trust. | Registry R-3; A-5, A-16 |
 | Q-2: The person chooses the registry | met | No registry ships with the plugin. A `registry` argument comes before `ARD_DISCOVERY_REGISTRY`. With neither, the search is refused before any form or request, and Copilot is told to ask the person. | A-7 |
-| Q-3: Every search is put to the person first, naming the query and the registry | met | Copilot's tool prompt before `ard_search` runs (unless the person allowed it), then the plugin's MCP elicitation form naming the endpoints and the exact query, and saying up to three referrals may receive it too. **Don't send it** comes first; only **Send the search** sends. No form support, decline, close, or a missing or different choice sends nothing. Copilot declines forms where nobody can be asked (`copilot -p`, with `--yolo` too, seen with the Server Cards form). `ard_search` is marked not read-only, since it sends the person's words to a third party: Copilot's default permission mode runs read-only tools without asking (seen in VS Code's harness with `discover_mcp_servers`), and a search must not be one of them. | A-3, A-4, A-11, A-19 |
+| Q-3: Every search is put to the person first, naming the query and the registry | met | Copilot's tool prompt before `ard_search` runs (unless the person allowed it), then the plugin's MCP elicitation form naming the endpoints and the exact query, and saying up to three referrals may receive it too. **Don't send it** comes first; only **Send the search** sends. No form support, decline, close, or a missing or different choice sends nothing. Copilot declines forms where nobody can be asked (`copilot -p`, with `--yolo` too, seen with the Server Cards form). `ard_search` is marked not read-only, since it sends the person's words to a third party: VS Code's Copilot harness ran a read-only tool without asking (`discover_mcp_servers`, from the Server Cards plugin; Copilot CLI 1.0.115 asked before it), and a search must not be one of them. `ard_search` itself was never run in VS Code. | A-3, A-4, A-11, A-19 |
 | Q-4: What is sent is what was shown | met | The query is trimmed, shown and sent whole, at most 300 characters. Control characters, line breaks, direction marks, characters that show as nothing (tag characters, variation selectors, a soft hyphen, a blank Braille pattern: the shared `HIDDEN` set), backticks, angle brackets and square brackets are refused. A registry, named or set, is at most 200 characters, with no whitespace or hidden characters, and names no user before its host. | A-4, A-6, A-9, A-10, A-12, A-15, A-17 |
 | Q-5: The query goes only where the form said | met | A search is never redirected to another origin, nor turned into a GET. Referrals are separate searches under the allowance the form states. | Registry R-3; F-5 in the [Codex form's tests](../../../server-cards/codex/test/adapter.test.ts), same fetch module |
 | Q-6: A registry's own words are shown as one line, with nothing hidden | met | A registry's error text, a referral it won't follow, and result names and descriptions are one line, with hidden characters out and lengths capped. A result whose identifier holds a control or hidden character is skipped. | A-16, A-18; Registry L-1 to L-4 |
@@ -80,18 +80,18 @@ npm ci
 npm test
 ```
 
-The checked run on 25 November 2026, with Node.js 22.23.1, passed **123
+The checked run on 25 November 2026, with Node.js 22.23.1, passed **124
 tests**, none failed or skipped. The tests need loopback access.
 
 | Tests | Count |
 |---|---:|
 | Shared ARD registry: R-1 to R-7, P-1, L-1 to L-4 | 12 |
 | Shared Server Cards core: `card`, `configure`, `discover`, `format`, `offer` | 90 |
-| This form: A-1 to A-19 | 19 |
+| This form: A-1 to A-20 | 20 |
 | Bundle: the committed bundle is what the sources build; the installed folder | 2 |
-| Total | 123 |
+| Total | 124 |
 
-**In Copilot itself,** 25 November 2026, Copilot CLI 1.0.115 on macOS, with an
+**In Copilot itself** ([the record](live-run.md)), 25 November 2026, Copilot CLI 1.0.115 on macOS, with an
 isolated `HOME` and `COPILOT_HOME`, no GitHub sign-in, and a scripted stand-in
 model on this machine (it called the tools the script named; it wasn't a model
 choosing them):
@@ -108,7 +108,7 @@ choosing them):
 - A search with no registry named or set was refused, naming
   `ARD_DISCOVERY_REGISTRY`, and nothing was sent.
 
-**In VS Code's Copilot harness** (VS Code 1.147.0, signed in), the plugin's MCP
+**In VS Code's Copilot harness** (VS Code 1.147.0, in the throwaway VS Code profile of [mcp-events' VS Code run](../../../events/copilot/docs/live-run.md#in-vs-code)), the plugin's MCP
 server was started and connected. No search or add was run through it there.
 The add form is the Server Cards form, which VS Code showed and answered in
 that harness (the [Server Cards Copilot proof](../../../server-cards/copilot/docs/conformance.md#proof));

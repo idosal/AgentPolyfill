@@ -198,7 +198,7 @@ been tested yet.
 
 There is no Copilot bundle. Events is a Copilot extension, and Copilot loads
 extensions only in its experimental mode: start it with
-`copilot --experimental`, or run `/settings experimental on` once. Server
+`copilot --experimental`, or, per Copilot's help, run `/settings experimental on` once (the runs here used `--experimental`). Server
 Cards and ARD are MCP servers in plugins and need no experimental mode.
 `ard-discovery`, for ARD (a draft from outside MCP), carries its own add tool;
 installing `mcp-server-cards` beside it is optional. Copilot has Skills over
@@ -358,7 +358,7 @@ Each OpenCode form's README has the rest:
 | Events | 1.0.115 or newer, in experimental mode | Nothing else: Copilot runs the extension with its own Node. An open session. The first session asks once whether the extension may have elevated permissions. A new watch needs someone to answer the plugin's question. |
 | Server Cards, ARD | 1.0.115 or newer | Node 20 or newer on your `PATH`. Adding a server or sending a registry search needs Copilot's form, so it works in the interactive session only. |
 | Skills | built in | Copilot CLI 1.0.115 declares Skills over MCP to every server; there is no Copilot form. |
-| Apps | built in for graphical hosts | VS Code's Copilot harness renders MCP Apps; the terminal draws none. There is no Copilot form. |
+| Apps | built in for graphical hosts | VS Code's Copilot harness turns MCP Apps on (from its source; no app was drawn there); the terminal draws none. There is no Copilot form. |
 
 Copilot asks before each of the plugins' tools that act (`watch_event`,
 `unwatch_event`, `add_mcp_server`, `ard_search`), as for any tool. Copilot's
@@ -372,8 +372,9 @@ Cards and ARD ask in the plugin's form before adding a server or sending a
 search. Where nobody can be asked (`copilot -p`), a watch is refused, and
 Copilot declines the form, even with `--yolo`. To leave watches to Copilot's
 rules alone, set `MCP_EVENTS_ASK_BY_DEFAULT=0` in the environment Copilot
-starts in. `ard_search` is marked not read-only, because Copilot's default
-mode runs read-only tools without asking.
+starts in. `ard_search` is marked not read-only, because VS Code's Copilot
+harness runs read-only tools without asking (Copilot CLI 1.0.115 asked before
+them).
 
 Events opens its own connection to a server, so a local (stdio) server runs
 twice. It reads only the servers Copilot enables for the session.

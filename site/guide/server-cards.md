@@ -533,7 +533,7 @@ plugin never reads Copilot's stored credentials, and stores nothing on disk.
 See [Copilot's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/SECURITY.md).
 
 [Copilot's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/docs/conformance.md)
-records the shared client rules and the Copilot-specific checks (111 tests);
+records the shared client rules and the Copilot-specific checks (114 tests);
 S-3 remains unmet. In Copilot CLI 1.0.115, with a scripted model, the plugin
 found Neon and Neon Docs on neon.com and, after Copilot's tool prompt and
 **Add it**, wrote `neon-docs` with `copilot mcp add`. In `copilot -p`, with
@@ -548,12 +548,15 @@ found Neon and Neon Docs on neon.com and, after Copilot's tool prompt and
   extension or set `MCP_SERVER_CARDS_DISABLED=1` when it ships.
 - **OpenCode:** 2.4.1 has no Server Card support to detect. When it ships,
   set `MCP_SERVER_CARDS_DISABLED=1` or remove the plugin.
-- **Copilot CLI:** there is no Server Card support to detect yet. When it
-  ships, uninstall the plugin, disable it
+- **Copilot CLI:** 1.0.115 doesn't read Server Cards from a domain, so there
+  is nothing to detect yet. Its SDK types declare a catalogue API that
+  accepts the card media type (`mcp.planInstall`), and a built-in
+  `discover-resources` skill searches a catalogue Copilot is given; neither
+  was run, and neither is SEP-2127's discovery from a domain, so the plugin
+  doesn't stand down for them. When Copilot reads a domain's catalog,
+  uninstall the plugin, disable it
   (`copilot plugin disable mcp-server-cards@agent-polyfill`), or set
-  `MCP_SERVER_CARDS_DISABLED=1`. Copilot 1.0.115's own discovery, a built-in
-  `discover-resources` skill, searches a catalogue GitHub runs. That isn't
-  SEP-2127's discovery from a domain, so the plugin doesn't stand down for it.
+  `MCP_SERVER_CARDS_DISABLED=1`.
 
 ## More
 

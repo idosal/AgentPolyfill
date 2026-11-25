@@ -76,8 +76,9 @@ All of them are early. Here is what each one does, and where it stops:
   type, push included, and tells the model to use a watch or an automation,
   not both: a stated departure from the contract's rule 4. In Copilot CLI,
   Events needs experimental mode. Each watch goes through Copilot's tool
-  prompt and then the plugin's own question, since Copilot's default mode can
-  approve a call without you. A wake is a turn Copilot marks as an
+  prompt and then the plugin's own question, since Copilot can approve a call
+  without you, in assisted mode (an LLM review, which an organisation can make
+  the default) or with allow-all. A wake is a turn Copilot marks as an
   automation; VS Code's Copilot harness shows it as a message from the
   plugin, then the turn.
 - **Skills.** In Codex, Pi and OpenCode, skills an MCP server serves show up
@@ -119,7 +120,7 @@ All of them are early. Here is what each one does, and where it stops:
   either: OpenCode has no MCP Apps support, and a plugin can't read a `ui://`
   resource or a tool's `_meta` over OpenCode's connection. An OpenCode form
   was assessed, not built. Copilot has MCP Apps built in for graphical hosts:
-  VS Code's Copilot harness renders them, and the terminal draws none. There
+  VS Code's Copilot harness turns them on (from its source; no app was drawn there), and the terminal draws none. There
   is no Copilot form.
 
 Events and Skills can't use a host's OAuth sign-in. Apps has the same limit
@@ -183,9 +184,11 @@ Native support is separate from these polyfills:
   event types whose schemas it can't check. 2.4.1 has no support for Skills,
   Server Cards or Apps. Remove a polyfill or use its off switch when OpenCode
   supports its extension.
-- **Copilot CLI:** 1.0.115 declares Skills over MCP to every server, and VS
-  Code's Copilot harness renders MCP Apps; neither does Events, Server Cards
-  or ARD. The Copilot forms can't detect native support either, so disable or
+- **Copilot CLI:** 1.0.115 declares Skills over MCP to every server (seen in
+  its `initialize`), and VS Code's Copilot harness turns MCP Apps on (from its
+  source; no app was drawn there). It doesn't do Events or ARD, and it doesn't
+  read Server Cards from a domain; its own catalogue search, by its SDK's
+  types, accepts the card format, but wasn't run. The Copilot forms can't detect native support either, so disable or
   uninstall them, or use their off switches, when Copilot supports an
   extension.
 
@@ -225,7 +228,8 @@ polyfill puts its own actions to those rules and asks you by default.
 In Copilot CLI, each form's tools that act go through Copilot's tool prompt,
 and then the plugin asks its own question: Events in a Copilot dialog before
 a watch, Server Cards and ARD in a form before adding a server or sending a
-search. Copilot's default mode can approve a call without you, so the
+search. Copilot can approve a call without you, in assisted mode (an LLM
+review, which an organisation can make the default) or with allow-all, so the
 plugins don't rely on its prompt alone.
 Each polyfill's `SECURITY.md` says what it checks and what it doesn't protect
 against; [Security](./security) collects them.
