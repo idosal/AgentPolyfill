@@ -1,0 +1,17 @@
+{
+  "name": "mcp-events-antigravity",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "node build.mjs && node notices.mjs",
+    "check": "node build.mjs --check && node notices.mjs --check",
+    "typecheck": "node ../codex/node_modules/typescript/bin/tsc --noEmit -p .",
+    "test": "node build.mjs --tests && node test/run.mjs",
+    "interop": "node build.mjs --probe && node test/.build/probe.mjs",
+    "conformance": "node build.mjs --probe && node test/conformance.mjs"
+  },
+  "devDependencies": { "@types/node": "^22.10.0", "esbuild": "0.28.2", "typescript": "^5.9.3" },
+  "license": "Apache-2.0"
+}

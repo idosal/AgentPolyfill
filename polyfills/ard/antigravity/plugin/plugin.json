@@ -1,0 +1,16 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "ard-discovery",
+  "displayName": "ARD Discovery",
+  "version": "0.1.0",
+  "description": "Find MCP servers through Agentic Resource Discovery (ARD draft): a domain's ard.json, or a registry search you approve first.",
+  "suggestedPrompts": [
+    "What does neon.com list through ARD?",
+    "Find an MCP server that can check why my CI build failed"
+  ],
+  "author": { "name": "Ido Salomon", "url": "https://github.com/idosal" },
+  "homepage": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/antigravity",
+  "repository": "https://github.com/idosal/AgentPolyfill",
+  "license": "Apache-2.0",
+  "keywords": ["mcp", "ard", "agentic-resource-discovery", "server-cards", "discovery", "polyfill"]
+}

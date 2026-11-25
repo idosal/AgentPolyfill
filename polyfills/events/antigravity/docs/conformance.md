@@ -1,0 +1,97 @@
+# SEP-3415 checks in Antigravity
+
+Revision: Final text as of 24 November 2026, matching the Codex form.
+The [shared clause table](../../claude-code/docs/conformance.md) gives the
+normative text and core implementation for each of 86 client clauses. The
+core is bundled unchanged. This document does not turn another host's run
+into an Antigravity result.
+
+Local run on 25 November 2026 (the builds from commit `819e7955`), Node.js
+22.23.1: **104 tests passed, zero failures or skips** (`npm test`). Typecheck, byte-identical bundle
+comparison, standalone plugin boot and third-party notice comparison also
+passed. `agy plugin validate --strict` passes for `plugin/` (it counts the
+sidecar).
+
+| Local check | Coverage |
+|---|---|
+| `core-spec.test.ts` (imports the existing suite) | Declaration and protocol gating; earlier-form opt-in; list-change opt-in and reconnection; routing headers; cursor, replay gap, poll timing, heartbeat and termination rules; authenticated webhook selection. Its two helper lifecycle tests run through this adapter. |
+| `core-hardening.test.ts` | Untrusted data, known-secret redaction, bounded responses, receiver errors, ownership and replay defense. |
+| `core-recovery.test.ts` | Stored events and cursors recovered after interrupted writes and ownership changes. |
+| `core-relay.test.ts` | Signature, age, replay, acknowledgment and relay settings rules. |
+| `spec.test.ts` (nine Codex cases adapted here) | LIST-1, DM-1, CAP-2/4, PUSH-1/2/11, STATE-1, DEDUP-1, POLL-1/2/5, WH-1/12, RX-1/7, SEC-1/2 through the bundled adapter. |
+| `adapter.test.ts`, `sidecar.test.ts` | Host boundary: the watch question (`force_ask`), normal approval for the other tools, UUID binding, one-use tickets cleared at the turn's end, argument/tool mismatch, a lazy call refused, no guessed identity, another server's call let be (also with the state folder broken), conversation isolation, config skips, fixed injected text, separate wake accounting, only App conversations woken, the sidecar's environment for `agentapi`. SEC-3/4 remain the host's permission policy. |
+
+Strict behavior uses `MCP_EVENTS_PRE_STANDARD=off`. The default accepts the
+pre-SEP top-level capability as the other forms do, an explicit exception to
+CAP-2 and CAP-4. Nothing a server or the model wrote is injected into the
+hook's system step: it holds fixed text, a count and the plugin's own watch
+ids; event types, notices, notes and payloads are read with `recent_events`
+and `get_event`.
+
+## Live, 25 November 2026
+
+How the runs were made, and the full record: [live-run.md](live-run.md). The
+Events server was this repository's deploys demo, whose Events support is
+Mastra's (`@mastra/mcp` 2.10.0), a server this project didn't write: so these
+runs are also this form's interop run.
+
+With these builds, in the real Antigravity CLI 1.5.17 and App 2.35.1 with a
+real model:
+
+- a push watch, asked and approved; the event delivered once at the next
+  turn by the plugin's `PreInvocation` step, which held only fixed text and
+  the watch id; the model read the event with `recent_events` and
+  `get_event`;
+- a watch declined: no subscription, nothing saved, its ticket gone when the
+  conversation's next turn ended;
+- refused: a call through `call_mcp_tool` with no ticket, with a forged
+  ticket, with a replayed one; and, with the hook's command broken, the call
+  failed in Antigravity before reaching the server;
+- another server's tool still got Antigravity's own question;
+- in the App: the watch question shown whole, with "always allow" greyed
+  out; approved, an idle conversation woken by the sidecar's
+  `agentapi send-message` 4 seconds after a failing deploy, its
+  `PreInvocation` step holding only fixed text and the watch id, and the
+  agent answering from the event; a watch declined (nothing saved, no ticket
+  left); a call through `call_mcp_tool` refused.
+
+With the earlier builds, in App 2.35.1 and CLI 1.5.16: a wake during a
+running turn, held and put into that turn; a second conversation saw none of the first's events; `MCP_EVENTS_OFF=1`
+left no tools and no injections; after a restart, a resumed CLI conversation's
+watch delivered the events missed in between, from the server's cursor.
+
+Not run: a webhook watch (the demo server refused
+a plain `http` local callback; it needs an https address), and the IDE (not
+supported).
+
+## Upstream suite
+
+The Events client scenarios proposed upstream
+([conformance PR #541](https://github.com/modelcontextprotocol/conformance/pull/541)),
+at `c8625de3118c2d5dc0561696cddeb0baaf124f2c`, the revision the other forms
+used, run on 25 November 2026 through this form's committed MCP server, its
+ticket hook and a temporary `HOME`, and run again with the builds from
+`819e7955` (the watch question approved as the person would): **17 of 17
+checks pass**
+(`events-client-no-extension` 1/1, `events-client-poll` 10/10,
+`events-client-push` 3/3, `events-client-webhook` 3/3). The record is
+[evidence/conformance.txt](evidence/conformance.txt).
+
+The first run tested nothing: the driver accepted only `127.0.0.1`, and the
+suite names its server `localhost`. It now accepts any loopback name.
+
+With a checkout at that revision and its dependencies installed:
+
+```bash
+MCP_CONFORMANCE_SUITE_DIR=/absolute/path/to/conformance npm run conformance
+```
+
+This builds `test/probe.ts`, then runs the four scenarios through this form's
+committed MCP server, ticket hook and temporary HOME.
+`MCP_CONFORMANCE_OUTPUT_DIR` keeps suite receipts. The driver accepts
+loopback HTTP only. Its webhook scenario alone enables `MCP_EVENTS_DEV=1` for
+the suite's unauthenticated local fixture, as the Codex driver does. Tests
+never use a real host credential file.
+
+Property-fuzz and relay end-to-end suites remain in the Claude Code form;
+this form runs the shared clause and relay unit suites.

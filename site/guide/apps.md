@@ -44,6 +44,9 @@ can embed a web view, but a plugin can't read a `ui://` resource or a tool's
 `_meta` over OpenCode's connection, and there is no place in the
 conversation to draw a view. That was looked into, not built.
 
+Apps has no Antigravity form. The Antigravity App renders MCP Apps itself
+(v2.34.0 and later); the CLI and IDE show text only.
+
 Apps has no Copilot form, because Copilot has MCP Apps built in where they
 can be drawn: VS Code's Copilot harness turns them on (from its source; no app was drawn there). The Copilot CLI
 terminal draws none and doesn't declare MCP Apps to servers, and Copilot's

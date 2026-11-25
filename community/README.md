@@ -49,6 +49,7 @@ Open a pull request that adds one object to the `polyfills` array:
   | Codex | `"Codex"` |
   | Pi | `"Pi"` |
   | OpenCode | `"OpenCode"` |
+  | Antigravity | `"Antigravity"` |
   | GitHub Copilot CLI | `"Copilot CLI"` |
 
   Other hosts are welcome too.
@@ -57,10 +58,11 @@ Open a pull request that adds one object to the `polyfills` array:
   that install it. For a Pi extension, give its tested `pi install` command;
   if it needs a clone, include the clone steps and local path. For an
   OpenCode plugin, give the `opencode plugin add` line, or the folder to put
-  in `plugins` in `opencode.json`. For a Copilot CLI plugin, give the
-  marketplace and `copilot plugin install` lines, and say if it needs
-  experimental mode (every Copilot extension does). The repository's README states the spec
-  revision, its limits and what it sends where.
+  in `plugins` in `opencode.json`. For an Antigravity plugin, give the
+  `agy plugin install` line and the folder it takes. For a Copilot CLI plugin,
+  give the marketplace and `copilot plugin install` lines, and say if it needs
+  experimental mode (every Copilot extension does). The repository's README
+  states the spec revision, its limits and what it sends where.
 - **`maintainer`**: your GitHub handle.
 - **`contract`**: where it stands on this project's
   [contract](../docs/polyfill-contract.md), as you state it:
@@ -90,6 +92,13 @@ with the installable plugin in `plugin/`. They cover Events, Skills, Server
 Cards and ARD; Apps has no OpenCode form. Nothing for OpenCode here is
 published to npm: `opencode plugin add` installs each one from GitHub. The
 [root README](../README.md#install) has the tested install lines.
+
+This repository's Antigravity forms are in `polyfills/<polyfill>/antigravity/`,
+with the installable plugin in `plugin/`. They cover Events, Skills, Server
+Cards and ARD; Apps has no Antigravity form, because the App shows MCP Apps
+itself. Nothing is published to Antigravity's Marketplace. Each installs from
+a clone with `agy plugin install`, which needs the Antigravity CLI (the App
+doesn't ship `agy`), as the [root README](../README.md#install) shows.
 
 This repository's Copilot CLI forms are in `polyfills/<polyfill>/copilot/`,
 with the installable plugin in `plugin/`. They cover Events, Server Cards and

@@ -164,6 +164,10 @@ for each host:
   project folder. It installs from GitHub by its folder's path
   (`opencode plugin add`, with Git) or from a clone; nothing is published to
   npm.
+- **Antigravity:** a plugin in `antigravity/`, with its MCP server and hooks
+  in `plugin/`. It installs from a local clone with `agy plugin install`,
+  which needs the Antigravity CLI (the App doesn't ship `agy`); nothing is
+  published to Antigravity's Marketplace.
 - **Copilot CLI:** a plugin in `copilot/`, installed from `plugin/` (Events
   has one, which holds a Copilot extension; Skills doesn't, because Copilot
   has Skills over MCP built in). It installs from a clone added as a
@@ -185,6 +189,14 @@ and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/openco
 Apps has no OpenCode form. OpenCode has no MCP Apps support, and a plugin
 can't read a `ui://` resource or a tool's `_meta` over OpenCode's connection;
 that was looked into, not built.
+
+The Antigravity examples are
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity),
+[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/antigravity),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/antigravity)
+and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/antigravity).
+Apps has no Antigravity form: the App renders MCP Apps itself (v2.34.0 and
+later), and the CLI and IDE show text only.
 
 The Copilot CLI examples are
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/copilot),
@@ -224,6 +236,21 @@ states its departure from rule 4. Their READMEs, `SECURITY.md` and
 a scripted model, and live runs in
 [`tools/opencode/live-run.md`](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md).
 ARD's live runs did not add a server; addition was checked by its tests.
+
+The Antigravity forms show it from another side. Antigravity documents no
+MCP elicitation, and its client cancels every request without showing it, so
+each form asks through its `PreToolUse` hook, which answers `force_ask` with
+Antigravity's own approval card. An MCP server isn't told which conversation
+calls it, but hooks are, so the hook passes the conversation id to the call
+in a one-use ticket. Only the App can wake an idle conversation, through a
+sidecar the person turns on. X8 isn't met: the Skills hook asks before
+another server's resource read, but Antigravity ignores that question (CLI
+1.5.17, App 2.35.1).
+In CLI 1.5.17 a hook that fails makes the call fail. Each form has an off
+switch because native support cannot be detected. Their READMEs,
+`SECURITY.md`, `docs/conformance.md` and Events' `docs/live-run.md` record
+what was checked. The IDE documents no plugin hooks, so the forms aren't
+supported there, and their gated calls are refused.
 
 The Copilot CLI forms show the same from another side. Only an extension can
 start a turn (`session.send`), so Events is an extension and needs Copilot's

@@ -1,17 +1,17 @@
 ---
-description: mcp-skills adds the client side of the MCP Skills extension (SEP-2640) to Codex, Pi and OpenCode. Skills your MCP servers serve are listed, approved once, loaded, and checked against the server's digests. Install and limits are listed per host. Claude Code lists skills from MCP servers itself, in beta, and Copilot CLI has Skills over MCP built in.
+description: mcp-skills adds the client side of the MCP Skills extension (SEP-2640) to Codex, Pi, OpenCode and Antigravity. Skills your MCP servers serve are listed, approved once, loaded, and checked against the server's digests. Install and limits are listed per host. Claude Code lists skills from MCP servers itself, in beta, and Copilot CLI has Skills over MCP built in.
 ---
 
 # Skills
 
-`mcp-skills` lets Codex, Pi and OpenCode use the [skills](https://agentskills.io/) your
+`mcp-skills` lets Codex, Pi, OpenCode and Antigravity use the [skills](https://agentskills.io/) your
 MCP servers serve: they appear next to your own skills, the agent loads one
 when a task calls for it, and reads the files it refers to as it needs them.
 The skill's content is not installed locally, and you approve each skill once.
 It adds the client side of
 the MCP **Skills** extension, `io.modelcontextprotocol/skills`
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md),
-Final). The Codex, Pi and OpenCode forms below supply MCP Skills support those
+Final). The Codex, Pi, OpenCode and Antigravity forms below supply MCP Skills support those
 hosts haven't shipped natively yet (for Codex, openai/codex#48000). Claude Code
 has its own, in beta: see [Claude Code](#claude-code). Copilot CLI has Skills
 over MCP built in: see [Copilot CLI](#copilot-cli).
@@ -73,6 +73,12 @@ pi install git:github.com/idosal/AgentPolyfill
 
 ```bash [OpenCode]
 opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/skills/opencode/plugin'
+```
+
+```bash [Antigravity]
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+agy plugin install ./polyfills/skills/antigravity/plugin
 ```
 
 :::
@@ -141,11 +147,23 @@ folder too to remove it. Which skills each session loaded, and the "Allow
 always" answers it kept, stay in OpenCode's plugin storage (OpenCode's own
 database). No skill content is kept anywhere.
 
+### In Antigravity
+
+Node 20 or newer on `PATH`. Nothing is published to Antigravity's
+Marketplace; install from a clone, with the Antigravity CLI (the App doesn't
+ship `agy`). `agy plugin install` copies the folder to
+`~/.gemini/config/plugins/mcp-skills`, which the App and the CLI both read.
+Remove it with `agy plugin uninstall mcp-skills`. Its state stays in
+`~/.gemini/agentpolyfill/mcp-skills/`, and its placeholders in
+`~/.gemini/config/skills/mcp-skills-served--*`; delete those too to remove
+them.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi)
 - [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/opencode)
+- [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/antigravity)
 
 ## Try it
 
@@ -168,6 +186,10 @@ pi mcp add huggingface --url https://huggingface.co/mcp
 }
 ```
 
+```bash [Antigravity]
+agy mcp add huggingface https://huggingface.co/mcp
+```
+
 :::
 
 In Codex, the served skills appear in the `$` list after you ask once to list
@@ -178,6 +200,10 @@ the served skills, from the next turn. Start your host in the same folder:
 - **OpenCode:** `opencode`, with that entry in the project's `opencode.json`
   or the global one; served skills appear as `mcp-skills:<server>:<name>`,
   and a load takes two steps ([What to expect](#what-to-expect)).
+- **Antigravity:** `agy`, or the App. `agy mcp add` is in CLI 1.5.17's own
+  help, not in Antigravity's docs. The App doesn't ship `agy`; there, add
+  the server under Customizations > Installed > MCP Servers, or in
+  `~/.gemini/config/mcp_config.json`.
 
 Ask something one of its skills covers:
 
@@ -251,6 +277,20 @@ as in a scheduled run, OpenCode refuses the question. The plugin option
 cross-server reads to OpenCode's rules alone, whose default allows them. To
 turn one served skill off, deny `mcp_skills_load` for `<server>:<uri>@*`.
 
+### In Antigravity
+
+Served skills appear as placeholder folders in `~/.gemini/config/skills/`,
+which Antigravity documents reading before each turn. Loading a new or
+changed one is put to you in Antigravity's approval card, yes or no; the
+CLI's card shows the question's first two lines, which say whether it is new
+or changed and give its URI. An approved skill skips the plugin's question
+while it is unchanged, and gets only Antigravity's usual MCP question, which
+allow rules can skip; so do reads of its files. Editors on `agy acp` see the
+tool and its arguments in the card, not the question. X8 isn't met in the
+CLI: once a served skill is loaded, the plugin's hook asks before a
+`read_resource` from another server, naming both, but CLI 1.5.17 ignores
+that question (no card; the read goes ahead).
+
 ## Which servers work
 
 In Codex, a local command, a URL with no credentials and a URL with
@@ -274,6 +314,13 @@ OpenCode configuration. Servers OpenCode signs in to with OAuth
 server it left alone, with the reason. The plugin never reads OpenCode's
 stored credentials.
 
+In Antigravity, the plugin connects to the servers in
+`~/.gemini/config/mcp_config.json`, using any header values there, and never
+logs or shows those values. A header can be added with
+`agy mcp add --header "Authorization: Bearer <token>" <name> <url>`. Servers
+that need Antigravity's own sign-in are skipped. It never opens
+`~/.gemini/antigravity/mcp_oauth_tokens.json`.
+
 ## How it works
 
 Each form does the same things, with the same client code underneath
@@ -286,7 +333,8 @@ Each form does the same things, with the same client code underneath
 - **Listing.** The skills are added to the host's own skill list, each marked
   with its server.
 - **Approving.** Before a skill is loaded, you're asked: in Codex's form, in a
-  Pi dialog, or through OpenCode's permission rules.
+  Pi dialog, through OpenCode's permission rules, or in Antigravity's approval
+  card.
 - **Loading.** The form fetches `SKILL.md` from that server, checks its size and
   SHA-256 digest against what the server published, compares its frontmatter
   with the published one field by field, and only then hands the text to the
@@ -357,6 +405,20 @@ protocol, no vendor extension.
   plugin can't tell it from OpenCode's default.
 - **Not tried yet:** Windows by hand (CI runs the tests there).
 
+### In Antigravity
+
+- **No sign-in through Antigravity.** Servers behind Antigravity's own
+  sign-in can't be reached.
+- **Yes or no.** The approval card has no other choices. The App greys out
+  its "always allow" choices; the CLI's card still lists them. Editors on
+  `agy acp` see the tool and its arguments, not the question.
+- **X8 isn't met.** The plugin's hook asks before another server's
+  `read_resource` once a served skill is loaded, but Antigravity ignores
+  that question, in CLI 1.5.17 and App 2.35.1: no card, and the read goes
+  ahead.
+- **Not in the IDE.** The IDE documents no plugin hooks, so the forms aren't
+  supported there, and their gated calls are refused.
+
 ### In T3 Code
 
 T3 Code runs Codex, Claude Code or OpenCode for you, and the form for the
@@ -413,6 +475,22 @@ shipped default allows what the model does next. The plugin never reads
 OpenCode's stored credentials. See
 [OpenCode's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/SECURITY.md).
 
+### In Antigravity
+
+Loading a new or changed served skill is put to you in Antigravity's
+approval card, through `force_ask`, and nothing is auto-approved: no
+`auto_approve`, no permission overrides. The hook leaves a one-use ticket for
+exactly that call, and the MCP server loads the skill only with it. An
+approved unchanged skill, skill file reads and the read-only tools pass with
+a ticket and then get Antigravity's usual MCP question, which allow rules
+can skip. Whether `--dangerously-skip-permissions` also skips `force_ask`
+hasn't been checked. The plugin writes only its own folder and its
+placeholders, and never opens a sign-in store. X8 isn't met: the hook asks
+before a cross-server read while a skill is loaded, but Antigravity (CLI
+1.5.17, App 2.35.1) ignores that question. See
+[Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/SECURITY.md).
+The independent AI review of the Antigravity forms is in progress.
+
 ## How it is tested
 
 Every rule the Skills extension sets for a client has an id in
@@ -459,6 +537,18 @@ loaded in the TUI and in OpenCode Desktop.
 An AI reviewer who did not build the OpenCode forms reviewed them. They have
 not been audited by a person.
 
+### In Antigravity
+
+[Antigravity's conformance table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/conformance.md)
+maps the client rules for this form. The live runs of these builds on 25
+November 2026, in App 2.35.1 and CLI 1.5.17 against a local skills server,
+approved a new skill's load, asked again for a changed one, and declined a
+load, which read nothing. Earlier builds, against Hugging
+Face's server, listed its 25 skills and loaded one after approval in the App
+and over `agy acp`. The official MCP conformance suite's four
+SEP-2640 client scenarios pass (suite at `c8625de`, 25 November 2026;
+[record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/evidence/conformance.txt)).
+
 ## Settings
 
 In Codex there is nothing to set. For the rare case that needs it,
@@ -480,12 +570,19 @@ plugin's entry in `plugins`. OpenCode 2.4.1 has no Skills support to detect:
 when it ships, turn the plugin off or remove it. See the
 [OpenCode settings](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/README.md#settings).
 
+In Antigravity, `MCP_SKILLS_DISABLED=1` in the environment Antigravity starts
+in, or `"off": true` in `~/.gemini/agentpolyfill/mcp-skills/settings.json`,
+turns the plugin off; so does `agy plugin disable mcp-skills`. It cannot
+detect native Skills support: Antigravity tells plugins nothing about its
+MCP client's extensions. See the [Antigravity settings](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/README.md#settings-and-stand-down).
+
 ## More
 
 On GitHub, each form's folder has its full README, its `SECURITY.md`, its
 conformance table and the records of its test runs:
 [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex),
-[Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi) and
-[OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/opencode).
+[Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi),
+[OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/opencode) and
+[Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/antigravity).
 [What hosts would need to change](./how-it-works) says what each host would
 need to offer for these forms to work with every server.

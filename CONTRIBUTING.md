@@ -53,6 +53,7 @@ polyfills/<extension>/
   codex/         the Codex adapter
   pi/            the Pi adapter
   opencode/      the OpenCode adapter
+  antigravity/   the Antigravity adapter
   copilot/       the GitHub Copilot CLI adapter
 ```
 
@@ -71,15 +72,16 @@ polyfills/<extension>/
 | Codex | plugin | `polyfills/<extension>/codex/` |
 | Pi | extension | `polyfills/<extension>/pi/` |
 | OpenCode | V2 server plugin | `polyfills/<extension>/opencode/` |
+| Antigravity | plugin | `polyfills/<extension>/antigravity/` |
 | Copilot CLI | plugin; for Events, an extension inside it | `polyfills/<extension>/copilot/` |
 
 The Apps polyfill, [`polyfills/apps/claude-code`](polyfills/apps/claude-code),
 is a complete example of one adapter. Inside an adapter's folder:
 
 - **The installable plugin or extension goes in a subfolder** (`mod/` in the
-  Apps polyfill; `extension/` in a Pi form; `plugin/` in an OpenCode or a
-  Copilot form).
-  It holds the host's manifest and only what the plugin or extension runs.
+  Apps polyfill; `extension/` in a Pi form; `plugin/` in an OpenCode,
+  Antigravity or Copilot form). It holds the host's manifest and only what
+  the plugin or extension runs.
   Tests, build scripts, benchmarks and design notes go beside it, not in it.
   If the plugin's own top folder holds a `package.json`, Claude Code runs
   `npm install` there when someone installs it, so keep any `package.json`
@@ -97,6 +99,7 @@ is a complete example of one adapter. Inside an adapter's folder:
   | Codex | Copied on install; carries `.codex-plugin/plugin.json`, which can sit beside another host's manifest. |
   | Pi | A separate `pi/extension/` folder with a manifest and one bundled file. The Git install loads the three extensions from Pi's copy of the repository under `~/.pi/agent/git/`. A local install loads its path in place, so that clone must stay. |
   | OpenCode | A separate `opencode/plugin/` folder: one bundled file, `server.js`, the bundle's licence notices where it holds other packages' code, and a small `package.json` that names it, which `opencode plugin add` installs from GitHub. OpenCode runs it inside its own server, once per project folder. |
+  | Antigravity | A separate `antigravity/plugin/` folder: the MCP server in `mcp_config.json` and the hooks in `hooks.json`. `agy plugin install` copies it to `~/.gemini/config/plugins/<name>`, which the App and the CLI both read. |
   | Copilot CLI | A separate `copilot/plugin/` folder with `plugin.json`: an MCP server's `.mcp.json` and bundle, or for Events `extensions/mcp-events/extension.mjs`, and the bundle's licence notices. A marketplace added from a clone loads it in place; one added from GitHub is copied. |
 
 - **A marketplace plugin's name** is unique in this repository. The same
@@ -154,6 +157,14 @@ It states:
     a clone, the plugin's folder in `plugins` in `opencode.json`. The current
     forms need OpenCode 2.4 or newer (tested with 2.4.1) and Git. Nothing for
     OpenCode is published to npm.
+  - In Antigravity: from the same clone,
+    `agy plugin install ./polyfills/<extension>/antigravity/plugin`, which
+    needs the Antigravity CLI (the App doesn't ship `agy`). The current forms
+    need Node 20 or newer on `PATH`. These builds were run in CLI v1.5.17;
+    earlier builds ran in App v2.35.1 (ARD in the CLI only). The IDE
+    documents no plugin hooks, so the forms aren't supported there. Nothing
+    is published to Antigravity's Marketplace. Remove one with
+    `agy plugin uninstall <plugin>`.
   - In Copilot CLI: clone the repository, run
     `copilot plugin marketplace add ./AgentPolyfill`, then
     `copilot plugin install <plugin>@agent-polyfill` (tested with 1.0.115;
@@ -179,9 +190,10 @@ If a contract rule isn't met yet, the README says so.
 ### 4. Add it to the marketplace
 
 Each host that has a marketplace has its own marketplace file in this
-repository (Pi and OpenCode have none; see the end of this step; Copilot's
-is `.github/plugin/marketplace.json`). For Claude
-Code, add an entry to [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json):
+repository (Pi and OpenCode have none, and Antigravity has no file here; see
+the end of this step; Copilot's is `.github/plugin/marketplace.json`). For
+Claude Code, add an entry to
+[`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json):
 
 ```json
 {
@@ -243,6 +255,15 @@ with the same text for removal, and say what data remains, in the plugin's
 own folders and in OpenCode's plugin storage. Add the form to the root
 README's OpenCode column; Apps has no OpenCode form.
 
+For Antigravity, there is no marketplace file here either, and nothing is
+published to Antigravity's Marketplace. Each form installs on its own.
+Document `agy plugin install` from a clone, which needs the Antigravity CLI
+(the App doesn't ship `agy`), and keep the installable folder at
+`polyfills/<extension>/antigravity/plugin`. Include
+`agy plugin uninstall <plugin>` for removal, and say what data remains. Add
+the form to the root README's Antigravity column; Apps has no Antigravity
+form, because the App shows MCP Apps itself.
+
 For Copilot CLI, add an entry to
 [`.github/plugin/marketplace.json`](.github/plugin/marketplace.json), with
 the same name, a description and the version, and
@@ -276,6 +297,9 @@ It runs on Linux, macOS and Windows, installs the OpenCode pinned in
 other packages' code, that its licence notices are up to date, and runs the
 tests in a real OpenCode, in a throwaway home with a scripted stand-in for a
 model, so no model, key or account is used.
+
+The Antigravity forms are tested in
+[`antigravity-test.yml`](.github/workflows/antigravity-test.yml).
 
 Add the polyfill's own tests as `.github/workflows/<plugin>-test.yml`,
 filtered to its folder. Copy
@@ -322,6 +346,7 @@ one `core/` with these forms:
 - `pi/`: a Pi extension, listed in the root `pi.extensions` for the Git
   install, or installed on its own from `pi/extension/` in a clone.
 - `opencode/`: an OpenCode plugin, installed from `opencode/plugin/`.
+- `antigravity/`: an Antigravity plugin, installed from `antigravity/plugin/`.
 - `copilot/`: a Copilot CLI plugin, installed from `copilot/plugin/` (Events
   only; Copilot has Skills built in).
 

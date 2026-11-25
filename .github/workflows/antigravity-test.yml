@@ -1,0 +1,74 @@
+# The Antigravity forms (polyfills/<extension>/antigravity): for each, its
+# typecheck, a rebuild of the bundle that must equal the committed one, and its
+# tests, which include the shared client-rule tests and the plugin's hooks run
+# as Antigravity runs them. On any change in those folders or in the code they
+# bundle. The tests reach no network beyond 127.0.0.1 and run no real
+# Antigravity.
+
+name: "Antigravity forms: tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/*/antigravity/**"
+      - "polyfills/*/codex/**"
+      - "polyfills/*/core/**"
+      - "polyfills/*/claude-code/mod/hooks/**"
+      - "polyfills/*/claude-code/mod/tests/**"
+      - ".github/workflows/antigravity-test.yml"
+  pull_request:
+    paths:
+      - "polyfills/*/antigravity/**"
+      - "polyfills/*/codex/**"
+      - "polyfills/*/core/**"
+      - "polyfills/*/claude-code/mod/hooks/**"
+      - "polyfills/*/claude-code/mod/tests/**"
+      - ".github/workflows/antigravity-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: antigravity-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        form: [server-cards, ard, skills, events]
+    defaults:
+      run:
+        working-directory: polyfills/${{ matrix.form }}/antigravity
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      # Each form bundles its extension's core and Codex form, and the
+      # Antigravity gate from server-cards/antigravity.
+      - name: Install this form's and the bundled folders' dependencies
+        run: |
+          for d in ../codex ../core ../../server-cards/codex ../../server-cards/antigravity .; do
+            if [ -f "$d/package-lock.json" ]; then (cd "$d" && npm ci --no-audit --no-fund); fi
+          done
+      - run: npm run typecheck
+      - name: Rebuild plugin/dist; it must equal the committed one
+        run: |
+          npm run build
+          if [ -n "$(git status --porcelain -- plugin)" ]; then
+            git status --porcelain -- plugin
+            echo "::error::plugin/ is not what the sources build: run npm run build and commit it"
+            exit 1
+          fi
+      - name: The plugin's JSON files are valid
+        run: |
+          for f in plugin/plugin.json plugin/mcp_config.json plugin/hooks.json plugin/sidecars/*/sidecar.json; do
+            [ -f "$f" ] || continue
+            node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))" "$f" || { echo "::error file=$f::not valid JSON"; exit 1; }
+          done
+      - run: npm test

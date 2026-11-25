@@ -14,8 +14,8 @@ A polyfill can be that client-side implementation, in hosts that haven't
 shipped the extension yet, used by real people against real servers. Each one
 here names the spec revision it implements. Events and Skills have a test for
 every client rule and run against servers their authors didn't write. Skills
-passes the official conformance suite's Skills client scenarios in the Codex
-and Pi forms; no run is recorded for the OpenCode form. The
+passes the official conformance suite's Skills client scenarios in the Codex,
+Pi and Antigravity forms; no run is recorded for the OpenCode form. The
 shared Events client passes the Events client scenarios proposed
 upstream (still an open pull request in the conformance suite); the Pi
 end-to-end run has limits listed below. Apps checks the spec requirement by
@@ -35,7 +35,10 @@ extension's `core/`. Host results are recorded separately:
   checked with Pi 1.6.0.
 - **OpenCode:** the third table gives its conformance and live-run
   evidence, checked with OpenCode 2.4.1.
-- **Copilot CLI:** the fourth table gives its conformance and live-run
+- **Antigravity:** the fourth table gives its conformance pages and live-run
+  evidence: these builds in CLI v1.5.17, earlier builds also in App
+  v2.35.1.
+- **Copilot CLI:** the fifth table gives its conformance and live-run
   evidence, checked with Copilot CLI 1.0.115.
 
 ## What each one has been checked against
@@ -51,7 +54,7 @@ extension's `core/`. Host results are recorded separately:
 Skills isn't in this table. Claude Code lists skills from MCP servers itself,
 in beta from 2.1.332, so there is no polyfill for it, and this project hasn't
 checked Claude Code's own support against SEP-2640. The Skills forms' results
-are under Codex (its README), Pi and OpenCode.
+are under Codex (its README), Pi, OpenCode and Antigravity.
 
 Each one also says where it steps outside the spec. Events, by default, also
 talks to servers that advertise events in the form from before SEP-3415, and
@@ -94,6 +97,22 @@ used OpenCode's free models through its server's API; Events, Skills and
 Server Cards were also run in its TUI, and Events and Skills in OpenCode
 Desktop.
 
+### Antigravity
+
+| Polyfill | Client rules and conformance | Recorded live run |
+|---|---|---|
+| Events | The Events scenarios in conformance PR #541 (suite at `c8625de`) pass 17 of 17 checks, through the form's MCP server and its real hook, with the watch question approved as a person would. [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/conformance.md), [record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/evidence/conformance.txt). | Against the repository's local deploys demo, whose Events support is Mastra's. In CLI 1.5.17 and App 2.35.1: a watch approved and one declined, and a call around the hook refused; in the CLI the event delivered at the next turn through the plugin's `PreInvocation` hook; in the App an idle conversation woken by the sidecar. With earlier builds: a wake during a running turn. [Live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/live-run.md). |
+| Skills | The official suite's four SEP-2640 client scenarios pass (suite at `c8625de`). X8 is not met in Antigravity (CLI or App). [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/conformance.md), [record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/docs/evidence/conformance.txt). | In CLI 1.5.17 and App 2.35.1, against a local skills server: a new skill's load approved, a changed one asked again, and a load declined. With earlier builds, Hugging Face's server: its 25 skills listed, and one loaded after approval in the App and over `agy acp`. |
+| Server Cards | [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/antigravity/docs/conformance.md). | In CLI 1.5.17 and App 2.35.1, with neon.com's real Server Card: an addition approved and one declined. Earlier builds were also run over `agy acp`. |
+| ARD (v0.91 draft, beyond MCP) | [Conformance](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/antigravity/docs/conformance.md). | In CLI 1.5.17 and App 2.35.1, against Hugging Face's own registry: a search approved and one declined. |
+| Apps | No form: the App renders MCP Apps itself (v2.34.0 and later). | None. |
+
+The live runs were on 25 November 2026, on macOS, with a throwaway HOME the
+user signed in to themselves. They did not cover a webhook watch,
+`--dangerously-skip-permissions` against `force_ask`, or these builds in the
+App. The IDE documents no plugin hooks, so the forms aren't supported there,
+and their gated calls are refused.
+
 ### Copilot CLI
 
 | Polyfill | Client rules and conformance | Recorded live run |
@@ -129,6 +148,10 @@ you first):
   another server to OpenCode's permission rules, per call, naming both
   servers, whatever the read is named (from a Code Mode program too), in
   subagents and after a restart.
+- **Antigravity:** not met. Once a served skill is loaded, the plugin's
+  hook asks (`force_ask`) before a `read_resource` from another server,
+  naming both servers, but Antigravity ignores that question, in CLI 1.5.17
+  and App 2.35.1: no card is shown, and the read goes ahead.
 
 ## If your extension needs a client
 

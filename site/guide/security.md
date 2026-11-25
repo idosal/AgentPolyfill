@@ -10,6 +10,7 @@ an AI reviewer that did not build them, and not audited by a person. The Pi
 forms had an independent AI review, fixes and a check of those changes too.
 The OpenCode forms had fixes from a security review, and their live runs were
 repeated after them.
+The Antigravity forms' review is in progress.
 
 ## Reporting a problem
 
@@ -42,17 +43,18 @@ documents and adds a server to Claude Code's own config, only when you press
 Each polyfill's own `SECURITY.md` describes what it checks and what it does
 not protect against, in each host:
 
-| Polyfill | Claude Code | Codex | Pi | OpenCode | Copilot CLI |
-|---|---|---|---|---|---|
-| Events | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/SECURITY.md) |
-| Skills | no polyfill: built into Claude Code, in beta from 2.1.332 | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/SECURITY.md) | no polyfill: built into Copilot CLI |
-| Server Cards | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/SECURITY.md) |
-| Apps | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md) | not available | not available | not available | no polyfill: built into VS Code's Copilot harness; none in the terminal |
-| ARD | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/copilot/SECURITY.md) |
+| Polyfill | Claude Code | Codex | Pi | OpenCode | Antigravity | Copilot CLI |
+|---|---|---|---|---|---|---|
+| Events | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/SECURITY.md) |
+| Skills | no polyfill: built into Claude Code, in beta from 2.1.332 | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/antigravity/SECURITY.md) | no polyfill: built into Copilot CLI |
+| Server Cards | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/antigravity/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/SECURITY.md) |
+| Apps | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md) | not available | not available | not available | no form; the App shows MCP Apps itself | no polyfill: built into VS Code's Copilot harness; none in the terminal |
+| ARD | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/antigravity/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/copilot/SECURITY.md) |
 
 The following per-polyfill summaries describe the Claude Code forms;
-[Pi's security notes](#in-pi), [OpenCode's](#in-opencode) and
-[Copilot CLI's](#in-copilot-cli) follow them.
+[Pi's security notes](#in-pi), [OpenCode's](#in-opencode),
+[Antigravity's](#in-antigravity) and [Copilot CLI's](#in-copilot-cli) follow
+them.
 
 ### Events
 
@@ -270,6 +272,63 @@ Server Cards and ARD added are in OpenCode's plugin storage (its own
 database). See [Turning one off](./getting-started#turning-one-off) for off
 switches, uninstalling and removing saved data.
 
+## In Antigravity
+
+Antigravity's own approval system is the boundary. Each form's own actions
+(a watch, a new or changed skill load, an addition, a registry search) ask,
+through a `PreToolUse` hook that answers `force_ask`: Antigravity's approval
+card, with the hook's question. The CLI's card shows the question's first
+two lines and hides the rest; the App greys out the card's "always allow"
+choices, and the CLI's card still lists them. Nothing is auto-approved: no
+`auto_approve`, no permission overrides. The hook leaves a one-use ticket for
+exactly that call, and the MCP server acts only with it. No ticket, nothing
+done. The other Events tools, an approved unchanged skill load, skill file
+reads and the read-only tools pass with a ticket and then get Antigravity's
+usual MCP question, which allow rules can skip. By default that question is
+asked: in the App, its card; the interactive CLI starts in auto mode, where
+an MCP tool call still asks; and headless `agy -p` reports `request-review`
+and denies a call nobody answers (checked live). Whether
+`--dangerously-skip-permissions` also skips `force_ask` hasn't been checked.
+In CLI 1.5.17, a `PreToolUse` hook that fails, times out or prints something
+that isn't JSON makes the call fail. The IDE documents no plugin hooks, so
+the forms aren't supported there, and their gated calls are refused.
+
+- **Events:** a watch is put to you in the approval card, naming the event
+  type, server, filters and note. The hook passes the conversation id to the
+  call in the same ticket. New events reach the conversation at its next
+  model call, through the plugin's `PreInvocation` hook (seen live in the
+  CLI; Antigravity's plugins page doesn't list `PreInvocation` among plugin
+  hooks). It adds only fixed text with a count and the plugin's own watch
+  ids, nothing a server wrote. The sidecar that wakes an idle App
+  conversation is off until you turn it on; the plugin never edits
+  `~/.gemini/config/config.json`. A webhook watch wasn't run.
+- **Skills:** loading a new or changed served skill is put to you in the
+  approval card, yes or no. An approved, unchanged skill gets only
+  Antigravity's usual MCP question. X8 isn't met: the plugin's hook asks before
+  a `read_resource` from another server while a served skill is loaded,
+  naming both, but Antigravity (CLI 1.5.17, App 2.35.1) ignores that
+  question (no card; the read goes ahead).
+- **Server Cards:** an addition is put to you in the approval card, then
+  written to `~/.gemini/config/mcp_config.json`. A card that needs a secret
+  can't be added: that file reads no `${VAR}`, and the plugin never writes a
+  secret.
+- **ARD:** no registry is set by default. Every registry search, and every
+  addition, is put to you in the approval card. The form carries the Server
+  Cards checks itself.
+- **Apps:** no form. The App renders MCP Apps itself (v2.34.0 and later).
+
+The forms read `~/.gemini/config/mcp_config.json`, which can hold header
+values (API keys), to connect to your servers (Events, Skills) and to check
+names (Server Cards). They never log or show those values. They never open
+`~/.gemini/antigravity/mcp_oauth_tokens.json` or any sign-in store, and
+servers that need Antigravity's own sign-in are skipped.
+
+They write only their own folder, `~/.gemini/agentpolyfill/<plugin>/`;
+Skills' placeholders, `~/.gemini/config/skills/mcp-skills-served--*`; and,
+for Server Cards and ARD after your approval,
+`~/.gemini/config/mcp_config.json`. Editors on `agy acp` see the tool and its
+arguments in the card, not the question.
+
 ## In Copilot CLI
 
 The Events plugin is an extension, a child process Copilot starts for the
@@ -360,6 +419,7 @@ notes apply. Two things differ:
   a review on 24 November 2026 and what became of its findings. No person has
   audited any of them. The Pi forms had a separate independent AI review,
   followed by fixes and a check of the changes. The OpenCode forms had fixes
-  from a security review, and their live runs were repeated after them.
+  from a security review, and their live runs were repeated after them. The
+  Antigravity forms' review is in progress.
 
 Each `SECURITY.md` says what was considered, not that nothing is left.

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
+  "name": "mcp-server-cards",
+  "displayName": "MCP Server Cards",
+  "version": "0.1.0",
+  "description": "Find the MCP servers a domain publishes (SEP-2127), check their Server Cards, and add one to Antigravity after you approve it.",
+  "suggestedPrompts": [
+    "What MCP servers does neon.com publish?",
+    "Connect Antigravity to Buildkite's MCP server"
+  ],
+  "author": { "name": "Ido Salomon", "url": "https://github.com/idosal" },
+  "homepage": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/antigravity",
+  "repository": "https://github.com/idosal/AgentPolyfill",
+  "license": "Apache-2.0",
+  "keywords": ["mcp", "server-cards", "sep-2127", "ai-catalog", "discovery", "polyfill"]
+}

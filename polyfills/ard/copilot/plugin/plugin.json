@@ -1,6 +1,6 @@
 {
   "name": "ard-discovery",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Agentic Resource Discovery (ARD v0.91, a draft outside MCP) for GitHub Copilot CLI: find MCP servers through a domain's ard.json or by searching an ARD registry (each search asks you first), and add one to Copilot once you approve it",
   "author": {
     "name": "Ido Salomon",

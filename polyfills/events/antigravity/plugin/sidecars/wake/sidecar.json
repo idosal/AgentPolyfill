@@ -1,0 +1,7 @@
+{
+  "command": "node",
+  "args": ["../../dist/server.mjs", "--sidecar"],
+  "restart_policy": "always",
+  "display_name": "MCP Events wake",
+  "description": "Wake existing conversations when their watched MCP events arrive, within the Events wake budget."
+}

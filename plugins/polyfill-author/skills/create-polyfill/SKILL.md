@@ -1,6 +1,6 @@
 ---
 name: create-polyfill
-description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, Pi, OpenCode, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod, extension or gateway server; or to change or review an existing polyfill. Not for JavaScript or browser polyfills.
+description: Builds client support for a published MCP extension or SEP inside a host that has not shipped it (a polyfill), working from the spec's client rules and proving the result against them. Use when asked to add support for an MCP extension (Events, Skills, Apps, Tasks, Server Cards, or a new SEP) to Claude Code, Cursor, Codex, Pi, OpenCode, Antigravity, ChatGPT or another host; to polyfill, backport or shim a protocol feature as a plugin, mod, extension or gateway server; or to change or review an existing polyfill. Not for JavaScript or browser polyfills.
 ---
 
 # Create a polyfill
@@ -251,6 +251,17 @@ How a polyfill is built depends on what the host lets third-party code do.
   in `tools/opencode`. Install with
   `opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/<polyfill>/opencode/plugin'`;
   nothing for OpenCode is published to npm.
+- **Antigravity:** an Antigravity plugin in `polyfills/<polyfill>/antigravity/`,
+  with its MCP server (`mcp_config.json`) and `PreToolUse` hook (`hooks.json`)
+  in `plugin/`. Read the existing Antigravity forms' README, SECURITY.md and
+  `docs/conformance.md` before writing part 3. Events, Skills, Server Cards
+  and ARD have Antigravity forms; Apps does not, as the App shows MCP Apps
+  itself. These builds were run in CLI v1.5.17; earlier builds ran in App
+  v2.35.1 (ARD in the CLI only). The IDE documents no plugin hooks, so the
+  forms aren't supported there. They need Node 20 or newer. Install from a
+  local clone with the Antigravity CLI (the App doesn't ship `agy`):
+  `agy plugin install ./polyfills/<polyfill>/antigravity/plugin`; nothing is
+  published to Antigravity's Marketplace.
 - **GitHub Copilot CLI:** a Copilot plugin in `polyfills/<polyfill>/copilot/`,
   with its installable folder in `plugin/` and an entry in
   `.github/plugin/marketplace.json`. A polyfill that only needs tools and a

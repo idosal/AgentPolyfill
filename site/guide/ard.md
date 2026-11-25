@@ -6,9 +6,9 @@ description: ard-discovery adds the consumer side of Agentic Resource Discovery 
 
 `ard-discovery` adds the consumer side of
 [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) (ARD)
-for MCP servers. ARD is a draft ("Proposal") from Google, R.V. Guha and Hugging
-Face. It is not an MCP specification, and it can still change. The plugin finds
-servers in two ways:
+for MCP servers. ARD is a draft ("Proposal") published by the ards-project
+on GitHub. It is not an MCP specification, and it can still change. The
+plugin finds servers in two ways:
 
 - **By domain.** It reads a domain's `/.well-known/ard.json` and the `rel="ard"`
   links on its pages, beside the AI Catalog.
@@ -49,6 +49,12 @@ about by default, and so is a registry a referral names, before the query
 goes there. With nobody to answer, OpenCode refuses. OpenCode has no bundle;
 this plugin is installed separately too.
 
+In Antigravity, name the registry or set `ARD_DISCOVERY_REGISTRY` in the
+environment Antigravity starts in; there is no default. Every search is put
+to you in Antigravity's approval card, yes or no; the App greys out its
+"always allow" choices, and the CLI's card still lists them. The plugin is
+installed separately too.
+
 In Copilot CLI, name the registry or set `ARD_DISCOVERY_REGISTRY`. Copilot's
 tool prompt comes first, then the plugin's form names the registry and the
 exact query. Where nobody can be asked (`copilot -p`, even with `--yolo`),
@@ -80,6 +86,12 @@ pi install ./polyfills/ard/pi/extension
 
 ```bash [OpenCode]
 opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/ard/opencode/plugin'
+```
+
+```bash [Antigravity]
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+agy plugin install ./polyfills/ard/antigravity/plugin
 ```
 
 ```bash [Copilot CLI]
@@ -143,6 +155,21 @@ Adding a server it finds works as in
 [`mcp-server-cards`](./server-cards#using-it-step-by-step) in OpenCode, with
 the same code and the same permission actions.
 
+### In Antigravity
+
+Node 20 or newer on `PATH`. Nothing is published to Antigravity's
+Marketplace; install from a clone, with the Antigravity CLI (the App doesn't
+ship `agy`). `agy plugin install` copies the folder to
+`~/.gemini/config/plugins/ard-discovery`, which the App and the CLI both
+read. Remove it with `agy plugin uninstall ard-discovery`. Servers you added
+stay in `~/.gemini/config/mcp_config.json`; remove one with
+`agy mcp remove <name>` (in CLI 1.5.17's own help, not in Antigravity's
+docs).
+
+This form carries the Server Cards checks and add step itself, as the Codex
+and Pi forms do; it doesn't need `mcp-server-cards` installed. It was run in
+the App (2.35.1) and the CLI (1.5.17).
+
 ### In Copilot CLI
 
 Copilot CLI 1.0.115 (the version tested), with Node 20 or newer on your
@@ -165,6 +192,7 @@ The sections below name the host where behavior differs. Full guides by host:
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi)
 - [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/opencode)
+- [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/antigravity)
 - [Copilot CLI](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/copilot)
 
 ## Try it
@@ -184,6 +212,8 @@ Then ask to add it:
   Adding through this plugin is covered by its tests in a real OpenCode,
   with a scripted model and a local server; the live runs didn't add a
   server through it.
+- **Antigravity:** approve the addition in Antigravity's approval card. The
+  plugin then writes the server to `~/.gemini/config/mcp_config.json`.
 - **Copilot CLI:** after Copilot's tool prompt, accept the plugin's form.
   Run `/mcp reload`, and sign in when Copilot asks (`/mcp auth buildkite`).
   Adding through this plugin is covered by tests that run its server as
@@ -286,6 +316,19 @@ kept per project in the plugin's OpenCode storage, connected by OpenCode
 itself, with `opencode mcp auth <name>` for a sign-in. With nobody there to
 answer, as in a scheduled run, OpenCode refuses searches and additions.
 
+### In Antigravity
+
+There is no default registry: a search names one, or uses
+`ARD_DISCOVERY_REGISTRY` from the environment Antigravity starts in. Every
+registry search, and every addition, is put to you in Antigravity's
+approval card, yes or no; the CLI's card shows the question's first two
+lines, with the endpoints and the query. An addition writes
+`~/.gemini/config/mcp_config.json` only after your yes. Editors on `agy acp`
+see the tool and its arguments in the card, not the question: the query and
+the registry argument, not the endpoints or the referrals. In CLI 1.5.17, a
+search of Hugging Face's own registry went to that endpoint only after the
+approval, and a declined one sent nothing.
+
 ### In Copilot CLI
 
 `ard_discover` reads a domain's `ard.json` and AI Catalog sources and checks
@@ -315,6 +358,11 @@ or the plugin option `off`, turns the plugin off, and
 and additions to OpenCode's rules alone. Set a variable in the environment
 OpenCode starts in, and an option in the object form of the plugin's entry in
 `plugins`.
+
+In Antigravity, the same two settings apply, in the environment Antigravity
+starts in: `ARD_DISCOVERY_REGISTRY` and `ARD_DISCOVERY_DISABLED=1`.
+`agy plugin disable ard-discovery` turns it off too. It cannot detect native
+ARD support either.
 
 In Copilot CLI, `ARD_DISCOVERY_REGISTRY` sets the registry a search goes to
 when the request names none (unset by default), and
@@ -376,6 +424,17 @@ In Claude Code, in `/config`, under the plugin:
 - **Not tried yet:** ARD in OpenCode's TUI and in OpenCode Desktop, and
   Windows by hand (CI runs the tests there). The live runs didn't add a
   server through it; additions are covered by its tests in OpenCode.
+
+### In Antigravity
+
+- **A search discloses its query** to the registry you chose, after your
+  yes in the approval card.
+- **The Server Cards Antigravity limits apply:** a card that needs a secret
+  can't be added. See [Server Cards](./server-cards#limits).
+- **Yes or no.** Editors on `agy acp` see the tool and its arguments, not
+  the question.
+- **Not in the IDE.** The IDE documents no plugin hooks, so the forms aren't
+  supported there, and their gated calls are refused.
 
 ### In Copilot CLI
 
@@ -468,6 +527,19 @@ records buildkite.com's `ard.json` read and a search of the demo registry
 sent after OpenCode asked; it added no server.
 An AI reviewer who did not build the OpenCode forms reviewed them. They have
 not been audited by a person.
+
+### In Antigravity
+
+Each search and each addition is put to you in Antigravity's approval card,
+through `force_ask`, and nothing is auto-approved: no `auto_approve`, no
+permission overrides. The hook leaves a one-use ticket for exactly that call,
+and the MCP server acts only with it. Whether
+`--dangerously-skip-permissions` also skips `force_ask` hasn't been
+checked. The plugin writes only its own folder,
+`~/.gemini/agentpolyfill/ard-discovery/`, and, after your approval,
+`~/.gemini/config/mcp_config.json`. It never opens a sign-in store. See
+[Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/antigravity/SECURITY.md).
+The independent AI review of the Antigravity forms is in progress.
 
 ### In Copilot CLI
 

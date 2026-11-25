@@ -17,6 +17,10 @@ Final). The forms fill these gaps:
 - **OpenCode:** OpenCode 2.4 takes push events for its automations, but
   doesn't poll, take webhooks or watch for a session; the polyfill is a
   plugin.
+- **Antigravity:** the polyfill is a plugin for the App and the CLI
+  (`agy`). These builds were run in CLI 1.5.17; their App runs are still to
+  come. The IDE documents no plugin hooks, so the forms aren't supported
+  there, and their gated calls are refused.
 - **Copilot CLI:** no Events support in Copilot CLI 1.0.115; the polyfill is
   a plugin holding a Copilot extension, so it needs experimental mode.
 
@@ -45,6 +49,12 @@ pi install git:github.com/idosal/AgentPolyfill
 
 ```bash [OpenCode]
 opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/events/opencode/plugin'
+```
+
+```bash [Antigravity]
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+agy plugin install ./polyfills/events/antigravity/plugin
 ```
 
 ```bash [Copilot CLI]
@@ -113,6 +123,16 @@ log stay in `~/.local/share/opencode/mcp-events/` (or `MCP_EVENTS_STATE`);
 delete that folder too to remove them. The "Allow always" answers it kept
 stay in OpenCode's plugin storage (OpenCode's own database).
 
+**In Antigravity** (Node 20 or newer on `PATH`), install from a clone, with
+the Antigravity CLI (the App doesn't ship `agy`): nothing is published to
+Antigravity's Marketplace. `agy plugin install` copies the folder to
+`~/.gemini/config/plugins/mcp-events`, which the App and the CLI both read.
+To wake an idle App conversation, the plugin's sidecar
+must be on: add `"sidecars": {"mcp-events/wake": {"enabled": true}}` to
+`~/.gemini/config/config.json`. The plugin never edits that file. To remove
+it, run `agy plugin uninstall mcp-events`. Its state is in
+`~/.gemini/agentpolyfill/mcp-events/`; delete that folder too to remove it.
+
 **In Copilot CLI** (1.0.115, the version tested), the plugin is a Copilot
 extension, and Copilot loads extensions only in experimental mode: start it
 with `copilot --experimental`, or, per Copilot's help, run `/settings experimental on` once (the runs here used `--experimental`). The
@@ -131,6 +151,7 @@ The sections below name the host where behavior differs. Full guides by host:
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi)
 - [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/opencode)
+- [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity)
 - [Copilot CLI](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/copilot)
 
 ## Try it
@@ -157,6 +178,10 @@ pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 }
 ```
 
+```bash [Antigravity]
+agy mcp add feeds https://event-feeds.idosalomon.workers.dev/mcp
+```
+
 ```bash [Copilot CLI]
 copilot mcp add --transport=http feeds https://event-feeds.idosalomon.workers.dev/mcp
 ```
@@ -172,6 +197,11 @@ Start your host in the same folder:
   "Stop watching the earthquakes."
 - **OpenCode:** `opencode`, with that entry in the project's `opencode.json`
   or the global one. OpenCode asks you before the watch starts.
+- **Antigravity:** `agy`, or the App. `agy mcp add` is in CLI 1.5.17's own
+  help, not in Antigravity's docs. The App doesn't ship `agy`; there, add
+  the server under Customizations > Installed > MCP Servers, or in
+  `~/.gemini/config/mcp_config.json`. This demo is for trying: it wasn't run
+  in Antigravity, whose live run used the repository's local deploys demo.
 - **Copilot CLI:** `copilot --experimental`. Copilot's tool prompt comes
   first, then the plugin's own question before the watch starts.
 
@@ -299,6 +329,28 @@ project. The [live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/
 shows the question, an idle session waking and the answer, through OpenCode's
 server, in its TUI and in OpenCode Desktop.
 
+### In Antigravity
+
+A watch asks in Antigravity's approval card: the plugin's hook answers
+`force_ask` with its own question, which names the event type, server,
+filters and note in its first two lines. The other Events tools pass with a
+ticket and then get Antigravity's usual MCP question, which allow rules can
+skip. An MCP server isn't told which conversation calls it, so the plugin's
+`PreToolUse` hook passes the conversation id to the call in a one-use
+ticket. New events reach the conversation at its next model call, through
+the plugin's `PreInvocation` hook: seen live in the CLI, though
+Antigravity's plugins page doesn't list `PreInvocation` among plugin hooks.
+What it adds is fixed text with a count and the plugin's own watch ids, with
+no event type, server name, note or payload; the model reads the events with
+`recent_events` or `get_event`. In the App, the plugin's sidecar wakes an
+idle conversation with `agentapi send-message`, once you turn it on. CLI
+conversations can't be woken. The IDE documents no plugin hooks, so the
+forms aren't supported there, and their gated calls are refused. The
+[live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/live-run.md)
+records, in CLI 1.5.17, a watch approved and one declined, and delivery at
+the next turn; with earlier builds, an idle App conversation woken by the
+sidecar and a wake during a running turn.
+
 ### In Copilot CLI
 
 The first session after the install asks once whether the extension may have
@@ -383,6 +435,12 @@ in to with OAuth (`opencode mcp auth`) doesn't, and the plugin never reads
 OpenCode's stored credentials; `mcp_events_list_event_types` names each
 server it left alone, and why. See [OpenCode's limits](#limits).
 
+In Antigravity, the plugin connects to the servers in
+`~/.gemini/config/mcp_config.json`, using any header values there
+(`agy mcp add --header "Authorization: Bearer <token>" <name> <url>` writes
+one). Servers that need Antigravity's own sign-in are skipped. See
+[Antigravity's limits](#limits).
+
 In Copilot CLI, servers offering Events over stdio or Streamable HTTP work
 with push, poll or webhook delivery, when Copilot enables them for the
 session. Credentials must be in the server's entry in `mcp-config.json`: a
@@ -422,7 +480,7 @@ secret, and only from a subscription on a connection that carries your
 credentials. In a live run, a webhook through the public relay woke an
 OpenCode session.
 [OpenCode's README](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/README.md#webhook-delivery)
-points to the shared setup.
+points to the shared setup. In Antigravity, a webhook watch hasn't been run yet.
 
 Copilot CLI uses the same relay: one relay serves the Claude Code, Codex and
 Copilot forms. The plugin reads `~/.mcp-events/relay.json`, which the relay's
@@ -493,6 +551,14 @@ for the wake itself. Tried live through the server's API, in the TUI and in
 OpenCode Desktop 2.4.1. CI runs the tests on Linux, macOS and Windows; it
 hasn't been tried by hand on Windows.
 
+### In Antigravity
+
+In the App, the CLI (`agy`) and editors on `agy acp`; these builds were run
+in App 2.35.1 and CLI 1.5.17. Only App conversations
+can be woken, and only with the sidecar on. The IDE documents no plugin
+hooks, so the forms aren't supported there, and their gated calls are
+refused.
+
 ### In Copilot CLI
 
 | | Tools | An event wakes the session |
@@ -526,6 +592,15 @@ OpenCode's rules alone. If OpenCode comes to watch every event type for a
 session, by push, poll and webhook, turn the plugin off or remove it. The full
 [OpenCode settings table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/README.md#settings)
 lists its controls.
+
+In Antigravity, `MCP_EVENTS_OFF=1` in the environment Antigravity starts in,
+or `{"MCP_EVENTS_OFF": "1"}` in `~/.gemini/agentpolyfill/mcp-events/settings.json`,
+turns the plugin off; so does `agy plugin disable mcp-events`. It cannot
+detect native Events support: Antigravity tells plugins nothing about its MCP
+client's extensions. The sidecar is turned on in
+`~/.gemini/config/config.json`, as under [Install](#install). The
+[Antigravity README](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/README.md#settings-and-state)
+has its settings and state.
 
 In Copilot CLI, settings are environment variables in the environment
 Copilot starts in. `MCP_EVENTS_OFF=1` turns the extension off (no tools, no
@@ -635,6 +710,22 @@ Environment variables, for example in the `env` block of
   `allow` rule you write doesn't skip the question by itself, since the
   plugin can't tell it from OpenCode's default.
 
+### In Antigravity
+
+- **Wakes only in the App.** Only App conversations can be woken, and only
+  with the sidecar on. CLI conversations get new events at their next model
+  call, through the plugin's `PreInvocation` hook, which Antigravity's
+  plugins page doesn't list among plugin hooks.
+- **After a restart.** A watch restarts when its conversation next calls the
+  plugin: a resumed CLI conversation did, and got the events it had missed.
+- **No sign-in through Antigravity.** Servers behind Antigravity's own
+  sign-in can't be reached.
+- **Not run yet:** a webhook watch, the feeds demo, and these builds in the
+  App. Whether `--dangerously-skip-permissions` also skips the watch's
+  `force_ask` hasn't been checked.
+- **Not in the IDE.** The IDE documents no plugin hooks, so the forms aren't
+  supported there, and their gated calls are refused.
+
 ### In Copilot CLI
 
 - **Experimental mode only.** Copilot loads extensions only in experimental
@@ -738,6 +829,29 @@ Live, with a real model, AgentPolyfill's event-feeds server by poll and a
 webhook through the public relay each woke an idle session.
 An AI reviewer who did not build the OpenCode forms reviewed them. They have
 not been audited by a person.
+
+### In Antigravity
+
+A watch asks in Antigravity's approval card, through the plugin's
+`force_ask`, and nothing is auto-approved. The other Events tools pass with a
+ticket and then get Antigravity's usual MCP question, which allow rules can
+skip. The plugin reads `~/.gemini/config/mcp_config.json`, which
+can hold API keys in headers, to connect to your servers, and never logs or
+shows those values. It never opens `~/.gemini/antigravity/mcp_oauth_tokens.json`
+or any sign-in store, and writes only its own folder,
+`~/.gemini/agentpolyfill/mcp-events/`. See
+[Antigravity's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/SECURITY.md)
+and its [conformance page](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/conformance.md).
+By default Antigravity asks before any MCP tool: in the App, its card; the
+interactive CLI starts in auto mode, where an MCP tool call still asks; and
+headless `agy -p` reports `request-review` and denies a call nobody answers.
+In CLI 1.5.17 a `PreToolUse` hook that fails makes the call fail. Whether
+`--dangerously-skip-permissions` also skips `force_ask` hasn't been checked.
+The Events scenarios in conformance PR #541 (suite at `c8625de`, 25 November
+2026) pass 17 of 17 checks, through
+the form's MCP server and its ticket hook
+([record](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/antigravity/docs/evidence/conformance.txt)).
+The independent AI review of the Antigravity forms is in progress.
 
 ### In Copilot CLI
 
