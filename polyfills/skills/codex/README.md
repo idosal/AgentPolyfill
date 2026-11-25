@@ -352,8 +352,7 @@ stated limit, 1 not met, and 1 that doesn't apply. The one not met is X8, in
 ### A recorded session
 
 One recorded session in the Codex terminal UI (Codex 0.172.0, macOS), with
-Hugging Face's public server added as in [Try it](#try-it)
-([all the screens](live/runs/proof/), [how to repeat it](live/)). The served
+Hugging Face's public server added as in [Try it](#try-it). The served
 skill in Codex's `$` picker, marked with its server:
 
 ```
@@ -398,9 +397,6 @@ and one never approved is refused
 | The official MCP conformance suite's client scenarios for SEP-2640 (it has four) | [`test/conformance/run.sh`](test/conformance/run.sh) | 4 of 4 pass ([output](docs/evidence/conformance.txt)) |
 | Hugging Face's public server: 25 skills listed and written as stubs, every skill loaded, all 135 files verified | `npm run interop:real` | all verified ([output](docs/evidence/interop-real.txt)) |
 | Installing from the marketplace into a fresh `CODEX_HOME` (Codex lists only the Codex plugins there: mcp-events and mcp-skills), and the installed copy running from its own folder | `codex plugin marketplace add`, `codex plugin add` | installs, runs, writes 25 stubs ([output](docs/evidence/install.txt), recorded on 0.1.0, when the stubs were in the plugin's folder) |
-| A running app-server daemon that ran the plugin before: a session that asks to list the served skills, then a plain question; a marketplace update; a second session | [`live/take-daemon.sh`](live/take-daemon.sh) | the plugin's server starts at `list_skills`, not when the session opens; 25 skills listed from the next turn, and a plain question picks one; the stubs survive the update; the second session lists them from its first turn and uses one ([output](docs/evidence/daemon.txt)) |
-| A real Codex session, interactive | [`live/take-proof.sh`](live/take-proof.sh) | the skill listed, asked about, shown, loaded and used ([screens](live/runs/proof/)) |
-| A real `codex exec` run | see [`live/`](live/) | an approved skill loads unasked; an unapproved one is refused ([output](docs/evidence/exec.txt)) |
 
 ## Development
 

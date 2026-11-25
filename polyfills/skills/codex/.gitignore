@@ -5,6 +5,3 @@ node_modules/
 /mod/skills/served/
 # Per-run state of tests and live runs.
 /.test-state/
-/live/runs/*/raw.bin
-/live/runs/*/home/
-/live/runs/*/project/
