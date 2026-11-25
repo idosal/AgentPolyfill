@@ -31,7 +31,8 @@ var isUri = (v) => {
 };
 var length = (s) => [...s].length;
 var UNSAFE_TEXT = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/;
-var plainText = (s) => String(s ?? "").replace(new RegExp(UNSAFE_TEXT.source, "g"), "");
+var INVISIBLE_TEXT = /[\u2028\u2029\ufff9-\ufffb\p{Default_Ignorable_Code_Point}]/u;
+var plainText = (s) => String(s ?? "").replace(new RegExp(UNSAFE_TEXT.source, "g"), "").replace(new RegExp(INVISIBLE_TEXT.source, "gu"), "");
 var NAME = /^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/;
 var URL_CHAR = "[\\x21-\\x3b\\x3d\\x3f-\\x5a\\x5e\\x5f\\x61-\\x7e]";
 var IPV6_HOST = "\\[[0-9A-Fa-f:.]+\\]";
@@ -793,7 +794,7 @@ var defaultName = (card) => slug(card.title ?? "") || slug(card.name.split("/")[
 var shellQuote = (a) => /^[A-Za-z0-9_./:@%+=,-]+$/.test(a) ? a : `'${a.replace(/'/g, `'\\''`)}'`;
 var isCompatible = (remote) => !remote.supportedProtocolVersions?.length || remote.supportedProtocolVersions.some((v) => host.protocolVersions.includes(v));
 var HEADER_NAME = /^[!#%&'*+.^_`|~0-9A-Za-z-]+$/;
-var BAD_VALUE = UNSAFE_TEXT;
+var BAD_VALUE = { test: (v) => UNSAFE_TEXT.test(v) || INVISIBLE_TEXT.test(v) };
 var URL_VALUE = /^[A-Za-z0-9._~-]+$/;
 var VAR = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
 var tag = (s) => base32(sha256(s), 80);
@@ -1222,7 +1223,7 @@ function serve(opts) {
 }
 
 // polyfills/server-cards/claude-code/mod/hooks/format.ts
-var clean = (s, max = 300) => plainText(String(s ?? "").replace(/[\r\n\t]+/g, " ")).slice(0, max);
+var clean = (s, max = 300) => plainText(String(s ?? "").replace(/[\r\n\t\u2028\u2029]+/g, " ")).slice(0, max);
 var describeInputs = (card, i) => {
   const r = card.remotes[i];
   const lines = [];
@@ -1826,6 +1827,7 @@ export {
   DISCOVER_DESCRIPTION,
   HOST_PROTOCOL_VERSIONS,
   INSTRUCTIONS,
+  INVISIBLE_TEXT,
   MAX_INLINE_CARD,
   NAME2 as NAME,
   PASS_TICKET_TTL_MS,

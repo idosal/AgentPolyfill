@@ -325,8 +325,9 @@ violation. Against 0.7.0's `relay.qnt`: 5,000 runs of up to 30 steps from `init`
 
 ## `wakeCodex.qnt`: how often events wake a Codex session
 
-mcp-events for Codex (`polyfills/events/codex`, 0.1.3 here) shares the Events client and the wake
-budget with this mod (`polyfills/events/core`), and wakes a session in its own way. No hooks
+mcp-events for Codex (`polyfills/events/codex`, 0.1.5 here; since 0.1.3, 0.1.4 hardened the relay
+and 0.1.5 is for two helper processes, neither of which the model has, as said below) shares the Events client and the
+wake budget with this mod (`polyfills/events/core`), and wakes a session in its own way. No hooks
 module takes the batch: the helper runs `codex queue`, which puts a message in the session's
 queue, and a turn starts with it. The helper learns that it worked only when `codex queue` ends.
 It sees the person only in the turn metadata Codex puts on each tool call. The pause past the
@@ -348,7 +349,7 @@ after four, and two wakes an hour.
 | `QueueUnknown` | `codex queue` does not finish within its minute (`maybe`): it may have queued the message. A batch is marked handed over and counted, as in `Heard`; the notice pauses waking |
 | `Heard` | `#queue` returns ok: a batch is marked handed over (`Delivery.ack`), then counts as a wake (`WakeBudget.woke`, which clears the record in the same write); the notice pauses waking (`WakeBudget.pause`, which sets `pausedAt`). A helper ending between the two leaves the record, as one ending before it heard back does |
 | `Lift` | `WakeBudget.gate` on a paused budget once `pausedAt + liftAfterMs` has passed: no longer paused, and the hour's wakes forgotten. The gate is asked on each stored event and before each hand-over; the model lets it come at any time the helper runs |
-| `HelperDies`, `HelperStarts` | the helper ends (Codex closed its input, or it was killed), and a new `ThreadSession` reads `wakes.json` and `delivered.pos`. `noticeHanded` on disk makes it start paused (the constructor); then a recorded batch is marked handed over and counted as a wake, at the time the new helper starts (`ThreadSession.start`) |
+| `HelperDies`, `HelperStarts` | the helper ends (Codex closed its input, or it was killed), and a new `ThreadSession` reads `wakes.json` and `delivered.pos`. `noticeHanded` on disk makes it start paused (`ThreadSession.start`, from 0.1.5; the constructor before); then a recorded batch is marked handed over and counted as a wake, at the time the new helper starts (`ThreadSession.start`) |
 | `CallIn(person, trigger)` | a `tools/call` (`codex/src/helper.ts`): `isThePersons` on `x-codex-turn-metadata.turn_trigger`, and if so `ThreadSession.spoke`, `WakeBudget.spoke`. `person` is whether the person started the turn; `trigger` is what Codex says started it: on the person's turns `user`, `exec`, `realtime` or `voice`, or no metadata (`"none"`, a Codex before 0.172); on other turns `queue` (a wake, this plugin's among them), a trigger neither rule names (`hook`), or no metadata |
 | `local` | whether `codex queue` can reach the session at all |
 
@@ -394,8 +395,7 @@ say which.
   `unwakeable` is kept in memory, so a new helper tries once more, and is refused again.
 
 Not modelled: several watches (each has its own gap; a wake takes every watch's events); two
-processes with the same session open (only the one that runs the watches wakes it); a
-`codex queue` that outlives the helper that ran it (its effect is that of the helper dying after
+helper processes with the same session open, a second window (below); a `codex queue` that outlives the helper that ran it (its effect is that of the helper dying after
 `QueueOk`, which the model has, when it takes the message before the next helper starts; later
 than that is not modelled); a record that cannot be written (the batch is then not handed over);
 the retries' back-off and the timers (every step may come at any time instead); a batch of blank
@@ -403,6 +403,15 @@ lines; a pause saved by a version before 0.1.1, with no `pausedAt` (it counts fr
 first read); `MCP_EVENTS_WAKES_PER_HOUR=0`. Taken as given, as the review does: Codex marks a turn
 it started from the queue `queue`, never one of the person's triggers, and neither the model nor a
 hook can set `_meta`; a `codex queue` that answers that it failed did not queue the message.
+
+Two helper processes are not modelled: the model has one at a time, and `HelperStarts` reads the
+budget from disk. The code makes the second window's helper fit that, and its tests
+(`codex/test/two-windows-test.ts`) check it instead. Only the helper that runs the watches writes
+`wakes.json` (`ThreadSession.spoke` in the other one changes nothing), and one taking the watches
+over reads `wakes.json` again first (`WakeBudget.reload` in `ThreadSession.start`), as does its
+event store before giving an id. Before 0.1.5 a takeover went by what it had read when it first
+saw the session, and handed a recorded batch over again; and the person's call in the other window
+saved that stale count over the record (the review's EVH1). Each test fails on 0.1.3.
 
 ### `wakeCodex.qnt`, checked
 
@@ -473,7 +482,7 @@ each is a behaviour of it.
 
 This checks the model, not the code: that `wakeCodex.qnt` does what the Codex form does is by
 reading `core/src/wake.ts`, `codex/src/threads.ts`, `codex/src/helper.ts`, `codex/src/meta.ts`
-and `codex/src/waker.ts` at 0.1.3, with the table above. The tests in `codex/test/wake-test.ts`
+and `codex/src/waker.ts` at 0.1.5, with the table above. The tests in `codex/test/wake-test.ts`
 ("a hand-over the helper never heard back about") run the three cases on the code itself: a
 helper killed after `codex queue` took a batch, a `codex queue` that times out, and a notice
 whose `codex queue` failed before the person wrote and the helper restarted. Each fails on 0.1.2.

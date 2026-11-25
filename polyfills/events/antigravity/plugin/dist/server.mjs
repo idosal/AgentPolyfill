@@ -698,7 +698,7 @@ async function runHook(handlers2, dir, server) {
 }
 
 // polyfills/events/codex/src/version.ts
-var VERSION = "0.1.4";
+var VERSION = "0.1.6";
 
 // polyfills/events/codex/src/words.ts
 var RELAY_SETUP = "A relay of your own (a small Cloudflare Worker on your account) is set up from a clone of the AgentPolyfill repository: cd polyfills/events/claude-code/mod/relay && npm install && npx wrangler login && npm run setup. Codex and Claude Code share it.";
@@ -901,17 +901,33 @@ var secrets = new Redactor();
 function projectKey(projectDir) {
   return createHash2("sha256").update(resolve(projectDir)).digest("hex").slice(0, 16);
 }
+function writeAll(fd, data) {
+  const bytes = Buffer.from(data, "utf8");
+  for (let at = 0; at < bytes.length; ) {
+    const n = writeSync(fd, bytes, at, bytes.length - at);
+    if (n <= 0) throw new Error("a write took none of what it was given");
+    at += n;
+  }
+}
 function writeAtomic(file, data) {
   const tmp = `${file}.${process.pid}.tmp`;
-  const fd = openSync(tmp, "w", 384);
   try {
-    writeSync(fd, data);
-    fsyncSync(fd);
-  } finally {
-    closeSync(fd);
+    const fd = openSync(tmp, "w", 384);
+    try {
+      writeAll(fd, data);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+    chmodSync2(tmp, 384);
+    renameSync2(tmp, file);
+  } catch (e) {
+    try {
+      unlinkSync(tmp);
+    } catch {
+    }
+    throw e;
   }
-  chmodSync2(tmp, 384);
-  renameSync2(tmp, file);
 }
 var LISTED_MAX = 8;
 var ProjectState = class {
@@ -1093,9 +1109,13 @@ var Spool = class {
     mkdirSync2(this.dir, { recursive: true, mode: 448 });
     this.file = join2(this.dir, "events.jsonl");
     appendFileSync(this.file, "", { mode: 384 });
-    const text = readFileSync2(this.file, "utf8");
-    this.#seq = text.split("\n").filter(Boolean).length;
-    this.#bytes = Buffer.byteLength(text);
+    this.#count();
+  }
+  /** How many records the file holds, and how many bytes: what the next id and the size cap go by. */
+  #count() {
+    const raw = readFileSync2(this.file);
+    this.#seq = raw.toString("utf8").split("\n").filter(Boolean).length;
+    this.#bytes = raw.length;
   }
   /** Appends synchronously, so a webhook is acknowledged only once its event is on disk. */
   append(rec) {
@@ -1103,13 +1123,16 @@ var Spool = class {
   }
   /** Appends several records in one write and one flush: all of them are on disk, or none was taken. */
   appendMany(recs) {
-    const full = recs.map((rec, i) => ({ id: `e${this.#seq + 1 + i}`, receivedAt: (/* @__PURE__ */ new Date()).toISOString(), ...rec }));
-    const text = full.map((r) => JSON.stringify(r) + "\n").join("");
-    const bytes = Buffer.byteLength(text);
-    if (this.#bytes + bytes > MAX_SPOOL_BYTES + (full.every((r) => r.kind === "notice") ? NOTICE_RESERVE_BYTES : 0)) throw new LocalError("this session's event store is full; events wait at their source until a new session starts");
     const fd = openSync(this.file, "a", 384);
+    let full;
+    let bytes;
     try {
-      writeSync(fd, text);
+      if (fstatSync(fd).size !== this.#bytes) this.#count();
+      full = recs.map((rec, i) => ({ id: `e${this.#seq + 1 + i}`, receivedAt: (/* @__PURE__ */ new Date()).toISOString(), ...rec }));
+      const text = full.map((r) => JSON.stringify(r) + "\n").join("");
+      bytes = Buffer.byteLength(text);
+      if (this.#bytes + bytes > MAX_SPOOL_BYTES + (full.every((r) => r.kind === "notice") ? NOTICE_RESERVE_BYTES : 0)) throw new LocalError("this session's event store is full; events wait at their source until a new session starts");
+      writeAll(fd, text);
       fsyncSync(fd);
     } finally {
       closeSync(fd);
@@ -1424,7 +1447,7 @@ import { accessSync, constants, readFileSync as readFileSync7, readdirSync as re
 import { delimiter, isAbsolute, join as join7 } from "node:path";
 
 // polyfills/events/core/src/wake.ts
-import { closeSync as closeSync3, fsyncSync as fsyncSync2, openSync as openSync3, readFileSync as readFileSync6, renameSync as renameSync3, writeSync as writeSync2 } from "node:fs";
+import { readFileSync as readFileSync6 } from "node:fs";
 var HOUR_MS = 3600 * 1e3;
 function wakeLimits(env) {
   const num = (v, fallback) => {
@@ -1472,9 +1495,23 @@ var WakeBudget = class {
     this.perHour = limits.perHour;
     this.#file = file;
     this.#liftAfterMs = typeof o.liftAfterMs === "number" && o.liftAfterMs > 0 ? o.liftAfterMs : void 0;
-    if (!file) return;
+    this.reload();
+  }
+  /**
+   * Reads the count as last saved, in place of what this one holds: the constructor's read. A
+   * process that takes a session over from one that ended calls it, since what it read when it first
+   * saw the session may since have been changed by the one that ran it (Codex, two windows).
+   */
+  reload() {
+    this.#last = /* @__PURE__ */ new Map();
+    this.#wakes = [];
+    this.#paused = false;
+    this.#pausedAt = void 0;
+    this.#noticeHanded = false;
+    this.#handed = void 0;
+    if (!this.#file) return;
     try {
-      const saved = JSON.parse(readFileSync6(file, "utf8"));
+      const saved = JSON.parse(readFileSync6(this.#file, "utf8"));
       for (const [k, v] of Object.entries(saved.last ?? {})) if (typeof v === "number") this.#last.set(k, v);
       this.#wakes = (saved.wakes ?? []).filter((t) => typeof t === "number");
       this.#paused = saved.paused === true;
@@ -1497,22 +1534,14 @@ var WakeBudget = class {
     return this.#noticeHanded;
   }
   /**
-   * Saves the count whole: written and flushed beside the file, then put in its place, so a crash
-   * leaves the old file or the new one, never half of one (which would read as nothing kept, and
-   * lose a hand-over's record). Returns whether it was saved.
+   * Saves the count whole (writeAtomic: written in full and flushed beside the file, then put in its
+   * place), so a crash leaves the old file or the new one, never half of one (which would read as
+   * nothing kept, and lose a hand-over's record). Returns whether it was saved.
    */
   #save() {
     if (!this.#file) return true;
-    const tmp = `${this.#file}.${process.pid}.tmp`;
     try {
-      const fd = openSync3(tmp, "w", 384);
-      try {
-        writeSync2(fd, JSON.stringify({ last: Object.fromEntries(this.#last), wakes: this.#wakes, paused: this.#paused, pausedAt: this.#pausedAt, noticeHanded: this.#noticeHanded, handed: this.#handed }));
-        fsyncSync2(fd);
-      } finally {
-        closeSync3(fd);
-      }
-      renameSync3(tmp, this.#file);
+      writeAtomic(this.#file, JSON.stringify({ last: Object.fromEntries(this.#last), wakes: this.#wakes, paused: this.#paused, pausedAt: this.#pausedAt, noticeHanded: this.#noticeHanded, handed: this.#handed }));
       return true;
     } catch {
       return false;
@@ -1768,7 +1797,7 @@ async function runSidecar(base, env, log) {
 }
 
 // polyfills/events/antigravity/src/server.ts
-import { appendFileSync as appendFileSync2, existsSync as existsSync6, readFileSync as readFileSync10, renameSync as renameSync4, statSync as statSync5, writeFileSync as writeFileSync5 } from "node:fs";
+import { appendFileSync as appendFileSync2, existsSync as existsSync6, readFileSync as readFileSync10, renameSync as renameSync3, statSync as statSync5, writeFileSync as writeFileSync5 } from "node:fs";
 import { join as join10 } from "node:path";
 
 // polyfills/events/core/src/events-client.ts
@@ -26606,7 +26635,7 @@ var EventsConnection = class {
 
 // polyfills/events/core/src/relay.ts
 import { randomBytes as randomBytes3 } from "node:crypto";
-import { chmodSync as chmodSync3, closeSync as closeSync4, constants as constants2, existsSync as existsSync4, fstatSync as fstatSync3, openSync as openSync4, readFileSync as readFileSync8, writeFileSync as writeFileSync4 } from "node:fs";
+import { chmodSync as chmodSync3, closeSync as closeSync3, constants as constants2, existsSync as existsSync4, fstatSync as fstatSync3, openSync as openSync3, readFileSync as readFileSync8, writeFileSync as writeFileSync4 } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { homedir as homedir2 } from "node:os";
@@ -26836,7 +26865,8 @@ function checked(url2, accessKey, source, log, dev = false) {
   if (u.protocol !== "https:" && !(dev && u.protocol === "http:" && LOOPBACK.has(u.hostname))) return ignore("the url must be https");
   if (u.username || u.password || u.search || u.hash || u.pathname !== "/" && u.pathname !== "") return ignore("the url must be just the relay's address, e.g. https://mcp-events-relay.example.workers.dev");
   if (accessKey !== void 0 && accessKey !== "" && (typeof accessKey !== "string" || !ACCESS_KEY_RE.test(accessKey))) return ignore('the access key must be 16 to 128 characters of A-Z, a-z, 0-9, "_" and "-"');
-  return { url: u.origin, ...accessKey ? { accessKey } : {}, source };
+  const isPublic = u.protocol === "https:" && u.port === "" && u.hostname.replace(/\.$/, "") === new URL(PUBLIC_RELAY.url).hostname;
+  return { url: u.origin, ...accessKey ? { accessKey } : {}, source, ...isPublic ? { isPublic: true } : {} };
 }
 function readRelaySettings(env = process.env, log = () => {
 }) {
@@ -26856,7 +26886,7 @@ function ownRelaySettings(env, log) {
   const ignore = (why) => void log(`relay settings in ${path} ignored: ${why}`);
   let fd;
   try {
-    fd = openSync4(path, constants2.O_RDONLY | constants2.O_NONBLOCK);
+    fd = openSync3(path, constants2.O_RDONLY | constants2.O_NONBLOCK);
     const stat = fstatSync3(fd);
     if (!stat.isFile()) return ignore("not a regular file");
     if (process.platform !== "win32" && stat.mode & 63) return ignore("group or others can read it; use chmod 600");
@@ -26873,7 +26903,7 @@ function ownRelaySettings(env, log) {
     if (e.code !== "ENOENT") ignore("cannot read the file");
     return void 0;
   } finally {
-    if (fd !== void 0) closeSync4(fd);
+    if (fd !== void 0) closeSync3(fd);
   }
 }
 var keysFile = (dir) => join8(dir, "relay-mailbox.json");
@@ -28441,7 +28471,7 @@ function logger(base) {
   const file = join10(base, "mcp-events.log");
   return (line) => {
     try {
-      if (existsSync6(file) && statSync5(file).size > 2 * 1024 * 1024) renameSync4(file, `${file}.1`);
+      if (existsSync6(file) && statSync5(file).size > 2 * 1024 * 1024) renameSync3(file, `${file}.1`);
       if (!existsSync6(file)) writeFileSync5(file, "", { mode: 384 });
       appendFileSync2(file, `${(/* @__PURE__ */ new Date()).toISOString()} [${process.pid}] ${oneLine(secrets.scrub(line), 600)}
 `);

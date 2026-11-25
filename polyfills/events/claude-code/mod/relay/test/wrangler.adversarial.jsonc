@@ -1,6 +1,6 @@
 // For test/adversarial-test.ts only: the public relay's configuration (wrangler.public.jsonc),
 // with one change so a test can spend a limit quickly: DELIVERIES_FROM_WORKERS is 20 a minute here
-// instead of 3,000. Never deployed.
+// instead of 2,000. Never deployed.
 {
   "$schema": "../node_modules/wrangler/config-schema.json",
   // A relay anyone may use: the same Worker as wrangler.jsonc, with no access key and tighter
@@ -71,7 +71,8 @@
     { "name": "DELIVERIES_PER_SENDER", "namespace_id": "34152", "simple": { "limit": 300, "period": 60 } },
     // The same, for MCP servers hosted on Cloudflare Workers: Cloudflare gives all of them one address
     // when they call another Cloudflare site, so theirs is counted per mailbox, not per sender (one
-    // bucket for all of them would let any Worker spend it for every one of them).
+    // bucket for all of them would let any Worker spend it for every one of them). 20 here, so a
+    // test can spend it; 2,000 in wrangler.public.jsonc.
     { "name": "DELIVERIES_FROM_WORKERS", "namespace_id": "34154", "simple": { "limit": 20, "period": 60 } },
     // Connections from one address: opening and re-opening mailboxes.
     { "name": "SOCKETS_PER_SENDER", "namespace_id": "34153", "simple": { "limit": 30, "period": 60 } }

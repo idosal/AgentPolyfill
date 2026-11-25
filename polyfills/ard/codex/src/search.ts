@@ -8,7 +8,7 @@ import { discover, type DiscoverOptions } from '../../../server-cards/claude-cod
 import { formatOffered } from '../../../server-cards/claude-code/mod/hooks/format'
 import { readOffered } from '../../../server-cards/claude-code/mod/hooks/offer'
 import { Session, shownText } from '../../../server-cards/codex/src/tools'
-import { search, searchEndpoint } from '../../claude-code/mod/hooks/registry'
+import { HIDDEN, search, searchEndpoint } from '../../claude-code/mod/hooks/registry'
 
 export const BY = 'ard-discovery (ARD v0.91 draft)'
 // ARD v0.91 §5.1: a consumer resolving a domain MUST fetch /.well-known/ard.json
@@ -21,8 +21,8 @@ export const SHOWN_REGISTRY = 200
 // The plugin ships with no registry: which one sees the person's words is theirs to choose.
 export const NO_REGISTRY =
   'No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as `registry`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment Codex starts in. Nothing was sent.'
-/** Characters that display as something else or as nothing (as in the Claude Code form). */
-const UNSEEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/
+/** Characters that display as something else or as nothing, tag characters among them (registry.ts HIDDEN, as in the Claude Code form). */
+const UNSEEN = HIDDEN
 /**
  * Markdown and HTML a host could render in the form: a query such as
  * `check [my CI](https://evil.example/)` would show "check my CI" while the
@@ -59,7 +59,7 @@ export async function prepareSearch(session: Session, args: Record<string, unkno
   if (!query) return { refuse: 'Give `query`: what the person needs, in plain words.' }
   // What is sent is what the question showed (security review R1).
   if (query.length > SHOWN_QUERY) return { refuse: `Keep the search under ${SHOWN_QUERY} characters, so the person sees all of it before it is sent.` }
-  if (UNSEEN.test(query)) return { refuse: 'Write the search on one line, without control characters or direction marks, so the person sees exactly what is sent.' }
+  if (UNSEEN.test(query)) return { refuse: 'Write the search on one line, without control characters, direction marks or hidden characters, so the person sees exactly what is sent.' }
   if (MARKUP.test(query)) return { refuse: 'Write the search in plain words, without `, <, > or square brackets, so the form shows exactly what is sent.' }
   const asked = (str(args.registry) ?? defaultRegistry).trim()
   // No registry is chosen for the person: with none set and none named,

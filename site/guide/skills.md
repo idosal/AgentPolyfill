@@ -1,17 +1,18 @@
 ---
-description: mcp-skills adds the client side of the MCP Skills extension (SEP-2640) to Claude Code and Codex. Skills your MCP servers serve are listed, approved once, loaded, and checked against the server's digests.
+description: mcp-skills adds the client side of the MCP Skills extension (SEP-2640). Skills your MCP servers serve are listed, approved once, loaded, and checked against the server's digests. Install and limits are listed per host.
 ---
 
 # Skills
 
 `mcp-skills` lets your agent use the [skills](https://agentskills.io/) your
 MCP servers serve: they appear next to your own skills, the agent loads one
-when a task calls for it, and reads the files it refers to as it needs them. Nothing is
-installed locally, and you approve each skill once. It adds the client side of
+when a task calls for it, and reads the files it refers to as it needs them.
+The skill's content is not installed locally, and you approve each skill once.
+It adds the client side of
 the MCP **Skills** extension, `io.modelcontextprotocol/skills`
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md),
-Final), which neither host supports by itself yet (for Codex,
-openai/codex#48000).
+Final). The host forms below supply MCP Skills support that hasn't shipped
+natively yet (for Codex, openai/codex#48000).
 
 <Recording
   cut="skills"
@@ -30,6 +31,12 @@ openai/codex#48000).
 ```bash [Codex]
 codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add mcp-skills@agent-polyfill
+```
+
+```bash [Pi]
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+pi install ./polyfills/skills/pi/extension
 ```
 
 :::
@@ -66,9 +73,22 @@ the server's digests. One rule of the spec can't be met in
 Codex yet: a skill from one server reading another server's resources isn't
 put to you first (rule X8), because Codex doesn't let a plugin ask.
 
-The sections below describe the Claude Code plugin. Where the Codex plugin
-differs, its README says so:
-[`polyfills/skills/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex).
+### In Pi
+
+Pi 1.6.0 (the version tested), with Node 22 or newer. Nothing for Pi is
+published to npm or Pi's package gallery; install from a clone. The extension
+is bundled, with nothing to build. For one run without installing, use
+`pi -e ./polyfills/skills/pi/extension`. Pi loads the path where it is, so
+keep the clone; `git pull` there updates it. Remove it from the same folder
+with `pi remove ./polyfills/skills/pi/extension`. Approvals and skill stubs
+stay in `mcp-skills/` in Pi's agent folder (`~/.pi/agent`, or
+`PI_CODING_AGENT_DIR`); delete that folder too to remove them.
+
+The sections below name the host where behavior differs. Full guides by host:
+
+- [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/claude-code)
+- [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex)
+- [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi)
 
 ## Try it
 
@@ -85,12 +105,20 @@ claude mcp add --transport http huggingface https://huggingface.co/mcp
 codex mcp add huggingface --url https://huggingface.co/mcp
 ```
 
+```bash [Pi]
+pi mcp add huggingface --url https://huggingface.co/mcp
+```
+
 :::
 
 In Codex, the served skills appear in the `$` list after you ask once to list
-the served skills, from the next turn. Start `claude` or `codex` in the same
-folder and ask something one of its
-skills covers:
+the served skills, from the next turn. Start your host in the same folder:
+
+- **Claude Code:** `claude`.
+- **Codex:** `codex`.
+- **Pi:** `pi`; served skills appear as `mcp-<server>-<name>`.
+
+Ask something one of its skills covers:
 
 > Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?
 
@@ -114,6 +142,8 @@ list).
 
 ## What to expect
 
+### In Claude Code
+
 - **Nothing to set up per server.** A server in your MCP configuration that
   declares the Skills extension has its skills listed: straight after the
   install, with no restart, and from the next session for a server you add
@@ -135,7 +165,32 @@ list).
   again for a day. A session waits for a first listing (at most 4 seconds) only
   for servers that serve skills or that it has not looked at yet.
 
+### In Pi
+
+Served skills appear in Pi's own list as `mcp-<server>-<name>`, their
+descriptions marked `[MCP server "<server>", not a local skill]`. Ask in
+plain words, or use `/skill:mcp-huggingface-huggingface-local-models` with the
+question above. Loading asks a Pi dialog: "Don't load it", "Show me its
+SKILL.md first", "Load it". Your yes is kept for that skill with exactly
+those files; changes ask again. The preview is shown to you before the model
+sees it. Files are checked against the server's digests as they are read.
+
+While a served skill is loaded, a read from another MCP server asks
+"mcp-skills: reach another MCP server?", naming both servers (SEP-2640 X8).
+This covers Pi's resource tool and the extension's skill tools, including
+codemode's nested calls. Print and JSON modes cannot ask, so they load only
+skills already approved and unchanged, and refuse cross-server reads that
+need approval. Skills a server adds mid-session appear after `/reload`.
+
 ## Which servers work
+
+In Pi, local (stdio) servers, public URLs and URLs with an `Authorization`
+header in `mcp.json` work. Header values may be written out, `${VARIABLE}` or
+`!command`. Servers signed in through Pi (`/mcp`, `pi mcp login`, OAuth or
+`auth.provider`) are out of reach; `list_skills` says why. The extension
+never reads `mcp-auth.json` or `auth.json`.
+
+The table below is for Claude Code.
 
 | How the server is configured | Works |
 |---|---|
@@ -153,6 +208,8 @@ connection of its own, with the credentials your configuration holds. It does
 not run a sign-in of its own and stores no tokens.
 
 ## How it works
+
+### In Claude Code
 
 - **Finding servers.** The mod reads the servers Claude Code is configured with,
   asks Claude Code about each one, and connects only to those Claude Code itself
@@ -174,6 +231,8 @@ protocol, no vendor extension.
 
 ## Limits
 
+### In Claude Code
+
 - **Servers behind a browser sign-in, claude.ai connectors, plugin-provided
   servers and SSE servers** are not supported.
 - **A second connection.** The mod's connection to a server that serves skills is
@@ -191,7 +250,24 @@ protocol, no vendor extension.
   desktop app and IDE extensions; bypass-permissions mode; Claude Code versions
   other than 2.1.329.
 
+### In Pi
+
+- **Its own connection.** Pi gives extensions no way to send Skills requests
+  over its connection. A local (stdio) server runs twice; sign-ins held by
+  Pi cannot be used by the extension.
+- **Reload for later servers and skills.** Servers are read at session
+  start; one another extension registers later is reached after `/reload`.
+  Skills added mid-session need `/reload` to appear in Pi's list.
+- **No per-skill switch.** Put a server in `{"skip": [...]}` in
+  `mcp-skills/settings.json` in Pi's agent folder to leave its skills out.
+- **Off with Pi's MCP support.** With `--no-mcp`, `-builtin:mcp` in the
+  extension settings, or a replacement MCP extension, Skills stands down too.
+- **The cross-server question has a boundary.** It cannot intercept a read
+  another extension makes through its own MCP connection.
+
 ## Security
+
+### In Claude Code
 
 A skill is text a server wrote, which a model may follow, and which may tell the
 model to run things on your machine. The mod treats it as untrusted data from
@@ -219,7 +295,21 @@ mode has not been tested; do not use it with a server you do not trust.
 The full account:
 [`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/SECURITY.md).
 
+### In Pi
+
+The extension asks before loading a served skill and binds your approval to
+its files. Content arrives as a tool result marked with its server; its
+frontmatter grants nothing. X8 is met: a cross-server read while a skill is
+loaded asks first, naming both servers. After you approve a skill, Pi's own
+permissions apply: Pi runs tools without asking unless a permission extension
+asks. Tool annotations let permission extensions distinguish the calls.
+See [Pi's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md).
+An AI reviewer who did not build the Pi forms reviewed them, and checked
+the fixes again. They have not been audited by a person.
+
 ## How it is tested
+
+### In Claude Code
 
 These results are for the Claude Code form. The Codex form's are in
 [its README](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex);
@@ -242,7 +332,24 @@ met, 3 met with a stated limit, 3 that do not apply), and
 [`docs/verification.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/docs/verification.md)
 says what the model shows and what it does not.
 
+### In Pi
+
+[Pi's conformance table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/docs/conformance.md)
+records 53 rules met, 6 met with a stated exception, 1 not applicable and
+none unmet. The official MCP conformance suite's four SEP-2640 client
+scenarios pass. The [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/docs/live-run.md)
+against Hugging Face records two skills approved and loaded, reference files
+read and an answer from them, including a run with "Show me its SKILL.md
+first".
+
 ## Settings
+
+In Pi, `MCP_SKILLS_OFF=1` turns the extension off. Server-level `skip` is
+set in `mcp-skills/settings.json` in Pi's agent folder. Pi's extension cannot
+detect native Skills support: remove it or use the off switch when that
+ships. See the [Pi settings](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/README.md#settings).
+
+### In Claude Code
 
 There is nothing to set. To turn the mod off, disable the plugin in `/plugin`;
 do that once Claude Code serves MCP skills itself. The mod also turns itself off

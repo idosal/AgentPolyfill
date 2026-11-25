@@ -8138,11 +8138,15 @@ function fromBase64(text) {
   for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
   return out;
 }
+var CHANGED_SINCE_ASKED = "this skill changed on the server after it was put to the user for approval, so it is not loaded: load it again, and the user is asked about it as it is now";
+var NOT_AS_SHOWN = "this skill's content cannot be held to what the user was shown, so it is not loaded: load it again, and the user is asked about it as it is now";
+var MEDIA_TYPE = /^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,62}\/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,62}$/;
+var mediaTypeOf = (value) => typeof value === "string" && MEDIA_TYPE.test(value) ? value : void 0;
 function contentOf(result, uri) {
   const contents = Array.isArray(result.contents) ? result.contents.filter(isObject) : [];
   const item = contents.find((c) => c.uri === uri) ?? (contents.length === 1 ? contents[0] : void 0);
   if (!item) throw new LocalError("the server answered the read with no content for that file");
-  const mimeType = typeof item.mimeType === "string" && /^[\w.+-]+\/[\w.+-]+/.test(item.mimeType) ? item.mimeType.slice(0, 100) : void 0;
+  const mimeType = mediaTypeOf(item.mimeType);
   if (typeof item.text === "string") return { uri, bytes: new TextEncoder().encode(item.text), mimeType, isText: true };
   if (typeof item.blob === "string") {
     const bytes = fromBase64(item.blob);
@@ -8211,6 +8215,13 @@ var SkillsHost = class {
   /** Verified files, kept in this process's memory only, by server, uri and digest. */
   #cache = /* @__PURE__ */ new Map();
   #cached = 0;
+  /**
+   * What the user was shown of a skill before deciding about it (`preview` with `keep`), for the
+   * load that follows: the entry's manifest hash, which that load must be approved for, and for a
+   * generated skill, which has none, the read itself: no digest holds such a skill to what was
+   * read, so the load takes this read and makes no other. One at a time, and used once.
+   */
+  #shown;
   constructor(wire, options = {}) {
     this.#wire = wire;
     this.#o = { now: Date.now, maxPages: 64, maxEntries: 2e3, cacheBytes: 64 * 1024 * 1024, requestTimeoutMs: 6e4, ...options };
@@ -8281,6 +8292,8 @@ var SkillsHost = class {
       this.#cached -= kept.bytes.length;
     }
     this.#refused.delete(label);
+    if (this.#shown?.key.startsWith(`${label}
+`)) this.#shown = void 0;
   }
   /** "Getting a Skill": the current entry for one skill by the URI of its `SKILL.md`, listed or not. */
   async get(label, uri) {
@@ -8353,15 +8366,30 @@ ${resource.digest}`;
    * the entry is read once more with `skills/get` and the load tried again from the current one.
    * Loading a skill that is already loaded always starts from a fresh `skills/get`: that is how a
    * skill that changed on the server is picked up, under its new entry.
+   *
+   * `expect` is the manifest hash the user approved: another set of files is not loaded. `shown`
+   * says the user was shown this skill's `SKILL.md` just before (`preview` with `keep`): a skill
+   * with a manifest is held to that text by its digests, and a generated one is loaded from the
+   * very read that was shown, or not at all.
    */
   async load(label, uri, o = {}) {
     const { wire, directoryRead } = this.#declared(label);
     if (rootOf(uri) === void 0) throw new LocalError("that is not the URI of a SKILL.md; a skill is loaded by the URI of its SKILL.md");
     const key = keyOf(label, uri);
+    const kept = this.#shown?.key === key ? this.#shown : void 0;
+    if (kept) this.#shown = void 0;
+    if (o.shown) {
+      if (!kept) throw new LocalError(NOT_AS_SHOWN);
+      if (kept.hash !== o.expect) throw new LocalError(CHANGED_SINCE_ASKED);
+      if (kept.loaded) {
+        this.#held.set(key, { label, entry: kept.listed.entry, loadedAt: this.#o.now(), retrieved: kept.loaded.retrieved });
+        return { label, entry: kept.listed.entry, body: kept.loaded.body, isVerified: kept.loaded.isVerified, directoryRead, hash: kept.hash };
+      }
+    }
     const known = this.#held.has(key) && o.expect === void 0 ? void 0 : this.#registry.get(key);
     let listed = known ?? await this.get(label, uri);
     const approved = async (l) => {
-      if (o.expect !== void 0 && await manifestHash(l.entry) !== o.expect) throw new LocalError("this skill changed on the server after it was put to the user for approval, so it is not loaded: load it again, and the user is asked about it as it is now");
+      if (o.expect !== void 0 && await manifestHash(l.entry) !== o.expect) throw new LocalError(CHANGED_SINCE_ASKED);
     };
     await approved(listed);
     let loaded;
@@ -8375,6 +8403,7 @@ ${resource.digest}`;
       await approved(listed);
       loaded = await this.#loadFrom(wire, listed);
     }
+    if (o.shown && (!loaded.isVerified || await manifestHash(listed.entry) !== o.expect)) throw new LocalError(NOT_AS_SHOWN);
     this.#held.set(key, { label, entry: listed.entry, loadedAt: this.#o.now(), retrieved: loaded.retrieved });
     return { label, entry: listed.entry, body: loaded.body, isVerified: loaded.isVerified, directoryRead, hash: await manifestHash(listed.entry) };
   }
@@ -8394,11 +8423,12 @@ ${resource.digest}`;
    * let users inspect a skill's content before it is loaded"). This is not a load: nothing is
    * held, and nothing reaches the model.
    */
-  async preview(label, uri) {
+  async preview(label, uri, o = {}) {
     const { wire } = this.#declared(label);
     const listed = await this.entry(label, uri);
-    const { body, isVerified } = await this.#loadFrom(wire, listed);
-    return { entry: listed.entry, body, isVerified };
+    const loaded = await this.#loadFrom(wire, listed);
+    if (o.keep) this.#shown = { key: keyOf(label, uri), hash: await manifestHash(listed.entry), listed, loaded: loaded.isVerified ? void 0 : loaded };
+    return { entry: listed.entry, body: loaded.body, isVerified: loaded.isVerified };
   }
   /** The skills this session is acting on, each with the entry it was loaded from. */
   held() {
@@ -8408,6 +8438,7 @@ ${resource.digest}`;
   release(label, uri) {
     if (label !== void 0 && uri !== void 0) this.#held.delete(keyOf(label, uri));
     else this.#held.clear();
+    if (label === void 0 || uri === void 0 || this.#shown?.key === keyOf(label, uri)) this.#shown = void 0;
   }
   #heldEntry(label, skillUri) {
     const held = this.#held.get(keyOf(label, skillUri));
@@ -8481,7 +8512,7 @@ ${resource.digest}`;
       if (!Array.isArray(r.resources)) throw new LocalError("the server answered the directory read without a list");
       for (const c of r.resources) {
         if (!isObject(c) || typeof c.uri !== "string" || !c.uri.startsWith(`${dir}/`) || c.uri.slice(dir.length + 1).includes("/") || c.uri.length > 2048 || NOT_URI_TEXT.test(c.uri)) continue;
-        children.push({ uri: c.uri, name: c.uri.slice(dir.length + 1), isDirectory: c.mimeType === DIRECTORY_MIME, mimeType: typeof c.mimeType === "string" ? c.mimeType.slice(0, 100) : void 0, size: typeof c.size === "number" && c.size >= 0 ? c.size : void 0 });
+        children.push({ uri: c.uri, name: c.uri.slice(dir.length + 1), isDirectory: c.mimeType === DIRECTORY_MIME, mimeType: mediaTypeOf(c.mimeType), size: typeof c.size === "number" && c.size >= 0 ? c.size : void 0 });
         if (children.length >= 2e3) break;
       }
       cursor = typeof r.nextCursor === "string" && r.nextCursor ? r.nextCursor : void 0;
@@ -8490,10 +8521,11 @@ ${resource.digest}`;
     return { uri: dir, children, fromEntry: false };
   }
 };
+var NOT_TEXT = /[\u0000-\u0008\u000e-\u001f\u007f-\u009f]/;
 function textOf(content) {
   try {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(content.bytes);
-    return /[\u0000-\u0008\u000e-\u001a]/.test(text) ? void 0 : text;
+    return NOT_TEXT.test(text) ? void 0 : text;
   } catch {
     return void 0;
   }
@@ -33414,7 +33446,8 @@ function loadedText(l, o) {
 function fileText(f, skillName) {
   const path = relativeTo(f.skillUri, f.uri);
   const head = `${q(path)} of the skill ${q(skillName)}, from the MCP server ${q(f.label)} (${f.size} bytes${f.isVerified ? ", matched the size and SHA-256 digest in the skill's entry" : ", not verifiable: the server publishes no digests for this skill"}).`;
-  if (f.text === void 0) return `${head} It is a binary file${f.mimeType ? ` (${f.mimeType})` : ""}, which this plugin does not show.`;
+  const kind = mediaTypeOf(f.mimeType);
+  if (f.text === void 0) return `${head} It is a binary file${kind ? ` (${kind})` : ""}, which this plugin does not show.`;
   const nested = f.isNestedSkill ? ` This is the SKILL.md of a skill nested inside ${q(skillName)}: read here it is ordinary supporting text, and its frontmatter has no effect. To use it as a skill, load it by its own URI (${f.uri}) with load_skill.` : "";
   const hidden = hiddenNote("This file", f.text).map((line) => ` ${line}`).join("");
   return `${head}${nested}${hidden} Content from that server:

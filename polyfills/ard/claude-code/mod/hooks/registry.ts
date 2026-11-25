@@ -50,6 +50,30 @@ export type Search = {
   problems: string[]
 }
 
+/**
+ * Characters that display as something else or as nothing: C0 and C1 controls,
+ * line and paragraph separators, interlinear annotation marks, a blank Braille
+ * pattern (it shows as a space but isn't one), and every
+ * default-ignorable code point (Unicode's Default_Ignorable_Code_Point: a soft
+ * hyphen, zero-width and direction marks, invisible operators, variation
+ * selectors, a BOM, and plane 14's tag characters, which can carry text nobody
+ * sees). A query or registry holding one is refused; a registry's own words are
+ * shown without them.
+ */
+export const HIDDEN = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\ufff9-\ufffb\u2800\p{Default_Ignorable_Code_Point}]/u
+const HIDDEN_ALL = new RegExp(HIDDEN.source, 'gu')
+
+/**
+ * Text a registry wrote, as it is shown: one line, each hidden character a
+ * space, capped at `max` characters (with an ellipsis), so that it can't add
+ * lines of its own to the answer or carry text nobody sees.
+ */
+export const oneLine = (v: unknown, max: number): string => {
+  const s = String(v ?? '').replace(HIDDEN_ALL, ' ').replace(/\s+/g, ' ').trim()
+  const chars = Array.from(s)
+  return chars.length > max ? `${chars.slice(0, max).join('')}\u2026` : s
+}
+
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 
@@ -100,7 +124,7 @@ export const search = async (post: Post, text: string, endpoints: readonly strin
           const err = JSON.parse(res.text) as { errorCode?: string; message?: string }
           code = [err.errorCode, err.message].filter(x => typeof x === 'string').join(': ')
         } catch {}
-        call.note = `HTTP ${res.status}${code ? ` (${code.slice(0, 200)})` : ''}`
+        call.note = `HTTP ${res.status}${code ? ` (${oneLine(code, 200)})` : ''}`
         return
       }
       let body: unknown
@@ -123,6 +147,10 @@ export const search = async (post: Post, text: string, endpoints: readonly strin
           out.problems.push(`${endpoint}: a result without an "identifier" was skipped`)
           continue
         }
+        if (HIDDEN.test(r.identifier)) {
+          out.problems.push(`${endpoint}: a result whose identifier holds control or hidden characters was skipped`)
+          continue
+        }
         // A registry may ignore the filter; only Server Cards are handed on.
         if (r.type !== undefined && r.type !== CARD_TYPE) {
           out.skipped++
@@ -136,8 +164,8 @@ export const search = async (post: Post, text: string, endpoints: readonly strin
           ...(typeof r.url === 'string' ? { url: r.url } : {}),
           ...(r.data !== undefined ? { data: r.data } : {}),
           listedIn: endpoint,
-          displayName: typeof r.displayName === 'string' ? r.displayName : undefined,
-          description: typeof r.description === 'string' ? r.description : undefined,
+          displayName: typeof r.displayName === 'string' ? oneLine(r.displayName, 200) || undefined : undefined,
+          description: typeof r.description === 'string' ? oneLine(r.description, 300) || undefined : undefined,
           score: typeof r.score === 'number' ? r.score : undefined,
           order: found.length,
         })
@@ -152,10 +180,10 @@ export const search = async (post: Post, text: string, endpoints: readonly strin
           } catch {}
           // §5.3: a referral's url is the search endpoint itself; nothing is appended.
           if (u && mayFollow(u, fromLocal)) referrals.push(u.href)
-          else out.problems.push(`${endpoint}: referral ${String(ref.url).slice(0, 200)} is not HTTPS on a public host; not followed`)
+          else out.problems.push(`${endpoint}: referral ${oneLine(ref.url, 200)} is not HTTPS on a public host; not followed`)
         }
     } catch (err) {
-      call.note = err instanceof Error ? err.message : String(err)
+      call.note = oneLine(err instanceof Error ? err.message : err, 200)
     }
   }
 

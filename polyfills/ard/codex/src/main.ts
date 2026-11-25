@@ -30,7 +30,7 @@ export * from '../../../server-cards/codex/src/mcp'
 export * from '../../../server-cards/codex/src/tools'
 
 export const NAME = 'ard-discovery'
-export const VERSION = '0.1.1'
+export const VERSION = '0.1.3'
 export const DISCOVER = 'ard_discover'
 export const SEARCH = 'ard_search'
 export { ARD_SOURCES, BY, NO_REGISTRY, prepareSearch, registrySetting, runSearch, SEARCH_CHOICES, SHOWN_QUERY, SHOWN_REGISTRY }

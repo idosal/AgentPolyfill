@@ -1,6 +1,6 @@
 {
   "name": "mcp-server-cards",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "MCP Server Cards (SEP-2127) for Codex: find the MCP servers a domain publishes, check their Server Cards, and add one to Codex once you approve it in a form",
   "author": {
     "name": "Ido Salomon",
