@@ -5,7 +5,8 @@
 // model what is new for this session, as context added to the message: by default the events the
 // helper stored since the last hand-over (it records how far it got), and any batch waiting in the
 // session's inbox (where waking through `muse attach` failed). It also stamps the time, which tells
-// the helper the person is back.
+// the helper the person is back. A message that is exactly the `watch <code>` a watch_event asked
+// for approves that watch (muse-confirm.ts), and the model is told so.
 //
 // A turn the plugin itself started (waking through `muse attach`, experimental) begins with
 // "[mcp-events]": that is not the person speaking, so it is not stamped. It prints nothing when
@@ -15,6 +16,8 @@ import { readFileSync } from 'node:fs';
 import { LINE_PREFIX } from '../../core/src/format.ts';
 import { secrets } from '../../core/src/untrusted.ts';
 import { isHttp } from '../../core/src/upstream.ts';
+import { serverEnabled } from './muse-config.ts';
+import { confirmFromPrompt } from './muse-confirm.ts';
 import { applyPluginSettings, INBOX_MAX_CHARS, museStateDir, readMuseServers, SESSION_ID, stampSpoke, takeInbox, takeStored, wakeMode } from './muse.ts';
 import { WAKE_HEADER } from './header.ts';
 
@@ -28,6 +31,8 @@ function main(): void {
     const session = typeof input.session_id === 'string' && SESSION_ID.test(input.session_id) ? input.session_id.toLowerCase() : undefined;
     if (!session) return;
     const env = process.env;
+    // With the plugin's MCP server not turned on in Muse (rejected, or never approved), nothing of it runs: neither does this.
+    if (!serverEnabled(env, env.MUSE_PLUGIN_ID || 'mcp-events')) return;
     const base = museStateDir(env);
     // The same settings file as the helper's: Muse passes hooks no variables of the person's either.
     applyPluginSettings(env, base);
@@ -41,6 +46,12 @@ function main(): void {
         }
     }
     const parts: string[] = [];
+    let systemMessage: string | undefined;
+    const yes = confirmFromPrompt(base, session, prompt);
+    if (yes?.verb === 'watch') {
+        parts.push(`${LINE_PREFIX} The user's own message is the confirmation watch_event asked for: they approve "${yes.summary}". Call watch_event again with the same arguments to start it.`);
+        systemMessage = `mcp-events: you approved: ${yes.summary}`;
+    }
     const waiting = takeInbox(base, session);
     if (waiting) parts.push(waiting);
     if (wakeMode(env) === 'inbox') {
@@ -53,7 +64,7 @@ function main(): void {
         if (lines) parts.push([WAKE_HEADER, ...lines].join('\n'));
     }
     if (!parts.length) return;
-    process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: parts.join('\n\n') } }));
+    process.stdout.write(JSON.stringify({ ...(systemMessage ? { systemMessage } : {}), hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: parts.join('\n\n') } }));
 }
 
 try {

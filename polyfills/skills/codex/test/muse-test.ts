@@ -10,13 +10,39 @@ import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { after, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { closeAll, Fixture, scenarioOf, skill, temp } from './harness.ts';
-import { confirmFromPrompt, flatStubDir, museAsk, museWords, readMuseSkillsConfig, syncFlatStubs } from '../src/muse.ts';
+import { closeAll, digest, Fixture, scenarioOf, skill, startApp, temp } from './harness.ts';
+import { confirmFromPrompt, flatStubDir, museAsk, museManagedFor, museWords, readMuseSkillsConfig, syncFlatStubs } from '../src/muse.ts';
+import type { Asked, Decision } from '../src/app.ts';
 import type { Listed } from '../../core/src/skills.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const HOOK = join(ROOT, 'mod', 'muse', 'hooks', 'user-prompt-submit.mjs');
+// The stand-in muse of mcp-events' Muse tests: `muse config status --json`.
+const FAKE_MUSE = join(ROOT, '..', '..', 'events', 'codex', 'test', 'fake-muse.mjs');
 after(closeAll);
+
+/** Muse's user settings in `home`: its MCP servers, and this plugin's server turned on (approved), unless `serverOn` is false. */
+function museSettings(home: string, mcpServers: Record<string, unknown> = {}, o: { serverOn?: boolean } = {}) {
+    mkdirSync(join(home, '.config', 'muse'), { recursive: true });
+    writeFileSync(join(home, '.config', 'muse', 'settings.json'), JSON.stringify({ runtime_capabilities: { 'plugin:mcp-skills:mcp_server:mcp-skills': { enabled: o.serverOn !== false } }, mcpServers }));
+}
+
+/**
+ * The person in Muse, for the app's tests: each question goes through museAsk; `typed` is what the
+ * person sends next (the hook reads it), or nothing.
+ */
+function typedAnswers(dir: string, session: string, typed: (code: string) => string | undefined) {
+    const ask = museAsk(dir, session);
+    return (async (message: string, choices: Decision[]): Promise<Asked> => {
+        const r = await ask(message, choices);
+        if ('pending' in r) {
+            const code = /exactly: load (\d{4})/.exec(r.pending)![1]!;
+            const said = typed(code);
+            if (said !== undefined) confirmFromPrompt(dir, session, said);
+        }
+        return r;
+    }) as never;
+}
 
 const listed = (label: string, uri: string, name = 'git-workflow'): Listed => ({ label, entry: { uri, frontmatter: { name, description: `${name} skill` }, resources: [] } }) as unknown as Listed;
 
@@ -101,6 +127,7 @@ describe("the person's yes, typed", () => {
         const dir = temp();
         const s = randomUUID();
         const env = { MUSE_PLUGIN_DATA_DIR: dir, HOME: dir };
+        museSettings(dir);
         assert.equal(hook({ session_id: s, prompt: 'load 1234' }, env), '');
         const code = /load (\d{4})/.exec(((await museAsk(dir, s)('Load the skill "x"?', ['load'])) as { pending: string }).pending)![1]!;
         const out = JSON.parse(hook({ hook_event_name: 'UserPromptSubmit', session_id: s, prompt: `load ${code}` }, env));
@@ -109,6 +136,10 @@ describe("the person's yes, typed", () => {
         assert.equal(out.systemMessage, 'mcp-skills: you approved: Load the skill "x"?');
         writeFileSync(join(dir, 'settings.json'), JSON.stringify({ off: true }));
         assert.equal(hook({ session_id: s, prompt: `load ${code}` }, env), '', 'off in its settings');
+        writeFileSync(join(dir, 'settings.json'), '{}');
+        museSettings(dir, {}, { serverOn: false });
+        const again = /load (\d{4})/.exec(((await museAsk(dir, s)('Load the skill "y"?', ['load'])) as { pending: string }).pending)![1]!;
+        assert.equal(hook({ session_id: s, prompt: `load ${again}` }, env), '', "with the plugin's MCP server turned off in Muse, the hook approves nothing");
         assert.equal(spawnSync(process.execPath, [HOOK], { input: 'not json', encoding: 'utf8' }).status, 0);
     });
 });
@@ -133,11 +164,10 @@ describe('the helper in Muse', () => {
         const s = skill('git-workflow', { 'refs/guide.md': '# Guide' });
         const f = new Fixture(scenarioOf([s]));
         const home = temp();
-        mkdirSync(join(home, '.config', 'muse'), { recursive: true });
-        writeFileSync(join(home, '.config', 'muse', 'settings.json'), JSON.stringify({ mcpServers: { github: { type: 'stdio', ...f.config } } }));
+        museSettings(home, { github: { type: 'stdio', ...f.config } });
         const data = join(home, 'data');
         const session = randomUUID();
-        const env = { PATH: process.env.PATH ?? '', HOME: home, TMPDIR: process.env.TMPDIR ?? '/tmp', MUSE_SESSION_ID: session, MUSE_PLUGIN_ID: 'mcp-skills', MUSE_PLUGIN_DATA_DIR: data };
+        const env = { PATH: process.env.PATH ?? '', HOME: home, TMPDIR: process.env.TMPDIR ?? '/tmp', MUSE_SESSION_ID: session, MUSE_PLUGIN_ID: 'mcp-skills', MUSE_PLUGIN_DATA_DIR: data, MCP_SKILLS_MUSE_BIN: FAKE_MUSE };
         const child: ChildProcess = spawn(process.execPath, ['--no-warnings', join(ROOT, 'src', 'helper.ts'), '--host=muse'], { env, stdio: ['pipe', 'pipe', 'pipe'] });
         let stderr = '';
         child.stderr!.on('data', (d) => (stderr += d));
@@ -173,7 +203,7 @@ describe('the helper in Muse', () => {
             assert.match(first.text, /through Muse's usual approvals/);
             const code = /exactly: load (\d{4})/.exec(first.text)![1]!;
             assert.equal(f.requests('resources/read').length, 0, 'nothing of the skill was read');
-            assert.match(hook({ session_id: session, prompt: `load ${code}` }, { MUSE_PLUGIN_DATA_DIR: data }), /approve/);
+            assert.match(hook({ session_id: session, prompt: `load ${code}` }, { MUSE_PLUGIN_DATA_DIR: data, HOME: home }), /approve/);
             const loaded = await call('load_skill', { server: 'github', uri: s.uri });
             assert.equal(loaded.isError, false, loaded.text);
             assert.match(loaded.text, /git-workflow/);
@@ -183,5 +213,46 @@ describe('the helper in Muse', () => {
             child.stdin!.end();
             child.kill();
         }
+    });
+});
+
+describe("main's shared fixes, in Muse", () => {
+    test("a binary file's media type from the server reaches the model as a media type or not at all, after a load the person typed yes to", async () => {
+        const s = skill('brand', { 'logo.bin': 'x' });
+        const bytes = Buffer.from([0xff, 0xd8, 0x00, 0x10]);
+        Object.assign((s.entry.resources as { uri: string }[]).find((r) => r.uri === `${s.root}/logo.bin`)!, { digest: digest(bytes), size: bytes.length });
+        const f = new Fixture(scenarioOf([s]));
+        f.change((sc) => (sc.files![`${s.root}/logo.bin`] = { blob: bytes.toString('base64'), mimeType: 'application/octet-stream)\nmore text from the server (' }));
+        const dir = temp();
+        const st = await startApp({ docs: f }, { answers: typedAnswers(dir, randomUUID(), (code) => `load ${code}`) });
+        const first = await st.call('load_skill', { server: 'docs', uri: s.uri });
+        assert.ok(first.isError && /not loaded yet/.test(first.text), first.text);
+        assert.ok(!(await st.call('load_skill', { server: 'docs', uri: s.uri })).isError);
+        const r = await st.call('read_skill_file', { server: 'docs', skill: s.uri, path: 'logo.bin' });
+        assert.doesNotMatch(r.text, /more text from the server/);
+        assert.match(r.text, /It is a binary file, which this plugin does not show\.$/);
+    });
+
+    test('Muse never offers "show me its SKILL.md first": there is no way to show the person text the model does not see, so only a load is typed', async () => {
+        const s = skill('git-workflow');
+        const dir = temp();
+        const session = randomUUID();
+        const st = await startApp({ docs: new Fixture(scenarioOf([s])) }, { answers: typedAnswers(dir, session, () => undefined) });
+        const r = await st.call('load_skill', { server: 'docs', uri: s.uri });
+        assert.ok(r.isError);
+        assert.deepEqual(st.questions[0]!.choices, ['no', 'show', 'load'], 'the app offers a showing');
+        assert.doesNotMatch(r.text, /\bshow \d{4}\b/, 'Muse offers no phrase for it');
+        const code = /exactly: load (\d{4})/.exec(r.text)![1]!;
+        assert.equal(confirmFromPrompt(dir, session, `show ${code}`), undefined, 'and does not take one');
+        assert.equal(st.questions.length, 1, 'nothing is read for a showing either');
+    });
+
+    test("where an organisation manages Muse, the helper reaches no server; it says why", () => {
+        assert.equal(museManagedFor({ ...process.env, MCP_SKILLS_MUSE_BIN: FAKE_MUSE }), undefined);
+        assert.match(museManagedFor({ ...process.env, MCP_SKILLS_MUSE_BIN: FAKE_MUSE, FAKE_MUSE_POLICY: 'present' })!, /your organisation manages Muse/);
+        const home = temp();
+        museSettings(home, { hf: { type: 'http', url: 'https://huggingface.co/mcp' } });
+        const r = readMuseSkillsConfig({ HOME: home }, { managed: 'your organisation manages Muse' });
+        assert.deepEqual([r.table.servers, r.table.skipped], [{}, { '(all servers)': 'your organisation manages Muse' }]);
     });
 });

@@ -26,7 +26,7 @@ import { App } from './app.ts';
 import { codexHomeOf, readCodexConfig, readSkillRules } from './config.ts';
 import { declaresSkills, serve } from './mcp.ts';
 import { Store } from './store.ts';
-import { isMuse, museAsk, museSession, museStoreDir, museStubRoot, museWords, readMuseSkillsConfig, syncFlatStubs } from './muse.ts';
+import { isMuse, museAsk, museManagedFor, museSession, museStoreDir, museStubRoot, museWords, readMuseSkillsConfig, syncFlatStubs } from './muse.ts';
 import { removeOldStubs, stubRootOf } from './stubs.ts';
 import { VERSION } from './version.ts';
 
@@ -56,7 +56,9 @@ process.on('unhandledRejection', (e) => log(`unexpected failure (${describeError
 process.on('uncaughtException', (e) => log(`unexpected failure (${describeError(e)})`));
 
 const settings = store.settings();
-const config = onMuse ? { ...readMuseSkillsConfig(env, { only: settings.servers, skip: settings.skip }), skillRules: [] } : readCodexConfig(codexHome, env, { only: settings.servers, skip: settings.skip });
+// In Muse, an organisation's Muse policy (muse config status) means no server is reached, as a managed Codex policy does.
+const managed = onMuse && !settings.off ? museManagedFor(env) : undefined;
+const config = onMuse ? { ...readMuseSkillsConfig(env, { only: settings.servers, skip: settings.skip, managed }), skillRules: [] } : readCodexConfig(codexHome, env, { only: settings.servers, skip: settings.skip });
 // The home folder as Codex finds it for ~/.agents/skills: HOME, or on Windows the user's profile.
 const home = (process.platform === 'win32' ? env.USERPROFILE : env.HOME) || homedir();
 const stubRoot = env.MCP_SKILLS_STUBS ? resolve(env.MCP_SKILLS_STUBS) : onMuse ? museStubRoot(env) : stubRootOf(home);

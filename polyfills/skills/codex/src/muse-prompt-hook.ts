@@ -8,6 +8,7 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { serverEnabled } from '../../../events/codex/src/muse-config.ts';
 import { confirmFromPrompt, museStoreDir } from './muse-confirm.ts';
 
 function main(): void {
@@ -19,6 +20,8 @@ function main(): void {
     }
     const session = typeof input.session_id === 'string' && /^[0-9a-f-]{36}$/i.test(input.session_id) ? input.session_id.toLowerCase() : undefined;
     if (!session || typeof input.prompt !== 'string') return;
+    // With the plugin's MCP server not turned on in Muse (rejected, or never approved), nothing of it runs: neither does this.
+    if (!serverEnabled(process.env, process.env.MUSE_PLUGIN_ID || 'mcp-skills')) return;
     const dir = museStoreDir(process.env);
     try {
         if ((JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8')) as { off?: unknown }).off === true) return;

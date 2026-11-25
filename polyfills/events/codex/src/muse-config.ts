@@ -6,9 +6,10 @@
 // server is left out, with the reason. A server signed in through Muse (`muse mcp login`) is
 // not reached with that sign-in: its tokens are Muse's, and no polyfill reads them.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { accessSync, constants, existsSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { basename, delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
 import type { ServerTable, UpstreamConfig } from '../../core/src/upstream.ts';
 
 type Json = Record<string, unknown>;
@@ -94,10 +95,16 @@ export function parseMuseServer(v: Json, env: NodeJS.ProcessEnv, base: string, i
  * The servers in Muse's user settings (or `o.file`, a JSON file with `mcpServers`), narrowed to
  * `o.only` and without `o.skip`. `o.isSelf` says which command is the plugin's own server.
  */
-export function readMuseSettings(env: NodeJS.ProcessEnv, o: { file?: string; only?: string[]; skip?: string[]; isSelf?: (arg: string) => boolean; log?: (s: string) => void } = {}): ServerTable & { file: string } {
+export function readMuseSettings(env: NodeJS.ProcessEnv, o: { file?: string; only?: string[]; skip?: string[]; isSelf?: (arg: string) => boolean; log?: (s: string) => void; managed?: string } = {}): ServerTable & { file: string } {
     const log = o.log ?? (() => {});
     const file = o.file ? resolve(o.file) : museSettingsPath(env);
     const out: ServerTable & { file: string } = { servers: {}, skipped: {}, file };
+    // Where an organisation manages Muse (museManaged), no server is reached.
+    if (o.managed) {
+        out.skipped['(all servers)'] = o.managed;
+        log(o.managed);
+        return out;
+    }
     let config: unknown = {};
     try {
         if (existsSync(file)) config = JSON.parse(readFileSync(file, 'utf8'));
@@ -124,4 +131,72 @@ export function readMuseSettings(env: NodeJS.ProcessEnv, o: { file?: string; onl
         }
     }
     return out;
+}
+
+// ---- The muse command, Muse's enterprise configuration, and what the person turned off ----
+
+const executable = (p: string) => {
+    try {
+        if (!statSync(p).isFile()) return false;
+        accessSync(p, constants.X_OK);
+        return true;
+    } catch {
+        return false;
+    }
+};
+
+/**
+ * The `muse` to run: `bin` if given (an absolute path), else the first on PATH, else where Muse's
+ * installers put it, else the program that started this process when that is a muse.
+ */
+export function findMuse(env: NodeJS.ProcessEnv = process.env, bin?: string): string | undefined {
+    if (bin) return isAbsolute(bin) && executable(bin) ? bin : undefined;
+    for (const dir of (env.PATH ?? '').split(delimiter).filter(Boolean)) if (executable(join(dir, 'muse'))) return join(dir, 'muse');
+    const known = ['/opt/homebrew/bin/muse', '/usr/local/bin/muse', join(home(env), '.local', 'bin', 'muse')].find(executable);
+    if (known) return known;
+    if (process.platform === 'win32') return undefined;
+    const r = spawnSync('ps', ['-o', 'comm=', '-p', String(process.ppid)], { encoding: 'utf8', timeout: 5000, shell: false });
+    const parent = (r.stdout ?? '').trim();
+    return isAbsolute(parent) && /^muse/.test(basename(parent)) && executable(parent) ? parent : undefined;
+}
+
+/**
+ * Why this plugin connects to no server, when an organisation manages Muse: `muse config status
+ * --json` lists Muse's enterprise configuration (a defaults plane and a policy plane, from a system
+ * file or macOS managed preferences), and either may say which MCP servers Muse may use. This
+ * plugin cannot judge that policy, so with any of it present, or when it can't be read, it reaches
+ * none. Undefined when none is present.
+ */
+export function museManaged(muse: string | undefined, env: NodeJS.ProcessEnv = process.env): string | undefined {
+    if (!muse) return "the muse command was not found, so this plugin can't check whether your organisation manages Muse, and connects to no server";
+    const childEnv = Object.fromEntries(Object.entries(env).filter(([k, v]) => v !== undefined && !/^(MCP_EVENTS_|MCP_SKILLS_)/.test(k))) as NodeJS.ProcessEnv;
+    const r = spawnSync(muse, ['config', 'status', '--json'], { encoding: 'utf8', timeout: 15000, env: childEnv, shell: false, windowsHide: true });
+    let status: unknown;
+    try {
+        status = JSON.parse(r.stdout ?? '');
+    } catch {
+        return "Muse's enterprise configuration could not be read (muse config status), so this plugin connects to no server";
+    }
+    const sources = isTable(status) && Array.isArray(status.sources) ? status.sources.filter(isTable) : undefined;
+    if (!sources) return "Muse's enterprise configuration could not be read (muse config status), so this plugin connects to no server";
+    const present = sources.filter((x) => x.state !== 'absent');
+    if (!present.length) return undefined;
+    const what = present.map((x) => `${String(x.plane ?? 'a')} plane from ${String(x.source_class ?? 'somewhere')}`).join(', ');
+    return `your organisation manages Muse (${what}), which may say which MCP servers Muse may use, and this plugin cannot judge that policy, so it connects to none`;
+}
+
+/**
+ * Whether the person has this plugin's MCP server turned on in Muse: it is approved and not
+ * rejected (`runtime_capabilities` in Muse's settings). A hook of the plugin does nothing while it
+ * isn't, as Muse runs nothing of the server.
+ */
+export function serverEnabled(env: NodeJS.ProcessEnv, plugin: string, server = plugin): boolean {
+    try {
+        const j = JSON.parse(readFileSync(museSettingsPath(env), 'utf8')) as unknown;
+        const caps = isTable(j) && isTable(j.runtime_capabilities) ? j.runtime_capabilities : {};
+        const mine = caps[`plugin:${plugin}:mcp_server:${server}`];
+        return isTable(mine) && mine.enabled === true;
+    } catch {
+        return false;
+    }
 }

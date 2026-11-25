@@ -425,3 +425,31 @@ test('M-5 the command is the plan, word for word: every word that needs it is qu
     `muse mcp add n --url https://a.example/mcp --bearer-token-env-var TOK -H 'X-Team: blue sky' -H 'X-Key: \${KEY_1}'`,
   )
 })
+
+test("M-6 in Muse the shared checks hold: a card whose text shows as something else is refused, and a header value with a character that shows as nothing gets no command", async () => {
+  const hidden = await localWeb({
+    '/.well-known/ai-catalog.json': {
+      body: {
+        specVersion: '1.0',
+        entries: [
+          { identifier: 'urn:air:localhost:rtl', type: 'application/mcp-server-card+json', url: '{origin}/rtl.json' },
+          { identifier: 'urn:air:localhost:zw', type: 'application/mcp-server-card+json', url: '{origin}/zw.json' },
+        ],
+      },
+    },
+    '/rtl.json': { body: card({ name: 'com.example/rtl', title: 'Docs\u202egnp', remotes: [{ type: 'streamable-http', url: '{origin}/mcp' }] }) },
+    '/zw.json': { body: card({ name: 'com.example/zw', title: 'Zero width', remotes: [{ type: 'streamable-http', url: '{origin}/zw/mcp', headers: [{ name: 'X-Team', value: 'blue\u200b' }] }] }) },
+  })
+  after(() => hidden.close())
+  const s = museServer()
+  const d = await s.call('discover_mcp_servers', { domain: hidden.origin })
+  // Both cards are refused as they are read: neither can be shown as what it is.
+  assert.match(d.text, /MCP servers listed: 2 \(0 with a valid Server Card\)/, d.text)
+  assert.equal((d.text.match(/REFUSED: /g) ?? []).length, 2, d.text)
+  const rtl = await s.call('add_mcp_server', { domain: hidden.origin, identifier: 'urn:air:localhost:rtl', url: `${hidden.origin}/mcp` })
+  assert.equal(rtl.isError, true)
+  const zw = await s.call('add_mcp_server', { domain: hidden.origin, identifier: 'urn:air:localhost:zw', url: `${hidden.origin}/zw/mcp` })
+  assert.equal(zw.isError, true, zw.text)
+  assert.doesNotMatch(zw.text, /muse mcp add/)
+  assert.deepEqual(s.fake.calls(), [], 'muse is not even asked about the name')
+})
