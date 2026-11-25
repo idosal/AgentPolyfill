@@ -1,6 +1,6 @@
 {
   "name": "mcp-tasks",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "MCP Tasks (SEP-2663) for Codex: a tool of one of your MCP servers can run as a long task on the server. You approve each start in Codex's own form, and the idle session is woken when the task finishes.",
   "author": { "name": "Ido Salomon", "url": "https://github.com/idosal" },
   "homepage": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/tasks/codex",

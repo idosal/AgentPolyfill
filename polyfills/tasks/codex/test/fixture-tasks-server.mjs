@@ -15,7 +15,8 @@
 //   relapse         completes, then claims to be working again
 //   bad_create      a CreateTaskResult with no taskId
 //
-// FIXTURE_NO_TASKS=1: the extension isn't advertised. FIXTURE_OLD_FORM=1: only the 2025-11-25 form's
+// FIXTURE_LEGACY=1: a server on the 2025 revisions only (no server/discover), advertising the extension
+// at initialize, where it isn't defined. FIXTURE_NO_TASKS=1: the extension isn't advertised. FIXTURE_OLD_FORM=1: only the 2025-11-25 form's
 // top-level `tasks` capability is advertised.
 //
 // `--http <port file>`: serves Streamable HTTP on 127.0.0.1 (a port of its own, written to that file)
@@ -82,8 +83,10 @@ function handle(m, headers) {
     if (id === undefined) return;
     const ok = (result) => send({ id, result: { resultType: 'complete', _meta: { 'io.modelcontextprotocol/serverInfo': { name: 'fixture-tasks', version: '1.0.0' } }, ...result } });
     const err = (code, message) => send({ id, error: { code, message } });
+    if (method === 'server/discover' && process.env.FIXTURE_LEGACY === '1') return err(-32601, 'Method not found');
     if (method === 'server/discover') return ok({ supportedVersions: ['2026-07-28'], capabilities: caps(), ttlMs: 0, cacheScope: 'private' });
-    if (method === 'initialize') return send({ id, result: { protocolVersion: '2025-11-25', capabilities: caps(), serverInfo: { name: 'fixture-tasks', version: '1.0.0' } } });
+    if (method === 'initialize') return send({ id, result: { protocolVersion: '2025-11-25', capabilities: process.env.FIXTURE_LEGACY === '1' ? { tools: {}, extensions: { [EXT]: {} } } : caps(), serverInfo: { name: 'fixture-tasks', version: '1.0.0' } } });
+    if (method === 'tools/list' && process.env.FIXTURE_LEGACY === '1') return send({ id, result: { tools: TOOLS } });
     if (method === 'tools/list') return ok({ tools: TOOLS, ttlMs: 0, cacheScope: 'private' });
     if (method === 'tools/call') {
         const name = params.name;

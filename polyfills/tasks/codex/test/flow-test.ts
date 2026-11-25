@@ -2,11 +2,12 @@
 
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
-import { choose, FakeCodex, idOf, newThread, waitFor, world, type World } from './harness.ts';
+import { choose, FakeCodex, idOf, newThread, stopServers, waitFor, world, type World } from './harness.ts';
 
 const open: FakeCodex[] = [];
 after(async () => {
     for (const c of open) await c.close().catch(() => {});
+    stopServers();
 });
 
 async function started(w?: World, env: Record<string, string> = {}, caps?: Record<string, unknown>) {
@@ -217,19 +218,41 @@ test('a server with only the 2025-11-25 form is left alone, and said so', async 
     assert.match(r.text, /experimental form of the 2025-11-25 specification/);
 });
 
-test('polling resumes after the helper restarts', async () => {
-    const w = await world({ fixtureEnv: { FIXTURE_TASK_MS: '4000' } });
+test('C0c: a server that advertises the extension on a 2025 revision only is left alone, and said so', async () => {
+    const w = await world({ fixtureEnv: { FIXTURE_LEGACY: '1' } });
+    const c = await started(w);
+    const r = await c.call('list_task_servers', {}, newThread());
+    assert.match(r.text, /speaks protocol revision 2025-11-25, and the Tasks extension is defined from 2026-07-28 on/);
+    assert.equal(calls(w, 'tools/call').length, 0);
+});
+
+test('C7: after a restart, open tasks are polled again; the wake waits for the person\'s next turn', async () => {
+    const w = await world({ http: true, fixtureEnv: { FIXTURE_TASK_MS: '2500' } });
     const thread = newThread();
     const c = await started(w);
     c.respond = choose('start');
-    const id = idOf((await c.call('start_task', { server: 'jobs', tool: 'slow' }, thread)).text)!;
+    const id = idOf((await c.call('start_task', { server: 'jobs', tool: 'slow', arguments: { text: 'resumed' } }, thread)).text)!;
     await c.close();
     open.splice(open.indexOf(c), 1);
-    // The fixture went with the first helper; a fresh one doesn't know the task: "gone" is the right answer.
+    // A new helper, as after Codex restarts: it picks the task up from disk at once.
     const c2 = await started(w);
-    const r = await waitFor(async () => {
-        const t = await c2.call('get_task', { task: id }, thread);
-        return /gone|completed/.test(t.text) && t;
-    }, 10000, 'the resumed task');
-    assert.match(r.text, new RegExp(id));
+    await waitFor(() => /held until the person's next turn/.test(w.helperLog()), 15000, 'the held wake');
+    assert.equal(w.wakes().length, 0);
+    await c2.call('list_tasks', {}, thread);
+    await waitFor(() => w.wakes()[0], 10000, 'the wake');
+    assert.equal((await c2.call('get_task_result', { task: id }, thread)).content[0]?.text, 'done: resumed');
+});
+
+test('a second window leaves the polling to the first, and takes it over when the first goes', async () => {
+    const w = await world({ http: true, fixtureEnv: { FIXTURE_TASK_MS: '3000' } });
+    const thread = newThread();
+    const a = await started(w);
+    a.respond = choose('start');
+    const id = idOf((await a.call('start_task', { server: 'jobs', tool: 'slow', arguments: { text: 'two' } }, thread)).text)!;
+    const b = await started(w);
+    await b.call('list_tasks', {}, thread);
+    await a.close();
+    open.splice(open.indexOf(a), 1);
+    await waitFor(() => w.wakes()[0], 20000, 'the wake from the second window');
+    assert.equal((await b.call('get_task_result', { task: id }, thread)).content[0]?.text, 'done: two');
 });

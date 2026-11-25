@@ -1,7 +1,7 @@
 {
   "name": "mcp-tasks-core",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "description": "The client side of MCP Tasks (SEP-2663, io.modelcontextprotocol/tasks) shared by the Tasks polyfills: its own connection that declares the extension per request, the task store, the poller, and the rules for a server's answers.",
   "engines": { "node": ">=20" },
