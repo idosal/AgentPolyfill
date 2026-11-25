@@ -24,7 +24,7 @@ The agent folder is a throwaway one, never your own: make it with
 `node live/run.ts --new-agent-dir <path>`, sign in to it (`PI_CODING_AGENT_DIR=<path> pi`,
 then `/login`), then run. The script refuses any other folder, writes `mcp.json`
 only where a live run left the one there, and prints servers by name and
-address only ([`live/agent-dir.ts`](../live/agent-dir.ts)). Afterwards, sign out with
+origin only ([`live/agent-dir.ts`](../live/agent-dir.ts)). Afterwards, sign out with
 `PI_CODING_AGENT_DIR=<path> pi auth logout <provider>` and delete the folder.
 
 ```bash
