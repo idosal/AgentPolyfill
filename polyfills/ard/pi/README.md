@@ -4,9 +4,8 @@ Pi finds MCP servers through Agentic Resource Discovery (ARD): in what a
 domain lists, or by asking a registry for a server that can do a task. You
 choose the registry, and Pi asks before every search and every addition.
 
-Also available for [Claude Code](../claude-code/README.md) and
-[Codex](../codex/README.md). All three use the same ARD registry client and
-Server Cards modules.
+Also available for Claude Code, Codex and OpenCode: [ard-discovery for Claude Code](../claude-code/README.md), [ard-discovery for Codex](../codex/README.md), [ard-discovery for OpenCode](../opencode/README.md).
+All four use the same ARD registry client and Server Cards modules.
 
 > Search the registry I named for an MCP server that can check why my CI build failed.
 

@@ -3,8 +3,7 @@
 OpenCode can watch events on your MCP servers ("tell me when a deploy fails")
 and act when one fires, even while the session sits idle with nobody typing.
 
-Also available for Claude Code ([mcp-events for Claude Code](../claude-code/README.md))
-and Codex ([mcp-events for Codex](../codex/README.md)).
+Also available for Claude Code, Codex and Pi: [mcp-events for Claude Code](../claude-code/README.md), [mcp-events for Codex](../codex/README.md), [mcp-events for Pi](../pi/README.md).
 
 This plugin implements the client side of the MCP Events extension,
 [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
@@ -35,8 +34,15 @@ opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/events/ope
 That adds it to `plugins` in your global configuration
 (`~/.config/opencode/opencode.json`), so it runs in every project, from the
 next time OpenCode opens one. `#main` installs what the main branch holds; a
-commit in its place pins one version. To remove it, run `opencode plugin remove` with the
-same text.
+commit in its place pins one version. To remove it, run `opencode plugin remove`
+with the same text. OpenCode keeps its downloaded copy in
+`~/.cache/opencode/npm/` (a `git-AgentPolyfill-…` folder), which you can
+delete afterwards.
+
+Removing it leaves its watches, stored events and log in
+`~/.local/share/opencode/mcp-events/` (or `MCP_EVENTS_STATE`), which you can
+delete, and the "Allow always" answers it kept, in OpenCode's plugin storage
+(OpenCode's own database).
 
 Or, from a clone of this repository, add the plugin's folder to `plugins`
 yourself, in the global configuration or a project's `opencode.json`:

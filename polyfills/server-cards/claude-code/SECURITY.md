@@ -1,7 +1,7 @@
 # Security
 
-This covers `mcp-server-cards` for Claude Code. The Codex form has its own:
-[SECURITY.md](../codex/SECURITY.md).
+This covers `mcp-server-cards` for Claude Code. The other forms have their own:
+[Codex](../codex/SECURITY.md), [Pi](../pi/SECURITY.md), [OpenCode](../opencode/SECURITY.md).
 
 This mod reads documents that strangers publish on the web: catalogs and
 Server Cards. It turns one of those cards into an entry in your Claude Code

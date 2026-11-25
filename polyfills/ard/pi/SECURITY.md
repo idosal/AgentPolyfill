@@ -1,7 +1,7 @@
 # Security
 
-This covers `ard-discovery` for Pi. The [Claude Code](../claude-code/SECURITY.md)
-and [Codex](../codex/SECURITY.md) forms have their own host security notes.
+This covers `ard-discovery` for Pi. The other forms have their own host
+security notes: [Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md), [OpenCode](../opencode/SECURITY.md).
 
 This extension reads a domain's ARD manifest and asks a registry for MCP
 servers. Registries and publishers make claims; neither is trusted authority.

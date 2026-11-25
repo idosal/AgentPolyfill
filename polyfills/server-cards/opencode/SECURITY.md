@@ -1,7 +1,7 @@
 # Security
 
 This covers mcp-server-cards for OpenCode. The other forms have their own:
-[Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md).
+[Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md), [Pi](../pi/SECURITY.md).
 
 "The plugin" below means this OpenCode plugin: one bundled file
 (`plugin/server.js`) that OpenCode loads into its own server, with the Server
@@ -80,6 +80,10 @@ holds no token. A sign-in for an added server is OpenCode's
 
 ## What it does not protect against
 
+- **A public name that resolves to a private address.** The fetch code is
+  the Codex form's, and it has the same limit: addresses named directly are
+  refused, at every redirect hop too, but a public name is not resolved and
+  checked first.
 - **What OpenCode's TUI shows in the prompt.** OpenCode 2.4.1's TUI shows a
   request for this plugin's action as "Call tool mcp_server_cards_add",
   without the resource or metadata it carries. You read the name and URL on
