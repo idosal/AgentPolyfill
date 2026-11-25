@@ -86,19 +86,24 @@ export class SharedSession extends Session {
   }
 }
 
-/** The question Antigravity's approval card shows: the server, the URL, the headers, the file, and the undo. */
+/**
+ * The question Antigravity's approval card shows: the server, the URL, the headers, the file, and
+ * the undo. The CLI's card shows a question's first two lines and hides the rest behind
+ * "⋯ (N lines hidden)" (seen live, CLI 1.5.17), so those two say what is written and where.
+ */
 export function askText(plan: AntigravityPlan, card: ServerCard, provenance: string, file: string) {
   const host = hostOf(plan.url) || '(unknown host)'
   const headers = Object.entries(plan.headers).map(([k, v]) => `${k}: ${v}`)
+  const names = Object.keys(plan.headers)
   return shownText(
     [
       // The host first, as in the other forms: a card that joins lines still reads it first.
       `${host}: add the MCP server "${plan.name}" to Antigravity?`,
-      `It connects to the host ${host}`,
-      `URL: ${plan.url}`,
+      `URL ${plan.url} · headers ${names.length ? names.join(', ') : 'none'} · written to ${file}`,
+      `It connects to the host ${host}.`,
       headers.length ? `Headers: ${headers.join('; ')}` : 'Headers: none',
       `From the Server Card ${card.name}, ${provenance}.`,
-      `Written to ${file} (all your projects, in the App, the CLI and the IDE).`,
+      `Written to ${file}, for all your projects.`,
       `To undo: ${undoText(plan.name, file)}.`,
     ].join('\n'),
   )

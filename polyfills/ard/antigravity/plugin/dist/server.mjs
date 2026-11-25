@@ -1759,15 +1759,16 @@ ${s.identifier}`, { card: s.card, isLocal: s.isLocal, provenance: `listed in ${d
 function askText(plan, card, provenance, file) {
   const host2 = hostOf(plan.url) || "(unknown host)";
   const headers = Object.entries(plan.headers).map(([k, v]) => `${k}: ${v}`);
+  const names = Object.keys(plan.headers);
   return shownText(
     [
       // The host first, as in the other forms: a card that joins lines still reads it first.
       `${host2}: add the MCP server "${plan.name}" to Antigravity?`,
-      `It connects to the host ${host2}`,
-      `URL: ${plan.url}`,
+      `URL ${plan.url} \xB7 headers ${names.length ? names.join(", ") : "none"} \xB7 written to ${file}`,
+      `It connects to the host ${host2}.`,
       headers.length ? `Headers: ${headers.join("; ")}` : "Headers: none",
       `From the Server Card ${card.name}, ${provenance}.`,
-      `Written to ${file} (all your projects, in the App, the CLI and the IDE).`,
+      `Written to ${file}, for all your projects.`,
       `To undo: ${undoText(plan.name, file)}.`
     ].join("\n")
   );

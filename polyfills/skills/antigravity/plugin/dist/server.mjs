@@ -33769,9 +33769,9 @@ function question(server, entry, store) {
   const resources = entry.resources === "dynamic" ? [] : entry.resources;
   const nested = nestedIn(store.dir, server, entry.uri);
   return [
+    // The CLI's card shows a question's first two lines and hides the rest (seen live, CLI 1.5.17).
     `Load the skill ${JSON.stringify(entry.frontmatter.name)} from the MCP server ${JSON.stringify(server)}?`,
-    `URI: ${entry.uri}`,
-    store.wasApproved(server, entry.uri) ? "It has changed on the server (or the server has moved) since you last approved it." : "This is a new skill approval: you have not approved this version before.",
+    `${store.wasApproved(server, entry.uri) ? "It has changed on the server (or the server has moved) since you last approved it" : "This is a new skill approval: you have not approved this version before"} \xB7 URI ${entry.uri}`,
     entry.resources === "dynamic" ? "The server generates its content and publishes no digests, so it cannot be verified. Approval is required at every load." : `${resources.length} files, ${resources.reduce((n, r) => n + r.size, 0)} bytes; each is checked against the server's SHA-256 digest when read.`,
     ...nested ? [`It is nested inside the skill ${JSON.stringify(nested)}; approving that one does not approve this one.`] : [],
     `The server's description (untrusted): ${plain2(entry.frontmatter.description, 600)}`,
@@ -33976,10 +33976,10 @@ var App = class {
       const server = textArg(args, "server"), uri = textArg(args, tool === "load_skill" ? "uri" : "skill");
       const c = await this.#ensure(server), fingerprint = fingerprintOf(c.cfg);
       if (tool === "load_skill") {
-        if (typeof args[TICKET_ARG] !== "string" || !/^[0-9a-f]{32}$/.test(args[TICKET_ARG])) throw new LocalError("the skill is not loaded: Antigravity's approval ticket did not reach the plugin");
+        if (typeof args[TICKET_ARG] !== "string" || !/^[0-9a-f]{32}$/.test(args[TICKET_ARG])) throw new LocalError("the skill is not loaded: Antigravity's approval ticket did not reach the plugin. The plugin's hook runs only when the tool is called by its own name, mcp_mcp-skills_skills_load_skill, not through call_mcp_tool");
         const entry = preparedEntry(this.store.dir, server, uri, fingerprint);
         const v = await versionOf(server, entry, fingerprint);
-        const ticket2 = redeemTicket(this.store.dir, args[TICKET_ARG], tool, v.digest);
+        const ticket2 = redeemTicket(this.store.dir, args[TICKET_ARG], tool, v.digest, Date.now(), "mcp-skills_skills");
         if (!ticket2.ok) throw new LocalError(`the skill is not loaded: ${ticket2.why}`);
         if (!ticket2.conversationId) throw new LocalError("the ticket has no conversation");
         const host2 = this.#thread(ticket2.conversationId);
@@ -34009,7 +34009,7 @@ var App = class {
         }
         return { text: secrets.scrub(loadedText(loaded, { asked })) };
       }
-      const ticket = redeemTicket(this.store.dir, args[TICKET_ARG], tool, readDigest(tool, args, fingerprint));
+      const ticket = redeemTicket(this.store.dir, args[TICKET_ARG], tool, readDigest(tool, args, fingerprint), Date.now(), "mcp-skills_skills");
       if (!ticket.ok) throw new LocalError(ticket.why);
       const host = this.#thread(ticket.conversationId);
       const name = host.held().find((h) => h.label === server && h.entry.uri === uri)?.entry.frontmatter.name ?? "skill";

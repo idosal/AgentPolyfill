@@ -116,10 +116,10 @@ export class App {
             const c = await this.#ensure(server), fingerprint = fingerprintOf(c.cfg);
             if (tool === 'load_skill') {
                 // Check for a ticket before even consulting fresh metadata, and never fetch text until redemption.
-                if (typeof args[TICKET_ARG] !== 'string' || !/^[0-9a-f]{32}$/.test(args[TICKET_ARG] as string)) throw new LocalError('the skill is not loaded: Antigravity\'s approval ticket did not reach the plugin');
+                if (typeof args[TICKET_ARG] !== 'string' || !/^[0-9a-f]{32}$/.test(args[TICKET_ARG] as string)) throw new LocalError('the skill is not loaded: Antigravity\'s approval ticket did not reach the plugin. The plugin\'s hook runs only when the tool is called by its own name, mcp_mcp-skills_skills_load_skill, not through call_mcp_tool');
                 const entry = preparedEntry(this.store.dir, server, uri, fingerprint);
                 const v = await versionOf(server, entry, fingerprint);
-                const ticket = redeemTicket(this.store.dir, args[TICKET_ARG], tool, v.digest);
+                const ticket = redeemTicket(this.store.dir, args[TICKET_ARG], tool, v.digest, Date.now(), 'mcp-skills_skills');
                 if (!ticket.ok) throw new LocalError(`the skill is not loaded: ${ticket.why}`);
                 if (!ticket.conversationId) throw new LocalError('the ticket has no conversation');
                 const host = this.#thread(ticket.conversationId);
@@ -139,7 +139,7 @@ export class App {
                 try { recordHeld(this.store.dir, ticket.conversationId, server); } catch { this.#o.log?.('could not record the loaded skill for rule X8'); }
                 return { text: secrets.scrub(loadedText(loaded, { asked })) };
             }
-            const ticket = redeemTicket(this.store.dir, args[TICKET_ARG], tool, readDigest(tool, args, fingerprint));
+            const ticket = redeemTicket(this.store.dir, args[TICKET_ARG], tool, readDigest(tool, args, fingerprint), Date.now(), 'mcp-skills_skills');
             if (!ticket.ok) throw new LocalError(ticket.why);
             const host = this.#thread(ticket.conversationId);
             const name = host.held().find(h => h.label === server && h.entry.uri === uri)?.entry.frontmatter.name ?? 'skill';

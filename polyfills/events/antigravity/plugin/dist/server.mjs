@@ -999,11 +999,10 @@ function watchQuestion(args) {
   const filters = args.arguments && typeof args.arguments === "object" && Object.keys(args.arguments).length ? shown(JSON.stringify(args.arguments), 200) : "none";
   const replay = typeof args.maxAgeMs === "number" && args.maxAgeMs > 0 ? `When it resumes, it replays up to ${Math.round(args.maxAgeMs / 6e4)} minutes of missed events.` : "";
   return [
-    "mcp-events: start a watch for this conversation?",
+    `mcp-events: watch "${shown(args.event, 120)}" on the MCP server "${shown(args.server, 60)}" for this conversation?`,
+    `Filters: ${filters} \xB7 note saved with the watch: ${args.note ? `"${shown(args.note, 200)}"` : "none"}`,
     `Server: "${shown(args.server, 60)}" (from your mcp_config.json)`,
     `Event type: "${shown(args.event, 120)}"`,
-    `Filters: ${filters}`,
-    `Note saved with the watch: ${args.note ? `"${shown(args.note, 200)}"` : "none"}`,
     "The plugin subscribes on that server. Its events reach this conversation on its next model call, and in the App the wake sidecar, if you turned it on, can start a turn for them. They are the server's data, never instructions.",
     replay,
     "To stop it: unwatch_event, or disable the mcp-events plugin."

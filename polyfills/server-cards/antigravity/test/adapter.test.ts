@@ -315,8 +315,10 @@ test('E-1 discover, the hook asks with the server, URL, file and undo, and the a
   assert.equal(h.status, 0)
   assert.equal(h.out.decision, 'force_ask', JSON.stringify(h.out))
   assert.match(h.out.reason, /^127\.0\.0\.1:\d+: add the MCP server "example-docs" to Antigravity\?/)
-  assert.match(h.out.reason, new RegExp(`URL: ${web.origin}/mcp`))
-  assert.match(h.out.reason, /Written to .*\.gemini\/config\/mcp_config\.json/)
+  // The CLI's card shows the first two lines: they say what is written and where.
+  assert.match(h.out.reason.split('\n')[1], new RegExp(`^URL ${web.origin}/mcp · headers none · written to .*\\.gemini/config/mcp_config\\.json$`))
+  assert.match(h.out.reason, /Written to .*\.gemini\/config\/mcp_config\.json, for all your projects\./)
+  assert.doesNotMatch(h.out.reason, /IDE/)
   assert.match(h.out.reason, /To undo:/)
   assert.equal(existsSync(configOf(home)), false, 'nothing is written by the hook')
   const r = await s.call('add_mcp_server', { ...addDocs(), ...h.out.overwrite })

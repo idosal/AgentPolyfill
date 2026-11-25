@@ -57,9 +57,9 @@ export function question(server: string, entry: SkillEntry, store: Store): strin
     const resources = entry.resources === 'dynamic' ? [] : entry.resources;
     const nested = nestedIn(store.dir, server, entry.uri);
     return [
+        // The CLI's card shows a question's first two lines and hides the rest (seen live, CLI 1.5.17).
         `Load the skill ${JSON.stringify(entry.frontmatter.name)} from the MCP server ${JSON.stringify(server)}?`,
-        `URI: ${entry.uri}`,
-        store.wasApproved(server, entry.uri) ? 'It has changed on the server (or the server has moved) since you last approved it.' : 'This is a new skill approval: you have not approved this version before.',
+        `${store.wasApproved(server, entry.uri) ? 'It has changed on the server (or the server has moved) since you last approved it' : 'This is a new skill approval: you have not approved this version before'} · URI ${entry.uri}`,
         entry.resources === 'dynamic' ? 'The server generates its content and publishes no digests, so it cannot be verified. Approval is required at every load.' : `${resources.length} files, ${resources.reduce((n, r) => n + r.size, 0)} bytes; each is checked against the server\'s SHA-256 digest when read.`,
         ...(nested ? [`It is nested inside the skill ${JSON.stringify(nested)}; approving that one does not approve this one.`] : []),
         `The server's description (untrusted): ${plain(entry.frontmatter.description, 600)}`,

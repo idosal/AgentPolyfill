@@ -179,7 +179,7 @@ test('E-1 installed hook and server: ask, overwrite, verified content, saved app
     const args = { server: 'docs', uri: s1.uri };
     const h = runHook(SERVER, home, preToolUse(TOOL, args));
     assert.equal(h.status, 0, h.stderr); assert.equal(h.out.decision, 'force_ask');
-    assert.match(h.out.reason, /new skill approval/); assert.match(h.out.reason, /git-workflow/); assert.match(h.out.reason, /URI: skill:/);
+    assert.match(h.out.reason, /new skill approval/); assert.match(h.out.reason, /git-workflow/); assert.match(h.out.reason.split('\n')[1], /^This is a new skill approval: you have not approved this version before · URI skill:/);
     assert.deepEqual(f.requests('resources/read'), []);
     const loaded = await call(s, 'load_skill', { ...args, ...h.out.overwrite });
     assert.equal(loaded.isError, false, text(loaded)); assert.match(text(loaded), /Body of git-workflow/);
