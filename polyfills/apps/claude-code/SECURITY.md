@@ -75,8 +75,10 @@ What this leaves:
   it. Closing the connection is the only notice it gets, and for streamable
   HTTP that closing is itself one request (the session's `DELETE`).
 - Within one request, what follows the server's own answers goes on the same
-  yes: the second half of a connection's handshake, further pages of a tool
-  list, and the HTTP event stream rmcp keeps open while the connection stands.
+  yes: the second half of a connection's handshake, the `initialize` that
+  follows a `server/discover` a 2025-era server didn't know, further pages of
+  a tool list, and the HTTP event stream rmcp keeps open while the connection
+  stands.
 - A no is heard only when the plugin asks: at the next request to that server,
   or within half a second while one is in flight. An answer that arrives before
   then still reaches the app. A connection with nothing in flight (a stdio

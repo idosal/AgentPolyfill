@@ -267,7 +267,7 @@ export const state = {
   // MCP Apps itself, and `claude -p` or the Agent SDK has no one to click.
   isActive: false,
   /** The person's choices for consent (plugin.json userConfig), defaults as Claude Desktop. */
-  settings: {} as { appToolCalls?: string; appMessages?: string; offerFullscreen?: string; offerBrowser?: string },
+  settings: {} as { appToolCalls?: string; appMessages?: string; offerFullscreen?: string; offerBrowser?: string; structuredFromText?: string },
   /** The no-browser offer this session: being checked, or done (see browser.ts). */
   browserOffer: undefined as 'checking' | 'done' | undefined,
   /** The offer to switch to fullscreen (see fullscreen.ts): due after this turn, or done for the session. */

@@ -361,7 +361,10 @@ pub struct View {
     /// everything said of it, and asked of everything asked of it.
     pub open_gen: String,
     server: String,
-    tool: String,
+    /// The tool's `outputSchema`, kept only where the person turned
+    /// "Structured results from text" on for its server (the mod says so at
+    /// /open): see `policy::structured_from_text`.
+    structured_from_text: Option<Value>,
     helper: Weak<Helper>,
     pub page: Arc<Page>,
     pub state: Mutex<State>,
@@ -379,6 +382,15 @@ pub struct View {
 }
 
 impl View {
+    /// The model's call's result as this view gets it: as it came, with
+    /// structuredContent from its text only where the person asked for that
+    /// for this server.
+    fn tool_result(&self, raw: &Value) -> Value {
+        let mut result = policy::normalize_result(raw);
+        if let Some(schema) = &self.structured_from_text { policy::structured_from_text(&mut result, schema); }
+        result
+    }
+
     pub fn capture_soon(&self, ms: u64) {
         let mut s = self.state.lock().unwrap();
         let time = now() + ms;
@@ -597,8 +609,7 @@ impl View {
                 if !self.alive.load(Ordering::SeqCst) { bail!("the view closed"); }
                 // On the mod's yes, asked of Claude Code right before it came.
                 if app_only { return helper.mcp.call_tool(&self.server,payload,Some(epoch)).await; }
-                let structured = contains(&discovered["structured"],name);
-                return Ok(policy::normalize_result(&self.request(kind,payload,REQUEST_TIMEOUT_MS).await?,structured));
+                return Ok(policy::normalize_result(&self.request(kind,payload,REQUEST_TIMEOUT_MS).await?));
             }
             "resources/read" => { let epoch = self.server_in_use(kind).await?; return helper.mcp.read_resource(&self.server,payload,Some(epoch)).await }
             "resources/list" => { let epoch = self.server_in_use(kind).await?; return helper.mcp.list_resources(&self.server,payload,Some(epoch)).await }
@@ -1294,7 +1305,8 @@ async fn open_now(helper: &Arc<Helper>, options: &Value) -> Result<Value> {
     let (input_tx,mut input_rx) = mpsc::unbounded_channel();
     let view = Arc::new_cyclic(|me| View {
         me:me.clone(),
-        id:id.into(),open_gen:gen_of(options).into(),server:server.into(),tool:tool.into(),helper:Arc::downgrade(helper),page,
+        id:id.into(),open_gen:gen_of(options).into(),server:server.into(),helper:Arc::downgrade(helper),page,
+        structured_from_text:(options["structuredFromText"] == true).then(|| discovered["definitions"][tool]["outputSchema"].clone()).filter(Value::is_object),
         turn:AsyncMutex::new(()),inputs:AsyncMutex::new(()),shown_turn:AsyncMutex::new(()),store_saving:AsyncMutex::new(()),
         alive:AtomicBool::new(true),timers:Notify::new(),store_file:file,file_stem:policy::image_file_stem(id),input_tx,
         state:Mutex::new(State {
@@ -1323,7 +1335,7 @@ async fn open_now(helper: &Arc<Helper>, options: &Value) -> Result<Value> {
         let hosted = now();
         let mut open = json!({
             "src":format!("{}/view/{}",view.page.origins.view,url::form_urlencoded::byte_serialize(id.as_bytes()).collect::<String>()),
-            "sandbox":policy::SANDBOX,"toolName":tool,"toolResult":policy::normalize_result(&options["toolResult"],contains(&discovered["structured"],tool)),
+            "sandbox":policy::SANDBOX,"toolName":tool,"toolResult":view.tool_result(&options["toolResult"]),
             "width":cols*8,"maxHeight":f64::from(max_rows)*cell_h,"fit":image,"theme":scheme,"styles":theme["styles"],
             "tool":discovered["definitions"][tool],"userAgent":options["userAgent"].as_str().unwrap_or("Claude Code (mcp-apps-cli)"),
             "csp":csp,"clipboard":clipboard,"border":meta["prefersBorder"] == true,
@@ -1462,9 +1474,7 @@ async fn route_view(view: &Arc<View>, path: &str, input: &Value) -> Result<Value
             view.capture_soon(60);
         }
         "/result" => {
-            let helper = view.helper.upgrade().ok_or_else(||anyhow!("the view closed"))?;
-            let discovered = helper.mcp.discover(&view.server,false).await?;
-            let result = policy::normalize_result(&input["result"],contains(&discovered["structured"],&view.tool));
+            let result = view.tool_result(&input["result"]);
             view.page.eval(&format!("window.__toolResult({result})")).await?;
             view.capture_soon(60); view.describe_soon(ALT_SETTLE_MS);
         }

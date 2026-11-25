@@ -1,6 +1,8 @@
 //! The helper's own MCP connections (rmcp): it reads each server's tools and
 //! UI resources, and calls app-only tools, which Claude Code doesn't
 //! register. It says it renders MCP Apps, so servers that check offer them.
+//! It speaks revision 2026-07-28 to a server that serves it and the 2025
+//! handshake to one that doesn't (`lifecycle`, from 0.1.5).
 //!
 //! Each request it writes to a server goes on a yes from Claude Code asked
 //! for that request (from 0.1.3): the mod's answer to the app's own request
@@ -17,8 +19,8 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result, anyhow, bail};
 use rmcp::ServiceExt;
-use rmcp::model::{ClientCapabilities, ClientConfig, Implementation};
-use rmcp::service::{RoleClient, RunningService};
+use rmcp::model::{ClientCapabilities, ClientConfig, Implementation, ProtocolVersion};
+use rmcp::service::{ClientInitializeError, ClientLifecycleMode, ClientServiceExt, RoleClient, RunningService};
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use rmcp::transport::{ConfigureCommandExt, StreamableHttpClientTransport, TokioChildProcess};
 use serde_json::{Map, Value, json};
@@ -322,12 +324,46 @@ fn headers(config: &Value) -> http::HeaderMap {
     map
 }
 
+/// Who the helper is and that it renders MCP Apps: in `initialize` (2025
+/// revisions) or in each request's `_meta` (2026-07-28). The version it puts
+/// in `initialize` is the newest that has the handshake: 2026-07-28 has none,
+/// and a server that serves only that revision refuses an `initialize` that
+/// names it (issue #5).
 fn client_info() -> ClientConfig {
     let mut capabilities = ClientCapabilities::default();
     let mut ui = serde_json::Map::new();
     ui.insert("mimeTypes".into(), json!(["text/html;profile=mcp-app"]));
     capabilities.extensions = Some(BTreeMap::from([("io.modelcontextprotocol/ui".to_string(), ui)]));
-    ClientConfig::new(capabilities, Implementation::new("mcp-apps-cli", "0.1.4"))
+    let mut info = ClientConfig::new(capabilities, Implementation::new("mcp-apps-cli", "0.1.5"));
+    info.protocol_version = ProtocolVersion::LATEST_WITH_INITIALIZE;
+    info
+}
+
+/// How a connection starts over stdio and streamable HTTP: `server/discover`
+/// at 2026-07-28, which a server of that revision answers (no `initialize`
+/// follows; each request then names the revision in its `_meta`, and over
+/// HTTP in its MCP-Protocol-Version header). A server that doesn't know it
+/// (one of the 2025 revisions answers with an error) gets the 2025 handshake
+/// instead, `initialize` at 2025-11-25, which it may answer with an older
+/// revision it serves. rmcp does both: its `Auto` mode, as the 2026-07-28
+/// revision's backward-compatibility section describes. A server that
+/// answers neither within 10 seconds also gets the handshake.
+fn lifecycle() -> ClientLifecycleMode {
+    ClientLifecycleMode::Auto {
+        preferred_versions: vec![ProtocolVersion::V_2026_07_28],
+        legacy_version: Some(ProtocolVersion::LATEST_WITH_INITIALIZE),
+    }
+}
+
+/// Why a connection didn't start. Where the probe and the handshake both
+/// failed, rmcp's own message says only that; this says what each got.
+fn startup_error(error: ClientInitializeError) -> anyhow::Error {
+    match error {
+        ClientInitializeError::LegacyFallbackFailed { discover, fallback } => {
+            anyhow!("server/discover failed ({discover}), and then initialize failed ({fallback})")
+        }
+        other => other.into(),
+    }
 }
 
 async fn connect(config: &Value, cwd: &PathBuf) -> Result<RunningService<RoleClient, ClientConfig>> {
@@ -341,8 +377,11 @@ async fn connect(config: &Value, cwd: &PathBuf) -> Result<RunningService<RoleCli
             // origin, and only a 307 or 308: one to another host would carry
             // the server's headers there, outside the browser's protections.
             let transport = StreamableHttpClientTransport::from_config(transport_config);
-            Ok(client_info().serve(transport).await?)
+            client_info().serve_with_lifecycle(transport, lifecycle()).await.map_err(startup_error)
         }
+        // The HTTP+SSE transport is the 2024-11-05 revision's (replaced in
+        // 2025-03-26): a server that offers it speaks a 2025 revision, so it
+        // gets the handshake, at 2025-11-25.
         "sse" => {
             let url = url.ok_or_else(|| anyhow!("an sse server needs a url"))?;
             Ok(client_info().serve(crate::sse::connect(url, headers(config)).await?).await?)
@@ -370,7 +409,7 @@ async fn connect(config: &Value, cwd: &PathBuf) -> Result<RunningService<RoleCli
                 cmd.creation_flags(crate::win::NO_WINDOW);
             });
             let (transport, _stderr) = TokioChildProcess::builder(command).stderr(std::process::Stdio::null()).spawn()?;
-            Ok(client_info().serve(transport).await?)
+            client_info().serve_with_lifecycle(transport, lifecycle()).await.map_err(startup_error)
         }
     }
 }
@@ -457,6 +496,23 @@ mod tests {
             "the same-origin redirect wasn't followed: {:?}",
             sent(&heads)
         );
+    }
+
+    // Where server/discover and the 2025 handshake both fail, the error says
+    // what each got (rmcp's own says only that both failed).
+    #[tokio::test]
+    async fn a_failed_start_says_what_the_probe_and_the_handshake_each_got() {
+        const REFUSED: &str = "HTTP/1.1 400 Bad Request\r\ncontent-type: text/plain\r\ncontent-length: 7\r\nconnection: close\r\n\r\nrefused";
+        let (origin, heads) = serve(|_| REFUSED.to_string());
+        let config = json!({"type": "http", "url": format!("{origin}/mcp")});
+        let error = match tokio::time::timeout(Duration::from_secs(20), connect(&config, &std::env::temp_dir())).await {
+            Ok(Err(error)) => format!("{error:#}"),
+            Ok(Ok(_)) => panic!("connected to a server that refuses everything"),
+            Err(_) => panic!("timed out"),
+        };
+        assert!(error.contains("server/discover failed (") && error.contains("and then initialize failed ("), "{error}");
+        assert!(error.contains("HTTP 400"), "{error}");
+        assert_eq!(sent(&heads).len(), 2, "{:?}", sent(&heads));
     }
 
     #[tokio::test]

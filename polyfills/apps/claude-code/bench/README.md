@@ -62,6 +62,18 @@ must be up for the last two.
   SSE transport and stdio, Chrome started, closed when idle and started
   again after it was killed, and the helper leaving on SIGTERM with its
   socket and folder gone; then the helper's own memory.
+- `MCP_SDK_V2=<folder> node revision-check.mjs`: the MCP revision the
+  helper speaks (issue #5), against servers built on the TypeScript SDK:
+  2.4.0 serving 2026-07-28 only (`legacy: "reject"`), 2.4.0 serving both
+  revisions, and 1.x serving the 2025 ones. Each gets `/discover`, a view
+  opened and drawn, and an app-only call from the view, and the check reads
+  what each server received: no `initialize` and 2026-07-28 on every request
+  for the first two, `initialize` at 2025-11-25 for the third. It also
+  checks the "Structured results from text" setting (issue #6): on for one
+  server, off for another. `<folder>`
+  holds the 2.4.0 SDK (`npm install --prefix <folder>
+  @modelcontextprotocol/server@2.4.0 zod@4.6.7`). It needs the Rust helper
+  (`MCP_APPS_CLI_HELPER`): the Node one speaks only the 2025 revisions.
 
 Every check here runs the Node helper by default, and the binary
 `MCP_APPS_CLI_HELPER` names instead: the Rust helper

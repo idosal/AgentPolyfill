@@ -171,7 +171,22 @@ their data in `structuredContent` and `_meta`. And some servers only offer a
 feature to clients that declare its extension, which today only the host can
 do.
 
-- **Claude Code:** neither is possible.
+- **Claude Code:** neither is possible. For an MCP tool, a `tool.run` or
+  `tool.call` hook gets the tool's record: the result as the model reads it.
+  A result with `structuredContent` comes as one text block of that object's
+  JSON, and the server's own `content` and the result's `_meta` are left out.
+  `$.mcp.call` returns `content`, `isError` and `structuredContent`, but no
+  `_meta`. The engine keeps a result's `_meta` for itself, and from it a
+  plugin can read only the keys under `claude/plugins` and
+  `anthropic/sources` (`$.session.messages()`, off by default), which are
+  Claude Code's own keys, not the server's. So an MCP App's first
+  `ui/notifications/tool-result` can't carry the `CallToolResult` the server
+  sent, which the MCP Apps spec has the host send (issue #6 of mcp-apps-cli).
+  Calling the tool again over another connection would get one, but it would
+  run the tool twice. The change that would close it: the MCP result as the
+  server sent it (`content`, `structuredContent`, `_meta`, `isError`) on what
+  `next(e)` resolves to for an MCP tool, beside the record, for example as an
+  `mcpResult` field, and `_meta` on `$.mcp.call`'s answer.
 - **Codex:** its own client can declare extensions; a plugin can't add to that
   list. Letting a plugin's manifest, or the config, add extension ids would
   close it. Raw results: not checked.

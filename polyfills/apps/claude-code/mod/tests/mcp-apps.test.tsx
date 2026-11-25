@@ -74,6 +74,8 @@ function standIns(
     connect?: (server: string) => unknown
     /** Runs as the person is asked a question (before they answer). */
     onAsk?: () => void
+    /** What Claude Code gives as the record of the model's call (RESULT by default). */
+    result?: unknown
   } = {},
 ) {
   const sent: Sent[] = []
@@ -93,7 +95,7 @@ function standIns(
     if (e.tool === 'ToolSearch') {
       return { result: { matches: opts.searchMatches ?? [], query: 'select:', total_deferred_tools: 3 } as never }
     }
-    if (e.tool !== 'AskUserQuestion') return { result: RESULT }
+    if (e.tool !== 'AskUserQuestion') return { result: (opts.result ?? RESULT) as never }
     const questions = (e as unknown as { questions: Array<{ question: string }> }).questions
     asked.push(questions[0]!.question)
     opts.onAsk?.()
@@ -241,6 +243,46 @@ const ROW = {
     isInterrupted: false,
   },
 } as const
+
+// Issue #6. For a result with structuredContent, Claude Code's record of the
+// call is what the model reads: one text block of that object's JSON, without
+// the server's content or _meta. The view is sent that record as it is: the
+// mod adds nothing and takes nothing away, and the helper makes nothing up
+// from it (helper-rs/src/policy.rs, results_are_passed_on_as_they_came...).
+test("the view is sent Claude Code's record of the call as it came", async ($, on) => {
+  const record = [{ type: 'text', text: '{"n":4,"origin":"https://example.test"}' }]
+  const { sent, finish } = standIns(on, { result: record })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const ran = await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+  expect(ran.result).toEqual(record)
+  await until(() => sent.some((s) => s.route === '/result'), () => Promise.resolve())
+  const result = sent.find((s) => s.route === '/result')!.body.result
+  expect(result).toEqual(record)
+  expect(JSON.stringify(result)).not.toContain('structuredContent')
+  finish()
+})
+
+// The one way back to structuredContent: the person lists the server under
+// "Structured results from text" (off by default). The mod tells the helper
+// at /open; the helper restores it only where it fits the tool's schema.
+for (const [setting, expected] of [
+  [undefined, false],
+  ['', false],
+  ['vanilla', true],
+  [' other ,vanilla ', true],
+  ['vanil', false],
+  ['other', false],
+] as const) {
+  const options: Record<string, string> = setting === undefined ? {} : { structuredFromText: setting }
+  test(`structured results from text, setting ${JSON.stringify(setting ?? 'default')}: ${expected ? 'asked of the helper' : 'not asked'}`, { options }, async ($, on) => {
+    const { sent, finish } = standIns(on)
+    await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+    await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+    await until(() => sent.some((s) => s.route === '/open'), () => Promise.resolve())
+    expect(sent.find((s) => s.route === '/open')!.body.structuredFromText).toBe(expected)
+    finish()
+  })
+}
 
 test('the tool result reaches Claude unchanged and the view opens', async ($, on) => {
   const { sent, finish } = standIns(on)
