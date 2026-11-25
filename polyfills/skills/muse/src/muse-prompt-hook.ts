@@ -1,7 +1,7 @@
 // mcp-skills for Muse: the UserPromptSubmit hook (bundled to mod/muse/hooks/user-prompt-submit.mjs).
 //
-// Muse runs it before each message the person sends (and not for a turn Muse's timers or a model
-// start), with the hook input on standard input: `session_id`, `prompt`, … (Claude Code's shape;
+// Muse runs it before each message the person sends (none of the ways a model can put text into a
+// session ran it when each was checked), with the hook input on standard input: `session_id`, `prompt`, … (Claude Code's shape;
 // the input ends without a newline). When the message is exactly the `load <server> <skill> <code>` that load_skill
 // asked for in this session, the question is approved (muse.ts), and the model is told so as context
 // added to the message. Anything else: it prints nothing, and never stops the message.

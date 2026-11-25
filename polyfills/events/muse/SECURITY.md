@@ -128,6 +128,14 @@ file and start `muse` with `MUSE_EXPERIMENTAL_TUI_MSP_CLIENT=1` and
 - **What the plugin itself does.** It starts only the turns that carry a batch,
   held to the wake limits (once a minute per watch, 30 times an hour, then one
   notice until you next write).
+- **Where the turn is seen.** The Codex form wakes a session only once a call
+  says Codex's own app shows it, because `codex queue` can start a turn inside
+  another app's app server, where nobody sees it. Muse has no such call. Its
+  wake is `muse attach` into the session's own process, which only a terminal
+  session launched with both gates accepts; in the live run that terminal
+  showed the turn. Any other session refuses the attach, and the batch waits
+  for your next message. A session driven by some other client through Muse's
+  session protocol wasn't tried.
 
 ## What it does not protect against
 

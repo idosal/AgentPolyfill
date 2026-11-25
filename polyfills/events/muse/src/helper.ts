@@ -22,6 +22,7 @@ import type { Unavailable } from '../../core/src/tools.ts';
 import { describeError, secrets } from '../../core/src/untrusted.ts';
 import { isHttp } from '../../core/src/upstream.ts';
 import { serve } from '../../codex/src/mcp-server.ts';
+import type { ShownBy } from '../../codex/src/meta.ts';
 import { ThreadSession, type ThreadOptions } from '../../codex/src/threads.ts';
 import { THREAD_ID, type Wake } from '../../codex/src/waker.ts';
 import { SERVER_NAME, TOOLS } from '../../codex/src/words.ts';
@@ -193,8 +194,21 @@ const wake: Wake = async (session, text) => {
 // which reads the store past the last hand-over: this process hands nothing over itself.
 const deliver = museMode === 'attach';
 
-/** The Codex form's session, which in inbox mode stores events and never hands them over. */
+/**
+ * The Codex form's session, for Muse.
+ *
+ * - In inbox mode it stores events and never hands them over (the hook does).
+ * - The Codex form wakes a session only once a call says Codex's own app shows it, because
+ *   `codex queue` can start a turn inside another app's app server, where nobody sees it. Muse has
+ *   no such call, and its wake is a different thing: `muse attach` into the session's own process,
+ *   which only a terminal session launched with Muse's session-protocol gates accepts, and whose
+ *   terminal showed the turn in the live run. Any other session refuses the attach, and the batch
+ *   waits in the inbox for the person's next message. So here the session counts as shown.
+ */
 class MuseSession extends ThreadSession {
+    override get shownBy(): ShownBy {
+        return 'codex';
+    }
     override announce(afterMs?: number): void {
         if (deliver) super.announce(afterMs);
     }
