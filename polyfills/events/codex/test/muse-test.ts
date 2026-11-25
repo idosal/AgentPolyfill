@@ -261,6 +261,7 @@ describe('the helper in Muse', () => {
             assert.deepEqual(sent[0]!.args, ['attach', '--stdio', w.session]);
             assert.deepEqual(sent[0]!.leaked, [], "the plugin's settings are not muse's business");
             assert.deepEqual(sent.filter((l) => l.in).map((l) => l.in!.method), ['initialize', 'initialized', 'session/resume', 'turn/start']);
+            assert.match(String((sent.find((l) => l.in?.method === 'initialize')!.in!.params.clientInfo as { name: string }).name), /^[a-z0-9_]+$/, 'MSP refuses any other client name');
             const turn = sent.find((l) => l.in?.method === 'turn/start')!.in!.params as { sessionId: string; ifBusy: string; input: { type: string; text: string }[] };
             assert.equal(turn.sessionId, w.session);
             assert.equal(turn.ifBusy, 'queue');
