@@ -14,6 +14,8 @@ Final). The forms fill these gaps:
 - **Claude Code:** no native Events support yet; the polyfill is a mod (plugin).
 - **Codex:** no Events support for your own servers; the polyfill is a plugin.
 - **Pi:** no native Events support in Pi 1.6.0; the polyfill is an extension.
+- **Muse Code:** the polyfill is the Codex plugin, which Muse installs from
+  the same marketplace.
 
 <Recording
   cut="events"
@@ -40,6 +42,12 @@ cd AgentPolyfill
 pi install ./polyfills/events/pi/extension
 ```
 
+```bash [Muse Code]
+muse plugins marketplace add agent-polyfill https://github.com/idosal/AgentPolyfill
+muse plugins install mcp-events@agent-polyfill
+muse plugins approve mcp-events
+```
+
 :::
 
 **In Claude Code** (2.1.326 or newer, with Node 20 or newer or Bun), the
@@ -61,11 +69,19 @@ so keep the clone; `git pull` there updates it. To remove it, run
 events stay in `mcp-events/` in Pi's agent folder (`~/.pi/agent`, or
 `PI_CODING_AGENT_DIR`); delete that folder too to remove them.
 
+**In Muse Code** (1.4.25, the version tested, on macOS only, with Node 20 or
+newer), Muse holds the plugin's MCP server and hook until you run
+`muse plugins approve mcp-events`, and again after each update. Then start
+a new `muse` session. To remove it, run
+`muse plugins remove mcp-events --delete-data`, which removes its data
+folder and approval too.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi)
+- [Muse Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/muse)
 
 ## Try it
 
@@ -85,6 +101,10 @@ codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
+```bash [Muse Code]
+muse mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
+```
+
 :::
 
 Start your host in the same folder:
@@ -94,6 +114,10 @@ Start your host in the same folder:
 - **Pi:** `pi`. Ask "Watch for new earthquakes from the feeds server and tell
   me where each one was." Confirm the watch in Pi's dialog; stop it with
   "Stop watching the earthquakes."
+- **Muse Code:** `muse`, in a workspace you trust. Ask "Watch for new
+  earthquakes from the feeds server and tell me where each one was." The
+  answer gives a phrase such as `watch 4821`; send exactly that phrase to
+  start the watch. New events reach Muse with your next message.
 
 For the button demo, ask:
 
@@ -187,6 +211,38 @@ session and resumes with it; a local (stdio) watch resumes only in the same
 folder. The [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/live-run.md)
 shows approval, an idle session waking, the answer and stopping the watch.
 
+### In Muse Code
+
+Muse gives a plugin no way to ask you, and a tool call that isn't read-only
+goes to Muse's approval judge, a model that may approve it with nobody
+asked. So `watch_event` starts nothing at first. Its answer gives a phrase
+such as `watch 4821`. Only a message of yours that is exactly that phrase
+approves the watch: Muse runs the plugin's `UserPromptSubmit` hook for your
+messages, not for a turn its timers start. The phrase is good for that one
+question, in that session, for 15 minutes.
+
+New events reach the model with your next message, as a context block from
+the hook that starts
+`[mcp-events] (Sent by the mcp-events plugin, not typed by the user.)`.
+Nothing wakes an idle session by default.
+
+**Waking an idle session (opt-in, experimental).** Put
+`{"MCP_EVENTS_MUSE_WAKE": "attach"}` in the plugin's settings file (see
+[Settings](#settings)), and start `muse` with both gates:
+
+```bash
+MUSE_EXPERIMENTAL_TUI_MSP_CLIENT=1 MUSE_EXPERIMENTAL_TUI_SESSION_PROCESS=1 muse
+```
+
+::: warning With these gates on, any program you run can drive the session
+Any local process of the same user can attach to the session and start
+turns, with no prompt, and could type the phrases. Turn the gates on only on
+a machine where you trust everything that runs as you.
+:::
+
+Waking is capped as in Codex: once a minute per watch, and 30 times an
+hour. It was checked with Muse's echo provider only.
+
 ## What Claude can do with it
 
 The mod gives Claude six tools. You do not call them yourself; you ask in
@@ -232,6 +288,14 @@ lives in a small helper process the module starts.
 In Pi, servers offering Events over stdio or Streamable HTTP work with
 push, poll or webhook delivery. Credentials must be in Pi's configuration;
 Pi's stored sign-ins cannot be used. See [Pi's limits](#limits).
+
+In Muse Code, the plugin reads the servers in `mcpServers` in
+`~/.config/muse/settings.json`, which can hold header values you wrote. It
+never reads Muse's sign-in store or a project's `.mcp.json`. It skips a
+server signed in with `muse mcp login`, a server whose values come from
+`${VAR}` (Muse passes the variable to no plugin), and a server with
+`enabled: false`. When an organisation manages Muse (`muse config status`
+shows a defaults or policy plane), it reads nothing at all.
 
 ### In Claude Code
 
@@ -309,6 +373,12 @@ In the interactive terminal and RPC mode, for as long as the session stays
 open. RPC clients relay the extension's dialogs. Print and JSON modes can
 list and read events but cannot start a watch.
 
+### In Muse Code
+
+In a `muse` session in a workspace you trust. Events reach the model with
+your next message. With the experimental opt-in and both gates on, an event
+starts a turn in an idle session. Checked on macOS only.
+
 ## Settings
 
 In Pi, set environment variables before starting `pi`. `MCP_EVENTS_OFF=1`
@@ -316,6 +386,17 @@ turns the extension off. It cannot detect native Events support; remove it
 or use that switch when Pi supports Events itself. The full
 [Pi settings table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/README.md#settings)
 lists its controls.
+
+In Muse Code, environment variables don't work: Muse passes the plugin's
+server and hook none of yours. Put the same `MCP_EVENTS_*` settings, by
+name, in `settings.json` in the plugin's data folder,
+`~/.local/share/muse/plugins/data/mcp-events/`. For example,
+`{"MCP_EVENTS_OFF": "1"}` turns it off, and
+`{"MCP_EVENTS_MUSE_WAKE": "attach"}` turns on the experimental wake. It
+cannot detect native Events support; disable it
+(`muse plugins disable mcp-events`) when Muse ships Events. The
+[Muse README](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/muse)
+has the rest.
 
 The table below is for Claude Code.
 
@@ -382,6 +463,24 @@ Environment variables, for example in the `env` block of
 - **Off with Pi's MCP support.** With `--no-mcp`, `-builtin:mcp` in the
   extension settings, or a replacement MCP extension, Events stands down too.
 
+### In Muse Code
+
+- **No wake by default.** New events reach the model with your next
+  message. Only the experimental opt-in wakes an idle session, and it lets
+  any local process of the same user drive the session.
+- **No OAuth servers.** A server signed in with `muse mcp login` is skipped,
+  and so is one whose values come from `${VAR}`.
+- **A typed yes.** Muse gives a plugin no way to ask you, so each watch
+  waits for a phrase you type.
+- **Settings in a file.** Muse passes the plugin none of your environment
+  variables.
+- **Off while not approved.** While the plugin's MCP server is rejected or
+  not approved in Muse, its hook does nothing.
+- **A validation warning.** `muse plugins validate` warns
+  `multiple-manifests`, because the folder also holds the Codex manifest.
+  The plugin is still valid, with compatibility `full`.
+- **Checked on macOS only**, with Muse Code 1.4.25.
+
 ## Security
 
 ### In Claude Code
@@ -438,6 +537,24 @@ Pi's own client also connects to the suite's server. See
 [Pi's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/conformance.md).
 An AI reviewer who did not build the Pi forms reviewed them, and checked
 the fixes again. They have not been audited by a person.
+
+### In Muse Code
+
+A watch starts only after you send its phrase yourself, so Muse's approval
+judge can't start one with nobody asked. The phrase counts only in a message
+of yours: Muse runs the plugin's hook for your messages, not for a turn its
+timers start. The context block that hands over new events says it was sent
+by the plugin, not typed by you. The experimental wake weakens this: with
+its gates on, any local process of the same user can attach to the session,
+start turns and type the phrases.
+
+No Muse run used a real model. Every run used Muse's echo provider, or a
+local stand-in for the Responses API on 127.0.0.1 with a made-up key, which
+also answered the approval judge, in an isolated home with no `muse login`.
+See the Muse form's
+[SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/muse/SECURITY.md),
+[conformance notes](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/muse/docs/conformance.md)
+and [run records](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/muse/docs/live-run.md).
 
 ## The mod's own runtime
 

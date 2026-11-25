@@ -51,6 +51,12 @@ cd AgentPolyfill
 pi install ./polyfills/server-cards/pi/extension
 ```
 
+```bash [Muse Code]
+muse plugins marketplace add agent-polyfill https://github.com/idosal/AgentPolyfill
+muse plugins install mcp-server-cards@agent-polyfill
+muse plugins approve mcp-server-cards
+```
+
 :::
 
 ### In Claude Code
@@ -80,11 +86,23 @@ so keep the clone; `git pull` there updates it. Remove it from the same
 folder with `pi remove ./polyfills/server-cards/pi/extension`. Servers you
 added stay in `mcp.json`; remove one with `pi mcp remove <name>`.
 
+### In Muse Code
+
+Muse Code 1.4.25 (the version tested, on macOS only), with Node 20 or newer.
+The plugin is the Codex plugin, which Muse installs from the same
+marketplace. Muse holds its MCP server until you run
+`muse plugins approve mcp-server-cards`, and again after each update. Then
+start a new `muse` session. The same discovery and checks run, but adding
+works differently: the plugin writes nothing, and gives you the command to
+run. Remove the plugin with `muse plugins remove mcp-server-cards --delete-data`.
+A server you added stays; remove it with `muse mcp remove <name>`.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi)
+- [Muse Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/muse)
 
 ## Try it
 
@@ -93,6 +111,7 @@ Nothing to set up. Start your host:
 - **Claude Code:** `claude`.
 - **Codex:** `codex`.
 - **Pi:** `pi`.
+- **Muse Code:** `muse`, in a workspace you trust.
 
 Ask:
 
@@ -104,6 +123,9 @@ Then add **Neon Docs** (no sign-in):
 - **Codex:** choose "Add it" in Codex's own form.
 - **Pi:** ask "Add Neon Docs", then choose "Add it" in Pi's dialog. It is
   saved and registered for the current session, without a restart.
+- **Muse Code:** ask "Add Neon Docs". The plugin writes nothing: it gives
+  you the `muse mcp add …` command, which you run yourself, in a terminal or
+  after `!` at the Muse prompt.
 
 For one behind a sign-in, ask about
 buildkite.com; once it's added, the host asks you to sign in (in Claude Code,
@@ -161,6 +183,18 @@ check `/mcp` if connection fails. For sign-in, use `/mcp` or
 Print and JSON modes cannot ask, so additions are refused. RPC clients
 relay the dialog to you.
 
+### In Muse Code
+
+Discovery works as in Codex: name a domain, and the plugin reads its
+catalog and checks each card. Adding is different, because Muse gives a
+plugin no way to ask you, and a tool call that isn't read-only goes to
+Muse's approval judge, a model that may approve it with nobody asked. So
+"add" writes nothing. It gives you the `muse mcp add …` command for the
+server you picked, and you run it yourself, in a terminal or after `!` at
+the Muse prompt. You see the URL and every header before anything is
+written. `muse mcp remove <name>` undoes it. This was checked with
+neon.com's catalog.
+
 ### A domain that redirects
 
 Some domains answer with a redirect to another domain: `neon.tech` sends its
@@ -175,6 +209,9 @@ decision, and the polyfill never uses `extensionsInfo`.
 ## Settings
 
 In Pi, `MCP_SERVER_CARDS_DISABLED=1` registers no tools and fetches nothing.
+
+In Muse Code, there are no settings. Turn it off with
+`muse plugins disable mcp-server-cards`.
 
 In Claude Code, in `/config`, under the plugin:
 
@@ -239,6 +276,15 @@ in the same catalogs, and local (stdio) servers, which cards do not describe.
 - **Discover again after a session change.** New, resumed, forked and
   reloaded sessions forget shown cards. Disabled or replaced MCP support,
   or a failed connection, can prevent added tools from becoming available.
+
+### In Muse Code
+
+- **You run the add command.** The plugin can't add a server itself,
+  because Muse gives it no way to ask you first.
+- **A validation warning.** `muse plugins validate` warns
+  `multiple-manifests`, because the folder also holds the Codex manifest.
+  The plugin is still valid, with compatibility `full`.
+- **Checked on macOS only**, with Muse Code 1.4.25.
 
 ## Security
 
@@ -305,6 +351,18 @@ records neon.com's servers being listed, the add question, and Neon Docs
 saved in `mcp.json` and connected for the session. It does not establish a
 completed Neon Docs tool call.
 
+### In Muse Code
+
+The plugin writes nothing to Muse's configuration. A server is added only
+when you run the `muse mcp add …` command yourself, so Muse's approval judge
+can't add one with nobody asked. No Muse run used a real model: every run
+used Muse's echo provider, or a local stand-in for the Responses API on
+127.0.0.1 with a made-up key, in an isolated home with no `muse login`. See
+the Muse form's
+[SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/muse/SECURITY.md),
+[conformance notes](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/muse/docs/conformance.md)
+and [run records](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/muse/docs/live-run.md).
+
 ## When the host supports Server Cards itself
 
 - **Claude Code:** there is no Server Card support to detect yet. When it
@@ -312,6 +370,8 @@ completed Neon Docs tool call.
   and fetches nothing.
 - **Pi:** native support cannot be detected automatically. Remove the
   extension or set `MCP_SERVER_CARDS_DISABLED=1` when it ships.
+- **Muse Code:** native support cannot be detected. Disable the plugin
+  (`muse plugins disable mcp-server-cards`) when it ships.
 
 ## More
 

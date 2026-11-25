@@ -39,6 +39,12 @@ cd AgentPolyfill
 pi install ./polyfills/skills/pi/extension
 ```
 
+```bash [Muse Code]
+muse plugins marketplace add agent-polyfill https://github.com/idosal/AgentPolyfill
+muse plugins install mcp-skills@agent-polyfill
+muse plugins approve mcp-skills
+```
+
 :::
 
 ### In Claude Code
@@ -84,11 +90,22 @@ with `pi remove ./polyfills/skills/pi/extension`. Approvals and skill stubs
 stay in `mcp-skills/` in Pi's agent folder (`~/.pi/agent`, or
 `PI_CODING_AGENT_DIR`); delete that folder too to remove them.
 
+### In Muse Code
+
+Muse Code 1.4.25 (the version tested, on macOS only), with Node 20 or newer.
+The plugin is the Codex plugin, which Muse installs from the same
+marketplace. Muse turns on the plugin's skills at install, and holds its MCP
+server and hooks until you run `muse plugins approve mcp-skills`, and again
+after each update. Then start a new `muse` session. To remove it, run
+`muse plugins remove mcp-skills --delete-data`. Its stubs stay in
+`~/.config/muse/skills/mcp-skills-served--*`; delete those folders by hand.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi)
+- [Muse Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/muse)
 
 ## Try it
 
@@ -109,6 +126,10 @@ codex mcp add huggingface --url https://huggingface.co/mcp
 pi mcp add huggingface --url https://huggingface.co/mcp
 ```
 
+```bash [Muse Code]
+muse mcp add huggingface --url https://huggingface.co/mcp
+```
+
 :::
 
 In Codex, the served skills appear in the `$` list after you ask once to list
@@ -117,6 +138,8 @@ the served skills, from the next turn. Start your host in the same folder:
 - **Claude Code:** `claude`.
 - **Codex:** `codex`.
 - **Pi:** `pi`; served skills appear as `mcp-<server>-<name>`.
+- **Muse Code:** `muse`, in a workspace you trust; served skills are in
+  Muse's skill list from the next session.
 
 Ask something one of its skills covers:
 
@@ -182,6 +205,22 @@ codemode's nested calls. Print and JSON modes cannot ask, so they load only
 skills already approved and unchanged, and refuse cross-server reads that
 need approval. Skills a server adds mid-session appear after `/reload`.
 
+### In Muse Code
+
+Muse gives a plugin no way to ask you, and a hook's `ask` goes to Muse's
+approval judge, a model that may approve with nobody asked. So a load waits
+for a phrase you type. The answer gives a phrase such as `load 4821`, and
+only a message of yours that is exactly that phrase approves the load: Muse
+runs the plugin's `UserPromptSubmit` hook for your messages, not for a turn
+its timers start. The phrase is good for that one question, in that
+session, for 15 minutes. Then the skill loads and is checked against the
+server's digests.
+
+"Show me its SKILL.md first" isn't offered, because Muse has no way to show
+you text the model doesn't see. The served skills are written as stubs into
+Muse's skill folder and are in Muse's list from the next session; whether
+they show in the same session wasn't checked.
+
 ## Which servers work
 
 In Pi, local (stdio) servers, public URLs and URLs with an `Authorization`
@@ -189,6 +228,14 @@ header in `mcp.json` work. Header values may be written out, `${VARIABLE}` or
 `!command`. Servers signed in through Pi (`/mcp`, `pi mcp login`, OAuth or
 `auth.provider`) are out of reach; `list_skills` says why. The extension
 never reads `mcp-auth.json` or `auth.json`.
+
+In Muse Code, the plugin reads the servers in `mcpServers` in
+`~/.config/muse/settings.json`, which can hold header values you wrote. It
+never reads Muse's sign-in store or a project's `.mcp.json`. It skips a
+server signed in with `muse mcp login`, a server whose values come from
+`${VAR}` (Muse passes the variable to no plugin), and a server with
+`enabled: false`. When an organisation manages Muse (`muse config status`
+shows a defaults or policy plane), it reads nothing at all.
 
 The table below is for Claude Code.
 
@@ -265,6 +312,22 @@ protocol, no vendor extension.
 - **The cross-server question has a boundary.** It cannot intercept a read
   another extension makes through its own MCP connection.
 
+### In Muse Code
+
+- **No OAuth servers.** A server signed in with `muse mcp login` is skipped,
+  and so is one whose values come from `${VAR}`.
+- **A typed yes.** Each new load waits for a phrase you type.
+- **No preview.** "Show me its SKILL.md first" isn't offered.
+- **Stubs from the next session.** Served skills are in Muse's list from the
+  next session; the same session wasn't checked. Removing the plugin leaves
+  the stubs in `~/.config/muse/skills/mcp-skills-served--*`.
+- **Settings in a file.** Muse passes the plugin none of your environment
+  variables.
+- **A validation warning.** `muse plugins validate` warns
+  `multiple-manifests`, because the folder also holds the Codex manifest.
+  The plugin is still valid, with compatibility `full`.
+- **Checked on macOS only**, with Muse Code 1.4.25.
+
 ## Security
 
 ### In Claude Code
@@ -307,6 +370,14 @@ See [Pi's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfil
 An AI reviewer who did not build the Pi forms reviewed them, and checked
 the fixes again. They have not been audited by a person.
 
+### In Muse Code
+
+A served skill loads only after you send its phrase yourself, so Muse's
+approval judge can't load one with nobody asked. The phrase counts only in
+a message of yours, for that one question, in that session, for 15 minutes.
+See the Muse form's
+[SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/muse/SECURITY.md).
+
 ## How it is tested
 
 ### In Claude Code
@@ -342,12 +413,28 @@ against Hugging Face records two skills approved and loaded, reference files
 read and an answer from them, including a run with "Show me its SKILL.md
 first".
 
+### In Muse Code
+
+No Muse run used a real model. Every run used Muse's echo provider, or a
+local stand-in for the Responses API on 127.0.0.1 with a made-up key, which
+also answered the approval judge, in an isolated home with no `muse login`.
+Hugging Face's public MCP server was used to check the skill listing. The
+[conformance notes](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/muse/docs/conformance.md)
+and [run records](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/muse/docs/live-run.md)
+have the rest.
+
 ## Settings
 
 In Pi, `MCP_SKILLS_OFF=1` turns the extension off. Server-level `skip` is
 set in `mcp-skills/settings.json` in Pi's agent folder. Pi's extension cannot
 detect native Skills support: remove it or use the off switch when that
 ships. See the [Pi settings](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/README.md#settings).
+
+In Muse Code, put settings in `settings.json` in the plugin's data folder,
+`~/.local/share/muse/plugins/data/mcp-skills/`:
+`{"servers": [...], "skip": [...], "off": true}`. Environment variables
+don't reach the plugin. It cannot detect native Skills support; disable it
+(`muse plugins disable mcp-skills`) when Muse ships Skills.
 
 ### In Claude Code
 

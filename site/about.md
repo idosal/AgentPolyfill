@@ -15,6 +15,8 @@ What runs in each host:
 - **Codex:** Events, Skills, Server Cards and ARD.
 - **Pi:** Events, Skills, Server Cards and ARD, as Pi extensions. Apps has no
   Pi form.
+- **Muse Code:** Events, Skills, Server Cards and ARD, as the Codex plugins,
+  installed from this repository's marketplace. Apps has no Muse form.
 
 See [Getting started](/guide/getting-started) for installation. Nothing for Pi
 is published to npm or Pi's package gallery; install from a repository clone.
