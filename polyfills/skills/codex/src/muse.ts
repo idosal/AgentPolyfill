@@ -21,7 +21,7 @@
 import { createHash } from 'node:crypto';
 import { mkdirSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { museConfigDir, readMuseSettings } from '../../../events/codex/src/muse-config.ts';
+import { findMuse, museConfigDir, museManaged, readMuseSettings } from '../../../events/codex/src/muse-config.ts';
 import { rootOf } from '../../core/src/skills.ts';
 import type { ServerTable } from '../../core/src/upstream.ts';
 import { CONFIRM_TTL_MS, confirmFromPrompt, confirmPhrase, museAsk, museStoreDir } from './muse-confirm.ts';
@@ -44,13 +44,19 @@ export const museStubRoot = (env: NodeJS.ProcessEnv = process.env): string => jo
 /** This plugin's own helper, if someone added it to Muse's settings by hand: connecting to it would loop. */
 const isSelf = (arg: string) => /mcp-skills[^\\/]*(?:[\\/][^\\/]+){0,4}[\\/]dist[\\/]helper\.js$/.test(arg) || /[\\/]skills[\\/]codex[\\/](?:mod[\\/]dist[\\/]helper\.js|src[\\/]helper\.ts)$/.test(arg);
 
-/** The servers to look at in Muse, narrowed by the plugin's settings.json (`servers`, `skip`). */
-export function readMuseSkillsConfig(env: NodeJS.ProcessEnv, o: { only?: string[]; skip?: string[] } = {}): { table: ServerTable; file: string } {
-    const r = readMuseSettings(env, { file: env.MCP_SKILLS_CONFIG, only: o.only, skip: o.skip, isSelf });
+/**
+ * The servers to look at in Muse, narrowed by the plugin's settings.json (`servers`, `skip`). None
+ * where an organisation manages Muse (`managed`, from museManaged).
+ */
+export function readMuseSkillsConfig(env: NodeJS.ProcessEnv, o: { only?: string[]; skip?: string[]; managed?: string } = {}): { table: ServerTable; file: string } {
+    const r = readMuseSettings(env, { file: env.MCP_SKILLS_CONFIG, only: o.only, skip: o.skip, isSelf, managed: o.managed });
     return { table: { servers: r.servers, skipped: r.skipped }, file: r.file };
 }
 
 export { CONFIRM_TTL_MS, confirmFromPrompt, confirmPhrase, museAsk, museStoreDir };
+
+/** Whether an organisation manages Muse, as muse-config.ts checks it, with MCP_SKILLS_MUSE_BIN as the muse to ask. */
+export const museManagedFor = (env: NodeJS.ProcessEnv = process.env): string | undefined => museManaged(findMuse(env, env.MCP_SKILLS_MUSE_BIN), env);
 
 // ---- Stubs, flat ----
 

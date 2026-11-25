@@ -29,7 +29,8 @@ import { Delivery } from '../../core/src/delivery.ts';
 import type { HostWords } from '../../core/src/host.ts';
 import { sessionDir, Spool, writeAtomic } from '../../core/src/store.ts';
 import type { ServerTable } from '../../core/src/upstream.ts';
-import { museSettingsPath, parseMuseServer, readMuseSettings } from './muse-config.ts';
+import { unshowable, visible } from '../../pi/src/words.ts';
+import { findMuse, museManaged, museSettingsPath, parseMuseServer, readMuseSettings, serverEnabled } from './muse-config.ts';
 import type { QueueResult } from './waker.ts';
 import { VERSION } from './version.ts';
 
@@ -58,7 +59,7 @@ export function museStateDir(env: NodeJS.ProcessEnv = process.env): string {
 const home = (env: NodeJS.ProcessEnv) => env.HOME || homedir();
 const dataHome = (env: NodeJS.ProcessEnv) => (env.XDG_DATA_HOME && isAbsolute(env.XDG_DATA_HOME) ? env.XDG_DATA_HOME : join(home(env), '.local', 'share'));
 
-export { museSettingsPath, parseMuseServer };
+export { findMuse, museManaged, museSettingsPath, parseMuseServer, serverEnabled, unshowable };
 
 /** The plugin's own settings file in Muse: {"MCP_EVENTS_…": "value"}, in place of the environment Muse does not pass. */
 export const pluginSettingsPath = (base: string): string => join(base, 'settings.json');
@@ -94,11 +95,45 @@ function isSelf(arg: string): boolean {
     return /mcp-events[^\\/]*(?:[\\/][^\\/]+){0,4}[\\/]dist[\\/]helper\.js$/.test(arg) || /[\\/]events[\\/]codex[\\/](?:plugin[\\/]dist[\\/]helper\.js|src[\\/]helper\.ts)$/.test(arg);
 }
 
-/** The servers to look for events on: Muse's user settings, or MCP_EVENTS_CONFIG (a JSON file with `mcpServers`). */
-export function readMuseServers(env: NodeJS.ProcessEnv = process.env, log: (s: string) => void = () => {}): ServerTable & { file: string } {
+/**
+ * The servers to look for events on: Muse's user settings, or MCP_EVENTS_CONFIG (a JSON file with
+ * `mcpServers`). None where an organisation manages Muse (`managed`, from museManaged).
+ */
+export function readMuseServers(env: NodeJS.ProcessEnv = process.env, log: (s: string) => void = () => {}, managed?: string): ServerTable & { file: string } {
     const list = (v: string | undefined) => v?.split(',').map((s) => s.trim()).filter(Boolean);
-    return readMuseSettings(env, { file: env.MCP_EVENTS_CONFIG, only: list(env.MCP_EVENTS_SERVERS), skip: list(env.MCP_EVENTS_SKIP), isSelf, log });
+    return readMuseSettings(env, { file: env.MCP_EVENTS_CONFIG, only: list(env.MCP_EVENTS_SERVERS), skip: list(env.MCP_EVENTS_SKIP), isSelf, log, managed });
 }
+
+/**
+ * What the person is asked before a watch starts, in Muse, with every name and value shown whole
+ * and hidden characters written out (the Pi form's `visible`). `wakes`: the limits, where events
+ * start turns (MCP_EVENTS_MUSE_WAKE=attach); otherwise they come with the person's messages.
+ */
+export function museWatchQuestion(p: { server: string; event: string; arguments?: unknown; note?: string }, wakes?: { gapMs: number; perHour: number }): string {
+    const args = p.arguments && typeof p.arguments === 'object' && Object.keys(p.arguments).length ? ` with the filters ${visible(JSON.stringify(p.arguments))}` : '';
+    const limits = wakes ? [wakes.gapMs > 0 ? `at most once every ${Math.round(wakes.gapMs / 1000)} s per watch` : '', wakes.perHour > 0 ? `${wakes.perHour} times an hour` : ''].filter(Boolean) : [];
+    const how = wakes
+        ? `Its events will start turns in this session by themselves, while you are away too${limits.length ? ` (${limits.join(', ')})` : ''}.`
+        : 'Its events will come with the messages you send in this session while it runs.';
+    return [
+        'mcp-events: start a watch?',
+        `Muse wants to watch ${visible(JSON.stringify(p.event))} on the MCP server ${visible(JSON.stringify(p.server))}${args}.`,
+        ...(p.note ? [`When it fires: ${visible(JSON.stringify(p.note))}`] : []),
+        '',
+        `${how} You can stop it at any time by asking Muse to stop the watch.`
+    ].join('\n');
+}
+
+/** The answer to a watch_event that waits for the person's typed yes. */
+export const watchPendingText = (question: string, phrase: string) =>
+    [
+        'The watch is not started yet. Muse gives this plugin no way to ask the person, so they answer by typing. Show them this question as it is:',
+        '',
+        question,
+        '',
+        `To start it, they send a message that is exactly: ${phrase}`,
+        'When they have, call watch_event again with the same arguments. If they say no, or send anything else, do not start it.'
+    ].join('\n');
 
 /** One entry of Muse's `mcpServers`, as the Events client takes it (with this plugin's own helper left out). */
 export const parseEventsServer = (v: Record<string, unknown>, env: NodeJS.ProcessEnv, base: string) => parseMuseServer(v, env, base, isSelf);
@@ -206,22 +241,8 @@ export function spokeAt(base: string, session: string): number {
 /** Wake settings: `inbox` (the default: the next message the person sends) or `attach`. */
 export const wakeMode = (env: NodeJS.ProcessEnv): 'inbox' | 'attach' => (env.MCP_EVENTS_MUSE_WAKE?.trim().toLowerCase() === 'attach' ? 'attach' : 'inbox');
 
-const executable = (p: string) => {
-    try {
-        if (!statSync(p).isFile()) return false;
-        accessSync(p, constants.X_OK);
-        return true;
-    } catch {
-        return false;
-    }
-};
-
-/** The `muse` to run: MCP_EVENTS_MUSE_BIN if set (an absolute path), else the first on PATH, else where Muse's installers put it. */
-export function findMuse(env: NodeJS.ProcessEnv = process.env): string | undefined {
-    if (env.MCP_EVENTS_MUSE_BIN) return isAbsolute(env.MCP_EVENTS_MUSE_BIN) && executable(env.MCP_EVENTS_MUSE_BIN) ? env.MCP_EVENTS_MUSE_BIN : undefined;
-    for (const dir of (env.PATH ?? '').split(delimiter).filter(Boolean)) if (executable(join(dir, 'muse'))) return join(dir, 'muse');
-    return ['/opt/homebrew/bin/muse', '/usr/local/bin/muse', join(home(env), '.local', 'bin', 'muse')].find(executable);
-}
+/** The `muse` to run for this plugin: MCP_EVENTS_MUSE_BIN if set (an absolute path), else as muse-config.ts finds it. */
+export const findMuseFor = (env: NodeJS.ProcessEnv = process.env): string | undefined => findMuse(env, env.MCP_EVENTS_MUSE_BIN);
 
 /** A UUIDv7, as MSP takes for a command id. */
 export function uuid7(now = Date.now()): string {

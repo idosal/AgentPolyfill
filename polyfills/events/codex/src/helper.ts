@@ -27,7 +27,8 @@ import { isHttp } from '../../core/src/upstream.ts';
 import { codexHome, readCodexServers } from './codex-config.ts';
 import { serve } from './mcp-server.ts';
 import { isThePersons, threadOf } from './meta.ts';
-import { applyPluginSettings, attachTurn, findMuse, isMuse, MUSE, MUSE_INSTRUCTIONS, museSession, museStateDir, putInbox, readMuseServers, spokeAt, wakeMode } from './muse.ts';
+import { askTyped } from './muse-confirm.ts';
+import { applyPluginSettings, attachTurn, findMuseFor, isMuse, MUSE, MUSE_INSTRUCTIONS, museManaged, museSession, museStateDir, museWatchQuestion, putInbox, readMuseServers, spokeAt, unshowable, wakeMode, watchPendingText } from './muse.ts';
 import { ThreadSession } from './threads.ts';
 import { VERSION } from './version.ts';
 import { codexNotFound, findCodex, queueMessage, THREAD_ID, type Wake } from './waker.ts';
@@ -70,7 +71,10 @@ if ('error' in fromFile && fromFile.error) log(fromFile.error);
 
 // ---- Which servers ----
 
-const table = off ? { servers: {}, skipped: {} } : onMuse ? readMuseServers(env, log) : readCodexServers(env, log);
+// In Muse, an organisation's Muse policy (muse config status) means no server is reached, as a managed Codex policy does.
+const museCommand = onMuse ? findMuseFor(env) : undefined;
+const managed = onMuse && !off ? museManaged(museCommand, env) : undefined;
+const table = off ? { servers: {}, skipped: {} } : onMuse ? readMuseServers(env, log, managed) : readCodexServers(env, log);
 secrets.add(env.MCP_EVENTS_RELAY_ACCESS_KEY, readRelaySettings(env)?.accessKey);
 for (const cfg of Object.values(table.servers)) {
     if (isHttp(cfg)) {
@@ -181,7 +185,7 @@ const codexWake: Wake = async (thread, text) => {
 // Muse: the session this process serves, and how a batch reaches it.
 const museSessionId = onMuse ? museSession(env) : undefined;
 const museMode = onMuse ? wakeMode(env) : 'inbox';
-const museBin = onMuse && museMode === 'attach' ? findMuse(env) : undefined;
+const museBin = onMuse && museMode === 'attach' ? museCommand : undefined;
 if (onMuse) log(`Muse session ${museSessionId?.slice(0, 8) ?? '(none: MUSE_SESSION_ID is not set)'}; new events ${museMode === 'attach' ? (museBin ? `start a turn through ${museBin} attach (experimental), or wait for the next message` : 'wait for the next message (MCP_EVENTS_MUSE_WAKE=attach, but no muse command was found)') : 'wait for the next message'}`);
 let attachRestUntil = 0;
 const museWake: Wake = async (session, text) => {
@@ -237,6 +241,20 @@ const server = serve({
         const s = sessionFor(thread);
         if (!s.manager.owner) s.start();
         if (!onMuse && isThePersons(meta)) s.spoke();
+        // In Muse a watch waits for the person's typed yes (muse-confirm.ts): Muse's own approval may be a model's.
+        // A server or event type that isn't there is refused by the call itself, with nobody asked.
+        if (onMuse && name === 'watch_event' && connections.get(String(args.server ?? ''))?.eventTypes.some((t) => t.name === args.event)) {
+            const asked = { server: String(args.server), event: String(args.event), arguments: args.arguments, note: typeof args.note === 'string' ? args.note : undefined };
+            const why = unshowable(asked);
+            if (why) return { text: `The watch is not started: ${why}.`, isError: true };
+            const question = museWatchQuestion(asked, museMode === 'attach' ? s.budget : undefined);
+            // The question shows what is sent, or there is no watch.
+            if (secrets.scrub(question) !== question) return { text: 'The watch is not started: its filters or note hold a value your MCP configuration keeps secret, which the question to the user would have to hide.', isError: true };
+            const typed = askTyped(base, thread, 'watch', question);
+            if ('unavailable' in typed) return { text: `The watch is not started: ${typed.unavailable}.`, isError: true };
+            if ('pending' in typed) return { text: watchPendingText(question, typed.pending), isError: true };
+            log(`[${thread.slice(0, 8)}] the user typed the yes to this watch`);
+        }
         return s.call(name, args);
     }
 });
