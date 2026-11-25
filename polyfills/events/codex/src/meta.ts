@@ -13,13 +13,19 @@ export function threadOf(meta: Json): string | undefined {
 }
 
 /**
- * The turn triggers that mean the person started the turn, as Codex 0.172 sends them: "user" for
- * what is typed in the TUI, "exec" for a `codex exec` run, "realtime" for voice ("voice" too, in
- * case a client names it so). Nothing else counts: a turn the queue started (this plugin's wake
- * among them), a goal, an automation, a hook, a review, a trigger this list does not know, or a
- * call with no turn metadata at all (a Codex before 0.172).
+ * The turn triggers that mean the person started the turn in one of Codex's own apps, each from where
+ * it is set (Codex at rust-v0.172.0, and the ChatGPT desktop app as installed):
+ * - "user": a prompt typed in the TUI (codex-rs/tui/src/chatwidget/input_submission.rs, the
+ *   `AppCommand::user_turn` call).
+ * - "composer": a message sent in the ChatGPT desktop app, its default (`turnTrigger: t.turnTrigger ??
+ *   "composer"` in the app's bundle, app.asar). Read from the installed app and its rollouts, not run.
+ * - "exec": a `codex exec` run (codex-rs/exec/src/lib.rs and exec/src/remote.rs).
+ * - "realtime": a voice turn (codex-rs/core/src/session/realtime_handoff.rs).
+ * Nothing else counts: a turn the queue started (this plugin's wake among them), a goal, an
+ * automation, a hook, a review, a trigger this list does not know, or a call with no turn metadata
+ * at all (a Codex before 0.172).
  */
-const THE_PERSONS = new Set(['user', 'exec', 'realtime', 'voice']);
+const THE_PERSONS = new Set(['user', 'composer', 'exec', 'realtime']);
 
 export function isThePersons(meta: Json): boolean {
     const trigger = triggerOf(meta);
@@ -33,21 +39,22 @@ const triggerOf = (meta: Json): unknown => {
 
 /**
  * Which app shows the session, as far as one call says. `codex queue` runs a wake in whichever app
- * server has the session open: Codex's own clients show that turn, but an app that runs
+ * server has the session open: Codex's own apps show that turn, but an app that runs
  * `codex app-server` itself (T3 Code, say) may not show a turn it did not start.
  *
- * - `codex`: a turn the person started in one of Codex's own clients (THE_PERSONS). Each of them names
+ * - `codex`: a turn the person started in one of Codex's own apps (THE_PERSONS). Each of them names
  *   what started every turn (`turnTrigger` in Codex's app-server protocol: "source classification for
  *   the caller that starts this turn"), and Codex passes it on in the call's turn metadata.
- * - `unmarked`: a turn with no trigger. Its client says nothing about itself (another app's app
- *   server, or a Codex before 0.172), so the plugin can't tell that a wake would be shown.
- * - `undefined`: a turn something else started (the queue, a goal, an automation, a trigger this list
- *   doesn't know). Codex names those itself, in any app server, so they say nothing about the app.
+ * - `undefined`, nothing said: a turn the queue started (codex-rs/ext/queue/src/service.rs). Codex
+ *   names it so in any app server, so it says nothing about the app.
+ * - `unmarked`, anything else: no trigger (another app's app server, which sets none, or a Codex before
+ *   0.172), or one this list doesn't count (a goal, an automation, an app that names its turns its own
+ *   way). The plugin can't tell that a wake would be shown, so until the person's next turn it isn't.
  */
 export type ShownBy = 'codex' | 'unmarked';
 
 export function shownBy(meta: Json): ShownBy | undefined {
     const trigger = triggerOf(meta);
-    if (typeof trigger !== 'string' || trigger === '') return 'unmarked';
-    return THE_PERSONS.has(trigger) ? 'codex' : undefined;
+    if (trigger === 'queue') return undefined;
+    return typeof trigger === 'string' && THE_PERSONS.has(trigger) ? 'codex' : 'unmarked';
 }

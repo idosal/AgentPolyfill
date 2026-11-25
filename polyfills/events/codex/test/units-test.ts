@@ -27,25 +27,39 @@ describe("what Codex says in a call's _meta", () => {
         assert.equal(threadOf({}), undefined);
     });
 
-    test('CX1: only a turn Codex says the person started is theirs (typed, codex exec, voice); anything else, or nothing said, is not', () => {
+    // Each trigger a turn the person started carries, and where Codex (rust-v0.172.0) or the ChatGPT desktop app sets it.
+    const persons: [string, string][] = [
+        ['user', 'typed in the TUI: codex-rs/tui/src/chatwidget/input_submission.rs'],
+        ['composer', "sent in the ChatGPT desktop app: its bundle's default, read from the installed app and its rollouts"],
+        ['exec', 'a codex exec run: codex-rs/exec/src/lib.rs, exec/src/remote.rs'],
+        ['realtime', 'voice: codex-rs/core/src/session/realtime_handoff.rs']
+    ];
+    for (const [t, where] of persons)
+        test(`"${t}" (${where}) is the person's, in Codex's own app`, () => {
+            const meta = { 'x-codex-turn-metadata': { turn_trigger: t } };
+            assert.equal(isThePersons(meta), true);
+            assert.equal(shownBy(meta), 'codex');
+        });
+
+    test('CX1: only a turn Codex says the person started is theirs; anything else, or nothing said, is not', () => {
         const turn = (turn_trigger: unknown) => ({ 'x-codex-turn-metadata': { turn_trigger } });
-        // What Codex 0.172 sends: "user" from the TUI, "exec" from codex exec, "realtime" for voice.
-        for (const t of ['user', 'exec', 'realtime', 'voice']) assert.equal(isThePersons(turn(t)), true, t);
-        for (const t of ['queue', 'goal', 'daemon_recovery', 'automation_cron_scheduled', 'guardian_review', 'memory_consolidation', 'hook', 'composer', 'subagent', 'USER', '']) assert.equal(isThePersons(turn(t)), false, JSON.stringify(t));
+        // "voice" is in no Codex source, and the desktop app's other triggers are not counted.
+        for (const t of ['queue', 'goal', 'daemon_recovery', 'automation_cron_scheduled', 'automation_heartbeat_scheduled', 'guardian_review', 'memory_consolidation', 'hook', 'voice', 'subagent', 'edit_user_message', 'USER', '']) assert.equal(isThePersons(turn(t)), false, JSON.stringify(t));
         assert.equal(isThePersons({}), false, 'no turn metadata (a Codex before 0.172): not the person');
         assert.equal(isThePersons({ 'x-codex-turn-metadata': {} }), false, 'no turn_trigger: not the person');
         assert.equal(isThePersons({ 'x-codex-turn-metadata': { turn_trigger: 7 } }), false);
     });
 
-    test("which app shows the session: a turn the person started in Codex's own app says Codex; a turn that says nothing says it can't be told; anything else says nothing", () => {
+    test("which app shows the session: the person's turn in Codex's own app says Codex; a queue turn says nothing; anything else says it can't be told", () => {
         const turn = (turn_trigger: unknown) => ({ 'x-codex-turn-metadata': { turn_trigger } });
-        for (const t of ['user', 'exec', 'realtime', 'voice']) assert.equal(shownBy(turn(t)), 'codex', t);
+        // A turn the queue started: Codex marks it "queue" in whichever app server runs it.
+        assert.equal(shownBy(turn('queue')), undefined);
         // What another app's app server sends for a turn it started (T3 Code sets no turnTrigger), and a Codex before 0.172.
         assert.equal(shownBy({ threadId: newThread(), 'x-codex-turn-metadata': { thread_id: newThread(), turn_id: newThread(), model: 'm', sandbox: 'seatbelt' } }), 'unmarked');
         assert.equal(shownBy({}), 'unmarked', 'no turn metadata');
-        for (const t of [undefined, null, '', 7]) assert.equal(shownBy(turn(t)), 'unmarked', JSON.stringify(t));
-        // Codex names these itself, in whichever app server runs the turn: they say nothing about the app.
-        for (const t of ['queue', 'goal', 'automation_heartbeat_scheduled', 'guardian_review', 'hook', 'composer', 'remote_android', 'USER']) assert.equal(shownBy(turn(t)), undefined, t);
+        for (const t of [undefined, null, '', 7, {}]) assert.equal(shownBy(turn(t)), 'unmarked', JSON.stringify(t));
+        // UH-1: a trigger the plugin doesn't count fails closed, whether Codex's own (a goal, an automation) or an app's name for its turns.
+        for (const t of ['goal', 'automation_heartbeat_scheduled', 'guardian_review', 'hook', 'remote_android', 'edit_user_message', 'voice', 't3', 'my-app', 'USER', 'Queue']) assert.equal(shownBy(turn(t)), 'unmarked', t);
     });
 });
 

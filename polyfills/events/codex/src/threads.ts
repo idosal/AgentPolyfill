@@ -44,10 +44,10 @@ export const WAKE_HEADER = `${LINE_PREFIX} (Sent by the mcp-events plugin, not t
 export function notShown(by: ShownBy | undefined): string {
     return (
         (by === 'unmarked'
-            ? "This session isn't woken by events: its last turn that called the plugin didn't say what started it, so the plugin can't tell that the app this session is open in shows a turn that a wake starts. "
-            : "This session isn't woken by events yet: none of its turns that called the plugin was one you started in Codex's own app. ") +
-        "Codex's TUI says what started each turn (Codex 0.172 or newer). An app that runs Codex through an app server of its own (T3 Code, say) doesn't, and codex queue would run the wake inside that app, which may not show it. " +
-        "The watches still store every event: recent_events and get_event read them. Waking starts once a turn you start in the Codex TUI (or with codex exec, or by voice) calls one of the plugin's tools."
+            ? "This session isn't woken by events: the last of its turns that called the plugin wasn't one you started in Codex's own app (it named nothing that started it, or something the plugin doesn't count, such as a goal or an automation), so the plugin can't tell that the app this session is open in shows a turn that a wake starts. "
+            : "This session isn't woken by events yet: no turn you started in Codex's own app has called the plugin. ") +
+        "Codex's TUI and the ChatGPT desktop app say what started each turn (Codex 0.172 or newer). An app that runs Codex through an app server of its own (T3 Code, say) doesn't, and codex queue would run the wake inside that app, which may not show it. " +
+        "The watches still store every event: recent_events and get_event read them. Waking starts again once a turn you start in Codex's own app (the TUI, the desktop app, codex exec, or by voice) calls one of the plugin's tools."
     );
 }
 
@@ -179,7 +179,7 @@ export class ThreadSession {
             return;
         }
         this.#heldLogged = false;
-        this.#log(by === 'codex' ? "a turn the user started in Codex's own app called the plugin: the session may be woken" : "a turn that didn't say what started it called the plugin (another app's app server, or a Codex before 0.172): the session isn't woken");
+        this.#log(by === 'codex' ? "a turn the user started in Codex's own app called the plugin: the session may be woken" : "a turn the user didn't start in Codex's own app called the plugin (no trigger, as from another app's app server or a Codex before 0.172, or one not counted): the session isn't woken");
         if (by === 'codex' && this.manager.owner && this.#delivery?.pending) this.announce();
     }
 
@@ -277,7 +277,7 @@ export class ThreadSession {
             // sees it. The events wait, stored, and no wake is counted; a call that says so starts it.
             const by = this.shownBy;
             if (by !== 'codex') {
-                if (!this.#heldLogged) this.#log(`not waking the session: ${by === 'unmarked' ? "its last turn that called the plugin didn't say what started it" : "no turn the user started in Codex's own app has called the plugin yet"}; the events are stored`);
+                if (!this.#heldLogged) this.#log(`not waking the session: ${by === 'unmarked' ? "the last of its turns that called the plugin wasn't one the user started in Codex's own app" : "no turn the user started in Codex's own app has called the plugin yet"}; the events are stored`);
                 this.#heldLogged = true;
                 return;
             }

@@ -64,8 +64,11 @@ instructions to the model, are what tell it apart from what you typed.
   - **How it knows you wrote.** From the turn metadata Codex 0.172 sends with
     each call (`x-codex-turn-metadata.turn_trigger`). It never reads what you
     wrote.
-  - Only `user` (typed in Codex), `exec` (`codex exec`) and `realtime` or
-    `voice` (voice) count.
+  - Only these count: `user` (typed in the TUI), `composer` (sent in the
+    ChatGPT desktop app), `exec` (`codex exec`) and `realtime` (voice). Each is
+    where Codex 0.172's source sets it, except `composer`. That one is the
+    desktop app's default, read from the installed app and its sessions'
+    records, not run.
   - These don't count: a turn the queue started (this plugin's own wake among
     them), a hook, an automation, a trigger it doesn't know, and a call with no
     turn metadata (a Codex before 0.172).
@@ -141,12 +144,17 @@ instructions to the model, are what tell it apart from what you typed.
   - So the plugin wakes a session only while the latest of the session's turns
     that called its tools was one you started in Codex's own app. It tells
     from that turn's `turn_trigger`, the same allowlist as above.
-  - A call whose turn names no trigger stops the wakes. That covers another
-    app's app server, since T3 Code sets none, and a Codex before 0.172. A turn
-    the queue started, or any other trigger, changes nothing.
-  - The latest call's answer is kept in `threads/<session id>/shown-by.json`,
-    so it holds for a helper that starts later and for the window that runs
-    the watches.
+  - Any other call stops the wakes, so a trigger the plugin doesn't know
+    fails closed. That covers a turn that names no trigger, as from another
+    app's app server (T3 Code sets none) or a Codex before 0.172. It also
+    covers a goal, an automation, a review, or an app's own name for its
+    turns. Only a turn the queue started, which Codex marks `queue` in any app
+    server, changes nothing.
+  - The latest call's answer is kept in `threads/<session id>/shown-by.json`
+    (readable only by you), so it holds for a helper that starts later and
+    for the window that runs the watches.
+  - In T3 Code, [mcp-events for T3 Code](../t3/SECURITY.md) wakes a thread
+    through T3 Code itself instead.
   - Events are still stored, nothing is handed over and no wake is counted,
     and `list_watches` and `watch_event` say why.
 - **A chat it can't reach isn't tried again.** In the ChatGPT desktop app, a

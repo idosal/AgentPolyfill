@@ -5,7 +5,7 @@
 
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { ThreadSession } from '../src/threads.ts';
@@ -424,7 +424,7 @@ describe("only where Codex's own app shows the wake", () => {
         const result = r.result as { content: { text: string }[]; isError?: boolean };
         return { text: result.content.map((c) => c.text).join(''), isError: result.isError === true };
     };
-    const held = /This session isn't woken by events: its last turn that called the plugin didn't say what started it/;
+    const held = /This session isn't woken by events: the last of its turns that called the plugin wasn't one you started in Codex's own app/;
 
     test("a session whose turns don't say what started them is not woken: codex queue isn't run, watch_event and list_watches say why, and the events are stored", async () => {
         const w = world();
@@ -456,6 +456,36 @@ describe("only where Codex's own app shows the wake", () => {
             await waitFor(async () => eventIdsIn((await h.call('recent_events', {}, thread, 'queue')).text).length === 2, 20000, 'the second event');
             await sleep(1500);
             assert.equal(w.queued().length, 1, 'not woken again');
+            // The person writes in the ChatGPT desktop app ("composer"): what waited is handed over.
+            await h.call('list_watches', {}, thread, 'composer');
+            await waitFor(() => w.queued().length === 2, 20000, 'the wake after a desktop-app turn');
+            // UH-1: a trigger the plugin doesn't count (an app naming its turns its own way, or a goal) stops it too.
+            for (const [i, trigger] of ['t3', 'goal'].entries()) {
+                await h.call('get_event', { id: 'e1' }, thread, trigger);
+                w.emit('ticket.created', { title: `after ${trigger}` });
+                await waitFor(async () => eventIdsIn((await h.call('recent_events', {}, thread, 'queue')).text).length === 3 + i, 20000, `the event after a ${trigger} turn`);
+                await sleep(1500);
+                assert.equal(w.queued().length, 2, `not woken after a "${trigger}" turn`);
+                assert.match((await h.call('list_watches', {}, thread, 'queue')).text, held);
+            }
+        } finally {
+            await h.stop();
+        }
+    });
+
+    test("each trigger of a turn the person started in Codex's own app lets an event wake the session", async () => {
+        const w = world();
+        const h = await startHelper(w, { MCP_EVENTS_WAKE_GAP_S: '0' });
+        // "user" (the TUI), "composer" (the ChatGPT desktop app), "exec" (codex exec), "realtime" (voice).
+        const sessions = ['user', 'composer', 'exec', 'realtime'].map((trigger) => ({ trigger, thread: newThread() }));
+        try {
+            for (const { trigger, thread } of sessions) {
+                await h.call('watch_event', { server: 'tickets', event: 'ticket.created' }, thread, trigger);
+                await untilActive(h, thread);
+            }
+            w.emit('ticket.created', { title: 'one' });
+            await waitFor(() => w.queued().length === sessions.length, 20000, 'a wake for each session');
+            for (const { trigger, thread } of sessions) assert.equal(w.queued().filter((q) => q.thread === thread).length, 1, trigger);
         } finally {
             await h.stop();
         }
@@ -469,6 +499,12 @@ describe("only where Codex's own app shows the wake", () => {
             await h.call('watch_event', { server: 'tickets', event: 'ticket.created' }, thread);
         } finally {
             await h.stop();
+        }
+        // Readable by the user only, as the rest of the state.
+        if (process.platform !== 'win32') {
+            assert.equal(statSync(join(w.state, 'threads', thread, 'shown-by.json')).mode & 0o777, 0o600);
+            assert.equal(statSync(join(w.state, 'threads', thread)).mode & 0o777, 0o700);
+            assert.equal(statSync(w.state).mode & 0o777, 0o700);
         }
         // Resumed: the first call is a woken turn's, and the session is still Codex's own app's.
         h = await startHelper(w, { MCP_EVENTS_WAKE_GAP_S: '0' });
