@@ -50,10 +50,16 @@ endpoint, with a filter for Server Cards and `federation: "referrals"`.
   mode answers it. If you say no, nothing is sent.
 - **What is sent is what you were shown.** A query is refused if it is longer
   than the 300 characters the question shows, or holds control characters,
-  invisible characters or direction marks, which could make the question read
-  differently from what is sent. A registry, named or set, is refused if it is
-  over 200 characters or holds spaces, control characters or direction marks.
-  So the question names exactly where the search goes.
+  invisible characters (tag characters and variation selectors among them) or
+  direction marks, which could make the question read differently from what
+  is sent. A registry, named or set, is refused if it is over 200 characters
+  or holds spaces, control characters, invisible characters or direction
+  marks. So the question names exactly where the search goes.
+- **A registry's own words are one line.** Its error messages, the referrals
+  it names, and each result's name and description are shown on one line,
+  capped, with control and invisible characters taken out. So a registry can't
+  add lines of its own to the answer, or carry text you don't see. A result
+  whose identifier holds such a character is skipped.
 - **A session with nobody to ask can't search.** In `claude -p`, or a
   background loop, every search is refused and nothing is sent.
 - Only the words Claude puts in `query` are sent, with `Content-Type` and
