@@ -9,7 +9,9 @@
 // Keychain). So T3 Code gets a PATH of a folder of this test's own, holding only `node`,
 // then /usr/bin and /bin. (Node's own folder is not on it: npm installs global commands,
 // agent CLIs among them, beside `node`.) Afterwards the file fails if T3 Code reports any
-// agent CLI installed, or if anything was written to the throwaway HOME.
+// agent CLI installed, or if anything was written to the throwaway HOME. (On Linux, in CI, a
+// ~/.local appeared with no agent CLI found, so the XDG folders are set to folders of the
+// test's own outside HOME: an empty HOME still means nothing else wrote there.)
 //
 // The `t3` package is a launcher: on first use it downloads that version's T3 Code into
 // T3CODE_HOME. That happens once, before the tests, and a failed download fails the file
@@ -31,18 +33,31 @@ const home = temp();
 const bin = join(home, 'bin');
 mkdirSync(bin);
 symlinkSync(process.execPath, join(bin, 'node'));
-const env = { PATH: [bin, '/usr/bin', '/bin'].join(':'), HOME: join(home, 'home'), T3CODE_HOME: join(home, 't3'), T3CODE_TELEMETRY_ENABLED: 'false', T3CODE_NO_BROWSER: '1', MCP_EVENTS_T3_BIN: cli };
+const xdg = join(home, 'xdg');
+const env = {
+    PATH: [bin, '/usr/bin', '/bin'].join(':'),
+    HOME: join(home, 'home'),
+    XDG_CONFIG_HOME: join(xdg, 'config'),
+    XDG_DATA_HOME: join(xdg, 'data'),
+    XDG_STATE_HOME: join(xdg, 'state'),
+    XDG_CACHE_HOME: join(xdg, 'cache'),
+    T3CODE_HOME: join(home, 't3'),
+    T3CODE_TELEMETRY_ENABLED: 'false',
+    T3CODE_NO_BROWSER: '1',
+    MCP_EVENTS_T3_BIN: cli
+};
 mkdirSync(env.HOME, { recursive: true });
 
 /** T3 Code's own record of each provider it checked, in T3CODE_HOME/caches. */
 const providers = () => {
     const dir = join(env.T3CODE_HOME, 'caches');
-    const found: { file: string; installed: unknown; message?: unknown }[] = [];
+    // Only whether it is installed: a record's other fields can name an account, and CI logs are public.
+    const found: { file: string; installed: unknown }[] = [];
     for (const f of existsSync(dir) ? readdirSync(dir) : []) {
         if (!f.endsWith('.json')) continue;
         try {
-            const j = JSON.parse(readFileSync(join(dir, f), 'utf8')) as { installed?: unknown; message?: unknown };
-            if (j && typeof j === 'object' && 'installed' in j) found.push({ file: f, installed: j.installed, message: j.message });
+            const j = JSON.parse(readFileSync(join(dir, f), 'utf8')) as { installed?: unknown };
+            if (j && typeof j === 'object' && 'installed' in j) found.push({ file: f, installed: j.installed });
         } catch {
             // being written, or not a provider's record
         }
@@ -74,7 +89,9 @@ async function stopServer() {
     const end = Date.now() + 10000;
     while (alive() && Date.now() < end) await sleep(100);
     signal('SIGKILL');
-    while (alive()) await sleep(100);
+    const killed = Date.now() + 10000;
+    while (alive() && Date.now() < killed) await sleep(100);
+    if (alive()) throw new Error(`T3 Code's processes (group ${server.pid}) were still there 10 s after SIGKILL`);
     server = undefined;
 }
 
@@ -98,11 +115,14 @@ after(async () => {
             await stopServer();
             const seen = providers().filter((p) => p.installed !== false);
             assert.deepEqual(seen, [], `T3 Code found an agent CLI on the test's PATH: ${JSON.stringify(seen)}`);
-            assert.deepEqual(readdirSync(env.HOME), [], 'something wrote to the throwaway HOME (an agent CLI ran?)');
+            assert.deepEqual(readdirSync(env.HOME, { recursive: true }), [], 'something wrote to the throwaway HOME (an agent CLI ran?)');
         }
     } finally {
-        await stopServer();
-        cleanup();
+        try {
+            await stopServer();
+        } finally {
+            cleanup();
+        }
     }
 });
 

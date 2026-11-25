@@ -140,8 +140,8 @@ test('while T3 Code is not running, events are stored and the wake is tried agai
     writeFileSync(w.mode, 'down');
     w.emit('ticket.created', { id: 'T-4', priority: 'high' });
     await waitFor(() => w.sent().length > 0, 15000, 'a first try');
-    const listed = await s.call('list_watches');
-    assert.match(listed.text, /Waking this thread failed the last time it was tried \(T3 Code is not running/);
+    // The fake t3 has been run; the watcher records why it failed once that run has ended.
+    await waitFor(async () => /Waking this thread failed the last time it was tried \(T3 Code is not running/.test((await s.call('list_watches')).text), 15000, 'list_watches to say the first try failed');
     writeFileSync(w.mode, 'ok');
     await waitFor(() => w.sent().some((x) => x.args.length && JSON.stringify(x).includes('1 new event') && x.pid !== w.sent()[0]!.pid), 20000, 'the retry');
     await s.stop();
