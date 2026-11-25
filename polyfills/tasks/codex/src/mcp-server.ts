@@ -4,8 +4,16 @@
 //   initialize, ping, tools/list, tools/call    from Codex
 //   elicitation/create                          to Codex: a question Codex puts to the person
 //
-// It speaks the 2025 revisions' opening (`initialize`), which Codex 0.172 uses. What Codex declares
-// there (and in a call's `_meta`) is how the plugin learns whether Codex speaks Tasks itself.
+// It speaks the 2025 revisions' opening (`initialize`), which Codex 0.172 uses. A client on revision
+// 2026-07-28 opens with `server/discover` instead. That request's declaration is read, and it is
+// answered "method not found", as a 2025-only server answers it (this server's questions are
+// server-to-client requests, which 2026-07-28 has no place for), so such a client goes on with
+// `initialize`. (Answering with only 2025 revisions in `supportedVersions` stops Codex 0.172 there.) What a client declares, at `initialize`,
+// on `server/discover` and in any request's `_meta`, is how the plugin learns whether Codex speaks
+// Tasks itself (`onDeclared`).
+//
+// Everything this server sends Codex (a tool's answer, a question) has the secrets this process
+// knows taken out first (`scrub`).
 
 import type { Readable, Writable } from 'node:stream';
 import { oneLine } from '../../core/src/untrusted.ts';
@@ -33,6 +41,10 @@ export type ServeOptions = {
     tools: () => readonly ToolSpec[];
     call: (name: string, args: Json, ctx: CallContext) => Promise<ToolAnswer>;
     onInitialize?: (clientCapabilities: Json, clientInfo: Json) => void;
+    /** The client's capabilities as a request declared them (`initialize`, `server/discover`, a request's `_meta`). */
+    onDeclared?: (clientCapabilities: Json, where: string) => void;
+    /** Takes known secrets out of text bound for Codex. */
+    scrub?: (text: string) => string;
     input: Readable;
     output: Writable;
     log?: (line: string) => void;
@@ -47,9 +59,11 @@ export function serve(o: ServeOptions): { done: Promise<void>; revision: () => s
     let revision = REVISIONS[0]!;
     let next = 1;
     const waiting = new Map<string, (m: Json) => void>();
+    const scrub = o.scrub ?? ((t: string) => t);
+    const deep = (v: unknown, depth = 0): unknown => (typeof v === 'string' ? scrub(v) : depth > 32 || typeof v !== 'object' || v === null ? v : Array.isArray(v) ? v.map((x) => deep(x, depth + 1)) : Object.fromEntries(Object.entries(v).map(([k, x]) => [k, deep(x, depth + 1)])));
     const send = (m: Json) => {
         try {
-            o.output.write(`${JSON.stringify({ jsonrpc: '2.0', ...m })}\n`);
+            o.output.write(`${JSON.stringify({ jsonrpc: '2.0', ...(deep(m) as Json) })}\n`);
         } catch {
             // Codex is gone
         }
@@ -88,9 +102,16 @@ export function serve(o: ServeOptions): { done: Promise<void>; revision: () => s
             return;
         }
         const params = isObject(m.params) ? m.params : {};
+        const declared = isObject(params._meta) ? params._meta['io.modelcontextprotocol/clientCapabilities'] : undefined;
+        if (isObject(declared)) o.onDeclared?.(declared, String(method));
         switch (method) {
+            case 'server/discover':
+                // Read for what it declares (above), and answered as a 2025-only server answers it, so a
+                // 2026-07-28 client goes on with `initialize` (see the top).
+                return fail(id, -32601, 'Method not found');
             case 'initialize': {
                 clientCaps = isObject(params.capabilities) ? params.capabilities : {};
+                o.onDeclared?.(clientCaps, 'initialize');
                 const asked = typeof params.protocolVersion === 'string' ? params.protocolVersion : '';
                 revision = REVISIONS.includes(asked) ? asked : REVISIONS[0]!;
                 o.onInitialize?.(clientCaps, isObject(params.clientInfo) ? params.clientInfo : {});

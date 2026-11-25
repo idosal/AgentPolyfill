@@ -1,8 +1,10 @@
 // How an MCP server is reached, as a host's configuration reader hands it to the Tasks client.
-// The same shapes as polyfills/events/core/src/upstream.ts, without the headers helper.
+// The same shapes as polyfills/events/core/src/upstream.ts.
+
+import type { HeadersHelper } from './headers-helper.ts';
 
 export type StdioUpstream = { command: string; args?: string[]; env?: Record<string, string>; cwd?: string };
-export type HttpUpstream = { url: string; headers?: Record<string, string> };
+export type HttpUpstream = { url: string; headers?: Record<string, string>; headersHelper?: HeadersHelper };
 export type UpstreamConfig = (StdioUpstream | HttpUpstream) & {
     /** Codex's own tool rules for this server: only these tools, and never these. */
     enabledTools?: string[];

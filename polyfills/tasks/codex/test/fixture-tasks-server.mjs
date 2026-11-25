@@ -17,10 +17,16 @@
 //
 // FIXTURE_NO_TASKS=1: the extension isn't advertised. FIXTURE_OLD_FORM=1: only the 2025-11-25 form's
 // top-level `tasks` capability is advertised.
+//
+// `--http <port file>`: serves Streamable HTTP on 127.0.0.1 (a port of its own, written to that file)
+// instead of stdio, answering each POST with JSON, and records the `Mcp-Method`, `Mcp-Name`,
+// `Authorization` and `X-Helper` headers each request came with.
 
 import { appendFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { createInterface } from 'node:readline';
+import { createServer } from 'node:http';
+import { writeFileSync } from 'node:fs';
 
 const EXT = 'io.modelcontextprotocol/tasks';
 const LOG = process.env.FIXTURE_LOG;
@@ -28,8 +34,8 @@ const TASK_MS = Number(process.env.FIXTURE_TASK_MS ?? 600);
 const POLL_MS = Number(process.env.FIXTURE_POLL_MS ?? 200);
 const tasks = new Map();
 const now = () => new Date().toISOString();
-const send = (m) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', ...m }) + '\n');
-const log = (m) => LOG && appendFileSync(LOG, JSON.stringify({ at: Date.now(), method: m.method, params: m.params }) + '\n');
+let send = (m) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', ...m }) + '\n');
+const log = (m, headers) => LOG && appendFileSync(LOG, JSON.stringify({ at: Date.now(), method: m.method, params: m.params, ...(headers ? { headers } : {}) }) + '\n');
 
 const TOOLS = ['echo', 'slow', 'fail', 'ask', 'confirm', 'sample', 'long', 'vanish', 'morph', 'relapse', 'bad_create'].map((name) => ({ name, description: `fixture: ${name}`, inputSchema: { type: 'object', properties: { text: { type: 'string' } } } }));
 
@@ -70,8 +76,8 @@ function create(tool, args) {
     return t;
 }
 
-function handle(m) {
-    log(m);
+function handle(m, headers) {
+    log(m, headers);
     const { id, method, params = {} } = m;
     if (id === undefined) return;
     const ok = (result) => send({ id, result: { resultType: 'complete', _meta: { 'io.modelcontextprotocol/serverInfo': { name: 'fixture-tasks', version: '1.0.0' } }, ...result } });
@@ -122,6 +128,35 @@ function handle(m) {
     return err(-32601, 'Method not found');
 }
 
+const at = process.argv.indexOf('--http');
+if (at > 0) {
+    const portFile = process.argv[at + 1];
+    const server = createServer((req, res) => {
+        if (req.method !== 'POST') {
+            res.writeHead(405).end();
+            return;
+        }
+        let body = '';
+        req.on('data', (d) => (body += d));
+        req.on('end', () => {
+            let m;
+            try {
+                m = JSON.parse(body);
+            } catch {
+                res.writeHead(400).end();
+                return;
+            }
+            let answered = false;
+            send = (out) => {
+                answered = true;
+                res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jsonrpc: '2.0', ...out }));
+            };
+            handle(m, { 'mcp-method': req.headers['mcp-method'] ?? null, 'mcp-name': req.headers['mcp-name'] ?? null, authorization: req.headers.authorization ?? null, 'x-helper': req.headers['x-helper'] ?? null });
+            if (!answered) res.writeHead(202).end();
+        });
+    });
+    server.listen(0, '127.0.0.1', () => writeFileSync(portFile, String(server.address().port)));
+} else {
 createInterface({ input: process.stdin }).on('line', (line) => {
     if (!line.trim()) return;
     try {
@@ -131,3 +166,4 @@ createInterface({ input: process.stdin }).on('line', (line) => {
     }
 });
 process.stdin.on('end', () => process.exit(0));
+}

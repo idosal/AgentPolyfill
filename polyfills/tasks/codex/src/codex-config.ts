@@ -12,8 +12,8 @@
 //     helper never reads Codex's stored credentials;
 //   - credentials are taken only where Codex itself takes them from: `http_headers`,
 //     `env_http_headers` and `bearer_token_env_var` (from this helper's environment,
-//     which is what Codex passes it). A server with an `http_headers_helper` is left out
-//     in this form;
+//     which is what Codex passes it), and `http_headers_helper` (a command of the user's,
+//     run as Codex runs it: core/src/headers-helper.ts);
 //   - where an organisation manages Codex (requirements.toml, managed_config.toml, or a
 //     managed-preferences profile), this helper connects to none: it cannot judge that policy;
 //   - Codex does not expand ${VAR} in config.toml, and neither does this.
@@ -112,8 +112,12 @@ function parseTransport(name: string, v: Json, env: NodeJS.ProcessEnv, home: str
             else need.push(v.bearer_token_env_var);
         }
         if (need.length) return { skip: `its credentials come from the environment variable${need.length > 1 ? 's' : ''} ${need.join(', ')}, which Codex does not pass to this plugin's helper (see "Servers that need credentials" in the README)` };
-        if (v.http_headers_helper !== undefined) return { skip: 'its headers come from an http_headers_helper, which this form does not run yet' };
-        return { url: v.url, headers: Object.keys(headers).length ? headers : undefined };
+        let headersHelper: { command: string; cwd: string } | undefined;
+        if (v.http_headers_helper !== undefined) {
+            if (typeof v.http_headers_helper !== 'string' || !v.http_headers_helper.trim()) return { skip: 'its http_headers_helper is not a command' };
+            headersHelper = { command: v.http_headers_helper, cwd: home };
+        }
+        return { url: v.url, headers: Object.keys(headers).length ? headers : undefined, ...(headersHelper ? { headersHelper } : {}) };
     }
     return { skip: 'its transport is not supported (only stdio and streamable HTTP are)' };
 }

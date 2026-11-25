@@ -110,6 +110,8 @@ export type AppOptions = {
     minPollMs?: number;
     /** How long to gather announcements into one wake. */
     batchMs?: number;
+    /** Takes the secrets this process knows out of a text. */
+    scrub?: (text: string) => string;
 };
 
 type Session = { id: string; store: TaskStore; runner?: TaskRunner; shown?: ShownBy; timer?: NodeJS.Timeout; owner: boolean };
@@ -146,9 +148,9 @@ export class App {
         return INSTRUCTIONS;
     }
 
-    /** What Codex declared when it connected: if it declares Tasks itself, this plugin does nothing (stand-down). */
-    initialized(caps: Json): void {
-        if (declaresTasks(caps)) this.#standDown('Codex declared the Tasks extension itself when it connected');
+    /** What Codex declared (at `initialize`, on `server/discover`, or on a request): if it declares Tasks itself, this plugin does nothing (stand-down). */
+    declared(caps: Json, where: string): void {
+        if (declaresTasks(caps)) this.#standDown(`Codex declared the Tasks extension itself (${oneLine(where, 40)})`);
     }
 
     #standDown(why: string): void {
@@ -303,7 +305,6 @@ export class App {
     // ---- Tools ----
 
     async call(name: string, args: Json, ctx: CallContext, thread: string | undefined): Promise<ToolAnswer> {
-        if (declaresTasks(ctx.meta['io.modelcontextprotocol/clientCapabilities'])) this.#standDown('Codex declared the Tasks extension itself on a tool call');
         if (!this.active || !TOOLS.some((t) => t.name === name)) return { text: 'mcp-tasks has no tool by that name.', isError: true };
         if (!thread) return { text: 'mcp-tasks needs Codex to say which session this call is from (`_meta.threadId`), and this call did not.', isError: true };
         const s = this.session(thread);
@@ -368,6 +369,8 @@ export class App {
         }
         if (!known.some((t) => t.name === tool)) return { text: `${server} has no tool named ${tool}.`, isError: true };
         const shownArgs = JSON.stringify(toolArgs, null, 2);
+        // A secret from the user's config would be shown as [redacted], and sent to the server unseen: not started.
+        if (this.#o.scrub && this.#o.scrub(shownArgs) !== shownArgs) return { text: 'The arguments hold one of the secrets in your Codex config (a header or a variable of an MCP server), so the task was not started.', isError: true };
         if (shownArgs.length > MAX_SHOWN_ARGS) return { text: `The arguments are too long to show the user in full (${shownArgs.length} characters; at most ${MAX_SHOWN_ARGS}), so the task was not started.`, isError: true };
 
         // The person decides, in Codex's own form. Anything but "Start it" is a no.

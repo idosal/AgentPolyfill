@@ -20,6 +20,7 @@ import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/cli
 import type { Transport } from '@modelcontextprotocol/client';
 import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import { classify, FIRST_REVISION, readGetResult, TASK_METHODS, TASKS_EXTENSION, type CallOutcome, type InputResponse, type TaskState, type TaskStatus } from './protocol.ts';
+import { mergeHeaders, runHeadersHelper } from './headers-helper.ts';
 import { isHttp, type UpstreamConfig } from './upstream.ts';
 import { describeError, LocalError, secrets } from './untrusted.ts';
 
@@ -143,9 +144,19 @@ export class TasksConnection {
     async connect(timeoutMs: number): Promise<void> {
         const client = new Client({ ...this.#clientInfo } as never, { capabilities: CLIENT_CAPABILITIES as never, versionNegotiation: { mode: 'auto' } });
         const cfg = this.cfg;
-        if (isHttp(cfg)) secrets.add(...Object.values(cfg.headers ?? {}));
+        let headers: Record<string, string> = {};
+        if (isHttp(cfg)) {
+            try {
+                // Run anew for each connection, as Codex does.
+                headers = cfg.headersHelper ? mergeHeaders(cfg.headers ?? {}, await runHeadersHelper(cfg.headersHelper)) : { ...(cfg.headers ?? {}) };
+            } catch (e) {
+                this.error = describeError(e);
+                throw e;
+            }
+            secrets.add(...Object.values(headers));
+        }
         const transport: Transport = isHttp(cfg)
-            ? new StreamableHTTPClientTransport(new URL(cfg.url), { requestInit: { headers: cfg.headers ?? {} }, fetch: tasksFetch() })
+            ? new StreamableHTTPClientTransport(new URL(cfg.url), { requestInit: { headers }, fetch: tasksFetch() })
             : new StdioClientTransport({ command: cfg.command, args: cfg.args ?? [], env: { ...getDefaultEnvironment(), ...(cfg.env ?? {}) }, cwd: cfg.cwd, stderr: 'ignore' });
         let timer: NodeJS.Timeout | undefined;
         try {

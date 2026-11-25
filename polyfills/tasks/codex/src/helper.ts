@@ -56,18 +56,27 @@ const app = new App({
     log,
     connectTimeoutMs: Number(env.MCP_TASKS_CONNECT_TIMEOUT_MS ?? 10000),
     minPollMs: env.MCP_TASKS_MIN_POLL_MS ? Number(env.MCP_TASKS_MIN_POLL_MS) : undefined,
+    scrub: (t) => secrets.scrub(t),
     wake: async (thread, text) => (codex ? queueMessage(codex, thread, text, env) : { ok: false, why: codexNotFound() })
 });
 
+const declaredSeen = new Set<string>();
 const server = serve({
     name: PLUGIN,
     title: 'MCP Tasks (polyfill)',
     version: VERSION,
     instructions: () => app.instructions(),
     tools: () => app.tools(),
+    onDeclared: (caps, where) => {
+        if (!declaredSeen.has(where)) {
+            declaredSeen.add(where);
+            log(`Codex declares, on ${oneLine(where, 40)}: extensions ${oneLine(JSON.stringify(Object.keys((caps.extensions as object) ?? {})), 200)}`);
+        }
+        app.declared(caps, where);
+    },
+    scrub: (t) => secrets.scrub(t),
     onInitialize: (caps, info) => {
         log(`Codex connected (${oneLine(JSON.stringify(info), 120)}); it declares extensions: ${oneLine(JSON.stringify(Object.keys((caps.extensions as object) ?? {})), 200)}`);
-        app.initialized(caps);
         app.resumeAll();
     },
     async call(name, args, ctx) {

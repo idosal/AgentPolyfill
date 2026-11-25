@@ -9,7 +9,8 @@ after(async () => {
     for (const c of open) await c.close().catch(() => {});
 });
 
-async function started(w: World = world(), env: Record<string, string> = {}, caps?: Record<string, unknown>) {
+async function started(w?: World, env: Record<string, string> = {}, caps?: Record<string, unknown>) {
+    w ??= await world();
     const c = new FakeCodex(w, { env });
     open.push(c);
     await c.initialize(caps);
@@ -22,7 +23,7 @@ const declared = (r: Record<string, unknown>) => {
 };
 
 test('a declined start sends nothing to the server', async () => {
-    const w = world();
+    const w = await world();
     const c = await started(w);
     c.respond = choose('no');
     const r = await c.call('start_task', { server: 'jobs', tool: 'slow', arguments: { text: 'x' } }, newThread());
@@ -36,7 +37,7 @@ test('a declined start sends nothing to the server', async () => {
 });
 
 test('where nobody can be asked, nothing starts', async () => {
-    const w = world();
+    const w = await world();
     const c = await started(w, {}, {});
     const r = await c.call('start_task', { server: 'jobs', tool: 'slow', arguments: {} }, newThread());
     assert.match(r.text, /could not be asked/);
@@ -44,7 +45,7 @@ test('where nobody can be asked, nothing starts', async () => {
 });
 
 test('an accepted task is polled, the session is woken with ids only, and the result reads as the server\'s data', async () => {
-    const w = world();
+    const w = await world();
     const c = await started(w);
     c.respond = choose('start');
     const thread = newThread();
@@ -65,7 +66,7 @@ test('an accepted task is polled, the session is woken with ids only, and the re
 });
 
 test('a plain result comes back at once', async () => {
-    const w = world();
+    const w = await world();
     const c = await started(w);
     c.respond = choose('start');
     const r = await c.call('start_task', { server: 'jobs', tool: 'echo', arguments: { text: 'hi' } }, newThread());
@@ -74,7 +75,7 @@ test('a plain result comes back at once', async () => {
 });
 
 test('cancel sends tasks/cancel and stops polling', async () => {
-    const w = world();
+    const w = await world();
     const c = await started(w);
     c.respond = choose('start');
     const thread = newThread();
@@ -90,7 +91,7 @@ test('cancel sends tasks/cancel and stops polling', async () => {
 });
 
 test('input_required: the session is woken, the person answers in Codex\'s form, the answer goes back with tasks/update', async () => {
-    const w = world();
+    const w = await world();
     const c = await started(w);
     const thread = newThread();
     c.respond = choose('start');
@@ -115,7 +116,7 @@ test('input_required: the session is woken, the person answers in Codex\'s form,
 });
 
 test('an empty form from the server becomes a choice the person makes', async () => {
-    const w = world();
+    const w = await world();
     const c = await started(w);
     const thread = newThread();
     c.respond = choose('start');
@@ -130,7 +131,7 @@ test('an empty form from the server becomes a choice the person makes', async ()
 });
 
 test('sampling is refused, and said so', async () => {
-    const w = world();
+    const w = await world();
     const c = await started(w);
     const thread = newThread();
     c.respond = choose('start');
@@ -147,7 +148,7 @@ for (const [tool, outcome] of [
     ['bad_create', /taskId is missing/]
 ] as const) {
     test(`a ${tool} task is handled as the specification says`, async () => {
-        const w = world();
+        const w = await world();
         const c = await started(w);
         const thread = newThread();
         c.respond = choose('start');
@@ -159,7 +160,7 @@ for (const [tool, outcome] of [
 }
 
 test('a finished task is not polled again, so a server that changes it later changes nothing', async () => {
-    const w = world();
+    const w = await world();
     const c = await started(w);
     const thread = newThread();
     c.respond = choose('start');
@@ -172,7 +173,7 @@ test('a finished task is not polled again, so a server that changes it later cha
 });
 
 test('a wake is held until the person starts a turn in Codex\'s own app', async () => {
-    const w = world();
+    const w = await world();
     const c = await started(w);
     const thread = newThread();
     c.respond = choose('start');
@@ -185,7 +186,7 @@ test('a wake is held until the person starts a turn in Codex\'s own app', async 
 });
 
 test('it stands down when Codex declares Tasks itself', async () => {
-    const w = world();
+    const w = await world();
     const c = await started(w, {}, { elicitation: {}, extensions: { 'io.modelcontextprotocol/tasks': {} } });
     const tools = (await c.request('tools/list')).result as { tools: unknown[] };
     assert.equal(tools.tools.length, 0);
@@ -193,7 +194,7 @@ test('it stands down when Codex declares Tasks itself', async () => {
 });
 
 test('MCP_TASKS_OFF=1 offers nothing and connects to nothing', async () => {
-    const w = world();
+    const w = await world();
     const c = await started(w, { MCP_TASKS_OFF: '1' });
     const tools = (await c.request('tools/list')).result as { tools: unknown[] };
     assert.equal(tools.tools.length, 0);
@@ -201,7 +202,7 @@ test('MCP_TASKS_OFF=1 offers nothing and connects to nothing', async () => {
 });
 
 test('a tool Codex is told not to use is not started', async () => {
-    const w = world({ extraServerToml: 'disabled_tools = ["slow"]' });
+    const w = await world({ extraServerToml: 'disabled_tools = ["slow"]' });
     const c = await started(w);
     c.respond = choose('start');
     const r = await c.call('start_task', { server: 'jobs', tool: 'slow' }, newThread());
@@ -210,14 +211,14 @@ test('a tool Codex is told not to use is not started', async () => {
 });
 
 test('a server with only the 2025-11-25 form is left alone, and said so', async () => {
-    const w = world({ fixtureEnv: { FIXTURE_OLD_FORM: '1' } });
+    const w = await world({ fixtureEnv: { FIXTURE_OLD_FORM: '1' } });
     const c = await started(w);
     const r = await c.call('list_task_servers', {}, newThread());
     assert.match(r.text, /experimental form of the 2025-11-25 specification/);
 });
 
 test('polling resumes after the helper restarts', async () => {
-    const w = world({ fixtureEnv: { FIXTURE_TASK_MS: '4000' } });
+    const w = await world({ fixtureEnv: { FIXTURE_TASK_MS: '4000' } });
     const thread = newThread();
     const c = await started(w);
     c.respond = choose('start');

@@ -6,7 +6,7 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { accessSync, chmodSync, constants, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -20,12 +20,33 @@ type Json = Record<string, unknown>;
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const made: string[] = [];
+export const children: ChildProcess[] = [];
+
+/** The only PATH a test process gets: Node's own folder. */
+export const TEST_PATH = dirname(process.execPath);
+/** No program a test runs can find the owner's agent CLIs or gh: checked, not assumed. */
+export function assertNoOwnersTools(path = TEST_PATH): void {
+    for (const dir of path.split(':'))
+        for (const tool of ['codex', 'gh', 'claude', 'copilot', 'opencode', 'pi', 'grok', 'muse'])
+            try {
+                accessSync(join(dir, tool), constants.X_OK);
+                throw new Error(`the test PATH reaches ${join(dir, tool)}; give the tests a PATH with only Node in it`);
+            } catch (e) {
+                if (e instanceof Error && e.message.startsWith('the test PATH')) throw e;
+            }
+}
+assertNoOwnersTools();
 export const temp = () => {
     const d = mkdtempSync(join(tmpdir(), 'mcp-tasks-codex-'));
     made.push(d);
     return d;
 };
+/** Stops the servers a test file started (each file calls it from `after`). */
+export function stopServers(): void {
+    for (const c of children.splice(0)) c.kill('SIGKILL');
+}
 process.on('exit', () => {
+    stopServers();
     for (const d of made) rmSync(d, { recursive: true, force: true });
 });
 
@@ -41,7 +62,7 @@ export async function waitFor<T>(fn: () => T | undefined | false | Promise<T | u
 
 const toml = (v: string) => JSON.stringify(v);
 
-export function world(o: { fixtureEnv?: Record<string, string>; extraServerToml?: string } = {}) {
+export async function world(o: { fixtureEnv?: Record<string, string>; extraServerToml?: string; http?: boolean; url?: string } = {}) {
     const dir = temp();
     const codexHome = join(dir, 'codex-home');
     mkdirSync(codexHome);
@@ -49,7 +70,16 @@ export function world(o: { fixtureEnv?: Record<string, string>; extraServerToml?
     const queueLog = join(dir, 'queue.jsonl');
     chmodSync(FAKE_CODEX, 0o755);
     const env = { FIXTURE_LOG: fixtureLog, FIXTURE_TASK_MS: '400', FIXTURE_POLL_MS: '200', ...(o.fixtureEnv ?? {}) };
-    writeFileSync(join(codexHome, 'config.toml'), ['[mcp_servers.jobs]', `command = ${toml(process.execPath)}`, `args = [${toml(FIXTURE)}]`, o.extraServerToml ?? '', '', '[mcp_servers.jobs.env]', ...Object.entries(env).map(([k, v]) => `${k} = ${toml(v)}`), ''].join('\n'));
+    if (o.url) writeFileSync(join(codexHome, 'config.toml'), ['[mcp_servers.fm]', `url = ${toml(o.url)}`, o.extraServerToml ?? '', ''].join('\n'));
+    else if (o.http) {
+        // The fixture over Streamable HTTP, started here with only what it needs.
+        const portFile = join(dir, 'port');
+        const child = spawn(process.execPath, [FIXTURE, '--http', portFile], { env: { PATH: TEST_PATH, HOME: dir, ...env }, stdio: 'ignore' });
+        children.push(child);
+        child.unref();
+        const port = await waitFor(() => existsSync(portFile) && readFileSync(portFile, 'utf8').trim(), 5000, 'the fixture to listen');
+        writeFileSync(join(codexHome, 'config.toml'), ['[mcp_servers.jobs]', `url = "http://127.0.0.1:${port}/mcp"`, o.extraServerToml ?? '', ''].join('\n'));
+    } else writeFileSync(join(codexHome, 'config.toml'), ['[mcp_servers.jobs]', `command = ${toml(process.execPath)}`, `args = [${toml(FIXTURE)}]`, o.extraServerToml ?? '', '', '[mcp_servers.jobs.env]', ...Object.entries(env).map(([k, v]) => `${k} = ${toml(v)}`), ''].join('\n'));
     return {
         dir,
         codexHome,
@@ -61,7 +91,7 @@ export function world(o: { fixtureEnv?: Record<string, string>; extraServerToml?
         helperLog: () => (existsSync(join(dir, 'state', 'mcp-tasks.log')) ? readFileSync(join(dir, 'state', 'mcp-tasks.log'), 'utf8') : '')
     };
 }
-export type World = ReturnType<typeof world>;
+export type World = Awaited<ReturnType<typeof world>>;
 
 /** What the scripted person does with a form: return the result Codex would send back. */
 export type Responder = (params: Json) => Json | Promise<Json>;
@@ -75,7 +105,7 @@ export class FakeCodex {
 
     constructor(w: World, o: { env?: Record<string, string> } = {}) {
         this.child = spawn(process.execPath, ['--no-warnings', HELPER], {
-            env: { PATH: dirname(process.execPath), HOME: w.dir, CODEX_HOME: w.codexHome, MCP_TASKS_STATE: w.state, MCP_TASKS_CODEX_BIN: FAKE_CODEX, FAKE_CODEX_LOG: w.queueLog, MCP_TASKS_MIN_POLL_MS: '100', ...(o.env ?? {}) },
+            env: { PATH: TEST_PATH, HOME: w.dir, CODEX_HOME: w.codexHome, MCP_TASKS_STATE: w.state, MCP_TASKS_CODEX_BIN: FAKE_CODEX, FAKE_CODEX_LOG: w.queueLog, MCP_TASKS_MIN_POLL_MS: '100', ...(o.env ?? {}) },
             stdio: ['pipe', 'pipe', 'inherit']
         });
         createInterface({ input: this.child.stdout! }).on('line', (line) => void this.#on(JSON.parse(line) as Json));
