@@ -28,7 +28,7 @@ import { codexHome, readCodexServers } from './codex-config.ts';
 import { serve } from './mcp-server.ts';
 import { isThePersons, threadOf } from './meta.ts';
 import { askTyped } from './muse-confirm.ts';
-import { applyPluginSettings, attachTurn, findMuseFor, isMuse, MUSE, MUSE_INSTRUCTIONS, museManaged, museSession, museStateDir, museWatchQuestion, putInbox, readMuseServers, spokeAt, unshowable, wakeMode, watchPendingText } from './muse.ts';
+import { applyPluginSettings, attachTurn, findMuseFor, isMuse, MUSE, MUSE_INSTRUCTIONS, museManaged, museSession, museStateDir, museUnwatchQuestion, museWatchQuestion, putInbox, readMuseServers, spokeAt, unshowable, unwatchPendingText, wakeMode, watchPendingText } from './muse.ts';
 import { ThreadSession } from './threads.ts';
 import { VERSION } from './version.ts';
 import { codexNotFound, findCodex, queueMessage, THREAD_ID, type Wake } from './waker.ts';
@@ -254,6 +254,16 @@ const server = serve({
             if ('unavailable' in typed) return { text: `The watch is not started: ${typed.unavailable}.`, isError: true };
             if ('pending' in typed) return { text: watchPendingText(question, typed.pending), isError: true };
             log(`[${thread.slice(0, 8)}] the user typed the yes to this watch`);
+        }
+        // Stopping one waits for a typed yes too, as every form asks before it (OpenCode's rule); a watch
+        // that isn't there is refused by the call itself, with nobody asked.
+        const stopping = onMuse && name === 'unwatch_event' ? s.manager.watches.find((w) => w.id === args.watch) : undefined;
+        if (stopping) {
+            const question = museUnwatchQuestion({ id: stopping.id, server: stopping.server, event: stopping.event, note: stopping.note });
+            const typed = askTyped(base, thread, 'unwatch', question);
+            if ('unavailable' in typed) return { text: `The watch is not stopped: ${typed.unavailable}.`, isError: true };
+            if ('pending' in typed) return { text: unwatchPendingText(question, typed.pending), isError: true };
+            log(`[${thread.slice(0, 8)}] the user typed the yes to stopping ${stopping.id}`);
         }
         return s.call(name, args);
     }
