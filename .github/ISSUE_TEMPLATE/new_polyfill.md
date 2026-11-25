@@ -6,8 +6,9 @@ labels: polyfill
 
 **Extension and spec**
 
-Its identifier and the spec revision (a SEP, or an extension repository under
-`modelcontextprotocol`).
+Its identifier and the spec revision: a SEP, an extension repository under
+`modelcontextprotocol`, or a spec for agents published outside MCP (say who
+publishes it).
 
 **Host**
 

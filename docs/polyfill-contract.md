@@ -6,10 +6,20 @@ README says so.
 ## 1. One published extension, client side, and nothing else
 
 It implements the client's part of an extension that has an identifier and a
-spec: a SEP, or an extension repository under `modelcontextprotocol`. It adds
-no methods, fields, capabilities or policy of its own. If a server behaves in
-a way the spec doesn't define, the polyfill refuses or ignores it. It doesn't
-invent an accommodation.
+published spec with a named revision. That is either:
+
+- an MCP extension: a SEP, or an extension repository under
+  `modelcontextprotocol`; or
+- a spec for agents published outside MCP, such as
+  [Agentic Resource Discovery](https://github.com/ards-project/ard-spec).
+
+A polyfill for a spec from outside MCP says so wherever it is listed, and
+names who publishes the spec. The rest of this contract applies to it
+unchanged, and "extension" below means either kind.
+
+It adds no methods, fields, capabilities or policy of its own. If a server
+behaves in a way the spec doesn't define, the polyfill refuses or ignores it.
+It doesn't invent an accommodation.
 
 One exception is allowed: an earlier form of the same extension that servers
 in real use still speak. A polyfill may accept that form if it:

@@ -13,9 +13,10 @@ host are welcome.
 
 ## Adding a polyfill
 
-A polyfill implements the client side of one published MCP extension inside
-one host that hasn't shipped it, and does nothing once the host supports the
-extension itself. Each one is a folder in this repository.
+A polyfill implements the client side of one published extension inside one
+host that hasn't shipped it, and does nothing once the host supports the
+extension itself. The extension is an MCP extension, or a spec for agents
+published outside MCP, such as ARD. Each one is a folder in this repository.
 
 ### 1. Meet the contract
 
