@@ -160,11 +160,11 @@ test('G-1 a ticket is good once, for its tool and digest, while fresh', () => {
 })
 
 test('G-6 the surface a conversation lives in, from its transcript path; a ticket carries the hook\'s meta to the server', async () => {
-  assert.equal(surfaceOf('/Users/me/.gemini/antigravity/brain/ec33/.system_generated/logs/transcript.jsonl'), 'app')
-  assert.equal(surfaceOf('/Users/me/.gemini/antigravity-cli/brain/ec33/.system_generated/logs/transcript.jsonl'), 'cli')
+  assert.equal(surfaceOf('/home/me/.gemini/antigravity/brain/ec33/.system_generated/logs/transcript.jsonl'), 'app')
+  assert.equal(surfaceOf('/home/me/.gemini/antigravity-cli/brain/ec33/.system_generated/logs/transcript.jsonl'), 'cli')
   assert.equal(surfaceOf('~/.gemini/antigravity-ide/brain/ec33/x'), 'ide')
   assert.equal(surfaceOf('C:\\Users\\me\\.gemini\\antigravity-cli\\brain\\ec33\\x'), 'cli')
-  for (const v of [undefined, 42, '/tmp/elsewhere/brain/x', '/Users/me/.gemini/antigravity-cloud/brain/x']) assert.equal(surfaceOf(v), 'unknown', String(v))
+  for (const v of [undefined, 42, '/tmp/elsewhere/brain/x', '/home/me/.gemini/antigravity-cloud/brain/x']) assert.equal(surfaceOf(v), 'unknown', String(v))
   const dir = gateDir()
   const out = await answerHook(preToolUse(TOOL, {}), { add_mcp_server: () => ({ pass: 'p', digest: 'd', meta: { surface: 'cli' } }) }, dir)
   assert.deepEqual(redeemTicket(dir, (out.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd'), { ok: true, conversationId: 'ec33ebf9-0cba-4100-8142-c61503f6c587', meta: { surface: 'cli' } })
@@ -221,7 +221,7 @@ test('G-9 the hook leaves out what Antigravity adds to an eager call for its own
 
 test('G-10 a call from an Antigravity IDE conversation is refused: the IDE documents no plugin hooks, and the forms are not supported there', async () => {
   const dir = gateDir()
-  const input = { ...preToolUse(TOOL, {}), transcriptPath: '/Users/me/.gemini/antigravity-ide/brain/ec33/x' }
+  const input = { ...preToolUse(TOOL, {}), transcriptPath: '/home/me/.gemini/antigravity-ide/brain/ec33/x' }
   const out = await answerHook(input, { add_mcp_server: () => ({ ask: 'q', digest: 'd' }) }, dir, Date.now(), 'mcp-server-cards_cards')
   assert.equal(out.decision, 'deny')
   assert.match(String(out.reason), /isn't supported in the Antigravity IDE/)

@@ -78,12 +78,12 @@ Antigravity's approval card asks you first:
 
 ```
 neon.com: add the MCP server "neon-docs" to Antigravity?
-URL https://neon.com/docs/mcp · headers none · written to /Users/you/.gemini/config/mcp_config.json
+URL https://neon.com/docs/mcp · headers none · written to ~/.gemini/config/mcp_config.json
 It connects to the host neon.com.
 Headers: none
 From the Server Card com.neon/docs-mcp, listed in https://neon.com's catalog.
-Written to /Users/you/.gemini/config/mcp_config.json, for all your projects.
-To undo: delete the server in Customizations > Installed > MCP Servers, or remove "neon-docs" under mcpServers in /Users/you/.gemini/config/mcp_config.json.
+Written to ~/.gemini/config/mcp_config.json, for all your projects.
+To undo: delete the server in Customizations > Installed > MCP Servers, or remove "neon-docs" under mcpServers in ~/.gemini/config/mcp_config.json.
 ```
 
 The CLI's card shows the first two lines and hides the rest ("⋯ (5 lines
