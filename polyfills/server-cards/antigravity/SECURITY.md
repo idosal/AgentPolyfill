@@ -12,45 +12,71 @@ security decision.
 
 ## What is trusted
 
-- **You:** your approval in Antigravity's own approval card.
+- **You:** your answer in Antigravity's own approval card.
 - **Antigravity:** its approval card, its hooks, its MCP connection and its
-  sign-in. In the App, the card shows the plugin's question; an editor
-  connected to `agy acp` shows the tool's name and arguments instead (see
-  [Limits](README.md#limits)).
+  sign-in.
+- **The plugin's state folder**, `~/.gemini/agentpolyfill/mcp-server-cards/`.
+  Anything that can write it, or run the plugin's hook as you, can make a
+  ticket (seen live with the Events form's hook: a ticket made by running the
+  hook command by hand was accepted once). It could also edit
+  `mcp_config.json` directly. Antigravity's terminal sandbox, on by default,
+  keeps the agent's commands to the workspace and temporary folders; a
+  command run outside it (you approved it, Auto mode judged it safe, or the
+  sandbox is off, as in Turbo) can reach both.
 - **Not the publisher or the model:** neither can supply a URL to add. The
   card must have been shown by `discover_mcp_servers` within the hour, and the
   URL it yields must equal the URL in the call.
 
 ## The boundary: Antigravity's approval card
 
-Antigravity documents no MCP elicitation; its client declares it but cancels
-every request without showing it (seen live, App v2.35.1 and CLI v1.5.16).
-So an addition is put to you through the plugin's `PreToolUse` hook:
+Antigravity's MCP client declares elicitation but cancels every request
+without showing it (seen live, App 2.35.1 and CLI 1.5.16). So an addition is
+put to you through the plugin's `PreToolUse` hook:
 
-- The hook works out exactly what would be written and answers `force_ask`.
-  Antigravity then shows its approval card with the plugin's question (the
-  host first, the URL, the headers, the file and how to undo it). `force_ask`
-  ignores any "always allow" you set, and the card greys those choices out.
-- The hook leaves a one-use ticket for that exact entry, valid for 4 hours,
-  and adds its name to the call. The MCP server writes only with that ticket,
-  unused, for the same entry. No ticket, no write: if the hook didn't run, the
-  call is refused and says so.
-- Nothing is auto-approved: the hook never answers `auto_approve` and sets no
-  permission overrides. `discover_mcp_servers`, which only reads, goes through
-  Antigravity's usual approval for MCP tools.
-- Antigravity's defaults ask before any MCP tool (the App's card; the CLI's
-  default `request-review` mode, where a headless call nobody answers is
-  denied; seen live). `force_ask` asks even where you have allowed MCP tools.
-  Whether `--dangerously-skip-permissions` also skips `force_ask` hasn't been
-  checked.
-- Hooks fail open in Antigravity (a non-zero exit is ignored), so the hook
-  always exits 0 and answers `deny` when anything goes wrong.
+- **Which calls the hook sees.** `add_mcp_server` is eager
+  (`plugin/mcp_config.json`), and the matcher takes its eager name,
+  `mcp_mcp-server-cards_cards_add_mcp_server`, and nothing else. The hook is
+  never handed another server's call. Called through `call_mcp_tool` instead,
+  it doesn't reach the hook, carries no ticket, and is refused.
+- **The question.** The hook works out exactly what would be written and
+  answers `force_ask`. Antigravity then shows its approval card with the
+  plugin's question: the host and the name first, then the URL, the header
+  names and the file, then the header values, where the card came from and
+  how to undo it. The CLI's card shows the first two lines and hides the rest
+  (seen live); the App's shows it all. `force_ask` ignores any "always allow"
+  you set; the App greys those choices out, the CLI still lists them.
+- **What the arguments say.** The call must name the entry's name, URL,
+  header names and file in its own arguments, and both the hook and the
+  server refuse a call whose arguments say anything else. An editor connected
+  to `agy acp` shows the person only a tool's name and arguments, so that is
+  what they approve there; the provenance and the undo aren't shown in an
+  editor.
+- **The ticket.** The hook leaves a one-use ticket for that exact entry and
+  adds it to the call. Its file is named by the nonce's SHA-256; it is good
+  for an hour at most, and the plugin's `Stop` hook removes a conversation's
+  unused tickets when its turn ends. A question declined or never answered
+  leaves its ticket until that conversation's next turn ends normally (a
+  decline in the CLI interrupts the turn, and closing the CLI runs no `Stop`),
+  or the hour. The MCP server writes only with that ticket, unused, for the
+  same entry. While the hook runs, it replaces any ticket a call carries.
+- **Nothing is auto-approved:** the hook never answers `auto_approve` and sets
+  no permission overrides. `discover_mcp_servers`, which only reads, isn't
+  gated and goes through Antigravity's usual approval for MCP tools.
+- **When the hook can't run.** In CLI 1.5.17 a `PreToolUse` hook that exits
+  non-zero, times out or prints something that isn't JSON makes Antigravity
+  fail the call (seen live). The hook always exits 0 with JSON: `allow` for a
+  call that isn't the plugin's or that it can't read (whose call it is can't
+  be told; an addition then carries no ticket and is refused), `deny` for the
+  plugin's own call when it can't open its state or anything else goes wrong.
+- **The IDE.** Antigravity documents no plugin hooks for the IDE, so an
+  addition there gets no ticket and is refused; the hook also refuses a call
+  whose transcript is the IDE's.
 
-The ticket guards against the agent adding a server through this tool without
-your approval. A command you let the agent run as you could run the hook
-itself and get a ticket, but it could also edit `mcp_config.json` directly.
-Antigravity's terminal sandbox (on by default) keeps commands to the workspace
-and temp folders, so they can't write the plugin's ticket folder.
+Antigravity's defaults ask before an MCP tool (the App's card; the
+interactive CLI, which starts in auto mode; headless `agy -p` denies a call
+nobody answers; all seen live). `force_ask` asks even where you have allowed
+MCP tools. Whether `--dangerously-skip-permissions` also skips `force_ask`
+hasn't been checked.
 
 ## What the plugin does
 
@@ -86,11 +112,13 @@ sign-in store, Antigravity's or anyone's.
 
 Only an entry you approved, under `mcpServers` in
 `~/.gemini/config/mcp_config.json`: `{"serverUrl": ..., "headers": {...}}`.
-It writes the whole file in one step (a temporary file, then a rename) and
-keeps its permissions. It refuses a name you have, in any case, before the
-question and again before writing. It never writes a secret: a card that
-needs one (an API key in a header or the URL) is refused, because
-Antigravity's personal file reads no `${VAR}`. You add such a server by hand.
+It writes the whole file in one step (a temporary file, then a rename),
+reading it again just before, and keeps its permissions. It refuses a name you
+have, in any case, before the question and again before writing. It never
+writes a secret: a card that needs one (an API key in a header or the URL) is
+refused, because Antigravity's personal file reads no `${VAR}`. You add such a
+server by hand. Uninstalling leaves the entries you added and the plugin's own
+folder.
 
 ### Text
 
@@ -107,10 +135,12 @@ one you were asked about.
   server and its tools governs from then on.
 - An approval given without reading the card, or answered by an editor on the
   person's behalf.
-- Another program writing `mcp_config.json` at the same moment: one of the two
-  writes could be lost.
+- Another program writing `mcp_config.json` at the very same moment: one of
+  the two writes could be lost. (A write by Antigravity's `agy mcp add` while
+  the question was open was kept, seen live.)
 - Disagreement between a card and the live server: the plugin can't send
   `server/discover` over Antigravity's connection.
+- Anything that can write the plugin's state folder, as above.
 
 ## Reporting
 

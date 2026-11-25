@@ -12,12 +12,14 @@ Also available for [Claude Code](../claude-code/README.md) and
 
 This plugin implements the client side of the MCP Server Cards extension
 (SEP-2127), which Google Antigravity doesn't support itself yet. It works in
-the Antigravity App, the CLI (`agy`) and the IDE, which share plugins. The
+the Antigravity App and the CLI (`agy`). It isn't supported in the Antigravity
+IDE, which documents no plugin hooks: an addition there is refused. The
 revisions it follows are in [Spec and conformance](#spec-and-conformance).
 
-**Run live on 25 November 2026** in Antigravity App v2.35.1 and CLI v1.5.16
-(macOS): discovery, the approval card (approved and declined) and a written
-entry that the App then connected. The IDE's agent wasn't run. See
+**Run live on 25 November 2026** in the Antigravity CLI 1.5.17 with a real
+model, against neon.com's published Server Card: an addition approved while
+Antigravity wrote the same file, one declined, one sent around the hook
+refused. The earlier builds also ran in the App 2.35.1. See
 [What was checked live](#what-was-checked-live).
 
 ARD isn't in this plugin. Its `/.well-known/ard.json` and its registry search
@@ -26,12 +28,13 @@ because a search sends your words to a third party.
 
 ## Install
 
-You need Node 20 or newer on your `PATH`. Antigravity starts the plugin's MCP
-server with `node` (it falls back to its own Node for that), and runs the
-plugin's approval hook with `node`, which has no such fallback.
+You need the Antigravity CLI (`agy`) to install a plugin from a folder: the
+App doesn't ship it. You need Node 20 or newer on your `PATH`. Antigravity
+starts the plugin's MCP server with `node` (it falls back to its own Node for
+that), and runs the plugin's approval hook with `node`, which has no such
+fallback.
 
-From a clone of this repository (the sequence checked on 25 November 2026,
-CLI 1.5.16):
+From a clone of this repository (the sequence checked on 25 November 2026):
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
@@ -60,13 +63,13 @@ That removes the plugin's folder. It leaves:
 - the plugin's own folder, `~/.gemini/agentpolyfill/mcp-server-cards/` (cards
   shown in the last hour, and tickets): delete it by hand.
 
-### Where it was run
+### Where it runs
 
-| Surface | Run | |
+| Surface | Supported | Run live |
 |---|---|---|
-| Antigravity App v2.35.1 (macOS) | yes | discovery, the approval card (approve and decline), a written entry connected |
-| Antigravity CLI v1.5.16 (macOS) | yes | headless `agy -p` (a decline nobody could answer), and an editor over `agy acp` (approve and decline) |
-| Antigravity IDE v2.8.0 | no | installed, but not signed in, so its agent never ran; its hooks page lists no plugin hooks, and without the hook every addition is refused |
+| Antigravity CLI 1.5.17 (macOS) | yes | these builds: an addition approved (while Antigravity wrote the same file), one declined, one around the hook refused |
+| Antigravity App 2.35.1 (macOS) | yes | the earlier builds: discovery, the approval card (approve and decline), a written entry connected. These builds: not yet |
+| Antigravity IDE | no | Antigravity documents no plugin hooks for the IDE, so there is no question and no ticket: every addition there is refused |
 
 ## Try it
 
@@ -75,13 +78,16 @@ Antigravity's approval card asks you first:
 
 ```
 neon.com: add the MCP server "neon-docs" to Antigravity?
-It connects to the host neon.com
-URL: https://neon.com/docs/mcp
+URL https://neon.com/docs/mcp · headers none · written to /Users/you/.gemini/config/mcp_config.json
+It connects to the host neon.com.
 Headers: none
 From the Server Card com.neon/docs-mcp, listed in https://neon.com's catalog.
-Written to /Users/you/.gemini/config/mcp_config.json (all your projects, in the App, the CLI and the IDE).
+Written to /Users/you/.gemini/config/mcp_config.json, for all your projects.
 To undo: delete the server in Customizations > Installed > MCP Servers, or remove "neon-docs" under mcpServers in /Users/you/.gemini/config/mcp_config.json.
 ```
+
+The CLI's card shows the first two lines and hides the rest ("⋯ (5 lines
+hidden)"), so those two say what is written and where (seen live).
 
 Approve it, and the entry is written. For a server behind a sign-in, such as
 Buildkite's, Antigravity then shows **Authenticate** next to it in
@@ -93,35 +99,47 @@ Customizations > Installed > MCP Servers (`/mcp` in the CLI).
    (`/.well-known/ai-catalog.json` and `rel="ai-catalog"` links), fetches
    each Server Card it lists, checks it against the schema, and shows what it
    found, valid or refused. It only reads.
-2. **`add_mcp_server(identifier, url, ...)`** adds a server that a discovery
-   showed. Before it runs, Antigravity runs the plugin's `PreToolUse` hook
-   (`hooks.json`). The hook works out exactly what would be written and
-   answers `force_ask`: Antigravity shows its approval card with the
-   question above, whatever you have allowed before. The hook also leaves a
-   one-use ticket for that exact entry and adds its name to the call.
+2. **`add_mcp_server(identifier, url, name, headers, file, ...)`** adds a
+   server that a discovery showed. Its arguments must name what would be
+   written: the name, the URL, the names of the headers and the file. An
+   editor connected to `agy acp` shows the person only a tool's name and
+   arguments, so those are what they approve there; a call whose arguments
+   say anything else is refused before any question, with the arguments to
+   use. `add_mcp_server` is eager (`plugin/mcp_config.json`), so Antigravity
+   calls it as `mcp_mcp-server-cards_cards_add_mcp_server`, and the plugin's
+   `PreToolUse` hook (`hooks.json`) matches that name only. The hook works out
+   exactly what would be written and answers `force_ask`: Antigravity shows
+   its approval card with the question above, whatever you have allowed
+   before. The hook also leaves a one-use ticket for that exact entry and
+   adds it to the call.
 3. **The server writes only with that ticket.** It recomputes the entry, and
-   writes it only if the ticket is there, unused, less than 4 hours old,
-   and for that same entry. No ticket, no write: if the hook didn't run, the
-   call is refused and says so.
+   writes it only if the ticket is there, unused, less than an hour old (and
+   the turn it was given in hasn't ended), and for that same entry. No
+   ticket, no write: a call through `call_mcp_tool`, which doesn't reach the
+   hook, is refused and says how to call the tool.
 4. **The entry** goes into `~/.gemini/config/mcp_config.json` as
    `{"serverUrl": ..., "headers": {...}}`, keeping the rest of the file as it
    is. The plugin refuses a name you already have, a file it can't read as
    JSON, and a card that needs a secret.
 
-Why a hook: Antigravity documents no MCP elicitation, so an MCP server can't
-put a question to you itself. A `PreToolUse` hook can, through Antigravity's
-own approval card, and hooks fail open (a hook that crashes is ignored). The
-ticket is what makes this fail closed instead.
+Why a hook: Antigravity's MCP client declares elicitation but cancels every
+request without showing it, so an MCP server can't put a question to you
+itself. A `PreToolUse` hook can, through Antigravity's own approval card. The
+ticket is what ties the server's write to that question: without it, nothing
+is written. (In CLI 1.5.17 a hook that fails makes Antigravity fail the call
+too.)
 
 What the hook and the server share sits in `~/.gemini/agentpolyfill/mcp-server-cards/`,
-private to you: the cards shown in the last hour, and the tickets.
+private to you: the cards shown in the last hour, and the tickets (an hour at
+most; the plugin's `Stop` hook removes a conversation's unused ones when its
+turn ends).
 
 ### The tools
 
 | Tool | What it does |
 |---|---|
 | `discover_mcp_servers(domain)` | Reads the domain's catalogs and every card they list. Read-only. |
-| `add_mcp_server(identifier, url, domain?, remote?, name?, values?)` | Adds a server shown in this conversation, after your approval. `url` must be the URL the card yields. |
+| `add_mcp_server(identifier, url, name, headers, file, domain?, remote?, values?)` | Adds a server shown in this conversation, after your approval. `url`, `name`, `headers` (names) and `file` must be what would be written. |
 
 ### What differs between the forms
 
@@ -133,7 +151,7 @@ the Codex form's MCP server, fetch and checks (`../codex/src`).
 |---|---|---|---|
 | What runs | a mod inside Claude Code | a stdio MCP server | a stdio MCP server and a `PreToolUse` command hook |
 | Consent to an add | Claude Code's permission prompt | an MCP elicitation form | Antigravity's approval card (`force_ask`), with a one-use ticket |
-| Where it's written | `claude mcp add`, in the scope you choose | `codex mcp add`, `~/.codex/config.toml` | `~/.gemini/config/mcp_config.json`, written by the plugin (there's no `agy mcp add`) |
+| Where it's written | `claude mcp add`, in the scope you choose | `codex mcp add`, `~/.codex/config.toml` | `~/.gemini/config/mcp_config.json`, written by the plugin (the CLI's `agy mcp add` isn't in the App) |
 | Secrets | `${VAR}` references | names of environment variables | refused: the file reads no variables, and the plugin never writes a secret |
 | SSE remotes | added | refused | refused: `serverUrl` is streamable HTTP |
 | Sign-in | `/mcp` | `codex mcp login` | Authenticate, in Customizations or `/mcp` |
@@ -152,80 +170,54 @@ the Codex form's MCP server, fetch and checks (`../codex/src`).
 Antigravity has no Server Card support to detect yet. When it ships, disable
 or uninstall the plugin, or set `MCP_SERVER_CARDS_DISABLED=1`.
 
-## Limits
+## Gaps, and the host changes that would close them
 
-Each names the host change that would remove it.
 [What hosts would need to change](../../../docs/host-changes.md) has the
 Antigravity column.
 
-- **A card that needs a secret can't be added.** Antigravity reads no
-  `${VAR}` in `~/.gemini/config/mcp_config.json` (a plugin's own file can,
-  for its declared `variables`). The plugin would have to write the key, and
-  it never does. You add such a server by hand. Fix: `${VAR}` in the
-  personal file.
-- **The approval is yes or no.** `force_ask` has no other choices. Antigravity's
-  MCP client declares elicitation, but cancels every request without showing
-  it (seen live, App and CLI); a working form would give the choices the
-  Codex form shows.
-- **An editor shows less.** Through `agy acp` (Zed, JetBrains and others),
-  Antigravity sends the editor the tool's name and arguments, not the hook's
-  question: the person sees the server's card identifier and URL, but not the
-  headers, the file or the undo. Fix: pass the hook's `reason` in ACP's
-  permission request.
-- **The approval depends on the hook seeing the call.** Antigravity calls a
-  lazily loaded MCP tool (its default) through its own `call_mcp_tool`, with
-  the server in `ServerName`, and an eager one as `mcp_<server>_<tool>`
-  (seen live). The hook's matcher takes both, and the gate acts only when
-  `ServerName` is this plugin's server, `mcp-server-cards_cards`. So the hook
-  runs, briefly, for every lazy MCP call of any server. If Antigravity
-  changes those names, nothing is added (the server refuses without a
-  ticket); it never adds unasked. Fix: MCP elicitation.
-- **The plugin writes the configuration file itself.** The CLI has
-  `agy mcp add` (1.5.16; the MCP page doesn't mention it), and it writes the
-  same entry, but the App doesn't ship `agy`, so the plugin can't count on
-  it. It writes the whole file in one step and keeps everything else in it,
-  but a file with comments, or one Antigravity is writing at the same moment,
-  isn't handled: the first is refused, the second could lose one of the two
-  writes. Fix: a plugin API for adding a server.
-- **The card isn't compared with the live server** (rule S-3). The plugin
-  can't send `server/discover` over Antigravity's connection.
-- **A project's own `.agents/mcp_config.json` isn't checked for a name
-  clash.** The plugin's server isn't told which project you're in.
-- **A public name that resolves to a private address isn't caught,** as in
-  the Codex form. Redirects are checked.
-- **When the new server's tools arrive** isn't documented: in a new
-  conversation, or after refreshing it in the MCP Servers list or `/mcp`.
+| Gap | What it means for you | Host change that closes it |
+|---|---|---|
+| No MCP elicitation: Antigravity declares it and cancels every request. | The addition is put to you in Antigravity's approval card, yes or no, without the choices the Codex form's form gives. | Elicitation shown to the person. |
+| The CLI's card shows a question's first two lines. | You see the server, its URL, its header names and the file; the provenance and the undo are behind "⋯ lines hidden". | The whole question on the card. |
+| An editor connected to `agy acp` gets the tool's name and arguments, not the question. | The arguments say the name, URL, header names and file; the card's provenance and undo aren't shown there. | The hook's `reason` in ACP's permission request. |
+| No plugin hooks in the IDE. | The plugin doesn't work in the Antigravity IDE: an addition there is refused. | Plugin hooks in the IDE. |
+| The personal `mcp_config.json` reads no `${VAR}`. | A card that needs a secret (an API key) can't be added this way; you add it by hand. | `${VAR}` in the personal file. |
+| No plugin API for adding a server. | The plugin writes the file itself, in one step, keeping the rest. A file with comments is refused; a write by another program at the very same moment could lose one of the two (one made while the question was open was kept, seen live). | A plugin API for adding a server. |
+| The plugin can't use Antigravity's MCP connection. | The card isn't compared with the live server (rule S-3). | Extension requests over the host's own connection. |
+| The plugin's server isn't told which project you're in. | A project's own `.agents/mcp_config.json` isn't checked for a name clash. | The project in the hook or the call. |
+| A `PreToolUse` hook that fails makes the call fail (CLI 1.5.17). | If Node isn't on `PATH` or the hook crashes, the addition fails; nothing is written. | Documented hook failure behaviour. |
+| When a new server's tools arrive isn't documented. | In a new conversation, or after refreshing it in the MCP Servers list or `/mcp`. | Documented refresh. |
+
+Also, as in the Codex form: a public name that resolves to a private address
+isn't caught (redirects are checked).
 
 ## What was checked live
 
-Checked live on 25 November 2026, through the Events plugin, which uses the
-same gate ([its record](../../events/antigravity/docs/live-run.md)):
+The record, and how it was made, is
+[the Antigravity live-run record](../../events/antigravity/docs/live-run.md#server-cards).
 
-- the name a `PreToolUse` hook sees for a plugin's MCP tool (`call_mcp_tool`
-  with `ServerName`, `ToolName` and `Arguments`, for a lazily loaded tool),
-  and that the matcher in `plugin/hooks.json` takes it;
-- that `overwrite` reaches the MCP server's arguments (the ticket);
-- that Antigravity starts the hook in the plugin folder, with the same `HOME`
-  as the plugin's server.
+With these builds, in the real Antigravity CLI 1.5.17 with a real model:
 
-Also: `agy plugin validate --strict` passes, and `agy mcp add` writes the same
-entry shape as the plugin (`serverUrl`, `headers`).
+- "discover the MCP servers neon.com publishes, then add its docs server":
+  `discover_mcp_servers` got Antigravity's own question, then the addition
+  got the plugin's. While that card was open, `agy mcp add` wrote another
+  server to `mcp_config.json`. Approved: both entries are in the file. The
+  model passed `name`, `headers` and `file` in its first call.
+- Declined: nothing written.
+- The same call through `call_mcp_tool`: "Nothing was written: Antigravity's
+  approval for this call didn't reach the plugin ... The hook runs only when
+  the tool is called by its own name, mcp_mcp-server-cards_cards_add_mcp_server,
+  not through call_mcp_tool."
 
-Checked live later the same night ([record](../../events/antigravity/docs/live-run.md#second-pass-later-the-same-night)):
+With the earlier builds, in App 2.35.1 and CLI 1.5.16: in the App, the
+approval card showed the hook's whole question above the tool name, joined
+into one paragraph, and greyed out the "always allow" choices; an approved
+addition was connected by the App; a declined one, in the App and over
+`agy acp`, wrote nothing; headless `agy -p` denied the call nobody could
+answer.
 
-- In the **App**, the approval card shows the hook's whole question above the
-  tool name, joined into one paragraph (which is why it starts with the
-  host), and greys out the "always allow" choices.
-- In the **CLI** through an editor (`agy acp`), the permission request carries
-  only the tool's name and arguments (server, card identifier, URL), not the
-  question. In headless `agy -p`, nobody can answer, so the call is denied.
-- An approved addition wrote `"neon-docs": {"serverUrl": "https://neon.com/docs/mcp"}`,
-  and the App connected it. A declined one, in the App and over ACP, wrote
-  nothing.
-
-Not checked yet: a server behind a sign-in (Authenticate) after an addition,
-and the IDE (its hooks page lists no plugin hooks; without them the gate
-refuses every addition).
+Not checked yet: the App with these builds, and a server behind a sign-in
+(Authenticate) after an addition.
 
 ## Security
 
@@ -233,7 +225,8 @@ refuses every addition).
 what it trusts. In short:
 
 - Antigravity's approval card is the boundary: every addition asks, and
-  nothing is auto-approved.
+  nothing is auto-approved. The hook sees this plugin's `add_mcp_server` and
+  nothing else.
 - It reads `~/.gemini/config/mcp_config.json`, which can hold header values,
   to check names, and never logs or shows them. It never opens
   `mcp_oauth_tokens.json` or any sign-in store, and never writes a secret.
@@ -252,9 +245,10 @@ The same revisions as the other forms:
 - The [AI Catalog](https://github.com/Agent-Card/ai-catalog) v0.9 at
   `19208af2f8`.
 
-The rules, where Antigravity differs from the other forms, and the proof (119
-tests: 90 shared rule tests and 29 of this form's own, plus the live run) are
-in [docs/conformance.md](docs/conformance.md).
+The client rules table, with this form's tests, and the proof (124 tests: 90
+shared rule tests and 34 of this form's own, plus the live runs) are in
+[docs/conformance.md](docs/conformance.md). The MCP conformance suite has no
+Server Card scenarios.
 
 ## Development
 
