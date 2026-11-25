@@ -1,5 +1,5 @@
 ---
-description: mcp-events adds the client side of the MCP Events extension (SEP-3415) to Claude Code and Codex. The agent watches events on your MCP servers and acts when one fires, even while the session is idle.
+description: mcp-events adds the client side of the MCP Events extension (SEP-3415). The agent watches events on your MCP servers and acts when one fires, even while the session is idle. Install and limits are listed per host.
 ---
 
 # Events
@@ -9,8 +9,11 @@ a deploy fails") and act when one fires, even while the session sits idle with
 nobody typing. It adds the client side of the MCP **Events** extension,
 `io.modelcontextprotocol/events`
 ([SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md),
-Final), which Claude Code doesn't support by itself yet, and Codex doesn't for
-your own servers.
+Final). The forms fill these gaps:
+
+- **Claude Code:** no native Events support yet; the polyfill is a mod (plugin).
+- **Codex:** no Events support for your own servers; the polyfill is a plugin.
+- **Pi:** no native Events support in Pi 1.6.0; the polyfill is an extension.
 
 <Recording
   cut="events"
@@ -31,6 +34,12 @@ codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add mcp-events@agent-polyfill
 ```
 
+```bash [Pi]
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+pi install ./polyfills/events/pi/extension
+```
+
 :::
 
 **In Claude Code** (2.1.326 or newer, with Node 20 or newer or Bun), the
@@ -43,9 +52,20 @@ CLI session (the terminal app or `codex exec`). A chat in the ChatGPT desktop
 app keeps its events but can't be woken, so ask it for `recent_events`. A
 resumed Codex session starts watching at its first Events tool call.
 
-The sections below describe the Claude Code plugin. Where the Codex plugin
-differs, its README says so:
-[`polyfills/events/codex`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex).
+**In Pi** (1.6.0, the version tested, with Node 22 or newer), install from a
+clone: nothing for Pi is published to npm or Pi's package gallery. The
+extension is bundled, with nothing to build. For one run without installing,
+use `pi -e ./polyfills/events/pi/extension`. Pi loads the path where it is,
+so keep the clone; `git pull` there updates it. To remove it, run
+`pi remove ./polyfills/events/pi/extension` from the same folder. Watches and
+events stay in `mcp-events/` in Pi's agent folder (`~/.pi/agent`, or
+`PI_CODING_AGENT_DIR`); delete that folder too to remove them.
+
+The sections below name the host where behavior differs. Full guides by host:
+
+- [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/claude-code)
+- [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex)
+- [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi)
 
 ## Try it
 
@@ -61,10 +81,21 @@ claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev
 codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
+```bash [Pi]
+pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
+```
+
 :::
 
-Start `claude` or `codex` in the same folder (in Claude Code, one you trust)
-and ask:
+Start your host in the same folder:
+
+- **Claude Code:** `claude`, in a folder you trust.
+- **Codex:** `codex`.
+- **Pi:** `pi`. Ask "Watch for new earthquakes from the feeds server and tell
+  me where each one was." Confirm the watch in Pi's dialog; stop it with
+  "Stop watching the earthquakes."
+
+For the button demo, ask:
 
 > Give me a demo button and tell me what I type when I press it.
 
@@ -115,6 +146,8 @@ log, and tells you the cause.
 
 ## From install to the first event
 
+### In Claude Code
+
 1. **Install.** The plugin has no settings to fill in.
 2. **A folder you trust.** In a folder you have not trusted, the mod does
    nothing.
@@ -139,6 +172,21 @@ log, and tells you the cause.
 6. **A server that delivers only by webhook** also needs a relay (below).
    Push and poll delivery need no relay.
 
+### In Pi
+
+At session start, the extension connects to configured servers that offer
+Events and lists their event types in the system prompt. When Pi calls
+`watch_event`, a yes/no dialog names the server, event type, filters and note
+in full, and says that events will start turns. Declining starts no watch. Print
+and JSON modes cannot ask, so they start no watch.
+
+After yes, an event wakes an idle session with a message starting
+`[mcp-events]`, saying it was sent by the extension, not typed by you. Pi
+reads the event with `get_event` and answers. A watch belongs to that Pi
+session and resumes with it; a local (stdio) watch resumes only in the same
+folder. The [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/live-run.md)
+shows approval, an idle session waking, the answer and stopping the watch.
+
 ## What Claude can do with it
 
 The mod gives Claude six tools. You do not call them yourself; you ask in
@@ -157,6 +205,8 @@ Claude Code there again, a watch picks up where it stopped, and events from the
 meantime arrive if the server (or your relay) kept them.
 
 ## How it works
+
+### In Claude Code
 
 A hooks module has no network or process of its own, so the Events client
 lives in a small helper process the module starts.
@@ -179,6 +229,12 @@ lives in a small helper process the module starts.
 
 ## Which servers it works with
 
+In Pi, servers offering Events over stdio or Streamable HTTP work with
+push, poll or webhook delivery. Credentials must be in Pi's configuration;
+Pi's stored sign-ins cannot be used. See [Pi's limits](#limits).
+
+### In Claude Code
+
 - Servers that implement the Events extension (SEP-3415), over stdio or
   Streamable HTTP, with push, poll or webhook delivery.
 - Servers that speak the form from before the standard, which advertise events
@@ -193,6 +249,13 @@ It does **not** work with a server you can only reach through Claude Code's
 interactive OAuth sign-in (`/mcp`), or with claude.ai connectors.
 
 ## Webhook delivery: the relay
+
+Pi uses the shared Events relay client. A relay of your own, the public relay
+(`MCP_EVENTS_RELAY=public`), or your own forwarder (`MCP_EVENTS_PUBLIC_URL`)
+provides the public address. Webhook delivery needs a connection carrying
+credentials. The setup command below is for Claude Code; Pi's
+[relay instructions](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/README.md#webhook-delivery-the-relay)
+link to the shared setup and trade-offs.
 
 Some servers deliver only by webhook, and a webhook needs a public https
 address, which Claude Code on your machine does not have. A relay is that
@@ -227,6 +290,8 @@ availability.
 
 ## Where it runs
 
+### In Claude Code
+
 | | Tools | An event wakes the session |
 |---|---|---|
 | `claude` in a terminal | Yes | Yes |
@@ -238,7 +303,21 @@ Tested live in Claude Code on macOS. The helper's tests also run on Linux and
 Windows on every push, but the mod has not been run inside Claude Code on
 Linux or Windows, in the desktop app, or in an IDE.
 
+### In Pi
+
+In the interactive terminal and RPC mode, for as long as the session stays
+open. RPC clients relay the extension's dialogs. Print and JSON modes can
+list and read events but cannot start a watch.
+
 ## Settings
+
+In Pi, set environment variables before starting `pi`. `MCP_EVENTS_OFF=1`
+turns the extension off. It cannot detect native Events support; remove it
+or use that switch when Pi supports Events itself. The full
+[Pi settings table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/README.md#settings)
+lists its controls.
+
+The table below is for Claude Code.
 
 Environment variables, for example in the `env` block of
 `~/.claude/settings.json`. None is needed to start.
@@ -263,6 +342,8 @@ Environment variables, for example in the `env` block of
 
 ## Limits
 
+### In Claude Code
+
 - **No interactive OAuth**, as above.
 - **It needs an open session.** Nothing starts Claude Code when an event
   arrives. With a relay, webhook events wait for your next session (for up to a
@@ -284,7 +365,26 @@ Environment variables, for example in the `env` block of
 - **The mod API is new.** It still gains and changes parts between releases,
   which can break the mod until it is updated.
 
+### In Pi
+
+- **Its own connection.** The extension cannot send requests over Pi's MCP
+  connection, so a local (stdio) server runs twice. Events needs protocol
+  revision 2026-07-28; Pi 1.6.0's own client stops at 2025-11-25.
+- **No sign-in through Pi.** OAuth and `auth.provider` servers are out of
+  reach, and the extension says so. An `Authorization` header in `mcp.json`
+  works, written out or using `${VARIABLE}` or `!command`. The extension
+  never reads Pi's stored credentials.
+- **An open session and limited wakes.** Nothing starts Pi when it is closed.
+  By default a watch wakes at most once a minute, and a session at most 30
+  times an hour. Past that it is told once, and waits until you write.
+- **Reload for later servers.** Servers are read at session start; one
+  another extension registers later is reached after `/reload`.
+- **Off with Pi's MCP support.** With `--no-mcp`, `-builtin:mcp` in the
+  extension settings, or a replacement MCP extension, Events stands down too.
+
 ## Security
+
+### In Claude Code
 
 An event is data from a server you configured. What the server sent reaches
 Claude only as a tool result, when Claude reads it with `get_event` or
@@ -320,6 +420,24 @@ How it is checked:
 
 The full account, including what it does not protect against:
 [`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md).
+
+### In Pi
+
+Pi runs tools without asking unless a permission extension asks. Events adds
+its own question before each watch; that does not grant extra permission for
+what Pi does next. The tools carry `readOnlyHint` annotations so permission
+extensions can distinguish reads from changes. The wake reaches the model
+in the user's turn, so its first line identifies the extension. Event payloads
+are read as tool results. See
+[Pi's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/SECURITY.md).
+
+The shared client's clause table applies in Pi. The Events scenarios in
+conformance PR #541 pass 17 of 17 with the shared client as Pi runs it. End
+to end through real Pi, 11 pass, none fail and 6 cannot be evaluated because
+Pi's own client also connects to the suite's server. See
+[Pi's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/conformance.md).
+An AI reviewer who did not build the Pi forms reviewed them, and checked
+the fixes again. They have not been audited by a person.
 
 ## The mod's own runtime
 

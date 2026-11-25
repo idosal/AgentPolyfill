@@ -1,0 +1,73 @@
+# The Skills polyfill for Pi (polyfills/skills/pi, extension mcp-skills), on any
+# change in its folder, in the Skills core it bundles, in the Claude adapter's
+# test fixtures it reuses, or in the notices tool:
+# - its tests in a real Pi (the release in its devDependencies, with its own
+#   agent directory and home, and a scripted stand-in model): a served skill is
+#   listed and loads after the user approves it, the cross-server read is asked
+#   about; which connection is used against an HTTP server behind a token and
+#   behind OAuth; the SEP-2640 client rules; the committed bundle;
+# - a typecheck, and the bundle's third-party notices; on Linux and macOS.
+
+name: "mcp-skills (Pi): tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/skills/pi/**"
+      - "polyfills/skills/core/**"
+      - "polyfills/skills/claude-code/test/harness.ts"
+      - "polyfills/skills/claude-code/test/fixture-skills-server.ts"
+      - "polyfills/events/pi/test/http-fixture.ts"
+      - "polyfills/events/pi/src/pi-config.ts"
+      - "tools/bundle-notices.mjs"
+      - ".github/workflows/pi-skills-test.yml"
+  # Pull requests from forks; a branch of this repository is checked by its
+  # pushes (see each job's `if`), so each change runs once.
+  pull_request:
+    paths:
+      - "polyfills/skills/pi/**"
+      - "polyfills/skills/core/**"
+      - "polyfills/skills/claude-code/test/harness.ts"
+      - "polyfills/skills/claude-code/test/fixture-skills-server.ts"
+      - "polyfills/events/pi/test/http-fixture.ts"
+      - "polyfills/events/pi/src/pi-config.ts"
+      - "tools/bundle-notices.mjs"
+      - ".github/workflows/pi-skills-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pi-skills-test-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: polyfills/skills/pi
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      # The Skills logic and the connection, shared with the other adapters.
+      - run: npm ci
+        working-directory: polyfills/skills/core
+      # The test fixtures this adapter reuses from the Claude Code adapter import its code.
+      - run: npm ci
+        working-directory: polyfills/skills/claude-code
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Third-party notices for the bundle are up to date
+        run: node ../../../tools/bundle-notices.mjs . --plugin extension --entry src/index.ts --check
+      - run: npm test

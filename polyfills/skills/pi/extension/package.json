@@ -1,0 +1,11 @@
+{
+  "name": "mcp-skills",
+  "version": "0.1.0",
+  "description": "MCP Skills (SEP-2640) for Pi: Pi lists and loads the skills your MCP servers serve, after you approve each one.",
+  "type": "module",
+  "keywords": ["pi-package"],
+  "license": "Apache-2.0",
+  "pi": {
+    "extensions": ["./dist/index.js"]
+  }
+}

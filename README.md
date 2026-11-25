@@ -1,13 +1,13 @@
 # AgentPolyfill
 
 Polyfills for agent protocols. Bring more of MCP to the clients you already
-use. Plugins add Apps, Skills, Events, Server Cards and ARD to Claude Code and
-Codex, and all of them but Apps to Muse Code.
+use. Plugins and extensions add Apps, Skills, Events, Server Cards and ARD;
+the table below shows which run in each host.
 
 > **An early proof of concept.** It works today, and it has real gaps. Events,
-> Skills and Apps can't reach servers behind OAuth yet, Apps doesn't run in
-> Codex, and a few spec rules can't be met from a plugin. Each gap comes from
-> what the hosts' plugin APIs expose, and small, generic changes to those APIs
+> Skills and Apps can't reach servers behind OAuth yet, Apps runs only in
+> Claude Code, and a few spec rules can't be met from a plugin. Each gap comes
+> from what the host APIs expose, and small, generic changes to those APIs
 > would close them:
 > [what hosts would need to change](docs/host-changes.md).
 
@@ -15,16 +15,15 @@ MCP grows through extensions now: Apps, Skills, Events, Server Cards. A server
 can adopt one in a day, but every host has to build each one itself, on its
 own schedule, so a new extension can sit unused for months. A polyfill closes
 that gap from the outside. It implements one published extension's client side
-as a plugin, follows that extension's spec (any exception is listed and can be
-switched off), and steps aside once the host ships its own. Servers don't
-change at all.
+as a plugin or host extension, follows that extension's spec (any exception
+is listed and can be switched off), and steps aside once the host ships its
+own. Servers don't change at all.
 
 We want this to be an open community around open specs: anyone can use these
 extensions in the host they have, bring a polyfill to another host, or propose
 a new extension, without waiting on one company's roadmap.
 
-- **If you use Claude Code, Codex or Muse Code,** installing takes a line or
-  three and trying it takes one more. See below.
+- **If you use one of the supported hosts,** see its install steps below.
 - **If you build,** the `create-polyfill` and `design-extension` skills and the
   [contract](docs/polyfill-contract.md) every polyfill here meets are your
   starting point. New polyfills, and existing ones brought to another host,
@@ -65,6 +64,23 @@ you choose):
 codex plugin add ard-discovery@agent-polyfill
 ```
 
+**Pi** (1.6.0, the version tested; Node 22 or newer). Nothing for Pi is
+published to npm or Pi's package gallery. Install from a clone:
+
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+pi install ./polyfills/events/pi/extension
+pi install ./polyfills/skills/pi/extension
+pi install ./polyfills/server-cards/pi/extension
+pi install ./polyfills/ard/pi/extension
+```
+
+Each line installs one extension; Pi has no bundle. The folders contain a
+manifest and one bundled file, with nothing to build. Pi loads the local
+paths where they are, so keep the clone; `git pull` in it brings the next
+version. Start `pi` to use them.
+
 **Muse Code** (Meta's terminal agent, 1.4.25 or newer; Node 20 or newer). In
 a terminal:
 
@@ -83,13 +99,13 @@ There are [more ways to install](#more-ways-to-install) further down.
 
 ## Polyfills
 
-| Extension | Spec | Claude Code | Codex | Muse Code |
-|---|---|---|---|---|
-| Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code) | [`mcp-events`](polyfills/events/codex) | [`mcp-events`](polyfills/events/codex#in-muse-code) (at your next message) |
-| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | [`mcp-skills`](polyfills/skills/claude-code) | [`mcp-skills`](polyfills/skills/codex) | [`mcp-skills`](polyfills/skills/codex#in-muse-code) |
-| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) | [`mcp-server-cards`](polyfills/server-cards/codex#in-muse-code) |
-| Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet | not yet |
-| ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) | [`ard-discovery`](polyfills/ard/codex#in-muse-code) (no registry search) |
+| Extension | Spec | Claude Code | Codex | Pi | Muse Code |
+|---|---|---|---|---|---|
+| Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code) | [`mcp-events`](polyfills/events/codex) | [`mcp-events`](polyfills/events/pi) | [`mcp-events`](polyfills/events/codex#in-muse-code) (at your next message) |
+| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | [`mcp-skills`](polyfills/skills/claude-code) | [`mcp-skills`](polyfills/skills/codex) | [`mcp-skills`](polyfills/skills/pi) | [`mcp-skills`](polyfills/skills/codex#in-muse-code) |
+| Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) | [`mcp-server-cards`](polyfills/server-cards/pi) | [`mcp-server-cards`](polyfills/server-cards/codex#in-muse-code) |
+| Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet | not available | not yet |
+| ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) | [`ard-discovery`](polyfills/ard/pi) | [`ard-discovery`](polyfills/ard/codex#in-muse-code) (no registry search) |
 
 All of them are early. Here is what each one does, and where it stops:
 
@@ -98,43 +114,70 @@ All of them are early. Here is what each one does, and where it stops:
   Codex CLI session (the terminal app or `codex exec`): a chat in the ChatGPT
   desktop app keeps its events but can't be woken, so ask it for
   `recent_events`. A resumed Codex session starts watching at its first Events
-  tool call.
+  tool call. In Pi, event types are listed in the system prompt at session
+  start. `watch_event` asks in a Pi dialog, naming the server, event type,
+  filters and note, and saying that events will start turns. After yes, an
+  event wakes the idle session with a message starting `[mcp-events]`, and
+  Pi reads it with `get_event`. The message says it came from the extension,
+  not from you; Pi delivers it to the model in the user's turn.
 - **Skills.** Skills an MCP server serves show up next to your own, load only
   after you say yes to each one, and are checked against the server's
   digests. In Codex they appear in Codex's own skill list after you ask once
   to list the served skills, from the next turn. One rule of the spec can't be met in Codex
   yet: a skill from one server reading another server's resources isn't put
-  to you first (rule X8), because Codex doesn't let a plugin ask.
+  to you first (rule X8), because Codex doesn't let a plugin ask. In Pi,
+  served skills appear in its own list as `mcp-<server>-<name>`, marked
+  `[MCP server "<server>", not a local skill]`. Loading one asks "Don't load
+  it", "Show me its SKILL.md first", or "Load it"; a yes is kept for exactly
+  those files. Pi meets X8: a read from another MCP server while a served
+  skill is loaded asks first, naming both servers, including in codemode.
 - **Server Cards.** Name a company and the agent finds the MCP servers its domain
   publishes, checks each card against the schema, and adds the one you pick
   to the host's own configuration. The host then connects it with its own
   sign-in, so servers behind OAuth work. You see the host it connects to
-  before you add it.
+  before you add it. In Pi, `add_mcp_server` asks "Don't add it" or "Add it",
+  showing the host, URL, headers, `mcp.json` file and undo command. Only
+  "Add it" runs `pi mcp add` and registers the server for the current
+  session, so it connects without a restart.
 - **Apps.** A server's app opens right under the tool call in the terminal
   and answers the mouse and keyboard: real pixels in iTerm2, kitty and
-  Ghostty, text cells everywhere else.
+  Ghostty, text cells everywhere else. This form runs in Claude Code. No Pi
+  form is built or tested: Pi 1.6.0 leaves out `ui://` resources and tool
+  `_meta`, so an extension can't get an App's UI.
 
-Events, Skills and Apps can't reach servers behind OAuth yet, in any host.
+Events, Skills and Apps can't reach servers behind OAuth yet, in any host
+where these forms run.
 [Why, and what would fix it.](#how-it-works-in-each-host-and-where-it-stops)
 
-**In Muse Code** the same plugins run with less from the host. An event
-reaches the session with your next message, not by waking it (an experimental
-opt-in does wake it). Muse gives a plugin no way to ask you, so you approve a
-served skill by typing a short phrase, and you add a server yourself, with the
-`muse mcp add` command Server Cards gives you. ARD has no registry search
-there. [AgentPolyfill in Muse Code](docs/muse.md) explains each of these.
+**In Muse Code** the same plugins as in Codex run with less from the host. An
+event reaches the session with your next message, not by waking it (an
+experimental opt-in does wake it). Muse gives a plugin no way to ask you, so
+you approve a served skill by typing a short phrase, and you add a server
+yourself, with the `muse mcp add` command Server Cards gives you. ARD has no
+registry search there. [AgentPolyfill in Muse Code](docs/muse.md) explains
+each of these.
 
-**Beyond MCP**, `ard-discovery` ([Claude Code](polyfills/ard/claude-code),
-[Codex](polyfills/ard/codex)) adds
+**Beyond MCP**, `ard-discovery` adds
 [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91,
 a draft. It finds MCP servers through a domain's `ard.json`, or by searching
-an ARD registry you choose, and hands the cards to `mcp-server-cards`. A
-search sends the words of your request to that registry, so every search asks
-you first and names where it's going. That's also why it isn't part of the
-`agent-polyfill` bundle; install it by name.
+an ARD registry you choose, and hands the cards to `mcp-server-cards` (the Pi
+form carries the Server Cards checks and add step itself). A search sends the
+words of your request to that registry, so every search asks you first and
+names where it's going. That's also why it isn't part of the `agent-polyfill`
+bundle; install it by name.
 
-None of these hosts supports these extensions itself yet. On 23 November 2026 the
-official
+In Pi, `ard_search` asks "Don't send it" or "Send the search", naming the
+registry endpoint and exact query. There is no default registry: name one
+or set `ARD_DISCOVERY_REGISTRY`. `ard_add_mcp_server` asks separately before
+adding, using the Server Cards Pi flow. It has its own tool name because
+Pi shares tool names across extensions and keeps the first registration.
+The [Pi live run](polyfills/ard/pi/docs/live-run.md) showed discovery and a
+search of the repository's demo registry after consent, but **did not complete
+the add step**: the model asked in chat instead of calling the add tool.
+Adding is covered by real-Pi tests with a scripted model and a local server.
+
+The supported hosts don't implement these extensions themselves yet. On
+23 November 2026 the official
 [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix)
 listed Tasks for Claude Code, and none of Events, Apps or Skills (Server Cards
 isn't in the matrix). Codex doesn't support Events for your own servers, or
@@ -149,16 +192,29 @@ been prototyped at Anthropic.
 
 ![One sentence to Claude Code gives a private button page and a watch, and the session goes idle. Someone types "ship it" on the page and presses the button; the idle session wakes by itself and says what was typed.](polyfills/events/claude-code/docs/media/button-demo.gif)
 
-Add the hosted demo server (no sign-in), start `claude` or `codex`, and ask
+Add the hosted demo server (no sign-in), start your host, and ask
 "Give me a demo button and tell me what I type when I press it":
+
+**Claude Code:**
 
 ```
 claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
+**Codex:**
+
 ```
 codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 ```
+
+**Pi:**
+
+```bash
+pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
+```
+
+In Pi, you can ask "Watch for new earthquakes from the feeds server and tell
+me where each one was", then confirm the watch in its dialog.
 
 The same server also offers new comments in a Hacker News thread, new npm and
 GitHub releases, and earthquakes. Its source is in
@@ -169,24 +225,44 @@ GitHub releases, and earthquakes. Its source is in
 ![In Claude Code, the skills a server offers are listed. A question is asked, Claude asks to load one skill from the server, reads the files it points to, and answers from them.](polyfills/skills/claude-code/docs/media/demo.gif)
 
 Add Hugging Face's public MCP server (no sign-in) and ask a question one of
-its skills covers. In Claude Code, `/mcp-skills` lists what it serves. In
-Codex, the served skills appear in the `$` list after you ask once to list the
-served skills, from the next turn.
+its skills covers.
+
+- **Claude Code:** `/mcp-skills` lists what it serves.
+- **Codex:** the served skills appear in the `$` list after you ask once to
+  list the served skills, from the next turn.
+- **Pi:** the served skills appear in its own list at session start. Ask a
+  question or use `/skill:mcp-<server>-<name>`, then answer the load dialog.
+
+**Claude Code:**
 
 ```
 claude mcp add --transport http huggingface https://huggingface.co/mcp
 ```
 
+**Codex:**
+
 ```
 codex mcp add huggingface --url https://huggingface.co/mcp
+```
+
+**Pi:**
+
+```bash
+pi mcp add huggingface --url https://huggingface.co/mcp
 ```
 
 ### Server Cards: add a company's MCP server by its domain
 
 Nothing to set up. Ask "What MCP servers does neon.com publish?" and add
 **Neon Docs** (no sign-in). For one behind a sign-in, ask about buildkite.com;
-once it's added, the host asks you to sign in. In Claude Code,
-`claude mcp remove neon-docs -s local` removes it again.
+once it's added, sign in through the host.
+
+- **Claude Code:** the host asks you to sign in.
+  `claude mcp remove neon-docs -s local` removes it again.
+- **Codex:** the host asks you to sign in.
+- **Pi:** choose "Add it" in the extension's dialog; use `/mcp` or
+  `pi mcp login <name>` for sign-in, and `pi mcp remove neon-docs` to remove
+  the server.
 
 ### Apps: an MCP App's interface, in the terminal
 
@@ -225,17 +301,25 @@ advertise events in the form from before SEP-3415. `MCP_EVENTS_PRE_STANDARD=off`
 makes it follow the SEP exactly.
 
 For rule 4, no polyfill can detect native support on its own yet, because
-no host tells a plugin which extensions its own MCP client supports. So
-when your host ships one of these extensions, turn that polyfill off. In Claude
-Code, disable its plugin (`/plugin disable mcp-events`), or use its own
-setting (`MCP_EVENTS_OFF=1`, `MCP_SKILLS_OFF=1`, or `disabled` in `/config`
-for Server Cards and ARD). In Codex, remove the plugin
-(`codex plugin remove mcp-events@agent-polyfill`). In Muse Code, disable it
-(`muse plugins disable mcp-events`). Each README says how.
+none of the hosts tells a plugin or extension which extensions its own MCP
+client supports. When your host ships one of these extensions, turn that
+polyfill off:
+
+- **Claude Code:** disable its plugin (`/plugin disable mcp-events`), or use
+  its own setting (`MCP_EVENTS_OFF=1`, `MCP_SKILLS_OFF=1`, or `disabled` in
+  `/config` for Server Cards and ARD).
+- **Codex:** remove the plugin
+  (`codex plugin remove mcp-events@agent-polyfill`).
+- **Pi:** remove the extension, or use `MCP_EVENTS_OFF=1`,
+  `MCP_SKILLS_OFF=1`, `MCP_SERVER_CARDS_DISABLED=1` or
+  `ARD_DISCOVERY_DISABLED=1` for the corresponding form.
+- **Muse Code:** disable the plugin (`muse plugins disable mcp-events`).
+
+Each README says how.
 
 ## How it works in each host, and where it stops
 
-Each host lets outside code in, in its own way.
+Each host lets outside code in, in a different way.
 
 - **Claude Code** runs mods inside the host (on by default since 2.1.287). A
   mod can register tools, draw UI, start a turn in an idle session, and call a
@@ -244,18 +328,21 @@ Each host lets outside code in, in its own way.
   server receives says which session it came from, `codex queue --resume`
   starts a turn in an idle session from outside, and Codex lists the skills a
   plugin's folder holds alongside its own.
+- **Pi** runs extensions inside its own process. They can register tools,
+  ask in Pi dialogs, list skills and wake an idle session. Events and Skills
+  each open their own MCP connections; Server Cards and ARD save servers
+  through Pi's CLI and register them for the current session.
 - **Muse Code** runs plugins that bring their own MCP server, and hooks
   shaped like Claude Code's. It starts each server for one session and tells
   it the session's id, and a hook can add context to your next message.
   Nothing outside a default session can start a turn in it, and nothing a
   plugin does can ask you a question ([details](docs/muse.md)).
 
-That's the host half of almost any extension, all of it in Claude Code and
-Codex. The protocol half is missing in all three. No host lets a plugin send
-an extension's own methods, such as `events/poll` or `skills/list`, over the
-host's connection, see everything a server advertised, or receive a server's
-notifications. So Events, Skills and
-Apps each open a second connection of their own, using the headers in your
+That's the host half of almost any extension. The protocol half is missing.
+None of these hosts lets a plugin or extension send an extension's own
+methods, such as `events/poll` or `skills/list`, over the host's connection,
+see everything a server advertised, or receive a server's notifications. So
+Events, Skills and Apps each open a second connection of their own, using the headers in your
 config. That connection can't use the host's sign-in, which is why those
 three can't reach servers behind OAuth.
 
@@ -263,20 +350,43 @@ Server Cards doesn't have this problem. A card is a public document, and the
 server it describes goes into the host's own config, so the host connects it
 with its own sign-in.
 
-Four small, generic changes would remove the limit, in every host. None of
+Four small, generic changes would address the limit in each host. None of
 them names an extension:
 
-| Change | Claude Code today | Codex today | Muse Code today |
-|---|---|---|---|
-| Send any MCP method over the host's connection | missing | missing (its client can, internally) | missing |
-| Read what the server advertised | missing | mostly there | missing (state and tool names only) |
-| Deliver a server's notifications to the plugin | missing | only for OpenAI's hosted apps server | missing (it ignores them) |
-| Raw tool results; declare a client extension | missing | declaring only by Codex's own client | missing (text only; no client capabilities) |
+| Change | Claude Code today | Codex today | Pi today | Muse Code today |
+|---|---|---|---|---|
+| Send any MCP method over the host's connection | missing | missing (its client can, internally) | missing (its client can, internally) | missing |
+| Read what the server advertised | missing | mostly there | missing | missing (state and tool names only) |
+| Deliver a server's notifications to the plugin | missing | only for OpenAI's hosted apps server | missing | missing (it ignores them) |
+| Raw tool results; declare a client extension | missing | declaring only by Codex's own client | `structuredContent` reaches hooks; tool `_meta` and declaring are missing | missing (text only; no client capabilities) |
 
 The first two are enough for Events (by poll and webhook) and Skills to work
-with every server you've signed in to. What each change would look like, what
+with every server you've signed in to, with one additional change in Pi:
+Events needs protocol revision 2026-07-28, and Pi 1.6.0's own client stops
+at 2025-11-25. What each change would look like, what
 each extension needs, and the questions they raise about permissions are in
 [`docs/host-changes.md`](docs/host-changes.md).
+
+### Limits in Pi
+
+- Events and Skills can't use a sign-in through Pi (`/mcp`, `pi mcp login`,
+  or `auth.provider`). An `Authorization` header in `mcp.json` works,
+  written out or resolved from `${VARIABLE}` or `!command`. Their separate
+  connections mean a local (stdio) server runs twice.
+- Events needs an open Pi session. A watch on a local server resumes only
+  when the session is resumed in the same folder. By default, a watch wakes
+  at most once a minute and a session at most 30 times an hour; past that it
+  is told once and waits until you write. Events stay stored.
+- Events and Skills stand down when Pi's own MCP support is off
+  (`--no-mcp`, `-builtin:mcp`, or a replacement MCP extension). A server
+  another extension registers later is reached after `/reload`.
+- Skills added mid-session appear in Pi's list after `/reload`. There is
+  no switch for one extension-provided skill; leave a server out with
+  `{"skip": [...]}` in `mcp-skills/settings.json` in Pi's agent folder.
+- Server Cards and ARD don't compare a card with the live server (S-3),
+  as in the other forms. Their Pi conformance pages record that limit
+  ([Server Cards](polyfills/server-cards/pi/docs/conformance.md),
+  [ARD](polyfills/ard/pi/docs/conformance.md)).
 
 ## Other hosts
 
@@ -329,13 +439,18 @@ so any agent that reads skills can use them.
 Each polyfill is one folder per extension. The part that doesn't depend on a
 host (the protocol, the spec's client rules and their tests) lives in `core/`,
 and next to it is one adapter per host, which wires that core into what the
-host lets outside code do. Events and Skills are built that way: one `core/`,
-a `claude-code/` mod and a `codex/` plugin.
+host lets outside code do. Events and Skills are built that way: one `core/`
+with these forms:
+
+- `claude-code/`: a Claude Code mod.
+- `codex/`: a Codex plugin.
+- `pi/`: a Pi extension.
 
 Bringing one to a new host means writing a new adapter. Find how the host lets
 a plugin reach the wire (a connection of its own, a tool call, a way to wake
 an idle session), meet the contract there, write down what that host can't
-do, and add the plugin to that host's marketplace.
+do, and make it installable in that host (through its marketplace, where it
+has one).
 [`CONTRIBUTING.md`](CONTRIBUTING.md#bringing-a-polyfill-to-another-host) has
 the steps, and `create-polyfill` covers it too.
 
@@ -360,12 +475,19 @@ A polyfill can be that client-side implementation, in hosts that haven't
 shipped the extension yet, used by real people against real servers. Each one
 here names the spec revision it implements. Events and Skills have a test for
 every client rule and run against servers their authors didn't write. Skills
-passes the official conformance suite's Skills client scenarios in both hosts,
+passes the official conformance suite's Skills client scenarios in each host,
 and Events passes the Events client scenarios proposed upstream (still an open
 pull request in the conformance suite). Apps checks the spec
 requirement by requirement in its design notes. Whether a polyfill counts as
 an independent implementation for a given SEP is up to that extension's
 maintainers.
+
+In Pi, Skills passes all four upstream client scenarios. Events passes all
+17 checks with the shared client as the Pi form runs it; end to end through
+real Pi, 11 pass, none fail, and six can't be evaluated because Pi's own
+client also connects to the suite's server. The Pi forms' conformance pages
+record the details ([Skills](polyfills/skills/pi/docs/conformance.md),
+[Events](polyfills/events/pi/docs/conformance.md)).
 
 If your extension needs a client in a host that doesn't have one, open an
 issue, or build it with the `create-polyfill` skill.
@@ -395,37 +517,64 @@ installs one (`mcp-events`, `mcp-skills`, `mcp-server-cards` or
 `ard-discovery`), and `codex plugin remove <name>@agent-polyfill` removes it.
 Codex has no bundle.
 
+**Pi.** From the clone, use `pi -e ./polyfills/<polyfill>/pi/extension` for
+one run without installing. Replace `<polyfill>` with `events`, `skills`,
+`server-cards` or `ard`. Pi can't install one subfolder of a Git repository:
+`pi install git:...` takes the whole repository, so use the local paths
+above. Nothing for Pi is published to npm or Pi's package gallery.
+
+To uninstall, run `pi remove ./polyfills/<polyfill>/pi/extension` from the
+same folder. Events and Skills data stays in `mcp-events/` and `mcp-skills/`
+in Pi's agent folder (`~/.pi/agent`, or `PI_CODING_AGENT_DIR`); delete those
+folders too to remove it. Servers added by Server Cards or ARD stay in
+`mcp.json`; remove each with `pi mcp remove <name>`.
+
 ## Safety
 
-These are third-party plugins, and they run with your permissions, like every
-Claude Code mod and Codex plugin. None of them reads the host's stored
-credentials: not Claude Code's, and not Codex's sign-ins or tokens. Each
-polyfill's `SECURITY.md` says what it checks and what it doesn't protect
-against. [`SECURITY.md`](SECURITY.md) says how to report a problem privately.
+These are third-party plugins and extensions, and they run with your
+permissions:
+
+- **Claude Code:** a mod.
+- **Codex:** a plugin.
+- **Pi:** an extension in Pi's process. Pi runs tools without asking unless
+  a permission extension asks. Each polyfill asks before its consequential
+  step: a watch, a skill load, a registry search or a server addition. It
+  never auto-approves; Pi's permissions remain the boundary.
+
+None reads the host's stored credentials, including Pi's `mcp-auth.json`
+or `auth.json`. Each polyfill's `SECURITY.md` says what it checks and what it
+doesn't protect against. [`SECURITY.md`](SECURITY.md) says how to report a
+problem privately.
 
 ## Repository layout
 
 - **`polyfills/<extension>/`**: one folder per extension, with a subfolder per
   host it runs in, and a `core/` next to them when the hosts share code.
-  [`events`](polyfills/events) and [`skills`](polyfills/skills) have a core,
-  a Claude Code mod and a Codex plugin; [`server-cards`](polyfills/server-cards)
-  and [`ard`](polyfills/ard) run in both hosts; [`apps`](polyfills/apps)
-  runs in Claude Code.
-- **Marketplaces**, one per host.
+  [`events`](polyfills/events) and [`skills`](polyfills/skills) have a core.
+  Each host's forms live in a folder named for it:
+
+  - `claude-code/`: mods for Events, Skills, Server Cards, ARD and Apps.
+  - `codex/`: plugins for Events, Skills, Server Cards and ARD.
+  - `pi/`: extensions for Events, Skills, Server Cards and ARD, each with
+    an installable `extension/` folder and its own README and SECURITY.md.
+- **Marketplaces.**
   [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) lists
   everything for Claude Code, including the two plugins in
   [`plugins/`](plugins): `agent-polyfill`, which installs every MCP polyfill,
   and `polyfill-author`, the skills for building one.
   [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) lists
-  the Codex plugins. Muse Code reads that one too: each Codex plugin folder
-  also holds a Muse manifest (`.muse-plugin/plugin.json`).
+  the Codex plugins.
+  Pi's forms are installed from their local folders; none is published to
+  npm or Pi's package gallery.
+  Muse Code reads the Codex marketplace too: each Codex plugin folder also
+  holds a Muse manifest (`.muse-plugin/plugin.json`).
 - **[`servers/`](servers):** the demo servers hosted for trying a polyfill,
   such as [`event-feeds`](servers/event-feeds) for Events.
 - **[`community/`](community/):** the community directory.
 - **[`site/`](site):** the website, [agentpolyfill.com](https://agentpolyfill.com).
 
-Each polyfill releases on its own, under tags that start with its plugin's
-name (for example `mcp-apps-cli-v0.1.0`).
+Marketplace plugins release on their own, under tags that start with the
+plugin's name (for example `mcp-apps-cli-v0.1.0`).
 
 ## Contributing
 
