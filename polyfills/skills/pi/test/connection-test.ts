@@ -19,7 +19,7 @@ import { Pi, PI_BIN, temp, waitFor, type Rule } from './pi-rpc.ts';
 
 const EXTENSION = fileURLToPath(new URL('../extension/dist/index.js', import.meta.url));
 const HTTP_FIXTURE = fileURLToPath(new URL('../../../events/pi/test/http-fixture.ts', import.meta.url));
-const SKILLS_FIXTURE = fileURLToPath(new URL('../../claude-code/test/fixture-skills-server.ts', import.meta.url));
+const SKILLS_FIXTURE = fileURLToPath(new URL('../../core/test-fixtures/fixture-skills-server.ts', import.meta.url));
 /** A test credential, made up for this test. */
 const TOKEN = 'test-token-for-the-fixture';
 

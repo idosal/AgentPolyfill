@@ -639,8 +639,9 @@ neither. On a machine with none, `/mcp-events setup` fetches one:
 
 **Not yet run as one sequence.** The download, the check and the unpacking are
 tested with stand-ins for the machine; the download itself has not been run
-from this mod. The same code in the mcp-skills mod was run in parts against the
-real release.
+from this mod. The same code was run in parts against the real release in the
+mcp-skills mod for Claude Code, which has since been removed from this
+repository.
 
 ## When Claude Code supports Events itself
 

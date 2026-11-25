@@ -1,7 +1,7 @@
 {
   "name": "agent-polyfill",
-  "version": "0.2.0",
-  "description": "Every MCP polyfill in the AgentPolyfill marketplace in one install: MCP Apps (mcp-apps-cli), MCP Events (mcp-events), MCP Skills (mcp-skills) and MCP Server Cards (mcp-server-cards). It adds nothing of its own.",
+  "version": "0.3.0",
+  "description": "Every MCP polyfill in the AgentPolyfill marketplace in one install: MCP Apps (mcp-apps-cli), MCP Events (mcp-events) and MCP Server Cards (mcp-server-cards). It adds nothing of its own.",
   "author": {
     "name": "Ido Salomon",
     "url": "https://github.com/idosal"
@@ -10,7 +10,6 @@
   "dependencies": [
     "mcp-apps-cli",
     "mcp-events",
-    "mcp-server-cards",
-    "mcp-skills"
+    "mcp-server-cards"
   ]
 }

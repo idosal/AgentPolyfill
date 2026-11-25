@@ -6,10 +6,11 @@ where that is tested.
 
 **The source** is SEP-2640, status Final:
 [`seps/2640-skills-extension.md`](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md)
-at commit `2eb3a8e` (12 November 2026), the revision the Claude Code and Codex
-forms implement ([Claude Code's table](../../claude-code/docs/conformance.md),
-[Codex's](../../codex/docs/conformance.md)). The rule ids are the same in all
-three. This page describes version 0.1.1 of the OpenCode plugin, on OpenCode
+at commit `2eb3a8e` (12 November 2026), the revision the Codex and Pi forms
+implement ([Codex's table](../../codex/docs/conformance.md),
+[Pi's](../../pi/docs/conformance.md)). The rule ids are the same in all
+three; the ids, and each rule's text in full, are in
+[the shared rule list](../../core/docs/sep-2640-client-rules.md). This page describes version 0.1.1 of the OpenCode plugin, on OpenCode
 2.4.1.
 
 **Status** is one of: **met**; **exception** (met, with a limit stated in the
@@ -26,15 +27,16 @@ whose shipped default allows every action; the rows say so.
 **Where a rule is checked:**
 
 - `e2e`: [`test/e2e.test.ts`](../test/e2e.test.ts), the bundled plugin in
-  OpenCode 2.4.1, in a throwaway home, against the Claude Code form's
-  hand-written fixture server (which shares no code with the client), with a
-  scripted model.
+  OpenCode 2.4.1, in a throwaway home, against the Skills forms' shared
+  hand-written fixture server
+  ([`../core/test-fixtures`](../../core/test-fixtures/), which shares no code
+  with the client), with a scripted model.
 - `units`: [`test/units.test.ts`](../test/units.test.ts), what OpenCode lists
   and what the model reads, without OpenCode.
 - `core`: the shared core, [`../core/src/skills.ts`](../../core/src/skills.ts),
-  bundled unchanged; its rules are tested rule by rule in the Claude Code and
-  Codex forms (`test/client-rules-test.ts`, `test/hardening-test.ts`), against
-  the same code.
+  bundled unchanged; its rules are tested rule by rule in the Codex and Pi
+  forms (`test/client-rules-test.ts`, `test/hardening-test.ts`), against the
+  same code.
 - `live`: OpenCode 2.4.1 with a real model, against Hugging Face's public
   server, over its API, in its TUI and in OpenCode Desktop
   ([`live-run.md`](../../../../tools/opencode/live-run.md)).

@@ -1,14 +1,15 @@
 # Security
 
 This covers `mcp-skills` for Pi. The other forms have their own:
-[Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md), [OpenCode](../opencode/SECURITY.md).
+[Codex](../codex/SECURITY.md), [OpenCode](../opencode/SECURITY.md).
 
 The extension puts text from MCP servers in front of a model that can run
 commands on your machine. The Skills extension (SEP-2640) says how a client
-must handle that, and the extension follows it; the rules are gone through one
-by one in the Claude Code form's [`docs/conformance.md`](../claude-code/docs/conformance.md),
-and [README: Spec and conformance](README.md#spec-and-conformance) says what
-differs on Pi. This page is the short account: what the extension assumes,
+must handle that, and the extension follows it; the rules are listed in
+[the shared rule list](../core/docs/sep-2640-client-rules.md) and gone through
+one by one for Pi in [`docs/conformance.md`](docs/conformance.md), and
+[README: Spec and conformance](README.md#spec-and-conformance) has the short
+account. This page is the short account: what the extension assumes,
 what it does, and what it doesn't protect against.
 
 The principle: content from a server is untrusted data. Where the extension

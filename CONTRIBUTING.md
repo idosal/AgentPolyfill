@@ -296,7 +296,8 @@ adapter beside the others. Events and Skills are the examples
 ([`polyfills/events`](polyfills/events), [`polyfills/skills`](polyfills/skills)):
 one `core/` with these forms:
 
-- `claude-code/`: a Claude Code mod.
+- `claude-code/`: a Claude Code mod (Events has one; Skills doesn't, because
+  Claude Code lists served skills itself).
 - `codex/`: a Codex plugin.
 - `pi/`: a Pi extension, listed in the root `pi.extensions` for the Git
   install, or installed on its own from `pi/extension/` in a clone.
