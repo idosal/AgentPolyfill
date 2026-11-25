@@ -1,0 +1,14 @@
+{
+  "name": "mcp-events-opencode",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP Events (SEP-3415) for OpenCode: watch events on your MCP servers, by push, poll or webhook, and wake the session when one fires.",
+  "type": "module",
+  "main": "./server.js",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/idosal/AgentPolyfill.git",
+    "directory": "polyfills/events/opencode/plugin"
+  }
+}

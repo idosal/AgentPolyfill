@@ -1,8 +1,8 @@
 # mcp-server-cards for OpenCode
 
 Name a company, and OpenCode finds the MCP servers its domain publishes. Ask
-it to add one, and once OpenCode's permission rules allow it, the server is in
-OpenCode's MCP servers.
+it to add one, and once you allow it, the server is in OpenCode's MCP
+servers.
 
 Also available for Claude Code ([mcp-server-cards for Claude Code](../claude-code/README.md))
 and Codex ([mcp-server-cards for Codex](../codex/README.md)).
@@ -11,8 +11,7 @@ and Codex ([mcp-server-cards for Codex](../codex/README.md)).
 
 OpenCode reads that domain's catalog, fetches each Server Card it lists,
 checks the card against the schema, and tells you what it found. When you ask
-it to add one, the addition is put to OpenCode's permission rules, naming the
-server, the URL and the headers.
+it to add one, OpenCode asks you first, naming the server and its URL.
 
 This plugin implements the client side of the MCP Server Cards extension
 (SEP-2127), which OpenCode doesn't support itself yet. The checks and the
@@ -24,30 +23,38 @@ words to a third party.
 
 ## Install
 
-The plugin isn't on npm yet. From a clone of this repository, add its folder
-to `plugins` in your OpenCode configuration:
+You need **OpenCode 2.4** (the V2 plugin API; tested with 2.4.1). Nothing else:
+no account, no key, no Node.
+
+The plugin isn't on npm. OpenCode installs it from this repository on GitHub,
+with Git:
+
+```bash
+opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/server-cards/opencode/plugin'
+```
+
+That adds it to `plugins` in your global configuration
+(`~/.config/opencode/opencode.json`), so it runs in every project, from the
+next time OpenCode opens one. `#main` installs what the main branch holds; a
+commit in its place pins one version. To remove it, run `opencode plugin remove` with the
+same text.
+
+Or, from a clone of this repository, add the plugin's folder to `plugins`
+yourself, in the global configuration or a project's `opencode.json`:
 
 ```jsonc
 {
-  "plugins": ["/path/to/AgentPolyfill/polyfills/server-cards/opencode/plugin"],
-  "permissions": [
-    { "action": "mcp_server_cards_add", "resource": "*", "effect": "ask" },
-    { "action": "mcp_server_cards_remove", "resource": "*", "effect": "ask" }
-  ]
+  "plugins": ["/path/to/AgentPolyfill/polyfills/server-cards/opencode/plugin"]
 }
 ```
 
-The rules make OpenCode ask you before a server is added or removed. Without
-them, OpenCode's default allows both, as it allows the model to edit your
-`opencode.json`.
-
-You need **OpenCode 2.4** (the V2 plugin API; tested with 2.4.1). Nothing
-else: no account, no key, no Node.
+The folder is one bundled file, [`plugin/server.js`](plugin/), its licence
+notices, and a `package.json` that names it. Nothing else is downloaded.
 
 ## Try it
 
 Ask OpenCode "What MCP servers does neon.com publish?", then "Add Neon Docs".
-With the rules above, OpenCode asks you. Approve, and the server is in
+OpenCode asks you. Approve, and the server is in
 OpenCode's MCP servers at once, and OpenCode connects to it.
 
 For a server behind a sign-in, add it the same way, then run
@@ -65,7 +72,11 @@ For a server behind a sign-in, add it the same way, then run
    this session, at the URL that card gives, and only if OpenCode has no
    server of that name from anywhere else. It asks OpenCode's rules about
    `mcp_server_cards_add` on `<name>=<url>`; the request carries the host,
-   URL, headers, the card and where it was listed, and how to undo it.
+   URL, headers, the card and where it was listed, and how to undo it, as
+   metadata. OpenCode Desktop shows a plugin action's resource in its prompt
+   (seen for Events and Skills); the TUI shows neither (see [Limits](#limits)). OpenCode's shipped rules allow every action, so the
+   plugin makes its two actions ask by default, with an OpenCode `evaluate`
+   hook that turns `allow` into `ask` for them and nothing else.
 4. **The server is added** with `ctx.mcp.transform`, OpenCode's way for a
    plugin to add an MCP server. OpenCode connects it with its own client, so
    its tools, its sign-in and its permission rules are OpenCode's, as for a
@@ -92,15 +103,25 @@ secret goes, and the variable to set.
 | | What it does |
 |---|---|
 | `MCP_SERVER_CARDS_DISABLED=1`, or the plugin option `{"off": true}` | Do nothing, without being uninstalled. |
+| `MCP_SERVER_CARDS_ASK_BY_DEFAULT=0`, or the plugin option `{"askByDefault": false}` | Leave additions and removals to OpenCode's rules alone; by default the plugin asks. Under OpenCode's default rules, a server is then added without a prompt. |
+
+Set a variable in the environment OpenCode starts in. A plugin option goes in
+the object form of the plugin's entry in `plugins`:
+`{ "package": "/path/to/…/server-cards/opencode/plugin", "options": { "askByDefault": false } }`.
+
+A `deny` or `ask` rule you write for `mcp_server_cards_add` or
+`mcp_server_cards_remove` wins: OpenCode settles a `deny` before the plugin
+hears of it, and the plugin never turns anything into `allow`. An `allow` rule
+doesn't skip the question by itself, since the plugin can't tell it from
+OpenCode's default. "Allow always" keeps nothing here: each addition is asked
+about on its own. With nobody there to answer, as in a scheduled run, OpenCode
+refuses the question.
 
 When OpenCode supports Server Cards itself, turn the plugin off, or remove it
 (OpenCode 2.4.1 has no support to detect).
 
 ## Limits
 
-- **OpenCode's default allows every action.** With no rule for
-  `mcp_server_cards_add`, a server is added without a prompt. Add the rules in
-  [Install](#install).
 - **Only streamable HTTP.** OpenCode 2.4 connects remote servers over
   streamable HTTP; an SSE remote is refused.
 - **Cards that need a secret** are added by hand ([Secrets](#secrets)).
@@ -115,7 +136,7 @@ When OpenCode supports Server Cards itself, turn the plugin off, or remove it
 - **Tried live** with a real model: neon.com's two cards found, Neon Docs added
   after OpenCode asked, and connected
   ([`live-run.md`](../../../tools/opencode/live-run.md)). CI runs the tests on
-  Linux and macOS.
+  Linux, macOS and Windows.
 - **OpenCode's TUI shows little in the prompt.** In OpenCode 2.4.1's TUI, a
   permission prompt for a plugin's own action says only "Call tool
   mcp_server_cards_add". The details are on the model's call line just above it, and
@@ -130,7 +151,7 @@ When OpenCode supports Server Cards itself, turn the plugin off, or remove it
 
 A card is the publisher's claim. The plugin fetches only public documents,
 refuses what could display as something else, adds only what a discovery
-showed, puts every addition to OpenCode's rules, and never handles a secret.
+showed, asks you about every addition, and never handles a secret.
 [`SECURITY.md`](SECURITY.md) has the details.
 
 ## Spec and conformance
@@ -138,12 +159,16 @@ showed, puts every addition to OpenCode's rules, and never handles a secret.
 SEP-2127 (MCP Server Cards) and the AI Catalog, as the Claude Code form
 follows them: the revisions and the rule-by-rule account are in its
 [README](../claude-code/README.md#spec-and-conformance). The rules run in that
-form's tests against the same modules. [`test/e2e.test.ts`](test/e2e.test.ts)
+form's tests against the same modules; this form's
+[`docs/conformance.md`](docs/conformance.md) has each rule's state in
+OpenCode and where it is tested. [`test/e2e.test.ts`](test/e2e.test.ts)
 runs this plugin in OpenCode 2.4.1, in a throwaway home, against a local web
 with a catalog, two cards and a small MCP server: discovery; an addition
 rejected and approved through OpenCode's rules; OpenCode connecting to the
-added server; the server still there after OpenCode restarts; a card that
-needs a secret refused with the entry to add by hand; and removal.
+added server; per project; the server still there after OpenCode restarts; a
+card that needs a secret refused with the entry to add by hand; a server
+behind a sign-in; removal; asking by default; and a server you already have
+never replaced.
 
 ## Development
 

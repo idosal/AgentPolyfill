@@ -256,7 +256,7 @@ export function addTool(t: ToolSet): Tool {
     description:
       `Add an MCP server that ${t.foundBy} showed in this session to OpenCode's MCP configuration. The URL and headers come from the Server Card; choose the remote and give any non-secret inputs the card asks for. ` +
       "A card that needs a secret is not added here: the person adds it to opencode.json by hand, with {env:VAR}, and the result gives the entry. Sign-in (OAuth) is OpenCode's own, with `opencode mcp auth <name>`. " +
-      `OpenCode's permission rules decide before anything is added (action ${ACTIONS.add}); with an ask rule the person is asked, shown the server, URL and headers. ` +
+      `OpenCode's permission rules decide before anything is added (action ${ACTIONS.add}), and the person is asked by default. Tell them the server, the URL it connects to and any headers before you call this: OpenCode's question may show only the call. ` +
       'Pass `url`, the URL the server connects to as the result showed it (its "connects to" line, else the remote\'s URL): the server is added only if that is the URL the card yields.',
     input: {
       type: 'object',

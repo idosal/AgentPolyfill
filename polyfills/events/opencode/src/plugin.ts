@@ -27,6 +27,7 @@ import { pruneSessions } from '../../core/src/store.ts';
 import type { Unavailable } from '../../core/src/tools.ts';
 import { describeError, NAME, secrets } from '../../core/src/untrusted.ts';
 import { isHttp, type ServerTable } from '../../core/src/upstream.ts';
+import { askByDefault, askByDefaultOff } from './consent.ts';
 import { OpenCodeServers } from './config.ts';
 import type { Context, Plugin, ToolCallContext } from './opencode.ts';
 import { OpenCodeSession, type Wake } from './sessions.ts';
@@ -49,6 +50,41 @@ export const visible = (name: string): string => name.replace(/[^\x20-\x7e]/gu, 
 export function watchPermission(server: string, event: string): { resource: string; save: string[] } {
     const resource = `${visible(server)}:${visible(event)}`;
     return { resource, save: NAME.test(server) && NAME.test(event) ? [resource] : [] };
+}
+
+/**
+ * Characters a permission prompt can't show: controls, line and paragraph separators, interlinear
+ * marks, and every default-ignorable code point (tag characters, zero-width and direction marks). The
+ * same set as ard-discovery's HIDDEN.
+ */
+const UNSHOWABLE = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\ufff9-\ufffb\u2800\p{Default_Ignorable_Code_Point}]/u;
+const MAX_NOTE = 500;
+const MAX_ARGUMENTS = 2000;
+
+/**
+ * Why a watch's note or filters can't be put to the person, or nothing. What a watch sends the server
+ * (its filters) and repeats with every event (its note) is the model's text; OpenCode's TUI shows the
+ * call, not an escaped form, so text with characters nobody sees is refused rather than asked about.
+ */
+export function watchTextProblem(p: { note?: unknown; arguments?: unknown }): string | undefined {
+    if (p.note !== undefined) {
+        if (typeof p.note !== 'string') return '"note" must be text';
+        if (p.note.length > MAX_NOTE) return `"note" must be at most ${MAX_NOTE} characters`;
+        if (UNSHOWABLE.test(p.note)) return '"note" holds a control or hidden character, which the question to the user cannot show: write it on one line, in plain text';
+    }
+    if (p.arguments !== undefined) {
+        const json = JSON.stringify(p.arguments);
+        if (json === undefined || json.length > MAX_ARGUMENTS) return `"arguments" must be at most ${MAX_ARGUMENTS} characters as JSON`;
+        const strings: string[] = [];
+        const walk = (v: unknown) => {
+            if (typeof v === 'string') strings.push(v);
+            else if (Array.isArray(v)) v.forEach(walk);
+            else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) (strings.push(k), walk(x));
+        };
+        walk(p.arguments);
+        if (strings.some((x) => UNSHOWABLE.test(x))) return 'a filter in "arguments" holds a control or hidden character, which the question to the user cannot show: use plain text';
+    }
+    return undefined;
 }
 
 export function stateDir(env: NodeJS.ProcessEnv = process.env): string {
@@ -108,6 +144,11 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
     const directory = ctx.location.directory;
     log(`mcp-events ${VERSION} for OpenCode ${ctx.app?.version ?? '?'} started in ${directory}${off ? ' (turned off: doing nothing)' : ''}`);
     if (off) return async () => {};
+
+    // Watches ask by default, whatever OpenCode's default rules say (consent.ts).
+    const consent = askByDefaultOff(ctx.options?.askByDefault, env.MCP_EVENTS_ASK_BY_DEFAULT)
+        ? async () => {}
+        : await askByDefault(ctx, { actions: [ACTIONS.watch, ACTIONS.unwatch], prefix: 'mcp-events', plugin: 'mcp-events', log });
 
     let native = false;
     try {
@@ -216,6 +257,8 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
         const p = (typeof input === 'object' && input !== null && !Array.isArray(input) ? input : {}) as Record<string, unknown>;
         if (name === 'watch_event' && typeof p.server === 'string' && typeof p.event === 'string') {
             const type = connections.get(p.server)?.eventTypes.find((t) => t.name === p.event);
+            const problem = watchTextProblem(p);
+            if (problem) return `Error: ${problem}. Nothing was watched.`;
             if (type) await ask(call, ACTIONS.watch, p.server, p.event, { arguments: p.arguments ?? {}, note: p.note ?? '' });
         }
         if (name === 'unwatch_event' && typeof p.watch === 'string') {
@@ -276,6 +319,7 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
     tick.unref?.();
 
     return async () => {
+        await consent();
         clearInterval(tick);
         await Promise.all([...sessions.values()].map((s) => s.stop().catch(() => {})));
         await Promise.all([...connections.values()].map((c) => c.close().catch(() => {})));

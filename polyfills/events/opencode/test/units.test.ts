@@ -59,3 +59,25 @@ test('"Allow always" on a watch saves a rule only for plain names, never a wildc
     assert.deepEqual(watchPermission('tickets', 'ticket?'), { resource: 'tickets:ticket?', save: [] });
     assert.deepEqual(watchPermission('tickets', 'tick​et').save, []);
 });
+
+test("a watch's note or filters holding a character nobody sees is refused before anyone is asked", async () => {
+    const { watchTextProblem } = await import('../src/plugin.ts');
+    assert.equal(watchTextProblem({ note: 'tell me the title', arguments: { priority: 'high' } }), undefined);
+    assert.match(watchTextProblem({ note: 'tell me\u{E0041}\u{E0042}' })!, /hidden character/);
+    assert.match(watchTextProblem({ note: 'line one\nline two' })!, /control or hidden/);
+    assert.match(watchTextProblem({ arguments: { priority: 'high​' } })!, /filter/);
+    assert.match(watchTextProblem({ arguments: { ['pri‮ority']: 'high' } })!, /filter/);
+    assert.match(watchTextProblem({ note: 'x'.repeat(501) })!, /at most 500/);
+});
+
+test('plugin/package.json makes the folder an installable package: this form, its bundle, nothing to install', async () => {
+    const { readFileSync } = await import('node:fs');
+    const form = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'plugin', 'package.json'), 'utf8'));
+    assert.equal(pkg.name, form.name);
+    assert.equal(pkg.version, form.version);
+    assert.equal(pkg.main, './server.js');
+    assert.equal(pkg.type, 'module');
+    assert.equal(pkg.private, true);
+    for (const k of ['dependencies', 'peerDependencies', 'optionalDependencies', 'scripts']) assert.equal(pkg[k], undefined, k);
+});

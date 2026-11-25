@@ -24,3 +24,21 @@ test('the bundle is a V2 plugin, and what the sources build', () => {
   assert.equal(B.default.id, 'ard-discovery')
   execFileSync(process.execPath, [join(ROOT, 'build.mjs'), '--check'], { cwd: ROOT, stdio: 'pipe' })
 })
+
+test('a query or registry holding a hidden character is refused: tag characters, a blank Braille pattern, a zero-width joiner', () => {
+  for (const c of ['\u{E0041}', '⠀', '‍', ' '])
+    assert.ok(B.UNSEEN.test(`check my CI${c}build`), `U+${c.codePointAt(0)!.toString(16)}`)
+  assert.ok(!B.UNSEEN.test('check why my CI build failed'))
+})
+
+test('plugin/package.json makes the folder an installable package: this form, its bundle, nothing to install', async () => {
+  const { readFileSync } = await import('node:fs')
+  const form = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
+  const pkg = JSON.parse(readFileSync(join(ROOT, 'plugin', 'package.json'), 'utf8'))
+  assert.equal(pkg.name, form.name)
+  assert.equal(pkg.version, form.version)
+  assert.equal(pkg.main, './server.js')
+  assert.equal(pkg.type, 'module')
+  assert.equal(pkg.private, true)
+  for (const k of ['dependencies', 'peerDependencies', 'optionalDependencies', 'scripts']) assert.equal(pkg[k], undefined, k)
+})

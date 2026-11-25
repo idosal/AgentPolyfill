@@ -38,8 +38,19 @@ a prompt, as a tool result from the same server could. How often is bounded
   `mcp_events_watch`, stopping one `mcp_events_unwatch`, each on
   `<server>:<event type>`, asked with `ctx.permission.assert`. OpenCode
   decides: a `deny` rule refuses, an `ask` rule prompts you, and the plugin
-  never answers a prompt. OpenCode's shipped default allows both; add `ask`
-  rules to be asked (the README shows them). The names in a request are shown
+  never answers a prompt.
+- **They're asked about by default.** OpenCode's shipped default allows every
+  action. For these two actions only, the plugin's `evaluate` hook turns that
+  `allow` into `ask`, unless you chose "Allow always" for that server and
+  event type in this project, or set `askByDefault` to `false`. It never turns
+  anything into `allow`, and a configured `deny` is settled before it runs.
+  With nobody there to answer, OpenCode refuses the question. "Allow always"
+  is kept by the plugin, from OpenCode's own permission events, only for a
+  request of its own and only as the patterns that request offered to save.
+- **What a watch says is plain text.** A watch's note and `arguments` are the
+  model's text, repeated with every event or sent to the server. One holding
+  a control or hidden character, or a note over 500 characters or `arguments`
+  over 2,000, is refused before anyone is asked. The names in a request are shown
   with anything but printable ASCII escaped, so a server's event name can't
   read as another. "Allow always" saves a rule only when both names are plain:
   an event type a server named `*` or `?`, a wildcard in OpenCode's rules,
@@ -60,9 +71,12 @@ a prompt, as a tool result from the same server could. How often is bounded
   are taken, and only from a subscription on a connection that carries your
   credentials, as in the other forms.
 - **Push beside OpenCode's automations.** An event type offered by push is
-  watched by push, on the plugin's own connection. OpenCode's automations can
-  take push events too; the plugin tells the model to use one or the other,
-  so an event doesn't wake the session twice.
+  watched by push, on the plugin's own connection. OpenCode's automations, and
+  OpenCode Console's `console_watch` tools for a signed-in workspace, can take
+  events too. The plugin tells the model to use one or the other for an event
+  type, and nothing more: it can't see an automation, so with both set up an
+  event wakes the session twice. Each wake still counts toward the limits
+  above, and what follows still goes through OpenCode's rules.
 - **No sign-in of its own.** The plugin connects with what your OpenCode
   configuration holds (a command, a URL, headers). It never reads OpenCode's
   stored credentials, OAuth tokens included, though OpenCode's plugin API
@@ -85,17 +99,27 @@ you:
   the last one;
 - a log, with secrets taken out.
 
+The patterns you chose "Allow always" for are in OpenCode's plugin storage
+(its own database), one list per project.
+
 ## What it does not protect against
 
 - **What OpenCode's TUI shows in the prompt.** OpenCode 2.4.1's TUI shows a
   request for this plugin's action as "Call tool mcp_events_watch", without
   the resource or metadata it carries. You read the server and event type on
   the model's call line above it, which is what the request is about.
+  OpenCode Desktop shows them in the prompt itself.
 - **A server you configured that sends misleading events.** They are its
   data, and OpenCode may act on them within your permission rules.
-- **OpenCode's default policy.** It allows every action. The plugin asks
-  OpenCode, and OpenCode decides; with no `ask` or `deny` rules, nobody is
-  asked, for a watch or for what follows an event.
+- **OpenCode's default policy, after a wake.** It allows every action. The
+  plugin asks about watches by default, but what the model does after an
+  event is asked about only where your rules say `ask`.
+- **An "Allow always" taken back in OpenCode.** The plugin keeps its own
+  record, so removing OpenCode's saved approval doesn't make it ask again. An
+  `ask` or `deny` rule for the action does.
+- **Turning asking off.** With `askByDefault: false` or
+  `MCP_EVENTS_ASK_BY_DEFAULT=0`, OpenCode's rules alone decide, and under its
+  default a watch starts without a prompt.
 - **Someone who can read your files.** The state folder holds webhook secrets
   and payloads, as OpenCode's data folder holds your sessions.
 - **A relay operator reading webhook payloads.** Webhooks are signed, not

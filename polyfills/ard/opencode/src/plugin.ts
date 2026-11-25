@@ -11,14 +11,15 @@ import { discover, type DiscoverOptions } from '../../../server-cards/claude-cod
 import { formatDiscovery, formatOffered } from '../../../server-cards/claude-code/mod/hooks/format'
 import { readOffered } from '../../../server-cards/claude-code/mod/hooks/offer'
 import { nodeFetch } from '../../../server-cards/codex/src/fetch'
-import { AddedServers, addTool, memoryStore, registerTools, removeTool, shownText, type Tool, type ToolSet } from '../../../server-cards/opencode/src/cards'
+import { ACTIONS, AddedServers, addTool, memoryStore, registerTools, removeTool, shownText, type Tool, type ToolSet } from '../../../server-cards/opencode/src/cards'
 import type { Context, Plugin } from '../../../server-cards/opencode/src/opencode'
 import { shownBySession } from '../../../server-cards/opencode/src/plugin'
-import { search, searchEndpoint } from '../../claude-code/mod/hooks/registry'
+import { askByDefault, askByDefaultOff } from '../../../server-cards/opencode/src/consent'
+import { HIDDEN, search, searchEndpoint } from '../../claude-code/mod/hooks/registry'
 import { originOf } from '../../claude-code/mod/hooks/urls'
 
 // What the tests run against.
-export { search, searchEndpoint, originOf }
+export { search, searchEndpoint, originOf, UNSEEN }
 
 export const NAME = 'ard-discovery'
 export const VERSION = '0.1.0'
@@ -34,14 +35,15 @@ export const SHOWN_QUERY = 300
 export const SHOWN_REGISTRY = 200
 export const NO_REGISTRY =
   'No ARD registry is set, and this search names none. Ask the person which registry to search (a registry base URL, or a domain whose catalog lists one) and pass it as `registry`; they can also set one with ARD_DISCOVERY_REGISTRY in the environment OpenCode starts in. Nothing was sent.'
-const UNSEEN = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/
+/** Characters that display as something else or as nothing, tag characters among them (registry.ts HIDDEN, as in the other forms). */
+const UNSEEN = HIDDEN
 const MARKUP = /[`<>[\]]/
 
 const str = (v: unknown) => (typeof v === 'string' ? v : undefined)
 const refuse = (text: string) => ({ text: shownText(text), isError: true })
 const unshowable = (registry: string, from: string) =>
   registry.length > SHOWN_REGISTRY || UNSEEN.test(registry) || /\s/.test(registry)
-    ? `${from} must be at most ${SHOWN_REGISTRY} characters, with no spaces, control characters or direction marks, so the request names exactly where the search goes. Nothing was sent.`
+    ? `${from} must be at most ${SHOWN_REGISTRY} characters, with no spaces, control characters, direction marks or hidden characters, so the request names exactly where the search goes. Nothing was sent.`
     : undefined
 
 export const registrySetting = (env: NodeJS.ProcessEnv) => (env.ARD_DISCOVERY_REGISTRY ?? '').trim()
@@ -88,7 +90,7 @@ export function tools(t: ToolSet, defaultRegistry: string): Tool[] {
       const query = (str(args.query) ?? '').trim()
       if (!query) return refuse('Give `query`: what the person needs, in plain words.')
       if (query.length > SHOWN_QUERY) return refuse(`Keep the search under ${SHOWN_QUERY} characters, so the person sees all of it before it is sent.`)
-      if (UNSEEN.test(query)) return refuse('Write the search on one line, without control characters or direction marks, so the person sees exactly what is sent.')
+      if (UNSEEN.test(query)) return refuse('Write the search on one line, without control characters, direction marks or hidden characters, so the person sees exactly what is sent.')
       if (MARKUP.test(query)) return refuse('Write the search in plain words, without `, <, > or square brackets, so the request shows exactly what is sent.')
       const asked = (str(args.registry) ?? defaultRegistry).trim()
       if (!asked) return refuse(NO_REGISTRY)
@@ -180,6 +182,10 @@ export const NAMESPACE_DESCRIPTION =
 export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env) {
   host.name = 'OpenCode'
   if (/^(1|true|on|yes)$/i.test(env.ARD_DISCOVERY_DISABLED ?? '') || ctx.options?.off === true) return
+  // Searches, additions and removals ask by default, whatever OpenCode's default rules say (consent.ts).
+  const consent = askByDefaultOff(ctx.options?.askByDefault, env.ARD_DISCOVERY_ASK_BY_DEFAULT)
+    ? async () => {}
+    : await askByDefault(ctx, { actions: [SEARCH_ACTION, ACTIONS.add, ACTIONS.remove], prefix: NAME, plugin: NAME, log: () => {} })
   const added = new AddedServers(ctx)
   await added.start()
   const t: ToolSet = {
@@ -191,7 +197,8 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env) 
     foundBy: `${NAMESPACE}_discover or ${NAMESPACE}_search`,
   }
   await registerTools(ctx, { name: NAMESPACE, description: NAMESPACE_DESCRIPTION }, tools(t, registrySetting(env)))
+  return consent
 }
 
-const plugin: Plugin = { id: NAME, setup: async ctx => void (await setup(ctx)) }
+const plugin: Plugin = { id: NAME, setup: ctx => setup(ctx) }
 export default plugin

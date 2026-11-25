@@ -1,7 +1,7 @@
 // What this plugin is called in OpenCode: its tools, its permission actions,
 // and the stub OpenCode lists for each served skill.
 
-import { oneLine } from '../../core/src/untrusted.ts';
+import { INVISIBLE_TEXT, oneLine } from '../../core/src/untrusted.ts';
 
 /** The tools' namespace: OpenCode names each tool `mcp_skills_<name>`. */
 export const NAMESPACE = 'mcp_skills';
@@ -30,7 +30,7 @@ export const TOOLS: readonly Tool[] = [
     {
         name: 'load_skill',
         description:
-            "Loads a skill an MCP server serves, by its server and the URI of its SKILL.md. OpenCode's permission rules decide first (action mcp_skills_load); with an ask rule the user is asked. Returns the skill's text, verified against the server's digests and marked with its origin, and the list of its other files.",
+            "Loads a skill an MCP server serves, by its server and the URI of its SKILL.md. OpenCode asks the user first (action mcp_skills_load), unless they chose \"Allow always\" for this skill as it is now. Returns the skill's text, verified against the server's digests and marked with its origin, and the list of its other files. Read its files with read_skill_file, never with OpenCode's resource tool.",
         input: { type: 'object', properties: { ...identity, uri: { type: 'string', description: "The URI of the skill's SKILL.md, for example skill://name/SKILL.md." } }, required: ['server', 'uri'], additionalProperties: false }
     },
     {
@@ -55,8 +55,11 @@ export const TOOLS: readonly Tool[] = [
     }
 ];
 
-/** A server's text on one line, with nothing that reads as markup. */
-const line = (text: unknown, max: number) => oneLine(typeof text === 'string' ? text : '', max).replace(/[<>`]/g, ' ');
+/** Zero-width, format and direction marks, the soft hyphen, the fillers and the tag characters (the core's set). */
+const INVISIBLE_ALL = new RegExp(INVISIBLE_TEXT.source, 'gu');
+
+/** A server's text on one line, with no control or invisible character and nothing that reads as markup. */
+const line = (text: unknown, max: number) => oneLine((typeof text === 'string' ? text : '').toWellFormed().replace(INVISIBLE_ALL, ''), max).replace(/[<>`]/g, ' ');
 
 /** The description OpenCode lists a served skill by: marked with its server first, then the server's own words. */
 export function stubDescription(server: string, description: unknown): string {

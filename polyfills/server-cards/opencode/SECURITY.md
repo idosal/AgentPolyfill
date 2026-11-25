@@ -11,7 +11,7 @@ Cards modules every form shares.
 
 - **You, and OpenCode's permission rules,** which decide every addition and
   removal. The plugin asks with `ctx.permission.assert` and never answers a
-  prompt.
+  prompt. By default it has them ask you (below).
 - **OpenCode,** its MCP client and its sign-in, which connect what is added.
 - **Not the publishers.** A catalog can list anything, and a card can claim
   anything. The SEP says a card is advisory and never authoritative for
@@ -45,7 +45,10 @@ One server at a time, to OpenCode's MCP servers, with `ctx.mcp.transform`:
   `<name>=<url>`. The request carries the host, URL, headers, the card, where
   it was listed and how to undo it. Nothing is saved by "Allow always": each
   addition is asked about on its own. OpenCode's shipped default allows every
-  action, so with no `ask` rule nobody is asked (the README shows the rule).
+  action; for this plugin's two actions only, its `evaluate` hook turns that
+  `allow` into `ask`, unless you set `askByDefault` to `false`. It never turns
+  anything into `allow`, and a configured `deny` is settled before it runs.
+  With nobody there to answer, OpenCode refuses the question.
 - **Never over a server you have.** A name OpenCode's configuration already
   holds, from any source, is refused, before the request and again after.
 - **Which server and URL:** only a card a tool showed in this session, and
@@ -82,10 +85,16 @@ holds no token. A sign-in for an added server is OpenCode's
   without the resource or metadata it carries. You read the name and URL on
   the model's call line above it; the plugin refuses a URL other than the one
   the card gives, so that is what is added. The headers and the undo aren't
-  shown.
-- **OpenCode's default policy.** It allows every action, so with no rule for
-  `mcp_server_cards_add` the model can add a server a card describes without a
+  shown. OpenCode Desktop shows a plugin action's resource in its prompt
+  (seen for Events and Skills; an addition there wasn't tried), here
+  `<name>=<url>`; the headers and the undo are in the request's metadata.
+- **Turning asking off.** With `askByDefault: false` or
+  `MCP_SERVER_CARDS_ASK_BY_DEFAULT=0`, OpenCode's rules alone decide, and
+  under its default the model can add a server a card describes without a
   prompt, as it could edit `opencode.json` by default.
+- **OpenCode's default for everything else.** The model can still edit
+  `opencode.json` itself, and add a server that way, unless your rules ask
+  about edits.
 - **A server you add.** Once added, its tools are OpenCode's MCP tools, under
   your rules like any other.
 - **A publisher's claims.** A valid card says what its publisher says; it

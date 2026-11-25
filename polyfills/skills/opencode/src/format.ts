@@ -9,8 +9,8 @@
 // An MCP-served skill is never shown as if it were a local one.
 
 import { randomBytes } from 'node:crypto';
-import { rootOf, type DirectoryChild, type Listed, type Loaded, type ReadFile, type Refused } from '../../core/src/skills.ts';
-import { countHidden, oneLine } from '../../core/src/untrusted.ts';
+import { mediaTypeOf, rootOf, type DirectoryChild, type Listed, type Loaded, type ReadFile, type Refused } from '../../core/src/skills.ts';
+import { countHidden, INVISIBLE_TEXT, oneLine } from '../../core/src/untrusted.ts';
 import { TOOL } from './words.ts';
 
 const q = (s: string) => JSON.stringify(s);
@@ -32,9 +32,12 @@ export function relativeTo(skillUri: string, fileUri: string): string {
 
 export type ServerNote = { name: string; why: string };
 
-/** A server's text on one line, bounded, with nothing a terminal or a renderer acts on. */
+const INVISIBLE_ALL = new RegExp(INVISIBLE_TEXT.source, 'gu');
+
+/** A server's text on one line, bounded, with no invisible character and nothing a terminal or a renderer acts on. */
 export function plain(text: unknown, max: number): string {
-    return oneLine(typeof text === 'string' ? text : '', max).replace(/[<>`]/g, (c) => ({ '<': '‹', '>': '›', '`': "'" })[c]!);
+    const cleaned = (typeof text === 'string' ? text : '').toWellFormed().replace(INVISIBLE_ALL, '');
+    return oneLine(cleaned, max).replace(/[<>`]/g, (c) => ({ '<': '‹', '>': '›', '`': "'" })[c]!);
 }
 
 /** Every served skill, for `list_skills`. */
@@ -44,11 +47,14 @@ export function statusText(o: { skills: Listed[]; refused: Refused[]; loaded: { 
     for (const s of o.servers) {
         const mine = o.skills.filter((l) => l.label === s.name);
         out.push(`MCP server ${q(s.name)}: ${mine.length} skill${mine.length === 1 ? '' : 's'}${s.directoryRead ? ', lists directories' : ''}.`);
+        const counts = new Map<string, number>();
+        for (const l of mine) counts.set(l.entry.frontmatter.name, (counts.get(l.entry.frontmatter.name) ?? 0) + 1);
         for (const l of mine.slice(0, 300)) {
             const notes = [
                 o.ids.has(l) ? `in OpenCode's skill list as ${o.ids.get(l)}` : '',
                 o.loaded.some((h) => h.label === l.label && h.uri === l.entry.uri) ? 'loaded in this session' : '',
                 l.entry.resources === 'dynamic' ? 'generated content: cannot be verified' : '',
+                (counts.get(l.entry.frontmatter.name) ?? 0) > 1 ? 'another skill of this server has the same name: tell them apart by uri' : '',
                 l.declined ? `not loadable: ${l.declined}` : ''
             ].filter(Boolean);
             out.push(`- ${l.entry.frontmatter.name} (server ${q(l.label)}, uri ${l.entry.uri}): ${plain(l.entry.frontmatter.description, 400)}${notes.length ? ` [${notes.join('; ')}]` : ''}`);
@@ -89,7 +95,9 @@ export function loadedText(l: Loaded): string {
 export function fileText(f: ReadFile, skillName: string): string {
     const path = relativeTo(f.skillUri, f.uri);
     const head = `${q(path)} of the skill ${q(skillName)}, from the MCP server ${q(f.label)} (${f.size} bytes${f.isVerified ? ", matched the size and SHA-256 digest in the skill's entry" : ', not verifiable: the server publishes no digests for this skill'}).`;
-    if (f.text === undefined) return `${head} It is a binary file${f.mimeType ? ` (${f.mimeType})` : ''}, which this plugin does not show.`;
+    // The media type is the server's word: printed only when the whole of it is a media type.
+    const kind = mediaTypeOf(f.mimeType);
+    if (f.text === undefined) return `${head} It is a binary file${kind ? ` (${kind})` : ''}, which this plugin does not show.`;
     const nested = f.isNestedSkill ? ` This is the SKILL.md of a skill nested inside ${q(skillName)}: read here it is ordinary supporting text, and its frontmatter has no effect. To use it as a skill, load it by its own URI (${f.uri}) with ${TOOL.load}.` : '';
     const hidden = hiddenNote('This file', f.text).map((line) => ` ${line}`).join('');
     return `${head}${nested}${hidden} Content from that server:\n${fenced('mcp-skill-file', { server: f.label, uri: f.uri }, f.text)}`;

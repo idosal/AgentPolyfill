@@ -17,17 +17,27 @@
 import { appendFileSync, chmodSync, existsSync, mkdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { rootOf } from '../../core/src/skills.ts';
 import { oneLine, secrets } from '../../core/src/untrusted.ts';
 import { App } from './app.ts';
+import { askByDefault, askByDefaultOff } from './consent.ts';
 import { OpenCodeServers } from './config.ts';
 import type { Context, Plugin, ToolCallContext } from './opencode.ts';
 import { VERSION } from './version.ts';
-import { ACTIONS, NAMESPACE, NAMESPACE_DESCRIPTION, stubContent, stubDescription, TOOLS } from './words.ts';
+import { ACTIONS, NAMESPACE, NAMESPACE_DESCRIPTION, stubContent, stubDescription, TOOL, TOOLS } from './words.ts';
 
 /** OpenCode's own tool that reads an MCP resource (2.4.1). */
 export const READ_RESOURCE_TOOL = 'opencode_read_mcp_resource';
-/** Where the servers a session loaded skills from are kept, in the plugin's storage. */
-export const LOADED_KEY = (session: string) => `loaded-from/${session}`;
+/** Where the skills a session loaded are kept, in the plugin's storage: (server, the URI of its SKILL.md). */
+export const LOADED_KEY = (session: string) => `loaded/${session}`;
+
+type LoadedSkill = { server: string; uri: string };
+
+/** Whether `uri` is a file of the skill whose SKILL.md is `skillUri` (in its folder). */
+export function inSkill(skillUri: string, uri: string): boolean {
+    const root = rootOf(skillUri);
+    return root !== undefined && (uri === skillUri || uri.startsWith(`${root}/`));
+}
 /** How many parents up a subagent's session is checked. */
 const MAX_DEPTH = 8;
 
@@ -73,6 +83,11 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
     log(`mcp-skills ${VERSION} for OpenCode ${ctx.app?.version ?? '?'} started in ${ctx.location.directory}${off ? ' (turned off: doing nothing)' : ''}`);
     if (off) return async () => {};
 
+    // Loads and cross-server reads ask by default, whatever OpenCode's default rules say (consent.ts).
+    const consent = askByDefaultOff(ctx.options?.askByDefault, env.MCP_SKILLS_ASK_BY_DEFAULT)
+        ? async () => {}
+        : await askByDefault(ctx, { actions: [ACTIONS.load, ACTIONS.crossServer], prefix: 'mcp-skills', plugin: 'mcp-skills', log });
+
     const app = new App({ log, connectTimeoutMs: Number(env.MCP_SKILLS_CONNECT_TIMEOUT_MS ?? 10000) });
     const servers = new OpenCodeServers(ctx);
 
@@ -90,24 +105,24 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
             });
         }
     });
-    const kept = async (session: string): Promise<string[]> => {
+    const kept = async (session: string): Promise<LoadedSkill[]> => {
         try {
             const v = await ctx.storage.get(LOADED_KEY(session));
-            return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+            return Array.isArray(v) ? v.filter((x): x is LoadedSkill => !!x && typeof x.server === 'string' && typeof x.uri === 'string') : [];
         } catch {
             return [];
         }
     };
-    app.onLoaded = async (session, server) => {
+    app.onLoaded = async (session, server, uri) => {
         const before = await kept(session);
-        if (!before.includes(server)) await ctx.storage.set(LOADED_KEY(session), [...before, server]);
+        if (!before.some((k) => k.server === server && k.uri === uri)) await ctx.storage.set(LOADED_KEY(session), [...before, { server, uri }]);
     };
-    /** The servers this session, or a session it is a subagent of, loaded skills from. */
-    const loadedFrom = async (session: string): Promise<string[]> => {
-        const out = new Set<string>();
+    /** The skills this session, or a session it is a subagent of, loaded. */
+    const loadedSkills = async (session: string): Promise<LoadedSkill[]> => {
+        const out = new Map<string, LoadedSkill>();
         let id: string | undefined = session;
         for (let depth = 0; id && depth < MAX_DEPTH; depth++) {
-            for (const s of [...app.loadedFrom(id), ...(await kept(id))]) out.add(s);
+            for (const s of [...app.loadedSkills(id), ...(await kept(id))]) out.set(`${s.server}\n${s.uri}`, s);
             try {
                 const r = (await ctx.session.get({ sessionID: id })) as { parentID?: string; data?: { parentID?: string } };
                 id = r?.data?.parentID ?? r?.parentID;
@@ -115,7 +130,7 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
                 id = undefined;
             }
         }
-        return [...out];
+        return [...out.values()];
     };
 
     app.onListed = () => {
@@ -142,15 +157,23 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
             });
     });
 
+    // V4: a loaded skill's files are read with read_skill_file, verified against the skill's manifest;
+    // OpenCode's resource tool, which checks nothing, is refused for them.
     // X8: a session that loaded a served skill reads another server's resource only once OpenCode's
     // rules allow it, asked for that one read and naming both servers.
     await ctx.tool.hook('execute.before', async (event) => {
         if (!isResourceRead(event)) return;
         const input = (event.input ?? {}) as { server?: unknown; uri?: unknown };
         if (typeof input.server !== 'string') return;
-        const from = (await loadedFrom(event.sessionID)).filter((s) => s !== input.server);
-        if (!from.length) return;
         const uri = typeof input.uri === 'string' ? input.uri : '';
+        const held = await loadedSkills(event.sessionID);
+        const own = held.find((h) => h.server === input.server && inSkill(h.uri, uri));
+        if (own) {
+            log(`a read of ${input.server}'s ${oneLine(uri, 200)} through OpenCode's resource tool, inside a loaded skill: refused`);
+            throw new Error(`mcp-skills: ${uri} is a file of the skill ${own.uri}, loaded from the MCP server ${JSON.stringify(input.server)}. Read it with ${TOOL.read} (server ${JSON.stringify(input.server)}, skill ${JSON.stringify(own.uri)}, and its path), which checks it against the skill's manifest; OpenCode's resource tool does not.`);
+        }
+        const from = [...new Set(held.map((h) => h.server))].filter((s) => s !== input.server);
+        if (!from.length) return;
         log(`a session that loaded skills of ${from.join(', ')} reads a resource of ${input.server}: put to OpenCode's rules`);
         await ctx.permission.assert({
             sessionID: event.sessionID,
@@ -169,7 +192,10 @@ export async function setup(ctx: Context, env: NodeJS.ProcessEnv = process.env):
         .then((table) => app.start(table))
         .catch((e) => log(`the servers could not be looked at (${String(e)})`));
 
-    return () => app.stop();
+    return async () => {
+        await consent();
+        await app.stop();
+    };
 }
 
 const plugin: Plugin = { id: 'mcp-skills', setup: (ctx) => setup(ctx) };

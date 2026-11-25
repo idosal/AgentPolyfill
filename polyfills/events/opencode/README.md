@@ -14,14 +14,32 @@ This plugin implements the client side of the MCP Events extension,
 when one arrives. It doesn't poll, it doesn't take webhooks, and it skips any
 event type whose schemas it can't turn into a checker, valid SEP-3415 schemas
 among them. So this plugin watches every event type, and names OpenCode's
-automations as the alternative for push. Details are in
-[Spec and conformance](#spec-and-conformance).
+automations as the alternative for push. That's a departure from the
+[polyfill contract](../../../docs/polyfill-contract.md)'s rule 4, which has a
+polyfill stand down where the host is native; why is in
+[Push, and OpenCode's automations](#push-and-opencodes-automations), and the
+rest in [Spec and conformance](#spec-and-conformance).
 
 ## Install
 
-The plugin isn't on npm yet. From a clone of this repository, add its folder
-to `plugins` in your OpenCode configuration (`~/.config/opencode/opencode.json`
-for every project, or a project's `opencode.json`):
+You need **OpenCode 2.4** (the V2 plugin API; tested with 2.4.1). OpenCode runs
+the plugin itself, so you don't need Node.
+
+The plugin isn't on npm. OpenCode installs it from this repository on GitHub,
+with Git:
+
+```bash
+opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/events/opencode/plugin'
+```
+
+That adds it to `plugins` in your global configuration
+(`~/.config/opencode/opencode.json`), so it runs in every project, from the
+next time OpenCode opens one. `#main` installs what the main branch holds; a
+commit in its place pins one version. To remove it, run `opencode plugin remove` with the
+same text.
+
+Or, from a clone of this repository, add the plugin's folder to `plugins`
+yourself, in the global configuration or a project's `opencode.json`:
 
 ```jsonc
 {
@@ -29,14 +47,8 @@ for every project, or a project's `opencode.json`):
 }
 ```
 
-The folder is one bundled file, [`plugin/server.js`](plugin/), and its
-licence notices. Nothing else is downloaded. OpenCode loads it the next time
-it opens the project.
-
-You need **OpenCode 2.4** (the V2 plugin API; tested with 2.4.1). OpenCode
-runs the plugin itself, so you don't need Node.
-
-To remove it, take the entry out of `plugins`.
+The folder is one bundled file, [`plugin/server.js`](plugin/), its licence
+notices, and a `package.json` that names it. Nothing else is downloaded.
 
 ## Try it
 
@@ -54,18 +66,10 @@ session wakes by itself with a message from the plugin that starts with
 `[mcp-events]`, reads the event with `mcp_events_get_event`, and does what
 the watch's note says.
 
-To be asked before each watch starts, add this to your OpenCode
-configuration. OpenCode's own default allows every action, so without a rule
-like it you aren't asked (see [Permissions](#permissions)):
-
-```jsonc
-{
-  "permissions": [
-    { "action": "mcp_events_watch", "resource": "*", "effect": "ask" },
-    { "action": "mcp_events_unwatch", "resource": "*", "effect": "ask" }
-  ]
-}
-```
+OpenCode asks you before the watch starts, and before one is stopped, naming
+the server and the event type. "Allow always" keeps that answer for that
+server and event type in this project. [Permissions](#permissions) has the
+details.
 
 ## How it works
 
@@ -93,6 +97,9 @@ Six tools, in OpenCode's `mcp_events` namespace:
 - **Permissions.** Starting or stopping a watch is put to OpenCode's
   permission rules first, with `ctx.permission.assert`, as the actions
   `mcp_events_watch` and `mcp_events_unwatch` on `<server>:<event type>`.
+  OpenCode's shipped rules allow every action, so the plugin makes these two
+  ask by default, with an OpenCode `evaluate` hook that turns `allow` into
+  `ask` for them and nothing else.
 - **Events.** The shared Events client ([`../core`](../core)) polls, or takes
   signed webhooks, and stores every event on disk before it acknowledges it.
 - **Waking.** The plugin hands the session a message with
@@ -131,31 +138,74 @@ as the SEP's order of delivery modes says. OpenCode's own automations take
 push events too, for the event types its client accepts, and the plugin says
 so when it lists event types or watches one by push: a watch, or an automation
 with an event trigger (`automation_create`), not both, or each event reaches
-the session twice. The plugin doesn't leave push to OpenCode, because
-OpenCode's client skips event types whose schemas it can't check: in a run,
-it skipped both of the fixture server's types, whose payload schemas use
-`pattern`, `format` and the SEP's `x-mcp-content`.
+the session twice. Nothing stops both being set up for one event type; the
+plugin only says so.
+
+That's a departure from the polyfill contract's rule 4, which has a polyfill
+stand down where the host is native. The plugin doesn't leave push to
+OpenCode, because OpenCode's client skips event types whose schemas it can't
+check, and a plugin can't ask which ones it took: in a run, it skipped both
+of the fixture server's types, whose payload schemas use `pattern`, `format`
+and the SEP's `x-mcp-content`, all valid under the SEP. Standing down for push
+would leave those types unwatched.
+
+OpenCode Console, for a workspace signed in to it, also has `console_watch`
+tools that can wake a session on events from the workspace's MCP servers on
+Console. They weren't tried here (they need a Console sign-in), and the plugin
+doesn't look for them. The same advice holds: one or the other for an event
+type.
 
 ## Permissions
 
 OpenCode decides, with its own rules and its own prompt. The plugin asks and
-never answers. OpenCode's shipped default allows every action, so with no
-rule for `mcp_events_watch` a watch starts without a prompt, as any tool call
-does in OpenCode by default. Add the `ask` rules in [Try it](#try-it) to be
-asked. "Allow always" saves an approval for that server and event type.
+never answers.
+
+- **It asks by default.** OpenCode's shipped default allows every action, so
+  a question put to its rules reaches you only where a rule says `ask`. For
+  its own two actions, `mcp_events_watch` and `mcp_events_unwatch`, the plugin
+  turns that `allow` into `ask`, and it changes nothing else.
+- **"Allow always"** keeps your answer for that server and event type, in
+  this project. The plugin follows OpenCode's own permission events and keeps
+  the patterns the request offered to save. A pattern is offered only when
+  both names are plain, so an event type a server named `*` can't stand for
+  all of that server's types.
+- **A `deny` or `ask` rule you write wins.** OpenCode settles a `deny` before
+  the plugin hears of it, and the plugin never turns anything into `allow`.
+  With nobody there to answer, as in a scheduled run, OpenCode refuses the
+  question, so no watch starts unattended.
+- **To leave it to OpenCode's rules alone**, set the plugin option
+  `askByDefault` to `false`, or `MCP_EVENTS_ASK_BY_DEFAULT=0` (see
+  [Settings](#settings)). An `allow` rule you write doesn't skip the question
+  by itself: the plugin can't tell it from OpenCode's default.
+- **The plugin keeps its own record** of each "Allow always", in OpenCode's
+  plugin storage. Taking a saved approval back in OpenCode doesn't take it
+  back from the plugin; an `ask` rule for it does.
 
 What OpenCode does about an event goes through your rules too. Receiving one
-grants nothing.
+grants nothing, but OpenCode's default allows the model's other actions, so
+what it does after a wake isn't asked about unless your rules say so.
 
 ## Settings
 
 | Variable | What it does |
 |---|---|
 | `MCP_EVENTS_OFF=1` | Do nothing, without being uninstalled. The plugin option `{"off": true}` does the same. |
+| `MCP_EVENTS_ASK_BY_DEFAULT=0` | Leave watches to OpenCode's rules alone; by default the plugin asks. The plugin option `{"askByDefault": false}` does the same. |
 | `MCP_EVENTS_STATE` | Where the plugin keeps its state. Default: `~/.local/share/opencode/mcp-events` (`$XDG_DATA_HOME/opencode/mcp-events`). |
 | `MCP_EVENTS_WAKE_GAP_S`, `MCP_EVENTS_WAKES_PER_HOUR` | How often events may wake a session: once a minute per watch, 30 times an hour, by default. |
 | `MCP_EVENTS_PRE_STANDARD` | As in the other forms: `off` to use only servers that advertise events as SEP-3415 says. |
 | `MCP_EVENTS_RELAY`, `MCP_EVENTS_PUBLIC_URL`, `MCP_EVENTS_RECEIVER_PORT` | Webhook delivery. |
+
+Set a variable in the environment OpenCode starts in. A plugin option goes in
+the object form of the plugin's entry in `plugins`:
+
+```jsonc
+{
+  "plugins": [
+    { "package": "/path/to/AgentPolyfill/polyfills/events/opencode/plugin", "options": { "askByDefault": false } }
+  ]
+}
+```
 
 ### When OpenCode supports more of Events itself
 
@@ -170,8 +220,13 @@ remove it.
 - **Servers behind OAuth.** See [Which servers it works with](#which-servers-it-works-with).
 - **Two ways to take push events.** OpenCode's automations and this plugin's
   watches both take push events; the plugin tells the model to use one or the
-  other. It can't tell which event types OpenCode's own client accepts: a plugin
-  can't ask, and `opencode_list_mcp_events` is the model's tool.
+  other, and nothing enforces it. It can't tell which event types OpenCode's
+  own client accepts: a plugin can't ask, and `opencode_list_mcp_events` is the
+  model's tool.
+- **A watch's note and filter are plain text.** OpenCode's prompt can't show
+  a control or hidden character, so a watch whose note or `arguments` holds
+  one is refused, as is a note over 500 characters or `arguments` over 2,000.
+  The model is told to write it again in plain text.
 - **Watches resume when OpenCode opens the project.** OpenCode loads a
   project's plugins when something uses that project (the TUI, the desktop
   app, or a client of its server). Until then a saved watch doesn't run.
@@ -183,7 +238,7 @@ remove it.
 - **Tried live** with a real model (one of OpenCode's free ones) against the
   fixture server: an event woke the idle session, and the model did what the
   note said ([`live-run.md`](../../../tools/opencode/live-run.md)). CI runs
-  the tests on Linux and macOS.
+  the tests on Linux, macOS and Windows.
 - **OpenCode's TUI shows little in the prompt.** In OpenCode 2.4.1's TUI, a
   permission prompt for a plugin's own action says only "Call tool
   mcp_events_watch". The details are on the model's call line just above it, and
@@ -207,7 +262,8 @@ gaps for each host.
 
 An event is data from a server you configured. Its payload reaches the model
 only as a tool result, and the wake message carries none of it. Watches are
-put to OpenCode's permission rules. Wakes are capped. The plugin never reads
+put to OpenCode's permission rules, and asked about by default. Wakes are
+capped. The plugin never reads
 OpenCode's stored credentials. [`SECURITY.md`](SECURITY.md) has the full
 account.
 
@@ -222,6 +278,9 @@ clause-by-clause table is the Claude Code form's
 and conformance-suite runs drive the same client. One step outside the SEP is
 on by default, as in the other forms: servers that advertise events in the
 form from before the standard. `MCP_EVENTS_PRE_STANDARD=off` turns it off.
+This form's [`docs/conformance.md`](docs/conformance.md) lists which clauses
+its own tests check in OpenCode, and its departure from the polyfill
+contract.
 
 What is different in OpenCode:
 
@@ -251,7 +310,16 @@ from the SEP, sharing no code with the client), with a scripted model:
 - a webhook-only event type is watched by webhook, to the plugin's receiver
   inside OpenCode's server, and a signed delivery wakes the session;
 - a server that answers 401 is named as needing a sign-in, and the header in
-  its configuration appears in no tool result, log line or model request.
+  its configuration appears in no tool result, log line or model request;
+- with OpenCode's shipped rules, a watch is asked about; "Allow always" covers
+  that event type and not another; with `askByDefault: false`, OpenCode's
+  rules alone decide.
+
+[`test/two-servers.test.ts`](test/two-servers.test.ts) runs the plugin's
+session code in two processes on one state folder, as when two OpenCode
+servers have the same session open: only the one running a session's watches
+writes its wake count, and the other, taking over, counts what was handed out
+before.
 
 ## Development
 

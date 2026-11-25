@@ -90,10 +90,13 @@ export type Context = {
         transform(callback: (editor: SkillEditor) => void): Promise<Registration>;
         reload(): Promise<void>;
     };
-    permission: { assert(input: PermissionAssert): Promise<void> };
+    permission: {
+        assert(input: PermissionAssert): Promise<void>;
+        hook(name: 'evaluate', callback: (event: { readonly action: string; readonly resources: readonly string[]; effect: 'allow' | 'ask' | 'deny'; message?: string }) => void | Promise<void>): Promise<Registration>;
+    };
     /** Durable JSON values, the plugin's own (one store for every project). */
-    storage: { get(key: string): Promise<unknown>; set(key: string, value: unknown): Promise<void> };
-    event: { subscribe(options?: { types?: string[]; signal?: AbortSignal }): AsyncIterable<{ type: string }> };
+    storage: { get(key: string): Promise<unknown>; set(key: string, value: any): Promise<void> };
+    event: { subscribe(options?: { types?: string[]; signal?: AbortSignal }): AsyncIterable<{ type: string; data?: unknown }> };
     session: {
         get(input: { sessionID: string }): Promise<{ parentID?: string } | { data?: { parentID?: string } }>;
         synthetic(input: SyntheticInput): Promise<{ id: string }>;

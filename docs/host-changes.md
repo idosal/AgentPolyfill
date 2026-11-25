@@ -34,7 +34,7 @@ the two clients.
 | Draw its own UI | `ui.render` hooks | No. The desktop app shows a server's MCP App; nothing draws in the terminal. | TUI slots and routes (terminal text), and, experimentally, desktop panels with an embedded web view |
 | Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `ctx.session.synthetic` with `resume: true`, stored as synthetic rather than the user's |
 | Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives | The tool executor's `sessionID` |
-| Ask the person | Claude Code's permission dialog, from a hook | MCP elicitation, from the plugin's MCP server | `ctx.permission.assert`, under OpenCode's permission rules, with actions a plugin names itself. OpenCode's default rule allows every action. |
+| Ask the person | Claude Code's permission dialog, from a hook | MCP elicitation, from the plugin's MCP server | `ctx.permission.assert`, under OpenCode's permission rules, with actions a plugin names itself. OpenCode's default rule allows every action; the polyfills turn that into `ask` for their own actions with an `evaluate` hook (`ctx.permission.hook`). |
 | Call a server's tool over the host's connection, with its sign-in | `$.mcp.call(server, tool, args)` | `mcpServer/tool/call` | No |
 | Ask whether the host would use a server | `$.mcp.connect(server)` | `mcpServerStatus/list` (start-up and sign-in state) | `ctx.mcp.list()` (connected, pending, disabled, failed, needs sign-in) |
 | Read a resource over the host's connection | Only indirectly, by calling the built-in `ReadMcpResourceTool`. You get text or a saved file, without the resource's `_meta`. | `mcpServer/resource/read`, with `_meta` | No. The model's `opencode_read_mcp_resource` tool reads one; a plugin can only see that call (`ctx.tool.hook`). |
@@ -151,15 +151,61 @@ the live server.
 - **Make tools added mid-session callable right away.** Today a server's new
   tools need a reconnect first (anthropics/claude-code#66084).
 
+### In Codex
+
+- **Give plugins a scope on the daemon.** Any local process that can reach the
+  app-server socket can drive every session. A plugin should only reach its
+  own threads and its own servers.
+- **Run plugin hooks everywhere.** A plugin's hooks run only when it was
+  installed by hand in the desktop app.
+- **Support SEP-2640 natively** (openai/codex#48000), or at least let a
+  program add skills without writing files. A plugin's skills are read once,
+  when the plugin loads, so skills a plugin writes show up from the next
+  session. Re-reading them on `skills/changed`, or letting
+  `skills/extraRoots/set` cover plugins, would list them right away.
+- **Let a PreToolUse hook ask, not only deny,** and keep hook trust when a
+  plugin writes files into its own folder. Either one would let the Skills
+  polyfill ask you before a skill from one server reads a resource from
+  another (SEP-2640's X8).
+- **Pass a plugin's MCP server the variables it needs.** It only sees a fixed
+  few, so servers whose token lives in `bearer_token_env_var` or
+  `env_http_headers` are out of reach. Change 1 would fix this too.
+- **Tell a tool call which approval mode is on.** Put the approval policy, and
+  whether approvals are bypassed, in `x-codex-turn-metadata`. Then a server
+  could tell a form you answered from one Codex answered on its own.
+- **Accept headers in `codex mcp add`** (`--header`, `--env-header`), plus a
+  way to add a server without starting its sign-in. Then a plugin could add
+  any server a Server Card describes without writing the config file itself.
+- **Show MCP Apps in the terminal.** `enable_mcp_apps` only passes the
+  extension on where the host declares it, and the terminal doesn't. No plugin
+  can add this.
+- **Start a resumed session's plugin servers when it opens,** as for a new
+  session. Today they start at the first tool call, so Events' watches for a
+  resumed session wait until then.
+- **Start a plugin's MCP servers when a session opens on a running daemon,**
+  as for the daemon's first session, or give a plugin a supported way to ask
+  for that. Today the daemon starts a plugin's local server whose tool list it
+  kept from an earlier session only at that server's first tool call. So the
+  Skills polyfill can't write its skill entries when the session opens, and
+  you have to ask once to list the served skills. Marking the server required
+  starts it, but then no session opens while it can't start.
+- **Mark a turn that something else started.** Input from `codex queue`
+  arrives looking like the person typed it. A turn an extension starts should
+  reach the model and the UI marked as the extension's.
+
 ### In OpenCode
 
 - **Let a plugin give its own permission actions a default.** OpenCode's
   default rule allows every action, so a plugin that asks with
   `ctx.permission.assert` reaches you only if you added an `ask` rule for its
-  action. A default a plugin declares for actions it names (`ask` for
-  `mcp_skills_load`), below every rule of yours, would make the Skills,
-  Server Cards and ARD polyfills ask by default, as they do in the other
-  hosts, and leave the decision with your rules.
+  action. The polyfills ask by default anyway, with an `evaluate` hook that
+  turns `allow` into `ask` for their own actions, and follow OpenCode's
+  permission events to keep an "Allow always". That hook can't tell
+  OpenCode's default from an `allow` rule you wrote, and the plugin keeps a
+  copy of each "Allow always" that OpenCode's own list doesn't know about. A
+  default a plugin declares for actions it names (`ask` for
+  `mcp_skills_load`), below every rule of yours, would do the same with
+  neither problem, and leave the decision with your rules.
 - **Show a plugin's permission request as it was made, in the TUI.** The
   TUI shows a request for an action it doesn't know as "Call tool <action>",
   without its resources or metadata, so the person reads the model's call
@@ -204,48 +250,6 @@ the live server.
   app's experimental panels can embed a web view, but a plugin can't read a
   `ui://` resource or a tool's `_meta` over OpenCode's connection, and there
   is no place to draw in the conversation itself (a tool-result renderer).
-
-### In Codex
-
-- **Give plugins a scope on the daemon.** Any local process that can reach the
-  app-server socket can drive every session. A plugin should only reach its
-  own threads and its own servers.
-- **Run plugin hooks everywhere.** A plugin's hooks run only when it was
-  installed by hand in the desktop app.
-- **Support SEP-2640 natively** (openai/codex#48000), or at least let a
-  program add skills without writing files. A plugin's skills are read once,
-  when the plugin loads, so skills a plugin writes show up from the next
-  session. Re-reading them on `skills/changed`, or letting
-  `skills/extraRoots/set` cover plugins, would list them right away.
-- **Let a PreToolUse hook ask, not only deny,** and keep hook trust when a
-  plugin writes files into its own folder. Either one would let the Skills
-  polyfill ask you before a skill from one server reads a resource from
-  another (SEP-2640's X8).
-- **Pass a plugin's MCP server the variables it needs.** It only sees a fixed
-  few, so servers whose token lives in `bearer_token_env_var` or
-  `env_http_headers` are out of reach. Change 1 would fix this too.
-- **Tell a tool call which approval mode is on.** Put the approval policy, and
-  whether approvals are bypassed, in `x-codex-turn-metadata`. Then a server
-  could tell a form you answered from one Codex answered on its own.
-- **Accept headers in `codex mcp add`** (`--header`, `--env-header`), plus a
-  way to add a server without starting its sign-in. Then a plugin could add
-  any server a Server Card describes without writing the config file itself.
-- **Show MCP Apps in the terminal.** `enable_mcp_apps` only passes the
-  extension on where the host declares it, and the terminal doesn't. No plugin
-  can add this.
-- **Start a resumed session's plugin servers when it opens,** as for a new
-  session. Today they start at the first tool call, so Events' watches for a
-  resumed session wait until then.
-- **Start a plugin's MCP servers when a session opens on a running daemon,**
-  as for the daemon's first session, or give a plugin a supported way to ask
-  for that. Today the daemon starts a plugin's local server whose tool list it
-  kept from an earlier session only at that server's first tool call. So the
-  Skills polyfill can't write its skill entries when the session opens, and
-  you have to ask once to list the served skills. Marking the server required
-  starts it, but then no session opens while it can't start.
-- **Mark a turn that something else started.** Input from `codex queue`
-  arrives looking like the person typed it. A turn an extension starts should
-  reach the model and the UI marked as the extension's.
 
 ## Questions these changes raise
 

@@ -72,8 +72,13 @@ export type Context = {
         list(): Promise<readonly { id: string }[]>;
         transform(callback: (editor: ToolEditor) => void): Promise<Registration>;
     };
-    permission: { assert(input: PermissionAssert): Promise<void> };
-    event: { subscribe(options?: { types?: string[]; signal?: AbortSignal }): AsyncIterable<{ type: string }> };
+    permission: {
+        assert(input: PermissionAssert): Promise<void>;
+        hook(name: 'evaluate', callback: (event: { readonly action: string; readonly resources: readonly string[]; effect: 'allow' | 'ask' | 'deny'; message?: string }) => void | Promise<void>): Promise<Registration>;
+    };
+    /** Durable JSON values, the plugin's own. */
+    storage: { get(key: string): Promise<unknown>; set(key: string, value: Record<string, unknown>): Promise<void> };
+    event: { subscribe(options?: { types?: string[]; signal?: AbortSignal }): AsyncIterable<{ type: string; data?: unknown }> };
     session: {
         get(input: { sessionID: string }): Promise<unknown>;
         synthetic(input: SyntheticInput): Promise<{ id: string }>;

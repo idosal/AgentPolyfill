@@ -18,9 +18,14 @@ adds is the registry search.
   neither, it's refused and nothing is sent.
 - **OpenCode's rules decide before anything is sent.** The action is
   `ard_search`, on the registry hosts; the request carries the exact query
-  and the endpoints. Nothing is saved by "Allow always". OpenCode's shipped
-  default allows every action, so with no `ask` rule a search is sent without
-  a prompt (the README shows the rule).
+  and the endpoints. Nothing is saved by "Allow always".
+- **It's asked about by default.** OpenCode's shipped default allows every
+  action. For this plugin's own actions only (`ard_search`,
+  `mcp_server_cards_add`, `mcp_server_cards_remove`), its `evaluate` hook
+  turns that `allow` into `ask`, unless you set `askByDefault` to `false`. It
+  never turns anything into `allow`, and a configured `deny` is settled
+  before it runs. With nobody there to answer, OpenCode refuses the
+  question, so no search is sent unattended.
 - **What is sent is what is shown.** A query is one line, at most 300
   characters, with no control characters, direction marks or markup. A
   registry is named exactly as it is searched, at most 200 characters, and an
@@ -39,9 +44,15 @@ adds is the registry search.
   request for this plugin's action as "Call tool ard_search", without the
   resource or metadata it carries. You read the query and the registry on the
   model's call line above it. When that registry is a domain, the endpoints
-  its catalog lists, and any registry a referral names, are in the request
-  only.
-- **OpenCode's default policy** (above).
+  its catalog lists are in the request only. **A registry a referral names is
+  asked about in a prompt of its own, and in the TUI nothing on screen names
+  it**: there is no mitigation for that in the TUI. OpenCode Desktop shows a
+  plugin action's resource, the registry's host here, in its prompt (seen for
+  Events and Skills; ARD there wasn't tried). Rejecting a prompt you can't
+  read sends nothing to that registry.
+- **Turning asking off.** With `askByDefault: false` or
+  `ARD_DISCOVERY_ASK_BY_DEFAULT=0`, OpenCode's rules alone decide, and under
+  its default a search is sent without a prompt.
 - **A registry you chose,** which sees your query and ranks other people's
   servers.
 - **Other plugins.** A plugin runs inside OpenCode's server with the same

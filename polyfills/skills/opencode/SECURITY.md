@@ -9,9 +9,9 @@ Skills client, which every form shares, in [`../core`](../core).
 
 A skill is text an MCP server wrote. A model may follow it, and a skill can
 tell the model to run commands, edit files or call tools. The plugin's job is
-to make sure such text reaches the model only after OpenCode's permission
-rules allowed it, only as the server published it, and always marked as that
-server's.
+to make sure such text reaches the model only after you, or OpenCode's
+permission rules, allowed it, only as the server published it, and always
+marked as that server's.
 
 ## What is trusted
 
@@ -19,7 +19,7 @@ server's.
   to, and the headers it sends, are the ones in OpenCode's configuration.
 - **OpenCode's permission rules,** which decide every load and every
   cross-server read. The plugin asks with `ctx.permission.assert` and never
-  answers a prompt.
+  answers a prompt. By default it has them ask you (below).
 - **Nothing a server sends.** Its skill list, descriptions, files and digests
   are its data. A server can only make the plugin read its own skills, never
   another server's.
@@ -59,11 +59,25 @@ skill OpenCode has from elsewhere under the same id.
   a Code Mode program may use, holds for the session's subagents, and holds
   after a restart.
 - **Nothing else.** Listing skills and reading a loaded skill's own files
-  raise no question.
+  with `mcp_skills_read_skill_file` raise no question.
 
-OpenCode's shipped default allows every action, so with no `ask` rule for
-these actions you aren't asked: a served skill loads as OpenCode's own skills
-do. The README shows the two rules to add.
+OpenCode's shipped default allows every action. For these two actions only,
+the plugin's `evaluate` hook turns that `allow` into `ask`, unless you chose
+"Allow always" for that exact resource in this project, or set
+`askByDefault` to `false`. It never turns anything into `allow`, and a
+configured `deny` is settled before it runs. With nobody there to answer,
+OpenCode refuses the question. "Allow always" is kept by the plugin, from
+OpenCode's own permission events, only for a request of its own and only as
+the patterns that request offered to save: a cross-server read offers none.
+
+### What OpenCode's own resource read may do
+
+OpenCode's resource read checks no digest. Once a session has loaded a served
+skill, a read through it of a file inside that skill's folder, from the
+skill's server, is refused before anything is sent, and the model is pointed
+to `mcp_skills_read_skill_file`, which checks the file against the skill's
+manifest (SEP-2640's V4). A read for another server is the cross-server
+question above.
 
 ### What reaches the model
 
@@ -81,9 +95,9 @@ and not shown.
 
 A log in `~/.local/share/opencode/mcp-skills/` (or `MCP_SKILLS_STATE`),
 readable only by you, with secrets taken out. In the plugin's OpenCode
-storage, for each session that loaded a served skill, the names of the
-servers it loaded skills from (for X8). Your approvals are OpenCode's own
-saved permission rules. No skill content is kept.
+storage (OpenCode's own database), for each session that loaded a served
+skill, the server and URI of each skill it loaded (for V4 and X8), and, per
+project, the patterns you chose "Allow always" for. No skill content is kept.
 
 ## What it does not protect against
 
@@ -91,10 +105,17 @@ saved permission rules. No skill content is kept.
   request for this plugin's action as "Call tool mcp_skills_load", without
   the resource or metadata it carries. You read the server and the skill's
   URI on the model's call line above it; the digest shows only under
-  "Always allow", in the pattern it would save.
-- **OpenCode's default policy.** It allows every action. With no `ask` or
-  `deny` rules, a served skill loads without a prompt, and what the model
-  does with it is allowed too.
+  "Always allow", in the pattern it would save. OpenCode Desktop shows the
+  whole resource in the prompt.
+- **OpenCode's default policy, after a load.** It allows every action. The
+  plugin asks before a skill loads, but what the model does with it is
+  asked about only where your rules say `ask`.
+- **An "Allow always" taken back in OpenCode.** The plugin keeps its own
+  record, so removing OpenCode's saved approval doesn't make it ask again. An
+  `ask` or `deny` rule for the action does.
+- **Turning asking off.** With `askByDefault: false` or
+  `MCP_SKILLS_ASK_BY_DEFAULT=0`, OpenCode's rules alone decide, and under its
+  default a served skill loads without a prompt.
 - **What you approve.** Once a skill is loaded, what it tells the model to do
   goes through OpenCode's rules like anything else, no stricter.
 - **A server you configured that serves harmful skills.** Verification shows

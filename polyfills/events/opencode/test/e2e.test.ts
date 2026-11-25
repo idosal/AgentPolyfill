@@ -21,11 +21,11 @@ const ASK: Rule[] = [
     { action: 'mcp_events_unwatch', resource: '*', effect: 'ask' }
 ];
 
-function eventsWorld(o: { delivery?: string; permissions?: Rule[]; fixtureEnv?: Record<string, string>; env?: Record<string, string>; mcp?: Record<string, McpConfig> } = {}) {
+function eventsWorld(o: { delivery?: string; permissions?: Rule[]; fixtureEnv?: Record<string, string>; env?: Record<string, string>; mcp?: Record<string, McpConfig>; options?: Record<string, unknown> } = {}) {
     const upstream = join(tmpdir(), `upstream-${randomUUID()}.jsonl`);
     writeFileSync(upstream, '');
     const world = new World({
-        plugins: [PLUGIN],
+        plugins: [o.options ? { package: PLUGIN, options: o.options } : PLUGIN],
         mcp: {
             fixture: {
                 type: 'local',
@@ -34,8 +34,9 @@ function eventsWorld(o: { delivery?: string; permissions?: Rule[]; fixtureEnv?: 
             },
             ...o.mcp
         },
-        permissions: o.permissions ?? ASK,
-        env: { MCP_EVENTS_WAKE_GAP_S: '0', MCP_EVENTS_BATCH_MS: '200', ...o.env }
+        permissions: o.permissions === undefined && 'permissions' in o ? [] : (o.permissions ?? ASK),
+        // Worlds with no rules test something else: they leave the decision to OpenCode's rules alone.
+        env: { MCP_EVENTS_WAKE_GAP_S: '0', MCP_EVENTS_BATCH_MS: '200', ...(o.permissions?.length === 0 ? { MCP_EVENTS_ASK_BY_DEFAULT: '0' } : {}), ...o.env }
     });
     const emit = (name: string, data: Record<string, unknown>) => {
         const eventId = `evt_${randomUUID().slice(0, 8)}`;
@@ -235,5 +236,46 @@ describe('mcp-events by push, beside OpenCode\'s automations', () => {
         emit('ticket.created', { title: 'By push' });
         await world.idle(session, before, 30000);
         assert.ok((await world.messages(session)).some((m) => m.type === 'synthetic' && textOf(m).includes('[mcp-events]')), 'a wake');
+    });
+});
+
+describe('mcp-events asks by default', () => {
+    // No rule for the plugin's actions: OpenCode's shipped default would allow them.
+    const asks = eventsWorld({ permissions: undefined, env: {} });
+    let session = '';
+    before(async () => {
+        await asks.world.start();
+        session = await asks.world.createSession();
+    });
+    after(() => asks.world.stop());
+
+    test('with OpenCode\'s default rules, a watch is asked about; "Allow always" then covers that event type', async () => {
+        const out = await turn(asks.world, session, 'CALL mcp_events_watch_event {"server":"fixture","event":"ticket.created"}', 'always');
+        assert.match(out, /Watching fixture \/ ticket\.created/);
+        const w = /as (w-[0-9a-f]{6})/.exec(out)![1]!;
+        await turn(asks.world, session, `CALL mcp_events_unwatch_event {"watch":"${w}"}`, 'once');
+        // The same event type again: the person's "Allow always" covers it, nobody is asked.
+        const again = await turn(asks.world, session, 'CALL mcp_events_watch_event {"server":"fixture","event":"ticket.created"}');
+        assert.match(again, /Watching fixture \/ ticket\.created/);
+        // Another event type is not covered by it.
+        await asks.world.prompt(session, 'CALL mcp_events_watch_event {"server":"fixture","event":"deploy.finished"}');
+        const req = await waitFor(async () => (await asks.world.permissions(session))[0], 30000, 'a request for the other event type');
+        assert.equal(req.resources[0], 'fixture:deploy.finished');
+        await asks.world.reply(session, req.id, 'reject');
+    });
+});
+
+describe('mcp-events with askByDefault off', () => {
+    const off = eventsWorld({ permissions: undefined, options: { askByDefault: false } });
+    let session = '';
+    before(async () => {
+        await off.world.start();
+        session = await off.world.createSession();
+    });
+    after(() => off.world.stop());
+
+    test("OpenCode's rules alone decide: with its defaults, nobody is asked", async () => {
+        const out = await turn(off.world, session, 'CALL mcp_events_watch_event {"server":"fixture","event":"ticket.created"}');
+        assert.match(out, /Watching fixture \/ ticket\.created/);
     });
 });
