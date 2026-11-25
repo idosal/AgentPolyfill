@@ -20,7 +20,7 @@
 import { strict as assert } from 'node:assert';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { after, before, test } from 'node:test';
 import { findT3, sendMessage } from '../src/waker.ts';
 import { cleanup, temp, waitFor } from './harness.ts';
@@ -63,6 +63,21 @@ const providers = () => {
         }
     }
     return found;
+};
+
+/**
+ * What T3 Code itself writes in the XDG folders (Linux), named one by one. Anything else there
+ * fails the file: an agent CLI writes its own folder there too (opencode, for one).
+ */
+const T3_XDG: string[] = [];
+/** The XDG folders' contents, two levels down: `data/<name>`, `cache/<name>`. Names only. */
+const xdgEntries = () => {
+    const out = new Set<string>();
+    for (const f of existsSync(xdg) ? readdirSync(xdg, { recursive: true }) : []) {
+        const parts = String(f).split(sep).slice(0, 2);
+        if (parts.length === 2) out.add(parts.join('/'));
+    }
+    return [...out].sort();
 };
 
 let server: ChildProcess | undefined;
@@ -116,6 +131,8 @@ after(async () => {
             const seen = providers().filter((p) => p.installed !== false);
             assert.deepEqual(seen, [], `T3 Code found an agent CLI on the test's PATH: ${JSON.stringify(seen)}`);
             assert.deepEqual(readdirSync(env.HOME, { recursive: true }), [], 'something wrote to the throwaway HOME (an agent CLI ran?)');
+            const other = xdgEntries().filter((e) => !T3_XDG.includes(e));
+            assert.deepEqual(other, [], 'something other than T3 Code wrote to the XDG folders (an agent CLI ran?)');
         }
     } finally {
         try {
