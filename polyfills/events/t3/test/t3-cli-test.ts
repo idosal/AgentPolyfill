@@ -9,9 +9,9 @@
 // elsewhere (the macOS Keychain). It looks for them on PATH, and it adds the PATH a login
 // shell prints (its `SHELL`, else the account's shell): a system profile alone puts
 // /usr/local/bin there on macOS, and on Linux CI runners /usr/bin holds `gh`. So:
-//   - PATH is one folder of this test's own, holding links to only node, sh, tar (the launcher
-//     unpacks with it) and ps. Not Node's own folder: npm installs global commands, agent CLIs
-//     among them, beside `node`.
+//   - PATH is one folder of this test's own, holding links to only node, sh, tar and gzip (the
+//     launcher unpacks with them) and ps. Not Node's own folder: npm installs global commands,
+//     agent CLIs among them, beside `node`.
 //   - SHELL is a stand-in, in a folder of its own, that runs what it is given with /bin/sh and
 //     no startup file, so the login shell's PATH is that same PATH.
 // Afterwards the file fails if T3 Code reports any agent CLI installed, or if anything was
@@ -40,8 +40,10 @@ const home = temp();
 const bin = join(home, 'bin');
 mkdirSync(bin);
 symlinkSync(process.execPath, join(bin, 'node'));
-for (const tool of ['sh', 'tar', 'ps']) {
+// gzip: GNU tar (Linux) runs it to unpack a .tar.gz; macOS's tar needs none.
+for (const tool of ['sh', 'tar', 'ps', 'gzip']) {
     const at = ['/bin', '/usr/bin'].map((d) => join(d, tool)).find((p) => existsSync(p));
+    if (!at && tool === 'gzip') continue;
     assert.ok(at, `${tool} is in /bin or /usr/bin`);
     symlinkSync(at, join(bin, tool));
 }

@@ -316,8 +316,8 @@ Nothing else is added: no methods, fields or capabilities of its own.
 - `test/t3-cli-test.ts`: the wake against the real `t3` 0.1.11 in a throwaway
   home. T3 Code runs the agent CLIs it finds when it starts, and `gh` for a
   GitHub token, so the test gives it a PATH of its own (only `node`, `sh`,
-  `tar`, `ps`) and a login shell that reads no startup file. The file fails if
-  T3 Code reports an agent CLI installed, or if anything writes to the
+  `tar`, `gzip`, `ps`) and a login shell that reads no startup file. The file
+  fails if T3 Code reports an agent CLI installed, or if anything writes to the
   throwaway HOME.
 - [`docs/live-run.md`](docs/live-run.md): a real run in T3 Code 0.1.11 with
   Codex 0.172.0.
