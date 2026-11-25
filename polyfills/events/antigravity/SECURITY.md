@@ -38,7 +38,9 @@ a wake, the agent's calls to read the event and the server's log each asked).
   conversation id, and keeps or logs nothing of a call it lets be.
 - **Watches ask, every time.** `watch_event` answers `force_ask`: Antigravity
   shows the plugin's question, which starts with the event type and the
-  server, then the filters and the note. `force_ask` asks even where your
+  server, then the filters and the note, each whole and quoted. The watch made
+  is the watch shown: one whose values hold a control or hidden character, or
+  are longer than the question shows, is refused before any question. `force_ask` asks even where your
   rules allow MCP tools. A watch subscribes on that server and can wake the
   conversation later, so it is never only a rule's decision.
 - **The other five** (`list_event_types`, `unwatch_event`, `list_watches`,
@@ -54,10 +56,12 @@ a wake, the agent's calls to read the event and the server's log each asked).
   arguments; its file in `tickets/` is named by the nonce's SHA-256, so a
   listing of the folder gives nothing a call could carry. It is good once,
   for one tool and one digest of the arguments, for an hour at most, and the
-  plugin's `Stop` hook removes a conversation's unused tickets when its turn
-  ends. A question declined or never answered therefore leaves its ticket
-  until that conversation's next turn ends normally (a decline in the CLI
-  interrupts the turn, and closing the CLI runs no `Stop`), or an hour. While
+  plugin's `PreInvocation` and `Stop` hooks remove a conversation's unused
+  tickets at its next model call and when its turn ends: a step's tool calls
+  have all run before the next model call, so none is waiting then. A
+  question declined or never answered therefore leaves its ticket until that
+  conversation's next model call (`Stop` alone isn't enough: a decline in the
+  CLI interrupts the turn, and closing the CLI runs no `Stop`), or an hour. While
   the hook runs, it replaces any ticket a call carries, so the model can't
   use one; a call that goes around the hook could carry a live one.
 - **When the hook can't run.** In CLI 1.5.17 a `PreToolUse` hook that exits
@@ -129,7 +133,7 @@ Only its own folder in `~/.gemini/agentpolyfill/mcp-events/`:
 - events and their payloads, per conversation, until you delete them (at
   most 64 MiB a conversation);
 - watches and cursors, until a watch is removed;
-- tickets, an hour at most, removed when the turn ends;
+- tickets, an hour at most, removed at the next model call or the turn's end;
 - wake requests, removed once handled;
 - the log, scrubbed, rotated at 2 MiB with one old copy.
 

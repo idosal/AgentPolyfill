@@ -1,5 +1,5 @@
 import { configureHost } from '../../core/src/host.ts';
-import { LET_BE, readHookInput, runHook, runStop, stateDir } from '../../../server-cards/antigravity/src/gate.ts';
+import { LET_BE, readHookInput, revokeConversation, runHook, runStop, stateDir } from '../../../server-cards/antigravity/src/gate.ts';
 import { handlers } from './conversation.ts';
 import { preInvocation } from './invocation.ts';
 import { runSidecar } from './sidecar.ts';
@@ -22,6 +22,9 @@ try {
         const input = await readHookInput();
         let state: ReturnType<typeof open> | undefined;
         try { state = open(); } catch {}
+        // No ticket is legitimately waiting at a model call: the step's tool calls have all run.
+        const id = input && typeof input === 'object' ? (input as { conversationId?: unknown }).conversationId : undefined;
+        if (state && typeof id === 'string' && id) try { revokeConversation(state.base, id); } catch {}
         if (state) await preInvocation(input, state.base, emit, state.env.MCP_EVENTS_OFF === '1');
         else await emit({});
     } else if (mode === 'stop') await runStop(() => stateDir('mcp-events'));

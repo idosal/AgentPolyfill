@@ -91,7 +91,7 @@ loopback access for their local web server, and use a throwaway `HOME`.
   `offer` from [`claude-code/mod/tests`](../../claude-code/mod/tests).
 - **34 adapter tests** in [`adapter.test.ts`](../test/adapter.test.ts): the
   plan in Antigravity's terms (P-1 to P-5), the file (W-1 to W-5), the gate
-  (G-1 to G-10: tickets, their life, the `Stop` hook, `toolSummary`, the IDE),
+  (G-1 to G-10: tickets, their life, the `Stop` and `PreInvocation` hooks, `toolSummary`, the IDE),
   the hook's matcher and eager tool (H-1), the server and its hook run as
   Antigravity runs them, over stdio and as a command (E-1 to E-11, with the
   arguments an editor sees and a lazy call refused), and the bundle (B-1,

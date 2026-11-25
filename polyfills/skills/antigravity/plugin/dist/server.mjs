@@ -34060,7 +34060,7 @@ async function start(env = process.env, argv = process.argv.slice(2)) {
       const dir2 = stateDir(NAME, env);
       return { dir: dir2, store: new Store(dir2) };
     };
-    if (argv[argv.indexOf("--hook") + 1] === "stop") return runStop(() => stateDir(NAME, env));
+    if (["stop", "pre-invocation"].includes(argv[argv.indexOf("--hook") + 1])) return runStop(() => stateDir(NAME, env));
     return runHook({
       server: SERVER,
       tools: GATED,

@@ -50,10 +50,11 @@ to you through the plugin's `PreToolUse` hook:
   is auto-approved: the hook never answers `auto_approve`.
 - **Tickets.** The hook leaves a one-use ticket for that exact version (every
   file's address and digest, and where the server is). Its file is named by
-  the nonce's SHA-256; it is good for an hour at most, and the plugin's `Stop`
-  hook removes a conversation's unused tickets when its turn ends, so a
-  question declined or never answered leaves nothing past the conversation's
-  next completed turn (or the hour, if the CLI is closed). The MCP server hands
+  the nonce's SHA-256; it is good for an hour at most, and the plugin's
+  `PreInvocation` and `Stop` hooks remove a conversation's unused tickets at
+  its next model call and when its turn ends, so a question declined or never
+  answered leaves nothing past the conversation's next model call (or the
+  hour, if the CLI is closed first). The MCP server hands
   over the skill's text only with that ticket, checked against the server's
   digests.
 - **Reads.** `read_skill_file` and `list_skill_directory` pass with a ticket
@@ -64,8 +65,11 @@ to you through the plugin's `PreToolUse` hook:
   answers `force_ask` to a `read_resource` from another server, naming both,
   as the Pi and OpenCode forms ask. It can't tell which skill (or whether
   one) asked for the read. Antigravity shows no question for it, in CLI
-  1.5.17 or App 2.35.1, and the read goes ahead (seen live in both, the hook's
-  decision logged): X8 isn't met.
+  1.5.17 (auto mode and default mode) or App 2.35.1 (Default preset), and the
+  read goes ahead (seen live in all three, the hook's decision logged): X8
+  isn't met. The plugin doesn't refuse such reads instead: that would block
+  another server's reads, unrelated ones included, and a plugin never denies
+  another server's call.
 - **When the hook can't run.** In CLI 1.5.17 a `PreToolUse` hook that exits
   non-zero, times out or prints something that isn't JSON makes Antigravity
   fail the call (seen live). The hook always exits 0 with JSON: `allow` for a

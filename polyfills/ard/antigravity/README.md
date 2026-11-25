@@ -18,7 +18,8 @@ and this plugin checks, shows and adds what it finds with the same code.
 with a real model, against a registry someone else runs (Hugging Face's own):
 in both, a search approved and sent only to that registry, one declined, one
 sent around the hook refused. The earlier builds also read buildkite.com's
-`ard.json`. Details in
+`ard.json`. An ARD addition hasn't been run in the App (it is the same add as
+`mcp-server-cards`, which has). Details in
 [docs/conformance.md](docs/conformance.md#live-25-november-2026).
 
 ## Install
@@ -71,7 +72,7 @@ The asking works as in `mcp-server-cards` for Antigravity: `ard_search` and
 `add_mcp_server` are eager (`plugin/mcp_config.json`), the plugin's
 `PreToolUse` hook matches their eager names only, works out what the call
 would send or write, answers `force_ask` with the question, and leaves a
-one-use ticket (an hour at most, removed when the turn ends) for exactly
+one-use ticket (an hour at most, removed at the next model call or the turn's end) for exactly
 that. The server sends a search, or writes an entry, only with that ticket.
 For a search, the ticket is for the query and the endpoints: a different
 query, or a registry that now resolves to other endpoints, isn't sent. A call

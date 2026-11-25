@@ -2304,7 +2304,7 @@ async function start(env = process.env, argv = process.argv.slice(2)) {
   const open = () => new SharedSession(antigravityDeps(env, `${NAME2}/${VERSION} (Antigravity polyfill)`), stateDir(NAME2, env));
   const registry = registrySetting(env);
   if (argv.includes("--hook"))
-    return argv[argv.indexOf("--hook") + 1] === "stop" ? runStop(() => stateDir(NAME2, env)) : runHook({ server: SERVER, tools: GATED, gate: () => {
+    return ["stop", "pre-invocation"].includes(argv[argv.indexOf("--hook") + 1]) ? runStop(() => stateDir(NAME2, env)) : runHook({ server: SERVER, tools: GATED, gate: () => {
       const session2 = open();
       return { handlers: handlers(session2, registry), dir: session2.dir };
     } });

@@ -144,7 +144,7 @@ current metadata. A skill missing from a listing can still load by URI.
    yields `force_ask`. Dynamic skills, whose servers publish no digests, ask
    every time. Invalid entries and oversized skills yield `deny`.
 3. The shared gate creates a one-use ticket, good for an hour at most and
-   removed when the conversation's turn ends, and adds `agentpolyfill_ticket`
+   removed at the conversation's next model call or when its turn ends, and adds `agentpolyfill_ticket`
    through `overwrite`. It binds the call to the version digest and the
    conversation. No ticket means no skill content: a load sent through
    `call_mcp_tool` doesn't reach the hook and is refused.
@@ -161,9 +161,10 @@ current metadata. A skill missing from a listing can still load by URI.
    `list_skills` has no hook and asks no question.
 6. Rule X8: once a conversation holds a skill from one server, the hook
    answers `force_ask` to a `read_resource` from any other server, naming
-   both. Antigravity shows no question for it, in the CLI 1.5.17 or the App
-   2.35.1, and the read goes ahead (seen live in both), so this holds only
-   where Antigravity honours the question.
+   both. Antigravity shows no question for it, in the CLI 1.5.17 (in its auto
+   mode and in its default mode, `request-review`) or the App 2.35.1 (its
+   Default preset), and the read goes ahead (seen live in all three), so this
+   holds only where Antigravity honours the question.
 
 Server content is untrusted data. Descriptions are bounded, cleaned and then
 scrubbed of known secrets; loaded text is marked with its origin and fenced,
@@ -226,7 +227,7 @@ removed from a conversation by deleting the file.
 | Gap | What it means for you | Host change that closes it |
 |---|---|---|
 | No MCP elicitation (Antigravity declares it and cancels every request), so the question goes through a hook. | Loads are put to you in Antigravity's approval card; there is no private "show me SKILL.md first" (X13b). In the CLI the card shows the question's first two lines. | Elicitation shown to the person, with a preview step. |
-| Antigravity shows no question for a hook's `force_ask` on `read_resource` (CLI 1.5.17, App 2.35.1). | After a skill loads, a read of another server's resource isn't put to you (rule X8 not met). | Honour `force_ask` for every tool. |
+| Antigravity shows no question for a hook's `force_ask` on `read_resource` (CLI 1.5.17 in auto and default mode, App 2.35.1). | After a skill loads, a read of another server's resource isn't put to you (rule X8 not met). A setting that refuses such reads until you approve them through a plugin tool isn't built: it would block another server's reads for the rest of the conversation, unrelated ones included. | Honour `force_ask` for built-in resource reads. |
 | No plugin hooks in the IDE. | The plugin doesn't work in the Antigravity IDE: every load there is refused. | Plugin hooks in the IDE. |
 | Plugins can't use Antigravity's MCP connections or sign-ins. | The plugin opens its own connections; a server that needs Antigravity's sign-in is left out, and a load hook briefly opens one more connection. | Extension requests over the host's own connections. |
 | Only the personal MCP config is visible to plugins. | Servers from workspaces or other plugins aren't offered. | An approved server inventory for plugins. |

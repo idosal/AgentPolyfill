@@ -131,6 +131,7 @@ test("R-8 the hook matcher takes this plugin's eager ard_search and add_mcp_serv
   for (const n of [SEARCH, ADD]) assert.ok(matches(m, n), n)
   for (const n of ['call_mcp_tool', 'read_resource', 'mcp_ard-discovery_ard_ard_discover', 'mcp_mcp-server-cards_cards_add_mcp_server', 'mcp_other_ard_search']) assert.ok(!matches(m, n), n)
   assert.deepEqual(hooks.Stop, [{ type: 'command', command: 'node ./dist/server.mjs --hook stop', timeout: 10 }])
+  assert.deepEqual(hooks.PreInvocation, [{ type: 'command', command: 'node ./dist/server.mjs --hook pre-invocation', timeout: 10 }])
   const mcp = JSON.parse(readFileSync(join(ROOT, 'plugin', 'mcp_config.json'), 'utf8'))
   assert.deepEqual(mcp.mcpServers.ard.tools, { ard_search: { eager: true }, add_mcp_server: { eager: true } })
 })

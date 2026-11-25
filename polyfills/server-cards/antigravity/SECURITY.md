@@ -53,11 +53,13 @@ put to you through the plugin's `PreToolUse` hook:
   editor.
 - **The ticket.** The hook leaves a one-use ticket for that exact entry and
   adds it to the call. Its file is named by the nonce's SHA-256; it is good
-  for an hour at most, and the plugin's `Stop` hook removes a conversation's
-  unused tickets when its turn ends. A question declined or never answered
-  leaves its ticket until that conversation's next turn ends normally (a
-  decline in the CLI interrupts the turn, and closing the CLI runs no `Stop`),
-  or the hour. The MCP server writes only with that ticket, unused, for the
+  for an hour at most, and the plugin's `PreInvocation` and `Stop` hooks
+  remove a conversation's unused tickets at its next model call and when its
+  turn ends: a step's tool calls have all run before the next model call, so
+  none is waiting then. A question declined or never answered leaves its
+  ticket until that conversation's next model call (`Stop` alone isn't
+  enough: a decline in the CLI interrupts the turn, and closing the CLI runs
+  no `Stop`), or the hour. The MCP server writes only with that ticket, unused, for the
   same entry. While the hook runs, it replaces any ticket a call carries.
 - **Nothing is auto-approved:** the hook never answers `auto_approve` and sets
   no permission overrides. `discover_mcp_servers`, which only reads, isn't

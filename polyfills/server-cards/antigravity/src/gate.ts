@@ -36,11 +36,14 @@ export const TICKET_ARG = 'agentpolyfill_ticket'
  * How long a ticket waits for its call: an hour at most. The ticket is issued
  * when the hook runs, before Antigravity's approval card is answered, and a
  * person may leave the card open (an hour, in the live run of 2026-11-25). A
- * ticket also ends with the turn: the plugin's `Stop` hook removes every
- * ticket of the conversation whose turn ended (`revokeConversation`), so a
- * question that was declined or never answered leaves nothing a later call
- * could use. A card left open longer than an hour is refused, saying so, and
- * the person is asked again.
+ * ticket also ends at the conversation's next model call and at the end of
+ * its turn: the plugin's `PreInvocation` and `Stop` hooks remove every unused
+ * ticket of the conversation (`revokeConversation`). A step's tool calls are
+ * all answered and run before the next model call, so none is legitimately
+ * waiting then; a question that was declined or never answered leaves nothing
+ * a later call could use. (`Stop` alone isn't enough: it doesn't run when a
+ * decline interrupts a CLI turn, or when the CLI is closed.) A card left open
+ * longer than an hour is refused, saying so, and the person is asked again.
  */
 export const TICKET_TTL_MS = 60 * 60_000
 
@@ -381,9 +384,10 @@ export async function runHook(o: HookOptions) {
 }
 
 /**
- * The Stop hook: the conversation's turn ended, so every unused ticket of it
- * goes (a question declined, or never answered). Answers `{}`, which lets the
- * stop happen, and exits 0.
+ * The `Stop` and `PreInvocation` hooks: the conversation's turn ended, or its
+ * model is about to be called, so every unused ticket of it goes (a question
+ * declined, or never answered). Answers `{}`, which lets the stop happen, or
+ * the model call go ahead with nothing injected, and exits 0.
  */
 export async function runStop(dir: () => string) {
   const input = await readHookInput()

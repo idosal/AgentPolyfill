@@ -133,7 +133,7 @@ export async function start(env: NodeJS.ProcessEnv = process.env, argv = process
   const registry = registrySetting(env)
   // The hooks open the state folder only once they know the call is this plugin's (gate.ts).
   if (argv.includes('--hook'))
-    return argv[argv.indexOf('--hook') + 1] === 'stop'
+    return ['stop', 'pre-invocation'].includes(argv[argv.indexOf('--hook') + 1])
       ? runStop(() => stateDir(NAME, env))
       : runHook({ server: SERVER, tools: GATED, gate: () => { const session = open(); return { handlers: handlers(session, registry), dir: session.dir } } })
   const session = open()

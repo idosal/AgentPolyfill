@@ -57,7 +57,7 @@ export async function start(env: NodeJS.ProcessEnv = process.env, argv = process
   setServerName(SERVER)
   // The hooks open the state folder only once they know the call is this plugin's (gate.ts).
   if (argv.includes('--hook'))
-    return argv[argv.indexOf('--hook') + 1] === 'stop'
+    return ['stop', 'pre-invocation'].includes(argv[argv.indexOf('--hook') + 1])
       ? runStop(() => stateDir(NAME, env))
       : runHook({ server: SERVER, tools: GATED, gate: () => { const s = session(env); return { handlers: handlers(s), dir: s.dir } } })
   const s = session(env)

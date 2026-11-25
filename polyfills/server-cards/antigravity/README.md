@@ -131,8 +131,8 @@ too.)
 
 What the hook and the server share sits in `~/.gemini/agentpolyfill/mcp-server-cards/`,
 private to you: the cards shown in the last hour, and the tickets (an hour at
-most; the plugin's `Stop` hook removes a conversation's unused ones when its
-turn ends).
+most; the plugin's `PreInvocation` and `Stop` hooks remove a conversation's
+unused ones at its next model call and when its turn ends).
 
 ### The tools
 

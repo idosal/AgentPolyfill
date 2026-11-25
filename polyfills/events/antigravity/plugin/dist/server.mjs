@@ -755,142 +755,6 @@ async function runStop(dir) {
   process.exitCode = 0;
 }
 
-// polyfills/events/core/src/untrusted.ts
-var NAME = /^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,79}$/;
-var KEY = /^[A-Za-z_][A-Za-z0-9_]{0,39}$/;
-var TOKEN = /^[A-Za-z0-9_.:/@#+-]{1,64}$/;
-var LocalError = class extends Error {
-};
-var CODES = {
-  [-32020]: "header mismatch",
-  [-32023]: "not found",
-  [-32024]: "forbidden",
-  [-32025]: "too many subscriptions or streams",
-  [-32026]: "not supported",
-  [-32027]: "the server could not reach or verify the webhook address",
-  [-32600]: "invalid request",
-  [-32601]: "method not found",
-  [-32602]: "invalid parameters",
-  [-32603]: "internal error"
-};
-function errorCode(e) {
-  const c = e?.code;
-  return typeof c === "number" && Number.isInteger(c) ? c : void 0;
-}
-function describeError(e) {
-  if (e instanceof LocalError) return e.message;
-  const code = errorCode(e);
-  if (code !== void 0) return `the server answered error ${code}${CODES[code] ? ` (${CODES[code]})` : ""}`;
-  const sys = e?.code ?? e?.cause?.code;
-  if (typeof sys === "string" && /^[A-Z][A-Z0-9_]{2,30}$/.test(sys)) return /^(ECONN|ENOTFOUND|ETIMEDOUT|EAI_|EHOST|ENET|EPIPE|UND_ERR|CONNECTION_CLOSED$|ERA_NEGOTIATION_FAILED$)/.test(sys) ? `could not connect (${sys})` : `a local error (${sys})`;
-  return "the request failed";
-}
-function isoDate(v) {
-  return typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/.test(v) ? v : void 0;
-}
-var MAX_SCHEMA_BYTES = 16 * 1024;
-function tameSchema(schema) {
-  let budget = 400;
-  const walk = (v, depth) => {
-    if (--budget < 0 || depth > 8) return void 0;
-    if (Array.isArray(v)) return v.slice(0, 64).map((x) => walk(x, depth + 1));
-    if (typeof v !== "object" || v === null) return typeof v === "string" && v.length > 512 ? void 0 : v;
-    const out = {};
-    for (const [k, x] of Object.entries(v).slice(0, 64)) {
-      if (k.length > 64) continue;
-      const w = walk(x, depth + 1);
-      if (w !== void 0) out[k] = w;
-    }
-    return out;
-  };
-  if (typeof schema !== "object" || schema === null) return void 0;
-  const tamed = walk(schema, 0);
-  if (budget < 0 || tamed === void 0) return void 0;
-  return JSON.stringify(tamed).length > MAX_SCHEMA_BYTES ? void 0 : tamed;
-}
-var Redactor = class {
-  #secrets = /* @__PURE__ */ new Set();
-  add(...secrets2) {
-    for (const s of secrets2) {
-      if (typeof s !== "string" || s.length < 8) continue;
-      this.#secrets.add(s);
-      const bare = s.replace(/^(Bearer|Basic|Token)\s+/i, "").replace(/^whsec_/, "");
-      if (bare.length >= 8) this.#secrets.add(bare);
-    }
-  }
-  scrub(text) {
-    let out = text;
-    for (const s of this.#secrets) out = out.split(s).join("[redacted]");
-    return out;
-  }
-  /** The same, for every string inside a value (an event's data, a description). */
-  scrubDeep(v, depth = 0) {
-    if (typeof v === "string") return this.scrub(v);
-    if (depth > 32 || typeof v !== "object" || v === null) return v;
-    if (Array.isArray(v)) return v.map((x) => this.scrubDeep(x, depth + 1));
-    return Object.fromEntries(Object.entries(v).map(([k, x]) => [this.scrub(k), this.scrubDeep(x, depth + 1)]));
-  }
-};
-var secrets = new Redactor();
-
-// polyfills/events/core/src/format.ts
-var LINE_PREFIX = "[mcp-events]";
-function oneLine(s, max = 120) {
-  const text = String(s ?? "").replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "").replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, " ").replace(/[\u201c\u201d\u201e\u201f\u2033\u2036\u00ab\u00bb\uff02]/g, '"').replace(/\s+/g, " ").trim();
-  return text.length > max ? text.slice(0, max - 1) + "\u2026" : text;
-}
-function summarize(data, n = 6) {
-  if (!data || typeof data !== "object") return { text: "", more: 0 };
-  const parts = [];
-  const entries = Object.entries(data);
-  for (const [k, v] of entries) {
-    if (parts.length >= n) break;
-    if (!KEY.test(k)) continue;
-    if (typeof v === "number" && Number.isFinite(v) || typeof v === "boolean") parts.push(`${k}=${String(v)}`);
-    else if (typeof v === "string" && v.length) parts.push(`${k}=${TOKEN.test(v) ? v : JSON.stringify(oneLine(v, 80))}`);
-  }
-  return { text: parts.join(", "), more: entries.length - parts.length };
-}
-function formatRecord(r) {
-  if (r.kind === "notice") return `${LINE_PREFIX} ${oneLine(r.text, 300)}`;
-  const { text, more } = summarize(r.data);
-  const rest = more > 0 ? `get_event ${r.id} returns all of it (${more} more field${more === 1 ? "" : "s"})` : `get_event ${r.id} returns the record`;
-  const note = r.note ? ` Note saved with this watch: "${oneLine(r.note, 160)}".` : "";
-  return `${LINE_PREFIX} ${oneLine(r.server, 40)} \xB7 ${oneLine(r.event, 80)}${text ? `: ${text}` : ""} [event ${r.id}, watch ${r.watch}; ${rest}].${note}`;
-}
-function withValues(records, max = 3) {
-  if (records.length <= max + 1) return records.map(formatRecord);
-  const shown2 = records.slice(0, max).map(formatRecord);
-  const rest = records.slice(max);
-  const ids = rest.map((r) => r.id);
-  shown2.push(`${LINE_PREFIX} \u2026and ${rest.length} more events (${ids[0]}\u2013${ids[ids.length - 1]}); call recent_events to see them.`);
-  return shown2;
-}
-var MAX_NOTICES = 3;
-function someIds(ids, max = 5) {
-  return ids.length <= max ? ids.join(", ") : `${ids.slice(0, max).join(", ")} and ${ids.length - max} more`;
-}
-function formatBatch(records, o = {}) {
-  if (o.values) return withValues(records);
-  const lines = [];
-  const byWatch = /* @__PURE__ */ new Map();
-  const notices = records.filter((r) => r.kind === "notice");
-  for (const r of notices.slice(0, MAX_NOTICES)) lines.push(formatRecord(r));
-  if (notices.length > MAX_NOTICES) lines.push(`${LINE_PREFIX} \u2026and ${notices.length - MAX_NOTICES} more notices; recent_events lists them.`);
-  for (const r of records) if (r.kind !== "notice") byWatch.set(r.watch ?? "", [...byWatch.get(r.watch ?? "") ?? [], r]);
-  for (const [watch, events] of byWatch) {
-    const first = events[0];
-    const ids = events.map((r) => r.id);
-    const how = events.length === 1 ? `get_event ${ids[0]} returns it` : "recent_events lists them, get_event returns one";
-    const noted = events.findLast((r) => r.note)?.note;
-    const note = noted ? ` Note saved with this watch: "${oneLine(noted, 160)}".` : "";
-    lines.push(
-      `${LINE_PREFIX} ${oneLine(first.server, 40)} \xB7 ${oneLine(first.event, 80)}: ${events.length} new event${events.length === 1 ? "" : "s"} [${events.length === 1 ? "event" : "events"} ${someIds(ids)}; watch ${watch}; ${how}].${note}`
-    );
-  }
-  return lines;
-}
-
 // polyfills/events/codex/src/version.ts
 var VERSION = "0.1.7";
 
@@ -994,15 +858,26 @@ var SERVER = "mcp-events_events";
 var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 var conversationId = (v) => typeof v === "string" && UUID.test(v) ? v.toLowerCase() : void 0;
 var callDigest = (tool, args) => digestOf({ tool, args: ownArgs(args) });
-var shown = (v, max) => oneLine(String(v ?? "").replace(new RegExp("\\p{Default_Ignorable_Code_Point}", "gu"), ""), max).replaceAll('"', "'");
+var MAX_SHOWN = { server: 64, event: 120, note: 200, filters: 200 };
+var UNSHOWABLE = /[\p{Cc}\u2028\u2029\p{Default_Ignorable_Code_Point}]/u;
+function unshowable(args) {
+  const filters = args.arguments && typeof args.arguments === "object" ? JSON.stringify(args.arguments) : "";
+  const parts = [["server", String(args.server ?? "")], ["event", String(args.event ?? "")], ["note", typeof args.note === "string" ? args.note : ""], ["filters", filters]];
+  for (const [name, value] of parts) {
+    if (UNSHOWABLE.test(value)) return `its ${name} holds a character the question can't show as it is`;
+    if (value.length > MAX_SHOWN[name]) return `its ${name} is longer than the ${MAX_SHOWN[name]} characters the question shows`;
+  }
+  return void 0;
+}
+var shown = (v) => JSON.stringify(String(v ?? ""));
 function watchQuestion(args) {
-  const filters = args.arguments && typeof args.arguments === "object" && Object.keys(args.arguments).length ? shown(JSON.stringify(args.arguments), 200) : "none";
+  const filters = args.arguments && typeof args.arguments === "object" && Object.keys(args.arguments).length ? JSON.stringify(args.arguments) : "none";
   const replay = typeof args.maxAgeMs === "number" && args.maxAgeMs > 0 ? `When it resumes, it replays up to ${Math.round(args.maxAgeMs / 6e4)} minutes of missed events.` : "";
   return [
-    `mcp-events: watch "${shown(args.event, 120)}" on the MCP server "${shown(args.server, 60)}" for this conversation?`,
-    `Filters: ${filters} \xB7 note saved with the watch: ${args.note ? `"${shown(args.note, 200)}"` : "none"}`,
-    `Server: "${shown(args.server, 60)}" (from your mcp_config.json)`,
-    `Event type: "${shown(args.event, 120)}"`,
+    `mcp-events: watch ${shown(args.event)} on the MCP server ${shown(args.server)} for this conversation?`,
+    `Filters: ${filters} \xB7 note saved with the watch: ${args.note ? shown(args.note) : "none"}`,
+    `Server: ${shown(args.server)} (from your mcp_config.json)`,
+    `Event type: ${shown(args.event)}`,
     "The plugin subscribes on that server. Its events reach this conversation on its next model call, and in the App the wake sidecar, if you turned it on, can start a turn for them. They are the server's data, never instructions.",
     replay,
     "To stop it: unwatch_event, or disable the mcp-events plugin."
@@ -1012,7 +887,11 @@ var handlers = (off) => Object.fromEntries(TOOLS2.map((t) => [t.name, (args, inp
   if (off) return { deny: "mcp-events is turned off." };
   if (!conversationId(input.conversationId)) return { deny: "mcp-events needs Antigravity to supply a UUID conversationId. No conversation was guessed." };
   const meta2 = { surface: surfaceOf(input.transcriptPath) };
-  if (t.name === "watch_event") return { ask: watchQuestion(args), digest: callDigest(t.name, args), meta: meta2 };
+  if (t.name === "watch_event") {
+    const why = unshowable(args);
+    if (why) return { deny: `The watch is not started: ${why}. Nothing was asked or subscribed.` };
+    return { ask: watchQuestion(args), digest: callDigest(t.name, args), meta: meta2 };
+  }
   return { pass: "This ticket identifies the conversation; Antigravity's usual MCP approval still applies.", digest: callDigest(t.name, args), meta: meta2 };
 }]));
 function redeemConversation(base, name, args) {
@@ -1028,6 +907,86 @@ function redeemConversation(base, name, args) {
 import { createHash as createHash2 } from "node:crypto";
 import { appendFileSync, chmodSync as chmodSync2, closeSync, fstatSync, fsyncSync, mkdirSync as mkdirSync2, openSync, readdirSync as readdirSync2, readFileSync as readFileSync2, readSync, renameSync as renameSync2, rmdirSync, statSync as statSync2, unlinkSync, writeFileSync as writeFileSync2, writeSync } from "node:fs";
 import { join as join2, resolve } from "node:path";
+
+// polyfills/events/core/src/untrusted.ts
+var NAME = /^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,79}$/;
+var KEY = /^[A-Za-z_][A-Za-z0-9_]{0,39}$/;
+var TOKEN = /^[A-Za-z0-9_.:/@#+-]{1,64}$/;
+var LocalError = class extends Error {
+};
+var CODES = {
+  [-32020]: "header mismatch",
+  [-32023]: "not found",
+  [-32024]: "forbidden",
+  [-32025]: "too many subscriptions or streams",
+  [-32026]: "not supported",
+  [-32027]: "the server could not reach or verify the webhook address",
+  [-32600]: "invalid request",
+  [-32601]: "method not found",
+  [-32602]: "invalid parameters",
+  [-32603]: "internal error"
+};
+function errorCode(e) {
+  const c = e?.code;
+  return typeof c === "number" && Number.isInteger(c) ? c : void 0;
+}
+function describeError(e) {
+  if (e instanceof LocalError) return e.message;
+  const code = errorCode(e);
+  if (code !== void 0) return `the server answered error ${code}${CODES[code] ? ` (${CODES[code]})` : ""}`;
+  const sys = e?.code ?? e?.cause?.code;
+  if (typeof sys === "string" && /^[A-Z][A-Z0-9_]{2,30}$/.test(sys)) return /^(ECONN|ENOTFOUND|ETIMEDOUT|EAI_|EHOST|ENET|EPIPE|UND_ERR|CONNECTION_CLOSED$|ERA_NEGOTIATION_FAILED$)/.test(sys) ? `could not connect (${sys})` : `a local error (${sys})`;
+  return "the request failed";
+}
+function isoDate(v) {
+  return typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/.test(v) ? v : void 0;
+}
+var MAX_SCHEMA_BYTES = 16 * 1024;
+function tameSchema(schema) {
+  let budget = 400;
+  const walk = (v, depth) => {
+    if (--budget < 0 || depth > 8) return void 0;
+    if (Array.isArray(v)) return v.slice(0, 64).map((x) => walk(x, depth + 1));
+    if (typeof v !== "object" || v === null) return typeof v === "string" && v.length > 512 ? void 0 : v;
+    const out = {};
+    for (const [k, x] of Object.entries(v).slice(0, 64)) {
+      if (k.length > 64) continue;
+      const w = walk(x, depth + 1);
+      if (w !== void 0) out[k] = w;
+    }
+    return out;
+  };
+  if (typeof schema !== "object" || schema === null) return void 0;
+  const tamed = walk(schema, 0);
+  if (budget < 0 || tamed === void 0) return void 0;
+  return JSON.stringify(tamed).length > MAX_SCHEMA_BYTES ? void 0 : tamed;
+}
+var Redactor = class {
+  #secrets = /* @__PURE__ */ new Set();
+  add(...secrets2) {
+    for (const s of secrets2) {
+      if (typeof s !== "string" || s.length < 8) continue;
+      this.#secrets.add(s);
+      const bare = s.replace(/^(Bearer|Basic|Token)\s+/i, "").replace(/^whsec_/, "");
+      if (bare.length >= 8) this.#secrets.add(bare);
+    }
+  }
+  scrub(text) {
+    let out = text;
+    for (const s of this.#secrets) out = out.split(s).join("[redacted]");
+    return out;
+  }
+  /** The same, for every string inside a value (an event's data, a description). */
+  scrubDeep(v, depth = 0) {
+    if (typeof v === "string") return this.scrub(v);
+    if (depth > 32 || typeof v !== "object" || v === null) return v;
+    if (Array.isArray(v)) return v.map((x) => this.scrubDeep(x, depth + 1));
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [this.scrub(k), this.scrubDeep(x, depth + 1)]));
+  }
+};
+var secrets = new Redactor();
+
+// polyfills/events/core/src/store.ts
 function projectKey(projectDir) {
   return createHash2("sha256").update(resolve(projectDir)).digest("hex").slice(0, 16);
 }
@@ -1290,6 +1249,66 @@ import { join as join5 } from "node:path";
 // polyfills/events/core/src/delivery.ts
 import { closeSync as closeSync2, existsSync as existsSync2, fstatSync as fstatSync2, openSync as openSync2, readFileSync as readFileSync3, readSync as readSync2, writeFileSync as writeFileSync3 } from "node:fs";
 import { join as join3 } from "node:path";
+
+// polyfills/events/core/src/format.ts
+var LINE_PREFIX = "[mcp-events]";
+function oneLine(s, max = 120) {
+  const text = String(s ?? "").replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, "").replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, " ").replace(/[\u201c\u201d\u201e\u201f\u2033\u2036\u00ab\u00bb\uff02]/g, '"').replace(/\s+/g, " ").trim();
+  return text.length > max ? text.slice(0, max - 1) + "\u2026" : text;
+}
+function summarize(data, n = 6) {
+  if (!data || typeof data !== "object") return { text: "", more: 0 };
+  const parts = [];
+  const entries = Object.entries(data);
+  for (const [k, v] of entries) {
+    if (parts.length >= n) break;
+    if (!KEY.test(k)) continue;
+    if (typeof v === "number" && Number.isFinite(v) || typeof v === "boolean") parts.push(`${k}=${String(v)}`);
+    else if (typeof v === "string" && v.length) parts.push(`${k}=${TOKEN.test(v) ? v : JSON.stringify(oneLine(v, 80))}`);
+  }
+  return { text: parts.join(", "), more: entries.length - parts.length };
+}
+function formatRecord(r) {
+  if (r.kind === "notice") return `${LINE_PREFIX} ${oneLine(r.text, 300)}`;
+  const { text, more } = summarize(r.data);
+  const rest = more > 0 ? `get_event ${r.id} returns all of it (${more} more field${more === 1 ? "" : "s"})` : `get_event ${r.id} returns the record`;
+  const note = r.note ? ` Note saved with this watch: "${oneLine(r.note, 160)}".` : "";
+  return `${LINE_PREFIX} ${oneLine(r.server, 40)} \xB7 ${oneLine(r.event, 80)}${text ? `: ${text}` : ""} [event ${r.id}, watch ${r.watch}; ${rest}].${note}`;
+}
+function withValues(records, max = 3) {
+  if (records.length <= max + 1) return records.map(formatRecord);
+  const shown2 = records.slice(0, max).map(formatRecord);
+  const rest = records.slice(max);
+  const ids = rest.map((r) => r.id);
+  shown2.push(`${LINE_PREFIX} \u2026and ${rest.length} more events (${ids[0]}\u2013${ids[ids.length - 1]}); call recent_events to see them.`);
+  return shown2;
+}
+var MAX_NOTICES = 3;
+function someIds(ids, max = 5) {
+  return ids.length <= max ? ids.join(", ") : `${ids.slice(0, max).join(", ")} and ${ids.length - max} more`;
+}
+function formatBatch(records, o = {}) {
+  if (o.values) return withValues(records);
+  const lines = [];
+  const byWatch = /* @__PURE__ */ new Map();
+  const notices = records.filter((r) => r.kind === "notice");
+  for (const r of notices.slice(0, MAX_NOTICES)) lines.push(formatRecord(r));
+  if (notices.length > MAX_NOTICES) lines.push(`${LINE_PREFIX} \u2026and ${notices.length - MAX_NOTICES} more notices; recent_events lists them.`);
+  for (const r of records) if (r.kind !== "notice") byWatch.set(r.watch ?? "", [...byWatch.get(r.watch ?? "") ?? [], r]);
+  for (const [watch, events] of byWatch) {
+    const first = events[0];
+    const ids = events.map((r) => r.id);
+    const how = events.length === 1 ? `get_event ${ids[0]} returns it` : "recent_events lists them, get_event returns one";
+    const noted = events.findLast((r) => r.note)?.note;
+    const note = noted ? ` Note saved with this watch: "${oneLine(noted, 160)}".` : "";
+    lines.push(
+      `${LINE_PREFIX} ${oneLine(first.server, 40)} \xB7 ${oneLine(first.event, 80)}: ${events.length} new event${events.length === 1 ? "" : "s"} [${events.length === 1 ? "event" : "events"} ${someIds(ids)}; watch ${watch}; ${how}].${note}`
+    );
+  }
+  return lines;
+}
+
+// polyfills/events/core/src/delivery.ts
 var MAX_READ = 4 * 1024 * 1024;
 var skippedLine = () => `${LINE_PREFIX} One event could not be shown (too large, or not in a form this ${host.kind} can print) and was skipped.`;
 var Delivery = class {
@@ -28732,6 +28751,11 @@ try {
     let state;
     try {
       state = open2();
+    } catch {
+    }
+    const id = input && typeof input === "object" ? input.conversationId : void 0;
+    if (state && typeof id === "string" && id) try {
+      revokeConversation(state.base, id);
     } catch {
     }
     if (state) await preInvocation(input, state.base, emit, state.env.MCP_EVENTS_OFF === "1");

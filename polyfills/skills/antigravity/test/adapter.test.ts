@@ -152,6 +152,7 @@ test('H-1 matcher takes only this plugin and MCP key by eager name, and read_res
     assert.equal(entry.matcher, gateMatcher('mcp-skills_skills', ['load_skill', 'read_skill_file', 'list_skill_directory'], ['read_resource'])); assert.equal(entry.hooks[0].command, 'node ./dist/server.mjs --hook');
     for (const n of ['read_resource', TOOL, 'mcp_mcp-skills_skills_read_skill_file', 'mcp_mcp-skills_skills_list_skill_directory']) assert.ok(matches(entry.matcher, n), n);
     assert.deepEqual(hooks['mcp-skills-approval'].Stop, [{ type: 'command', command: 'node ./dist/server.mjs --hook stop', timeout: 10 }]);
+    assert.deepEqual(hooks['mcp-skills-approval'].PreInvocation, [{ type: 'command', command: 'node ./dist/server.mjs --hook pre-invocation', timeout: 10 }]);
     assert.deepEqual(JSON.parse(readFileSync(join(ROOT, 'plugin/mcp_config.json'), 'utf8')).mcpServers.skills.tools, { load_skill: { eager: true }, read_skill_file: { eager: true }, list_skill_directory: { eager: true } });
     for (const n of ['call_mcp_tool', 'list_resources', 'load_skill', 'mcp_other_load_skill', 'mcp_other_mcp-skills_skills_load_skill', 'mcp_mcp-skills-other_skills_load_skill', 'mcp_mcp-skills_other_load_skill', 'mcp_mcp-skills_skills_list_skills', `${TOOL}_other`]) assert.ok(!matches(entry.matcher, n), n);
     // The handler's own check takes the eager name the gate gives every call of this server.

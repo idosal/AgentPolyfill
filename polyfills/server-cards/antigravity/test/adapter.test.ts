@@ -184,7 +184,7 @@ test('G-7 a ticket waits an hour at most, for a question and for a call only tie
   }
 })
 
-test('G-8 the turn ends: the Stop hook removes every unused ticket of that conversation, and only of that one', async () => {
+test('G-8 the turn ends, or the model is called again: the Stop and PreInvocation hooks remove every unused ticket of that conversation, and only of that one', async () => {
   const dir = gateDir()
   const mine = 'ec33ebf9-0cba-4100-8142-c61503f6c587', other = '0b7f6a0e-1111-4222-8333-944455556666'
   const declined = await answerHook(preToolUse(TOOL, {}, mine), { add_mcp_server: () => ({ ask: 'q', digest: 'd' }) }, dir)
@@ -202,6 +202,12 @@ test('G-8 the turn ends: the Stop hook removes every unused ticket of that conve
   const stop = spawnSync(process.execPath, ['./dist/server.mjs', '--hook', 'stop'], { cwd: join(ROOT, 'plugin'), input: JSON.stringify({ hookEventName: 'Stop', conversationId: mine, terminationReason: 'model_stop' }), encoding: 'utf8', env: { PATH: process.env.PATH ?? '', HOME: home } })
   assert.equal(stop.status, 0)
   assert.deepEqual(JSON.parse(stop.stdout), {})
+  assert.deepEqual(readdirSync(join(state, 'tickets')), [])
+  // A step's tool calls have all run before the next model call: PreInvocation clears what a decline left.
+  issueTicket(state, { tool: 'add_mcp_server', digest: 'd', conversationId: mine })
+  const pre = spawnSync(process.execPath, ['./dist/server.mjs', '--hook', 'pre-invocation'], { cwd: join(ROOT, 'plugin'), input: JSON.stringify({ hookEventName: 'PreInvocation', conversationId: mine, invocationNum: 3 }), encoding: 'utf8', env: { PATH: process.env.PATH ?? '', HOME: home } })
+  assert.equal(pre.status, 0)
+  assert.deepEqual(JSON.parse(pre.stdout), {})
   assert.deepEqual(readdirSync(join(state, 'tickets')), [])
 })
 
@@ -258,6 +264,7 @@ test("H-1 the hook matcher takes this server's eager add_mcp_server only: never 
   for (const name of ['call_mcp_tool', 'read_resource', 'mcp_other_add_mcp_server', 'run_command', 'mcp_mcp-server-cards_cards_discover_mcp_servers', 'mcp_evil_mcp-server-cards_cards_add_mcp_server'])
     assert.ok(!matches(entry.matcher, name), name)
   assert.deepEqual(hooks['mcp-server-cards-approval'].Stop, [{ type: 'command', command: 'node ./dist/server.mjs --hook stop', timeout: 10 }])
+  assert.deepEqual(hooks['mcp-server-cards-approval'].PreInvocation, [{ type: 'command', command: 'node ./dist/server.mjs --hook pre-invocation', timeout: 10 }])
   // The gated tool is eager (mcp.md, "Configure eager tools"), so Antigravity calls it by that name.
   const mcp = JSON.parse(readFileSync(join(ROOT, 'plugin', 'mcp_config.json'), 'utf8'))
   assert.deepEqual(mcp.mcpServers.cards.tools, { add_mcp_server: { eager: true } })

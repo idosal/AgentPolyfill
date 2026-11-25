@@ -1889,7 +1889,7 @@ async function start(env = process.env, argv = process.argv.slice(2)) {
   useAntigravityHost();
   setServerName(SERVER);
   if (argv.includes("--hook"))
-    return argv[argv.indexOf("--hook") + 1] === "stop" ? runStop(() => stateDir(NAME2, env)) : runHook({ server: SERVER, tools: GATED, gate: () => {
+    return ["stop", "pre-invocation"].includes(argv[argv.indexOf("--hook") + 1]) ? runStop(() => stateDir(NAME2, env)) : runHook({ server: SERVER, tools: GATED, gate: () => {
       const s2 = session(env);
       return { handlers: handlers(s2), dir: s2.dir };
     } });

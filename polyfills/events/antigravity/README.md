@@ -136,7 +136,9 @@ few seconds later.
 | “Stop watching tickets.” | `unwatch_event` | Antigravity's usual MCP question |
 
 `watch_event` is put to you through the plugin's hook (`force_ask`), with a
-question that starts with the event type and the server:
+question that shows every value whole (a watch whose server, event type,
+filters or note hold a character it can't show, or are longer than it shows,
+is refused, not cut short). It starts with the event type and the server:
 “mcp-events: watch "deploy.finished" on the MCP server "deploys" for this
 conversation?”, then the filters and the note. The CLI's card shows those
 two lines and hides the rest. The other five tools pass the hook with a
@@ -162,8 +164,9 @@ your configured MCP servers -- push / poll / webhook --> store
   `mcp_mcp-events_events_<tool>`, and the hook's matcher takes those names
   only. The shared gate writes a private ticket bound to this tool and these
   arguments and merges it into `agentpolyfill_ticket`. The server redeems it
-  once, within an hour. The plugin's `Stop` hook removes a conversation's
-  unused tickets when its turn ends. Missing tickets, changed arguments,
+  once, within an hour. The plugin's `PreInvocation` and `Stop` hooks remove
+  a conversation's unused tickets at its next model call and when its turn
+  ends. Missing tickets, changed arguments,
   another tool's ticket and non-UUID ids are refused. A call made through
   `call_mcp_tool` instead doesn't reach the hook, carries no ticket, and is
   refused, saying how to call the tool. `_meta`, tool arguments, workspace
@@ -249,7 +252,8 @@ What it keeps, and for how long:
   until you delete them (at most 64 MiB a conversation; a full spool stops
   taking events). Removing a watch doesn't erase its stored events.
 - `threads/<uuid>/`: watches and cursors, until the watch is removed.
-- `tickets/`: one-use tickets, an hour at most, and gone when the turn ends.
+- `tickets/`: one-use tickets, an hour at most, and gone at the
+  conversation's next model call or when its turn ends.
 - `wake-requests/`: one small file per conversation with new events, removed
   once the sidecar has handled it.
 - `mcp-events.log`: scrubbed of known secrets, rotated at 2 MiB with one old

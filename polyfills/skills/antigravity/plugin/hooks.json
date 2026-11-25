@@ -12,6 +12,13 @@
         ]
       }
     ],
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "node ./dist/server.mjs --hook pre-invocation",
+        "timeout": 10
+      }
+    ],
     "Stop": [
       {
         "type": "command",

@@ -33,7 +33,7 @@ export async function start(env: NodeJS.ProcessEnv = process.env, argv = process
     // resource read rule X8 asks about.
     if (argv.includes('--hook')) {
         const open = () => { const dir = stateDir(NAME, env); return { dir, store: new Store(dir) }; };
-        if (argv[argv.indexOf('--hook') + 1] === 'stop') return runStop(() => stateDir(NAME, env));
+        if (['stop', 'pre-invocation'].includes(argv[argv.indexOf('--hook') + 1])) return runStop(() => stateDir(NAME, env));
         return runHook({
             server: SERVER, tools: GATED,
             gate: () => { const o = open(); return { handlers: handlers(env, o.store), dir: o.dir }; },

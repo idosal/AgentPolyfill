@@ -32,7 +32,7 @@ As in [`mcp-server-cards` for Antigravity](../../server-cards/antigravity/SECURI
 Antigravity cancels MCP elicitation without showing it, so the plugin's
 `PreToolUse` hook puts each `ard_search` and each `add_mcp_server` to you with
 `force_ask`, and leaves a one-use ticket for exactly that call (an hour at
-most, named by its SHA-256, removed when the conversation's turn ends). The
+most, named by its SHA-256, removed at the conversation's next model call or the end of its turn). The
 MCP server sends a search, or writes an entry, only with that ticket. Nothing
 is auto-approved. `ard_discover`, which only reads, isn't gated and goes
 through Antigravity's usual approval for MCP tools.
