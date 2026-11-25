@@ -4,7 +4,7 @@ Claude finds MCP servers through Agentic Resource Discovery (ARD): in what a
 domain lists, or by asking an ARD registry for a server that can do a task.
 You choose the registry, and Claude Code asks you before every search.
 
-Also available for Codex: [ard-discovery for Codex](../codex/README.md).
+Also available for Codex, Pi and OpenCode: [ard-discovery for Codex](../codex/README.md), [ard-discovery for Pi](../pi/README.md), [ard-discovery for OpenCode](../opencode/README.md).
 
 > Search for an MCP server that can check why my CI build failed.
 

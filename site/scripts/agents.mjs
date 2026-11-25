@@ -50,6 +50,7 @@ const HOSTS = [
   { name: 'Claude Code', command: 'claude', addKey: 'add', form: 'Mod (plugin)', polyfills: 'Events, Skills, Server Cards, Apps, ARD' },
   { name: 'Codex', command: 'codex', addKey: 'addCodex', form: 'Plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
   { name: 'Pi', command: 'pi', addKey: 'addPi', form: 'Extension', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
+  { name: 'OpenCode', command: 'opencode', addKey: 'addOpenCode', config: 'opencode.json', form: 'V2 server plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
   { name: 'Muse Code', command: 'muse', addKey: 'addMuse', form: 'Plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
 ]
 // Pi's source installs and examples, for the Markdown served to agents.
@@ -99,8 +100,30 @@ const INSTALL_MUSE = [
 ]
 const MUSE_INSTALL_NOTES = 'There is no bundle: install and approve each plugin separately. Muse turns on a plugin\'s skills at install, and holds its MCP servers and hooks until `muse plugins approve <name>`. After `muse plugins marketplace update agent-polyfill` and `muse plugins update <name>`, approve again. Then start a new `muse` session. Muse starts no MCP server in a workspace you haven\'t trusted. To uninstall, run `muse plugins remove <name> --delete-data` for each plugin, then `muse plugins marketplace remove agent-polyfill`. That removes the plugins, their data folders and approvals. Skills\' stubs stay in `~/.config/muse/skills/mcp-skills-served--*`; delete them by hand. A server you added with `muse mcp add` stays; undo it with `muse mcp remove <name>`.'
 const MUSE_APPS_LIMIT = 'Apps has no Muse Code form: Muse gives a plugin no way to draw in its terminal.'
-// The host forms whose demo commands differ from home.json's.
-const HOST_FORMS = { Pi: PI_FORMS, 'Muse Code': MUSE_FORMS }
+// OpenCode's installs from GitHub and examples, for the Markdown served to
+// agents. A setup that starts with `{` goes in the host's `config` file.
+const OPENCODE_FORMS = {
+  'mcp-events': {
+    path: 'polyfills/events/opencode/plugin',
+    add: '{ "mcp": { "feeds": { "type": "remote", "url": "https://event-feeds.idosalomon.workers.dev/mcp" } } }',
+  },
+  'mcp-skills': {
+    path: 'polyfills/skills/opencode/plugin',
+    add: '{ "mcp": { "huggingface": { "type": "remote", "url": "https://huggingface.co/mcp", "oauth": false } } }',
+  },
+  'mcp-server-cards': {
+    path: 'polyfills/server-cards/opencode/plugin',
+  },
+  'ard-discovery': {
+    path: 'polyfills/ard/opencode/plugin',
+    add: "opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/ard/opencode/plugin'",
+  },
+}
+const INSTALL_OPENCODE = Object.values(OPENCODE_FORMS).map(({ path }) => `opencode plugin add 'github:idosal/AgentPolyfill#main::path:${path}'`)
+const OPENCODE_INSTALL_NOTES = 'Nothing for OpenCode is published to npm. There is no bundle: install each plugin separately. OpenCode fetches each one from this repository on GitHub with Git, and runs it itself, so no Node is needed. Each command adds the plugin to `plugins` in the global `~/.config/opencode/opencode.json`, so it runs in every project from the next time OpenCode opens one. `#main` installs what the main branch holds; a commit in its place pins one version. From a clone, you can instead add a plugin\'s folder (`polyfills/<polyfill>/opencode/plugin`) to `plugins` in the global or a project\'s `opencode.json`. Remove one with `opencode plugin remove` and the same text it was added with. OpenCode keeps its downloaded copy in `~/.cache/opencode/npm/` (a `git-AgentPolyfill-…` folder), which can be deleted. Events leaves its watches, stored events and log in `~/.local/share/opencode/mcp-events/`, and Skills its log in `~/.local/share/opencode/mcp-skills/`; delete those to remove them. "Allow always" answers, the skills each session loaded, and the list of servers Server Cards and ARD added stay in OpenCode\'s plugin storage (its own database). An added server comes back if the plugin is installed again, unless it was removed first, with `server_cards_remove_mcp_server` or `ard_remove_mcp_server`.'
+const OPENCODE_APPS_LIMIT = 'Apps has no OpenCode form. OpenCode has no MCP Apps support: a plugin cannot read a `ui://` resource or a tool\'s `_meta` over OpenCode\'s connection, and there is no place to draw in the conversation. The desktop app\'s experimental panels can embed a web view, but an OpenCode Apps form was only assessed, not built.'
+// Each host's own installs and examples, where they differ from home.json's.
+const FORMS = { Pi: PI_FORMS, OpenCode: OPENCODE_FORMS, 'Muse Code': MUSE_FORMS }
 
 function hostTable() {
   return ['| Host | Form | Polyfills |', '|---|---|---|', ...HOSTS.map(({ name, form, polyfills }) => `| ${name} | ${form} | ${polyfills} |`)].join('\n')
@@ -291,19 +314,20 @@ function homeMarkdown() {
       '',
       ...hosts.map(({ name }) => `- ${name}`),
     ]
-    const block = (command) => [command.startsWith('/') ? '```' : '```bash', command, '```']
+    const block = (command) => [command.startsWith('/') ? '```' : command.startsWith('{') ? '```json' : '```bash', command, '```']
     if (p.addStep) lines.push('', p.addStep)
     for (const host of hosts) {
-      const form = HOST_FORMS[host.name]?.[p.plugin]
+      const form = FORMS[host.name]?.[p.plugin]
       const add = form?.add ?? p[host.addKey]
       const ask = form?.ask ?? p.ask
       lines.push('', `**${host.name}**`, '')
+      if (add?.startsWith('{')) lines.push(`In \`${host.config}\`:`, '')
       if (add) lines.push(...block(add), '', `Then start \`${host.command}\` and ask: "${ask}"`)
       else lines.push(`Nothing to set up. Start \`${host.command}\` and ask: "${ask}"`)
     }
     if (p.then) lines.push('', p.then)
     if (p.note) lines.push('', p.note)
-    if (p.plugin === 'mcp-apps-cli') lines.push('', PI_APPS_LIMIT, '', MUSE_APPS_LIMIT)
+    if (p.plugin === 'mcp-apps-cli') lines.push('', PI_APPS_LIMIT, '', OPENCODE_APPS_LIMIT, '', MUSE_APPS_LIMIT)
     lines.push('', videoLine({ file: cut.file, seconds: cut.seconds, description: p.alt }), '', `The ${p.name} guide: ${resolveLink(p.link, 'index')}`)
     return lines.join('\n')
   }
@@ -347,6 +371,16 @@ ${PI_INSTALL_NOTES}
 
 ${PI_APPS_LIMIT}
 
+**OpenCode** (2.4 or newer, tested with 2.4.1; Git). In a terminal:
+
+\`\`\`bash
+${INSTALL_OPENCODE.join('\n')}
+\`\`\`
+
+${OPENCODE_INSTALL_NOTES}
+
+${OPENCODE_APPS_LIMIT}
+
 **Muse Code** (Meta's terminal coding agent; 1.4.25, the version tested, on macOS; Node 20 or newer). Muse installs the Codex plugins from this repository's marketplace. In a terminal:
 
 \`\`\`bash
@@ -362,6 +396,7 @@ Beyond MCP, ARD is a draft. Every search asks you first and goes to a registry y
 - **Claude Code:** \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`; it isn't in the bundle.
 - **Codex:** \`codex plugin add ard-discovery@agent-polyfill\`.
 - **Pi:** \`pi install ./polyfills/ard/pi/extension\` from the clone (included in the commands above).
+- **OpenCode:** \`${OPENCODE_FORMS['ard-discovery'].add}\` (included in the commands above).
 - **Muse Code:** \`muse plugins install ard-discovery@agent-polyfill\`, then \`muse plugins approve ard-discovery\` (included in the commands above). In Muse it has no registry search, because a search must ask you first.
 
 ${videoLine({ file: media.launch.file, seconds: media.launch.seconds, description: media.launch.description })}
@@ -418,15 +453,16 @@ AgentPolyfill makes polyfills for agent protocols: it brings more of MCP to the 
 
 ${hostTable()}
 
-The MCP polyfills implement Events (SEP-3415), Skills (SEP-2640), Server Cards (SEP-2127) and Apps (MCP Apps 2026-01-26). It's an early proof of concept: some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs (${origin}/guide/how-it-works.md). ${PI_APPS_LIMIT} ${MUSE_APPS_LIMIT}
+The MCP polyfills implement Events (SEP-3415), Skills (SEP-2640), Server Cards (SEP-2127) and Apps (MCP Apps 2026-01-26). It's an early proof of concept: some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs (${origin}/guide/how-it-works.md). ${PI_APPS_LIMIT} ${OPENCODE_APPS_LIMIT} ${MUSE_APPS_LIMIT}
 
-Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A search sends the words of your request to the ARD registry you choose and asks you first every time, so ARD is installed separately. Pi's live run showed domain discovery and an approved search of the repository's demo registry, but did not complete the add step; additions are covered by real-Pi tests with a scripted model and a local server. In Muse Code, ARD finds servers by domain only: it has no registry search, because a search must ask you first and Muse gives a plugin no way to ask.
+Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A search sends the words of your request to the ARD registry you choose and asks you first every time, so ARD is installed separately. Pi's live run showed domain discovery and an approved search of the repository's demo registry, but did not complete the add step; additions are covered by real-Pi tests with a scripted model and a local server. OpenCode's live run read buildkite.com's \`ard.json\` and sent a search to the repository's demo registry after OpenCode asked (no public registry that takes an unauthenticated search was found); additions are covered by tests in real OpenCode with a scripted model and a local server. In Muse Code, ARD finds servers by domain only: it has no registry search, because a search must ask you first and Muse gives a plugin no way to ask.
 
 ## Install
 
 - **Claude Code 2.1.329 or newer:** every MCP polyfill, the \`agent-polyfill\` bundle, from a terminal: \`${INSTALL_CLI}\`. At the prompt of a \`claude\` session it is \`${INSTALL}\`. Start a new session for the plugins to load. ARD is separate: \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`.
 - **Codex 0.170 or newer (Node 20 or newer):** from a terminal: \`${INSTALL_CODEX.join(' && ')}\`. ARD is separate: \`codex plugin add ard-discovery@agent-polyfill\`. There is no bundle.
 - **Pi 1.6.0 (the version tested; Node 22 or newer):** use the clone commands below.
+- **OpenCode 2.4 or newer (tested with 2.4.1; Git; no Node):** one \`opencode plugin add\` per polyfill, from GitHub, after Pi's below.
 - **Muse Code 1.4.25 (the version tested, on macOS; Node 20 or newer):** use the Muse commands below.
 
 Pi:
@@ -456,7 +492,28 @@ Pi runs tools without asking unless a permission extension asks. Each polyfill a
 | Server Cards | \`MCP_SERVER_CARDS_DISABLED=1\` |
 | ARD | \`ARD_DISCOVERY_DISABLED=1\` |
 
-In Muse Code, the plugins are the Codex plugins, run with \`--host=muse\`. Muse gives a plugin no way to put a question to the person: its MCP client offers no elicitation, and a tool call that isn't read-only, or a hook's \`ask\`, goes to Muse's approval judge, a model that may approve with nobody asked. So a watch (Events) and a skill load (Skills) wait for you to type the phrase the answer gives, such as \`watch 4821\` or \`load 4821\`. Only a message of yours that is exactly that phrase approves it; it is good for that one question, in that session, for 15 minutes. Server Cards and ARD write nothing: they give you the \`muse mcp add …\` command, which you run yourself, in a terminal or after \`!\` at the Muse prompt. Skills doesn't offer "show me its SKILL.md first".
+OpenCode, one plugin per polyfill, from a terminal:
+
+\`\`\`bash
+${INSTALL_OPENCODE.join('\n')}
+\`\`\`
+
+${OPENCODE_INSTALL_NOTES}
+
+In OpenCode, Events and Skills use their own MCP connections, so a local server runs twice. They cannot reach a server OpenCode signs in to with OAuth (\`opencode mcp auth\`), and never read OpenCode's stored credentials; the headers in a server's OpenCode configuration work. Server Cards and ARD add a server to OpenCode's MCP servers for the project, and OpenCode connects it with its own client and sign-in. Only streamable HTTP servers are added, and for a card that needs a secret the answer gives the \`opencode.json\` entry, with \`{env:VAR}\`, to add by hand. Events watches resume when OpenCode next opens the project. Events departs from contract rule 4: OpenCode's own client takes push events for its automations, but doesn't poll or take webhooks and skips event types whose schemas it can't check, so the polyfill watches every type and tells the model to use a watch or an automation for an event type, not both.
+
+OpenCode's shipped permission rules allow every action. Each polyfill puts its own actions to those rules and asks by default: a watch, a skill load, a read of another server's resource while a served skill is loaded (X8, naming both servers), an addition or a search. A \`deny\` or \`ask\` rule you write wins; with nobody there to answer, OpenCode refuses. The plugin option \`askByDefault: false\`, or the variable below, leaves it to OpenCode's rules alone; an \`allow\` rule you write doesn't skip the question. In OpenCode 2.4.1's TUI, the prompt says only "Call tool <action>", with the details on the model's call line above it, and a prompt for a registry an ARD referral names shows no host. After a load or a wake, what the model does goes through OpenCode's rules, whose default allows it. When OpenCode supports an extension itself, remove that plugin or use its off switch:
+
+| OpenCode form | Off switch | Leave it to OpenCode's rules |
+|---|---|---|
+| Events | \`MCP_EVENTS_OFF=1\` | \`MCP_EVENTS_ASK_BY_DEFAULT=0\` |
+| Skills | \`MCP_SKILLS_OFF=1\` | \`MCP_SKILLS_ASK_BY_DEFAULT=0\` |
+| Server Cards | \`MCP_SERVER_CARDS_DISABLED=1\` | \`MCP_SERVER_CARDS_ASK_BY_DEFAULT=0\` |
+| ARD | \`ARD_DISCOVERY_DISABLED=1\` | \`ARD_DISCOVERY_ASK_BY_DEFAULT=0\` |
+
+Each also takes the plugin options \`{"off": true}\` and \`{"askByDefault": false}\`, in the object form of its entry in \`plugins\`.
+
+In Muse Code, the plugins are the Codex plugins, run with \`--host=muse\`. Muse gives a plugin no way to put a question to the person: its MCP client offers no elicitation, and a tool call that isn't read-only, or a hook's \`ask\`, goes to Muse's approval judge, a model that may approve with nobody asked. So starting or stopping a watch (Events) and loading a skill (Skills) wait for you to type the phrase the answer gives, such as \`watch 4821\`, \`unwatch 3307\` or \`load 4821\`. Only a message of yours that is exactly that phrase approves it; it is good for that one question, in that session, for 15 minutes. Server Cards and ARD write nothing: they give you the \`muse mcp add …\` command, which you run yourself, in a terminal or after \`!\` at the Muse prompt. Skills doesn't offer "show me its SKILL.md first".
 
 New events reach the model with your next message, as a context block from the hook starting \`[mcp-events] (Sent by the mcp-events plugin, not typed by the user.)\`. Nothing wakes an idle session by default. An experimental opt-in does: \`{"MCP_EVENTS_MUSE_WAKE": "attach"}\` in the plugin's settings file, and \`muse\` started with \`MUSE_EXPERIMENTAL_TUI_MSP_CLIENT=1 MUSE_EXPERIMENTAL_TUI_SESSION_PROCESS=1\`. With those gates on, any local process of the same user can attach to the session and start turns, with no prompt, and could type the phrases. Waking is capped as in Codex (once a minute per watch, 30 times an hour), and was checked with the echo provider only.
 

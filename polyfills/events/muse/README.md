@@ -70,7 +70,8 @@ such as `watch 4821`. Send a message that is exactly that phrase. Muse calls
 reaches the session with your next message, and Muse reads it with
 `get_event`.
 
-To stop, ask: "Stop watching the earthquakes."
+To stop, ask: "Stop watching the earthquakes." Stopping waits for its own
+phrase, such as `unwatch 3307`, and the watch stops after you send it.
 
 ## How it works
 
@@ -90,7 +91,8 @@ To stop, ask: "Stop watching the earthquakes."
   approves the watch only when a message of yours is exactly that phrase, in
   the same session, within 15 minutes. Muse runs that hook for your messages,
   not for a turn its timers start, so the model can't send the phrase. The
-  next `watch_event` with the same arguments starts the watch.
+  next `watch_event` with the same arguments starts the watch. Stopping a
+  watch works the same way, with its own phrase (`unwatch <code>`).
 - **Delivery at your next message.** The server stores every event as it
   arrives and hands nothing over. When you next send a message, the hook adds
   the new events as a context block. It starts with
@@ -173,9 +175,8 @@ The changes Muse would need are in
 - **A second connection.** A local (stdio) server runs twice, once for Muse
   and once for this plugin.
 - **Muse's approval judge.** `watch_event` and `unwatch_event` aren't
-  read-only, so Muse's judge also sees them. A watch still starts only after
-  your typed yes. A stop (`unwatch_event`) needs no typed yes, as in every
-  form.
+  read-only, so Muse's judge also sees them. A watch still starts, and stops,
+  only after your typed yes.
 - **`muse exec`.** Events are stored only while a run lasts. Events that arrive
   between runs come in when the watch resumes, if the server replays them.
 - **Platforms.** Checked on macOS only.

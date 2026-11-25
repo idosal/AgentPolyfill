@@ -39,6 +39,10 @@ cd AgentPolyfill
 pi install ./polyfills/skills/pi/extension
 ```
 
+```bash [OpenCode]
+opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/skills/opencode/plugin'
+```
+
 ```bash [Muse Code]
 muse plugins marketplace add agent-polyfill https://github.com/idosal/AgentPolyfill
 muse plugins install mcp-skills@agent-polyfill
@@ -90,6 +94,22 @@ with `pi remove ./polyfills/skills/pi/extension`. Approvals and skill stubs
 stay in `mcp-skills/` in Pi's agent folder (`~/.pi/agent`, or
 `PI_CODING_AGENT_DIR`); delete that folder too to remove them.
 
+### In OpenCode
+
+OpenCode 2.4 or newer (tested with 2.4.1). OpenCode runs the plugin itself,
+so you don't need Node. The plugin isn't on npm: the command fetches it from
+GitHub, with Git, and adds it to `plugins` in your global
+`~/.config/opencode/opencode.json`, so it runs in every project from the next
+time OpenCode opens one. A commit in place of `main` pins one version. From a
+clone, put the folder `polyfills/skills/opencode/plugin` in `plugins` in an
+`opencode.json` instead. To remove it, run `opencode plugin remove` with the
+same text; OpenCode's downloaded copy stays in `~/.cache/opencode/npm/` (a
+`git-AgentPolyfill-…` folder), which you can delete. Its log stays in
+`~/.local/share/opencode/mcp-skills/` (or `MCP_SKILLS_STATE`); delete that
+folder too to remove it. Which skills each session loaded, and the "Allow
+always" answers it kept, stay in OpenCode's plugin storage (OpenCode's own
+database). No skill content is kept anywhere.
+
 ### In Muse Code
 
 Muse Code 1.4.25 (the version tested, on macOS only), with Node 20 or newer.
@@ -105,6 +125,7 @@ The sections below name the host where behavior differs. Full guides by host:
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi)
+- [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/opencode)
 - [Muse Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/muse)
 
 ## Try it
@@ -126,6 +147,12 @@ codex mcp add huggingface --url https://huggingface.co/mcp
 pi mcp add huggingface --url https://huggingface.co/mcp
 ```
 
+```jsonc [OpenCode]
+{
+  "mcp": { "huggingface": { "type": "remote", "url": "https://huggingface.co/mcp", "oauth": false } }
+}
+```
+
 ```bash [Muse Code]
 muse mcp add huggingface --url https://huggingface.co/mcp
 ```
@@ -138,6 +165,9 @@ the served skills, from the next turn. Start your host in the same folder:
 - **Claude Code:** `claude`.
 - **Codex:** `codex`.
 - **Pi:** `pi`; served skills appear as `mcp-<server>-<name>`.
+- **OpenCode:** `opencode`, with that entry in the project's `opencode.json`
+  or the global one; served skills appear as `mcp-skills:<server>:<name>`,
+  and a load takes two steps ([What to expect](#what-to-expect)).
 - **Muse Code:** `muse`, in a workspace you trust; served skills are in
   Muse's skill list from the next session.
 
@@ -205,6 +235,36 @@ codemode's nested calls. Print and JSON modes cannot ask, so they load only
 skills already approved and unchanged, and refuse cross-server reads that
 need approval. Skills a server adds mid-session appear after `/reload`.
 
+### In OpenCode
+
+Served skills appear in OpenCode's own skill list as
+`mcp-skills:<server>:<name>`, described
+`[MCP server "<server>", not a local skill] …`, with none of their text. A
+load takes two steps: OpenCode's skill tool returns the plugin's note, then
+the model calls `mcp_skills_load_skill`, and OpenCode asks you. OpenCode's
+shipped rules allow every action, so the plugin makes a load ask by default.
+The prompt offers "Allow once", "Allow always" and "Reject", and can't show
+you the skill's `SKILL.md` first. "Allow always" covers that skill as it is
+now: a changed skill is asked about again, and one whose content the server
+generates is asked about every time. The text arrives checked against the
+server's digests, fenced and marked as that server's, and files are read
+with `mcp_skills_read_skill_file`, checked the same way. In OpenCode 2.4.1's
+TUI the prompt says only "Call tool mcp_skills_load": the server and URI are
+on the model's call line just above it, and "Always allow" lists the pattern
+it would save, digest included. OpenCode Desktop shows the whole resource,
+digest included, in the prompt.
+
+Once a session has loaded a served skill, OpenCode's own resource read of
+another server is asked about, per call, naming both servers (SEP-2640 X8).
+That holds whatever the read is named, from a Code Mode program too, in
+subagents and after a restart. OpenCode's own read of a file inside a loaded
+skill's folder is refused, with a pointer to `mcp_skills_read_skill_file`
+(V4). A `deny` or `ask` rule you write wins, and with nobody there to answer,
+as in a scheduled run, OpenCode refuses the question. The plugin option
+`askByDefault: false` (or `MCP_SKILLS_ASK_BY_DEFAULT=0`) leaves loads and
+cross-server reads to OpenCode's rules alone, whose default allows them. To
+turn one served skill off, deny `mcp_skills_load` for `<server>:<uri>@*`.
+
 ### In Muse Code
 
 Muse gives a plugin no way to ask you, and a hook's `ask` goes to Muse's
@@ -228,6 +288,12 @@ header in `mcp.json` work. Header values may be written out, `${VARIABLE}` or
 `!command`. Servers signed in through Pi (`/mcp`, `pi mcp login`, OAuth or
 `auth.provider`) are out of reach; `list_skills` says why. The extension
 never reads `mcp-auth.json` or `auth.json`.
+
+In OpenCode, local servers work, and remote URLs with the headers in their
+OpenCode configuration. Servers OpenCode signs in to with OAuth
+(`opencode mcp auth`) are out of reach; `mcp_skills_list_skills` names each
+server it left alone, with the reason. The plugin never reads OpenCode's
+stored credentials.
 
 In Muse Code, the plugin reads the servers in `mcpServers` in
 `~/.config/muse/settings.json`, which can hold header values you wrote. It
@@ -312,6 +378,32 @@ protocol, no vendor extension.
 - **The cross-server question has a boundary.** It cannot intercept a read
   another extension makes through its own MCP connection.
 
+### In OpenCode
+
+- **Its own connection.** OpenCode gives a plugin neither its sign-in nor a
+  way to send `skills/*` over its own connection. Servers OpenCode signs in
+  to with OAuth are out of reach, and a local server that serves skills runs
+  twice.
+- **No preview before you decide.** OpenCode's prompt has no place for text
+  you read and the model doesn't, so rule X13b (let you inspect a skill
+  before it loads) isn't met. The request carries the skill's name, server,
+  URI, digest and size.
+- **Two steps to load.** OpenCode gives a plugin no way to supply a skill's
+  text only when it's loaded, and only after a question.
+- **What a loaded skill leads to.** What the model then does, the commands a
+  skill describes included, goes through OpenCode's rules as for its own
+  skills, and OpenCode's default allows it. In a live run, the model ran a
+  command a loaded skill described, without a prompt.
+- **A loaded skill is held for 64 sessions at once.** Past that, or after
+  OpenCode restarts, a file read asks the model to load the skill again,
+  which is asked about unless "Allow always" covers it as it is.
+- **Binary files** of a skill are checked, but not shown to the model.
+- **The plugin keeps its own "Allow always".** Taking a saved approval back
+  in OpenCode doesn't take it back from the plugin; an `ask` rule does. An
+  `allow` rule you write doesn't skip the question by itself, since the
+  plugin can't tell it from OpenCode's default.
+- **Not tried yet:** Windows by hand (CI runs the tests there).
+
 ### In Muse Code
 
 - **No OAuth servers.** A server signed in with `muse mcp login` is skipped,
@@ -370,6 +462,19 @@ See [Pi's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfil
 An AI reviewer who did not build the Pi forms reviewed them, and checked
 the fixes again. They have not been audited by a person.
 
+### In OpenCode
+
+Each load is put to OpenCode's permission rules before anything of the skill
+is fetched, and asked about by default; your approval is bound to the
+skill's manifest digest. The plugin never answers a prompt, never turns
+anything into `allow`, and a `deny` rule is final. Content arrives fenced and
+marked with its server, and its frontmatter grants nothing. X8 is met: while
+a skill is loaded, OpenCode's read of another server's resource asks first,
+naming both servers. After a load, OpenCode's own rules apply, and its
+shipped default allows what the model does next. The plugin never reads
+OpenCode's stored credentials. See
+[OpenCode's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/SECURITY.md).
+
 ### In Muse Code
 
 A served skill loads only after you send its phrase yourself, so Muse's
@@ -413,6 +518,23 @@ against Hugging Face records two skills approved and loaded, reference files
 read and an answer from them, including a run with "Show me its SKILL.md
 first".
 
+### In OpenCode
+
+[OpenCode's conformance table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/docs/conformance.md)
+records 60 rules: 54 met, 4 met with a stated exception, 1 not applicable,
+and 1 not met, X13b (letting you read a skill before it loads), which needs a
+change in OpenCode. X8 and V4 are met. Its tests run the plugin in OpenCode
+2.4.1, in a throwaway home, against a hand-written fixture server, with a
+scripted model; CI runs them on Linux, macOS and Windows. No run of the
+official conformance suite is recorded for this form. The
+[live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md)
+against Hugging Face records its 25 skills in OpenCode's list, two loaded
+after OpenCode asked, each bound to its digest, reference files read and an
+answer from them, and the X8 question from a Code Mode program. A skill also
+loaded in the TUI and in OpenCode Desktop.
+An AI reviewer who did not build the OpenCode forms reviewed them. They have
+not been audited by a person.
+
 ### In Muse Code
 
 No Muse run used a real model. Every run used Muse's echo provider, or a
@@ -429,6 +551,14 @@ In Pi, `MCP_SKILLS_OFF=1` turns the extension off. Server-level `skip` is
 set in `mcp-skills/settings.json` in Pi's agent folder. Pi's extension cannot
 detect native Skills support: remove it or use the off switch when that
 ships. See the [Pi settings](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/README.md#settings).
+
+In OpenCode, `MCP_SKILLS_OFF=1`, or the plugin option `off`, turns the plugin
+off, and `MCP_SKILLS_ASK_BY_DEFAULT=0`, or `askByDefault: false`, leaves loads
+and cross-server reads to OpenCode's rules alone. Set a variable in the
+environment OpenCode starts in, and an option in the object form of the
+plugin's entry in `plugins`. OpenCode 2.4.1 has no Skills support to detect:
+when it ships, turn the plugin off or remove it. See the
+[OpenCode settings](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/README.md#settings).
 
 In Muse Code, put settings in `settings.json` in the plugin's data folder,
 `~/.local/share/muse/plugins/data/mcp-skills/`:

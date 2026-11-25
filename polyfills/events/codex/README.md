@@ -3,7 +3,7 @@
 Codex can watch events on your MCP servers ("tell me when a deploy fails")
 and act when one fires, even while the session sits idle with nobody typing.
 
-Also available for Claude Code: [mcp-events for Claude Code](../claude-code/README.md).
+Also available for Claude Code, Pi and OpenCode: [mcp-events for Claude Code](../claude-code/README.md), [mcp-events for Pi](../pi/README.md), [mcp-events for OpenCode](../opencode/README.md).
 The same plugin folder is also the Muse Code form: [mcp-events for Muse Code](../muse/README.md).
 
 This plugin implements the client side of the MCP Events extension,

@@ -29,6 +29,7 @@ against the hand-written events server of the Claude Code form and a stand-in
 | SEC-1, SEC-2 | what reaches the model carries nothing of what the server sent; `recent_events` returns it as data | same |
 | SEC-5 | a watch nobody typed yes to starts nothing and subscribes to nothing; the model calling again doesn't start it | same |
 | STATE-1 | a `muse exec` run whose helper ends before any hand-over: the next run's prompt gets the event | same |
+| (the SEP leaves it to the client) | stopping a watch waits for its own typed yes (`unwatch <code>`); a watch that isn't there is refused with nobody asked | "stopping a watch waits for its own typed yes too; …" |
 | (the SEP leaves it to the client) | waking, where it is on: past the hour's wakes the session is told once, and woken again only after a message of the user's | "waking is capped as in Codex: …" |
 | (the SEP leaves it to the client) | a second process for the same session leaves the watches to the first, and takes them over, with the wake count | "a second process for the same session …" |
 

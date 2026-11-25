@@ -46,8 +46,12 @@ What this doesn't protect against: the phrase doesn't name the watch. You rely
 on Muse showing you the question as the answer gives it. After you type the
 phrase, the hook's note in Muse's status line names what you approved.
 
-`unwatch_event` stops a watch. It isn't read-only, so Muse's approval treats
-it as it does any such call. It needs no typed yes, as in every form.
+Stopping a watch waits for a typed yes the same way, with its own phrase,
+`unwatch <code>`. The first `unwatch_event` answers with a question that names
+the watch, its server, its event type and its note, and stops nothing. Each
+phrase approves only its own verb: a `watch` phrase can't stop a watch, and an
+`unwatch` phrase can't start one. A call for a watch that isn't there is
+refused with nobody asked.
 
 ## What it reads
 
@@ -101,7 +105,7 @@ file and start `muse` with `MUSE_EXPERIMENTAL_TUI_MSP_CLIENT=1` and
 - **What those gates expose.** With them on, any local process of your user
   can attach to the session as a second driver and start turns, with no
   prompt. Muse runs the `UserPromptSubmit` hook for such a turn as for one you
-  typed, so that process could also type a `watch` phrase. That's Muse's
+  typed, so that process could also type a `watch` or `unwatch` phrase. That's Muse's
   behaviour, not this plugin's, and it's why waking is off by default.
 - **What the plugin itself does.** It starts only the turns that carry a batch,
   held to the wake limits (once a minute per watch, 30 times an hour, then one

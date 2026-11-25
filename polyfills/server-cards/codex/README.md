@@ -4,7 +4,7 @@ Name a company, and Codex finds the MCP servers its domain publishes. Ask it
 to add one, accept the form Codex shows you, and the server goes into Codex's
 own MCP configuration.
 
-Also available for Claude Code: [mcp-server-cards for Claude Code](../claude-code/README.md).
+Also available for Claude Code, Pi and OpenCode: [mcp-server-cards for Claude Code](../claude-code/README.md), [mcp-server-cards for Pi](../pi/README.md), [mcp-server-cards for OpenCode](../opencode/README.md).
 The same plugin folder is also the Muse Code form: [mcp-server-cards for Muse Code](../muse/README.md).
 
 > What MCP servers does neon.com publish?
