@@ -6,8 +6,10 @@ This covers ard-discovery for OpenCode. The other forms have their own:
 The plugin is one bundled file (`plugin/server.js`) that OpenCode loads into
 its own server. It carries the Server Cards modules, so everything
 [mcp-server-cards for OpenCode's SECURITY.md](../../server-cards/opencode/SECURITY.md)
-says about fetching, showing and adding a server holds here too. What ARD
-adds is the registry search.
+says about fetching, showing and adding a server holds here too: of the
+servers in OpenCode's configuration it reads only their names, and the
+connection status of a server it added, never another server's URL, headers
+or environment. What ARD adds is the registry search.
 
 ## The search
 

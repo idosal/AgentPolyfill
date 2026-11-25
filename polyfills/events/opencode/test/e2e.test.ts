@@ -4,7 +4,7 @@
 
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { appendFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
@@ -14,6 +14,11 @@ import { readFileSync } from 'node:fs';
 import { freePort, textOf, waitFor, World, type McpConfig, type Rule } from '../../../../tools/opencode/harness.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
+// The fixture servers' event logs are removed when the test process ends.
+const upstreams: string[] = [];
+process.on('exit', () => {
+    for (const f of upstreams) rmSync(f, { force: true });
+});
 const PLUGIN = join(ROOT, 'plugin');
 const FIXTURE = join(ROOT, '..', 'claude-code', 'test', 'fixture-events-server.ts');
 const ASK: Rule[] = [
@@ -24,6 +29,7 @@ const ASK: Rule[] = [
 function eventsWorld(o: { delivery?: string; permissions?: Rule[]; fixtureEnv?: Record<string, string>; env?: Record<string, string>; mcp?: Record<string, McpConfig>; options?: Record<string, unknown> } = {}) {
     const upstream = join(tmpdir(), `upstream-${randomUUID()}.jsonl`);
     writeFileSync(upstream, '');
+    upstreams.push(upstream);
     const world = new World({
         plugins: [o.options ? { package: PLUGIN, options: o.options } : PLUGIN],
         mcp: {
