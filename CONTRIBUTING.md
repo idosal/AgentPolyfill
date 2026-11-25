@@ -158,8 +158,7 @@ It states:
     `copilot plugin marketplace add ./AgentPolyfill`, then
     `copilot plugin install <plugin>@agent-polyfill` (tested with 1.0.115;
     Events needs `copilot --experimental`). From GitHub,
-    `copilot plugin marketplace add idosal/AgentPolyfill` works once the
-    plugins are on the default branch. `copilot plugin uninstall
+    `copilot plugin marketplace add idosal/AgentPolyfill`, checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code. `copilot plugin uninstall
     <plugin>@agent-polyfill` removes one.
   - Then what else it needs, and every step and question a new user meets
     between installation and the extension working, with what happens when

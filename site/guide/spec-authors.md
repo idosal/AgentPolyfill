@@ -106,8 +106,7 @@ Desktop.
 
 The Copilot CLI runs used a scripted model on the machine, with no GitHub
 sign-in. None of them shows how a model of GitHub's choosing uses the tools
-in Copilot CLI, and an install from GitHub, rather than from a clone, isn't
-covered. In VS Code 1.147.0's Copilot harness, the person testing signed in
+in Copilot CLI. An install from GitHub, rather than from a clone, was checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code. In VS Code 1.147.0's Copilot harness, the person testing signed in
 with their own GitHub account, in a throwaway VS Code profile since deleted,
 and the model was GitHub's Claude Haiku 4.5. The question Events now asks
 before a watch came after that run and hasn't been seen in VS Code.

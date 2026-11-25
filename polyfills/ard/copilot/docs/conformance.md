@@ -119,8 +119,10 @@ What this evidence doesn't establish:
 - A search sent to a public registry from Copilot, or an add through
   `ard_search` in Copilot itself (both covered by the tests over stdio).
 - A search or an add through this plugin in VS Code.
-- An install from GitHub, which works only once the plugin is on the
-  repository's default branch.
+- An install from GitHub on 1.0.115, in the interactive TUI, or in VS Code.
+  It was checked with Copilot CLI 1.0.105, in an isolated home with no
+  sign-in: the three plugins installed from GitHub, byte-identical to main,
+  and loaded ([the record](live-run.md#installed-from-github)).
 - A DNS check, trust manifests or signatures (ARD P-1 and R-8 above).
 - An upstream conformance pass: the MCP conformance suite has no Server Card
   or ARD scenarios.

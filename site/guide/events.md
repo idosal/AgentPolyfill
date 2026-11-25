@@ -119,9 +119,9 @@ with `copilot --experimental`, or, per Copilot's help, run `/settings experiment
 whole extension API is experimental, so it may change in any release.
 Copilot runs the extension with its own Node, so you need none. The install
 from a clone is the one tested; Copilot loads the plugin where it is, so keep
-the clone. Once the plugin is on the repository's default branch,
-`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace
-from GitHub; that hasn't been tested. To remove it, run
+the clone. From GitHub,
+`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace;
+that was checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code. To remove it, run
 `copilot plugin uninstall mcp-events@agent-polyfill`. Watches and events stay
 in `~/.copilot/mcp-events/`; delete that folder too to remove them.
 
