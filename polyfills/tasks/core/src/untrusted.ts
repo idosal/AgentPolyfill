@@ -60,8 +60,12 @@ export function visible(s: unknown, max = Infinity): string {
     return text.length > max ? text.slice(0, max - 1) + '\u2026' : text;
 }
 
-/** Every character a person can't see (controls, line and paragraph separators, format and default-ignorable characters). */
-const UNSEEN = /[\u0000-\u001f\u007f-\u009f\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180f\u200b-\u200f\u2028-\u202e\u2060-\u206f\u3164\ufe00-\ufe0f\ufeff\uffa0\ufff0-\ufff8]|\udb40[\udc00-\udfff]/g;
+/**
+ * Every character a person can't see (controls, line and paragraph separators, format and default-ignorable
+ * characters), but the line feed: in `exact`'s text, JSON, the only raw line feeds are its own layout
+ * (JSON.stringify escapes one inside a string).
+ */
+const UNSEEN = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u00ad\u034f\u061c\u115f\u1160\u17b4\u17b5\u180b-\u180f\u200b-\u200f\u2028-\u202e\u2060-\u206f\u3164\ufe00-\ufe0f\ufeff\uffa0\ufff0-\ufff8]|\udb40[\udc00-\udfff]/g;
 
 /**
  * Text that will be sent, shown so that nothing in it is hidden: each character nobody can see is

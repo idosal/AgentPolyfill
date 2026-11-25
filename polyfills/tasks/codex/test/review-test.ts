@@ -43,6 +43,17 @@ test('T1: the question shows every argument exactly as sent, hidden characters w
     assert.match(q, /could not see are written as/);
 });
 
+test('T1: an ordinary call shows its arguments on lines, with no note about hidden characters', async () => {
+    const w = await world();
+    const c = await started(w);
+    c.respond = choose('no');
+    await c.call('start_task', { server: 'jobs', tool: 'slow', arguments: { query: 'deploy logs\nsecond line', n: 3 } }, newThread());
+    const q = String((c.asked[0] as { message: string }).message);
+    assert.match(q, /Arguments:\n\{\n {2}"query": "deploy logs\\nsecond line",\n {2}"n": 3\n\}/);
+    assert.doesNotMatch(q, /could not see/);
+    assert.deepEqual(exact('{\n  "a": 1\n}'), { text: '{\n  "a": 1\n}', escaped: false });
+});
+
 test('T1: the length limit is on the text as shown', async () => {
     const w = await world();
     const c = await started(w);
