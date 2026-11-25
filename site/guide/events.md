@@ -38,9 +38,7 @@ codex plugin add mcp-events@agent-polyfill
 ```
 
 ```bash [Pi]
-git clone https://github.com/idosal/AgentPolyfill.git
-cd AgentPolyfill
-pi install ./polyfills/events/pi/extension
+pi install git:github.com/idosal/AgentPolyfill
 ```
 
 ```bash [OpenCode]
@@ -59,14 +57,40 @@ CLI session (the terminal app or `codex exec`). A chat in the ChatGPT desktop
 app keeps its events but can't be woken, so ask it for `recent_events`. A
 resumed Codex session starts watching at its first Events tool call.
 
-**In Pi** (1.6.0, the version tested, with Node 22 or newer), install from a
-clone: nothing for Pi is published to npm or Pi's package gallery. The
-extension is bundled, with nothing to build. For one run without installing,
-use `pi -e ./polyfills/events/pi/extension`. Pi loads the path where it is,
-so keep the clone; `git pull` there updates it. To remove it, run
-`pi remove ./polyfills/events/pi/extension` from the same folder. Watches and
-events stay in `mcp-events/` in Pi's agent folder (`~/.pi/agent`, or
-`PI_CODING_AGENT_DIR`); delete that folder too to remove them.
+**In Pi** (1.6.0, the version tested, with Node 22 or newer), the command
+above installs Events, Skills and Server Cards together.
+Pi clones the repository under `~/.pi/agent/git/` and loads the three
+extensions from there. Nothing is published to npm or Pi's package gallery,
+and nothing is built.
+
+Update installed packages with `pi update --extensions`. Remove all three
+and Pi's copy of the repository with
+`pi remove git:github.com/idosal/AgentPolyfill`. For one run of all three
+without installing, use `pi -e git:github.com/idosal/AgentPolyfill`.
+
+To install only Events, use a clone:
+
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+pi install ./polyfills/events/pi/extension
+```
+
+Pi loads the local path where it is, so keep the clone. From the same folder,
+`pi remove ./polyfills/events/pi/extension` removes that local install;
+`pi -e ./polyfills/events/pi/extension` runs it once without installing.
+Use one way per form: Pi tells packages apart by repository address or local
+path, so a form installed both ways loads twice.
+
+[ARD](./ard#install) is left out of the one-line install, as it is from the
+Claude Code bundle: its search sends the words of your request to a registry
+after asking each time. Install it separately from a clone.
+
+Removal leaves watches and events in `mcp-events/`, and approvals and skill
+stubs in `mcp-skills/`, in Pi's agent folder (`~/.pi/agent`, or
+`PI_CODING_AGENT_DIR`); delete those folders too to remove that data.
+Servers you added stay in `mcp.json`; remove one with
+`pi mcp remove <name>`.
 
 **In OpenCode** (2.4 or newer; tested with 2.4.1), OpenCode runs the plugin
 itself, so you don't need Node. The plugin isn't on npm: the command fetches
