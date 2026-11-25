@@ -958,10 +958,9 @@ from rule 4 ([Skills](polyfills/skills/opencode/docs/conformance.md),
 In Antigravity, Skills passes all four upstream client scenarios and Events
 all 17 checks (suite at `c8625de`): Events through its MCP server and real
 hook, Skills through its MCP server code with its hook's handlers run
-in-process (a `force_ask` taken as yes). Both were also checked against
-servers this project didn't write: this repository's deploys demo, whose
-Events support is Mastra's own implementation, and Hugging Face's Skills
-server. The Antigravity conformance pages record the details
+in-process (a `force_ask` taken as yes). Events was also checked against a
+server this project didn't write: this repository's deploys demo, whose
+Events support is Mastra's own implementation. The Antigravity conformance pages record the details
 ([Skills](polyfills/skills/antigravity/docs/conformance.md),
 [Events](polyfills/events/antigravity/docs/conformance.md)).
 

@@ -341,8 +341,8 @@ The upstream Events client scenarios
 ([conformance PR #541](https://github.com/modelcontextprotocol/conformance/pull/541),
 at `c8625de`) pass through this form's MCP server and hook: **17 of 17
 checks**. [docs/conformance.md](docs/conformance.md) maps this form's tests
-and the upstream run. `npm run interop` runs the adapter against another
-author's Events server on loopback (`test/probe.ts`).
+and the upstream run. `npm run interop -- http://127.0.0.1:<port>/mcp` drives
+the adapter against an Events server you run on loopback (`test/probe.ts`).
 
 Not checked: a webhook watch, and `--dangerously-skip-permissions` against
 the watch question.

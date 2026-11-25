@@ -32,7 +32,7 @@ in the row.
   a server's media type, control characters, secrets, a `skills/get` answer
   that can't be used (`npm test`, 9 tests).
 - `pi`: [`test/pi-test.ts`](../test/pi-test.ts), the extension in a real Pi
-  1.6.0 (`npm test`, 8 tests).
+  1.6.0 (`npm test`, 8 tests). Not checked: Pi's TUI dialog.
 - `connection`: [`test/connection-test.ts`](../test/connection-test.ts), a
   server behind a token and one behind OAuth (`npm test`).
 - `conformance`: the official MCP conformance suite's four SEP-2640 client

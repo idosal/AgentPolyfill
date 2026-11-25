@@ -262,7 +262,8 @@ the rows where Codex differs:
   - 2 bundle checks: it is byte-identical to a fresh build, and a copy of
     `plugin/` alone starts and lists its tools.
 - **The real host:** Checked in Codex CLI 0.172.0. Not checked against
-  Hugging Face Discover.
+  Hugging Face Discover. Not checked: the search form as Codex's TUI draws
+  it.
 - **Upstream conformance:** the MCP conformance suite has no Server Card or
   ARD scenarios.
 

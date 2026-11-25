@@ -15,3 +15,5 @@ tools/opencode/tui-world.ts
 polyfills/apps/claude-code/bench/session.py
 polyfills/apps/claude-code/bench/bursts.py
 polyfills/apps/claude-code/bench/shown.py
+polyfills/apps/claude-code/bench/scenarios/*
+!polyfills/apps/claude-code/bench/scenarios/bloom-scene.json

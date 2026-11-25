@@ -51,7 +51,7 @@ hour, and tickets), which you delete by hand.
 
 | Surface | Supported | Checked |
 |---|---|---|
-| Antigravity CLI 1.5.17 (macOS) | yes | a search of Hugging Face's registry approved, one declined, one around the hook refused; `ard_discover` for buildkite.com |
+| Antigravity CLI 1.5.17 (macOS) | yes | a search of Hugging Face's registry approved, one declined, one around the hook refused |
 | Antigravity App 2.35.1 (macOS) | yes | a search of Hugging Face's registry approved (the card shows the whole question), one declined, one around the hook refused |
 | Antigravity IDE | no | Antigravity documents no plugin hooks for the IDE, so there is no question and no ticket: every search and addition there is refused |
 

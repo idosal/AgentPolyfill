@@ -370,7 +370,7 @@ in this session. A URL is never taken from the conversation.
 - **A limit of one test:** B-13 tests that a call from another plugin is
   refused for coming from another plugin. The test kit gives such a call
   nobody to ask, so it can't show whether a real host would.
-- **Documents someone else wrote:** the catalogs and cards published on
+- **Documents someone else wrote:** the catalogs and cards as served on
   2026-11-24 by Buildkite, GitHub, Hugging Face, Neon, Netlify, Notion,
   Context7, Exa, Supabase and Zapier.
   - Ten of the eleven cards are valid. Zapier's is refused.

@@ -326,8 +326,8 @@ The changes both hosts would need are in
 - **A wake only where Codex's own app shows it.** `codex queue` runs the wake
   in whichever app server has the session open. Codex's own TUI shows that
   turn. An app that runs Codex through an app server of its own, as T3 Code
-  does, may not show a turn it didn't start. T3 Code runs the turn and never
-  shows it. So the plugin wakes a session only while the latest of the
+  does, may not show a turn it didn't start. T3 Code (0.1.11) runs the turn
+  and never shows it. So the plugin wakes a session only while the latest of the
   session's turns that called its tools was one you started in Codex's own
   app.
   - **How it tells.** Codex sends what started each turn with every call

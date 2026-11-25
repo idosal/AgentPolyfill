@@ -65,8 +65,7 @@ must be up for the last two.
 
 Every check here runs the Node helper by default, and the binary
 `MCP_APPS_CLI_HELPER` names instead: the Rust helper
-(`../mod/helper/bin/<os>-<arch>/mcp-apps-cli-helper`). Set
-`MCP_APPS_CLI_HELPER=node` to compare.
+(`../mod/helper/bin/<os>-<arch>/mcp-apps-cli-helper`).
 - `node leak-check.mjs`: a helper ended outright, with views open, leaves no
   Chrome running, and the next helper removes its profile.
 - `host-check.mjs` also checks that a view of a server elsewhere doesn't reach

@@ -338,7 +338,8 @@ numbers; 0.1.3 changes nothing at start and adds one local round trip (a
 
 ## Checked, and not checked
 
-Checked in Claude Code 2.1.329 on macOS, against the hosted arcade server.
+Checked in Claude Code 2.1.329 on macOS, in a plain terminal, against the
+hosted arcade server.
 
 Not checked for 0.1.3: macOS on Intel, Linux, Windows; the bench checks that need the
 SDK's example servers; the render crate's parity tests; `ui/allow-tool` and

@@ -18,7 +18,7 @@ against this form too ([below](#the-upstream-conformance-suite)).
 
 What this file adds: which rules the Pi form's own tests check end to end, in
 a real Pi 1.6.0 with the bundled extension, against the hand-written events
-server; and what is different in Pi.
+server; and what is different in Pi. Not checked: Pi's TUI dialog.
 
 ## Checked end to end in this form
 

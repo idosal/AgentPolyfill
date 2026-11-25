@@ -516,7 +516,7 @@ server end to end in Claude Code (added, then connected and used) was not
 checked; the recording at the top of this page shows **Add** pressed and the
 server written to the config, not connected. The MCP conformance suite has no
 Server Card scenarios. An AI reviewer that did not build it reviewed it, and
-no person has audited it; what the review found is fixed and tested.
+no person has audited it.
 
 The full account:
 [`SECURITY.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md).

@@ -14,8 +14,8 @@ Linux or Windows, or against a remote server.
 
 ## 0.5.0 against 0.4.1
 
-Both bundles on Node 22.23.1, by `test/perf.ts` (the idle CPU figures move by
-tens of milliseconds between runs):
+Both bundles on Node 22.23.1, by `test/perf.ts` (one run each; the idle CPU
+figures move by tens of milliseconds between runs):
 
 | | 0.4.1 | 0.5.0 |
 |---|---|---|

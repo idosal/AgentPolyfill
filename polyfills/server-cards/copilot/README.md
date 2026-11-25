@@ -159,7 +159,7 @@ holds:
   returned, or from a card supplied by URL or as data. It accepts the Server
   Card media type, `application/mcp-server-card+json`.
 
-What it doesn't hold: discovery from a domain, SEP-2127's way in. Neither the
+What wasn't found in it: discovery from a domain, SEP-2127's way in. Neither the
 runtime's JavaScript nor the SDK's types mention the AI Catalog or a
 `.well-known` path, and the skill sends a capability query, not a domain.
 Copilot's compiled core can't be searched as text, so that isn't proof.

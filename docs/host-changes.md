@@ -24,8 +24,8 @@ Events form running in it, with Codex 0.172.0), and Copilot CLI against npm
 and the forms running in it) and `github/copilot-sdk` at `03056de9`.
 VS Code's Copilot harness runs Copilot's runtime, so the Copilot column holds
 there too, except where a row says otherwise. Of the forms, Events (a wake)
-and a Server Cards add were checked in VS Code 1.147.0; ARD's server only
-loads there.
+and a Server Cards add were checked in VS Code 1.147.0. In VS Code, ARD's
+search and add haven't been checked.
 Google Antigravity is closed source: we checked it against its documentation
 (read on 2026-11-25) and in CLI v1.5.17, CLI v1.5.16 and App v2.35.1.
 
