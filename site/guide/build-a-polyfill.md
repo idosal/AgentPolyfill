@@ -152,6 +152,10 @@ for each host:
   project folder. It installs from GitHub by its folder's path
   (`opencode plugin add`, with Git) or from a clone; nothing is published to
   npm.
+- **Muse Code:** the Codex plugin folder, with a Muse manifest
+  (`.muse-plugin/plugin.json`) beside the Codex one. Muse reads the Codex
+  marketplace and runs the same bundle, told it is in Muse. `muse/` holds
+  the form's README, `SECURITY.md` and docs.
 
 The Pi examples are
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi),
@@ -170,10 +174,20 @@ Apps has no OpenCode form. OpenCode has no MCP Apps support, and a plugin
 can't read a `ui://` resource or a tool's `_meta` over OpenCode's connection;
 that was looked into, not built.
 
+The Muse Code examples are
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/muse),
+[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/muse),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/muse)
+and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/muse).
+Apps has no Muse Code form: Muse gives a plugin no way to draw in its
+terminal.
+
 Bringing a polyfill to another host is a new adapter: find how the host lets
 it reach the wire (a connection of its own, a tool call, a way to wake an idle
 session), meet the contract there, say what that host cannot do, and document
-installation. Add a marketplace entry where that host uses one.
+installation. Add a marketplace entry where that host uses one. A host that
+reads another host's plugins can share that host's folder, as Muse Code
+shares Codex's.
 [Contributing](./contributing#bringing-a-polyfill-to-another-host) has the
 steps; `create-polyfill` covers it too ("polyfill MCP Apps in Codex").
 
@@ -202,6 +216,22 @@ states its departure from rule 4. Their READMEs, `SECURITY.md` and
 a scripted model, and live runs in
 [`tools/opencode/live-run.md`](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md).
 ARD's live runs did not add a server; addition was checked by its tests.
+
+The Muse Code forms show the same. A Muse plugin brings an MCP server,
+skills and hooks, as in Codex, but it can't put a question to the person:
+Muse's MCP client offers no elicitation, and a
+tool call that isn't read-only, or a hook's `ask`, goes to the approval
+judge, a model that may approve with nobody asked. So Events and Skills wait
+for a phrase the person types, which the plugin's `UserPromptSubmit` hook
+checks; Muse runs that hook for the person's messages, not for a turn Muse or a model
+starts. Server Cards and ARD write nothing and give the person a
+`muse mcp add …` command to run, and ARD drops registry search. Events and
+Skills need their own connections and can't use Muse's sign-in. A turn in an
+idle session needs two experimental launch gates, so Events delivers with
+the next message by default. The Skills form meets X8 because Muse gives the
+model no tool that reads an MCP resource. Their READMEs, `SECURITY.md`,
+`docs/conformance.md` and `docs/live-run.md` record what was checked: tests
+in the Codex suites, and runs in a real Muse 1.4.25 with no real model.
 
 ## Your own, listed in the community directory
 

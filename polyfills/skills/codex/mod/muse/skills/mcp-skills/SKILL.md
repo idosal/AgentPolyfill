@@ -16,7 +16,7 @@ that are not in the list yet.
 2. To use one, call `load_skill` with its `server` and `uri`, exactly as listed.
    The first time, it does not load the skill: Muse gives the plugin no way to ask
    the user, so the answer is a question for them and a short phrase
-   (`load <code>`). Show them the question as it is, and the phrase. Only a message
+   (`load <server> <skill> <code>`). Show them the question as it is, and the phrase. Only a message
    of theirs that is exactly that phrase approves the skill; then call `load_skill`
    again with the same arguments. Never write the phrase yourself, and never ask
    them to type it without showing the question.

@@ -269,10 +269,11 @@ turn one served skill off, deny `mcp_skills_load` for `<server>:<uri>@*`.
 
 Muse gives a plugin no way to ask you, and a hook's `ask` goes to Muse's
 approval judge, a model that may approve with nobody asked. So a load waits
-for a phrase you type. The answer gives a phrase such as `load 4821`, and
+for a phrase you type. The answer gives a phrase that names the server and
+the skill, such as `load github git-workflow 4821`, and
 only a message of yours that is exactly that phrase approves the load: Muse
 runs the plugin's `UserPromptSubmit` hook for your messages, not for a turn
-its timers start. The phrase is good for that one question, in that
+Muse or a model starts. The phrase is good for that one question, in that
 session, for 15 minutes. Then the skill loads and is checked against the
 server's digests.
 

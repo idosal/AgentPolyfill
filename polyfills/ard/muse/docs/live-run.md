@@ -7,8 +7,13 @@ Recorded on 25 November 2026 with the real Muse Code 1.4.25 binary on macOS.
   `TMPDIR` in a scratch folder.
 - **Model.** No run used a real model, and there was no `muse login`. The model
   was a stand-in for the Responses API on 127.0.0.1 with a made-up key.
-- **Install.** From this repository as a marketplace, with
-  `muse plugins approve ard-discovery`.
+- **Install.** `muse plugins install ard-discovery@agent-polyfill`, then
+  `muse plugins approve ard-discovery`, from this branch's worktree, as a local marketplace
+  (`muse plugins marketplace add agent-polyfill <the worktree's folder>`).
+  Adding the marketplace by its GitHub URL was checked too: Muse fetched it
+  with Git and listed the four plugins, but `main` had no Muse manifests yet.
+  So an install from GitHub, as the README gives it, can only be checked once
+  this is merged.
 - **The catalog.** A local catalog on 127.0.0.1 served an `ard.json` with one
   card, beside an AI Catalog with another.
 

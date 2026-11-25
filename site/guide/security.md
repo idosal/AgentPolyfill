@@ -9,7 +9,8 @@ None of them reads the host's stored credentials. They have been reviewed by
 an AI reviewer that did not build them, and not audited by a person. The Pi
 forms had an independent AI review, fixes and a check of those changes too.
 The OpenCode forms had fixes from a security review, and their live runs were
-repeated after them.
+repeated after them. The Muse Code forms run the Codex forms' code, and no
+Muse run used a real model.
 
 ## Reporting a problem
 
@@ -42,16 +43,17 @@ documents and adds a server to Claude Code's own config, only when you press
 Each polyfill's own `SECURITY.md` describes what it checks and what it does
 not protect against, in each host:
 
-| Polyfill | Claude Code | Codex | Pi | OpenCode |
-|---|---|---|---|---|
-| Events | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/SECURITY.md) |
-| Skills | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/SECURITY.md) |
-| Server Cards | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/opencode/SECURITY.md) |
-| Apps | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md) | not available | not available | not available |
-| ARD | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/opencode/SECURITY.md) |
+| Polyfill | Claude Code | Codex | Pi | OpenCode | Muse Code |
+|---|---|---|---|---|---|
+| Events | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/muse/SECURITY.md) |
+| Skills | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/muse/SECURITY.md) |
+| Server Cards | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/muse/SECURITY.md) |
+| Apps | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md) | not available | not available | not available | not available |
+| ARD | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/opencode/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/muse/SECURITY.md) |
 
 The following per-polyfill summaries describe the Claude Code forms;
-[Pi's security notes](#in-pi) and [OpenCode's](#in-opencode) follow them.
+[Pi's security notes](#in-pi), [OpenCode's](#in-opencode) and
+[Muse Code's](#in-muse-code) follow them.
 
 ### Events
 
@@ -275,6 +277,77 @@ log in `~/.local/share/opencode/mcp-skills/`, and no skill content anywhere.
 Server Cards and ARD added are in OpenCode's plugin storage (its own
 database). See [Turning one off](./getting-started#turning-one-off) for off
 switches, uninstalling and removing saved data.
+
+## In Muse Code
+
+Muse's own approvals decide what Muse does, with an event or a skill as
+with anything else in the session. Muse gives a plugin no way to put a
+question to you: its MCP client offers no elicitation, and a tool call that
+isn't read-only goes to Muse's approval judge, a model that can approve it
+with nobody asked. A hook's `ask` goes to the same judge. So the forms don't
+rely on the judge. Each consequential step waits for something only you can
+do: type a phrase, or run a command.
+
+- **Events:** starting a watch waits for a phrase you type, such as
+  `watch tickets ticket.created 4821`, and stopping one waits for its own, such as
+  `unwatch tickets ticket.created 3307`.
+  The question gives the server, the event type, the filters and your note
+  in full, with any hidden character written out. Only a message of yours
+  that is exactly the phrase approves it, in the same session, within 15
+  minutes. Muse runs the plugin's `UserPromptSubmit` hook for your messages,
+  not for a turn Muse or a model starts, so the model can't send the phrase. Each
+  phrase approves only its own verb. The phrase names the server and the
+  event type, so you type the names of what you approve; for the filters and
+  the note, you rely on Muse showing you the question as the answer gives it. New
+  events reach the model with your next message, as a context block whose
+  first line says the plugin sent it, with nothing the server wrote.
+- **Skills:** a load waits for its phrase the same way, such as `load github git-workflow 4821`. After that the
+  approval is kept as in Codex, bound to the skill's URI, its server and its
+  digests, and asked again when they change. "Show me its SKILL.md first"
+  isn't offered, because Muse has no way to show you text the model doesn't
+  see. X8 is met: Muse gives the model no tool that reads an MCP resource,
+  and `read_skill_file` reads only the skill's own server. The stubs go in
+  Muse's own skill folder, `~/.config/muse/skills`, one folder each, named
+  `mcp-skills-served--…`; the plugin writes or removes nothing else there.
+- **Server Cards:** "add" writes nothing. It gives you the `muse mcp add …`
+  command, with each word quoted for the shell, so what you see is what
+  runs, with the URL and every header. A secret stays a reference
+  (`--bearer-token-env-var VAR`, or a header whose whole value is `${VAR}`).
+  The plugin reads no configuration file and no sign-in store, and runs
+  `muse` only for `muse mcp get <name> --json`, with no shell.
+- **ARD:** no registry search. `ard_search` isn't offered, and nothing is
+  ever sent to a registry from Muse. Discovery sends only GETs, and adding
+  works as for Server Cards.
+- **Apps:** no Muse Code form: Muse gives a plugin no way to draw in its
+  terminal.
+
+Events and Skills read `mcpServers` in `~/.config/muse/settings.json`, which
+can hold header values you wrote. They use them to connect, as Muse does,
+and keep them out of their logs. They never read Muse's sign-in store or a
+project's `.mcp.json`. A server signed in with `muse mcp login`, one whose
+values come from `${VAR}`, and one with `enabled: false` are left out. Where
+an organisation manages Muse (`muse config status` shows a defaults or
+policy plane, or can't be read), they reach no server. While a plugin's MCP
+server is rejected or not approved, its hook does nothing.
+
+**Muse's experimental gates.** With
+`MUSE_EXPERIMENTAL_TUI_MSP_CLIENT=1 MUSE_EXPERIMENTAL_TUI_SESSION_PROCESS=1`,
+any local process of the same user can attach to the session and start
+turns, with no prompt, and could type the phrases. Events' wake mode needs
+these gates, and is off by default. No other form needs them.
+
+Events keeps watches and stored events in its data folder,
+`~/.local/share/muse/plugins/data/mcp-events`, private to you. Skills keeps
+approvals, server notes and its log in
+`~/.local/share/muse/plugins/data/mcp-skills`, and no skill content.
+`muse plugins remove <name> --delete-data` removes a plugin's folder;
+Skills' stubs stay until you delete them. See
+[Turning one off](./getting-started#turning-one-off) for off switches,
+uninstalling and removing saved data.
+
+No Muse run used a real model. Every run used Muse's echo provider, or a
+local stand-in for the Responses API on 127.0.0.1 with a made-up key, which
+also answered the approval judge, in an isolated home with no `muse login`.
 
 ## What was checked, and how
 

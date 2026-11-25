@@ -31,13 +31,13 @@ function museSettings(home: string, mcpServers: Record<string, unknown> = {}, o:
  * The person in Muse, for the app's tests: each question goes through museAsk; `typed` is what the
  * person sends next (the hook reads it), or nothing.
  */
-function typedAnswers(dir: string, session: string, typed: (code: string) => string | undefined) {
+function typedAnswers(dir: string, session: string, typed: (phrase: string) => string | undefined) {
     const ask = museAsk(dir, session);
-    return (async (message: string, choices: Decision[]): Promise<Asked> => {
-        const r = await ask(message, choices);
+    return (async (message: string, choices: Decision[], subject?: readonly string[]): Promise<Asked> => {
+        const r = await ask(message, choices, subject);
         if ('pending' in r) {
-            const code = /exactly: load (\d{4})/.exec(r.pending)![1]!;
-            const said = typed(code);
+            const phrase = /exactly: (load .*\d{4})$/m.exec(r.pending)![1]!;
+            const said = typed(phrase);
             if (said !== undefined) confirmFromPrompt(dir, session, said);
         }
         return r;
@@ -201,9 +201,11 @@ describe('the helper in Muse', () => {
             assert.match(first.text, /^The skill is not loaded yet\. Muse gives this plugin no way to ask the person/);
             assert.match(first.text, /Load the skill "git-workflow" from the MCP server "github"\?/);
             assert.match(first.text, /through Muse's usual approvals/);
-            const code = /exactly: load (\d{4})/.exec(first.text)![1]!;
+            const code = /exactly: load github git-workflow (\d{4})$/m.exec(first.text)?.[1];
+            assert.ok(code, `the phrase names the server and the skill: ${first.text}`);
             assert.equal(f.requests('resources/read').length, 0, 'nothing of the skill was read');
-            assert.match(hook({ session_id: session, prompt: `load ${code}` }, { MUSE_PLUGIN_DATA_DIR: data, HOME: home }), /approve/);
+            assert.doesNotMatch(hook({ session_id: session, prompt: `load ${code}` }, { MUSE_PLUGIN_DATA_DIR: data, HOME: home }), /approve/, 'the code alone is not the phrase');
+            assert.match(hook({ session_id: session, prompt: `load github git-workflow ${code}` }, { MUSE_PLUGIN_DATA_DIR: data, HOME: home }), /approve/);
             const loaded = await call('load_skill', { server: 'github', uri: s.uri });
             assert.equal(loaded.isError, false, loaded.text);
             assert.match(loaded.text, /git-workflow/);
@@ -224,7 +226,7 @@ describe("main's shared fixes, in Muse", () => {
         const f = new Fixture(scenarioOf([s]));
         f.change((sc) => (sc.files![`${s.root}/logo.bin`] = { blob: bytes.toString('base64'), mimeType: 'application/octet-stream)\nmore text from the server (' }));
         const dir = temp();
-        const st = await startApp({ docs: f }, { answers: typedAnswers(dir, randomUUID(), (code) => `load ${code}`) });
+        const st = await startApp({ docs: f }, { answers: typedAnswers(dir, randomUUID(), (phrase) => phrase) });
         const first = await st.call('load_skill', { server: 'docs', uri: s.uri });
         assert.ok(first.isError && /not loaded yet/.test(first.text), first.text);
         assert.ok(!(await st.call('load_skill', { server: 'docs', uri: s.uri })).isError);
@@ -242,8 +244,8 @@ describe("main's shared fixes, in Muse", () => {
         assert.ok(r.isError);
         assert.deepEqual(st.questions[0]!.choices, ['no', 'show', 'load'], 'the app offers a showing');
         assert.doesNotMatch(r.text, /\bshow \d{4}\b/, 'Muse offers no phrase for it');
-        const code = /exactly: load (\d{4})/.exec(r.text)![1]!;
-        assert.equal(confirmFromPrompt(dir, session, `show ${code}`), undefined, 'and does not take one');
+        const code = /exactly: load docs git-workflow (\d{4})$/m.exec(r.text)![1]!;
+        assert.equal(confirmFromPrompt(dir, session, `show docs git-workflow ${code}`), undefined, 'and does not take one');
         assert.equal(st.questions.length, 1, 'nothing is read for a showing either');
     });
 

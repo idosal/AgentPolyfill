@@ -242,15 +242,18 @@ const server = serve({
         if (!s.manager.owner) s.start();
         if (!onMuse && isThePersons(meta)) s.spoke();
         // In Muse a watch waits for the person's typed yes (muse-confirm.ts): Muse's own approval may be a model's.
-        // A server or event type that isn't there is refused by the call itself, with nobody asked.
-        if (onMuse && name === 'watch_event' && connections.get(String(args.server ?? ''))?.eventTypes.some((t) => t.name === args.event)) {
-            const asked = { server: String(args.server), event: String(args.event), arguments: args.arguments, note: typeof args.note === 'string' ? args.note : undefined };
+        // A server or event type that isn't there is refused here, with nobody asked: nothing unasked reaches add().
+        if (onMuse && name === 'watch_event') {
+            const conn = connections.get(String(args.server ?? ''));
+            if (!conn) return { text: `The watch is not started: no MCP server by that name offers events. Known: ${[...connections.keys()].join(', ') || 'none'}`, isError: true };
+            if (!conn.eventTypes.some((t) => t.name === args.event)) return { text: `The watch is not started: server "${conn.name}" has no event type by that name. It has: ${conn.eventTypes.map((t) => t.name).join(', ')}`, isError: true };
+            const asked = { server: String(args.server), event: String(args.event), arguments: args.arguments, note: typeof args.note === 'string' ? args.note : undefined, maxAgeMs: typeof args.maxAgeMs === 'number' ? args.maxAgeMs : undefined };
             const why = unshowable(asked);
             if (why) return { text: `The watch is not started: ${why}.`, isError: true };
             const question = museWatchQuestion(asked, museMode === 'attach' ? s.budget : undefined);
             // The question shows what is sent, or there is no watch.
             if (secrets.scrub(question) !== question) return { text: 'The watch is not started: its filters or note hold a value your MCP configuration keeps secret, which the question to the user would have to hide.', isError: true };
-            const typed = askTyped(base, thread, 'watch', question);
+            const typed = askTyped(base, thread, 'watch', question, Date.now(), [asked.server, asked.event]);
             if ('unavailable' in typed) return { text: `The watch is not started: ${typed.unavailable}.`, isError: true };
             if ('pending' in typed) return { text: watchPendingText(question, typed.pending), isError: true };
             log(`[${thread.slice(0, 8)}] the user typed the yes to this watch`);
@@ -260,7 +263,7 @@ const server = serve({
         const stopping = onMuse && name === 'unwatch_event' ? s.manager.watches.find((w) => w.id === args.watch) : undefined;
         if (stopping) {
             const question = museUnwatchQuestion({ id: stopping.id, server: stopping.server, event: stopping.event, note: stopping.note });
-            const typed = askTyped(base, thread, 'unwatch', question);
+            const typed = askTyped(base, thread, 'unwatch', question, Date.now(), [stopping.server, stopping.event]);
             if ('unavailable' in typed) return { text: `The watch is not stopped: ${typed.unavailable}.`, isError: true };
             if ('pending' in typed) return { text: unwatchPendingText(question, typed.pending), isError: true };
             log(`[${thread.slice(0, 8)}] the user typed the yes to stopping ${stopping.id}`);

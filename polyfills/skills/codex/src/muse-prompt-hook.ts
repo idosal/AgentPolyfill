@@ -2,7 +2,7 @@
 //
 // Muse runs it before each message the person sends (and not for a turn Muse's timers or a model
 // start), with the hook input on standard input: `session_id`, `prompt`, … (Claude Code's shape;
-// the input ends without a newline). When the message is exactly the `load <code>` that load_skill
+// the input ends without a newline). When the message is exactly the `load <server> <skill> <code>` that load_skill
 // asked for in this session, the question is approved (muse.ts), and the model is told so as context
 // added to the message. Anything else: it prints nothing, and never stops the message.
 

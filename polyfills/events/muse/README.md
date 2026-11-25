@@ -65,13 +65,14 @@ Start `muse` and ask:
 > Watch for new earthquakes from the feeds server.
 
 Muse calls `watch_event`, and the answer is a question for you, with a phrase
-such as `watch 4821`. Send a message that is exactly that phrase. Muse calls
+that names the server and the event type, such as `watch feeds usgs.earthquake 4821`. Send a message
+that is exactly that phrase. Muse calls
 `watch_event` again, and the watch starts. When an earthquake is reported, it
 reaches the session with your next message, and Muse reads it with
 `get_event`.
 
 To stop, ask: "Stop watching the earthquakes." Stopping waits for its own
-phrase, such as `unwatch 3307`, and the watch stops after you send it.
+phrase, such as `unwatch feeds usgs.earthquake 3307`, and the watch stops after you send it.
 
 ## How it works
 
@@ -87,12 +88,14 @@ phrase, such as `unwatch 3307`, and the watch stops after you send it.
 
   So the first `watch_event` answers with the question: the server, the event
   type, the filters and your note, each in full, with any hidden character
-  written out. It ends with a phrase. The plugin's `UserPromptSubmit` hook
+  written out. It ends with a phrase that names the server and the event type
+  (`watch <server> <event type> <code>`). The plugin's `UserPromptSubmit` hook
   approves the watch only when a message of yours is exactly that phrase, in
   the same session, within 15 minutes. Muse runs that hook for your messages,
-  not for a turn its timers start, so the model can't send the phrase. The
+  not for a turn Muse or a model starts, so the model can't send the phrase. The
   next `watch_event` with the same arguments starts the watch. Stopping a
-  watch works the same way, with its own phrase (`unwatch <code>`).
+  watch works the same way, with its own phrase
+  (`unwatch <server> <event type> <code>`).
 - **Delivery at your next message.** The server stores every event as it
   arrives and hands nothing over. When you next send a message, the hook adds
   the new events as a context block. It starts with

@@ -46,6 +46,11 @@ nothing is sent. Every search is put to OpenCode's permission rules and asked
 about by default, and so is a registry a referral names, before the query
 goes there. With nobody to answer, OpenCode refuses. OpenCode has no bundle;
 this plugin is installed separately too.
+
+In Muse Code, there is no registry search: `ard_search` isn't offered, and
+nothing is sent to a registry. A search must ask you first, and Muse gives a
+plugin no way to ask. Muse has no bundle; this plugin is installed
+separately too.
 :::
 
 It implements ARD v0.91 at commit `f073b1ea9b`: §5.1 (domain discovery), §5.3
@@ -72,6 +77,12 @@ pi install ./polyfills/ard/pi/extension
 
 ```bash [OpenCode]
 opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/ard/opencode/plugin'
+```
+
+```bash [Muse Code]
+muse plugins marketplace add agent-polyfill https://github.com/idosal/AgentPolyfill
+muse plugins install ard-discovery@agent-polyfill
+muse plugins approve ard-discovery
 ```
 
 :::
@@ -125,12 +136,28 @@ Adding a server it finds works as in
 [`mcp-server-cards`](./server-cards#using-it-step-by-step) in OpenCode, with
 the same code and the same permission actions.
 
+### In Muse Code
+
+Muse Code 1.4.25 (the version tested, on macOS only), with Node 20 or newer.
+The plugin is the Codex plugin, which Muse installs from the same
+marketplace. Muse holds its MCP server until you run
+`muse plugins approve ard-discovery`, and again after each update. Then
+start a new `muse` session in a workspace you trust. Remove the plugin with
+`muse plugins remove ard-discovery --delete-data`. A server you added stays;
+remove it with `muse mcp remove <name>`.
+
+Discovery works as in Codex. Searching doesn't: there is no registry search
+in Muse. Adding a server it finds works as
+[`mcp-server-cards`](./server-cards#using-it-step-by-step) does in Muse: its
+own `add_mcp_server` writes nothing, and gives you the command to run.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi)
 - [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/opencode)
+- [Muse Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/muse)
 
 ## Try it
 
@@ -149,6 +176,10 @@ Then ask to add it:
   Adding through this plugin is covered by its tests in a real OpenCode,
   with a scripted model and a local server; the live runs didn't add a
   server through it.
+- **Muse Code:** ask to add it. The plugin writes nothing: it gives you the
+  `muse mcp add …` command, which you run yourself, in a terminal or after
+  `!` at the Muse prompt. The Muse run checked this against a local
+  `ard.json`, not buildkite.com's.
 
 To try search, start the demo registry from a clone of the repository (it is a
 demo, not a real registry: it reads the live catalogs of ten publishers and
@@ -168,7 +199,8 @@ Netlify after the extension's search question. The query stays local with
 this demo; fetching cards and checking publishers still makes public GETs.
 In OpenCode, a live search of the demo registry, sent after OpenCode asked,
 returned Buildkite's and Netlify's servers, each confirmed by its
-publisher's catalog.
+publisher's catalog. In Muse Code there is no search to try: `ard_search`
+isn't offered.
 
 ## Using it, step by step
 
@@ -244,6 +276,24 @@ kept per project in the plugin's OpenCode storage, connected by OpenCode
 itself, with `opencode mcp auth <name>` for a sign-in. With nobody there to
 answer, as in a scheduled run, OpenCode refuses searches and additions.
 
+### In Muse Code
+
+`ard_discover` reads a domain's `/.well-known/ard.json`, its AI Catalog and
+their `rel` links, then checks each Server Card they list, with the Server
+Cards rules. It sends only GETs. `add_mcp_server` checks a server
+`ard_discover` showed and gives you the `muse mcp add …` command for it, as
+`mcp-server-cards` does in Muse. You run it yourself, in a terminal or after
+`!` at the Muse prompt, so nothing is written but by you.
+`muse mcp remove <name>` undoes it.
+
+There is no registry search: `ard_search` isn't listed, and a call to it is
+refused. A search sends the words of your request to a service someone else
+runs, so every form asks you first. Muse gives a plugin no way to ask: its
+MCP client offers no elicitation, and a tool call that isn't read-only goes
+to Muse's approval judge, a model that may approve it with nobody asked. If
+you want a server for a task and name no company, the plugin says so, and
+Muse asks you which domain to look at.
+
 ## Settings
 
 In Pi, use `ARD_DISCOVERY_REGISTRY` for your chosen registry and
@@ -257,6 +307,10 @@ or the plugin option `off`, turns the plugin off, and
 and additions to OpenCode's rules alone. Set a variable in the environment
 OpenCode starts in, and an option in the object form of the plugin's entry in
 `plugins`.
+
+In Muse Code, there are no settings: Muse passes a plugin's server no
+environment variables, and there is no search to point at a registry. Turn
+it off with `muse plugins disable ard-discovery`.
 
 In Claude Code, in `/config`, under the plugin:
 
@@ -309,6 +363,19 @@ In Claude Code, in `/config`, under the plugin:
 - **Not tried yet:** ARD in OpenCode's TUI and in OpenCode Desktop, and
   Windows by hand (CI runs the tests there). The live runs didn't add a
   server through it; additions are covered by its tests in OpenCode.
+
+### In Muse Code
+
+- **No registry search.** It finds servers by domain only.
+- **You run the add command**, as for Server Cards in Muse.
+- **The Server Cards Muse limits apply** to adding: SSE remotes are refused,
+  a secret inside other text or in the URL is refused, and the card isn't
+  checked against the live server. See [Server Cards](./server-cards#limits).
+- **A validation warning.** `muse plugins validate` warns
+  `multiple-manifests`, because the folder also holds the Codex manifest.
+  The plugin is still valid, with compatibility `full`.
+- **Checked on macOS only**, with Muse Code 1.4.25, against a local
+  `ard.json`, with no real model.
 
 ## Security
 
@@ -374,6 +441,21 @@ records buildkite.com's `ard.json` read and a search of the demo registry
 sent after OpenCode asked; it added no server.
 An AI reviewer who did not build the OpenCode forms reviewed them. They have
 not been audited by a person.
+
+### In Muse Code
+
+Nothing is ever sent to a registry from Muse: `ard_search` isn't offered.
+Discovery by domain sends only GETs, to the domain you name and the card
+URLs it lists. `add_mcp_server` writes nothing: it gives you the
+`muse mcp add …` command to run yourself, so Muse's approval judge can't add
+a server with nobody asked. The plugin reads no configuration file of
+Muse's and no sign-in store, and runs `muse` only for
+`muse mcp get <name> --json`, with no shell. No Muse run used a real model:
+the run used a local stand-in for the Responses API on 127.0.0.1 with a
+made-up key, in an isolated home with no `muse login`. See the Muse form's
+[SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/muse/SECURITY.md),
+[conformance notes](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/muse/docs/conformance.md)
+and [run records](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/muse/docs/live-run.md).
 
 ## More
 

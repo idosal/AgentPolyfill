@@ -66,7 +66,7 @@ export type ServeOptions = {
     onInitialize?: (clientCapabilities: Json, clientInfo: Json) => void;
     askTimeoutMs?: number;
     /** How the person is asked, where it is not an MCP elicitation (Muse: muse.ts museAsk). */
-    ask?: (message: string, choices: Decision[]) => Promise<Asked>;
+    ask?: (message: string, choices: Decision[], subject?: readonly string[]) => Promise<Asked>;
     /** The host's words in place of Codex's, for what the server says (Muse: muse.ts museWords). */
     words?: (text: string) => string;
 };
@@ -119,7 +119,7 @@ export function serve(o: ServeOptions): { done: Promise<void> } {
         });
     };
 
-    const ask = (message: string, choices: Decision[]): Promise<Asked> => (o.ask ?? elicit)(words(message), choices);
+    const ask = (message: string, choices: Decision[], subject?: readonly string[]): Promise<Asked> => (o.ask ? o.ask(words(message), choices, subject) : elicit(words(message), choices));
 
     const handle = async (m: Json) => {
         const id = m.id;

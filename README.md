@@ -202,8 +202,8 @@ where these forms run.
 event reaches the session with your next message, not by waking it (an
 experimental opt-in does wake it). Muse gives a plugin no way to ask you, and
 its approval judge is a model. So you approve a watch, its stop or a served
-skill by typing the short phrase the answer gives (`watch 4821`,
-`unwatch 3307`, `load 4821`). You add a
+skill by typing the short phrase the answer gives, which names what you
+approve (`watch tickets ticket.created 4821`, `load github git-workflow 4821`). You add a
 server yourself, with the `muse mcp add` command Server Cards gives you. ARD
 has no registry search there. No Muse run used a real model.
 [AgentPolyfill in Muse Code](docs/muse.md) explains each of these.

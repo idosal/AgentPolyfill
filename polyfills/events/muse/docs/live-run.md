@@ -12,9 +12,13 @@ verified), on macOS.
   person.
 - **Isolation.** Each ran with `env -i`, and with `HOME`, the XDG folders and
   `TMPDIR` in a scratch folder.
-- **Install.** From this repository as a marketplace:
+- **Install.** From this branch's worktree, as a local marketplace
+  (`muse plugins marketplace add agent-polyfill <the worktree's folder>`).
+  Adding the marketplace by its GitHub URL was checked too: Muse fetched it
+  with Git and listed the four plugins, but `main` had no Muse manifests yet.
+  So an install from GitHub, as the README gives it, can only be checked once
+  this is merged. Then:
   ```
-  muse plugins marketplace add agent-polyfill <the repository>
   muse plugins install mcp-events@agent-polyfill
   muse plugins approve mcp-events
   ```
@@ -52,6 +56,13 @@ One session, three `muse exec` runs with the same `--session-id`.
    w-a43263, by push, from now on.` A ticket created at the server during that
    turn was stored.
 
+   **Since this run, the phrase also names the server and the event type**
+   (`watch tickets ticket.created 4538`, not `watch 4538`), and stopping a watch
+   waits for its own phrase (`unwatch tickets ticket.created <code>`). Neither
+   was run live again. The tests run the bundled hook with Muse's hook input and
+   check both. Muse hands the hook the message as it was typed, spaces
+   included, as the runs below show.
+
 3. **"anything new?".** The model is given, as a developer-role context block
    from the hook:
 
@@ -86,6 +97,35 @@ its helper ended, reached the next run's prompt. Muse recorded it as a
 - **What didn't attach.** A session started with `--provider meta --base-url …`
   was not attachable ("held by a TUI or an older muse, which has no attach
   endpoint"), with both gates on. A session signed in to Meta was not tried.
+
+## What can send the phrase
+
+The typed yes holds only if nothing but the person's own message runs the
+plugin's `UserPromptSubmit` hook. Muse's hook input doesn't say where a prompt
+came from (it has `cwd`, `hook_event_name`, `model`, `model_provider`,
+`permission_mode`, `prompt`, `session_id`, `transcript_path` and `turn_id`).
+So each way a model can put its own text into a session was tried, in a
+terminal session with a probe plugin whose `UserPromptSubmit` hook logged
+every input. A stand-in model made each call with a text containing
+`load 1234`.
+
+| How the text came in | Did the hook run? | What the model was given |
+|---|---|---|
+| A message you typed | yes | your message, as a user message |
+| `muse.cron_create` (a scheduled prompt) | no | (checked earlier) |
+| `muse.monitor`, a line of its command's output | no | a developer message, "SYSTEM NOTIFICATION - NOT USER INPUT …" |
+| `muse.subagent_spawn`: the child's task | no | the child's first message, `Role: … / Objective: …` |
+| `muse.subagent_spawn`: the child's result, back in the parent | no | a developer message, `<runtime-context source="subagent_result">` |
+| `muse.subagent_send_message`, from the parent to a busy child | no | a developer message, `<runtime-context source="subagent_input">` |
+| `muse.send_session_message` to the session itself | no | refused by Muse (`self_send_wrong_path`) |
+| `muse.send_session_message` from a second terminal session | no | a developer message, `<runtime-context source="session_message" origin="peer_agent">`, marked as unable to grant consent |
+| `muse.create_goal`: Muse's turn to go on with the goal | no | a user message, "Continue working toward the active session goal …", quoting the objective |
+| `muse.workflow`: an agent's input, and the workflow's end | no | the agent's first message; then a developer message and a `<workflow-launch-reconciled>` message |
+
+`muse exec` doesn't offer `send_session_message`. With Muse's two
+experimental session-protocol gates on, a turn started through
+`muse attach` does run the hook, as for a message you typed. That is the
+warning under "Waking an idle session".
 
 ## Remove
 

@@ -44,6 +44,9 @@ can embed a web view, but a plugin can't read a `ui://` resource or a tool's
 `_meta` over OpenCode's connection, and there is no place in the
 conversation to draw a view. That was looked into, not built.
 
+Apps has no Muse Code form. Muse gives a plugin no way to draw in its
+terminal: a hook's `systemMessage` only flashes in the status line.
+
 The plugin is one zip, attached to a release of the repository and checked
 against the SHA-256 in the repository's marketplace file before Claude Code
 unpacks it. It carries a small helper program for each platform and needs

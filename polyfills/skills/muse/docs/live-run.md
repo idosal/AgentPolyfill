@@ -8,8 +8,13 @@ Recorded on 25 November 2026 with the real Muse Code 1.4.25 binary on macOS.
 - **Model.** No run used a real model, and there was no `muse login`. Each used
   Muse's echo provider, or a stand-in for the Responses API on 127.0.0.1 with a
   made-up key. The stand-in also answered Muse's approval judge.
-- **Install.** `muse plugins install mcp-skills@agent-polyfill` from this
-  repository as a marketplace, then `muse plugins approve mcp-skills`.
+- **Install.** `muse plugins install mcp-skills@agent-polyfill`, then
+  `muse plugins approve mcp-skills`, from this branch's worktree, as a local marketplace
+  (`muse plugins marketplace add agent-polyfill <the worktree's folder>`).
+  Adding the marketplace by its GitHub URL was checked too: Muse fetched it
+  with Git and listed the four plugins, but `main` had no Muse manifests yet.
+  So an install from GitHub, as the README gives it, can only be checked once
+  this is merged.
 
 ## Hugging Face's public server
 
@@ -58,6 +63,13 @@ runs with the same `--session-id`.
    Loaded the skill "git-workflow" from the MCP server "skillsfx" (skill://git-workflow/SKILL.md), which the user approved just now.
    Its SKILL.md matched the size, SHA-256 digest and frontmatter in the server's entry for it. …
    ```
+
+**Since this run, the phrase also names the server and the skill**
+(`load skillsfx git-workflow 7436`, not `load 7436`). That wasn't run live
+again. The tests run the bundled hook and check it. Which of Muse's ways for a
+model to put text into a session run the hook (none do, but the person's own
+message) is in [mcp-events' live runs](../../../events/muse/docs/live-run.md#what-can-send-the-phrase):
+the two plugins share the mechanism.
 
 ## Remove
 

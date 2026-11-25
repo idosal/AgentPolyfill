@@ -320,10 +320,10 @@ judge, a model that may approve it with nobody asked, and a hook's `ask`
 goes to the same judge. So the forms work this way:
 
 - **Events and Skills:** starting or stopping a watch, and loading a skill,
-  wait for a phrase you type, such as `watch 4821`, `unwatch 3307` or
-  `load 4821`. Only a message of yours that is
+  wait for a phrase you type, which names what it approves, such as
+  `watch tickets ticket.created 4821` or `load github git-workflow 4821`. Only a message of yours that is
   exactly that phrase approves it. Muse runs the plugin's `UserPromptSubmit`
-  hook for your messages, not for a turn its timers start. The phrase is good
+  hook for your messages, not for a turn Muse or a model starts. The phrase is good
   for that one question, in that session, for 15 minutes.
 - **Server Cards and ARD:** "add" writes nothing. It gives you the
   `muse mcp add …` command, which you run yourself, in a terminal or after
@@ -426,13 +426,13 @@ For the demo button:
   records a demo button pressed on this server and the idle session woken.
 - **Muse Code:** try "Watch for new earthquakes from the feeds server and
   tell me where each one was." The watch waits: the answer gives a phrase
-  such as `watch 4821`, and the watch starts only after you send exactly
+  such as `watch feeds usgs.earthquake 4821`, and the watch starts only after you send exactly
   that phrase. New events reach the model with your next message, as a
   context block from the plugin's hook starting
   `[mcp-events] (Sent by the mcp-events plugin, not typed by the user.)`.
   Nothing wakes an idle session by default; the experimental opt-in that
   does is on the [Events page](./events#in-muse-code). Stopping the watch
-  waits for its own phrase, such as `unwatch 3307`.
+  waits for its own phrase, such as `unwatch feeds usgs.earthquake 3307`.
 
 [More on Events](./events)
 
@@ -510,8 +510,8 @@ loaded two Hugging Face skills after OpenCode asked, and answered from them.
 In that run, under OpenCode's default rules, the model also ran a command a
 loaded skill described, without a prompt.
 
-In Muse Code there is no dialog. The answer gives a phrase such as
-`load 4821`, and the skill loads after you send exactly that phrase.
+In Muse Code there is no dialog. The answer gives a phrase that names the
+server and the skill, such as `load huggingface <skill> 4821`, and the skill loads after you send exactly that phrase.
 "Show me its SKILL.md first" isn't offered, because Muse has no way to show
 you text the model doesn't see. In Muse, Hugging Face's server was used to
 check the skill listing.

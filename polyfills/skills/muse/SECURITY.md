@@ -17,20 +17,26 @@ your yes. Muse can't be relied on to ask:
   Muse's approval judge, a model that can approve with nobody asked.
 
 So `load_skill` records the question for the session with a four-digit code.
-It answers with the question and the phrase `load <code>`.
+It answers with the question and the phrase `load <server> <skill> <code>`
+(`load github git-workflow 4821`). It names the server and the skill, so you type the names of what you
+approve. A skill whose server or name has anything but letters, digits and
+`._:/@+-` isn't asked about: its name couldn't be typed plainly.
 
 - **Who can approve.** The plugin's `UserPromptSubmit` hook approves the
   question only when a message of yours is exactly that phrase, in the same
   session, within 15 minutes. Muse runs that hook for your messages, not for a
-  turn its timers start, so the model can't send the phrase.
+  turn Muse or a model starts, so the model can't send the phrase. Each way a
+  model can put text into a session was tried, and none ran the hook
+  ([mcp-events' live runs](../../events/muse/docs/live-run.md#what-can-send-the-phrase)).
 - **What a yes covers.** The next `load_skill` of that question loads it, once.
   After that the approval is kept as in Codex: bound to the skill's URI, its
   server and its digests, and asked again when they change.
 - **No preview.** "Show me its SKILL.md first" isn't offered. Muse has no way to
   show you text the model doesn't see, so there is nothing to choose it with.
 
-What it doesn't protect against: the phrase doesn't name the skill. You rely
-on Muse showing you the question as the answer gives it. The hook's note in
+What it doesn't protect against: the phrase names the server and the skill,
+not its URI or files. For those, you rely on Muse showing you the question as
+the answer gives it. The hook's note in
 Muse's status line names what you approved, after you type it.
 
 **Cross-server reads (X8).** Muse gives the model no tool that reads an MCP
