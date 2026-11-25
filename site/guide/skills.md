@@ -265,6 +265,16 @@ protocol, no vendor extension.
 - **The cross-server question has a boundary.** It cannot intercept a read
   another extension makes through its own MCP connection.
 
+### In T3 Code
+
+T3 Code runs Codex and Claude Code for you, and this polyfill's Codex and Claude Code
+forms load there. With Codex, the question it asks before loading a skill ("Load it") is an MCP
+elicitation form, and T3 Code shows such a form only when it can answer it
+with Approve or Decline; it cancels this one without showing it, so the step
+is refused as if you had said no. Nothing is approved for you. Listing the
+served skills works (tried live).
+[T3 Code](https://github.com/idosal/AgentPolyfill/blob/main/docs/t3-code.md) has the details.
+
 ## Security
 
 ### In Claude Code

@@ -125,6 +125,15 @@ Hosts add extensions all the time, so check the matrix for today's picture.
   implementations an extension needs to reach Stable:
   [For spec authors](./spec-authors).
 
+## T3 Code
+
+[T3 Code](https://github.com/pingdotgg/t3code) isn't a host the polyfills
+load into: it's an app that runs Codex and Claude Code for you. Their plugins
+load in its threads, with two differences: it shows MCP Apps itself, and with
+Codex it cancels, unseen, the question Skills, Server Cards and ARD ask
+before their consequential step. Events has a T3 form, for Codex threads
+only. [Getting started](./getting-started#t3-code) has the install.
+
 ## Before you install
 
 These are third-party plugins and extensions, and they run with your

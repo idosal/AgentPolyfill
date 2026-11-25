@@ -190,6 +190,23 @@ tokens. Server Cards and ARD keep their discovery state in memory; servers
 you add stay in `mcp.json`. See [Turning one off](./getting-started#turning-one-off)
 for off switches, uninstalling and removing saved data.
 
+## In T3 Code
+
+T3 Code runs Codex and Claude Code, so their plugins' security notes apply.
+Two things differ:
+
+- **The T3 Events form** ([SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/t3/SECURITY.md))
+  is an MCP server Codex starts and a watcher that keeps running after T3
+  Code closes, until no thread has a watch, connecting to your servers with
+  the credentials in your Codex configuration. It wakes a thread with T3
+  Code's `t3 thread send`; the turn runs in the thread's own permission mode.
+  It talks to its server over a socket in a folder only you can open, and
+  reads no stored credentials, Codex's or T3 Code's.
+- **Questions that are cancelled.** With Codex, T3 Code cancels any MCP
+  elicitation it can't answer with Approve or Decline, without showing it.
+  The Skills, Server Cards and ARD questions are such forms, so their steps
+  are refused; none is approved for you.
+
 ## What was checked, and how
 
 - **Tests.** A test for each client rule of Events and Skills. For Server Cards

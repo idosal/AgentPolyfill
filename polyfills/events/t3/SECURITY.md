@@ -72,8 +72,9 @@ instructions given to the model, are what tell it apart from what you typed.
   id the watcher was started from, are in its environment. What T3 Code prints
   isn't repeated, only what it means (sent; not running, tried again later; no
   such thread, not tried again).
-  - **On macOS and Linux** that is the `t3` found on PATH (or in
-    `MCP_EVENTS_T3_BIN`), started directly.
+  - **On macOS and Linux** that is `MCP_EVENTS_T3_BIN` if set (a full path),
+    else the first `t3` on PATH, else `~/.local/bin/t3`, where T3 Code's own
+    installer puts it. It's started directly.
   - **On Windows** (not tried) only `t3.exe`, or Node with the package's
     `dist/bin.mjs`, is run, never a `.cmd` or `.bat`.
 - **Starting and stopping a watch ask first.** `watch_event` and

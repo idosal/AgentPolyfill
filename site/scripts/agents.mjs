@@ -78,6 +78,10 @@ const INSTALL_PI = [
 const PI_INSTALL_NOTES = 'Nothing for Pi is published to npm or Pi\'s package gallery. There is no bundle: install each extension separately. Pi cannot install one folder of a git repository, so use a local clone. Each extension is bundled, with nothing to build. Pi loads each path where it is; keep the clone and run `git pull` there to update it. For one run without installing, use `pi -e ./polyfills/<polyfill>/pi/extension`. Remove it from the same folder with `pi remove ./polyfills/<polyfill>/pi/extension` (`<polyfill>` is `events`, `skills`, `server-cards` or `ard`). Data stays in `mcp-events/` and `mcp-skills/` in Pi\'s agent folder (`~/.pi/agent`, or `PI_CODING_AGENT_DIR`); delete those to remove it. Added servers stay in `mcp.json`; undo with `pi mcp remove <name>`.'
 const PI_APPS_LIMIT = 'Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`, so an extension cannot get an App\'s UI through Pi. Its terminal could draw one in principle, but no Pi Apps form is built or tested.'
 
+// T3 Code is not a host forms load into: it runs Codex and Claude Code for you.
+const T3_ADD = 'codex mcp add mcp-events-t3 -- node "$PWD/AgentPolyfill/polyfills/events/t3/plugin/dist/server.js"'
+const T3_NOTE = 'T3 Code (0.1.11, the version tested) is an app that runs the Codex and Claude Code on your machine from one interface; it has no plugin layer or MCP client of its own, so install the plugins above for the agent you use in it. Apps: T3 Code shows MCP Apps itself, so the Apps polyfill should not be used there. Skills, Server Cards and ARD: their tools work, but with Codex the one question each asks before its consequential step (an MCP elicitation form: "Load it", "Add it", "Send the search") is cancelled by T3 Code without being shown, because it shows only forms it can answer with Approve or Decline; the step is refused as if you had said no, and nothing is approved for you (tried live with Skills; Server Cards and ARD were not run in T3 Code). Events: use the T3 form, mcp-events-t3, for Codex threads only, added to Codex from a clone (`' + T3_ADD + '`), then Restart agent session in T3 Code; T3 Code tells it which thread it serves, its watcher outlives the agent\'s sessions and T3 Code itself, and an event wakes the thread through T3 Code\'s own `t3 thread send`. The Codex Events plugin should not be used in T3 Code: its wake runs a turn the thread does not show. Claude Code threads cannot use the T3 form, since T3 Code does not tell Claude Code\'s servers which thread they serve. Not run live in T3 Code: anything with Claude Code as the agent, the watch_event approval prompt in a thread whose mode asks, Server Cards and ARD. Remove the T3 form with `codex mcp remove mcp-events-t3` and `node <clone>/polyfills/events/t3/plugin/dist/server.js --stop`; its data stays in `~/.codex/mcp-events-t3`. Details: https://github.com/idosal/AgentPolyfill/blob/main/docs/t3-code.md'
+
 function hostTable() {
   return ['| Host | Form | Polyfills |', '|---|---|---|', ...HOSTS.map(({ name, form, polyfills }) => `| ${name} | ${form} | ${polyfills} |`)].join('\n')
 }
@@ -323,6 +327,8 @@ ${PI_INSTALL_NOTES}
 
 ${PI_APPS_LIMIT}
 
+**T3 Code.** ${T3_NOTE}
+
 Beyond MCP, ARD is a draft. Every search asks you first and goes to a registry you choose. Install it separately:
 
 - **Claude Code:** \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`; it isn't in the bundle.
@@ -392,6 +398,7 @@ Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A
 - **Claude Code 2.1.329 or newer:** every MCP polyfill, the \`agent-polyfill\` bundle, from a terminal: \`${INSTALL_CLI}\`. At the prompt of a \`claude\` session it is \`${INSTALL}\`. Start a new session for the plugins to load. ARD is separate: \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`.
 - **Codex 0.170 or newer (Node 20 or newer):** from a terminal: \`${INSTALL_CODEX.join(' && ')}\`. ARD is separate: \`codex plugin add ard-discovery@agent-polyfill\`. There is no bundle.
 - **Pi 1.6.0 (the version tested; Node 22 or newer):** use the clone commands below.
+- **T3 Code:** not a host of its own here; see the T3 Code paragraph below.
 
 \`\`\`bash
 ${INSTALL_PI.join('\n')}
@@ -409,6 +416,8 @@ Pi runs tools without asking unless a permission extension asks. Each polyfill a
 | Skills | \`MCP_SKILLS_OFF=1\` |
 | Server Cards | \`MCP_SERVER_CARDS_DISABLED=1\` |
 | ARD | \`ARD_DISCOVERY_DISABLED=1\` |
+
+${T3_NOTE}
 
 Anyone can build a polyfill to the contract, bring an existing one to another host, or list one they keep in their own repository in the community directory (${origin}/guide/community.md).
 
