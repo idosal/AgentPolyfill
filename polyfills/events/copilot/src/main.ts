@@ -92,7 +92,7 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
     // Stand-down (contract rule 4): Copilot gives an extension no way to see what its own MCP client
     // declares, so native Events cannot be detected yet. MCP_EVENTS_OFF=1 joins with nothing.
     if (off) {
-        await joinSession({});
+        await joinSession({}).catch(() => process.exit(0));
         return { stop: async () => {} };
     }
 
@@ -259,7 +259,15 @@ export async function start(joinSession: JoinSession, env: NodeJS.ProcessEnv = p
 
     const toResult = (a: { text: string; isError?: true }): ToolResult => (a.isError ? { textResultForLlm: a.text, resultType: 'failure' } : a.text);
 
-    session = await joinSession({
+    // Copilot may refuse the join (VS Code's harness pre-warms sessions and discards some before
+    // they are used: seen live, error -32603). Then there is no session to serve: said once, and
+    // this process ends without fuss.
+    const joinOrEnd = (config: Parameters<JoinSession>[0]) =>
+        joinSession(config).catch((e: unknown) => {
+            log(`Copilot did not let this extension join the session (${describeError(e)}); nothing to do`);
+            process.exit(0);
+        });
+    session = await joinOrEnd({
         tools: TOOLS.map((t) => ({
                 name: t.name,
                 description: t.description,

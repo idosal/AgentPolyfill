@@ -79,6 +79,7 @@ describe('push and poll', () => {
             const s = e.sent[0]!.options;
             assert.equal(s.source, 'automation-mcp-events', 'a wake is an automation turn, with no human authority');
             assert.equal(s.mode, 'enqueue', 'a wake waits behind a running turn');
+            assert.match((s as { clientTurnId?: string }).clientTurnId ?? '', /^mcp-events-/, 'a turn id of its own, so VS Code shows the turn');
             assert.match(s.prompt, /^\[mcp-events\] \(Sent by the mcp-events plugin, not typed by the user\.\)\n\[mcp-events\] tickets · ticket\.created: 1 new event \[event e1; watch w-[0-9a-f]{6}; get_event e1 returns it\]\. Note saved with this watch: "tell me"\.$/);
             const got = await e.call('get_event', { id: 'e1' });
             assert.match(got.text, /printer on fire/);

@@ -43,6 +43,15 @@ describe('joining the session', () => {
         }
     });
 
+    test('a join Copilot refuses (a discarded pre-warmed session) is logged in the extension\'s own words, and the process ends cleanly', async () => {
+        const w = world();
+        // The stand-in refuses a join without SESSION_ID, as the SDK does.
+        const e = new Extension(w.env('', { SESSION_ID: '' }), w.cwd);
+        assert.equal(await e.exited, 0);
+        assert.match(w.log(), /did not let this extension join the session \(the request failed\); nothing to do/);
+        assert.doesNotMatch(w.log(), /unexpected/);
+    });
+
     test('SIGTERM, as Copilot stops an extension, ends the process and closes the subscription', async () => {
         const w = world();
         const e = await startExtension(w);

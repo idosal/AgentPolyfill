@@ -172,7 +172,10 @@ describe('the person, and the wake', () => {
     test('sendWake: admitted is ok; refused is retried; no answer is "maybe", never sent twice', async () => {
         const seen: unknown[] = [];
         assert.deepEqual(await sendWake({ send: async (o) => (seen.push(o), 'm1') }, 'hi'), { ok: true, resumed: true });
-        assert.deepEqual(seen, [{ prompt: 'hi', source: 'automation-mcp-events', mode: 'enqueue' }]);
+        const [o] = seen as { clientTurnId?: string }[];
+        // A turn id of its own on every wake, so that VS Code's Copilot harness shows the turn.
+        assert.match(o!.clientTurnId ?? '', /^mcp-events-[0-9a-f-]{36}$/);
+        assert.deepEqual({ ...o, clientTurnId: undefined }, { prompt: 'hi', source: 'automation-mcp-events', mode: 'enqueue', clientTurnId: undefined });
         const refused = await sendWake({ send: async () => Promise.reject(new Error('Session not found\nstack')) }, 'hi');
         assert.deepEqual(refused, { ok: false, why: 'Copilot refused the message (Session not found)' });
         const late = await sendWake({ send: () => new Promise(() => {}) }, 'hi', 50);

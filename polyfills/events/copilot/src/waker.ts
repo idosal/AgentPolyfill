@@ -6,12 +6,19 @@
 // extension tells a wake from the person writing. `mode: "enqueue"` puts it behind a turn
 // that is running, so it never cuts in; an idle session starts a turn with it at once (seen
 // live in the Copilot TUI, 1.0.115). `send` resolves once Copilot has admitted the message.
+//
+// Each wake also carries a `clientTurnId` of its own. VS Code's Copilot harness shows a turn an
+// extension starts only when it was sent with one: without it, it counts the message as one the
+// runtime injected, runs the turn, and drops everything it says (seen live in VS Code 1.147:
+// "Markdown delta emitted with no active turn; dropping"). Copilot CLI shows the turn either way.
+// A wake the person can see is the safer one: what an event sets in motion isn't hidden.
 
+import { randomUUID } from 'node:crypto';
 import type { QueueResult } from '../../codex/src/waker.ts';
 
 export const WAKE_SOURCE = 'automation-mcp-events';
 
-export type Sender = { send(o: { prompt: string; source?: string; mode?: 'enqueue' | 'immediate' }): Promise<string> };
+export type Sender = { send(o: { prompt: string; source?: string; mode?: 'enqueue' | 'immediate'; clientTurnId?: string }): Promise<string> };
 
 /**
  * Hands `text` to the session. Copilot said no: not handed over, tried again. No answer within
@@ -23,7 +30,7 @@ export async function sendWake(session: Sender, text: string, timeoutMs = 60000)
         timer = setTimeout(() => r('late'), timeoutMs);
     });
     try {
-        const r = await Promise.race([session.send({ prompt: text, source: WAKE_SOURCE, mode: 'enqueue' }).then(() => 'ok' as const), late]);
+        const r = await Promise.race([session.send({ prompt: text, source: WAKE_SOURCE, mode: 'enqueue', clientTurnId: `mcp-events-${randomUUID()}` }).then(() => 'ok' as const), late]);
         if (r === 'late') return { ok: false, why: `Copilot did not answer within ${Math.round(timeoutMs / 1000)} s`, maybe: true };
         return { ok: true, resumed: true };
     } catch (e) {
