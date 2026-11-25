@@ -50,6 +50,7 @@ const HOSTS = [
   { name: 'Claude Code', command: 'claude', addKey: 'add', form: 'Mod (plugin)', polyfills: 'Events, Skills, Server Cards, Apps, ARD' },
   { name: 'Codex', command: 'codex', addKey: 'addCodex', form: 'Plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
   { name: 'Pi', command: 'pi', addKey: 'addPi', form: 'Extension', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
+  { name: 'Copilot CLI', command: 'copilot', addKey: 'addCopilot', form: 'Plugin (Events: an extension)', polyfills: 'Events, Server Cards, ARD; Skills and Apps built into Copilot' },
 ]
 // Pi's source installs and examples, for the Markdown served to agents.
 const PI_FORMS = {
@@ -77,6 +78,23 @@ const INSTALL_PI = [
 ]
 const PI_INSTALL_NOTES = 'Nothing for Pi is published to npm or Pi\'s package gallery. There is no bundle: install each extension separately. Pi cannot install one folder of a git repository, so use a local clone. Each extension is bundled, with nothing to build. Pi loads each path where it is; keep the clone and run `git pull` there to update it. For one run without installing, use `pi -e ./polyfills/<polyfill>/pi/extension`. Remove it from the same folder with `pi remove ./polyfills/<polyfill>/pi/extension` (`<polyfill>` is `events`, `skills`, `server-cards` or `ard`). Data stays in `mcp-events/` and `mcp-skills/` in Pi\'s agent folder (`~/.pi/agent`, or `PI_CODING_AGENT_DIR`); delete those to remove it. Added servers stay in `mcp.json`; undo with `pi mcp remove <name>`.'
 const PI_APPS_LIMIT = 'Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`, so an extension cannot get an App\'s UI through Pi. Its terminal could draw one in principle, but no Pi Apps form is built or tested.'
+// Copilot CLI's plugins, from a clone added as a marketplace (the install
+// that was tested), and what differs per form on the home page's cards.
+const COPILOT_FORMS = {
+  'mcp-events': { command: 'copilot --experimental' },
+  'mcp-server-cards': {},
+  'ard-discovery': {},
+}
+const INSTALL_COPILOT = [
+  'git clone https://github.com/idosal/AgentPolyfill.git',
+  'copilot plugin marketplace add ./AgentPolyfill',
+  ...Object.keys(COPILOT_FORMS).map((plugin) => `copilot plugin install ${plugin}@agent-polyfill`),
+]
+const COPILOT_INSTALL_NOTES = 'This install, from a clone, is the one tested. Copilot loads a plugin from a local marketplace where it is, so keep the clone; `git pull` there updates it. Once these plugins are on the repository\'s default branch, `copilot plugin marketplace add idosal/AgentPolyfill` adds the same marketplace from GitHub; that hasn\'t been tested. There is no bundle. Events is a Copilot extension, and Copilot loads extensions only in experimental mode (`copilot --experimental`, or `/settings experimental on`); the whole extension API is experimental and may change in any release. Copilot runs the extension with its own Node. Server Cards and ARD are MCP servers in plugins: they need no experimental mode, but need Node 20 or newer. For one run without installing: `copilot --experimental --plugin-dir ./AgentPolyfill/polyfills/<polyfill>/copilot/plugin` (`<polyfill>` is `events`, `server-cards` or `ard`). Remove one with `copilot plugin uninstall <name>@agent-polyfill`. Events\' data stays in `~/.copilot/mcp-events/`; delete that folder too to remove it. Added servers stay in `~/.copilot/mcp-config.json`; undo with `copilot mcp remove <name>`. The marketplace stays until `copilot plugin marketplace remove agent-polyfill`.'
+const COPILOT_BUILT_IN = 'Copilot has Skills over MCP and MCP Apps built in, so there is no Copilot form of either. Copilot CLI 1.0.115 declares Skills to every server. VS Code\'s Copilot harness renders MCP Apps; the terminal draws none.'
+const COPILOT_APPS = 'Apps has no Copilot form. Copilot has MCP Apps built in where they can be drawn: VS Code\'s Copilot harness renders them. The Copilot CLI terminal draws none.'
+// Per-form overrides of a host's demo command and first question.
+const FORMS = { Pi: PI_FORMS, 'Copilot CLI': COPILOT_FORMS }
 
 function hostTable() {
   return ['| Host | Form | Polyfills |', '|---|---|---|', ...HOSTS.map(({ name, form, polyfills }) => `| ${name} | ${form} | ${polyfills} |`)].join('\n')
@@ -255,7 +273,6 @@ function homeMarkdown() {
   const notice = html(poc[1].replace(/<strong>([\s\S]*?)<\/strong>/g, '**$1**'))
   const card = (p) => {
     const cut = media.cuts.find((c) => c.name === p.cut)
-    const pi = PI_FORMS[p.plugin]
     const hosts = HOSTS.filter(({ name }) => p.hosts.includes(name))
     const lines = [
       `### ${p.name} (\`${p.plugin}\`)`,
@@ -271,15 +288,17 @@ function homeMarkdown() {
     const block = (command) => [command.startsWith('/') ? '```' : '```bash', command, '```']
     if (p.addStep) lines.push('', p.addStep)
     for (const host of hosts) {
-      const add = host.name === 'Pi' ? pi?.add ?? p[host.addKey] : p[host.addKey]
-      const ask = host.name === 'Pi' ? pi?.ask ?? p.ask : p.ask
+      const form = FORMS[host.name]?.[p.plugin]
+      const add = form?.add ?? p[host.addKey]
+      const ask = form?.ask ?? p.ask
+      const command = form?.command ?? host.command
       lines.push('', `**${host.name}**`, '')
-      if (add) lines.push(...block(add), '', `Then start \`${host.command}\` and ask: "${ask}"`)
-      else lines.push(`Nothing to set up. Start \`${host.command}\` and ask: "${ask}"`)
+      if (add) lines.push(...block(add), '', `Then start \`${command}\` and ask: "${ask}"`)
+      else lines.push(`Nothing to set up. Start \`${command}\` and ask: "${ask}"`)
     }
     if (p.then) lines.push('', p.then)
     if (p.note) lines.push('', p.note)
-    if (p.plugin === 'mcp-apps-cli') lines.push('', PI_APPS_LIMIT)
+    if (p.plugin === 'mcp-apps-cli') lines.push('', PI_APPS_LIMIT, '', COPILOT_APPS)
     lines.push('', videoLine({ file: cut.file, seconds: cut.seconds, description: p.alt }), '', `The ${p.name} guide: ${resolveLink(p.link, 'index')}`)
     return lines.join('\n')
   }
@@ -323,11 +342,22 @@ ${PI_INSTALL_NOTES}
 
 ${PI_APPS_LIMIT}
 
+**Copilot CLI** (1.0.115, the version tested). In a terminal, from a clone:
+
+\`\`\`bash
+${INSTALL_COPILOT.join('\n')}
+\`\`\`
+
+${COPILOT_INSTALL_NOTES}
+
+${COPILOT_BUILT_IN}
+
 Beyond MCP, ARD is a draft. Every search asks you first and goes to a registry you choose. Install it separately:
 
 - **Claude Code:** \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`; it isn't in the bundle.
 - **Codex:** \`codex plugin add ard-discovery@agent-polyfill\`.
 - **Pi:** \`pi install ./polyfills/ard/pi/extension\` from the clone (included in the commands above).
+- **Copilot CLI:** \`copilot plugin install ard-discovery@agent-polyfill\`, with the marketplace added (included in the commands above).
 
 ${videoLine({ file: media.launch.file, seconds: media.launch.seconds, description: media.launch.description })}
 
@@ -383,15 +413,16 @@ AgentPolyfill makes polyfills for agent protocols: it brings more of MCP to the 
 
 ${hostTable()}
 
-The MCP polyfills implement Events (SEP-3415), Skills (SEP-2640), Server Cards (SEP-2127) and Apps (MCP Apps 2026-01-26). It's an early proof of concept: some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs (${origin}/guide/how-it-works.md). ${PI_APPS_LIMIT}
+The MCP polyfills implement Events (SEP-3415), Skills (SEP-2640), Server Cards (SEP-2127) and Apps (MCP Apps 2026-01-26). It's an early proof of concept: some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs (${origin}/guide/how-it-works.md). ${PI_APPS_LIMIT} ${COPILOT_BUILT_IN}
 
-Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A search sends the words of your request to the ARD registry you choose and asks you first every time, so ARD is installed separately. Pi's live run showed domain discovery and an approved search of the repository's demo registry, but did not complete the add step; additions are covered by real-Pi tests with a scripted model and a local server.
+Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A search sends the words of your request to the ARD registry you choose and asks you first every time, so ARD is installed separately. Pi's live run showed domain discovery and an approved search of the repository's demo registry, but did not complete the add step; additions are covered by real-Pi tests with a scripted model and a local server. In Copilot CLI 1.0.115, with a scripted model, domain discovery ran, and a search of the demo registry went out only after Copilot's tool prompt and the plugin's form; no server was added through ARD there.
 
 ## Install
 
 - **Claude Code 2.1.329 or newer:** every MCP polyfill, the \`agent-polyfill\` bundle, from a terminal: \`${INSTALL_CLI}\`. At the prompt of a \`claude\` session it is \`${INSTALL}\`. Start a new session for the plugins to load. ARD is separate: \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`.
 - **Codex 0.170 or newer (Node 20 or newer):** from a terminal: \`${INSTALL_CODEX.join(' && ')}\`. ARD is separate: \`codex plugin add ard-discovery@agent-polyfill\`. There is no bundle.
 - **Pi 1.6.0 (the version tested; Node 22 or newer):** use the clone commands below.
+- **Copilot CLI 1.0.115 (the version tested):** from a terminal, from a clone: \`${INSTALL_COPILOT.join(' && ')}\`. ARD is in those commands. Events needs experimental mode (\`copilot --experimental\`); Server Cards and ARD need Node 20 or newer. There is no bundle; the notes follow Pi's below.
 
 \`\`\`bash
 ${INSTALL_PI.join('\n')}
@@ -410,9 +441,21 @@ Pi runs tools without asking unless a permission extension asks. Each polyfill a
 | Server Cards | \`MCP_SERVER_CARDS_DISABLED=1\` |
 | ARD | \`ARD_DISCOVERY_DISABLED=1\` |
 
+${COPILOT_INSTALL_NOTES}
+
+In Copilot CLI, Events uses Copilot's extension API, which is experimental: extensions load only in experimental mode, and the API may change in any release. \`copilot --acp\` loads no extensions, and \`copilot -p\` ends the session with the prompt, so nothing is woken there. Events opens its own MCP connection, so a local (stdio) server runs twice. It can't use a sign-in through Copilot (\`/mcp auth\`, OAuth). A header in \`mcp-config.json\` works, written out or from \`\${VARIABLE}\`, except variables Copilot strips from extensions. It reads only the servers Copilot enables for the session, from \`mcp-config.json\` and a trusted project's \`.mcp.json\` or \`.github/mcp.json\`; servers a plugin brings, \`--additional-mcp-config\` and the built-in GitHub server are listed as unavailable. It needs an open session; \`copilot --resume\` picks watches up from their cursors. Server Cards and ARD add a server with \`copilot mcp add\`; it connects after \`/mcp reload\` or in the next session. Copilot declines their form in \`copilot -p\`, even with \`--yolo\`, so adding works in the interactive session only. Neither compares a card with the live server (S-3). In VS Code 1.147.0's Copilot harness, Events was run end to end: a wake shows as a message from the plugin, then the turn. The Server Cards and ARD servers loaded there, but nothing was added or searched there.
+
+Copilot's own prompts are the boundary. \`watch_event\`, \`unwatch_event\`, \`add_mcp_server\` and \`ard_search\` go through Copilot's tool prompt, and adding a server or sending a search also asks in Copilot's form, which Copilot declines where nobody can be asked (\`copilot -p\`, even with \`--yolo\`). Once you grant it elevated permissions, the Events extension skips the prompt only for its four tools that only read. Events uses only the servers Copilot enables for the session, and lets go of one you switch off. None reads Copilot's stored credentials. None of the Copilot forms detects native support; when Copilot supports an extension itself, uninstall or disable the plugin (\`copilot plugin disable <name>@agent-polyfill\`), or use its off switch:
+
+| Copilot CLI form | Off switch |
+|---|---|
+| Events | \`MCP_EVENTS_OFF=1\` |
+| Server Cards | \`MCP_SERVER_CARDS_DISABLED=1\` |
+| ARD | \`ARD_DISCOVERY_DISABLED=1\` |
+
 Anyone can build a polyfill to the contract, bring an existing one to another host, or list one they keep in their own repository in the community directory (${origin}/guide/community.md).
 
-By Ido Salomon (https://x.com/idosal1). Not affiliated with Anthropic, OpenAI, MCP, Agentic Resource Discovery or the Agentic AI Foundation (AAIF). Source: https://github.com/idosal/AgentPolyfill (Apache-2.0).
+By Ido Salomon (https://x.com/idosal1). Not affiliated with Anthropic, OpenAI, GitHub, MCP, Agentic Resource Discovery or the Agentic AI Foundation (AAIF). Source: https://github.com/idosal/AgentPolyfill (Apache-2.0).
 
 Every page of this site is also plain Markdown at its address plus \`.md\`, and all of them together are at ${origin}/llms-full.txt.
 

@@ -15,9 +15,13 @@ What runs in each host:
 - **Codex:** Events, Skills, Server Cards and ARD.
 - **Pi:** Events, Skills, Server Cards and ARD, as Pi extensions. Apps has no
   Pi form.
+- **Copilot CLI:** Events, Server Cards and ARD, as Copilot CLI plugins (Events
+  is an extension, in Copilot's experimental mode). Copilot has Skills and
+  Apps built in.
 
 See [Getting started](/guide/getting-started) for installation. Nothing for Pi
 is published to npm or Pi's package gallery; install from a repository clone.
+The Copilot CLI plugins install from a clone too, added as a marketplace.
 
 ## Not affiliated
 
@@ -29,7 +33,7 @@ this isn't working-group output.
 
 Model Context Protocol and MCP are trademarks of LF Projects, LLC. Claude and
 Claude Code are trademarks of Anthropic, PBC. OpenAI and Codex are trademarks
-of OpenAI.
+of OpenAI. GitHub Copilot is a trademark of GitHub, Inc.
 
 ## Licence
 

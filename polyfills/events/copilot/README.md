@@ -83,7 +83,7 @@ A demo server with events is hosted for anyone to try, with no sign-in. Add it
 to Copilot:
 
 ```bash
-copilot mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev/mcp
+copilot mcp add --transport=http feeds https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
 Start `copilot --experimental` in a folder and ask:
@@ -411,17 +411,29 @@ The changes a host would need are in
 
 ### Skills and Apps in Copilot
 
-There is no Copilot form of the Skills or Apps polyfills, on purpose:
+There is no Copilot form of the Skills or Apps polyfills, on purpose: Copilot
+has both, and a polyfill would be a second client beside Copilot's own.
 
-- **Skills over MCP (SEP-2640) is native.** Copilot CLI 1.0.115 declares
-  `io.modelcontextprotocol/skills` to every server by default (seen live), and
-  VS Code 1.147's Copilot harness turns it on by default
-  (`chat.agentHost.mcpSkills.enabled`). A polyfill would be a second client.
-- **MCP Apps is native where it can be drawn.** VS Code's Copilot harness
-  enables it for every session. The CLI's terminal draws no app and doesn't
-  declare `io.modelcontextprotocol/ui`; the runtime has it behind a flag for
-  graphical hosts. The Claude Code Apps polyfill draws apps in a terminal with
-  Claude Code's own UI hooks, which Copilot's extensions don't have.
+- **Skills over MCP (SEP-2640).**
+  - *Copilot CLI 1.0.115* declares `io.modelcontextprotocol/skills` to every
+    server it connects (seen in its `initialize`). Its settings
+    (`copilot help config`) have no switch for that as a whole; a skill can
+    be turned off by name with `copilot skill disable <name>` (`disabledSkills`).
+  - *VS Code 1.147.0's Copilot harness* follows
+    `chat.agentHost.mcpSkills.enabled`, on by default (from VS Code's
+    source). With it off, the harness lists no skills from MCP servers, and
+    nothing from this repository takes its place: the Skills polyfill has no
+    Copilot form.
+- **MCP Apps.**
+  - *VS Code 1.147.0's Copilot harness* turns MCP Apps on for every session
+    (`enableMcpApps: true` when it creates one), with no setting to turn it
+    off (from VS Code's source). VS Code's own chat, outside the harness, has
+    `chat.mcp.apps.enabled`.
+  - *Copilot CLI's terminal* draws no app and doesn't declare
+    `io.modelcontextprotocol/ui` (seen in 1.0.115). There, an MCP App's tools are
+    tools like any other, and nothing is drawn. The Claude Code Apps polyfill
+    draws apps in a terminal with Claude Code's own UI hooks, which Copilot's
+    extensions don't have.
 - Copilot also loads Claude Code plugins, but a Claude Code *mod* (this
   repository's Claude Code forms) runs nothing there: its hooks are Claude
   Code modules.

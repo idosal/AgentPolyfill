@@ -38,6 +38,12 @@ Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`,
 so an extension cannot get an App's UI through Pi. Pi's terminal could draw
 one in principle, but no Pi Apps form is built or tested.
 
+Apps has no Copilot form, because Copilot has MCP Apps built in where they
+can be drawn: VS Code's Copilot harness renders them. The Copilot CLI
+terminal draws none and doesn't declare MCP Apps to servers, and Copilot's
+extensions have no UI hooks like the ones this plugin uses in Claude Code
+([why](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/README.md#skills-and-apps-in-copilot)).
+
 The plugin is one zip, attached to a release of the repository and checked
 against the SHA-256 in the repository's marketplace file before Claude Code
 unpacks it. It carries a small helper program for each platform and needs

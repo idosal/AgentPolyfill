@@ -81,15 +81,21 @@ manifest and one bundled file, with nothing to build. Pi loads the local
 paths where they are, so keep the clone; `git pull` in it brings the next
 version. Start `pi` to use them.
 
-**GitHub Copilot CLI** (1.0.115, the version tested; Node 20 or newer). In a
-terminal:
+**GitHub Copilot CLI** (1.0.115, the version tested; Node 20 or newer). From a
+clone, added as a marketplace:
 
-```
-copilot plugin marketplace add idosal/AgentPolyfill
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+copilot plugin marketplace add ./AgentPolyfill
 copilot plugin install mcp-events@agent-polyfill
 copilot plugin install mcp-server-cards@agent-polyfill
 copilot plugin install ard-discovery@agent-polyfill
 ```
+
+That is the install that was tested. Copilot loads a local marketplace's
+plugins where they are, so keep the clone. Once these plugins are on the
+default branch, `copilot plugin marketplace add idosal/AgentPolyfill` adds the
+same marketplace from GitHub; that hasn't been tested yet.
 
 Events is a Copilot extension, and Copilot loads extensions only in its
 experimental mode (`copilot --experimental`, or `/settings experimental on`).
@@ -211,8 +217,15 @@ codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
+**Copilot CLI** (start it with `copilot --experimental`):
+
+```bash
+copilot mcp add --transport=http feeds https://event-feeds.idosalomon.workers.dev/mcp
+```
+
 In Pi, you can ask "Watch for new earthquakes from the feeds server and tell
-me where each one was", then confirm the watch in its dialog.
+me where each one was", then confirm the watch in its dialog. In Copilot,
+`watch_event` goes through Copilot's tool prompt.
 
 The same server also offers new comments in a Hacker News thread, new npm and
 GitHub releases, and earthquakes. Its source is in
@@ -230,6 +243,7 @@ its skills covers.
   list the served skills, from the next turn.
 - **Pi:** the served skills appear in its own list at session start. Ask a
   question or use `/skill:mcp-<server>-<name>`, then answer the load dialog.
+- **Copilot CLI:** nothing to install: Copilot has Skills over MCP built in.
 
 **Claude Code:**
 
@@ -261,6 +275,9 @@ once it's added, sign in through the host.
 - **Pi:** choose "Add it" in the extension's dialog; use `/mcp` or
   `pi mcp login <name>` for sign-in, and `pi mcp remove neon-docs` to remove
   the server.
+- **Copilot CLI:** after Copilot's tool prompt, choose "Add it" in the
+  plugin's form, then `/mcp reload`; `/mcp auth <name>` signs in, and
+  `copilot mcp remove neon-docs` removes it.
 
 ### Apps: an MCP App's interface, in the terminal
 

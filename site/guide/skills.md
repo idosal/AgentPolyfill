@@ -12,7 +12,8 @@ It adds the client side of
 the MCP **Skills** extension, `io.modelcontextprotocol/skills`
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md),
 Final). The host forms below supply MCP Skills support that hasn't shipped
-natively yet (for Codex, openai/codex#48000).
+natively yet (for Codex, openai/codex#48000). Copilot CLI has it built in, so
+there is no Copilot form.
 
 <Recording
   cut="skills"
@@ -83,6 +84,14 @@ keep the clone; `git pull` there updates it. Remove it from the same folder
 with `pi remove ./polyfills/skills/pi/extension`. Approvals and skill stubs
 stay in `mcp-skills/` in Pi's agent folder (`~/.pi/agent`, or
 `PI_CODING_AGENT_DIR`); delete that folder too to remove them.
+
+### In Copilot CLI
+
+There is no Copilot form, on purpose. Copilot CLI 1.0.115 has Skills over MCP
+built in: it declares `io.modelcontextprotocol/skills` to every server it
+connects, and VS Code 1.147.0's Copilot harness has it on by default. A
+polyfill would be a second client
+([why](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/README.md#skills-and-apps-in-copilot)).
 
 The sections below name the host where behavior differs. Full guides by host:
 

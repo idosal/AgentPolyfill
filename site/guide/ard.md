@@ -40,6 +40,12 @@ install it by name.
 In Pi, name the registry or set `ARD_DISCOVERY_REGISTRY`. Every search asks
 in a Pi dialog, showing the exact query and endpoint; without a UI it is
 refused. Pi has no bundle; this extension is installed separately too.
+
+In Copilot CLI, name the registry or set `ARD_DISCOVERY_REGISTRY`. Copilot's
+tool prompt comes first, then the plugin's form names the registry and the
+exact query. Where nobody can be asked (`copilot -p`), Copilot declines the
+form and nothing is sent. Copilot has no bundle; this plugin is installed
+separately too.
 :::
 
 It implements ARD v0.91 at commit `f073b1ea9b`: §5.1 (domain discovery), §5.3
@@ -62,6 +68,12 @@ codex plugin add ard-discovery@agent-polyfill
 git clone https://github.com/idosal/AgentPolyfill.git
 cd AgentPolyfill
 pi install ./polyfills/ard/pi/extension
+```
+
+```bash [Copilot CLI]
+git clone https://github.com/idosal/AgentPolyfill.git
+copilot plugin marketplace add ./AgentPolyfill
+copilot plugin install ard-discovery@agent-polyfill
 ```
 
 :::
@@ -94,11 +106,28 @@ required. Its add tool is `ard_add_mcp_server`, so it can run beside Server
 Cards' `add_mcp_server`: Pi shares tool names across extensions and keeps
 the first registration of a name.
 
+### In Copilot CLI
+
+Copilot CLI 1.0.115 (the version tested), with Node 20 or newer on your
+`PATH`. It is an MCP server in a plugin, so it needs no experimental mode. The
+install from a clone is the one tested; keep the clone. Once it is on the
+repository's default branch, `copilot plugin marketplace add idosal/AgentPolyfill`
+adds the marketplace from GitHub; that hasn't been tested. Start a new
+Copilot session afterwards. Remove it with
+`copilot plugin uninstall ard-discovery@agent-polyfill`. Servers you added
+stay in `~/.copilot/mcp-config.json`; remove one with
+`copilot mcp remove <name>`.
+
+It works on its own, with its own `add_mcp_server`, the one from the Server
+Cards Copilot form. Installing `mcp-server-cards` beside it is optional;
+Copilot keeps the two tools apart by server name.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi)
+- [Copilot CLI](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/copilot)
 
 ## Try it
 
@@ -113,6 +142,8 @@ Then ask to add it:
 - **Pi:** choose "Add it" in the extension's dialog. This add step is
   covered by real-Pi tests with a scripted model and a local server; it was
   **not completed in the live run**.
+- **Copilot CLI:** after Copilot's tool prompt, accept the plugin's form.
+  Run `/mcp reload`, and sign in when Copilot asks (`/mcp auth buildkite`).
 
 To try search, start the demo registry from a clone of the repository (it is a
 demo, not a real registry: it reads the live catalogs of ten publishers and
@@ -130,6 +161,9 @@ Claude finds Buildkite, and says buildkite.com's own catalog confirms it.
 In Pi, the recorded search returned publisher-confirmed Buildkite and
 Netlify after the extension's search question. The query stays local with
 this demo; fetching cards and checking publishers still makes public GETs.
+In Copilot CLI, the search went out only after Copilot's tool prompt and
+"Send the search" in the plugin's form, and the result listed Buildkite and
+Netlify, both confirmed by their publishers.
 
 ## Using it, step by step
 
@@ -174,11 +208,34 @@ the server for the session. Use `/mcp` or `pi mcp login <name>` if sign-in
 is needed. Print and JSON modes cannot ask, so searches and additions are
 refused; RPC clients relay the dialogs.
 
+### In Copilot CLI
+
+`ard_discover` reads a domain's `ard.json` and AI Catalog sources and checks
+their Server Cards; it only reads. `ard_search` uses a registry you name or
+set with `ARD_DISCOVERY_REGISTRY`; none is configured by default. Copilot asks
+before each tool runs, as for any MCP tool. Then the plugin's form names the
+endpoints and the exact query, and says up to three referrals may receive it.
+Only "Send the search", beside "Don't send it", sends the query.
+
+Adding is a separate form from `add_mcp_server`, with "Don't add it" and "Add
+it", as in [Server Cards](./server-cards#using-it-step-by-step). It writes with
+`copilot mcp add` into `~/.copilot/mcp-config.json`, and the server connects
+after `/mcp reload`. Where nobody can be asked (`copilot -p`, with
+`--allow-all-tools` or `--yolo`), Copilot declines the form, so nothing is
+sent or written.
+
 ## Settings
 
 In Pi, use `ARD_DISCOVERY_REGISTRY` for your chosen registry and
 `ARD_DISCOVERY_DISABLED=1` to turn the form off. It cannot detect native ARD
 support: remove it or use the off switch when Pi supports ARD itself.
+
+In Copilot CLI, the same two variables apply, and
+`copilot plugin disable ard-discovery@agent-polyfill` stops the plugin. It
+can't detect native ARD support. Copilot 1.0.115's own discovery, a built-in
+`discover-resources` skill searching a catalogue GitHub runs, doesn't read
+`ard.json` or speak ARD's registry search, so the plugin doesn't stand down
+for it.
 
 In Claude Code, in `/config`, under the plugin:
 
@@ -216,6 +273,20 @@ In Claude Code, in `/config`, under the plugin:
   asked in chat instead of calling `ard_add_mcp_server`, and `mcp.json`
   stayed empty. Additions are covered by real-Pi tests with a scripted model
   and a local server, not by that live run.
+
+### In Copilot CLI
+
+- **The query leaves your machine** once you accept that search.
+- **Two questions per search or add:** Copilot's tool prompt, then the form.
+- **The Server Cards Copilot limits apply:** no live card comparison (S-3),
+  new servers need `/mcp reload`, adding works in the interactive session
+  only, and a public name that resolves to a private address isn't caught.
+  See [Server Cards](./server-cards#limits).
+- **Not run in VS Code.** In VS Code 1.147.0's Copilot harness the plugin's
+  server loaded, but no search or add was run there.
+- **What the live run didn't cover:** a search sent to a public registry, and
+  an add through `ard_search`, in Copilot itself. Both are covered by tests
+  that run the plugin's server as Copilot starts it.
 
 ## Security
 
@@ -255,6 +326,23 @@ documents the shared ARD and Server Cards rules, Pi's questions and the
 tested add path. No upstream conformance run or independent public-registry
 run is claimed. The [live-run transcript](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/docs/live-run.md)
 shows discovery and the approved demo search, and stops before addition.
+
+### In Copilot CLI
+
+Each search and each addition needs Copilot's tool prompt, then its own answer
+in the plugin's form: only "Send the search" sends, and only "Add it" adds.
+`ard_search` is marked not read-only, since it sends your words to a third
+party, so a permission rule that trusts read-only tools doesn't let it
+through. `ard_discover` is read-only. What is sent is what the form shows. The
+plugin stores nothing on disk and never reads Copilot's stored credentials.
+See [Copilot's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/copilot/SECURITY.md).
+
+[Copilot's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/copilot/docs/conformance.md)
+documents the shared ARD and Server Cards rules and Copilot's questions
+(123 tests). No upstream conformance run is claimed. In Copilot CLI 1.0.115,
+with a scripted model, `ard_discover` read buildkite.com's catalogs, and a
+search of the demo registry on 127.0.0.1 went out only after the tool prompt
+and "Send the search".
 
 ## More
 

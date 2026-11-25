@@ -45,15 +45,17 @@ polyfills/<extension>/
   claude-code/   the Claude Code adapter
   codex/         the Codex adapter
   pi/            the Pi adapter
+  copilot/       the GitHub Copilot CLI adapter
 ```
 
 - `<extension>` is the extension's short name: `apps`, `events`, `skills`,
   `server-cards`, `ard`.
 - `core/` holds what does not depend on the host; each host folder holds its
-  adapter. Events and Skills use this layout. Apps has no Pi form.
+  adapter. Events and Skills use this layout. Apps has no Pi form. Skills
+  and Apps have no Copilot form: Copilot has them built in.
 
 Inside an adapter's folder, the installable form goes in a subfolder (`mod/`
-in the Apps polyfill, `extension/` in Pi), holding the host's manifest and
+in the Apps polyfill, `extension/` in Pi, `plugin/` in Copilot CLI), holding the host's manifest and
 only what it runs; tests, build scripts, benchmarks and design notes go beside
 it. The folder is self-contained, so code from `core/` reaches it by
 bundling, never by an import from outside it. Installation differs by host:
@@ -63,6 +65,9 @@ bundling, never by an import from outside it. Installation differs by host:
 - **Pi:** loads `extension/` from its local path; it is not copied. The
   folder holds a manifest and one bundled file, with nothing for the user
   to build. The clone must stay in place.
+- **Copilot CLI:** loads a plugin from a local marketplace where it is,
+  without copying it, so the clone must stay. From a marketplace on GitHub,
+  Copilot keeps its own copy.
 
 One plugin folder can carry both `.claude-plugin/plugin.json` and
 `.codex-plugin/plugin.json`. The plugin's name is unique in the repository, and
@@ -97,6 +102,13 @@ Install instructions depend on the host:
   tested version and Node 22 or newer as the requirement. Nothing for Pi is
   published to npm or Pi's package gallery; don't offer a package install.
   [Getting started](./getting-started#pi) has the tested steps.
+- **Copilot CLI:** `copilot plugin marketplace add idosal/AgentPolyfill`,
+  then `copilot plugin install <plugin>@agent-polyfill`. Until the plugin is
+  on the repository's default branch, the tested install is from a clone:
+  `copilot plugin marketplace add ./AgentPolyfill`. Say if it needs
+  experimental mode (every Copilot extension does).
+  [Getting started](./getting-started#github-copilot-cli) has the tested
+  steps.
 
 ### 4. List it for its host
 
@@ -108,6 +120,9 @@ Install instructions depend on the host:
 - **Pi:** document the local `extension/` install path. There is no Pi
   bundle, and none of these forms is published to npm or Pi's package
   gallery.
+- **Copilot CLI:** add an entry to `.github/plugin/marketplace.json`, which
+  Copilot reads before `.claude-plugin/marketplace.json`. Keep its `version`
+  equal to the plugin's.
 
 Then add it to the polyfills table in the repository's README, in its host's
 column.
@@ -149,6 +164,8 @@ beside the others. Events and Skills share one `core/`, with these forms:
 - **Claude Code:** a mod in `claude-code/`.
 - **Codex:** a plugin in `codex/`.
 - **Pi:** an extension in `pi/`, with the installable bundle in `extension/`.
+- **Copilot CLI:** a plugin in `copilot/`, installed from `plugin/` (Events
+  only; Copilot has Skills built in).
 
 1. **Find the host's way in.** What can third-party code do there: run code
    inside the host or beside it, call tools, ask the user, start a turn in an

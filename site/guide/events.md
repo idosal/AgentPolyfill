@@ -14,6 +14,8 @@ Final). The forms fill these gaps:
 - **Claude Code:** no native Events support yet; the polyfill is a mod (plugin).
 - **Codex:** no Events support for your own servers; the polyfill is a plugin.
 - **Pi:** no native Events support in Pi 1.6.0; the polyfill is an extension.
+- **Copilot CLI:** no Events support in Copilot CLI 1.0.115; the polyfill is
+  a plugin holding a Copilot extension, so it needs experimental mode.
 
 <Recording
   cut="events"
@@ -40,6 +42,12 @@ cd AgentPolyfill
 pi install ./polyfills/events/pi/extension
 ```
 
+```bash [Copilot CLI]
+git clone https://github.com/idosal/AgentPolyfill.git
+copilot plugin marketplace add ./AgentPolyfill
+copilot plugin install mcp-events@agent-polyfill
+```
+
 :::
 
 **In Claude Code** (2.1.326 or newer, with Node 20 or newer or Bun), the
@@ -61,11 +69,24 @@ so keep the clone; `git pull` there updates it. To remove it, run
 events stay in `mcp-events/` in Pi's agent folder (`~/.pi/agent`, or
 `PI_CODING_AGENT_DIR`); delete that folder too to remove them.
 
+**In Copilot CLI** (1.0.115, the version tested), the plugin is a Copilot
+extension, and Copilot loads extensions only in experimental mode: start it
+with `copilot --experimental`, or run `/settings experimental on` once. The
+whole extension API is experimental, so it may change in any release.
+Copilot runs the extension with its own Node, so you need none. The install
+from a clone is the one tested; Copilot loads the plugin where it is, so keep
+the clone. Once the plugin is on the repository's default branch,
+`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace
+from GitHub; that hasn't been tested. To remove it, run
+`copilot plugin uninstall mcp-events@agent-polyfill`. Watches and events stay
+in `~/.copilot/mcp-events/`; delete that folder too to remove them.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi)
+- [Copilot CLI](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/copilot)
 
 ## Try it
 
@@ -85,6 +106,10 @@ codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 ```
 
+```bash [Copilot CLI]
+copilot mcp add --transport=http feeds https://event-feeds.idosalomon.workers.dev/mcp
+```
+
 :::
 
 Start your host in the same folder:
@@ -94,6 +119,8 @@ Start your host in the same folder:
 - **Pi:** `pi`. Ask "Watch for new earthquakes from the feeds server and tell
   me where each one was." Confirm the watch in Pi's dialog; stop it with
   "Stop watching the earthquakes."
+- **Copilot CLI:** `copilot --experimental`. Copilot asks before
+  `watch_event` runs, as for any tool that changes something.
 
 For the button demo, ask:
 
@@ -187,6 +214,27 @@ session and resumes with it; a local (stdio) watch resumes only in the same
 folder. The [live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/live-run.md)
 shows approval, an idle session waking, the answer and stopping the watch.
 
+### In Copilot CLI
+
+The first session after the install asks once whether the extension may have
+elevated permissions ("skip tool permission prompts, register hooks").
+Choose **Yes**: the plugin uses them only so its four tools that only read
+run without Copilot's prompt, and so its instructions reach the session at
+its start. **No** keeps the extension from loading. The servers it reads are
+the ones in `~/.copilot/mcp-config.json` (what `copilot mcp add` writes) or a
+trusted project's `.mcp.json` or `.github/mcp.json`, that Copilot enables for
+the session. Copilot asks before `watch_event` and `unwatch_event` run; say
+no, and nothing is watched.
+
+When an event arrives, the plugin hands the session a message with
+`session.send`, as a turn Copilot marks as an automation. Its first line says
+the plugin sent it, not you. Copilot reads the event with `get_event` and
+answers. A watch belongs to the Copilot session that set it;
+`copilot --resume` starts its watches again from their cursors. The
+[live run](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/docs/live-run.md)
+shows a watch set through Copilot's tool prompt, an idle session waking and
+the event read.
+
 ## What Claude can do with it
 
 The mod gives Claude six tools. You do not call them yourself; you ask in
@@ -233,6 +281,13 @@ In Pi, servers offering Events over stdio or Streamable HTTP work with
 push, poll or webhook delivery. Credentials must be in Pi's configuration;
 Pi's stored sign-ins cannot be used. See [Pi's limits](#limits).
 
+In Copilot CLI, servers offering Events over stdio or Streamable HTTP work
+with push, poll or webhook delivery, when Copilot enables them for the
+session. Credentials must be in the server's entry in `mcp-config.json`: a
+header, written out or from `${VAR}`. Copilot's sign-in can't be used, and
+neither can a variable Copilot strips from extensions. See
+[Copilot's limits](#limits).
+
 ### In Claude Code
 
 - Servers that implement the Events extension (SEP-3415), over stdio or
@@ -256,6 +311,12 @@ provides the public address. Webhook delivery needs a connection carrying
 credentials. The setup command below is for Claude Code; Pi's
 [relay instructions](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/README.md#webhook-delivery-the-relay)
 link to the shared setup and trade-offs.
+
+Copilot CLI uses the same relay: one relay serves the Claude Code, Codex and
+Copilot forms. The plugin reads `~/.mcp-events/relay.json`, which the relay's
+setup writes. Copilot's
+[relay notes](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/README.md#webhook-delivery-the-relay)
+link to the setup.
 
 Some servers deliver only by webhook, and a webhook needs a public https
 address, which Claude Code on your machine does not have. A relay is that
@@ -309,12 +370,33 @@ In the interactive terminal and RPC mode, for as long as the session stays
 open. RPC clients relay the extension's dialogs. Print and JSON modes can
 list and read events but cannot start a watch.
 
+### In Copilot CLI
+
+| | Tools | An event wakes the session |
+|---|---|---|
+| The Copilot CLI terminal (`copilot --experimental`) | Yes | Yes |
+| `copilot -p` | Yes | No: the session, and the extension with it, end with the prompt |
+| `copilot --acp` (an editor driving Copilot over ACP) | No: Copilot 1.0.115 doesn't load extensions in ACP sessions | No |
+| VS Code 1.147.0's Copilot harness | Yes | Yes: a message from the plugin shows, then the turn |
+
+Tested live in Copilot CLI 1.0.115 on macOS, with a scripted model on the
+machine standing in for Copilot's. The tests also run on Linux in CI.
+Windows hasn't been tried.
+
 ## Settings
 
 In Pi, set environment variables before starting `pi`. `MCP_EVENTS_OFF=1`
 turns the extension off. It cannot detect native Events support; remove it
 or use that switch when Pi supports Events itself. The full
 [Pi settings table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/README.md#settings)
+lists its controls.
+
+In Copilot CLI, settings are environment variables in the environment
+Copilot starts in. `MCP_EVENTS_OFF=1` turns the extension off (no tools, no
+hooks); so do `/extensions manage` and
+`copilot plugin disable mcp-events@agent-polyfill`. It can't detect native
+Events support. The full
+[Copilot settings table](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/README.md#settings)
 lists its controls.
 
 The table below is for Claude Code.
@@ -382,6 +464,27 @@ Environment variables, for example in the `env` block of
 - **Off with Pi's MCP support.** With `--no-mcp`, `-builtin:mcp` in the
   extension settings, or a replacement MCP extension, Events stands down too.
 
+### In Copilot CLI
+
+- **Experimental mode only.** Copilot loads extensions only in experimental
+  mode, and its extension API may change in any release. Tested on 1.0.115.
+- **No sign-in through Copilot.** Servers you sign in to through Copilot
+  (`/mcp auth`, OAuth) are out of reach. A header in `mcp-config.json` works,
+  written out or from `${VARIABLE}`, except variables Copilot strips from
+  extensions. The extension never reads Copilot's stored credentials.
+- **Its own connection.** The extension can't send `events/*` over Copilot's
+  connection, so a local (stdio) server runs twice.
+- **Only the servers Copilot enables.** Servers a plugin brings,
+  `--additional-mcp-config` and the built-in GitHub server are listed as
+  unavailable. A server you switch off with `/mcp disable` stops its watches
+  until a session has it again.
+- **An open session and limited wakes.** Nothing starts Copilot when an
+  event arrives; `copilot --resume` picks watches up from their cursors. By
+  default a watch wakes at most once a minute, and a session at most 30
+  times an hour. Past that it is told once, and waits until you write.
+- **No wakes in `copilot -p` or `copilot --acp`.** `-p` ends the session with
+  the prompt, and `--acp` loads no extensions.
+
 ## Security
 
 ### In Claude Code
@@ -438,6 +541,26 @@ Pi's own client also connects to the suite's server. See
 [Pi's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/docs/conformance.md).
 An AI reviewer who did not build the Pi forms reviewed them, and checked
 the fixes again. They have not been audited by a person.
+
+### In Copilot CLI
+
+What a server sent reaches Copilot only as a tool result, when Copilot reads
+it with `get_event` or `recent_events`. The wake carries nothing the server
+wrote, and goes in as an automation turn, which Copilot gives no human
+authority. Copilot's own prompts are the boundary: `watch_event` and
+`unwatch_event` go through Copilot's tool prompt. Once you grant it elevated
+permissions, the extension skips the prompt only for its four tools that
+only read. It uses only the servers Copilot enables for the session, lets go
+of one you switch off, and never reads Copilot's stored credentials. In a
+session that allows tools without asking (`--allow-all-tools`, `--yolo`), a
+server you watch can set work in motion, as often as the wake limit allows.
+See [Copilot's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/SECURITY.md).
+
+The shared client's clause table applies in Copilot. The Events scenarios in
+conformance PR #541 pass 17 of 17, end to end through the bundled extension.
+hookbench's reference server passes 7 of 7, and this repository's
+event-feeds 3 of 3. See
+[Copilot's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/docs/conformance.md).
 
 ## The mod's own runtime
 

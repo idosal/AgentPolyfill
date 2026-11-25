@@ -135,8 +135,12 @@ It states:
     The current forms need Pi 1.6.0 (the version tested) and Node 22 or
     newer. Nothing for Pi is published to npm or Pi's package gallery.
     For one run, use `pi -e ./polyfills/<extension>/pi/extension`.
-  - In Copilot CLI: `copilot plugin marketplace add idosal/AgentPolyfill`,
-    then `copilot plugin install <plugin>@agent-polyfill`.
+  - In Copilot CLI: clone the repository, run
+    `copilot plugin marketplace add ./AgentPolyfill`, then
+    `copilot plugin install <plugin>@agent-polyfill` (tested with 1.0.115;
+    Events needs `copilot --experimental`). From GitHub,
+    `copilot plugin marketplace add idosal/AgentPolyfill` works once the
+    plugins are on the default branch.
   - Then what else it needs, and every step and question a new user meets
     between installation and the extension working, with what happens when
     they say no. Anything beyond "install, add a server, ask" needs a reason.

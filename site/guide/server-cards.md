@@ -51,6 +51,12 @@ cd AgentPolyfill
 pi install ./polyfills/server-cards/pi/extension
 ```
 
+```bash [Copilot CLI]
+git clone https://github.com/idosal/AgentPolyfill.git
+copilot plugin marketplace add ./AgentPolyfill
+copilot plugin install mcp-server-cards@agent-polyfill
+```
+
 :::
 
 ### In Claude Code
@@ -80,11 +86,24 @@ so keep the clone; `git pull` there updates it. Remove it from the same
 folder with `pi remove ./polyfills/server-cards/pi/extension`. Servers you
 added stay in `mcp.json`; remove one with `pi mcp remove <name>`.
 
+### In Copilot CLI
+
+Copilot CLI 1.0.115 (the version tested), with Node 20 or newer on your
+`PATH`. The plugin is an MCP server, so it needs no experimental mode. The
+install from a clone is the one tested; Copilot loads the plugin where it is,
+so keep the clone. Once it is on the repository's default branch,
+`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace
+from GitHub; that hasn't been tested. Start a new Copilot session afterwards.
+Remove it with `copilot plugin uninstall mcp-server-cards@agent-polyfill`.
+Servers you added stay in `~/.copilot/mcp-config.json`; remove one with
+`copilot mcp remove <name>`.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi)
+- [Copilot CLI](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/copilot)
 
 ## Try it
 
@@ -93,6 +112,7 @@ Nothing to set up. Start your host:
 - **Claude Code:** `claude`.
 - **Codex:** `codex`.
 - **Pi:** `pi`.
+- **Copilot CLI:** `copilot`.
 
 Ask:
 
@@ -104,6 +124,9 @@ Then add **Neon Docs** (no sign-in):
 - **Codex:** choose "Add it" in Codex's own form.
 - **Pi:** ask "Add Neon Docs", then choose "Add it" in Pi's dialog. It is
   saved and registered for the current session, without a restart.
+- **Copilot CLI:** ask "Add Neon Docs". Copilot's tool prompt comes first,
+  then the plugin's form: choose "Add it". Run `/mcp reload` (or start a new
+  session) to use it. `copilot mcp remove neon-docs` removes it again.
 
 For one behind a sign-in, ask about
 buildkite.com; once it's added, the host asks you to sign in (in Claude Code,
@@ -161,6 +184,22 @@ check `/mcp` if connection fails. For sign-in, use `/mcp` or
 Print and JSON modes cannot ask, so additions are refused. RPC clients
 relay the dialog to you.
 
+### In Copilot CLI
+
+`discover_mcp_servers` reads the domain's AI Catalog and checks each card;
+Copilot asks before it runs, as for any MCP tool. Ask to add one it found:
+Copilot asks before `add_mcp_server` runs, and then the plugin asks in
+Copilot's form, with "Don't add it" first and "Add it". The form names the
+server, host, URL, headers, the file it writes (`~/.copilot/mcp-config.json`,
+for all your projects) and the undo command, `copilot mcp remove <name>`.
+
+Only "Add it" writes, with `copilot mcp add`. Copilot connects the server
+after `/mcp reload`, or in your next session; if it needs a sign-in, Copilot
+offers it then (`/mcp auth <name>`). The plugin never reads Copilot's stored
+credentials. Where nobody can be asked (`copilot -p`, even with
+`--allow-all-tools` or `--yolo`), Copilot declines the form, and nothing is
+written.
+
 ### A domain that redirects
 
 Some domains answer with a redirect to another domain: `neon.tech` sends its
@@ -175,6 +214,7 @@ decision, and the polyfill never uses `extensionsInfo`.
 ## Settings
 
 In Pi, `MCP_SERVER_CARDS_DISABLED=1` registers no tools and fetches nothing.
+In Copilot CLI, `MCP_SERVER_CARDS_DISABLED=1` does the same.
 
 In Claude Code, in `/config`, under the plugin:
 
@@ -189,6 +229,10 @@ In Claude Code, in `/config`, under the plugin:
 In Pi, `discover_mcp_servers` reads and checks the cards, and `add_mcp_server`
 asks before running `pi mcp add` and registering the server for the session.
 There is no `present_server_cards` tool in the Pi form.
+
+In Copilot CLI, the tools are `discover_mcp_servers` and `add_mcp_server`,
+which adds a server only after your accept in the form. There is no
+`present_server_cards` tool in the Copilot form either.
 
 The table below is for Claude Code.
 
@@ -239,6 +283,21 @@ in the same catalogs, and local (stdio) servers, which cards do not describe.
 - **Discover again after a session change.** New, resumed, forked and
   reloaded sessions forget shown cards. Disabled or replaced MCP support,
   or a failed connection, can prevent added tools from becoming available.
+
+### In Copilot CLI
+
+- **No live card comparison.** S-3 is not met: the plugin can't send
+  `server/discover` over Copilot's connection.
+- **Two questions for one add.** Copilot asks before every MCP tool call,
+  and the form is the plugin's own question. "Don't ask again" on Copilot's
+  prompt removes the first; the form stays.
+- **New servers need `/mcp reload`,** or a new session.
+- **Interactive sessions only.** Copilot declines the form in `copilot -p`,
+  even with `--yolo`, so adding works only in the interactive session.
+- **DNS is not checked for private addresses.** A public name that resolves
+  to a private address isn't caught. Redirects are checked hop by hop.
+- **Not run in VS Code.** In VS Code 1.147.0's Copilot harness the plugin's
+  server loaded, but no server was added through it there.
 
 ## Security
 
@@ -305,6 +364,22 @@ records neon.com's servers being listed, the add question, and Neon Docs
 saved in `mcp.json` and connected for the session. It does not establish a
 completed Neon Docs tool call.
 
+### In Copilot CLI
+
+Discovery sends plain GETs without cookies or credentials. Every addition
+needs Copilot's tool prompt and then "Add it" in the form, and is written with
+`copilot mcp add`, with no shell; nothing a card says is read as one of its
+options. A card's secret becomes a `${VAR}` reference, never a value. The
+plugin never reads Copilot's stored credentials, and stores nothing on disk.
+See [Copilot's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/SECURITY.md).
+
+[Copilot's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/docs/conformance.md)
+records the shared client rules and the Copilot-specific checks (111 tests);
+S-3 remains unmet. In Copilot CLI 1.0.115, with a scripted model, the plugin
+found Neon and Neon Docs on neon.com and, after Copilot's tool prompt and
+**Add it**, wrote `neon-docs` with `copilot mcp add`. In `copilot -p`, with
+`--yolo` too, Copilot declined the form and nothing was written.
+
 ## When the host supports Server Cards itself
 
 - **Claude Code:** there is no Server Card support to detect yet. When it
@@ -312,6 +387,12 @@ completed Neon Docs tool call.
   and fetches nothing.
 - **Pi:** native support cannot be detected automatically. Remove the
   extension or set `MCP_SERVER_CARDS_DISABLED=1` when it ships.
+- **Copilot CLI:** there is no Server Card support to detect yet. When it
+  ships, uninstall the plugin, disable it
+  (`copilot plugin disable mcp-server-cards@agent-polyfill`), or set
+  `MCP_SERVER_CARDS_DISABLED=1`. Copilot 1.0.115's own discovery, a built-in
+  `discover-resources` skill, searches a catalogue GitHub runs. That isn't
+  SEP-2127's discovery from a domain, so the plugin doesn't stand down for it.
 
 ## More
 

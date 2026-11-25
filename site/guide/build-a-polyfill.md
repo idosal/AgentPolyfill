@@ -145,6 +145,9 @@ for each host:
 - **Pi:** an extension in `pi/`, with a manifest and bundled file in
   `extension/`. It installs from a local clone; nothing for Pi is published
   to npm or Pi's package gallery.
+- **Copilot CLI:** a plugin in `copilot/`, installed from `plugin/`, for
+  Events only: Copilot has Skills built in. The Events plugin holds a Copilot
+  extension.
 
 The Pi examples are
 [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi),
@@ -153,6 +156,12 @@ The Pi examples are
 and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi).
 Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`;
 its terminal could draw an App in principle, but nothing is built or tested.
+
+The Copilot CLI examples are
+[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/copilot),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/copilot)
+and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/copilot).
+Skills and Apps have no Copilot form: Copilot has them built in.
 
 Bringing a polyfill to another host is a new adapter: find how the host lets
 it reach the wire (a connection of its own, a tool call, a way to wake an idle
@@ -170,6 +179,16 @@ switch because native support cannot be detected. Their READMEs,
 `SECURITY.md`, `docs/conformance.md` and `docs/live-run.md` record what was
 checked. ARD's live run did not complete the add step; addition was checked
 in real Pi with a scripted model and a local server.
+
+The Copilot CLI forms show the same from another side. Only an extension can
+start a turn (`session.send`), so Events is an extension and needs Copilot's
+experimental mode; Server Cards and ARD are MCP servers in plugins and don't.
+Events needs its own connection and cannot use Copilot's sign-in. Copilot's
+own tool prompt comes before each tool that acts, and adding a server or
+sending a search also asks in a form. Each has an off switch because native
+support cannot be detected. Their READMEs, `SECURITY.md` and
+`docs/conformance.md` (and Events' `docs/live-run.md`) record what was
+checked. The live runs in Copilot CLI used a scripted model on the machine.
 
 ## Your own, listed in the community directory
 

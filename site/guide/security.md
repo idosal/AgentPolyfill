@@ -40,16 +40,17 @@ documents and adds a server to Claude Code's own config, only when you press
 Each polyfill's own `SECURITY.md` describes what it checks and what it does
 not protect against, in each host:
 
-| Polyfill | Claude Code | Codex | Pi |
-|---|---|---|---|
-| Events | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/SECURITY.md) |
-| Skills | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md) |
-| Server Cards | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md) |
-| Apps | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md) | not available | not available |
-| ARD | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md) |
+| Polyfill | Claude Code | Codex | Pi | Copilot CLI |
+|---|---|---|---|---|
+| Events | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/SECURITY.md) |
+| Skills | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/pi/SECURITY.md) | built into Copilot |
+| Server Cards | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/copilot/SECURITY.md) |
+| Apps | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/SECURITY.md) | not available | not available | built into Copilot for graphical hosts |
+| ARD | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/codex/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/SECURITY.md) | [SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/copilot/SECURITY.md) |
 
 The following per-polyfill summaries describe the Claude Code forms;
-[Pi's security notes](#in-pi) follow them.
+[Pi's security notes](#in-pi) and [Copilot CLI's](#in-copilot-cli) follow
+them.
 
 ### Events
 
@@ -189,6 +190,51 @@ Skills stores stubs and approvals in `mcp-skills/`, without skill content or
 tokens. Server Cards and ARD keep their discovery state in memory; servers
 you add stay in `mcp.json`. See [Turning one off](./getting-started#turning-one-off)
 for off switches, uninstalling and removing saved data.
+
+## In Copilot CLI
+
+Copilot's own prompts are the boundary. The Events plugin is an extension, a
+child process Copilot starts for the session; Server Cards and ARD are MCP
+servers in plugins. Each form's tools that act (`watch_event`,
+`unwatch_event`, `add_mcp_server`, `ard_search`) go through Copilot's tool
+prompt, and adding a server or sending a registry search also asks in
+Copilot's form. Nothing is approved for you.
+
+- **Events:** the first session asks once whether the extension may have
+  elevated permissions ("skip tool permission prompts, register hooks"). It
+  uses them only so its four tools that only read (`list_event_types`,
+  `list_watches`, `get_event`, `recent_events`) skip Copilot's prompt, and to
+  give the session its instructions. A payload reaches Copilot only as a tool
+  result. The wake carries nothing the server wrote, and goes in as an
+  automation turn, which Copilot gives no human authority; its first line
+  says the plugin sent it. A watch belongs to the session that set it. In a
+  session that allows tools without asking (`--allow-all-tools`, `--yolo`), a
+  server you watch can set work in motion, as often as the wake limits allow.
+- **Server Cards:** only "Add it" in the form writes a server, through
+  `copilot mcp add`, with no shell, into `~/.copilot/mcp-config.json`. The
+  form names the server, host, URL, headers, the file and the undo command.
+  Nothing a card says is read as an option, a name you have is never
+  replaced, and a card's secret becomes a `${VAR}` reference, never a value.
+  The card is not compared with the live server (S-3), and a public name that
+  resolves to a private address isn't caught.
+- **ARD:** no registry is selected by default. Every search names the exact
+  query and the registry in the form; only "Send the search" sends it.
+  `ard_search` is marked not read-only, since it sends your words to a third
+  party. Adding uses the Server Cards form's checks and its own form.
+- **Skills and Apps:** built into Copilot; there is no Copilot form.
+
+Copilot declines a form where nobody can be asked: in `copilot -p`, even
+with `--allow-all-tools` or `--yolo`, nothing is added or sent. Events uses
+only the servers Copilot enables for the session, after folder trust, your
+settings and your organisation's policy, and lets go of one you switch off.
+None of the Copilot forms reads Copilot's stored credentials (the keychain,
+`~/.copilot/mcp-oauth-config/`, signed-in accounts in `config.json`).
+
+Events stores watches and payloads in `~/.copilot/mcp-events/`, readable only
+by you. Server Cards and ARD store nothing on disk; servers you add stay in
+`~/.copilot/mcp-config.json`. See
+[Turning one off](./getting-started#turning-one-off) for off switches,
+uninstalling and removing saved data.
 
 ## What was checked, and how
 

@@ -1,5 +1,5 @@
 ---
-description: What makes something a polyfill, how the polyfills plug into each host (Claude Code, Codex, Pi), where they stop, and the four generic host changes that would remove the limits in each.
+description: What makes something a polyfill, how the polyfills plug into each host (Claude Code, Codex, Pi, Copilot CLI), where they stop, and the four generic host changes that would remove the limits in each.
 ---
 
 # How it works
@@ -36,6 +36,10 @@ host ships one of these extensions, turn that polyfill off:
 - **Pi:** remove the extension (`pi remove ./polyfills/events/pi/extension`
   from your clone), or use its own setting (`MCP_EVENTS_OFF=1`,
   `MCP_SKILLS_OFF=1`, `MCP_SERVER_CARDS_DISABLED=1`, `ARD_DISCOVERY_DISABLED=1`).
+- **Copilot CLI:** disable or uninstall the plugin
+  (`copilot plugin disable mcp-events@agent-polyfill`), or use its own
+  setting (`MCP_EVENTS_OFF=1`, `MCP_SERVER_CARDS_DISABLED=1`,
+  `ARD_DISCOVERY_DISABLED=1`).
 
 [Getting started](./getting-started#turning-one-off) has the full list.
 
@@ -54,6 +58,11 @@ Each host lets outside code in, in its own way.
   tools, ask the person in a dialog, block or ask about a tool call (codemode's
   nested calls too), start a turn in an idle session with a message of its
   own, and hand Pi folders of skills to list.
+- **GitHub Copilot CLI** runs plugins with MCP servers, and, in experimental
+  mode, extensions: a process that joins the session, registers tools, starts
+  a turn with `session.send`, opens dialogs, and calls a server's tools or
+  reads its resources over Copilot's own connection. VS Code's Copilot harness
+  runs the same runtime; Events was run end to end there.
 
 That's the host half of almost any extension. The protocol half is missing in
 each. No host lets a plugin send an extension's own methods, such as
@@ -71,16 +80,17 @@ with its own sign-in.
 Four small, generic changes would remove the limit, in each host. None of
 them names an extension:
 
-| Change | Claude Code today | Codex today | Pi today |
-|---|---|---|---|
-| Send any MCP method over the host's connection | missing | missing (its client can, internally) | missing (its client can, internally) |
-| Read what the server advertised | missing | mostly there | missing (its client keeps it) |
-| Deliver a server's notifications to the plugin | missing | only for OpenAI's hosted apps server | missing |
-| Raw tool results; declare a client extension | missing | declaring only by Codex's own client | structured results reach hooks; no tool `_meta`, no declaring |
+| Change | Claude Code today | Codex today | Pi today | Copilot CLI today |
+|---|---|---|---|---|
+| Send any MCP method over the host's connection | missing | missing (its client can, internally) | missing (its client can, internally) | missing (tool calls and resource reads only) |
+| Read what the server advertised | missing | mostly there | missing (its client keeps it) | missing (instructions only) |
+| Deliver a server's notifications to the plugin | missing | only for OpenAI's hosted apps server | missing | `list_changed` only |
+| Raw tool results; declare a client extension | missing | declaring only by Codex's own client | structured results reach hooks; no tool `_meta`, no declaring | raw tool results; declaring only by Copilot itself |
 
 The first two are enough for Events (by poll and webhook) and Skills to work
-with every server you've signed in to; in Pi, Events also needs Pi's own
-client to speak protocol revision 2026-07-28. The rest of this page says what each
+with every server you've signed in to, in Claude Code, Codex and Copilot CLI;
+in Pi, Events also needs Pi's own client to speak protocol revision
+2026-07-28. The rest of this page says what each
 change would look like in each host, what each extension needs, and the
 questions the changes raise.
 
@@ -92,28 +102,33 @@ the host: a plugin brings MCP servers, skills and hooks, and other programs
 can drive Codex from outside through `app-server`, an experimental JSON-RPC
 API. The Codex column names that API's methods. In Pi, an extension is
 TypeScript that Pi loads into its own process, and Pi's MCP support is itself
-a built-in extension, which keeps its connections to itself.
+a built-in extension, which keeps its connections to itself. Copilot runs an
+*extension* (`extension.mjs`, in a plugin or a folder of your own) as a child
+process that joins the session with `joinSession()` from
+`@github/copilot-sdk/extension`, which Copilot provides. Extensions are
+experimental: they load only with `--experimental`. The Copilot column names
+that SDK's calls.
 
-| What a polyfill needs | Claude Code (a mod) | Codex (a plugin, or an app-server client) | Pi (an extension) |
-|---|---|---|---|
-| Add tools the model can call | `$.tool.register` | An MCP server in the plugin, or `dynamicTools` for an app-server client | `pi.registerTool`. Tool names are shared by every extension, and the first one registered under a name wins. |
-| Draw its own UI | `ui.render` hooks | No. The desktop app shows a server's MCP App; nothing draws in the terminal. | Yes: custom components, overlays, `pi.registerToolRenderer`, images (Kitty, iTerm2), and mouse input in its default fullscreen mode |
-| Ask the person | A permission hook that answers "ask" | MCP elicitation, from the plugin's MCP server | `ctx.ui.confirm`, `select`, `input`; relayed to the client in RPC mode, unavailable in print and JSON modes |
-| Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `pi.sendMessage(…, { triggerTurn: true })`, shown as the extension's own message |
-| Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives | The extension runs in that session (`ctx.sessionManager.getSessionId()`) |
-| Know the person wrote | The `prompt.submit` hook | `turn_trigger` in the turn metadata of a tool call | The `input` event, with its source |
-| Add skills | The Skills mod lists served skills in Claude's skill listing ([Skills form](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/README.md)) | A plugin's skills folder, read when the plugin loads; `~/.agents/skills` | `resources_discover` returns skill folders, read at start and at `/reload` |
-| Gate a tool call | Permission hooks that allow, deny or ask | Hooks that can deny, not ask | `tool_call` handlers that can block, and ask with `ctx.ui`, for the model's calls and codemode's nested calls |
-| Add a server | `claude mcp add` | `codex mcp add` | `pi mcp add` (saved), `pi.registerMcpServer` (this session, connected at once) |
-| Call a server's tool over the host's connection, with its sign-in | `$.mcp.call(server, tool, args)` | `mcpServer/tool/call` | Indirectly: an MCP tool is a Pi tool (`mcp__<server>__<tool>`), callable with `ctx.executeTool` |
-| Ask whether the host would use a server | `$.mcp.connect(server)` | `mcpServerStatus/list` (start-up and sign-in state) | No. An extension reads `mcp.json` itself. |
-| Read a resource over the host's connection | Only indirectly, by calling the built-in `ReadMcpResourceTool`. You get text or a saved file, without the resource's `_meta`. | `mcpServer/resource/read`, with `_meta` | Only indirectly, through Pi's `read_mcp_resource` tool, which leaves out `ui://` resources |
-| Send any other MCP method | No | No. Codex's MCP client has a generic `send_custom_request`, but `app-server` doesn't expose it. | No. Pi's `McpClient` has `request(method, params)`, but the MCP extension doesn't expose its clients. |
-| See what a server advertised | No | Mostly: capabilities (including `extensions`) and `serverInfo` are in `mcpServerStatus/list`. The negotiated protocol revision isn't. | No |
-| Receive a server's notifications | No | Only from OpenAI's hosted apps server. `mcpServer/event/stream/*` refuses any other server. Elicitation requests are relayed. | No |
-| See a tool's `_meta`, its `outputSchema`, or a result as the server sent it | No | Not checked yet | A result's `structuredContent` reaches `tool_result` hooks and codemode; a tool's `_meta` doesn't |
-| Declare a client extension to servers | No | Only Codex's own client (the terminal or the desktop app) can, and its declaration goes to every server. A plugin or the config can't. | No. Pi's `McpClient` takes capabilities from its caller, but the MCP extension sets none for others. |
-| Protocol revision of the host's own connection | 2026-07-28 back to 2024-11-05 | 2025-06-18 (2026-07-28 behind a feature flag that is off) | Up to 2025-11-25 |
+| What a polyfill needs | Claude Code (a mod) | Codex (a plugin, or an app-server client) | Pi (an extension) | Copilot (an extension) |
+|---|---|---|---|---|
+| Add tools the model can call | `$.tool.register` | An MCP server in the plugin, or `dynamicTools` for an app-server client | `pi.registerTool`. Tool names are shared by every extension, and the first one registered under a name wins. | `joinSession({ tools })`, or an MCP server in a plugin (not experimental) |
+| Draw its own UI | `ui.render` hooks | No. The desktop app shows a server's MCP App; nothing draws in the terminal. | Yes: custom components, overlays, `pi.registerToolRenderer`, images (Kitty, iTerm2), and mouse input in its default fullscreen mode | Canvases in graphical hosts (VS Code, the Copilot app); nothing drawn inline in the terminal |
+| Ask the person | A permission hook that answers "ask" | MCP elicitation, from the plugin's MCP server | `ctx.ui.confirm`, `select`, `input`; relayed to the client in RPC mode, unavailable in print and JSON modes | An extension's `session.ui.confirm`, `select`, `input`; MCP elicitation from a plugin's MCP server, shown in the TUI and declined in `copilot -p`, even with `--yolo` |
+| Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `pi.sendMessage(…, { triggerTurn: true })`, shown as the extension's own message | `session.send({ prompt, source: "automation-…" })`, marked as carrying no human authority |
+| Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives | The extension runs in that session (`ctx.sessionManager.getSessionId()`) | The extension joins one session (`SESSION_ID`); a tool handler gets `sessionId` |
+| Know the person wrote | The `prompt.submit` hook | `turn_trigger` in the turn metadata of a tool call | The `input` event, with its source | A `user.message` session event with no `source`; a turn an extension starts carries its own |
+| Add skills | The Skills mod lists served skills in Claude's skill listing ([Skills form](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/skills/claude-code/README.md)) | A plugin's skills folder, read when the plugin loads; `~/.agents/skills` | `resources_discover` returns skill folders, read at start and at `/reload` | A plugin's `skills` folder; skills an MCP server serves, natively (SEP-2640, declared to every server by default in 1.0.115) |
+| Gate a tool call | Permission hooks that allow, deny or ask | Hooks that can deny, not ask | `tool_call` handlers that can block, and ask with `ctx.ui`, for the model's calls and codemode's nested calls | Copilot's own prompt before each tool call the person hasn't allowed; an extension's `onPreToolUse` hook can allow, deny or ask (after the elevated-permission question) |
+| Add a server | `claude mcp add` | `codex mcp add` | `pi mcp add` (saved), `pi.registerMcpServer` (this session, connected at once) | `copilot mcp add` (saved to `mcp-config.json`), connected after `/mcp reload` or in the next session; an extension can call `session.rpc.mcp.reload` |
+| Call a server's tool over the host's connection, with its sign-in | `$.mcp.call(server, tool, args)` | `mcpServer/tool/call` | Indirectly: an MCP tool is a Pi tool (`mcp__<server>__<tool>`), callable with `ctx.executeTool` | `session.rpc.mcp.callTool({ serverName, toolName, arguments })` (experimental) |
+| Ask whether the host would use a server | `$.mcp.connect(server)` | `mcpServerStatus/list` (start-up and sign-in state) | No. An extension reads `mcp.json` itself. | `session.rpc.mcp.listConfigured()` (enabled after trust and policy) and `list()` (status). Not how to reach it |
+| Read a resource over the host's connection | Only indirectly, by calling the built-in `ReadMcpResourceTool`. You get text or a saved file, without the resource's `_meta`. | `mcpServer/resource/read`, with `_meta` | Only indirectly, through Pi's `read_mcp_resource` tool, which leaves out `ui://` resources | `session.rpc.mcp.resources.read`, `list`, `listTemplates`; `prompts.list`, `get` |
+| Send any other MCP method | No | No. Codex's MCP client has a generic `send_custom_request`, but `app-server` doesn't expose it. | No. Pi's `McpClient` has `request(method, params)`, but the MCP extension doesn't expose its clients. | No. `session.mcp.externalClient.exchange` exists, but it's a private, internal transport |
+| See what a server advertised | No | Mostly: capabilities (including `extensions`) and `serverInfo` are in `mcpServerStatus/list`. The negotiated protocol revision isn't. | No | No: `session.rpc.mcp.list` carries a server's status and `instructions` only |
+| Receive a server's notifications | No | Only from OpenAI's hosted apps server. `mcpServer/event/stream/*` refuses any other server. Elicitation requests are relayed. | No | Only `tools`, `resources` and `prompts` `list_changed`, as session events. Elicitation requests are relayed |
+| See a tool's `_meta`, its `outputSchema`, or a result as the server sent it | No | Not checked yet | A result's `structuredContent` reaches `tool_result` hooks and codemode; a tool's `_meta` doesn't | `callTool` returns the MCP result; not checked for `_meta` on the model's own calls |
+| Declare a client extension to servers | No | Only Codex's own client (the terminal or the desktop app) can, and its declaration goes to every server. A plugin or the config can't. | No. Pi's `McpClient` takes capabilities from its caller, but the MCP extension sets none for others. | Only Copilot's own runtime (it declares Skills and Tasks to every server). A plugin can't |
+| Protocol revision of the host's own connection | 2026-07-28 back to 2024-11-05 | 2025-06-18 (2026-07-28 behind a feature flag that is off) | Up to 2025-11-25 | `server/discover` at 2026-07-28 first, then `initialize` at 2025-11-25 (1.0.115, seen live) |
 
 The row that matters most is "send any other MCP method". Because no host
 has it, each polyfill that speaks an extension's protocol (Events, Skills,
@@ -146,9 +161,15 @@ headers for the method, or takes them from the caller.
   the caller the request's JSON-RPC id (push notifications are routed by it),
   takes per-request `Mcp-*` routing headers, and refuses `tools/call`, so
   tools stay on Pi's tool pipeline, where permission extensions see them.
+- **Copilot** has the same shape next to it: `session.rpc.mcp.callTool` and
+  `resources.read` already go over Copilot's connection "with the existing
+  server admission and tool permission checks". A
+  `session.rpc.mcp.request({ serverName, method, params })` beside them,
+  returning the raw result, would close it.
 
 This change alone brings servers behind OAuth to Events and Skills in Claude
-Code and Codex, and to Skills in Pi, and removes their second connection.
+Code and Codex, to Events in Copilot, and to Skills in Pi, and removes their
+second connection.
 Events in Pi also needs Pi's client to speak protocol revision 2026-07-28,
 which SEP-3415 is defined for ([In Pi](#in-pi)).
 
@@ -164,6 +185,9 @@ to a server that hasn't declared them, so a polyfill has to be able to check.
 - **Pi:** missing. Its client already keeps the negotiated revision, the
   capabilities as the server sent them, and `serverInfo`; the session handle
   of change 1 could expose them.
+- **Copilot:** `session.rpc.mcp.list` already has a `serverMetadata` per
+  server, holding only `instructions`. Adding `capabilities`, `serverInfo` and
+  the revision there would close it.
 
 ### 3. Deliver a server's notifications to the plugin
 
@@ -178,6 +202,9 @@ resource updates.
   that asked for them, would close it.
 - **Pi:** missing. Its client has `onNotification(method, listener)`; the
   session handle could pass it on, and keep it across reconnects.
+- **Copilot:** the three `list_changed` notifications already reach
+  `session.on(...)`. A `session.on("mcp.notification")` for the rest would
+  close it.
 
 ### 4. Raw tool results, and declaring a client extension
 
@@ -194,6 +221,9 @@ do.
   a tool's `_meta` doesn't, and an extension can't add to the capabilities
   Pi's client declares. An extension id in an extension's package manifest,
   added to what Pi's client declares, would close the second.
+- **Copilot:** the same: its runtime declares its own extensions (Skills and
+  Tasks in 1.0.115) and a plugin can't add one. `callTool` returns the result
+  as the server sent it.
 
 ## What each extension needs
 
@@ -205,8 +235,9 @@ do.
 | 4. Raw results, declaring an extension | not needed (declaring is optional) | not needed | both | not needed |
 
 Changes 1 and 2 are enough for Events (by poll and webhook) and for Skills to
-work with every server you've signed in to, in Claude Code and Codex. In Pi
-they're enough for Skills; Events also needs Pi's client to speak 2026-07-28.
+work with every server you've signed in to, in Claude Code, Codex and
+Copilot CLI. In Pi they're enough for Skills; Events also needs Pi's client to
+speak 2026-07-28.
 
 Server Cards doesn't need any of the four to work. A card is a public document
 you read before connecting, and the server it describes is added to the host's
@@ -307,6 +338,29 @@ the live server.
   Worth a line in Pi's docs: running Pi with its own agent directory
   (`PI_CODING_AGENT_DIR`) still lists the user's own skills.
 
+### In Copilot CLI
+
+- **Take extensions out of experimental,** or let an MCP server in a plugin
+  start a turn. Events needs `session.send`, which only an extension has, so
+  it needs experimental mode, while Server Cards and ARD, which are MCP
+  servers, don't.
+- **Load extensions in ACP sessions.** An editor that drives Copilot over ACP
+  (`copilot --acp`) gets no extensions in 1.0.115, so no Events there.
+- **Let an extension declare a server's connection details,** or read them:
+  `listConfigured` names the servers a session uses but not how to reach them,
+  so a polyfill reads Copilot's files itself and can't see servers a plugin
+  brings or `--additional-mcp-config` gives. Change 1 would make this moot.
+- **Pass an extension the variables a server's `${VAR}` needs,** or let a
+  plugin name them in its manifest. Copilot strips sensitive variables from
+  extensions (rightly), and `requestedEnvironmentVariables` asks the person,
+  so a server whose header names `${GITHUB_TOKEN}` is out of reach. Change 1
+  would fix this too.
+- **In VS Code's Copilot harness, mark an extension's automation turns as
+  such.** In VS Code 1.147.0, an Events wake shows as a message from the
+  plugin, then the turn.
+- **Let an MCP server ask Copilot to reload its servers.** A server added with
+  `copilot mcp add` connects only after `/mcp reload` or in the next session.
+
 ## Questions these changes raise
 
 - **Permissions.** A general pipe could call `tools/call` and skip the host's
@@ -318,6 +372,10 @@ the live server.
   Then you see the grant when you install it, and the pipe isn't open-ended.
 - **Credentials.** Requests go out with your sign-in. That's the point, and
   it's also why the scope above matters.
+- **Who may call, in Copilot.** An extension already gets an elevated-permission
+  question before it may skip tool prompts or register hooks. A raw MCP pipe
+  is the same kind of grant, and could be asked the same way, naming the
+  method prefixes.
 - **Who may call, in Codex.** An app-server method is open to anything that
   can reach the socket, so a raw request there needs a per-plugin scope even
   more than an in-process API does.
@@ -342,8 +400,9 @@ in the repository.
 ## Other hosts
 
 We haven't found a documented way for third-party code to send requests over
-the host's MCP connection in Cursor or VS Code, and ChatGPT runs no
-third-party code on the client side. For those, the only polyfill would be a
+the host's MCP connection in Cursor or in VS Code's own chat (its Copilot
+harness runs Copilot CLI's runtime, above), and ChatGPT runs no third-party
+code on the client side. For those, the only polyfill would be a
 gateway: an MCP server that presents an extension as plain tools. That's a
 weaker form (for Events, the model would have to poll, and nothing would wake
 it), and none is built here yet. Bringing a polyfill to another host is
