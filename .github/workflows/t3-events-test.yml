@@ -1,0 +1,95 @@
+# The Events polyfill for T3 Code (polyfills/events/t3, the mcp-events-t3 server), on
+# any change in its folder, in the shared Events client it bundles, in the parts of the
+# Codex form it reuses (the stdio MCP server and the config.toml reader), or in the
+# fixture server its tests use:
+# - its tests (the server Codex starts for a T3 Code thread, the watcher it starts,
+#   waking with a stand-in t3, the SEP's client rules end to end against the fixture
+#   server, the committed bundle), with a typecheck, on Linux and macOS;
+# - the wake against the real `t3` command of the T3 Code release it was tested with,
+#   in a throwaway T3 Code home (no agent, no sign-in);
+# - the bundled server started on Node 20, the oldest it supports.
+
+name: "mcp-events for T3 Code: tests"
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "polyfills/events/t3/**"
+      - "polyfills/events/core/**"
+      - "polyfills/events/codex/src/mcp-server.ts"
+      - "polyfills/events/codex/src/codex-config.ts"
+      - "polyfills/events/claude-code/test/fixture-events-server.ts"
+      - "tools/bundle-notices.mjs"
+      - ".github/workflows/t3-events-test.yml"
+  pull_request:
+    paths:
+      - "polyfills/events/t3/**"
+      - "polyfills/events/core/**"
+      - "polyfills/events/codex/src/mcp-server.ts"
+      - "polyfills/events/codex/src/codex-config.ts"
+      - "polyfills/events/claude-code/test/fixture-events-server.ts"
+      - "tools/bundle-notices.mjs"
+      - ".github/workflows/t3-events-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: t3-events-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The T3 Code release the polyfill was tested live with.
+  T3_VERSION: 0.1.11
+
+defaults:
+  run:
+    working-directory: polyfills/events/t3
+
+jobs:
+  server:
+    name: server and watcher (${{ matrix.os }})
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      # The shared Events client, and the Codex form whose config reader this bundles.
+      - run: npm ci
+        working-directory: polyfills/events/core
+      - run: npm ci
+        working-directory: polyfills/events/codex
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Third-party notices for the bundle are up to date
+        run: node ../../../tools/bundle-notices.mjs . --plugin plugin --entry src/server.ts --check
+      - name: The real t3, in a throwaway home
+        run: |
+          mkdir -p "$RUNNER_TEMP/t3"
+          npm install --prefix "$RUNNER_TEMP/t3" --no-audit --no-fund "t3@$T3_VERSION"
+          echo "T3_CLI=$RUNNER_TEMP/t3/node_modules/t3/dist/bin.mjs" >> "$GITHUB_ENV"
+      - run: npm test
+
+  node20:
+    name: the bundle on Node 20
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Start plugin/dist/server.js on Node 20 as in a T3 Code thread, and list its tools
+        run: |
+          curl -fsSL https://nodejs.org/dist/v20.18.0/node-v20.18.0-linux-x64.tar.xz | tar -xJ -C "$RUNNER_TEMP"
+          printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            | T3CODE_THREAD_ID="mcp:00000000-0000-4000-8000-000000000000" CODEX_HOME="$RUNNER_TEMP/codex-home" MCP_EVENTS_STATE="$RUNNER_TEMP/state" "$RUNNER_TEMP/node-v20.18.0-linux-x64/bin/node" plugin/dist/server.js > "$RUNNER_TEMP/out.jsonl"
+          cat "$RUNNER_TEMP/out.jsonl"
+          grep -q '"protocolVersion":"2025-06-18"' "$RUNNER_TEMP/out.jsonl"
+          grep -q '"name":"watch_event"' "$RUNNER_TEMP/out.jsonl"
