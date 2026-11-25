@@ -591,6 +591,12 @@ weaker form (for Events, the model would have to poll, and nothing would wake
 it), and none is built here yet. Bringing a polyfill to another host is
 [welcome](#an-existing-polyfill-in-another-host).
 
+We also built forms for Muse Code, Grok Build, Grok Bot and OpenClaw that
+aren't shipped, because the host gave a plugin no way to do what the spec asks
+of a client, or the form only worked through a workaround.
+[Hosts and forms we built and don't ship](docs/hosts-not-shipped.md) says what
+was missing in each and what would change the answer.
+
 ## Build one
 
 There are three ways in: build a new polyfill, bring an existing one to
