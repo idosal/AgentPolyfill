@@ -18,19 +18,44 @@ event. [docs/live-run.md](docs/live-run.md) has the record, and
 
 ## Install
 
-From a checkout of this repository:
+Node 20 or newer must be on Antigravity's `PATH` for the plugin's hooks
+(webhook delivery through a relay needs Node 22 or newer). From a clone of
+this repository (the sequence checked on 25 November 2026, CLI 1.5.16):
 
 ```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
 agy plugin install ./polyfills/events/antigravity/plugin
+agy plugin list
 ```
 
-`plugin/` is the whole installation: the committed bundle, manifests, hooks,
-skill and sidecar definition. No npm install is needed to use it. Node 20 or
-newer must be on Antigravity's PATH; webhook delivery through a relay needs
-Node 22 or newer. Restart the conversation after installation.
+`agy plugin install` copies `plugin/` (the committed bundle, manifests, hooks,
+skill and sidecar definition) to `~/.gemini/config/plugins/mcp-events/`, which
+the App and the CLI both read. No npm install is needed to use it. Nothing is
+published to Antigravity's Marketplace. Start a new conversation, or restart
+the App, after installing.
 
-No marketplace entry is added by this change. The installed folder is read-only
-and replaced on updates; all writable state lives elsewhere.
+### Uninstall, and what stays behind
+
+```bash
+agy plugin uninstall mcp-events
+```
+
+That removes the plugin's folder (and with it the sidecar). It leaves:
+
+- its own folder, `~/.gemini/agentpolyfill/mcp-events/` (watches, the event
+  store, settings, log): delete it by hand;
+- the App's sidecar data, `~/.gemini/antigravity/sidecar_data/mcp-events/`;
+- the `"mcp-events/wake"` entry you added under `sidecars` in
+  `~/.gemini/config/config.json`, if you did: remove it yourself.
+
+### Where it was run
+
+| Surface | Run | |
+|---|---|---|
+| Antigravity App v2.35.1 (macOS) | yes | watches; an idle conversation woken by the sidecar; a wake during a running turn; restarts |
+| Antigravity CLI v1.5.16 (macOS) | yes | watches, delivery at the next turn, isolation, stand-down, recovery after resuming |
+| Antigravity IDE v2.8.0 | no | installed, not signed in; its hooks page lists no plugin hooks, and without the hooks every Events call is refused and nothing is delivered |
 
 ### Enable idle wakes in the App
 

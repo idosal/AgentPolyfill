@@ -9,30 +9,52 @@ commit `2eb3a8e`, the same revision as the [Codex form](../codex/README.md).
 It shares [Skills core](../core/), Codex's approval store and content formatting,
 and the [Antigravity gate](../../server-cards/antigravity/src/gate.ts).
 
-**Not run live as a whole yet.** The adapter follows the Antigravity
-documentation copied on 2026-11-25, for App 2.35.1, CLI `agy` 1.5.16 and IDE.
-Its approval gate, shared with the other Antigravity forms, was checked live
-through the Events plugin on 25 November 2026: the hook sees a lazily loaded
-MCP tool as `call_mcp_tool` (with `ServerName` `mcp-skills_skills`), the gate
-takes that form and the eager one, and `overwrite` reaches the server. The
-rest is in the live checks below.
+**Run live on 25 November 2026** in Antigravity App v2.35.1 and CLI v1.5.16
+(macOS), against Hugging Face's public MCP server: 25 placeholder skills
+written and found by a fresh conversation, the App's approval card, an
+approved load with verified files, the same skill loaded again with no
+question, and a load nobody could answer denied. The IDE's agent wasn't run.
+See [docs/conformance.md](docs/conformance.md#live-25-november-2026).
 
 ## Install
 
-From the repository, install the plugin folder:
+Node 20 or newer must be on your `PATH`, for the MCP server and the command
+hook (the hook runs `node ./dist/server.mjs --hook` from the plugin root).
+From a clone of this repository (the sequence checked on 25 November 2026,
+CLI 1.5.16):
 
 ```bash
-agy plugin install /absolute/path/to/AgentPolyfill/polyfills/skills/antigravity/plugin
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+agy plugin install ./polyfills/skills/antigravity/plugin
+agy plugin list
 ```
 
-Or copy `plugin/` as `mcp-skills/` into an Antigravity plugin directory, such
-as `~/.gemini/config/plugins/`. Copy the entire folder, including `dist/`,
-`hooks.json`, `mcp_config.json` and `skills/`; no repository files or
-`node_modules` are needed in the installed copy.
+`agy plugin install` copies the folder to `~/.gemini/config/plugins/mcp-skills/`,
+which the App and the CLI both read. Nothing is published to Antigravity's
+Marketplace. Restart the App if it has not picked up the installation.
 
-**Node 20 or newer must be on PATH for both the MCP server and the command
-hook.** The hook runs `node ./dist/server.mjs --hook` from the plugin root.
-Restart Antigravity if it has not picked up the installation.
+### Uninstall, and what stays behind
+
+```bash
+agy plugin uninstall mcp-skills
+```
+
+That removes the plugin's folder. It leaves:
+
+- the placeholder skills in `~/.gemini/config/skills/mcp-skills-served--*`
+  (turn the plugin off in its settings and let its server run once to remove
+  them first, or delete those folders yourself);
+- its own folder, `~/.gemini/agentpolyfill/mcp-skills/` (settings, approvals,
+  log): delete it by hand.
+
+### Where it was run
+
+| Surface | Run | |
+|---|---|---|
+| Antigravity App v2.35.1 (macOS) | yes | the approval card for a new skill, approved; the skill loaded |
+| Antigravity CLI v1.5.16 (macOS) | yes | placeholders written and found; a headless load denied; a load approved over `agy acp` with verified files; the approved skill loaded again with no question |
+| Antigravity IDE v2.8.0 | no | installed, not signed in; its hooks page lists no plugin hooks, and without the hook every load is refused |
 
 ## Try it
 
@@ -211,6 +233,15 @@ removed from a conversation by deleting the file.
 | Approvals/settings | `stateDir('mcp-skills')` | Codex state folder | Mod store / environment settings |
 | Stand-down | Explicit setting | Native capability declaration or setting | Observed native skill loading |
 | Live evidence | Not run yet | Recorded terminal and exec runs | Recorded Claude Code runs |
+
+## Security
+
+[SECURITY.md](SECURITY.md). In short: Antigravity's approval card is the
+boundary, and every new or changed skill asks; nothing is auto-approved. The
+plugin reads `~/.gemini/config/mcp_config.json`, which can hold header
+values, and never logs or shows them (they're taken out of the log, the
+placeholders and the listings). It never opens `mcp_oauth_tokens.json` or any
+sign-in store.
 
 ## Spec and conformance
 

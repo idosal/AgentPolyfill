@@ -6,11 +6,11 @@ normative text and core implementation for each of 86 client clauses. The
 core is bundled unchanged. This document does not turn another host's run
 into an Antigravity result.
 
-Local run on 25 November 2026: **99 tests passed, zero failures or skips**.
-Typecheck, byte-identical bundle comparison, standalone plugin boot and
-third-party notice comparison also passed. Existing installed dependencies
-were reused. The sandbox initially blocked three loopback listener tests;
-the complete suite then passed with local-listener access enabled.
+Local run on 25 November 2026, Node.js 22.23.1: **102 tests passed, zero
+failures or skips** (`npm test`). Typecheck, byte-identical bundle
+comparison, standalone plugin boot and third-party notice comparison also
+passed. `agy plugin validate --strict` passes for `plugin/` (it counts the
+sidecar).
 
 | Local check | Coverage |
 |---|---|
@@ -26,6 +26,25 @@ pre-SEP top-level capability as the other forms do, an explicit exception to
 CAP-2 and CAP-4. Payloads are never injected into the higher-trust hook
 container; core's bounded summaries are labeled as server data. Antigravity's
 rendering and permission behavior still require the live checks in the README.
+
+## Live, 25 November 2026
+
+In Antigravity App v2.35.1 and CLI v1.5.16 on macOS, with a throwaway `HOME`
+([the record](live-run.md)), against this repository's deploys demo, whose
+Events support is Mastra's (`@mastra/mcp` 2.10.0), a server this project
+didn't write: so these runs are also this form's interop run.
+
+- A push watch; the event delivered once at the CLI conversation's next turn,
+  labelled by Antigravity as injected by a hook.
+- An idle App conversation woken by the sidecar's `agentapi send-message`,
+  which then answered from the event; a wake during a running turn, held and
+  put into that turn.
+- A second conversation saw none of the first's events; `MCP_EVENTS_OFF=1`
+  left no tools and no injections; after restarts, the events missed in
+  between arrived from the server's cursor once the conversation called the
+  plugin again.
+- Not run: the IDE's agent, and a webhook watch (the demo server refused a
+  plain `http` local callback; it needs an https address).
 
 ## Upstream suite
 

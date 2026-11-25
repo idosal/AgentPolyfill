@@ -15,13 +15,10 @@ This plugin implements the client side of the MCP Server Cards extension
 the Antigravity App, the CLI (`agy`) and the IDE, which share plugins. The
 revisions it follows are in [Spec and conformance](#spec-and-conformance).
 
-**Partly checked live.** It is built from Antigravity's documentation (App
-v2.35.1 and CLI v1.5.16, read on 25 November 2026) and tested against
-stand-ins. Its approval gate, shared with the other Antigravity forms, was run
-live on 25 November 2026 through the Events plugin: the hook takes the call
-under the name Antigravity really uses, and the ticket reaches the server. An
-addition itself, and the approval card's text, haven't been run live yet:
-see [Before you rely on it](#before-you-rely-on-it).
+**Run live on 25 November 2026** in Antigravity App v2.35.1 and CLI v1.5.16
+(macOS): discovery, the approval card (approved and declined) and a written
+entry that the App then connected. The IDE's agent wasn't run. See
+[What was checked live](#what-was-checked-live).
 
 ARD isn't in this plugin. Its `/.well-known/ard.json` and its registry search
 are in [`ard-discovery` for Antigravity](../../ard/antigravity/README.md),
@@ -33,17 +30,43 @@ You need Node 20 or newer on your `PATH`. Antigravity starts the plugin's MCP
 server with `node` (it falls back to its own Node for that), and runs the
 plugin's approval hook with `node`, which has no such fallback.
 
-From a clone of this repository:
+From a clone of this repository (the sequence checked on 25 November 2026,
+CLI 1.5.16):
 
 ```bash
-git clone https://github.com/idosal/AgentPolyfill
-agy plugin install AgentPolyfill/polyfills/server-cards/antigravity/plugin
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+agy plugin install ./polyfills/server-cards/antigravity/plugin
+agy plugin list
 ```
 
-Or copy the `plugin/` folder to `~/.gemini/config/plugins/mcp-server-cards/`.
-Plugins installed either way show in the App and the CLI. To turn it off,
-disable or uninstall it in Customizations > Installed, or with
-`agy plugin disable mcp-server-cards`.
+`agy plugin install` copies the folder to
+`~/.gemini/config/plugins/mcp-server-cards/`, which the App and the CLI both
+read; the App picks it up when it next starts. Nothing is published to
+Antigravity's Marketplace. To turn it off, disable it in Customizations >
+Installed, or run `agy plugin disable mcp-server-cards`.
+
+### Uninstall, and what stays behind
+
+```bash
+agy plugin uninstall mcp-server-cards
+```
+
+That removes the plugin's folder. It leaves:
+
+- the servers you added, under `mcpServers` in
+  `~/.gemini/config/mcp_config.json` (remove one in Customizations > Installed
+  > MCP Servers, or from the file);
+- the plugin's own folder, `~/.gemini/agentpolyfill/mcp-server-cards/` (cards
+  shown in the last hour, and tickets): delete it by hand.
+
+### Where it was run
+
+| Surface | Run | |
+|---|---|---|
+| Antigravity App v2.35.1 (macOS) | yes | discovery, the approval card (approve and decline), a written entry connected |
+| Antigravity CLI v1.5.16 (macOS) | yes | headless `agy -p` (a decline nobody could answer), and an editor over `agy acp` (approve and decline) |
+| Antigravity IDE v2.8.0 | no | installed, but not signed in, so its agent never ran; its hooks page lists no plugin hooks, and without the hook every addition is refused |
 
 ## Try it
 
@@ -135,7 +158,6 @@ Each names the host change that would remove it.
 [What hosts would need to change](../../../docs/host-changes.md) has the
 Antigravity column.
 
-- **An addition hasn't been run live.** See [Before you rely on it](#before-you-rely-on-it).
 - **A card that needs a secret can't be added.** Antigravity reads no
   `${VAR}` in `~/.gemini/config/mcp_config.json` (a plugin's own file can,
   for its declared `variables`). The plugin would have to write the key, and
@@ -174,7 +196,7 @@ Antigravity column.
 - **When the new server's tools arrive** isn't documented: in a new
   conversation, or after refreshing it in the MCP Servers list or `/mcp`.
 
-## Before you rely on it
+## What was checked live
 
 Checked live on 25 November 2026, through the Events plugin, which uses the
 same gate ([its record](../../events/antigravity/docs/live-run.md)):
@@ -207,23 +229,16 @@ refuses every addition).
 
 ## Security
 
-- It reads public documents from the domain you name and the card URLs its
-  catalog lists. It never fetches a local or private address unless you name
-  one, and no redirect takes it to one.
-- It changes only `~/.gemini/config/mcp_config.json`, for the server you
-  approve, and its own folder in `~/.gemini/agentpolyfill/`.
-- It never reads Antigravity's credentials (its OAuth tokens are in
-  `~/.gemini/antigravity/mcp_oauth_tokens.json`, which the plugin never
-  opens), holds no token, and never writes a secret.
-- A card is the publisher's claim. It's shown as data, and adding a server
-  goes through your approval and then Antigravity's own handling of that
-  server.
-- What the ticket guards against is the agent adding a server through this
-  tool without your approval. It doesn't guard against a command you let the
-  agent run as you: such a command could run the hook itself and get a
-  ticket, but it could also edit `mcp_config.json` directly. Antigravity's
-  terminal sandbox (on by default) limits commands to the workspace and temp
-  folders, so they can't write the plugin's ticket folder.
+[SECURITY.md](SECURITY.md) says what the plugin fetches, reads and writes, and
+what it trusts. In short:
+
+- Antigravity's approval card is the boundary: every addition asks, and
+  nothing is auto-approved.
+- It reads `~/.gemini/config/mcp_config.json`, which can hold header values,
+  to check names, and never logs or shows them. It never opens
+  `mcp_oauth_tokens.json` or any sign-in store, and never writes a secret.
+- It changes only `mcp_config.json`, for the entry you approve, and its own
+  folder in `~/.gemini/agentpolyfill/`.
 
 ## Spec and conformance
 
@@ -237,33 +252,9 @@ The same revisions as the other forms:
 - The [AI Catalog](https://github.com/Agent-Card/ai-catalog) v0.9 at
   `19208af2f8`.
 
-The discovery, validation, input and transport rules (D-, V-, C-, S-, I-)
-are the shared ones, in the Claude Code form's
-[client rules](../claude-code/README.md#client-rules). Where Antigravity
-differs:
-
-| # | Rule | Test | State |
-|---|---|---|---|
-| P-1 | Never replace a server the person has | W-4, E-4 | met: a name in the file, in any case, or a file that can't be read, is refused before the person is asked and again before writing |
-| P-2 | A person approves every addition | E-1, E-2, E-3, G-1, G-4 | met, if the hook runs: `force_ask` with the server, URL, headers, file and undo, and a one-use ticket for that entry. Without the ticket nothing is written |
-| P-3 | Add only what was shown, as shown | E-3, E-4 | met: a card a tool showed in the last hour, at the URL it yields |
-| I-2 | Handle `isSecret` values securely | P-3 | met by refusing: a card that needs a secret isn't added |
-| I-4 | Transport `streamable-http` or `sse` | P-4 | streamable HTTP met; SSE refused |
-
-### Proof
-
-112 tests, run with `npm test`:
-
-- 88 shared rule tests from `../claude-code/mod/tests` (card, configure,
-  discover, format, offer), built from the same sources as the bundle;
-- 22 of this form's own: the plan (P-), the file (W-), the gate (G-), the
-  hook's matcher (H-), and the server and its hook as Antigravity runs them
-  (E-), over stdio and as a command, with a web on 127.0.0.1 and a
-  throwaway `HOME`;
-- 2 bundle checks (B-): the committed `plugin/dist/server.mjs` is what the
-  sources build, and a copy of `plugin/` alone starts and lists its tools.
-
-The gate was also run live, through the Events plugin (see above).
+The rules, where Antigravity differs from the other forms, and the proof (119
+tests: 90 shared rule tests and 29 of this form's own, plus the live run) are
+in [docs/conformance.md](docs/conformance.md).
 
 ## Development
 

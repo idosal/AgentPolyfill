@@ -114,9 +114,38 @@ tests of the documented contract, not observations of Antigravity itself.
 fields and copies only `plugin/` to a temporary folder, then lists tools and
 loads verified content through that copy's hook and server.
 
-The public Hugging Face interop probe and upstream conformance runner are
-included and buildable. Neither was run for this adapter: public network was
-not part of this test run, and no installed upstream conformance checkout was
-available. The Codex form's historical results are not evidence of this
-adapter's interop. See the [README](../README.md) for commands and required
-live Antigravity checks.
+## Proof
+
+Run from `polyfills/skills/antigravity`, with Node.js 22.18 or newer:
+
+```bash
+npm ci
+npm test
+```
+
+The checked run on 25 November 2026, with Node.js 22.23.1, passed **67
+tests**, with none failed or skipped: 37 client-rule tests
+(`client-rules.test.ts`), 19 adapter tests (`adapter.test.ts`: config,
+placeholders, the gate, the matcher, the bundle), 8 verification tests
+(`verification.test.ts`) and 3 tests of main's shared fixes
+(`shared-fixes.test.ts`: media types, control characters, and a secret a
+server echoes back). `agy plugin validate --strict` passes for `plugin/`.
+
+### Live, 25 November 2026
+
+In Antigravity App v2.35.1 and CLI v1.5.16 on macOS, with a throwaway `HOME`,
+against Hugging Face's public MCP server (`https://huggingface.co/mcp`, no
+account): a server this project didn't write, so this is also the interop
+run ([the record](../../../events/antigravity/docs/live-run.md)).
+
+- `list_skills` wrote 25 placeholder folders; a fresh conversation found the
+  right one in its skill list by itself.
+- A load in headless `agy -p` (nobody to answer `force_ask`) was denied; the
+  plugin's server never saw it.
+- A load approved over `agy acp`, and one approved in the App's approval card
+  (which showed the plugin's question): `SKILL.md` and two reference files came
+  back checked against their digests, and the answer used them.
+- The same unchanged skill then loaded headless with no question.
+
+Not run: the IDE's agent, and the upstream conformance runner (no installed
+checkout); `npm run interop:real` remains for a scripted run.

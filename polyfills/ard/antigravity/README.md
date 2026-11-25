@@ -10,28 +10,48 @@ Also available for [Claude Code](../claude-code/README.md) and
 [`mcp-server-cards` for Antigravity](../../server-cards/antigravity/README.md),
 and this plugin checks, shows and adds what it finds with the same code.
 
-**Checked live on 25 November 2026:** `ard_discover` for buildkite.com read its
-`ard.json`, and an `ard_search` against the local demo registry, through an
-editor connected to `agy acp`, was put to the person with the exact query and
-registry and sent only after the approval
-([record](../../events/antigravity/docs/live-run.md#second-pass-later-the-same-night)).
-In the App the approval card shows the hook's whole question. It is built from
-Antigravity's documentation (App v2.35.1, CLI v1.5.16, read on 25 November
-2026) and tested against stand-ins. What a live run has to confirm is in
-[`mcp-server-cards`' list](../../server-cards/antigravity/README.md#before-you-rely-on-it),
-for `ard_search` as well as `add_mcp_server`.
+**Run live on 25 November 2026** in Antigravity CLI v1.5.16 (macOS):
+`ard_discover` for buildkite.com, and an `ard_search` put to the person with
+the exact query and registry and sent only after the approval. The App's
+approval card was checked with the other Antigravity forms; the IDE's agent
+wasn't run. Details in [docs/conformance.md](docs/conformance.md#live-25-november-2026).
 
 ## Install
 
-Node 20 or newer on your `PATH`, then, from a clone of this repository:
+Node 20 or newer on your `PATH` (Antigravity runs the plugin's hook with
+`node`). From a clone of this repository (the sequence checked on 25 November
+2026, CLI 1.5.16):
 
 ```bash
-agy plugin install AgentPolyfill/polyfills/ard/antigravity/plugin
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+agy plugin install ./polyfills/ard/antigravity/plugin
+agy plugin list
 ```
 
-Or copy `plugin/` to `~/.gemini/config/plugins/ard-discovery/`. No registry
-is set: a search names the one you choose, or set `ARD_DISCOVERY_REGISTRY` in
-the environment Antigravity starts in.
+`agy plugin install` copies the folder to `~/.gemini/config/plugins/ard-discovery/`,
+which the App and the CLI both read. Nothing is published to Antigravity's
+Marketplace. No registry is set: a search names the one you choose, or set
+`ARD_DISCOVERY_REGISTRY` in the environment Antigravity starts in.
+
+### Uninstall, and what stays behind
+
+```bash
+agy plugin uninstall ard-discovery
+```
+
+That removes the plugin's folder. It leaves the servers you added (under
+`mcpServers` in `~/.gemini/config/mcp_config.json`) and the plugin's own
+folder, `~/.gemini/agentpolyfill/ard-discovery/` (cards shown in the last
+hour, and tickets), which you delete by hand.
+
+### Where it was run
+
+| Surface | Run | |
+|---|---|---|
+| Antigravity App v2.35.1 (macOS) | no ARD call | the same approval card was checked with `mcp-server-cards` and `mcp-skills` |
+| Antigravity CLI v1.5.16 (macOS) | yes | `ard_discover`, and `ard_search` approved over `agy acp` |
+| Antigravity IDE v2.8.0 | no | installed, not signed in; its hooks page lists no plugin hooks, and without the hook every search and addition is refused |
 
 ## How it works
 
@@ -86,6 +106,14 @@ and without the hook nothing is sent. Also:
 - **A search result's card that needs a secret can't be added,** since
   Antigravity's file reads no variables.
 
+## Security
+
+[SECURITY.md](SECURITY.md). In short: Antigravity's approval card is the
+boundary, and every search and every addition asks; nothing is
+auto-approved. The plugin reads `~/.gemini/config/mcp_config.json` (which can
+hold header values) only to check names, and never logs or shows them. It
+never opens `mcp_oauth_tokens.json` or any sign-in store.
+
 ## Spec and conformance
 
 The same as the other forms: **ARD v0.91** at
@@ -107,12 +135,8 @@ differs:
 
 ### Proof
 
-107 tests, run with `npm test`: 96 shared rule tests (ARD's registry client
-from `../claude-code/mod/tests`, and the Server Cards core's from
-`../../server-cards/claude-code/mod/tests`), built from the same sources as
-the bundle, and 11 of this form's own (R-1 to R-10 and B-1), with the server
-on stdio, its hook as a command, a web with an `ard.json` and a registry on
-127.0.0.1, and a throwaway `HOME`. R-10 runs the search through `call_mcp_tool`, as Antigravity sends it.
+115 tests (102 shared rule tests and 13 of this form's own), `agy plugin
+validate --strict`, and the live run: [docs/conformance.md](docs/conformance.md).
 
 ## Development
 

@@ -81,18 +81,22 @@ manifest and one bundled file, with nothing to build. Pi loads the local
 paths where they are, so keep the clone; `git pull` in it brings the next
 version. Start `pi` to use them.
 
-**Google Antigravity** (App, CLI and IDE; Node 20 or newer on your `PATH`).
-These forms are new. Events was run live in the App and the CLI on
-25 November 2026, including a sidecar waking an idle conversation; the
-others share its approval gate, and each README says what is still to be
-checked live. From a clone of this repository:
+**Google Antigravity** (App 2.35.1 and CLI 1.5.16, the versions tested;
+Node 20 or newer on your `PATH`). Nothing for Antigravity is published to its
+Marketplace. Install from a clone:
 
+```bash
+git clone https://github.com/idosal/AgentPolyfill.git
+cd AgentPolyfill
+agy plugin install ./polyfills/events/antigravity/plugin
+agy plugin install ./polyfills/skills/antigravity/plugin
+agy plugin install ./polyfills/server-cards/antigravity/plugin
+agy plugin install ./polyfills/ard/antigravity/plugin
 ```
-agy plugin install AgentPolyfill/polyfills/events/antigravity/plugin
-agy plugin install AgentPolyfill/polyfills/skills/antigravity/plugin
-agy plugin install AgentPolyfill/polyfills/server-cards/antigravity/plugin
-agy plugin install AgentPolyfill/polyfills/ard/antigravity/plugin
-```
+
+Each line copies one plugin to `~/.gemini/config/plugins/`, which the App
+and the CLI both read. The IDE (2.8.0) wasn't run: it stayed signed out, and
+its hooks page lists no plugin hooks, which the plugins need.
 
 There are [more ways to install](#more-ways-to-install) further down.
 
@@ -118,7 +122,10 @@ All of them are early. Here is what each one does, and where it stops:
   filters and note, and saying that events will start turns. After yes, an
   event wakes the idle session with a message starting `[mcp-events]`, and
   Pi reads it with `get_event`. The message says it came from the extension,
-  not from you; Pi delivers it to the model in the user's turn.
+  not from you; Pi delivers it to the model in the user's turn. In
+  Antigravity, new events reach a conversation at its next model call, in the
+  App, the CLI and the IDE. In the App only, a sidecar you turn on wakes an
+  idle conversation; its message arrives as a system message, not as yours.
 - **Skills.** Skills an MCP server serves show up next to your own, load only
   after you say yes to each one, and are checked against the server's
   digests. In Codex they appear in Codex's own skill list after you ask once
@@ -130,6 +137,9 @@ All of them are early. Here is what each one does, and where it stops:
   it", "Show me its SKILL.md first", or "Load it"; a yes is kept for exactly
   those files. Pi meets X8: a read from another MCP server while a served
   skill is loaded asks first, naming both servers, including in codemode.
+  In Antigravity, served skills appear in its skill list as placeholder
+  folders in `~/.gemini/config/skills/`, and loading a new or changed one asks
+  in Antigravity's own approval card (yes or no; there's no "show me first").
 - **Server Cards.** Name a company and the agent finds the MCP servers its domain
   publishes, checks each card against the schema, and adds the one you pick
   to the host's own configuration. The host then connects it with its own
@@ -137,18 +147,21 @@ All of them are early. Here is what each one does, and where it stops:
   before you add it. In Pi, `add_mcp_server` asks "Don't add it" or "Add it",
   showing the host, URL, headers, `mcp.json` file and undo command. Only
   "Add it" runs `pi mcp add` and registers the server for the current
-  session, so it connects without a restart.
+  session, so it connects without a restart. In Antigravity, the addition
+  asks in Antigravity's own approval card, which shows the host, URL, headers,
+  file and undo; only your approval writes `~/.gemini/config/mcp_config.json`.
+  A card that needs a secret can't be added: that file reads no `${VAR}`.
 - **Apps.** A server's app opens right under the tool call in the terminal
   and answers the mouse and keyboard: real pixels in iTerm2, kitty and
   Ghostty, text cells everywhere else. This form runs in Claude Code. No Pi
   form is built or tested: Pi 1.6.0 leaves out `ui://` resources and tool
-  `_meta`, so an extension can't get an App's UI.
+  `_meta`, so an extension can't get an App's UI. Antigravity needs no form:
+  its App renders MCP Apps itself (v2.34.0 and later); its CLI and IDE show
+  text.
 
-In Antigravity, which tells a plugin's MCP server neither which conversation
-calls it nor lets it ask you anything, the plugins ask through Antigravity's
-own approval card from a `PreToolUse` hook, and a woken conversation needs
-the App and a sidecar you turn on (Events). The CLI and IDE get new events at
-the conversation's next turn.
+In Antigravity, which neither tells a plugin's MCP server which conversation
+calls it nor shows MCP forms, the plugins ask through its approval card from a
+`PreToolUse` hook.
 
 Events, Skills and Apps can't reach servers behind OAuth yet, in any host
 where these forms run.
@@ -173,12 +186,20 @@ search of the repository's demo registry after consent, but **did not complete
 the add step**: the model asked in chat instead of calling the add tool.
 Adding is covered by real-Pi tests with a scripted model and a local server.
 
+In Antigravity, `ard_search` asks in Antigravity's approval card, naming the
+registry endpoints and exact query, and `add_mcp_server` asks separately, as
+in `mcp-server-cards`. There is no default registry. The
+[Antigravity record](polyfills/events/antigravity/docs/live-run.md) shows
+discovery for buildkite.com and a search of the repository's demo registry,
+sent only after the approval.
+
 The supported hosts don't implement these extensions themselves yet. On
 23 November 2026 the official
 [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix)
 listed Tasks for Claude Code, and none of Events, Apps or Skills (Server Cards
 isn't in the matrix). Codex doesn't support Events for your own servers, or
-Skills (openai/codex#48000). Hosts add extensions all the time, so check the
+Skills (openai/codex#48000). Antigravity's App supports MCP Apps (v2.34.0),
+and none of the others. Hosts add extensions all the time, so check the
 matrix for today's picture. The Skills SEP notes that Claude Code support has
 been prototyped at Anthropic.
 
@@ -212,6 +233,16 @@ pi mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
 In Pi, you can ask "Watch for new earthquakes from the feeds server and tell
 me where each one was", then confirm the watch in its dialog.
 
+**Antigravity:**
+
+```bash
+agy mcp add feeds https://event-feeds.idosalomon.workers.dev/mcp
+```
+
+In Antigravity, events reach the conversation at its next turn; for an idle
+App conversation to be woken, turn on the plugin's sidecar
+([how](polyfills/events/antigravity/README.md#enable-idle-wakes-in-the-app)).
+
 The same server also offers new comments in a Hacker News thread, new npm and
 GitHub releases, and earthquakes. Its source is in
 [`servers/event-feeds`](servers/event-feeds).
@@ -228,6 +259,9 @@ its skills covers.
   list the served skills, from the next turn.
 - **Pi:** the served skills appear in its own list at session start. Ask a
   question or use `/skill:mcp-<server>-<name>`, then answer the load dialog.
+- **Antigravity:** the served skills appear in its skill list from the turn
+  after the plugin's server starts (ask once to list the served skills to be
+  sure). Ask a question, then approve the load in Antigravity's approval card.
 
 **Claude Code:**
 
@@ -247,6 +281,12 @@ codex mcp add huggingface --url https://huggingface.co/mcp
 pi mcp add huggingface --url https://huggingface.co/mcp
 ```
 
+**Antigravity:**
+
+```bash
+agy mcp add huggingface https://huggingface.co/mcp
+```
+
 ### Server Cards: add a company's MCP server by its domain
 
 Nothing to set up. Ask "What MCP servers does neon.com publish?" and add
@@ -259,6 +299,9 @@ once it's added, sign in through the host.
 - **Pi:** choose "Add it" in the extension's dialog; use `/mcp` or
   `pi mcp login <name>` for sign-in, and `pi mcp remove neon-docs` to remove
   the server.
+- **Antigravity:** approve the addition in its approval card; for a sign-in,
+  use Authenticate in Customizations > Installed > MCP Servers (`/mcp` in the
+  CLI), and remove the server there or with `agy mcp remove neon-docs`.
 
 ### Apps: an MCP App's interface, in the terminal
 
@@ -309,6 +352,10 @@ polyfill off:
 - **Pi:** remove the extension, or use `MCP_EVENTS_OFF=1`,
   `MCP_SKILLS_OFF=1`, `MCP_SERVER_CARDS_DISABLED=1` or
   `ARD_DISCOVERY_DISABLED=1` for the corresponding form.
+- **Antigravity:** disable or uninstall the plugin
+  (`agy plugin disable mcp-events`), or use its own setting (`MCP_EVENTS_OFF`
+  in its settings file, `MCP_SKILLS_DISABLED`, `MCP_SERVER_CARDS_DISABLED=1`,
+  `ARD_DISCOVERY_DISABLED=1`).
 
 Each README says how.
 
@@ -327,6 +374,12 @@ Each host lets outside code in, in a different way.
   ask in Pi dialogs, list skills and wake an idle session. Events and Skills
   each open their own MCP connections; Server Cards and ARD save servers
   through Pi's CLI and register them for the current session.
+- **Antigravity** runs plugins that bring their own MCP server, command hooks
+  and, in its App, sidecars. A plugin's MCP server isn't told which
+  conversation calls it and can't ask you anything, so the plugins ask
+  through a `PreToolUse` hook that shows Antigravity's approval card, and pass
+  the conversation to the call through it. A sidecar wakes an idle App
+  conversation with `agentapi send-message`.
 
 That's the host half of almost any extension. The protocol half is missing.
 None of these hosts lets a plugin or extension send an extension's own
@@ -343,12 +396,12 @@ with its own sign-in.
 Four small, generic changes would address the limit in each host. None of
 them names an extension:
 
-| Change | Claude Code today | Codex today | Pi today |
-|---|---|---|---|
-| Send any MCP method over the host's connection | missing | missing (its client can, internally) | missing (its client can, internally) |
-| Read what the server advertised | missing | mostly there | missing |
-| Deliver a server's notifications to the plugin | missing | only for OpenAI's hosted apps server | missing |
-| Raw tool results; declare a client extension | missing | declaring only by Codex's own client | `structuredContent` reaches hooks; tool `_meta` and declaring are missing |
+| Change | Claude Code today | Codex today | Pi today | Antigravity today |
+|---|---|---|---|---|
+| Send any MCP method over the host's connection | missing | missing (its client can, internally) | missing (its client can, internally) | missing |
+| Read what the server advertised | missing | mostly there | missing | missing |
+| Deliver a server's notifications to the plugin | missing | only for OpenAI's hosted apps server | missing | missing |
+| Raw tool results; declare a client extension | missing | declaring only by Codex's own client | `structuredContent` reaches hooks; tool `_meta` and declaring are missing | missing (its App declares the Apps extension itself) |
 
 The first two are enough for Events (by poll and webhook) and Skills to work
 with every server you've signed in to, with one additional change in Pi:
@@ -377,6 +430,24 @@ each extension needs, and the questions they raise about permissions are in
   as in the other forms. Their Pi conformance pages record that limit
   ([Server Cards](polyfills/server-cards/pi/docs/conformance.md),
   [ARD](polyfills/ard/pi/docs/conformance.md)).
+
+### Limits in Antigravity
+
+- Events and Skills can't use Antigravity's own sign-in (Authenticate, or
+  `oauth` in `mcp_config.json`); a server that needs it is left out. A header
+  written in `mcp_config.json` works. Their separate connections mean a local
+  (stdio) server runs twice.
+- Only App conversations can be woken, and only with the Events sidecar on;
+  CLI and IDE conversations get events at their next model call. A watch
+  restarts when its conversation next calls the plugin, after an App restart
+  or a resumed CLI conversation.
+- The approval card is yes or no. Antigravity's MCP client declares
+  elicitation but cancels every request, and an editor connected to
+  `agy acp` sees the tool and its arguments, not the plugins' question.
+- Server Cards can't add a card that needs a secret: Antigravity's personal
+  `mcp_config.json` reads no `${VAR}`, and the plugin never writes one.
+- The IDE wasn't run; its hooks page lists no plugin hooks, and without them
+  the plugins refuse rather than act unasked.
 
 ## Other hosts
 
@@ -435,6 +506,7 @@ with these forms:
 - `claude-code/`: a Claude Code mod.
 - `codex/`: a Codex plugin.
 - `pi/`: a Pi extension.
+- `antigravity/`: a Google Antigravity plugin.
 
 Bringing one to a new host means writing a new adapter. Find how the host lets
 a plugin reach the wire (a connection of its own, a tool call, a way to wake
@@ -479,6 +551,13 @@ client also connects to the suite's server. The Pi forms' conformance pages
 record the details ([Skills](polyfills/skills/pi/docs/conformance.md),
 [Events](polyfills/events/pi/docs/conformance.md)).
 
+In Antigravity, the upstream scenarios haven't been run against the forms yet
+(the drivers are included); the shared clause tests run against each form's
+bundle, and the live runs used servers this project didn't write: Mastra's
+Events server and Hugging Face's Skills server. The Antigravity conformance
+pages record the details ([Skills](polyfills/skills/antigravity/docs/conformance.md),
+[Events](polyfills/events/antigravity/docs/conformance.md)).
+
 If your extension needs a client in a host that doesn't have one, open an
 issue, or build it with the `create-polyfill` skill.
 
@@ -513,7 +592,16 @@ one run without installing. Replace `<polyfill>` with `events`, `skills`,
 `pi install git:...` takes the whole repository, so use the local paths
 above. Nothing for Pi is published to npm or Pi's package gallery.
 
-To uninstall, run `pi remove ./polyfills/<polyfill>/pi/extension` from the
+**Antigravity.** `agy plugin install ./polyfills/<polyfill>/antigravity/plugin`
+from the clone installs one, and `agy plugin uninstall <name>` removes it
+(`mcp-events`, `mcp-skills`, `mcp-server-cards` or `ard-discovery`). The
+plugins' own data stays in `~/.gemini/agentpolyfill/<name>/`, Skills'
+placeholders in `~/.gemini/config/skills/mcp-skills-served--*`, and servers
+added by Server Cards or ARD in `~/.gemini/config/mcp_config.json`; each
+README says what to delete. Nothing is published to Antigravity's
+Marketplace.
+
+To uninstall Pi's, run `pi remove ./polyfills/<polyfill>/pi/extension` from the
 same folder. Events and Skills data stays in `mcp-events/` and `mcp-skills/`
 in Pi's agent folder (`~/.pi/agent`, or `PI_CODING_AGENT_DIR`); delete those
 folders too to remove it. Servers added by Server Cards or ARD stay in
@@ -530,9 +618,15 @@ permissions:
   a permission extension asks. Each polyfill asks before its consequential
   step: a watch, a skill load, a registry search or a server addition. It
   never auto-approves; Pi's permissions remain the boundary.
+- **Antigravity:** a plugin: an MCP server and command hooks, and for Events a
+  sidecar you turn on. Antigravity's own approval card is the boundary: each
+  addition, registry search and skill load asks there, and every other tool
+  goes through Antigravity's usual MCP approval. Nothing is auto-approved. The
+  plugins read `~/.gemini/config/mcp_config.json`, which can hold header
+  values, and never log or show them.
 
 None reads the host's stored credentials, including Pi's `mcp-auth.json`
-or `auth.json`. Each polyfill's `SECURITY.md` says what it checks and what it
+or `auth.json`, or Antigravity's `mcp_oauth_tokens.json`. Each polyfill's `SECURITY.md` says what it checks and what it
 doesn't protect against. [`SECURITY.md`](SECURITY.md) says how to report a
 problem privately.
 
@@ -547,6 +641,9 @@ problem privately.
   - `codex/`: plugins for Events, Skills, Server Cards and ARD.
   - `pi/`: extensions for Events, Skills, Server Cards and ARD, each with
     an installable `extension/` folder and its own README and SECURITY.md.
+  - `antigravity/`: plugins for Events, Skills, Server Cards and ARD, each
+    with an installable `plugin/` folder, its own README, SECURITY.md and
+    `docs/conformance.md`.
 - **Marketplaces.**
   [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) lists
   everything for Claude Code, including the two plugins in
@@ -555,7 +652,9 @@ problem privately.
   [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) lists
   the Codex plugins.
   Pi's forms are installed from their local folders; none is published to
-  npm or Pi's package gallery.
+  npm or Pi's package gallery. Antigravity's are installed with
+  `agy plugin install` from their `plugin/` folders; none is in its
+  Marketplace.
 - **[`servers/`](servers):** the demo servers hosted for trying a polyfill,
   such as [`event-feeds`](servers/event-feeds) for Events.
 - **[`community/`](community/):** the community directory.
