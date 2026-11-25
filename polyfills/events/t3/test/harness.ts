@@ -29,6 +29,8 @@ export const temp = () => {
 export function cleanup(): void {
     for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
 }
+// Also when a test file ends any other way: a failure, an uncaught error, a timeout.
+process.on('exit', cleanup);
 /** A thread id as T3 Code makes one for a thread started by `t3 thread start`. */
 export const newThread = () => `mcp:${randomUUID()}`;
 
