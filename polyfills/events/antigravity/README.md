@@ -314,9 +314,14 @@ Checked on 25 November 2026 ([docs/live-run.md](docs/live-run.md)):
 8. Antigravity's MCP client declares elicitation but answers every request
    with `cancel`, so the hook is the only way to reach the person.
 
-Not checked yet: the IDE, a webhook watch (the demo server refused a plain
-`http` local callback; it needs an https address), and how the App shows a
-wake that arrives mid-turn (the send itself succeeded). Details:
+9. **A wake during a running turn** is held by the App and put into that turn
+   at its next model call, with the hook's batch: no separate turn, the event
+   once. A ticket now waits up to 24 hours for Antigravity's own approval
+   card (the live run found 15 minutes too short).
+
+Not checked yet: the IDE's agent (it stayed signed out), and a webhook watch
+(the demo server refused a plain `http` local callback; it needs an https
+address). Details:
 [docs/live-run.md](docs/live-run.md#second-pass-later-the-same-night).
 
 ## Development
