@@ -14,9 +14,10 @@ listed in the [community directory](#listing-a-polyfill-in-the-community-directo
 
 ## Adding a polyfill
 
-A polyfill implements the client side of one published MCP extension inside one
+A polyfill implements the client side of one published extension inside one
 host that has not shipped it, and does nothing once the host supports the
-extension itself. Each one is a folder in the repository.
+extension itself. The extension is an MCP extension, or a spec for agents
+published outside MCP, such as ARD. Each one is a folder in the repository.
 
 ### 1. Meet the contract
 
@@ -222,7 +223,8 @@ copy, is
 An extension keeps one folder and one polyfill name; each host gets an adapter
 beside the others. Events and Skills share one `core/`, with these forms:
 
-- **Claude Code:** a mod in `claude-code/`.
+- **Claude Code:** a mod in `claude-code/` (Events has one; Skills doesn't,
+  because Claude Code lists served skills itself).
 - **Codex:** a plugin in `codex/`.
 - **Pi:** an extension in `pi/`, with the installable bundle in `extension/`.
 - **OpenCode:** a V2 server plugin in `opencode/`, with the bundle in

@@ -1,7 +1,7 @@
 # Security
 
 This covers mcp-skills for OpenCode. The other forms have their own:
-[Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md), [Pi](../pi/SECURITY.md).
+[Codex](../codex/SECURITY.md), [Pi](../pi/SECURITY.md).
 
 "The plugin" below means this OpenCode plugin: one bundled file
 (`plugin/server.js`) that OpenCode loads into its own server. It holds the

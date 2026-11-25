@@ -1,7 +1,8 @@
 // The Muse Code form: Muse's settings as the server list, the stubs flat in Muse's own skill
 // folder, and the person's yes typed as a message of their own (load <server> <skill> <code>),
-// read by the bundled UserPromptSubmit hook. Against the fixture server of the Claude Code form,
-// with the Codex form's app and test harness, which this form reuses unchanged.
+// read by the bundled UserPromptSubmit hook. Against the Skills forms' shared fixture server
+// (../../core/test-fixtures), with the Codex form's app and test harness, which this form reuses
+// unchanged.
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync, type ChildProcess } from 'node:child_process';

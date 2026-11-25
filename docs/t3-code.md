@@ -119,12 +119,12 @@ demo server's skills. What doesn't carry over:
   had said no. Nothing is approved for you; you're just never asked. Tried
   live with Skills; Server Cards and ARD use the same kind of form. Claude
   Code's elicitations go through the same function in T3 Code.
-- A Claude Code mod's terminal pane. `/mcp-skills show`, which opens a skill
-  in a pane, would end the turn in T3 Code: T3 Code fails a turn in which a
-  mod asks for its pane's focus.
+- A Claude Code mod's terminal pane. T3 Code fails a turn in which a mod asks
+  for its pane's focus. (The Skills mod for Claude Code, since removed from
+  this repository, opened a skill in a pane this way.)
 - A mod's own dialogs, other than permission prompts and `AskUserQuestion`.
-  The mcp-skills and mcp-events mods ask through `$.ui.ask` only before
-  downloading a runtime (`/mcp-skills setup`); T3 Code cancels that question,
+  The mcp-events mod asks through `$.ui.ask` only before downloading a
+  runtime (`/mcp-events setup`); T3 Code cancels that question,
   which means "Not now".
 
 The Claude Code half of this is from T3 Code's source; it wasn't run live,

@@ -43,9 +43,11 @@ install every polyfill at once:
 ```
 
 Or install just one, with its name in place of `agent-polyfill`:
-`mcp-events`, `mcp-apps-cli`, `mcp-skills` or `mcp-server-cards`. Beyond MCP,
+`mcp-events`, `mcp-apps-cli` or `mcp-server-cards`. Beyond MCP,
 `ard-discovery` adds ARD; it isn't in the bundle, so install it by name. Then
-start a new `claude` session.
+start a new `claude` session. There is no Skills polyfill for Claude Code:
+Claude Code lists skills from MCP servers itself, in beta from 2.1.332
+([Skills, below](#polyfills)).
 
 **Codex** (0.170 or newer; Skills was tested on 0.172; Node 20 or newer). In a
 terminal:
@@ -145,7 +147,7 @@ There are [more ways to install](#more-ways-to-install) further down.
 | Extension | Spec | Claude Code | Codex | Pi | OpenCode | Muse Code |
 |---|---|---|---|---|---|---|
 | Events | [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md), Final | [`mcp-events`](polyfills/events/claude-code) | [`mcp-events`](polyfills/events/codex) | [`mcp-events`](polyfills/events/pi) | [`mcp-events`](polyfills/events/opencode) | [`mcp-events`](polyfills/events/muse) (at your next message) |
-| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | [`mcp-skills`](polyfills/skills/claude-code) | [`mcp-skills`](polyfills/skills/codex) | [`mcp-skills`](polyfills/skills/pi) | [`mcp-skills`](polyfills/skills/opencode) | [`mcp-skills`](polyfills/skills/muse) |
+| Skills | [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md), Final | built into Claude Code, in beta from 2.1.332 ([changelog](https://code.claude.com/docs/en/changelog)) | [`mcp-skills`](polyfills/skills/codex) | [`mcp-skills`](polyfills/skills/pi) | [`mcp-skills`](polyfills/skills/opencode) | [`mcp-skills`](polyfills/skills/muse) |
 | Server Cards | [SEP-2127](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2127-mcp-server-cards.md), Final (the extension is Beta) | [`mcp-server-cards`](polyfills/server-cards/claude-code) | [`mcp-server-cards`](polyfills/server-cards/codex) | [`mcp-server-cards`](polyfills/server-cards/pi) | [`mcp-server-cards`](polyfills/server-cards/opencode) | [`mcp-server-cards`](polyfills/server-cards/muse) |
 | Apps | [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) 2026-01-26, Stable | [`mcp-apps-cli`](polyfills/apps/claude-code) | not yet | not available | not available | not yet |
 | ARD (beyond MCP) | [Agentic Resource Discovery](https://github.com/ards-project/ard-spec) v0.91, a draft | [`ard-discovery`](polyfills/ard/claude-code) | [`ard-discovery`](polyfills/ard/codex) | [`ard-discovery`](polyfills/ard/pi) | [`ard-discovery`](polyfills/ard/opencode) | [`ard-discovery`](polyfills/ard/muse) (no registry search) |
@@ -176,12 +178,21 @@ All of them are early. Here is what each one does, and where it stops:
   it, so the turn starts with no visible cause. OpenCode's own automations
   also take push events, so use a watch or an automation for an event type,
   not both.
-- **Skills.** Skills an MCP server serves show up next to your own, load only
-  after you say yes to each one, and are checked against the server's
-  digests. In Codex they appear in Codex's own skill list after you ask once
-  to list the served skills, from the next turn. One rule of the spec can't be met in Codex
-  yet: a skill from one server reading another server's resources isn't put
-  to you first (rule X8), because Codex doesn't let a plugin ask. In Pi,
+- **Skills.** In Codex, Pi and OpenCode, skills an MCP server serves show up
+  next to your own, load only after you say yes to each one, and are checked
+  against the server's digests. Claude Code needs no polyfill for Skills: it
+  lists skills from MCP servers itself, in beta from 2.1.332. Its
+  [changelog](https://code.claude.com/docs/en/changelog) says they show as
+  `server:skill` in the `/` menu, and other skills keep their names. It is a
+  beta and may not be on for every account or server yet; where it isn't on,
+  there is currently no Skills over MCP in Claude Code. The Claude Code form
+  this repository had was removed for that reason;
+  [if you installed it](#if-you-installed-mcp-skills-in-claude-code),
+  uninstall it. In Codex, served skills appear in Codex's own skill list
+  after you ask once to list them, from the next turn. One rule of the spec
+  can't be met in Codex yet: a skill from one server reading another server's
+  resources isn't put to you first (rule X8), because Codex doesn't let a
+  plugin ask. In Pi,
   served skills appear in its own list as `mcp-<server>-<name>`, marked
   `[MCP server "<server>", not a local skill]`. Loading one asks "Don't load
   it", "Show me its SKILL.md first", or "Load it"; a yes is kept for exactly
@@ -273,7 +284,8 @@ OpenCode with a scripted model and a local server. ARD wasn't tried in
 OpenCode's TUI or in OpenCode Desktop.
 
 The supported hosts don't implement these extensions themselves yet, apart
-from part of Events in OpenCode. On 23 November 2026 the official
+from Skills in Claude Code (a beta, from 2.1.332) and part of Events in
+OpenCode. On 23 November 2026 the official
 [extension support matrix](https://modelcontextprotocol.io/extensions/client-matrix)
 listed Tasks for Claude Code, and none of Events, Apps or Skills (Server Cards
 isn't in the matrix). Codex doesn't support Events for your own servers, or
@@ -282,8 +294,9 @@ for its automations; it doesn't poll or take webhooks, and it skips event
 types whose schemas it can't check. It doesn't support Skills, Server Cards
 or Apps. Muse Code 1.4.25 sends nothing to a server that advertises Events
 or Skills. Hosts add extensions all the time, so check the
-matrix for today's picture. The Skills SEP notes that Claude Code support has
-been prototyped at Anthropic.
+matrix for today's picture. Claude Code's
+[changelog](https://code.claude.com/docs/en/changelog) lists skills from MCP
+servers, as a beta, in 2.1.332 (25 November 2026).
 
 ## Try it
 
@@ -330,12 +343,9 @@ GitHub releases, and earthquakes. Its source is in
 
 ### Skills: skills that come from an MCP server
 
-![In Claude Code, the skills a server offers are listed. A question is asked, Claude asks to load one skill from the server, reads the files it points to, and answers from them.](polyfills/skills/claude-code/docs/media/demo.gif)
+In Codex, Pi or OpenCode, add Hugging Face's public MCP server (no sign-in)
+and ask a question one of its skills covers.
 
-Add Hugging Face's public MCP server (no sign-in) and ask a question one of
-its skills covers.
-
-- **Claude Code:** `/mcp-skills` lists what it serves.
 - **Codex:** the served skills appear in the `$` list after you ask once to
   list the served skills, from the next turn.
 - **Pi:** the served skills appear in its own list at session start. Ask a
@@ -343,12 +353,6 @@ its skills covers.
 - **OpenCode:** the served skills are in OpenCode's skill list as
   `mcp-skills:huggingface:<name>`. Ask a question, then allow the load when
   OpenCode asks.
-
-**Claude Code:**
-
-```
-claude mcp add --transport http huggingface https://huggingface.co/mcp
-```
 
 **Codex:**
 
@@ -407,9 +411,11 @@ installing and first use, and everything it can't do yet.
 ## What makes something a polyfill
 
 1. It implements one published extension, client side, and nothing else: no
-   extra protocol and no vendor additions. The one exception is an earlier
-   form of the same extension that servers still speak, listed in the
-   polyfill's README and switched off with one setting.
+   extra protocol and no vendor additions. The extension is an MCP extension,
+   or a spec for agents published outside MCP, such as ARD, and is labelled
+   as that. The one exception is an earlier form of the same extension that
+   servers still speak, listed in the polyfill's README and switched off with
+   one setting.
 2. It names the spec revision it implements.
 3. Every client rule in the spec has a test, and it runs against servers
    someone else wrote.
@@ -429,8 +435,9 @@ client supports. When your host ships one of these extensions, turn that
 polyfill off:
 
 - **Claude Code:** disable its plugin (`/plugin disable mcp-events`), or use
-  its own setting (`MCP_EVENTS_OFF=1`, `MCP_SKILLS_OFF=1`, or `disabled` in
-  `/config` for Server Cards and ARD).
+  its own setting (`MCP_EVENTS_OFF=1`, or `disabled` in `/config` for Server
+  Cards and ARD). Skills was the first case: Claude Code ships it itself now,
+  in beta, so that form was removed from this repository.
 - **Codex:** remove the plugin
   (`codex plugin remove mcp-events@agent-polyfill`).
 - **Pi:** `pi remove git:github.com/idosal/AgentPolyfill` removes Events,
@@ -668,7 +675,8 @@ and next to it is one adapter per host, which wires that core into what the
 host lets outside code do. Events and Skills are built that way: one `core/`
 with these forms:
 
-- `claude-code/`: a Claude Code mod.
+- `claude-code/`: a Claude Code mod (Events has one; Skills doesn't, because
+  Claude Code lists served skills itself).
 - `codex/`: a Codex plugin.
 - `pi/`: a Pi extension.
 - `opencode/`: an OpenCode plugin.
@@ -702,8 +710,8 @@ A polyfill can be that client-side implementation, in hosts that haven't
 shipped the extension yet, used by real people against real servers. Each one
 here names the spec revision it implements. Events and Skills have a test for
 every client rule and run against servers their authors didn't write. Skills
-passes the official conformance suite's Skills client scenarios in Claude
-Code, Codex and Pi, and Events passes the Events client scenarios proposed
+passes the official conformance suite's Skills client scenarios in Codex and
+Pi, and Events passes the Events client scenarios proposed
 upstream (still an open pull request in the conformance suite). Apps checks
 the spec requirement by requirement in its design notes. Whether a polyfill
 counts as an independent implementation for a given SEP is up to that
@@ -736,7 +744,7 @@ issue, or build it with the `create-polyfill` skill.
 /plugin install mcp-events --marketplace idosal/AgentPolyfill
 ```
 
-The same works for `mcp-apps-cli`, `mcp-skills`, `mcp-server-cards` and
+The same works for `mcp-apps-cli`, `mcp-server-cards` and
 `ard-discovery`; `ard-discovery` brings `mcp-server-cards` with it. In a
 terminal, use `claude plugin install` with the same arguments.
 
@@ -813,6 +821,18 @@ added; their list stays in that storage and comes back if you install the
 plugin again, unless you remove each server first
 (`server_cards_remove_mcp_server` or `ard_remove_mcp_server`).
 
+### If you installed `mcp-skills` in Claude Code
+
+The marketplace no longer lists `mcp-skills` for Claude Code, and from
+version 0.3.0 the `agent-polyfill` bundle no longer depends on it. Remove an
+install you already have with `/plugin uninstall mcp-skills@agent-polyfill`.
+Whether Claude Code removes it by itself when the bundle stops depending on
+it isn't known here, so look in `/plugin`. Before you uninstall,
+`/mcp-skills forget` drops the approvals it kept and `/mcp-skills setup remove`
+deletes its copy of Bun, if you had it download one;
+[what it kept on your machine](polyfills/claude-code/skills/README.md) has
+the rest.
+
 ## Safety
 
 These are third-party plugins and extensions, and they run with your
@@ -845,7 +865,7 @@ says what it checks and what it doesn't protect against.
   [`events`](polyfills/events) and [`skills`](polyfills/skills) have a core.
   Each host's forms live in a folder named for it:
 
-  - `claude-code/`: mods for Events, Skills, Server Cards, ARD and Apps.
+  - `claude-code/`: mods for Events, Server Cards, ARD and Apps.
   - `codex/`: plugins for Events, Skills, Server Cards and ARD.
   - `pi/`: extensions for Events, Skills, Server Cards and ARD, each with
     an installable `extension/` folder and its own README and SECURITY.md.

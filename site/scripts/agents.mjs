@@ -47,7 +47,7 @@ const INSTALL_CODEX = [
   'codex plugin add mcp-server-cards@agent-polyfill',
 ]
 const HOSTS = [
-  { name: 'Claude Code', command: 'claude', addKey: 'add', form: 'Mod (plugin)', polyfills: 'Events, Skills, Server Cards, Apps, ARD' },
+  { name: 'Claude Code', command: 'claude', addKey: 'add', form: 'Mod (plugin)', polyfills: 'Events, Server Cards, Apps, ARD; no Skills form: Claude Code lists skills from MCP servers itself, in beta from 2.1.332' },
   { name: 'Codex', command: 'codex', addKey: 'addCodex', form: 'Plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
   { name: 'Pi', command: 'pi', addKey: 'addPi', form: 'Extension', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
   { name: 'OpenCode', command: 'opencode', addKey: 'addOpenCode', config: 'opencode.json', form: 'V2 server plugin', polyfills: 'Events, Skills, Server Cards, ARD; no Apps form' },
@@ -129,6 +129,9 @@ const OPENCODE_INSTALL_NOTES = 'Nothing for OpenCode is published to npm. There 
 const OPENCODE_APPS_LIMIT = 'Apps has no OpenCode form. OpenCode has no MCP Apps support: a plugin cannot read a `ui://` resource or a tool\'s `_meta` over OpenCode\'s connection, and there is no place to draw in the conversation. The desktop app\'s experimental panels can embed a web view, but an OpenCode Apps form was only assessed, not built.'
 // Each host's own installs and examples, where they differ from home.json's.
 const FORMS = { Pi: PI_FORMS, OpenCode: OPENCODE_FORMS, 'Muse Code': MUSE_FORMS }
+
+// Skills in Claude Code: no polyfill. What Claude Code's changelog says, and no more.
+const CLAUDE_CODE_SKILLS = 'There is no Skills polyfill for Claude Code: Claude Code lists skills from MCP servers itself, in beta from 2.1.332 (https://code.claude.com/docs/en/changelog). A beta may not be on for every account or server yet. If you installed the `mcp-skills` plugin for Claude Code before, remove it with `/plugin uninstall mcp-skills@agent-polyfill`.'
 
 // T3 Code is not a host forms load into: it runs Codex, Claude Code and other agents for you.
 const T3_ADD = 'codex mcp add mcp-events-t3 -- node "$PWD/AgentPolyfill/polyfills/events/t3/plugin/dist/server.js"'
@@ -360,7 +363,7 @@ ${hostTable()}
 ${INSTALL}
 \`\`\`
 
-The same works in a terminal: \`${INSTALL_CLI}\`.
+The same works in a terminal: \`${INSTALL_CLI}\`. ${CLAUDE_CODE_SKILLS}
 
 **Codex** (0.170 or newer; Skills was tested on 0.172; Node 20 or newer). In a terminal:
 
@@ -470,7 +473,7 @@ Beyond MCP, \`ard-discovery\` adds Agentic Resource Discovery v0.91 (a draft). A
 
 ## Install
 
-- **Claude Code 2.1.329 or newer:** every MCP polyfill, the \`agent-polyfill\` bundle, from a terminal: \`${INSTALL_CLI}\`. At the prompt of a \`claude\` session it is \`${INSTALL}\`. Start a new session for the plugins to load. ARD is separate: \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`.
+- **Claude Code 2.1.329 or newer:** every MCP polyfill, the \`agent-polyfill\` bundle, from a terminal: \`${INSTALL_CLI}\`. At the prompt of a \`claude\` session it is \`${INSTALL}\`. Start a new session for the plugins to load. ARD is separate: \`/plugin install ard-discovery --marketplace idosal/AgentPolyfill\`. ${CLAUDE_CODE_SKILLS}
 - **Codex 0.170 or newer (Node 20 or newer):** from a terminal: \`${INSTALL_CODEX.join(' && ')}\`. ARD is separate: \`codex plugin add ard-discovery@agent-polyfill\`. There is no bundle.
 - **Pi 1.6.0 (the version tested; Node 22 or newer):** one line installs Events, Skills and Server Cards together; the commands are below.
 - **OpenCode 2.4 or newer (tested with 2.4.1; Git; no Node):** one \`opencode plugin add\` per polyfill, from GitHub, after Pi's below.

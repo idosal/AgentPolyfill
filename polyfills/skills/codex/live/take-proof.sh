@@ -73,5 +73,5 @@ cat > "$OUT/scenario.json" <<JSON
   ]
 }
 JSON
-"$PY" "$ROOT/../claude-code/tools/pty-drive.py" "$OUT/scenario.json" "$OUT"
+"$PY" "$ROOT/../core/tools/pty-drive.py" "$OUT/scenario.json" "$OUT"
 cp "$CODEX_HOME/mcp-skills/mcp-skills.log" "$OUT/mcp-skills.log"

@@ -3,9 +3,10 @@
 Skills your MCP servers serve show up in Muse Code's skill list. A skill loads
 after you say yes, and is checked against the server's digests.
 
-Also available for Claude Code: [mcp-skills for Claude Code](../claude-code/README.md),
-for Codex: [mcp-skills for Codex](../codex/README.md),
-and for Pi: [mcp-skills for Pi](../pi/README.md).
+Also available for Codex, Pi and OpenCode: [mcp-skills for Codex](../codex/README.md),
+[mcp-skills for Pi](../pi/README.md), [mcp-skills for OpenCode](../opencode/README.md).
+Claude Code needs no polyfill for this: it lists skills from MCP servers itself, in beta
+from 2.1.332 ([changelog](https://code.claude.com/docs/en/changelog)).
 
 This plugin implements the client side of the MCP Skills extension,
 [SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2640-skills-extension.md)
@@ -59,16 +60,17 @@ rm -rf ~/.config/muse/skills/mcp-skills-served--*
 
 ## How you say yes
 
-**Muse offers plugins no approval dialog.** In the other hosts, in a mode that
-asks, the polyfills ask you through a prompt the host draws itself, which the
-model can't answer (with approvals off in Claude Code or Codex, a watch isn't
-asked):
+**Muse offers plugins no approval dialog.** In Codex, Pi and OpenCode, in a
+mode that asks, this polyfill asks you through a prompt the host draws itself,
+which the model can't answer:
 
-- **Claude Code:** its permission dialog.
-- **Codex:** its approval prompt, or an MCP form.
+- **Codex:** an MCP form. Where Codex can't ask (`codex exec`, or the approval
+  policy `never`), a skill you haven't approved isn't loaded.
 - **Pi:** a dialog.
-- **OpenCode:** its permission prompt (the polyfills set their own actions to
-  ask).
+- **OpenCode:** its permission prompt (the plugin sets its own actions to ask).
+
+Claude Code needs no polyfill for Skills: it lists skills from MCP servers
+itself, in beta from 2.1.332.
 
 Muse has nothing like that for a plugin. Its MCP client offers no form, and a
 hook's `ask` goes to Muse's approval judge, a model that may approve with

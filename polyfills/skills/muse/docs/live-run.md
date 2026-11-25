@@ -33,7 +33,8 @@ stubs (`mcp-skills:huggingface:hf-cli`, …). They come from
 
 ## A load, typed yes
 
-This used the hand-written skills server of the Claude Code form, with one
+This used the hand-written skills server that was then the Claude Code form's
+(now the shared one in [`../../core/test-fixtures`](../../core/test-fixtures)), with one
 skill (`git-workflow`, two files). It was one session, over two `muse exec`
 runs with the same `--session-id`.
 
