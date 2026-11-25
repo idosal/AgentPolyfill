@@ -299,7 +299,8 @@ export function attachTurn(muse: string, session: string, text: string, o: { env
                 } else if (m.id === 3 && stage === 'turn') finish({ ok: true, resumed: true });
             }
         });
-        send({ id: 1, method: 'initialize', params: { clientInfo: { name: 'mcp-events', version: VERSION }, capabilities: { experimentalApi: true } } });
+        // MSP takes a machine identifier as the client's name: [a-z0-9_]+.
+        send({ id: 1, method: 'initialize', params: { clientInfo: { name: 'mcp_events', title: 'mcp-events', version: VERSION }, capabilities: { experimentalApi: true } } });
     });
 }
 

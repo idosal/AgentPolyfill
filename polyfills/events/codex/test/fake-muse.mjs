@@ -20,7 +20,9 @@ const send = (m) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', ...m }
 createInterface({ input: process.stdin }).on('line', (line) => {
     const m = JSON.parse(line);
     log({ in: m });
-    if (m.method === 'initialize') send({ id: m.id, result: { serverInfo: { name: 'fake-muse' }, capabilities: { experimentalApi: true } } });
+    // As muse 1.4.25 does: a client name that is not a machine identifier is refused.
+    if (m.method === 'initialize' && !/^[a-z0-9_]+$/.test(String(m.params?.clientInfo?.name))) send({ id: m.id, error: { code: -32602, message: 'invalid initialize params: clientInfo.name must be a machine identifier matching ^[a-z0-9_]+$ (SS1.4.1)' } });
+    else if (m.method === 'initialize') send({ id: m.id, result: { experimentalApi: true, grantedCapabilities: ['experimentalApi'] } });
     else if (m.method === 'session/resume') send({ id: m.id, result: { session: { sessionId: m.params.sessionId }, youDrive: true } });
     else if (m.method === 'turn/start') send({ id: m.id, result: { commandId: m.params.commandId, disposition: 'started' } });
     else if (m.id !== undefined) send({ id: m.id, error: { code: -32601, message: 'not handled' } });
