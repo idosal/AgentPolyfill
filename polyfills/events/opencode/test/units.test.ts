@@ -81,3 +81,36 @@ test('plugin/package.json makes the folder an installable package: this form, it
     assert.equal(pkg.private, true);
     for (const k of ['dependencies', 'peerDependencies', 'optionalDependencies', 'scripts']) assert.equal(pkg[k], undefined, k);
 });
+
+test('"Allow always" lists 0.1.0 kept are not read: they could hold another project\'s answers (OC-4)', async () => {
+    const { alwaysKey, alwaysKeyV1, askByDefault } = await import('../src/consent.ts');
+    const location = { directory: '/work/a', project: { id: 'project-a' } };
+    const watch = 'mcp_events_watch';
+    const resource = 'tickets:ticket.created';
+    const instance = async (stored: Map<string, unknown>) => {
+        let hook: ((e: { action: string; resources: string[]; effect: 'allow' | 'ask' | 'deny'; message?: string }) => void | Promise<void>) | undefined;
+        const ctx = {
+            location,
+            storage: { get: async (k: string) => stored.get(k), set: async (k: string, v: unknown) => void stored.set(k, v) },
+            // No permission events in this test.
+            event: { subscribe: () => ({ [Symbol.asyncIterator]: () => ({ next: () => new Promise<IteratorResult<{ type: string }>>(() => {}) }) }) },
+            session: { get: async () => undefined },
+            permission: { hook: async (_name: 'evaluate', cb: typeof hook) => ((hook = cb), { dispose: async () => {} }) }
+        };
+        await askByDefault(ctx as never, { actions: [watch], prefix: 'mcp-events', plugin: 'mcp-events', log: () => {} });
+        const event = { action: watch, resources: [resource], effect: 'allow' as 'allow' | 'ask' | 'deny' };
+        await hook!(event);
+        return event.effect;
+    };
+    // Under 0.1.0's key: ignored, so the watch is asked about.
+    assert.equal(await instance(new Map([[alwaysKeyV1('mcp-events', location), [`${watch}\n${resource}`]]])), 'ask');
+    // Under the current key, the same entry holds.
+    assert.equal(await instance(new Map([[alwaysKey('mcp-events', location), [`${watch}\n${resource}`]]])), 'allow');
+    assert.notEqual(alwaysKey('mcp-events', location), alwaysKeyV1('mcp-events', location));
+});
+
+test('the three copies of consent.ts are the same file', async () => {
+    const { readFileSync } = await import('node:fs');
+    const mine = readFileSync(join(ROOT, 'src', 'consent.ts'), 'utf8');
+    for (const other of ['skills', 'server-cards']) assert.equal(readFileSync(join(ROOT, '..', '..', other, 'opencode', 'src', 'consent.ts'), 'utf8'), mine, other);
+});

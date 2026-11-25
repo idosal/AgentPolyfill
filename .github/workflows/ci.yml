@@ -44,6 +44,21 @@ jobs:
             jq -e . "$file" >/dev/null || { echo "::error file=$file::not valid JSON"; status=1; }
           done
           exit $status
+      # `pi install git:github.com/idosal/AgentPolyfill` runs npm in Pi's clone of this repository,
+      # so the root package.json is a Pi manifest and holds nothing npm would run or install: no
+      # scripts (install hooks among them), no dependencies of any kind, no workspaces, no bin. Only
+      # the fields below are allowed, so anything added later fails here first.
+      - name: The root package.json is a Pi manifest, with nothing npm would run
+        run: |
+          jq -e '
+            (keys - ["name", "private", "description", "license", "repository", "pi"]) == []
+            and .private == true
+            and (.pi | type) == "object"
+            and ((.pi | keys) - ["extensions", "skills", "prompts", "themes"]) == []
+          ' package.json >/dev/null || {
+            echo "::error file=package.json::the root package.json may hold only name, private (true), description, license, repository and pi (extensions, skills, prompts, themes): pi install git: runs npm in the clone, so scripts, dependencies, workspaces or bin here would run on every installer's machine"
+            exit 1
+          }
       - name: Local marketplace entries point at a plugin in this repository
         run: |
           status=0
