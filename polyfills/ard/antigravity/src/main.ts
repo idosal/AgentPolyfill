@@ -12,8 +12,8 @@ import { isMain, logger } from '../../../server-cards/codex/src/host'
 import { serve, type Tool } from '../../../server-cards/codex/src/mcp'
 import { shownText } from '../../../server-cards/codex/src/tools'
 import { antigravityDeps, useAntigravityHost } from '../../../server-cards/antigravity/src/host'
-import { digestOf, ownArgs, redeemTicket, runHook, stateDir, TICKET_ARG, type Handler } from '../../../server-cards/antigravity/src/gate'
-import { ADD, addHandler, addTool, SharedSession } from '../../../server-cards/antigravity/src/tools'
+import { digestOf, ownArgs, redeemTicket, runHook, runStop, stateDir, TICKET_ARG, type Handler } from '../../../server-cards/antigravity/src/gate'
+import { ADD, addHandler, addTool, setServerName, SharedSession } from '../../../server-cards/antigravity/src/tools'
 import { originOf } from '../../claude-code/mod/hooks/urls'
 import { ARD_SOURCES, NO_REGISTRY, prepareSearch, registrySetting, runSearch } from '../../codex/src/search'
 
@@ -96,7 +96,7 @@ export function tools(session: SharedSession, defaultRegistry: string): Tool[] {
       if ('refuse' in prepared) return refuse(noRegistry(prepared.refuse))
       // Every search is put to the person first, with the words and where
       // they go (security review M2): the hook asked about exactly these.
-      const t = redeemTicket(session.dir, args[TICKET_ARG], SEARCH, searchDigest(prepared.query, prepared.endpoints))
+      const t = redeemTicket(session.dir, args[TICKET_ARG], SEARCH, searchDigest(prepared.query, prepared.endpoints), Date.now(), SERVER)
       if (!t.ok) return refuse(`Nothing was sent: ${t.why}.`)
       return { text: await runSearch(session, prepared.query, prepared.endpoints) }
     },
@@ -116,6 +116,9 @@ export function handlers(session: SharedSession, defaultRegistry: string): Recor
   }
 }
 
+/** The tools the hook gates: marked eager in plugin/mcp_config.json, and named in hooks.json's matcher. */
+export const GATED = [SEARCH, ADD] as const
+
 export const INSTRUCTIONS =
   "Agentic Resource Discovery (ARD v0.91 draft) for MCP servers: ard_discover reads a domain's ard.json and AI Catalog; ard_search sends a query to an ARD registry, a third party, after the person approves it in Antigravity's approval card; add_mcp_server adds a server either one showed, after the person approves that too. " +
   "A registry's order is relevance, not trust; a result is confirmed only when its publisher's own catalog lists it."
@@ -125,9 +128,15 @@ export const isOff = (env: NodeJS.ProcessEnv) => /^(1|true|on|yes)$/i.test(env.A
 
 export async function start(env: NodeJS.ProcessEnv = process.env, argv = process.argv.slice(2)) {
   useAntigravityHost()
-  const session = new SharedSession(antigravityDeps(env, `${NAME}/${VERSION} (Antigravity polyfill)`), stateDir(NAME, env))
+  setServerName(SERVER)
+  const open = () => new SharedSession(antigravityDeps(env, `${NAME}/${VERSION} (Antigravity polyfill)`), stateDir(NAME, env))
   const registry = registrySetting(env)
-  if (argv.includes('--hook')) return runHook(handlers(session, registry), session.dir, SERVER)
+  // The hooks open the state folder only once they know the call is this plugin's (gate.ts).
+  if (argv.includes('--hook'))
+    return argv[argv.indexOf('--hook') + 1] === 'stop'
+      ? runStop(() => stateDir(NAME, env))
+      : runHook({ server: SERVER, tools: GATED, gate: () => { const session = open(); return { handlers: handlers(session, registry), dir: session.dir } } })
+  const session = open()
   const off = isOff(env)
   serve({
     name: NAME,

@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { answerHook, callOf, digestOf, gateMatcher, issueTicket, PASS_TICKET_TTL_MS, redeemTicket, surfaceOf, TICKET_ARG, TICKET_TTL_MS } from '../src/gate'
+import { answerHook, callOf, digestOf, gateMatcher, issueTicket, redeemTicket, revokeConversation, surfaceOf, TICKET_ARG, TICKET_TTL_MS } from '../src/gate'
 import { isNameTaken, planForAntigravity, readConfig, writeEntry } from '../src/antigravity'
 import { antigravityServer, localWeb, matches, preToolUse, runHook, tempHome } from './harness'
 
@@ -150,6 +150,13 @@ test('G-1 a ticket is good once, for its tool and digest, while fresh', () => {
   const old = issueTicket(dir, { tool: 't', digest: d, conversationId: 'c1' }, Date.now() - TICKET_TTL_MS - 1)
   assert.equal(redeemTicket(dir, old, 't', d).ok, false, 'expired')
   for (const bad of [undefined, '', '../../etc/passwd', 'a'.repeat(32), 42]) assert.equal(redeemTicket(dir, bad, 't', d).ok, false, String(bad))
+  // A ticket's file is named by the SHA-256 of its nonce: a listing of the folder gives nothing a call could carry.
+  const kept = issueTicket(dir, { tool: 't', digest: d, conversationId: 'c1' })
+  const files = readdirSync(join(dir, 'tickets'))
+  assert.ok(files.length >= 1 && files.every(f => /^[0-9a-f]{64}\.json$/.test(f)), files.join(' '))
+  assert.ok(!files.some(f => f.includes(kept)))
+  for (const f of files) assert.equal(redeemTicket(dir, f.slice(0, 32), 't', d).ok, false, 'a file name is no ticket')
+  assert.equal(redeemTicket(dir, kept, 't', d).ok, true)
 })
 
 test('G-6 the surface a conversation lives in, from its transcript path; a ticket carries the hook\'s meta to the server', async () => {
@@ -163,19 +170,56 @@ test('G-6 the surface a conversation lives in, from its transcript path; a ticke
   assert.deepEqual(redeemTicket(dir, (out.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd'), { ok: true, conversationId: 'ec33ebf9-0cba-4100-8142-c61503f6c587', meta: { surface: 'cli' } })
 })
 
-test('G-7 a ticket outlives an approval card left open for an hour: 4 hours for a question, 24 for a call only tied to its conversation', async () => {
+test('G-7 a ticket waits an hour at most, for a question and for a call only tied to its conversation, and then says to ask again', async () => {
   const dir = gateDir()
-  const hourAgo = Date.now() - 61 * 60_000
-  const ask = await answerHook(preToolUse(TOOL, {}), { add_mcp_server: () => ({ ask: 'q', digest: 'd' }) }, dir, hourAgo)
-  assert.equal(redeemTicket(dir, (ask.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd').ok, true, 'approved after an hour')
-  const longAsk = await answerHook(preToolUse(TOOL, {}), { add_mcp_server: () => ({ ask: 'q', digest: 'd' }) }, dir, Date.now() - TICKET_TTL_MS - 1)
-  const late = redeemTicket(dir, (longAsk.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd')
-  assert.equal(late.ok, false)
-  assert.match(late.ok ? '' : late.why, /waited more than 4 hours\); ask the person whether to try again/)
-  const pass = await answerHook(preToolUse(TOOL, {}), { add_mcp_server: () => ({ pass: 'p', digest: 'd' }) }, dir, Date.now() - TICKET_TTL_MS - 1)
-  assert.equal(redeemTicket(dir, (pass.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd').ok, true, 'a pass ticket still good after 4 hours')
-  const oldPass = await answerHook(preToolUse(TOOL, {}), { add_mcp_server: () => ({ pass: 'p', digest: 'd' }) }, dir, Date.now() - PASS_TICKET_TTL_MS - 1)
-  assert.equal(redeemTicket(dir, (oldPass.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd').ok, false)
+  assert.equal(TICKET_TTL_MS, 60 * 60_000)
+  for (const kind of ['ask', 'pass'] as const) {
+    const v = () => (kind === 'ask' ? { ask: 'q', digest: 'd' } : { pass: 'p', digest: 'd' })
+    const open = await answerHook(preToolUse(TOOL, {}), { add_mcp_server: v }, dir, Date.now() - 50 * 60_000)
+    assert.equal(redeemTicket(dir, (open.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd').ok, true, `${kind}: approved after 50 minutes`)
+    const long = await answerHook(preToolUse(TOOL, {}), { add_mcp_server: v }, dir, Date.now() - TICKET_TTL_MS - 1)
+    const late = redeemTicket(dir, (long.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd')
+    assert.equal(late.ok, false, kind)
+    assert.match(late.ok ? '' : late.why, /waited more than 60 minutes\); ask the person whether to try again/)
+  }
+})
+
+test('G-8 the turn ends: the Stop hook removes every unused ticket of that conversation, and only of that one', async () => {
+  const dir = gateDir()
+  const mine = 'ec33ebf9-0cba-4100-8142-c61503f6c587', other = '0b7f6a0e-1111-4222-8333-944455556666'
+  const declined = await answerHook(preToolUse(TOOL, {}, mine), { add_mcp_server: () => ({ ask: 'q', digest: 'd' }) }, dir)
+  const theirs = await answerHook(preToolUse(TOOL, {}, other), { add_mcp_server: () => ({ ask: 'q', digest: 'd' }) }, dir)
+  assert.equal(revokeConversation(dir, mine), 1)
+  const r = redeemTicket(dir, (declined.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd')
+  assert.equal(r.ok, false, 'a question declined or never answered leaves nothing a later call could use')
+  assert.match(r.ok ? '' : r.why, /the turn it was given in ended/)
+  assert.equal(redeemTicket(dir, (theirs.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd').ok, true, "another conversation's ticket stays")
+  // As Antigravity runs it: `node ./dist/server.mjs --hook stop`, the Stop input on stdin, `{}` out.
+  const home = tempHome()
+  const state = join(home, '.gemini', 'agentpolyfill', 'mcp-server-cards')
+  mkdirSync(state, { recursive: true })
+  issueTicket(state, { tool: 'add_mcp_server', digest: 'd', conversationId: mine })
+  const stop = spawnSync(process.execPath, ['./dist/server.mjs', '--hook', 'stop'], { cwd: join(ROOT, 'plugin'), input: JSON.stringify({ hookEventName: 'Stop', conversationId: mine, terminationReason: 'model_stop' }), encoding: 'utf8', env: { PATH: process.env.PATH ?? '', HOME: home } })
+  assert.equal(stop.status, 0)
+  assert.deepEqual(JSON.parse(stop.stdout), {})
+  assert.deepEqual(readdirSync(join(state, 'tickets')), [])
+})
+
+test('G-9 the hook leaves out what Antigravity adds to an eager call for its own display (toolSummary), so its digest is of what the server gets', async () => {
+  const dir = gateDir()
+  const seen: Record<string, unknown>[] = []
+  const out = await answerHook(preToolUse(TOOL, { x: 1, toolSummary: 'Adding a server' }), { add_mcp_server: args => (seen.push(args), { ask: 'q', digest: digestOf(args) }) }, dir, Date.now(), 'mcp-server-cards_cards')
+  assert.deepEqual(seen, [{ x: 1 }])
+  assert.equal(redeemTicket(dir, (out.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', digestOf({ x: 1 })).ok, true)
+})
+
+test('G-10 a call from an Antigravity IDE conversation is refused: the IDE documents no plugin hooks, and the forms are not supported there', async () => {
+  const dir = gateDir()
+  const input = { ...preToolUse(TOOL, {}), transcriptPath: '/Users/me/.gemini/antigravity-ide/brain/ec33/x' }
+  const out = await answerHook(input, { add_mcp_server: () => ({ ask: 'q', digest: 'd' }) }, dir, Date.now(), 'mcp-server-cards_cards')
+  assert.equal(out.decision, 'deny')
+  assert.match(String(out.reason), /isn't supported in the Antigravity IDE/)
+  assert.equal(out.overwrite, undefined)
 })
 
 test('G-2 digests ignore key order', () => {
@@ -183,13 +227,13 @@ test('G-2 digests ignore key order', () => {
   assert.notEqual(digestOf({ a: 1 }), digestOf({ a: '1' }))
 })
 
-test('G-3 the hook: another tool is let through untouched; a failing check is a deny, never an exit that fails open', async () => {
+test('G-3 the hook: another tool, or an input it cannot read, gets allow and nothing else; a failing check of its own call is a deny', async () => {
   const dir = gateDir()
   assert.deepEqual(await answerHook(preToolUse('run_command', {}), { add_mcp_server: () => ({ deny: 'x' }) }, dir), { decision: 'allow' })
   const boom = await answerHook(preToolUse(TOOL, {}), { add_mcp_server: () => { throw new Error('boom') } }, dir)
   assert.equal(boom.decision, 'deny')
   assert.match(String(boom.reason), /boom/)
-  assert.equal((await answerHook('not an object', {}, dir)).decision, 'deny')
+  for (const input of ['not an object', undefined, 42, { toolCall: 'x' }]) assert.deepEqual(await answerHook(input, { add_mcp_server: () => ({ deny: 'x' }) }, dir), { decision: 'allow' }, String(input))
 })
 
 test('G-4 the hook: an ask is force_ask with the question, and the ticket goes in the arguments; a model-written ticket is replaced', async () => {
@@ -205,17 +249,21 @@ test('G-4 the hook: an ask is force_ask with the question, and the ticket goes i
 
 // ---- the plugin's hook matcher ----
 
-test('H-1 the hook matcher takes call_mcp_tool (lazy tools, Antigravity\'s default) and this server\'s eager add_mcp_server, nothing else', () => {
+test("H-1 the hook matcher takes this server's eager add_mcp_server only: never call_mcp_tool, so the hook is never handed another server's call", () => {
   const hooks = JSON.parse(readFileSync(join(ROOT, 'plugin', 'hooks.json'), 'utf8'))
   const entry = hooks['mcp-server-cards-approval'].PreToolUse[0]
   assert.equal(entry.hooks[0].command, 'node ./dist/server.mjs --hook')
   assert.equal(entry.matcher, gateMatcher('mcp-server-cards_cards', ['add_mcp_server']))
-  for (const name of ['call_mcp_tool', 'mcp_mcp-server-cards_cards_add_mcp_server']) assert.ok(matches(entry.matcher, name), name)
-  for (const name of ['mcp_other_add_mcp_server', 'run_command', 'mcp_mcp-server-cards_cards_discover_mcp_servers', 'mcp_evil_mcp-server-cards_cards_add_mcp_server'])
+  assert.ok(matches(entry.matcher, 'mcp_mcp-server-cards_cards_add_mcp_server'))
+  for (const name of ['call_mcp_tool', 'read_resource', 'mcp_other_add_mcp_server', 'run_command', 'mcp_mcp-server-cards_cards_discover_mcp_servers', 'mcp_evil_mcp-server-cards_cards_add_mcp_server'])
     assert.ok(!matches(entry.matcher, name), name)
+  assert.deepEqual(hooks['mcp-server-cards-approval'].Stop, [{ type: 'command', command: 'node ./dist/server.mjs --hook stop', timeout: 10 }])
+  // The gated tool is eager (mcp.md, "Configure eager tools"), so Antigravity calls it by that name.
+  const mcp = JSON.parse(readFileSync(join(ROOT, 'plugin', 'mcp_config.json'), 'utf8'))
+  assert.deepEqual(mcp.mcpServers.cards.tools, { add_mcp_server: { eager: true } })
 })
 
-test('G-5 the lazy form: a call_mcp_tool of this server is gated with the ticket inside Arguments; another server\'s is left alone', async () => {
+test('G-5 the lazy form, should a hook ever be handed one: a call_mcp_tool of this server is gated with the ticket inside Arguments; another server\'s is left alone', async () => {
   const dir = gateDir()
   const S = 'mcp-server-cards_cards'
   const handlers = { add_mcp_server: (args: Record<string, unknown>) => ({ ask: `Q ${JSON.stringify(args)}`, digest: 'd' }) }
@@ -253,7 +301,9 @@ const web = await localWeb({
   '/keyed.json': { body: card({ name: 'com.example/keyed', title: 'Keyed', remotes: [{ type: 'streamable-http', url: '{origin}/keyed/mcp', headers: [{ name: 'X-API-Key', isSecret: true }] }] }) },
 })
 after(() => web.close())
-const addDocs = () => ({ domain: web.origin, identifier: 'urn:air:localhost:docs', url: `${web.origin}/mcp` })
+const addDocs = () => ({ domain: web.origin, identifier: 'urn:air:localhost:docs', url: `${web.origin}/mcp`, name: 'example-docs', headers: [] as string[], file: '~/.gemini/config/mcp_config.json' })
+/** The arguments a refusal says to call again with. */
+const againArgs = (reason: string) => JSON.parse(reason.slice(reason.indexOf('these arguments: ') + 'these arguments: '.length))
 const configOf = (home: string) => join(home, '.gemini', 'config', 'mcp_config.json')
 
 test('E-1 discover, the hook asks with the server, URL, file and undo, and the approved call writes exactly that entry', async () => {
@@ -323,11 +373,56 @@ test('E-4 the hook denies what the server would refuse: a URL other than the car
   assert.match(taken.out.reason, /already in/)
 })
 
-test('E-5 a hook that cannot read its input denies, with exit code 0 (Antigravity fails open on any other exit)', () => {
+test('E-5 the hook always exits 0 with JSON (Antigravity fails a call whose hook exits otherwise): an input it cannot read gets allow, and a call of this plugin that it cannot open its state for gets deny', () => {
   const home = tempHome()
-  const r = spawnSync(process.execPath, ['./dist/server.mjs', '--hook'], { cwd: join(ROOT, 'plugin'), input: 'not json', encoding: 'utf8', env: { PATH: process.env.PATH ?? '', HOME: home } })
+  const run = (input: string, env: Record<string, string> = {}) =>
+    spawnSync(process.execPath, ['./dist/server.mjs', '--hook'], { cwd: join(ROOT, 'plugin'), input, encoding: 'utf8', env: { PATH: process.env.PATH ?? '', HOME: home, ...env } })
+  const r = run('not json')
   assert.equal(r.status, 0)
-  assert.equal(JSON.parse(r.stdout).decision, 'deny')
+  assert.deepEqual(JSON.parse(r.stdout), { decision: 'allow' })
+  // A state folder that can't be made (security review E10): another server's call is still let be,
+  // without the folder ever being touched; this plugin's own call is refused.
+  writeFileSync(join(home, 'blocked'), '')
+  const env = { AGENTPOLYFILL_STATE_DIR: join(home, 'blocked', 'state') }
+  const other = run(JSON.stringify(preToolUse('call_mcp_tool', { ServerName: 'other_server', ToolName: 'x', Arguments: {} })), env)
+  assert.equal(other.status, 0)
+  assert.deepEqual(JSON.parse(other.stdout), { decision: 'allow' })
+  const mine = run(JSON.stringify(preToolUse(TOOL, addDocs())), env)
+  assert.equal(mine.status, 0)
+  assert.equal(JSON.parse(mine.stdout).decision, 'deny')
+  assert.match(JSON.parse(mine.stdout).reason, /could not read its state/)
+})
+
+test('E-10 editors (agy acp) show only the arguments: an add whose arguments do not name the name, URL, header names and file it writes is refused before any question, saying what to pass; the server refuses it too', async () => {
+  const home = tempHome()
+  const s = antigravityServer(SERVER, home)
+  await s.call('discover_mcp_servers', { domain: web.origin })
+  const { name: _n, headers: _h, file: _f, ...bare } = addDocs()
+  const first = runHook(SERVER, home, preToolUse(TOOL, bare))
+  assert.equal(first.out.decision, 'deny', JSON.stringify(first.out))
+  assert.match(first.out.reason, /Nothing was asked or written/)
+  const again = againArgs(first.out.reason)
+  assert.deepEqual({ name: again.name, headers: again.headers, file: again.file }, { name: 'example-docs', headers: [], file: '~/.gemini/config/mcp_config.json' })
+  for (const wrong of [{ headers: ['X-Other'] }, { file: '/tmp/elsewhere.json' }, { name: undefined }])
+    assert.equal(runHook(SERVER, home, preToolUse(TOOL, { ...again, ...wrong })).out.decision, 'deny', JSON.stringify(wrong))
+  const asked = runHook(SERVER, home, preToolUse(TOOL, again))
+  assert.equal(asked.out.decision, 'force_ask', JSON.stringify(asked.out))
+  // The absolute path is as good as the ~/ form.
+  assert.equal(runHook(SERVER, home, preToolUse(TOOL, { ...again, file: configOf(home) })).out.decision, 'force_ask')
+  // The server holds the call to what its arguments say, ticket or not.
+  const off = await s.call('add_mcp_server', { ...again, file: '/tmp/elsewhere.json', ...asked.out.overwrite })
+  assert.equal(off.isError, true)
+  assert.equal(existsSync(configOf(home)), false)
+})
+
+test('E-11 a lazy call_mcp_tool of add_mcp_server never reaches the hook (the matcher takes the eager name only), so it carries no ticket and the server refuses it, saying how to call it', async () => {
+  const home = tempHome()
+  const s = antigravityServer(SERVER, home)
+  await s.call('discover_mcp_servers', { domain: web.origin })
+  const r = await s.call('add_mcp_server', addDocs())
+  assert.equal(r.isError, true)
+  assert.match(r.text, /called by its own name, mcp_mcp-server-cards_cards_add_mcp_server, not through call_mcp_tool/)
+  assert.equal(existsSync(configOf(home)), false)
 })
 
 test('E-6 stand-down: MCP_SERVER_CARDS_DISABLED=1 serves no tools', async () => {
@@ -349,7 +444,9 @@ test("E-9 main's shared rule: a card's text that shows as nothing (tag character
   assert.equal(d.isError, false, d.text)
   assert.doesNotMatch(d.text, hidden)
   for (const line of d.text.split('\n')) assert.doesNotMatch(line, /^\s*SYSTEM:/, line)
-  const h = runHook(SERVER, home, preToolUse(TOOL, { domain: sly.origin, identifier: 'urn:air:localhost:sly', url: `${sly.origin}/mcp` }))
+  const first = runHook(SERVER, home, preToolUse(TOOL, { domain: sly.origin, identifier: 'urn:air:localhost:sly', url: `${sly.origin}/mcp` }))
+  assert.doesNotMatch(first.out.reason, hidden)
+  const h = runHook(SERVER, home, preToolUse(TOOL, againArgs(first.out.reason)))
   assert.equal(h.out.decision, 'force_ask', JSON.stringify(h.out))
   assert.doesNotMatch(h.out.reason, hidden)
 })

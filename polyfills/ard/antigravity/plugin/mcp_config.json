@@ -2,8 +2,18 @@
   "mcpServers": {
     "ard": {
       "command": "node",
-      "args": ["${PLUGIN_ROOT}/dist/server.mjs"],
-      "timeoutSeconds": 600
+      "args": [
+        "${PLUGIN_ROOT}/dist/server.mjs"
+      ],
+      "timeoutSeconds": 600,
+      "tools": {
+        "ard_search": {
+          "eager": true
+        },
+        "add_mcp_server": {
+          "eager": true
+        }
+      }
     }
   }
 }

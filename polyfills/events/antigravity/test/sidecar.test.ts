@@ -15,6 +15,8 @@ function rig(extra: Record<string, string> = {}) {
     const home = tempHome(), id = newThread(), base = stateDir('mcp-events', { HOME: home });
     const fake = fakeAgentapi(home), env = { ...fake.env, MCP_EVENTS_BATCH_MS: '0', MCP_EVENTS_WAKE_GAP_S: '0', ...extra };
     const spool = new Spool(base, id), sidecar = new WakeSidecar(base, env);
+    // An App conversation, as its hook records it: only those are woken (security review E8).
+    if (extra.SURFACE !== 'none') recordSurface(base, id, 'app');
     const append = () => { spool.append({ kind: 'event', watch: 'w-1', server: 'tickets', event: 'ticket.created', data: { title: 'untrusted' } }); requestWake(base, id, env); };
     return { home, id, base, fake, env, spool, sidecar, append };
 }
@@ -23,6 +25,7 @@ test('W-1 fake agentapi on PATH receives exactly send-message, UUID and one lite
     const r = rig(), text = '-flag\n$(touch SHOULD_NOT_EXIST); `echo hi` & "quoted"';
     const bin = findAgentapi(r.env)!; assert.ok(bin.endsWith('/agentapi'));
     assert.deepEqual(await sendMessage(bin, r.id, text, r.env), { ok: true });
+    // Nothing but what agentapi needs: not the sidecar's MCP_EVENTS_* settings, not an unrelated variable (security review E7).
     assert.deepEqual(r.fake.calls()[0]!.args, ['send-message', r.id, text]); assert.deepEqual(r.fake.calls()[0]!.leaked, []);
     assert.ok(!existsSync(join(ROOT, 'SHOULD_NOT_EXIST')));
     for (const id of ['--help', '../../elsewhere', 'not-uuid']) assert.equal((await sendMessage(bin, id, text, r.env)).ok, false);
@@ -35,7 +38,7 @@ test('W-2 sidecar wakes once per batch and leaves delivery to PreInvocation', as
         await r.sidecar.tick(); await r.sidecar.tick(); assert.equal(r.fake.calls().length, 1);
         assert.deepEqual(r.fake.calls()[0]!.args, ['send-message', r.id, WAKE_PROMPT]);
         assert.equal(deliveredPosition(r.spool.dir), 0, 'a wake does not claim injection');
-        assert.match(invocation(r.home, { conversationId: r.id }).injectSteps[0].systemMessage.systemMessage, /2 new events/);
+        assert.match(invocation(r.home, { conversationId: r.id }).injectSteps[0].systemMessage.systemMessage, /2 new events or notices are waiting for this conversation\. Call recent_events/);
         await r.sidecar.tick(); assert.equal(r.fake.calls().length, 1);
         r.append(); await r.sidecar.tick(); assert.equal(r.fake.calls().length, 2);
     } finally { r.sidecar.close(); }
@@ -87,11 +90,11 @@ test('W-6 a send interrupted by a crash is counted once; the event is still inje
     } finally { r.sidecar.close(); }
 });
 test('W-7 timed-out and nonzero agentapi sends are bounded and not retried as new wakes', async () => {
-    const r = rig({ TEST_AGENTAPI_EXIT: '1' }); r.append();
+    const r = rig({ ANTIGRAVITY_TEST_AGENTAPI_EXIT: '1' }); r.append();
     try {
         await r.sidecar.tick(); await r.sidecar.tick(); assert.equal(r.fake.calls().length, 1);
         assert.match(readFileSync(join(r.spool.dir, 'wake-error.json'), 'utf8'), /acceptance is unknown/);
-        const sent = await sendMessage(findAgentapi(r.env)!, r.id, 'timeout', { ...r.env, TEST_AGENTAPI_EXIT: '0', TEST_AGENTAPI_HANG: '1' }, 100);
+        const sent = await sendMessage(findAgentapi(r.env)!, r.id, 'timeout', { ...r.env, ANTIGRAVITY_TEST_AGENTAPI_EXIT: '0', ANTIGRAVITY_TEST_AGENTAPI_HANG: '1' }, 100);
         assert.equal(sent.ok, false); assert.ok(!sent.ok && sent.maybe);
     } finally { r.sidecar.close(); }
 });
@@ -107,11 +110,13 @@ test('W-11 a crash while sending the budget notice restores the pause, without a
     } finally { r.sidecar.close(); }
 });
 test('W-8 missing, stale and fresh heartbeats accurately report availability', async () => {
-    const r = rig(); assert.match(wakeAvailability(r.base), /unavailable.*next model call/);
+    const r = rig(); assert.match(wakeAvailability(r.base, Date.now(), 'app'), /unavailable.*next model call/);
     try {
-        await r.sidecar.tick(); assert.match(wakeAvailability(r.base), /available:.*recent heartbeat/);
-        assert.match(wakeAvailability(r.base, Date.now() + HEARTBEAT_MS * 4), /unavailable/);
-        r.sidecar.heartbeat(undefined); assert.match(wakeAvailability(r.base), /no agentapi/);
+        await r.sidecar.tick(); assert.match(wakeAvailability(r.base, Date.now(), 'app'), /available:.*recent heartbeat/);
+        assert.match(wakeAvailability(r.base, Date.now() + HEARTBEAT_MS * 4, 'app'), /unavailable/);
+        r.sidecar.heartbeat(undefined); assert.match(wakeAvailability(r.base, Date.now(), 'app'), /no agentapi/);
+        // A conversation the plugin can't place is never told wakes are available (security review E8).
+        assert.match(wakeAvailability(r.base), /could not tell that it is the App's/);
     } finally { r.sidecar.close(); }
 });
 test('W-9 real sidecar entry uses its documented cwd; duplicate process and stand-down cannot wake', async () => {
@@ -141,7 +146,7 @@ test('W-10 list_watches reports no sidecar and then a running sidecar', async ()
 // available because the App's sidecar was running. Only the App's conversations
 // can be woken (agentapi reaches the App's own); a CLI or IDE one is told so and
 // never sent a wake.
-test('W-9 a CLI or IDE conversation is never woken, and says why; an App one is', async () => {
+test('W-9 a CLI, IDE or unknown conversation is never woken, and says why; an App one is', async () => {
     for (const surface of ['cli', 'ide'] as const) {
         const r = rig();
         recordSurface(r.base, r.id, surface);
@@ -156,8 +161,13 @@ test('W-9 a CLI or IDE conversation is never woken, and says why; an App one is'
             assert.equal(existsSync(join(requestsDir(r.base), `${r.id}.json`)), false);
         } finally { r.sidecar.close(); }
         assert.match(wakeAvailability(r.base, Date.now(), surface), new RegExp(`unavailable in the Antigravity ${surface.toUpperCase()}`));
-        assert.match(invocation(r.home, { conversationId: r.id }).injectSteps[0].systemMessage.systemMessage, /1 new event/, `${surface}: still delivered at the next model call`);
+        assert.match(invocation(r.home, { conversationId: r.id }).injectSteps[0].systemMessage.systemMessage, /One new event or notice is waiting/, `${surface}: still delivered at the next model call`);
     }
+    // Nor one recorded as neither (security review E8): only an App conversation is woken.
+    const unknown = rig({ SURFACE: 'none' });
+    unknown.append();
+    assert.equal(existsSync(join(requestsDir(unknown.base), `${unknown.id}.json`)), false, 'unknown: no wake request');
+    try { await unknown.sidecar.tick(); assert.equal(unknown.fake.calls().length, 0, 'unknown: agentapi never called'); } finally { unknown.sidecar.close(); }
     const app = rig();
     recordSurface(app.base, app.id, 'app');
     app.append();

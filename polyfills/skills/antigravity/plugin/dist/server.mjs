@@ -7870,7 +7870,7 @@ var require_cross_spawn = __commonJS({
 
 // polyfills/skills/antigravity/src/main.ts
 import { appendFileSync, chmodSync as chmodSync3, existsSync as existsSync2, realpathSync, renameSync as renameSync4, statSync as statSync3, writeFileSync as writeFileSync4 } from "node:fs";
-import { join as join7 } from "node:path";
+import { join as join8 } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // polyfills/skills/codex/src/store.ts
@@ -8696,8 +8696,7 @@ import { chmodSync as chmodSync2, mkdirSync as mkdirSync2, readdirSync, readFile
 import { homedir } from "node:os";
 import { join as join2 } from "node:path";
 var TICKET_ARG = "agentpolyfill_ticket";
-var TICKET_TTL_MS = 4 * 60 * 6e4;
-var PASS_TICKET_TTL_MS = 24 * 60 * 6e4;
+var TICKET_TTL_MS = 60 * 6e4;
 var stateDir = (plugin, env = process.env) => {
   const dir = env.AGENTPOLYFILL_STATE_DIR ? join2(env.AGENTPOLYFILL_STATE_DIR, plugin) : join2(env.HOME || homedir(), ".gemini", "agentpolyfill", plugin);
   mkdirSync2(dir, { recursive: true, mode: 448 });
@@ -8725,36 +8724,60 @@ var ticketDir = (dir) => {
   mkdirSync2(t, { recursive: true, mode: 448 });
   return t;
 };
+var ticketFile = (dir, nonce) => join2(ticketDir(dir), `${createHash("sha256").update(nonce).digest("hex")}.json`);
 function issueTicket(dir, t, now = Date.now()) {
   const tickets = ticketDir(dir);
   for (const f of readdirSync(tickets))
     try {
-      if (now - statSync(join2(tickets, f)).mtimeMs > Math.max(TICKET_TTL_MS, PASS_TICKET_TTL_MS)) rmSync(join2(tickets, f), { force: true });
+      if (now - statSync(join2(tickets, f)).mtimeMs > TICKET_TTL_MS) rmSync(join2(tickets, f), { force: true });
     } catch {
     }
   const nonce = randomBytes(16).toString("hex");
-  writePrivate(join2(tickets, `${nonce}.json`), JSON.stringify({ ...t, issued: now }));
+  writePrivate(ticketFile(dir, nonce), JSON.stringify({ ...t, issued: now }));
   return nonce;
 }
-function redeemTicket(dir, nonce, tool, digest, now = Date.now()) {
+function revokeConversation(dir, conversationId) {
+  let n = 0;
+  if (!conversationId) return n;
+  const tickets = ticketDir(dir);
+  for (const f of readdirSync(tickets))
+    try {
+      const t = JSON.parse(readFileSync2(join2(tickets, f), "utf8"));
+      if (t.conversationId === conversationId) {
+        rmSync(join2(tickets, f), { force: true });
+        n++;
+      }
+    } catch {
+    }
+  return n;
+}
+function redeemTicket(dir, nonce, tool, digest, now = Date.now(), server) {
   if (typeof nonce !== "string" || !NONCE.test(nonce))
-    return { ok: false, why: "Antigravity's approval for this call didn't reach the plugin: its PreToolUse hook didn't run for it" };
-  const file = join2(ticketDir(dir), `${nonce}.json`);
+    return {
+      ok: false,
+      why: `Antigravity's approval for this call didn't reach the plugin: its PreToolUse hook didn't run for it. The hook runs only when the tool is called by its own name${server ? `, ${eagerName(server, tool)}` : ""}, not through call_mcp_tool`
+    };
+  const file = ticketFile(dir, nonce);
   let t;
   try {
     t = JSON.parse(readFileSync2(file, "utf8"));
   } catch {
-    return { ok: false, why: "the approval for this call was not found (it was used already, or it expired)" };
+    return { ok: false, why: "the approval for this call was not found (it was used already, it expired, or the turn it was given in ended)" };
   } finally {
     rmSync(file, { force: true });
   }
   if (t.tool !== tool) return { ok: false, why: "the approval was for another tool" };
-  const ttl = typeof t.ttlMs === "number" && t.ttlMs > 0 ? Math.min(t.ttlMs, PASS_TICKET_TTL_MS) : TICKET_TTL_MS;
+  const ttl = typeof t.ttlMs === "number" && t.ttlMs > 0 ? Math.min(t.ttlMs, TICKET_TTL_MS) : TICKET_TTL_MS;
   if (now - t.issued > ttl)
-    return { ok: false, why: `the approval expired before the call ran (it waited more than ${Math.round(ttl / 36e5)} hours); ask the person whether to try again` };
+    return { ok: false, why: `the approval expired before the call ran (it waited more than ${Math.round(ttl / 6e4)} minutes); ask the person whether to try again` };
   if (t.digest !== digest) return { ok: false, why: "what the call would do changed after the person was asked" };
   return { ok: true, conversationId: t.conversationId, ...t.meta ? { meta: t.meta } : {} };
 }
+var surfaceOf = (transcriptPath) => {
+  if (typeof transcriptPath !== "string") return "unknown";
+  const m = /[\\/]\.gemini[\\/](antigravity(?:-cli|-ide)?)[\\/]brain[\\/]/.exec(transcriptPath);
+  return !m ? "unknown" : m[1] === "antigravity" ? "app" : m[1] === "antigravity-cli" ? "cli" : "ide";
+};
 var ownArgs = (args) => {
   const { [TICKET_ARG]: _, ...rest } = args;
   return rest;
@@ -8765,6 +8788,8 @@ var handlerFor = (name, handlers2) => {
 };
 var isObject3 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
 var CALL_MCP_TOOL = "call_mcp_tool";
+var eagerName = (server, tool) => `mcp_${server}_${tool}`;
+var HOST_ARGS = ["toolSummary"];
 function callOf(call, handlers2, server) {
   const name = typeof call.name === "string" ? call.name : "";
   const args = isObject3(call.args) ? call.args : {};
@@ -8781,27 +8806,37 @@ function callOf(call, handlers2, server) {
     if (!isObject3(inner)) return { tool: args.ToolName, args: {}, lazy: { asText } };
     return { tool: args.ToolName, args: inner, lazy: { asText } };
   }
+  const own2 = Object.fromEntries(Object.entries(args).filter(([k]) => !HOST_ARGS.includes(k)));
   if (server) {
     const prefix2 = `mcp_${server}_`;
     const tool = name.startsWith(prefix2) ? name.slice(prefix2.length) : "";
-    return Object.hasOwn(handlers2, tool) ? { tool, args } : void 0;
+    return Object.hasOwn(handlers2, tool) ? { tool, args: own2 } : void 0;
   }
   const found = handlerFor(name, handlers2);
-  return found ? { tool: found.short, args } : void 0;
+  return found ? { tool: found.short, args: own2 } : void 0;
+}
+var LET_BE = Object.freeze({ decision: "allow" });
+function identify(input, tools2, server) {
+  try {
+    if (!isObject3(input)) return void 0;
+    const names2 = Array.isArray(tools2) ? Object.fromEntries(tools2.map((t) => [t, true])) : tools2;
+    return callOf(isObject3(input.toolCall) ? input.toolCall : {}, names2, server);
+  } catch {
+    return void 0;
+  }
 }
 async function answerHook(input, handlers2, dir, now = Date.now(), server) {
+  const found = identify(input, handlers2, server);
+  if (!found || !isObject3(input)) return { ...LET_BE };
   try {
-    if (!isObject3(input)) return { decision: "deny", reason: "The plugin could not read the call it was asked about." };
-    const call = isObject3(input.toolCall) ? input.toolCall : {};
-    const found = callOf(call, handlers2, server);
-    if (!found) return { decision: "allow" };
+    if (surfaceOf(input.transcriptPath) === "ide")
+      return { decision: "deny", reason: "This plugin isn't supported in the Antigravity IDE, which documents no plugin hooks; use the Antigravity App or the CLI." };
     const conversationId = typeof input.conversationId === "string" ? input.conversationId : "";
     const args = ownArgs(found.args);
     const named = server ? { ...input, toolCall: { name: `mcp_${server}_${found.tool}`, args } } : input;
     const v = await handlers2[found.tool](args, named);
     if ("deny" in v) return { decision: "deny", reason: v.deny };
-    const ttlMs = "ask" in v ? TICKET_TTL_MS : PASS_TICKET_TTL_MS;
-    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId, ttlMs, ...v.meta ? { meta: v.meta } : {} }, now);
+    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId, ...v.meta ? { meta: v.meta } : {} }, now);
     const withTicket = { ...args, [TICKET_ARG]: ticket };
     const overwrite = found.lazy ? { Arguments: found.lazy.asText ? JSON.stringify(withTicket) : withTicket } : { [TICKET_ARG]: ticket };
     return "ask" in v ? { decision: "force_ask", reason: v.ask, overwrite } : { decision: "allow", reason: v.pass, overwrite };
@@ -8809,24 +8844,52 @@ async function answerHook(input, handlers2, dir, now = Date.now(), server) {
     return { decision: "deny", reason: `The plugin's check of this call failed (${err instanceof Error ? err.message : String(err)}), so it was stopped.` };
   }
 }
-async function runHook(handlers2, dir, server) {
+async function readHookInput() {
   let text = "";
   process.stdin.setEncoding("utf8");
-  for await (const chunk of process.stdin) text += chunk;
-  let input;
+  for await (const chunk of process.stdin) if (text.length < 4 * 1024 * 1024) text += chunk;
   try {
-    input = JSON.parse(text);
+    return JSON.parse(text);
   } catch {
-    input = void 0;
+    return void 0;
   }
-  const out = await answerHook(input, handlers2, dir, Date.now(), server);
+}
+var answer = (out) => new Promise((resolve) => {
   process.stdout.write(`${JSON.stringify(out)}
-`);
+`, () => resolve());
+});
+async function runHook(o) {
+  const input = await readHookInput();
+  let out = { ...LET_BE };
+  if (identify(input, o.tools, o.server)) {
+    try {
+      const g = await o.gate();
+      out = await answerHook(input, g.handlers, g.dir, Date.now(), o.server);
+    } catch {
+      out = { decision: "deny", reason: "The plugin could not read its state, so it stopped this call. Nothing was done." };
+    }
+  } else if (o.other && isObject3(input)) {
+    try {
+      out = await o.other(input) ?? { ...LET_BE };
+    } catch {
+      out = { ...LET_BE };
+    }
+  }
+  await answer(out);
+  process.exitCode = 0;
+}
+async function runStop(dir) {
+  const input = await readHookInput();
+  try {
+    if (isObject3(input) && typeof input.conversationId === "string" && input.conversationId) revokeConversation(dir(), input.conversationId);
+  } catch {
+  }
+  await answer({});
   process.exitCode = 0;
 }
 
 // polyfills/skills/antigravity/src/app.ts
-import { join as join6 } from "node:path";
+import { join as join7 } from "node:path";
 
 // polyfills/skills/core/src/wire.ts
 import { spawn as spawn2 } from "node:child_process";
@@ -12318,26 +12381,26 @@ function isRecursive(inst, stack, resolve) {
   let result = NONE;
   const check = (child) => {
     if (result !== PROVEN && child?._zod) {
-      const answer = isRecursive(child, stack, resolve);
-      if (answer > result)
-        result = answer;
+      const answer2 = isRecursive(child, stack, resolve);
+      if (answer2 > result)
+        result = answer2;
     }
   };
   const shape = (sh, spread) => {
-    let answer = NONE;
+    let answer2 = NONE;
     for (const key of Reflect.ownKeys(sh)) {
       const desc = Object.getOwnPropertyDescriptor(sh, key);
       if (spread && !desc.enumerable)
         continue;
       const child = desc.get ? ASSUMED : desc.value?._zod ? isRecursive(desc.value, stack, resolve) : NONE;
-      if (child > answer)
-        answer = child;
+      if (child > answer2)
+        answer2 = child;
     }
-    return answer;
+    return answer2;
   };
-  const merge2 = (answer) => {
-    if (answer > result)
-      result = answer;
+  const merge2 = (answer2) => {
+    if (answer2 > result)
+      result = answer2;
   };
   const def = inst._zod.def;
   const kind = def.type;
@@ -12440,10 +12503,10 @@ function isRecursive(inst, stack, resolve) {
   stack.delete(inst);
   return settle(inst, result);
 }
-function settle(inst, answer) {
-  if (answer !== ASSUMED)
-    recursive.set(inst, answer === PROVEN);
-  return answer;
+function settle(inst, answer2) {
+  if (answer2 !== ASSUMED)
+    recursive.set(inst, answer2 === PROVEN);
+  return answer2;
 }
 function bucketFor(state, inst) {
   let bucket = state.buckets.get(inst);
@@ -33465,18 +33528,126 @@ function directoryText(label, skillName, dir, skillUri) {
   return [head, ...dir.children.slice(0, 500).map((c) => `- ${oneLine(relativeTo(skillUri, c.uri), 300)}${c.isDirectory ? "/" : c.size !== void 0 ? ` (${c.size} bytes)` : ""}`), ...dir.children.length > 500 ? [`- (${dir.children.length - 500} more)`] : []].join("\n");
 }
 
-// polyfills/skills/antigravity/src/approval.ts
-import { readFileSync as readFileSync4 } from "node:fs";
+// polyfills/skills/antigravity/src/stubs.ts
+import { createHash as createHash3, randomBytes as randomBytes3 } from "node:crypto";
+import { lstatSync, mkdirSync as mkdirSync3, readdirSync as readdirSync2, readFileSync as readFileSync3, renameSync as renameSync3, rmdirSync, rmSync as rmSync2, statSync as statSync2, writeFileSync as writeFileSync3 } from "node:fs";
+import { join as join3 } from "node:path";
+var plain2 = (s, max) => plain(secrets.scrub(plain(s, 1e6)), max);
+var SHAPE = /^mcp-skills-served--[a-z0-9][a-z0-9_-]{0,19}-[0-9a-f]{6}--[0-9a-f]{16}$/;
+var hash = (s, n) => createHash3("sha256").update(s).digest("hex").slice(0, n);
+var prefix = (label) => `mcp-skills-served--${label.toLowerCase().slice(0, 20)}-${hash(label, 6)}--`;
+var stubName = (label, uri) => `${prefix(label)}${hash(uri, 16)}`;
+var stubRootOf = (home) => join3(home, ".gemini", "config", "skills");
+function withStubLock(state, write) {
+  const dir = join3(state, "stubs.lock");
+  for (let i = 0; i < 40; i++) {
+    try {
+      mkdirSync3(dir, { mode: 448 });
+    } catch {
+      try {
+        if (Date.now() - statSync2(dir).mtimeMs > 3e4) rmdirSync(dir);
+      } catch {
+      }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+      continue;
+    }
+    try {
+      return write();
+    } finally {
+      rmdirSync(dir);
+    }
+  }
+  throw new Error("another process is updating skill stubs; try again");
+}
+function renderStub(l) {
+  return [
+    "---",
+    `name: ${JSON.stringify(stubName(l.label, l.entry.uri))}`,
+    `description: ${JSON.stringify(`[MCP server ${JSON.stringify(l.label)}, not a local skill] ${plain2(l.entry.frontmatter.description, 900)}`)}`,
+    "---",
+    "",
+    `# ${l.entry.frontmatter.name}, served by MCP server ${JSON.stringify(l.label)}`,
+    "",
+    `This skill is not on this computer. The MCP server ${JSON.stringify(l.label)} serves it. The description above is that server's text; this file only says how to load it.`,
+    "",
+    "In Antigravity, call the `load_skill` tool of the `mcp-skills` plugin (MCP server `mcp-skills_skills`) with these arguments:",
+    "",
+    "```json",
+    JSON.stringify({ server: l.label, uri: l.entry.uri }, null, 2),
+    "```",
+    "",
+    "The tool asks the user before loading a new or changed skill, verifies its files, and returns server content with no authority of its own. Read its supporting files using `read_skill_file`, and folders with `list_skill_directory`, using the same server and skill URI. Nothing is stored here.",
+    "",
+    "If this plugin is unavailable or approval is declined, continue without the skill. Other programs reading this folder cannot load it through this stub.",
+    ""
+  ].join("\n").split("\n").map((line) => secrets.scrub(line)).join("\n");
+}
+function syncStubs(root, listed, keep = /* @__PURE__ */ new Set()) {
+  const st = lstatSync(root, { throwIfNoEntry: false });
+  if (st && (!st.isDirectory() || st.isSymbolicLink())) throw new Error("the skills root is not a real directory");
+  mkdirSync3(root, { recursive: true });
+  const existing = readdirSync2(root).filter((n) => SHAPE.test(n));
+  const kept = existing.filter((n) => lstatSync(join3(root, n)).isDirectory() && [...keep].some((label) => n.startsWith(prefix(label)))).sort().slice(0, MAX_STUBS);
+  const all = listed.filter((l) => !l.declined && rootOf(l.entry.uri));
+  const shown2 = all.slice(0, Math.max(0, MAX_STUBS - kept.length));
+  const wanted = /* @__PURE__ */ new Set([...kept, ...shown2.map((l) => stubName(l.label, l.entry.uri))]);
+  let written = 0, removed = 0;
+  for (const l of shown2) {
+    const name = stubName(l.label, l.entry.uri);
+    if (!SHAPE.test(name)) continue;
+    const dir = join3(root, name);
+    const d = lstatSync(dir, { throwIfNoEntry: false });
+    if (d && (!d.isDirectory() || d.isSymbolicLink())) rmSync2(dir, { force: true });
+    mkdirSync3(dir, { recursive: true, mode: 448 });
+    const file = join3(dir, "SKILL.md"), text = renderStub(l);
+    try {
+      if (!lstatSync(file).isSymbolicLink() && readFileSync3(file, "utf8") === text) continue;
+    } catch {
+    }
+    const tmp = join3(dir, `.SKILL.${process.pid}.${randomBytes3(4).toString("hex")}.tmp`);
+    writeFileSync3(tmp, text, { mode: 384 });
+    renameSync3(tmp, file);
+    written++;
+  }
+  for (const name of existing) if (!wanted.has(name)) {
+    rmSync2(join3(root, name), { recursive: true, force: true });
+    removed++;
+  }
+  return { written, removed, omitted: all.length - shown2.length };
+}
+
+// polyfills/skills/antigravity/src/held.ts
+import { createHash as createHash4 } from "node:crypto";
+import { mkdirSync as mkdirSync4, readFileSync as readFileSync4 } from "node:fs";
 import { join as join4 } from "node:path";
+var fileOf = (dir, conversationId) => join4(dir, "held", `${createHash4("sha256").update(conversationId).digest("hex")}.json`);
+function heldServers(dir, conversationId) {
+  try {
+    const v = JSON.parse(readFileSync4(fileOf(dir, conversationId), "utf8")).servers;
+    return Array.isArray(v) ? v.filter((s) => typeof s === "string") : [];
+  } catch {
+    return [];
+  }
+}
+function recordHeld(dir, conversationId, server) {
+  if (!conversationId) return;
+  const servers = [.../* @__PURE__ */ new Set([...heldServers(dir, conversationId), server])];
+  mkdirSync4(join4(dir, "held"), { recursive: true, mode: 448 });
+  writePrivate(fileOf(dir, conversationId), JSON.stringify({ servers }));
+}
+
+// polyfills/skills/antigravity/src/approval.ts
+import { readFileSync as readFileSync6 } from "node:fs";
+import { join as join6 } from "node:path";
 
 // polyfills/skills/antigravity/src/config.ts
-import { existsSync, readFileSync as readFileSync3 } from "node:fs";
+import { existsSync, readFileSync as readFileSync5 } from "node:fs";
 import { homedir as homedir2 } from "node:os";
-import { join as join3 } from "node:path";
+import { join as join5 } from "node:path";
 var NAME = "mcp-skills";
 var VERSION2 = "0.1.0";
 var homeOf = (env) => env.HOME || homedir2();
-var configPath = (env) => join3(homeOf(env), ".gemini", "config", "mcp_config.json");
+var configPath = (env) => join5(homeOf(env), ".gemini", "config", "mcp_config.json");
 var isOff = (env, store) => /^(1|true|yes|on)$/i.test(env.MCP_SKILLS_DISABLED ?? "") || store.settings().off === true;
 var object2 = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 var strings = (v) => object2(v) && Object.values(v).every((x) => typeof x === "string");
@@ -33486,7 +33657,7 @@ function readConfig(env, store) {
   const file = configPath(env);
   let raw;
   try {
-    raw = JSON.parse(readFileSync3(file, "utf8").replace(/^\uFEFF/, ""));
+    raw = JSON.parse(readFileSync5(file, "utf8").replace(/^\uFEFF/, ""));
   } catch {
     if (existsSync(file)) table.skipped["(all servers)"] = "the personal mcp_config.json could not be read as JSON";
     return table;
@@ -33542,8 +33713,14 @@ function readConfig(env, store) {
       table.servers[name] = { command: v.command, args: v.args, env: v.env, cwd: v.cwd };
     } else skip("needs a command with string args/env/cwd, or a URL");
   }
-  for (const cfg of Object.values(table.servers))
+  for (const cfg of Object.values(table.servers)) {
     secrets.add(...Object.values("headers" in cfg && cfg.headers || {}), ...Object.values("env" in cfg && cfg.env || {}));
+    if ("url" in cfg) try {
+      const u = new URL(cfg.url);
+      secrets.add(u.username, u.password, ...u.searchParams.values());
+    } catch {
+    }
+  }
   return table;
 }
 
@@ -33564,12 +33741,12 @@ async function versionOf(server, entry, fingerprint) {
   return { approval, digest: digestOf({ server, fingerprint, entry }), hash: hash2 };
 }
 function shareEntry(dir, server, entry, fingerprint) {
-  writePrivate(join4(dir, `entry-${digestOf({ server, uri: entry.uri })}.json`), JSON.stringify({ server, fingerprint, entry }));
+  writePrivate(join6(dir, `entry-${digestOf({ server, uri: entry.uri })}.json`), JSON.stringify({ server, fingerprint, entry }));
 }
 function preparedEntry(dir, server, uri, fingerprint) {
   let raw;
   try {
-    raw = JSON.parse(readFileSync4(join4(dir, `entry-${digestOf({ server, uri })}.json`), "utf8"));
+    raw = JSON.parse(readFileSync6(join6(dir, `entry-${digestOf({ server, uri })}.json`), "utf8"));
   } catch {
     throw new LocalError("the hook did not share the skill version for this call");
   }
@@ -33579,7 +33756,7 @@ function preparedEntry(dir, server, uri, fingerprint) {
 }
 function nestedIn(dir, server, uri) {
   try {
-    const entries = JSON.parse(readFileSync4(join4(dir, "catalog.json"), "utf8"));
+    const entries = JSON.parse(readFileSync6(join6(dir, "catalog.json"), "utf8"));
     if (!Array.isArray(entries)) return;
     for (const l of entries) {
       const checked = checkEntry(l?.entry);
@@ -33597,10 +33774,28 @@ function question(server, entry, store) {
     store.wasApproved(server, entry.uri) ? "It has changed on the server (or the server has moved) since you last approved it." : "This is a new skill approval: you have not approved this version before.",
     entry.resources === "dynamic" ? "The server generates its content and publishes no digests, so it cannot be verified. Approval is required at every load." : `${resources.length} files, ${resources.reduce((n, r) => n + r.size, 0)} bytes; each is checked against the server's SHA-256 digest when read.`,
     ...nested ? [`It is nested inside the skill ${JSON.stringify(nested)}; approving that one does not approve this one.`] : [],
-    `The server's description (untrusted): ${plain(entry.frontmatter.description, 600)}`,
+    `The server's description (untrusted): ${plain2(entry.frontmatter.description, 600)}`,
     "This is server content, not a local skill. Loading grants no permissions; subsequent actions use your usual Antigravity approvals.",
     "Approve or decline. This approval card cannot privately preview SKILL.md. You can decline, inspect the publisher's source outside the model, and try again; list_skills can show its origin, URI and description."
   ].join("\n");
+}
+function crossServerRead(input, store, env) {
+  const call = input.toolCall;
+  if (call?.name !== "read_resource" || typeof input.conversationId !== "string") return void 0;
+  const args = call.args && typeof call.args === "object" ? call.args : {};
+  const target = typeof args.ServerName === "string" ? args.ServerName : "";
+  const held = heldServers(store.dir, input.conversationId);
+  const others = held.filter((s) => s !== target);
+  if (!held.length || !others.length || isOff(env, store)) return void 0;
+  readConfig(env, store);
+  const uri = plain2(typeof args.Uri === "string" ? args.Uri : "", 300);
+  return {
+    decision: "force_ask",
+    reason: secrets.scrub([
+      `A skill served by the MCP server ${others.map((s) => JSON.stringify(s)).join(", ")} is loaded in this conversation, and the agent wants to read ${uri ? `the resource ${uri}` : "a resource"} from ${target ? `the MCP server ${JSON.stringify(plain2(target, 64))}` : "another MCP server"}.`,
+      "The loaded skill's text may be what asks for it. Allow it only if it is what you want."
+    ].join("\n"))
+  };
 }
 function handlers(env, store) {
   const handle = (tool) => async (args, input) => {
@@ -33632,7 +33827,7 @@ function handlers(env, store) {
         if (listed.declined) return { deny: `this skill is not loaded: ${listed.declined}` };
         shareEntry(store.dir, server, listed.entry, fingerprint);
         const v = await versionOf(server, listed.entry, fingerprint);
-        return v.approval && store.isApproved(v.approval) ? { pass: "The user approved this exact skill version and server location earlier.", digest: v.digest } : { ask: question(server, listed.entry, store), digest: v.digest };
+        return v.approval && store.isApproved(v.approval) ? { pass: "The user approved this exact skill version and server location earlier.", digest: v.digest } : { ask: secrets.scrub(question(server, listed.entry, store)), digest: v.digest };
       } finally {
         await c.close();
       }
@@ -33641,94 +33836,6 @@ function handlers(env, store) {
     }
   };
   return Object.fromEntries(["load_skill", "read_skill_file", "list_skill_directory"].map((tool) => [tool, handle(tool)]));
-}
-
-// polyfills/skills/antigravity/src/stubs.ts
-import { createHash as createHash3, randomBytes as randomBytes3 } from "node:crypto";
-import { lstatSync, mkdirSync as mkdirSync3, readdirSync as readdirSync2, readFileSync as readFileSync5, renameSync as renameSync3, rmdirSync, rmSync as rmSync2, statSync as statSync2, writeFileSync as writeFileSync3 } from "node:fs";
-import { join as join5 } from "node:path";
-var plain2 = (s, max) => plain(secrets.scrub(String(s ?? "")), max);
-var SHAPE = /^mcp-skills-served--[a-z0-9][a-z0-9_-]{0,19}-[0-9a-f]{6}--[0-9a-f]{16}$/;
-var hash = (s, n) => createHash3("sha256").update(s).digest("hex").slice(0, n);
-var prefix = (label) => `mcp-skills-served--${label.toLowerCase().slice(0, 20)}-${hash(label, 6)}--`;
-var stubName = (label, uri) => `${prefix(label)}${hash(uri, 16)}`;
-var stubRootOf = (home) => join5(home, ".gemini", "config", "skills");
-function withStubLock(state, write) {
-  const dir = join5(state, "stubs.lock");
-  for (let i = 0; i < 40; i++) {
-    try {
-      mkdirSync3(dir, { mode: 448 });
-    } catch {
-      try {
-        if (Date.now() - statSync2(dir).mtimeMs > 3e4) rmdirSync(dir);
-      } catch {
-      }
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
-      continue;
-    }
-    try {
-      return write();
-    } finally {
-      rmdirSync(dir);
-    }
-  }
-  throw new Error("another process is updating skill stubs; try again");
-}
-function renderStub(l) {
-  return [
-    "---",
-    `name: ${JSON.stringify(stubName(l.label, l.entry.uri))}`,
-    `description: ${JSON.stringify(`[MCP server ${JSON.stringify(l.label)}, not a local skill] ${plain2(l.entry.frontmatter.description, 900)}`)}`,
-    "---",
-    "",
-    `# ${l.entry.frontmatter.name}, served by MCP server ${JSON.stringify(l.label)}`,
-    "",
-    `This skill is not on this computer. The MCP server ${JSON.stringify(l.label)} serves it. The description above is that server's text; this file only says how to load it.`,
-    "",
-    "In Antigravity, call the `load_skill` tool of the `mcp-skills` plugin (MCP server `mcp-skills_skills`) with these arguments:",
-    "",
-    "```json",
-    JSON.stringify({ server: l.label, uri: l.entry.uri }, null, 2),
-    "```",
-    "",
-    "The tool asks the user before loading a new or changed skill, verifies its files, and returns server content with no authority of its own. Read its supporting files using `read_skill_file`, and folders with `list_skill_directory`, using the same server and skill URI. Nothing is stored here.",
-    "",
-    "If this plugin is unavailable or approval is declined, continue without the skill. Other programs reading this folder cannot load it through this stub.",
-    ""
-  ].join("\n");
-}
-function syncStubs(root, listed, keep = /* @__PURE__ */ new Set()) {
-  const st = lstatSync(root, { throwIfNoEntry: false });
-  if (st && (!st.isDirectory() || st.isSymbolicLink())) throw new Error("the skills root is not a real directory");
-  mkdirSync3(root, { recursive: true });
-  const existing = readdirSync2(root).filter((n) => SHAPE.test(n));
-  const kept = existing.filter((n) => lstatSync(join5(root, n)).isDirectory() && [...keep].some((label) => n.startsWith(prefix(label)))).sort().slice(0, MAX_STUBS);
-  const all = listed.filter((l) => !l.declined && rootOf(l.entry.uri));
-  const shown2 = all.slice(0, Math.max(0, MAX_STUBS - kept.length));
-  const wanted = /* @__PURE__ */ new Set([...kept, ...shown2.map((l) => stubName(l.label, l.entry.uri))]);
-  let written = 0, removed = 0;
-  for (const l of shown2) {
-    const name = stubName(l.label, l.entry.uri);
-    if (!SHAPE.test(name)) continue;
-    const dir = join5(root, name);
-    const d = lstatSync(dir, { throwIfNoEntry: false });
-    if (d && (!d.isDirectory() || d.isSymbolicLink())) rmSync2(dir, { force: true });
-    mkdirSync3(dir, { recursive: true });
-    const file = join5(dir, "SKILL.md"), text = renderStub(l);
-    try {
-      if (!lstatSync(file).isSymbolicLink() && readFileSync5(file, "utf8") === text) continue;
-    } catch {
-    }
-    const tmp = join5(dir, `.SKILL.${process.pid}.${randomBytes3(4).toString("hex")}.tmp`);
-    writeFileSync3(tmp, text, { mode: 420 });
-    renameSync3(tmp, file);
-    written++;
-  }
-  for (const name of existing) if (!wanted.has(name)) {
-    rmSync2(join5(root, name), { recursive: true, force: true });
-    removed++;
-  }
-  return { written, removed, omitted: all.length - shown2.length };
 }
 
 // polyfills/skills/antigravity/src/app.ts
@@ -33811,7 +33918,7 @@ var App = class {
   }
   #sync() {
     try {
-      writePrivate(join6(this.store.dir, "catalog.json"), JSON.stringify(this.catalog.listed().map(({ label, entry }) => ({ label, entry }))));
+      writePrivate(join7(this.store.dir, "catalog.json"), JSON.stringify(this.catalog.listed().map(({ label, entry }) => ({ label, entry }))));
       const keep = new Set(this.unavailable.filter((u) => this.#table.servers[u.name]).map((u) => u.name));
       this.#omitted = withStubLock(this.store.dir, () => syncStubs(this.#o.stubRoot, this.#off ? [] : this.offered, this.#off ? /* @__PURE__ */ new Set() : keep)).omitted;
     } catch (e) {
@@ -33863,7 +33970,7 @@ var App = class {
           }
         }
         this.#sync();
-        return { text: this.status(typeof args.server === "string" ? args.server : void 0) };
+        return { text: secrets.scrub(this.status(typeof args.server === "string" ? args.server : void 0)) };
       }
       if (!["load_skill", "read_skill_file", "list_skill_directory"].includes(tool)) throw new LocalError("unknown tool");
       const server = textArg(args, "server"), uri = textArg(args, tool === "load_skill" ? "uri" : "skill");
@@ -33895,18 +34002,23 @@ var App = class {
           throw new LocalError("mcp-skills is turned off");
         }
         if (v.approval && !this.store.approve(v.approval)) this.#o.log?.("the approval could not be saved; next load asks again");
-        return { text: loadedText(loaded, { asked }) };
+        try {
+          recordHeld(this.store.dir, ticket2.conversationId, server);
+        } catch {
+          this.#o.log?.("could not record the loaded skill for rule X8");
+        }
+        return { text: secrets.scrub(loadedText(loaded, { asked })) };
       }
       const ticket = redeemTicket(this.store.dir, args[TICKET_ARG], tool, readDigest(tool, args, fingerprint));
       if (!ticket.ok) throw new LocalError(ticket.why);
       const host = this.#thread(ticket.conversationId);
       const name = host.held().find((h) => h.label === server && h.entry.uri === uri)?.entry.frontmatter.name ?? "skill";
-      if (tool === "read_skill_file") return { text: fileText(await host.readFile(server, uri, textArg(args, "path")), name) };
-      return { text: directoryText(server, name, await host.listDirectory(server, uri, typeof args.path === "string" ? args.path : ""), uri) };
+      if (tool === "read_skill_file") return { text: secrets.scrub(fileText(await host.readFile(server, uri, textArg(args, "path")), name)) };
+      return { text: secrets.scrub(directoryText(server, name, await host.listDirectory(server, uri, typeof args.path === "string" ? args.path : ""), uri)) };
     } catch (e) {
       const text = describeError(e);
       this.#o.log?.(`${tool}: ${text}`);
-      return { text: `The request was refused: ${text}`, isError: true };
+      return { text: secrets.scrub(`The request was refused: ${text}`), isError: true };
     }
   }
   status(only) {
@@ -33916,7 +34028,7 @@ var App = class {
       const list = this.catalog.listed(name);
       const d = declarationOf(this.conns.get(name));
       out.push(`MCP server ${JSON.stringify(name)}: ${list.length} skills${d.declared && d.directoryRead ? ", lists directories" : ""}.`);
-      for (const l of list) out.push(`- ${l.entry.frontmatter.name} (server ${JSON.stringify(name)}, uri ${l.entry.uri}): ${plain(secrets.scrub(String(l.entry.frontmatter.description ?? "")), 400)} [not a local skill; stub ${stubName(name, l.entry.uri)}${l.declined ? `; not loadable: ${l.declined}` : ""}${list.filter((x) => x.entry.frontmatter.name === l.entry.frontmatter.name).length > 1 ? "; another skill of this server has the same name: use its URI" : ""}]`);
+      for (const l of list) out.push(`- ${l.entry.frontmatter.name} (server ${JSON.stringify(name)}, uri ${l.entry.uri}): ${plain2(l.entry.frontmatter.description, 400)} [not a local skill; stub ${stubName(name, l.entry.uri)}${l.declined ? `; not loadable: ${l.declined}` : ""}${list.filter((x) => x.entry.frontmatter.name === l.entry.frontmatter.name).length > 1 ? "; another skill of this server has the same name: use its URI" : ""}]`);
       for (const r of this.catalog.refused(name)) out.push(`- left out: ${r.reason}`);
     }
     for (const u of this.unavailable) if (!only || only === u.name) out.push(`Not used: ${JSON.stringify(u.name)}: ${u.why}.`);
@@ -33941,10 +34053,26 @@ function tools(app) {
     return { ...def, inputSchema: schema, run: (args) => app.call(def.name, args) };
   });
 }
+var GATED = ["load_skill", "read_skill_file", "list_skill_directory"];
 async function start(env = process.env, argv = process.argv.slice(2)) {
+  if (argv.includes("--hook")) {
+    const open2 = () => {
+      const dir2 = stateDir(NAME, env);
+      return { dir: dir2, store: new Store(dir2) };
+    };
+    if (argv[argv.indexOf("--hook") + 1] === "stop") return runStop(() => stateDir(NAME, env));
+    return runHook({
+      server: SERVER,
+      tools: GATED,
+      gate: () => {
+        const o = open2();
+        return { handlers: handlers(env, o.store), dir: o.dir };
+      },
+      other: (input) => crossServerRead(input, open2().store, env)
+    });
+  }
   const dir = stateDir(NAME, env), store = new Store(dir);
-  if (argv.includes("--hook")) return runHook(handlers(env, store), dir, SERVER);
-  const logFile = join7(dir, "mcp-skills.log");
+  const logFile = join8(dir, "mcp-skills.log");
   try {
     if (existsSync2(logFile) && statSync3(logFile).size > 2 * 1024 * 1024) renameSync4(logFile, `${logFile}.1`);
     if (!existsSync2(logFile)) writeFileSync4(logFile, "", { mode: 384 });
@@ -33969,12 +34097,13 @@ async function start(env = process.env, argv = process.argv.slice(2)) {
 if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])) {
   void start().catch(() => {
     if (process.argv.includes("--hook")) {
-      process.stdout.write(JSON.stringify({ decision: "deny", reason: "The plugin could not initialize its private approval state." }) + "\n");
+      process.stdout.write(JSON.stringify(process.argv.includes("stop") ? {} : LET_BE) + "\n");
       process.exitCode = 0;
     } else process.exitCode = 1;
   });
 }
 export {
+  GATED,
   INSTRUCTIONS2 as INSTRUCTIONS,
   SERVER,
   start,

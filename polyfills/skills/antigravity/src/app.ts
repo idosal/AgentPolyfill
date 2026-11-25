@@ -5,7 +5,8 @@ import type { ServerTable } from '../../core/src/upstream.ts';
 import { describeError, LocalError, secrets } from '../../core/src/untrusted.ts';
 import { Store } from '../../codex/src/store.ts';
 import { directoryText, fileText, loadedText } from '../../codex/src/format.ts';
-import { plain } from '../../codex/src/stubs.ts';
+import { plain } from './stubs.ts';
+import { recordHeld } from './held.ts';
 import { redeemTicket, TICKET_ARG, writePrivate } from '../../../server-cards/antigravity/src/gate.ts';
 import { CLIENT, preparedEntry, readDigest, textArg, versionOf } from './approval.ts';
 import { isOff, readConfig, SIGN_IN } from './config.ts';
@@ -108,7 +109,7 @@ export class App {
                     }
                 }
                 this.#sync();
-                return { text: this.status(typeof args.server === 'string' ? args.server : undefined) };
+                return { text: secrets.scrub(this.status(typeof args.server === 'string' ? args.server : undefined)) };
             }
             if (!['load_skill', 'read_skill_file', 'list_skill_directory'].includes(tool)) throw new LocalError('unknown tool');
             const server = textArg(args, 'server'), uri = textArg(args, tool === 'load_skill' ? 'uri' : 'skill');
@@ -135,18 +136,19 @@ export class App {
                 if (!still || fingerprintOf(still) !== fingerprint) { host.forget(server); throw new LocalError('the server configuration changed during loading'); }
                 if (isOff(this.#o.env, this.store)) { await this.standDown(); throw new LocalError('mcp-skills is turned off'); }
                 if (v.approval && !this.store.approve(v.approval)) this.#o.log?.('the approval could not be saved; next load asks again');
-                return { text: loadedText(loaded, { asked }) };
+                try { recordHeld(this.store.dir, ticket.conversationId, server); } catch { this.#o.log?.('could not record the loaded skill for rule X8'); }
+                return { text: secrets.scrub(loadedText(loaded, { asked })) };
             }
             const ticket = redeemTicket(this.store.dir, args[TICKET_ARG], tool, readDigest(tool, args, fingerprint));
             if (!ticket.ok) throw new LocalError(ticket.why);
             const host = this.#thread(ticket.conversationId);
             const name = host.held().find(h => h.label === server && h.entry.uri === uri)?.entry.frontmatter.name ?? 'skill';
-            if (tool === 'read_skill_file') return { text: fileText(await host.readFile(server, uri, textArg(args, 'path')), name) };
-            return { text: directoryText(server, name, await host.listDirectory(server, uri, typeof args.path === 'string' ? args.path : ''), uri) };
+            if (tool === 'read_skill_file') return { text: secrets.scrub(fileText(await host.readFile(server, uri, textArg(args, 'path')), name)) };
+            return { text: secrets.scrub(directoryText(server, name, await host.listDirectory(server, uri, typeof args.path === 'string' ? args.path : ''), uri)) };
         } catch (e) {
             const text = describeError(e);
             this.#o.log?.(`${tool}: ${text}`);
-            return { text: `The request was refused: ${text}`, isError: true };
+            return { text: secrets.scrub(`The request was refused: ${text}`), isError: true };
         }
     }
     status(only?: string): string {
@@ -156,7 +158,7 @@ export class App {
             const list = this.catalog.listed(name);
             const d = declarationOf(this.conns.get(name)!);
             out.push(`MCP server ${JSON.stringify(name)}: ${list.length} skills${d.declared && d.directoryRead ? ', lists directories' : ''}.`);
-            for (const l of list) out.push(`- ${l.entry.frontmatter.name} (server ${JSON.stringify(name)}, uri ${l.entry.uri}): ${plain(secrets.scrub(String(l.entry.frontmatter.description ?? '')), 400)} [not a local skill; stub ${stubName(name, l.entry.uri)}${l.declined ? `; not loadable: ${l.declined}` : ''}${list.filter(x => x.entry.frontmatter.name === l.entry.frontmatter.name).length > 1 ? '; another skill of this server has the same name: use its URI' : ''}]`);
+            for (const l of list) out.push(`- ${l.entry.frontmatter.name} (server ${JSON.stringify(name)}, uri ${l.entry.uri}): ${plain(l.entry.frontmatter.description, 400)} [not a local skill; stub ${stubName(name, l.entry.uri)}${l.declined ? `; not loadable: ${l.declined}` : ''}${list.filter(x => x.entry.frontmatter.name === l.entry.frontmatter.name).length > 1 ? '; another skill of this server has the same name: use its URI' : ''}]`);
             for (const r of this.catalog.refused(name)) out.push(`- left out: ${r.reason}`);
         }
         for (const u of this.unavailable) if (!only || only === u.name) out.push(`Not used: ${JSON.stringify(u.name)}: ${u.why}.`);

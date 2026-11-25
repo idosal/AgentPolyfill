@@ -1443,8 +1443,7 @@ import { chmodSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, st
 import { homedir } from "node:os";
 import { join } from "node:path";
 var TICKET_ARG = "agentpolyfill_ticket";
-var TICKET_TTL_MS = 4 * 60 * 6e4;
-var PASS_TICKET_TTL_MS = 24 * 60 * 6e4;
+var TICKET_TTL_MS = 60 * 6e4;
 var stateDir = (plugin, env = process.env) => {
   const dir = env.AGENTPOLYFILL_STATE_DIR ? join(env.AGENTPOLYFILL_STATE_DIR, plugin) : join(env.HOME || homedir(), ".gemini", "agentpolyfill", plugin);
   mkdirSync(dir, { recursive: true, mode: 448 });
@@ -1472,33 +1471,52 @@ var ticketDir = (dir) => {
   mkdirSync(t, { recursive: true, mode: 448 });
   return t;
 };
+var ticketFile = (dir, nonce) => join(ticketDir(dir), `${createHash("sha256").update(nonce).digest("hex")}.json`);
 function issueTicket(dir, t, now = Date.now()) {
   const tickets = ticketDir(dir);
   for (const f of readdirSync(tickets))
     try {
-      if (now - statSync(join(tickets, f)).mtimeMs > Math.max(TICKET_TTL_MS, PASS_TICKET_TTL_MS)) rmSync(join(tickets, f), { force: true });
+      if (now - statSync(join(tickets, f)).mtimeMs > TICKET_TTL_MS) rmSync(join(tickets, f), { force: true });
     } catch {
     }
   const nonce = randomBytes(16).toString("hex");
-  writePrivate(join(tickets, `${nonce}.json`), JSON.stringify({ ...t, issued: now }));
+  writePrivate(ticketFile(dir, nonce), JSON.stringify({ ...t, issued: now }));
   return nonce;
 }
-function redeemTicket(dir, nonce, tool, digest, now = Date.now()) {
+function revokeConversation(dir, conversationId) {
+  let n = 0;
+  if (!conversationId) return n;
+  const tickets = ticketDir(dir);
+  for (const f of readdirSync(tickets))
+    try {
+      const t = JSON.parse(readFileSync(join(tickets, f), "utf8"));
+      if (t.conversationId === conversationId) {
+        rmSync(join(tickets, f), { force: true });
+        n++;
+      }
+    } catch {
+    }
+  return n;
+}
+function redeemTicket(dir, nonce, tool, digest, now = Date.now(), server) {
   if (typeof nonce !== "string" || !NONCE.test(nonce))
-    return { ok: false, why: "Antigravity's approval for this call didn't reach the plugin: its PreToolUse hook didn't run for it" };
-  const file = join(ticketDir(dir), `${nonce}.json`);
+    return {
+      ok: false,
+      why: `Antigravity's approval for this call didn't reach the plugin: its PreToolUse hook didn't run for it. The hook runs only when the tool is called by its own name${server ? `, ${eagerName(server, tool)}` : ""}, not through call_mcp_tool`
+    };
+  const file = ticketFile(dir, nonce);
   let t;
   try {
     t = JSON.parse(readFileSync(file, "utf8"));
   } catch {
-    return { ok: false, why: "the approval for this call was not found (it was used already, or it expired)" };
+    return { ok: false, why: "the approval for this call was not found (it was used already, it expired, or the turn it was given in ended)" };
   } finally {
     rmSync(file, { force: true });
   }
   if (t.tool !== tool) return { ok: false, why: "the approval was for another tool" };
-  const ttl = typeof t.ttlMs === "number" && t.ttlMs > 0 ? Math.min(t.ttlMs, PASS_TICKET_TTL_MS) : TICKET_TTL_MS;
+  const ttl = typeof t.ttlMs === "number" && t.ttlMs > 0 ? Math.min(t.ttlMs, TICKET_TTL_MS) : TICKET_TTL_MS;
   if (now - t.issued > ttl)
-    return { ok: false, why: `the approval expired before the call ran (it waited more than ${Math.round(ttl / 36e5)} hours); ask the person whether to try again` };
+    return { ok: false, why: `the approval expired before the call ran (it waited more than ${Math.round(ttl / 6e4)} minutes); ask the person whether to try again` };
   if (t.digest !== digest) return { ok: false, why: "what the call would do changed after the person was asked" };
   return { ok: true, conversationId: t.conversationId, ...t.meta ? { meta: t.meta } : {} };
 }
@@ -1517,6 +1535,8 @@ var handlerFor = (name, handlers2) => {
 };
 var isObject4 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
 var CALL_MCP_TOOL = "call_mcp_tool";
+var eagerName = (server, tool) => `mcp_${server}_${tool}`;
+var HOST_ARGS = ["toolSummary"];
 function callOf(call, handlers2, server) {
   const name = typeof call.name === "string" ? call.name : "";
   const args = isObject4(call.args) ? call.args : {};
@@ -1533,27 +1553,37 @@ function callOf(call, handlers2, server) {
     if (!isObject4(inner)) return { tool: args.ToolName, args: {}, lazy: { asText } };
     return { tool: args.ToolName, args: inner, lazy: { asText } };
   }
+  const own = Object.fromEntries(Object.entries(args).filter(([k]) => !HOST_ARGS.includes(k)));
   if (server) {
     const prefix = `mcp_${server}_`;
     const tool = name.startsWith(prefix) ? name.slice(prefix.length) : "";
-    return Object.hasOwn(handlers2, tool) ? { tool, args } : void 0;
+    return Object.hasOwn(handlers2, tool) ? { tool, args: own } : void 0;
   }
   const found = handlerFor(name, handlers2);
-  return found ? { tool: found.short, args } : void 0;
+  return found ? { tool: found.short, args: own } : void 0;
+}
+var LET_BE = Object.freeze({ decision: "allow" });
+function identify(input, tools2, server) {
+  try {
+    if (!isObject4(input)) return void 0;
+    const names = Array.isArray(tools2) ? Object.fromEntries(tools2.map((t) => [t, true])) : tools2;
+    return callOf(isObject4(input.toolCall) ? input.toolCall : {}, names, server);
+  } catch {
+    return void 0;
+  }
 }
 async function answerHook(input, handlers2, dir, now = Date.now(), server) {
+  const found = identify(input, handlers2, server);
+  if (!found || !isObject4(input)) return { ...LET_BE };
   try {
-    if (!isObject4(input)) return { decision: "deny", reason: "The plugin could not read the call it was asked about." };
-    const call = isObject4(input.toolCall) ? input.toolCall : {};
-    const found = callOf(call, handlers2, server);
-    if (!found) return { decision: "allow" };
+    if (surfaceOf(input.transcriptPath) === "ide")
+      return { decision: "deny", reason: "This plugin isn't supported in the Antigravity IDE, which documents no plugin hooks; use the Antigravity App or the CLI." };
     const conversationId = typeof input.conversationId === "string" ? input.conversationId : "";
     const args = ownArgs(found.args);
     const named = server ? { ...input, toolCall: { name: `mcp_${server}_${found.tool}`, args } } : input;
     const v = await handlers2[found.tool](args, named);
     if ("deny" in v) return { decision: "deny", reason: v.deny };
-    const ttlMs = "ask" in v ? TICKET_TTL_MS : PASS_TICKET_TTL_MS;
-    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId, ttlMs, ...v.meta ? { meta: v.meta } : {} }, now);
+    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId, ...v.meta ? { meta: v.meta } : {} }, now);
     const withTicket = { ...args, [TICKET_ARG]: ticket };
     const overwrite = found.lazy ? { Arguments: found.lazy.asText ? JSON.stringify(withTicket) : withTicket } : { [TICKET_ARG]: ticket };
     return "ask" in v ? { decision: "force_ask", reason: v.ask, overwrite } : { decision: "allow", reason: v.pass, overwrite };
@@ -1561,20 +1591,48 @@ async function answerHook(input, handlers2, dir, now = Date.now(), server) {
     return { decision: "deny", reason: `The plugin's check of this call failed (${err instanceof Error ? err.message : String(err)}), so it was stopped.` };
   }
 }
-var gateMatcher = (server, tools2) => `${CALL_MCP_TOOL}|mcp_${server.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}_(${tools2.join("|")})`;
-async function runHook(handlers2, dir, server) {
+var gateMatcher = (server, tools2, also = []) => [`mcp_${server.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}_(${tools2.join("|")})`, ...also].join("|");
+async function readHookInput() {
   let text = "";
   process.stdin.setEncoding("utf8");
-  for await (const chunk of process.stdin) text += chunk;
-  let input;
+  for await (const chunk of process.stdin) if (text.length < 4 * 1024 * 1024) text += chunk;
   try {
-    input = JSON.parse(text);
+    return JSON.parse(text);
   } catch {
-    input = void 0;
+    return void 0;
   }
-  const out = await answerHook(input, handlers2, dir, Date.now(), server);
+}
+var answer = (out) => new Promise((resolve2) => {
   process.stdout.write(`${JSON.stringify(out)}
-`);
+`, () => resolve2());
+});
+async function runHook(o) {
+  const input = await readHookInput();
+  let out = { ...LET_BE };
+  if (identify(input, o.tools, o.server)) {
+    try {
+      const g = await o.gate();
+      out = await answerHook(input, g.handlers, g.dir, Date.now(), o.server);
+    } catch {
+      out = { decision: "deny", reason: "The plugin could not read its state, so it stopped this call. Nothing was done." };
+    }
+  } else if (o.other && isObject4(input)) {
+    try {
+      out = await o.other(input) ?? { ...LET_BE };
+    } catch {
+      out = { ...LET_BE };
+    }
+  }
+  await answer(out);
+  process.exitCode = 0;
+}
+async function runStop(dir) {
+  const input = await readHookInput();
+  try {
+    if (isObject4(input) && typeof input.conversationId === "string" && input.conversationId) revokeConversation(dir(), input.conversationId);
+  } catch {
+  }
+  await answer({});
   process.exitCode = 0;
 }
 
@@ -1715,6 +1773,19 @@ function askText(plan, card, provenance, file) {
   );
 }
 var addDigest = (plan, file) => digestOf({ name: plan.name, entry: plan.entry, file });
+var fileForms = (file, env) => {
+  const home = env.HOME ?? "";
+  return home && file.startsWith(`${home}/`) ? [file, `~${file.slice(home.length)}`] : [file];
+};
+function shownMismatch(args, plan, file, env) {
+  const want = Object.keys(plan.headers);
+  const norm = (names) => [...names].map((n) => n.toLowerCase()).sort().join("\n");
+  const headersOk = Array.isArray(args.headers) && args.headers.every((h) => typeof h === "string") && norm(args.headers) === norm(want);
+  const fileOk = typeof args.file === "string" && fileForms(file, env).includes(args.file);
+  if (args.name === plan.name && headersOk && fileOk) return void 0;
+  const again = { ...Object.fromEntries(Object.entries(args).filter(([k]) => k !== TICKET_ARG)), name: plan.name, headers: want, file: fileForms(file, env).at(-1) };
+  return `Nothing was asked or written: the call must name what would be written, so that the person sees it wherever they are asked (an editor shows only a tool's arguments). Call ${ADD} again with these arguments: ${JSON.stringify(again)}`;
+}
 function addHandler(session, discoverName) {
   return (args) => {
     session.load();
@@ -1723,13 +1794,19 @@ function addHandler(session, discoverName) {
     const file = configPath2(session.deps.env);
     if (isNameTaken2(file, r.plan.name))
       return { deny: shownText(`A server named "${r.plan.name}" is already in ${file} (or the file can't be read). Ask the person: add it under another name (pass \`name\`), or keep theirs.`) };
+    const mismatch = shownMismatch(args, r.plan, file, session.deps.env);
+    if (mismatch) return { deny: shownText(mismatch) };
     return { ask: askText(r.plan, r.card, r.provenance, file), digest: addDigest(r.plan, file) };
   };
 }
+var SERVER_NAME;
+var setServerName = (s) => {
+  SERVER_NAME = s;
+};
 function addTool(session, discoverName, foundBy) {
   return {
     name: ADD,
-    description: `Add an MCP server that ${foundBy} showed in this conversation to Antigravity's MCP configuration (~/.gemini/config/mcp_config.json). The URL and headers come from the Server Card; choose the remote and give any non-secret inputs the card asks for. A card that needs a secret (an API key in a header) can't be added this way: the plugin never writes a secret, and Antigravity's file has no environment variables. Sign-in (OAuth) is Antigravity's own. Antigravity's approval card asks the person first, naming the server, URL, headers and how to undo it; if they decline, nothing is written. Pass \`url\`, the URL the server connects to as the result showed it (its "connects to" line, else the remote's URL): the server is added only if that is the URL the card yields.`,
+    description: `Add an MCP server that ${foundBy} showed in this conversation to Antigravity's MCP configuration (~/.gemini/config/mcp_config.json). The URL and headers come from the Server Card; choose the remote and give any non-secret inputs the card asks for. A card that needs a secret (an API key in a header) can't be added this way: the plugin never writes a secret, and Antigravity's file has no environment variables. Sign-in (OAuth) is Antigravity's own. Antigravity's approval card asks the person first, naming the server, URL, headers and how to undo it; if they decline, nothing is written. Pass \`url\`, the URL the server connects to as the result showed it (its "connects to" line, else the remote's URL): the server is added only if that is the URL the card yields. Also pass \`name\`, \`headers\` (the names of the headers the server is added with, [] for none) and \`file\` (~/.gemini/config/mcp_config.json): an editor shows the person only these arguments, so they must say what is written. A call whose arguments differ is refused, with the arguments to use.`,
     inputSchema: {
       type: "object",
       properties: {
@@ -1737,11 +1814,13 @@ function addTool(session, discoverName, foundBy) {
         identifier: { type: "string", description: "The catalog entry identifier of the server to add." },
         url: { type: "string", description: 'The URL the server connects to, exactly as the result showed it: its "connects to" line, or else the remote\'s URL after "remote #N: <transport>". With other `values`, the URL those values give.' },
         remote: { type: "integer", minimum: 0, description: "The remote number from the result. Default 0." },
-        name: { type: "string", description: "The name to add the server under. Default: the suggested server name." },
+        name: { type: "string", description: "The name to add the server under: the suggested server name, unless the person chose another." },
+        headers: { type: "array", items: { type: "string" }, description: "The names of the headers the server is added with, as the result showed them; [] for none." },
+        file: { type: "string", description: "The file the server is written to: ~/.gemini/config/mcp_config.json." },
         values: { type: "object", additionalProperties: { type: "string" }, description: "Values for the card's non-secret inputs, by variable or header name." },
         [TICKET_ARG]: { type: "string", description: "Set by the plugin's approval hook. Leave it out." }
       },
-      required: ["identifier", "url"]
+      required: ["identifier", "url", "name", "headers", "file"]
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     run: async (args) => {
@@ -1750,7 +1829,9 @@ function addTool(session, discoverName, foundBy) {
       if ("deny" in r) return refuse(r.deny);
       const { plan, card, provenance } = r;
       const file = configPath2(session.deps.env);
-      const t = redeemTicket(session.dir, args[TICKET_ARG], ADD, addDigest(plan, file));
+      const mismatch = shownMismatch(args, plan, file, session.deps.env);
+      if (mismatch) return refuse(mismatch);
+      const t = redeemTicket(session.dir, args[TICKET_ARG], ADD, addDigest(plan, file), Date.now(), SERVER_NAME);
       if (!t.ok)
         return refuse(
           `Nothing was written: ${t.why}. Antigravity asks the person through the plugin's hook; if it never asks, the hook isn't running (see the plugin's README, "If the approval never shows"). Don't ask again unless the person brings it up.`
@@ -2196,7 +2277,7 @@ function tools(session, defaultRegistry) {
     run: async (args) => {
       const prepared = await prepareSearch(session, ownArgs(args), defaultRegistry);
       if ("refuse" in prepared) return refuse2(noRegistry(prepared.refuse));
-      const t = redeemTicket(session.dir, args[TICKET_ARG], SEARCH, searchDigest(prepared.query, prepared.endpoints));
+      const t = redeemTicket(session.dir, args[TICKET_ARG], SEARCH, searchDigest(prepared.query, prepared.endpoints), Date.now(), SERVER);
       if (!t.ok) return refuse2(`Nothing was sent: ${t.why}.`);
       return { text: await runSearch(session, prepared.query, prepared.endpoints) };
     }
@@ -2213,13 +2294,20 @@ function handlers(session, defaultRegistry) {
     }
   };
 }
+var GATED = [SEARCH, ADD];
 var INSTRUCTIONS = "Agentic Resource Discovery (ARD v0.91 draft) for MCP servers: ard_discover reads a domain's ard.json and AI Catalog; ard_search sends a query to an ARD registry, a third party, after the person approves it in Antigravity's approval card; add_mcp_server adds a server either one showed, after the person approves that too. A registry's order is relevance, not trust; a result is confirmed only when its publisher's own catalog lists it.";
 var isOff = (env) => /^(1|true|on|yes)$/i.test(env.ARD_DISCOVERY_DISABLED ?? "");
 async function start(env = process.env, argv = process.argv.slice(2)) {
   useAntigravityHost();
-  const session = new SharedSession(antigravityDeps(env, `${NAME2}/${VERSION} (Antigravity polyfill)`), stateDir(NAME2, env));
+  setServerName(SERVER);
+  const open = () => new SharedSession(antigravityDeps(env, `${NAME2}/${VERSION} (Antigravity polyfill)`), stateDir(NAME2, env));
   const registry = registrySetting(env);
-  if (argv.includes("--hook")) return runHook(handlers(session, registry), session.dir, SERVER);
+  if (argv.includes("--hook"))
+    return argv[argv.indexOf("--hook") + 1] === "stop" ? runStop(() => stateDir(NAME2, env)) : runHook({ server: SERVER, tools: GATED, gate: () => {
+      const session2 = open();
+      return { handlers: handlers(session2, registry), dir: session2.dir };
+    } });
+  const session = open();
   const off = isOff(env);
   serve({
     name: NAME2,
@@ -2234,9 +2322,11 @@ export {
   ARD_SOURCES,
   CALL_MCP_TOOL,
   DISCOVER,
+  GATED,
+  HOST_ARGS,
   INSTRUCTIONS,
+  LET_BE,
   NAME2 as NAME,
-  PASS_TICKET_TTL_MS,
   SEARCH,
   SERVER,
   TICKET_ARG,
@@ -2247,9 +2337,11 @@ export {
   canonical,
   configPath2 as configPath,
   digestOf,
+  eagerName,
   gateMatcher,
   handlerFor,
   handlers,
+  identify,
   isNameTaken2 as isNameTaken,
   isOff,
   issueTicket,
@@ -2257,8 +2349,11 @@ export {
   planForAntigravity,
   prepareSearch,
   readConfig,
+  readHookInput,
   redeemTicket,
+  revokeConversation,
   runHook,
+  runStop,
   start,
   stateDir,
   surfaceOf,

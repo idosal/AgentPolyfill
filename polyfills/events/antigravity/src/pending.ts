@@ -10,8 +10,9 @@ export const requestsDir = (base: string) => join(base, 'wake-requests');
 
 /**
  * Where a conversation lives, as its hook last said. Only the App runs
- * sidecars, and agentapi reaches only the App's conversations: a CLI or IDE
- * conversation is never sent a wake. Unknown is tried (and a failure recorded).
+ * sidecars, and agentapi reaches only the App's conversations: only a
+ * conversation recorded as the App's is sent a wake (security review E8). A
+ * CLI, IDE or unknown one waits for its next model call.
  */
 export function recordSurface(base: string, id: string, surface: Surface) {
     if (!conversationId(id)) return;
@@ -25,7 +26,7 @@ export function surfaceOfSession(base: string, id: string): Surface {
         return s === 'app' || s === 'cli' || s === 'ide' ? s : 'unknown';
     } catch { return 'unknown'; }
 }
-export const wakeable = (base: string, id: string) => !['cli', 'ide'].includes(surfaceOfSession(base, id));
+export const wakeable = (base: string, id: string) => surfaceOfSession(base, id) === 'app';
 /** Coalesced hint, never a second copy of a server payload. Reconciled with the spool. */
 export function requestWake(base: string, id: string, env: NodeJS.ProcessEnv) {
     if (!conversationId(id) || !wakeable(base, id)) return;

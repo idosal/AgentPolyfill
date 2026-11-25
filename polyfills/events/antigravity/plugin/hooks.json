@@ -1,9 +1,30 @@
 {
   "mcp-events-conversation": {
-    "PreToolUse": [{
-      "matcher": "call_mcp_tool|mcp_mcp-events_events_(list_event_types|watch_event|unwatch_event|list_watches|get_event|recent_events)",
-      "hooks": [{ "type": "command", "command": "node ./dist/server.mjs --hook", "timeout": 30 }]
-    }],
-    "PreInvocation": [{ "type": "command", "command": "node ./dist/server.mjs --hook pre-invocation", "timeout": 30 }]
+    "PreToolUse": [
+      {
+        "matcher": "mcp_mcp-events_events_(list_event_types|watch_event|unwatch_event|list_watches|get_event|recent_events)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./dist/server.mjs --hook",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "node ./dist/server.mjs --hook pre-invocation",
+        "timeout": 30
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node ./dist/server.mjs --hook stop",
+        "timeout": 10
+      }
+    ]
   }
 }

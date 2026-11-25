@@ -107,6 +107,33 @@ export function askText(plan: AntigravityPlan, card: ServerCard, provenance: str
 /** What a ticket for an addition is for: the entry, its name and the file. */
 const addDigest = (plan: AntigravityPlan, file: string) => digestOf({ name: plan.name, entry: plan.entry, file })
 
+/** The file as the call may name it: the path, or the same path under `~/`. */
+const fileForms = (file: string, env: NodeJS.ProcessEnv) => {
+  const home = env.HOME ?? ''
+  return home && file.startsWith(`${home}/`) ? [file, `~${file.slice(home.length)}`] : [file]
+}
+
+/**
+ * An editor connected to `agy acp` shows the person the tool's name and its
+ * arguments, not the hook's question (seen live, CLI 1.5.16). So the call
+ * itself must say what would be written: the name, the URL, each header's
+ * name and the file. A call whose arguments say anything else is refused
+ * before any question, with the arguments to call again with. Returns the
+ * refusal, or undefined when the arguments say exactly what the plan writes.
+ */
+export function shownMismatch(args: Record<string, unknown>, plan: AntigravityPlan, file: string, env: NodeJS.ProcessEnv): string | undefined {
+  const want = Object.keys(plan.headers)
+  const norm = (names: readonly string[]) => [...names].map(n => n.toLowerCase()).sort().join('\n')
+  const headersOk = Array.isArray(args.headers) && args.headers.every(h => typeof h === 'string') && norm(args.headers as string[]) === norm(want)
+  const fileOk = typeof args.file === 'string' && fileForms(file, env).includes(args.file)
+  if (args.name === plan.name && headersOk && fileOk) return undefined
+  const again = { ...Object.fromEntries(Object.entries(args).filter(([k]) => k !== TICKET_ARG)), name: plan.name, headers: want, file: fileForms(file, env).at(-1) }
+  return (
+    `Nothing was asked or written: the call must name what would be written, so that the person sees it wherever they are asked (an editor shows only a tool's arguments). ` +
+    `Call ${ADD} again with these arguments: ${JSON.stringify(again)}`
+  )
+}
+
 /** The hook's side of add_mcp_server: the same reading as the tool's, then the question. */
 export function addHandler(session: SharedSession, discoverName: string): Handler {
   return args => {
@@ -116,8 +143,16 @@ export function addHandler(session: SharedSession, discoverName: string): Handle
     const file = configPath(session.deps.env)
     if (isNameTaken(file, r.plan.name))
       return { deny: shownText(`A server named "${r.plan.name}" is already in ${file} (or the file can't be read). Ask the person: add it under another name (pass \`name\`), or keep theirs.`) }
+    const mismatch = shownMismatch(args, r.plan, file, session.deps.env)
+    if (mismatch) return { deny: shownText(mismatch) }
     return { ask: askText(r.plan, r.card, r.provenance, file), digest: addDigest(r.plan, file) }
   }
+}
+
+/** The server that serves add_mcp_server, as Antigravity names it, for the refusal that says how to call it. Set by each plugin's main. */
+let SERVER_NAME: string | undefined
+export const setServerName = (s: string) => {
+  SERVER_NAME = s
 }
 
 export function addTool(session: SharedSession, discoverName: string, foundBy: string): Tool {
@@ -127,7 +162,8 @@ export function addTool(session: SharedSession, discoverName: string, foundBy: s
       `Add an MCP server that ${foundBy} showed in this conversation to Antigravity's MCP configuration (~/.gemini/config/mcp_config.json). The URL and headers come from the Server Card; choose the remote and give any non-secret inputs the card asks for. ` +
       "A card that needs a secret (an API key in a header) can't be added this way: the plugin never writes a secret, and Antigravity's file has no environment variables. Sign-in (OAuth) is Antigravity's own. " +
       "Antigravity's approval card asks the person first, naming the server, URL, headers and how to undo it; if they decline, nothing is written. " +
-      'Pass `url`, the URL the server connects to as the result showed it (its "connects to" line, else the remote\'s URL): the server is added only if that is the URL the card yields.',
+      'Pass `url`, the URL the server connects to as the result showed it (its "connects to" line, else the remote\'s URL): the server is added only if that is the URL the card yields. ' +
+      'Also pass `name`, `headers` (the names of the headers the server is added with, [] for none) and `file` (~/.gemini/config/mcp_config.json): an editor shows the person only these arguments, so they must say what is written. A call whose arguments differ is refused, with the arguments to use.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -135,11 +171,13 @@ export function addTool(session: SharedSession, discoverName: string, foundBy: s
         identifier: { type: 'string', description: 'The catalog entry identifier of the server to add.' },
         url: { type: 'string', description: 'The URL the server connects to, exactly as the result showed it: its "connects to" line, or else the remote\'s URL after "remote #N: <transport>". With other `values`, the URL those values give.' },
         remote: { type: 'integer', minimum: 0, description: 'The remote number from the result. Default 0.' },
-        name: { type: 'string', description: 'The name to add the server under. Default: the suggested server name.' },
+        name: { type: 'string', description: 'The name to add the server under: the suggested server name, unless the person chose another.' },
+        headers: { type: 'array', items: { type: 'string' }, description: 'The names of the headers the server is added with, as the result showed them; [] for none.' },
+        file: { type: 'string', description: 'The file the server is written to: ~/.gemini/config/mcp_config.json.' },
         values: { type: 'object', additionalProperties: { type: 'string' }, description: "Values for the card's non-secret inputs, by variable or header name." },
         [TICKET_ARG]: { type: 'string', description: "Set by the plugin's approval hook. Leave it out." },
       },
-      required: ['identifier', 'url'],
+      required: ['identifier', 'url', 'name', 'headers', 'file'],
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     run: async args => {
@@ -148,9 +186,12 @@ export function addTool(session: SharedSession, discoverName: string, foundBy: s
       if ('deny' in r) return refuse(r.deny)
       const { plan, card, provenance } = r
       const file = configPath(session.deps.env)
+      // What the call's arguments say is what is written: an editor showed the person only those.
+      const mismatch = shownMismatch(args, plan, file, session.deps.env)
+      if (mismatch) return refuse(mismatch)
       // The person decides every addition (security review SC4): the hook put
       // this exact entry to them, and its ticket says they approved it.
-      const t = redeemTicket(session.dir, args[TICKET_ARG], ADD, addDigest(plan, file))
+      const t = redeemTicket(session.dir, args[TICKET_ARG], ADD, addDigest(plan, file), Date.now(), SERVER_NAME)
       if (!t.ok)
         return refuse(
           `Nothing was written: ${t.why}. Antigravity asks the person through the plugin's hook; if it never asks, the hook isn't running (see the plugin's README, "If the approval never shows"). Don't ask again unless the person brings it up.`,

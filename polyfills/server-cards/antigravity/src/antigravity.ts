@@ -1,10 +1,12 @@
 // Antigravity's side of an addition: a card's remote as an `mcpServers` entry,
 // and the file it goes in.
 //
-// Antigravity (App, CLI and IDE) reads one personal MCP configuration,
-// ~/.gemini/config/mcp_config.json, for all your projects. It has no command
-// that adds a server (no `agy mcp add`), so the entry is written into that
-// file, keeping everything else in it as it is.
+// Antigravity reads one personal MCP configuration,
+// ~/.gemini/config/mcp_config.json, for all your projects. The CLI can add a
+// server (`agy mcp add`, undocumented, CLI 1.5.16 and 1.5.17), but the App
+// doesn't ship `agy`, and an MCP server can't count on the CLI being there, so
+// the entry is written into that file directly, keeping everything else in it
+// as it is.
 //
 // A remote server is `{ "serverUrl": ..., "headers": {...} }`. Antigravity
 // signs in to an OAuth server itself (Customizations > Installed > MCP Servers

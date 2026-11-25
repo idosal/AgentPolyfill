@@ -36,6 +36,9 @@ const QUERY = 'check why my CI build failed'
 const configOf = (home: string) => join(home, '.gemini', 'config', 'mcp_config.json')
 const env = { ARD_DISCOVERY_REGISTRY: web.origin }
 
+/** What an add must name in its own arguments, as an editor shows them (agy acp). */
+const SHOWS = { name: 'example-ci', headers: [] as string[], file: '~/.gemini/config/mcp_config.json' }
+
 test('R-1 the server: its three tools, and the registry it would send to', async () => {
   const s = antigravityServer(SERVER, tempHome(), env)
   await s.ready
@@ -97,7 +100,7 @@ test('R-6 a search result is added after its own approval, which says the publis
   const s = antigravityServer(SERVER, home, env)
   const h = runHook(SERVER, home, preToolUse(SEARCH, { query: QUERY }), env)
   await s.call('ard_search', { query: QUERY, ...h.out.overwrite })
-  const args = { identifier: 'urn:air:localhost:ci', url: `${web.origin}/ci/mcp` }
+  const args = { identifier: 'urn:air:localhost:ci', url: `${web.origin}/ci/mcp`, ...SHOWS }
   const a = runHook(SERVER, home, preToolUse(ADD, args), env)
   assert.equal(a.out.decision, 'force_ask', JSON.stringify(a.out))
   assert.match(a.out.reason, /NOT confirmed by its publisher's own catalog/)
@@ -111,21 +114,26 @@ test('R-7 ard_discover reads ard.json, and what it showed is added after the app
   const s = antigravityServer(SERVER, home, env)
   const d = await s.call('ard_discover', { domain: web.origin })
   assert.match(d.text, /\/\.well-known\/ard\.json \[extra\]: found \(1 entries\)/)
-  const args = { domain: web.origin, identifier: 'urn:air:localhost:ci', url: `${web.origin}/ci/mcp` }
+  const args = { domain: web.origin, identifier: 'urn:air:localhost:ci', url: `${web.origin}/ci/mcp`, ...SHOWS }
   const none = await s.call('add_mcp_server', args)
   assert.equal(none.isError, true)
+  assert.match(none.text, /called by its own name, mcp_ard-discovery_ard_add_mcp_server, not through call_mcp_tool/)
   assert.equal(existsSync(configOf(home)), false)
   const a = runHook(SERVER, home, preToolUse(ADD, args), env)
   assert.equal((await s.call('add_mcp_server', { ...args, ...a.out.overwrite })).isError, false)
 })
 
-test('R-8 the hook matcher takes this plugin\'s ard_search and add_mcp_server, and not its discover or another plugin\'s tools', () => {
-  const m = JSON.parse(readFileSync(join(ROOT, 'plugin', 'hooks.json'), 'utf8'))['ard-discovery-approval'].PreToolUse[0].matcher
-  for (const n of ['call_mcp_tool', SEARCH, ADD]) assert.ok(matches(m, n), n)
-  for (const n of ['mcp_ard-discovery_ard_ard_discover', 'mcp_mcp-server-cards_cards_add_mcp_server', 'mcp_other_ard_search']) assert.ok(!matches(m, n), n)
+test("R-8 the hook matcher takes this plugin's eager ard_search and add_mcp_server only: not call_mcp_tool, its discover or another plugin's tools; both are eager, and the turn's end clears tickets", () => {
+  const hooks = JSON.parse(readFileSync(join(ROOT, 'plugin', 'hooks.json'), 'utf8'))['ard-discovery-approval']
+  const m = hooks.PreToolUse[0].matcher
+  for (const n of [SEARCH, ADD]) assert.ok(matches(m, n), n)
+  for (const n of ['call_mcp_tool', 'read_resource', 'mcp_ard-discovery_ard_ard_discover', 'mcp_mcp-server-cards_cards_add_mcp_server', 'mcp_other_ard_search']) assert.ok(!matches(m, n), n)
+  assert.deepEqual(hooks.Stop, [{ type: 'command', command: 'node ./dist/server.mjs --hook stop', timeout: 10 }])
+  const mcp = JSON.parse(readFileSync(join(ROOT, 'plugin', 'mcp_config.json'), 'utf8'))
+  assert.deepEqual(mcp.mcpServers.ard.tools, { ard_search: { eager: true }, add_mcp_server: { eager: true } })
 })
 
-test('R-10 the lazy form: a search through call_mcp_tool is asked about and sent with the ticket from Arguments', async () => {
+test('R-10 the lazy form, should a hook ever be handed one: a search through call_mcp_tool is asked about and sent with the ticket from Arguments; without the hook, nothing is sent', async () => {
   const home = tempHome()
   const s = antigravityServer(SERVER, home, env)
   const before = searches().length
@@ -135,6 +143,10 @@ test('R-10 the lazy form: a search through call_mcp_tool is asked about and sent
   assert.equal(h.out.decision, 'force_ask')
   const r = await s.call('ard_search', h.out.overwrite.Arguments)
   assert.equal(r.isError, false, r.text)
+  assert.equal(searches().length, before + 1)
+  const unhooked = await s.call('ard_search', { query: QUERY })
+  assert.equal(unhooked.isError, true)
+  assert.match(unhooked.text, /Nothing was sent: .*called by its own name, mcp_ard-discovery_ard_ard_search, not through call_mcp_tool/)
   assert.equal(searches().length, before + 1)
 })
 

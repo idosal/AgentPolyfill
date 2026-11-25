@@ -144,13 +144,16 @@ test('S-4 cap includes retained stubs; omitted skills remain listable/loadable',
     syncStubs(root, []); assert.equal(readdirSync(root).length, 0);
 });
 
-test('H-1 matcher takes only this plugin and MCP key; reads use allow tickets; list_skills has no hook', () => {
+test('H-1 matcher takes only this plugin and MCP key by eager name, and read_resource (X8); never call_mcp_tool; list_skills has no hook', () => {
     const hooks = JSON.parse(readFileSync(join(ROOT, 'plugin/hooks.json'), 'utf8'));
     const entry = hooks['mcp-skills-approval'].PreToolUse[0];
-    // Antigravity names a lazily loaded MCP tool call_mcp_tool (the default), an eager one mcp_<server>_<tool>.
-    assert.equal(entry.matcher, gateMatcher('mcp-skills_skills', ['load_skill', 'read_skill_file', 'list_skill_directory'])); assert.equal(entry.hooks[0].command, 'node ./dist/server.mjs --hook');
-    for (const n of ['call_mcp_tool', TOOL, 'mcp_mcp-skills_skills_read_skill_file', 'mcp_mcp-skills_skills_list_skill_directory']) assert.ok(matches(entry.matcher, n), n);
-    for (const n of ['load_skill', 'mcp_other_load_skill', 'mcp_other_mcp-skills_skills_load_skill', 'mcp_mcp-skills-other_skills_load_skill', 'mcp_mcp-skills_other_load_skill', 'mcp_mcp-skills_skills_list_skills', `${TOOL}_other`]) assert.ok(!matches(entry.matcher, n), n);
+    // The three gated tools are eager (plugin/mcp_config.json), so Antigravity names them mcp_<server>_<tool>; the
+    // matcher takes those and read_resource (rule X8), never call_mcp_tool.
+    assert.equal(entry.matcher, gateMatcher('mcp-skills_skills', ['load_skill', 'read_skill_file', 'list_skill_directory'], ['read_resource'])); assert.equal(entry.hooks[0].command, 'node ./dist/server.mjs --hook');
+    for (const n of ['read_resource', TOOL, 'mcp_mcp-skills_skills_read_skill_file', 'mcp_mcp-skills_skills_list_skill_directory']) assert.ok(matches(entry.matcher, n), n);
+    assert.deepEqual(hooks['mcp-skills-approval'].Stop, [{ type: 'command', command: 'node ./dist/server.mjs --hook stop', timeout: 10 }]);
+    assert.deepEqual(JSON.parse(readFileSync(join(ROOT, 'plugin/mcp_config.json'), 'utf8')).mcpServers.skills.tools, { load_skill: { eager: true }, read_skill_file: { eager: true }, list_skill_directory: { eager: true } });
+    for (const n of ['call_mcp_tool', 'list_resources', 'load_skill', 'mcp_other_load_skill', 'mcp_other_mcp-skills_skills_load_skill', 'mcp_mcp-skills-other_skills_load_skill', 'mcp_mcp-skills_other_load_skill', 'mcp_mcp-skills_skills_list_skills', `${TOOL}_other`]) assert.ok(!matches(entry.matcher, n), n);
     // The handler's own check takes the eager name the gate gives every call of this server.
     assert.ok(new RegExp(`^(?:${MATCHER})$`).test(TOOL));
 });
@@ -240,9 +243,9 @@ test('E-5 reads raise no question but need this conversation to have loaded the 
     assert.equal(st.questions.length, 1);
 });
 
-test('E-6 malformed hook input fails closed with exit zero; invalid or over-limit skill gets deny, not ask', async () => {
+test('E-6 malformed hook input gets allow and nothing else, with exit zero (whose call it is can\'t be told; an own call without a ticket is refused by the server); invalid or over-limit skill gets deny, not ask', async () => {
     const home = tempHome(), bad = spawnSync(process.execPath, [SERVER, '--hook'], { input: '{', encoding: 'utf8', env: { HOME: home, PATH: process.env.PATH } });
-    assert.equal(bad.status, 0); assert.equal(JSON.parse(bad.stdout).decision, 'deny');
+    assert.equal(bad.status, 0); assert.deepEqual(JSON.parse(bad.stdout), { decision: 'allow' });
     const sk = skill('big'); (sk.entry.resources as any[])[0].size = LIMITS.bytes + 1;
     const f = new Fixture(scenarioOf([sk])); writeConfig(home, { docs: f.config });
     const h = runHook(SERVER, home, preToolUse(TOOL, { server: 'docs', uri: sk.uri }));
@@ -278,7 +281,8 @@ test('B-2 manifest schema fields and plugin-only copy: starts, lists tools, hook
     assert.match(manifest.name, /^[a-z0-9]+(-[a-z0-9]+)*$/);
     const allowed = ['$schema', 'name', 'displayName', 'description', 'version', 'disabled', 'logo', 'suggestedPrompts', 'skills', 'author', 'homepage', 'repository', 'license', 'keywords', 'extensions'];
     assert.deepEqual(Object.keys(manifest).filter(k => !allowed.includes(k)), []); assert.ok(manifest.suggestedPrompts.length <= 3);
-    assert.deepEqual(JSON.parse(readFileSync(join(ROOT, 'plugin/mcp_config.json'), 'utf8')).mcpServers.skills, { command: 'node', args: ['${PLUGIN_ROOT}/dist/server.mjs'] });
+    const { tools: _eager, ...entry } = JSON.parse(readFileSync(join(ROOT, 'plugin/mcp_config.json'), 'utf8')).mcpServers.skills;
+    assert.deepEqual(entry, { command: 'node', args: ['${PLUGIN_ROOT}/dist/server.mjs'] });
     const home = tempHome(), installed = join(home, 'installed'); cpSync(join(ROOT, 'plugin'), installed, { recursive: true });
     const sk = skill('git-workflow'), f = new Fixture(scenarioOf([sk])); writeConfig(home, { docs: f.config });
     const serverFile = join(installed, 'dist/server.mjs'), s = antigravityServer(serverFile, home); await s.ready;

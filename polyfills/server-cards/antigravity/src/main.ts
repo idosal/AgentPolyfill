@@ -8,8 +8,8 @@ import { isMain, logger } from '../../codex/src/host'
 import { serve } from '../../codex/src/mcp'
 import { discoverTool } from '../../codex/src/tools'
 import { antigravityDeps, useAntigravityHost } from './host'
-import { runHook, stateDir, type Handler } from './gate'
-import { ADD, addHandler, addTool, SharedSession } from './tools'
+import { runHook, runStop, stateDir, type Handler } from './gate'
+import { ADD, addHandler, addTool, setServerName, SharedSession } from './tools'
 
 // What the tests run against: the shared modules as bundled here, and the adapter.
 export * from '../../claude-code/mod/hooks/card'
@@ -46,13 +46,21 @@ export function handlers(s: SharedSession): Record<string, Handler> {
   return { [ADD]: addHandler(s, DISCOVER) }
 }
 
+/** The tools the hook gates: marked eager in plugin/mcp_config.json, and named in hooks.json's matcher. */
+export const GATED = [ADD] as const
+
 /** Stand-down (contract rule 4): Antigravity has no Server Card support to detect yet; this setting, or disabling the plugin, turns it off. */
 export const isOff = (env: NodeJS.ProcessEnv) => /^(1|true|on|yes)$/i.test(env.MCP_SERVER_CARDS_DISABLED ?? '')
 
 export async function start(env: NodeJS.ProcessEnv = process.env, argv = process.argv.slice(2)) {
   useAntigravityHost()
+  setServerName(SERVER)
+  // The hooks open the state folder only once they know the call is this plugin's (gate.ts).
+  if (argv.includes('--hook'))
+    return argv[argv.indexOf('--hook') + 1] === 'stop'
+      ? runStop(() => stateDir(NAME, env))
+      : runHook({ server: SERVER, tools: GATED, gate: () => { const s = session(env); return { handlers: handlers(s), dir: s.dir } } })
   const s = session(env)
-  if (argv.includes('--hook')) return runHook(handlers(s), s.dir, SERVER)
   const off = isOff(env)
   serve({
     name: NAME,

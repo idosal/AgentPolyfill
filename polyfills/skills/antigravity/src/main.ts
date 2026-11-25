@@ -5,9 +5,9 @@ import { Store } from '../../codex/src/store.ts';
 import { TOOLS } from '../../codex/src/mcp.ts';
 import { describeError, oneLine, secrets } from '../../core/src/untrusted.ts';
 import { serve, type Tool } from '../../../server-cards/codex/src/mcp.ts';
-import { runHook, stateDir, TICKET_ARG } from '../../../server-cards/antigravity/src/gate.ts';
+import { LET_BE, runHook, runStop, stateDir, TICKET_ARG } from '../../../server-cards/antigravity/src/gate.ts';
 import { App } from './app.ts';
-import { handlers } from './approval.ts';
+import { crossServerRead, handlers } from './approval.ts';
 import { homeOf, isOff, NAME, VERSION } from './config.ts';
 
 /** The plugin's MCP server as Antigravity names it: `<plugin>_<key in mcp_config.json>`. */
@@ -25,9 +25,22 @@ export function tools(app: App): Tool[] {
     });
 }
 
+/** The tools the hook gates: marked eager in plugin/mcp_config.json, and named in hooks.json's matcher with read_resource (rule X8). */
+export const GATED = ['load_skill', 'read_skill_file', 'list_skill_directory'] as const;
+
 export async function start(env: NodeJS.ProcessEnv = process.env, argv = process.argv.slice(2)) {
+    // The hooks open the state folder only once they know the call is this plugin's (gate.ts), or a
+    // resource read rule X8 asks about.
+    if (argv.includes('--hook')) {
+        const open = () => { const dir = stateDir(NAME, env); return { dir, store: new Store(dir) }; };
+        if (argv[argv.indexOf('--hook') + 1] === 'stop') return runStop(() => stateDir(NAME, env));
+        return runHook({
+            server: SERVER, tools: GATED,
+            gate: () => { const o = open(); return { handlers: handlers(env, o.store), dir: o.dir }; },
+            other: input => crossServerRead(input, open().store, env),
+        });
+    }
     const dir = stateDir(NAME, env), store = new Store(dir);
-    if (argv.includes('--hook')) return runHook(handlers(env, store), dir, SERVER);
     const logFile = join(dir, 'mcp-skills.log');
     try {
         if (existsSync(logFile) && statSync(logFile).size > 2 * 1024 * 1024) renameSync(logFile, `${logFile}.1`);
@@ -46,8 +59,9 @@ export async function start(env: NodeJS.ProcessEnv = process.env, argv = process
 
 if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])) {
     void start().catch(() => {
-        // Hooks fail open on nonzero exit. Even a failure before runHook must be an explicit deny.
-        if (process.argv.includes('--hook')) { process.stdout.write(JSON.stringify({ decision: 'deny', reason: 'The plugin could not initialize its private approval state.' }) + '\n'); process.exitCode = 0; }
+        // Antigravity fails a call whose hook exits non-zero (CLI 1.5.17), so a hook always answers and exits 0.
+        // runHook answers for itself; this is only for a failure around it, and it never denies another server's call.
+        if (process.argv.includes('--hook')) { process.stdout.write(JSON.stringify(process.argv.includes('stop') ? {} : LET_BE) + '\n'); process.exitCode = 0; }
         else process.exitCode = 1;
     });
 }

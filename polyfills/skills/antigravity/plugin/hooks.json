@@ -1,8 +1,23 @@
 {
   "mcp-skills-approval": {
-    "PreToolUse": [{
-      "matcher": "call_mcp_tool|mcp_mcp-skills_skills_(load_skill|read_skill_file|list_skill_directory)",
-      "hooks": [{ "type": "command", "command": "node ./dist/server.mjs --hook", "timeout": 30 }]
-    }]
+    "PreToolUse": [
+      {
+        "matcher": "mcp_mcp-skills_skills_(load_skill|read_skill_file|list_skill_directory)|read_resource",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./dist/server.mjs --hook",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node ./dist/server.mjs --hook stop",
+        "timeout": 10
+      }
+    ]
   }
 }

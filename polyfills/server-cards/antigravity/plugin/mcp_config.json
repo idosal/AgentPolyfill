@@ -2,8 +2,15 @@
   "mcpServers": {
     "cards": {
       "command": "node",
-      "args": ["${PLUGIN_ROOT}/dist/server.mjs"],
-      "timeoutSeconds": 600
+      "args": [
+        "${PLUGIN_ROOT}/dist/server.mjs"
+      ],
+      "timeoutSeconds": 600,
+      "tools": {
+        "add_mcp_server": {
+          "eager": true
+        }
+      }
     }
   }
 }

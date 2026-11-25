@@ -80,7 +80,7 @@ export function runServer(base: string, env: NodeJS.ProcessEnv, log: (s: string)
     const names = new Set(TOOLS.map(t => t.name));
     const server = serve({
         name: 'mcp-events', title: 'MCP Events', version: VERSION,
-        instructions: off() ? 'mcp-events is turned off (MCP_EVENTS_OFF=1).' : `${INSTRUCTIONS}\n${wakeAvailability(base)}`,
+        instructions: off() ? 'mcp-events is turned off (MCP_EVENTS_OFF=1).' : INSTRUCTIONS,
         tools: () => off() ? [] : TOOLS,
         log, onClose: () => void stop(),
         async call(name, args) {

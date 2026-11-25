@@ -16,8 +16,14 @@
 // run (a matcher that doesn't match Antigravity's tool name, a hook that was
 // turned off), the call is refused, never done unasked.
 //
-// Hooks fail open in Antigravity (a non-zero exit is logged and ignored), so
-// the hook always exits 0 and answers `deny` when anything goes wrong.
+// A hook that exits non-zero, times out or prints something that isn't JSON
+// makes Antigravity fail the call (seen live, CLI 1.5.17, 2026-11-25: "JSON
+// hook ... failed: command failed: exit status 1"). So the hook always exits
+// 0 with a JSON answer, and it runs only for this plugin's own tools: their
+// eager names, `mcp_<server>_<tool>` (each plugin's mcp_config.json marks them
+// eager). A lazy `call_mcp_tool` of one of them doesn't reach the hook, gets
+// no ticket, and is refused by the server. A call that isn't this plugin's,
+// however it reaches the hook, is answered `allow` and nothing else.
 
 import { createHash, randomBytes } from 'node:crypto'
 import { chmodSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -27,18 +33,16 @@ import { join } from 'node:path'
 /** The argument the hook adds to a call it gated. */
 export const TICKET_ARG = 'agentpolyfill_ticket'
 /**
- * How long a ticket waits for its call. The ticket is issued when the hook
- * runs, before Antigravity's approval card is answered, and the person may
- * leave the card open for a long time (an hour, in the live run of
- * 2026-11-25, which first had 15 minutes here and refused an approved call).
- * A ticket is good once, for one tool and one digest, and the hook replaces
- * any ticket a call already carries, so a long wait costs little:
- *
- * - a question to the person (`ask`): 4 hours;
- * - a call the hook only ties to its conversation (`pass`): 24 hours.
+ * How long a ticket waits for its call: an hour at most. The ticket is issued
+ * when the hook runs, before Antigravity's approval card is answered, and a
+ * person may leave the card open (an hour, in the live run of 2026-11-25). A
+ * ticket also ends with the turn: the plugin's `Stop` hook removes every
+ * ticket of the conversation whose turn ended (`revokeConversation`), so a
+ * question that was declined or never answered leaves nothing a later call
+ * could use. A card left open longer than an hour is refused, saying so, and
+ * the person is asked again.
  */
-export const TICKET_TTL_MS = 4 * 60 * 60_000
-export const PASS_TICKET_TTL_MS = 24 * 60 * 60_000
+export const TICKET_TTL_MS = 60 * 60_000
 
 /**
  * Where a plugin keeps what its hook and its MCP server share, private to the
@@ -88,16 +92,41 @@ const ticketDir = (dir: string) => {
   return t
 }
 
-/** Issues a ticket for one call, and clears out tickets that have expired. Returns its name. */
+/**
+ * A ticket's file is named by the SHA-256 of its nonce, never by the nonce: a
+ * listing of the folder gives nothing a call could carry.
+ */
+const ticketFile = (dir: string, nonce: string) => join(ticketDir(dir), `${createHash('sha256').update(nonce).digest('hex')}.json`)
+
+/** Issues a ticket for one call, and clears out tickets that have expired. Returns its nonce, which goes only into the call. */
 export function issueTicket(dir: string, t: Omit<Ticket, 'issued'>, now = Date.now()): string {
   const tickets = ticketDir(dir)
   for (const f of readdirSync(tickets))
     try {
-      if (now - statSync(join(tickets, f)).mtimeMs > Math.max(TICKET_TTL_MS, PASS_TICKET_TTL_MS)) rmSync(join(tickets, f), { force: true })
+      if (now - statSync(join(tickets, f)).mtimeMs > TICKET_TTL_MS) rmSync(join(tickets, f), { force: true })
     } catch {}
   const nonce = randomBytes(16).toString('hex')
-  writePrivate(join(tickets, `${nonce}.json`), JSON.stringify({ ...t, issued: now }))
+  writePrivate(ticketFile(dir, nonce), JSON.stringify({ ...t, issued: now }))
   return nonce
+}
+
+/**
+ * Removes every unused ticket of a conversation: what the plugin's `Stop`
+ * hook does when that conversation's turn ends. Returns how many it removed.
+ */
+export function revokeConversation(dir: string, conversationId: string): number {
+  let n = 0
+  if (!conversationId) return n
+  const tickets = ticketDir(dir)
+  for (const f of readdirSync(tickets))
+    try {
+      const t = JSON.parse(readFileSync(join(tickets, f), 'utf8')) as Partial<Ticket>
+      if (t.conversationId === conversationId) {
+        rmSync(join(tickets, f), { force: true })
+        n++
+      }
+    } catch {}
+  return n
 }
 
 export type Redeemed = { ok: true; conversationId: string; meta?: Record<string, string> } | { ok: false; why: string }
@@ -106,22 +135,25 @@ export type Redeemed = { ok: true; conversationId: string; meta?: Record<string,
  * Takes the ticket a call carries, once: it must exist, be for this tool and
  * this digest, and be fresh. The ticket is gone after this, whatever the answer.
  */
-export function redeemTicket(dir: string, nonce: unknown, tool: string, digest: string, now = Date.now()): Redeemed {
+export function redeemTicket(dir: string, nonce: unknown, tool: string, digest: string, now = Date.now(), server?: string): Redeemed {
   if (typeof nonce !== 'string' || !NONCE.test(nonce))
-    return { ok: false, why: "Antigravity's approval for this call didn't reach the plugin: its PreToolUse hook didn't run for it" }
-  const file = join(ticketDir(dir), `${nonce}.json`)
+    return {
+      ok: false,
+      why: `Antigravity's approval for this call didn't reach the plugin: its PreToolUse hook didn't run for it. The hook runs only when the tool is called by its own name${server ? `, ${eagerName(server, tool)}` : ''}, not through call_mcp_tool`,
+    }
+  const file = ticketFile(dir, nonce)
   let t: Ticket
   try {
     t = JSON.parse(readFileSync(file, 'utf8'))
   } catch {
-    return { ok: false, why: 'the approval for this call was not found (it was used already, or it expired)' }
+    return { ok: false, why: 'the approval for this call was not found (it was used already, it expired, or the turn it was given in ended)' }
   } finally {
     rmSync(file, { force: true })
   }
   if (t.tool !== tool) return { ok: false, why: 'the approval was for another tool' }
-  const ttl = typeof t.ttlMs === 'number' && t.ttlMs > 0 ? Math.min(t.ttlMs, PASS_TICKET_TTL_MS) : TICKET_TTL_MS
+  const ttl = typeof t.ttlMs === 'number' && t.ttlMs > 0 ? Math.min(t.ttlMs, TICKET_TTL_MS) : TICKET_TTL_MS
   if (now - t.issued > ttl)
-    return { ok: false, why: `the approval expired before the call ran (it waited more than ${Math.round(ttl / 3_600_000)} hours); ask the person whether to try again` }
+    return { ok: false, why: `the approval expired before the call ran (it waited more than ${Math.round(ttl / 60_000)} minutes); ask the person whether to try again` }
   if (t.digest !== digest) return { ok: false, why: 'what the call would do changed after the person was asked' }
   return { ok: true, conversationId: t.conversationId, ...(t.meta ? { meta: t.meta } : {}) }
 }
@@ -178,6 +210,16 @@ const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
 /** Antigravity's built-in tool for an MCP tool that isn't loaded eagerly (the default). */
 export const CALL_MCP_TOOL = 'call_mcp_tool'
 
+/** An eager tool's name, as Antigravity declares it to the model and names it to hooks (mcp.md, "Eager loading"). */
+export const eagerName = (server: string, tool: string) => `mcp_${server}_${tool}`
+
+/**
+ * An argument Antigravity adds to an eager tool's call for its own display
+ * (seen live, CLI 1.5.17) and takes out before the server gets the call. The
+ * hook leaves it out, so its digest is of what the server gets.
+ */
+export const HOST_ARGS = ['toolSummary'] as const
+
 /**
  * Which call of this plugin's server a PreToolUse input is, however
  * Antigravity named it (seen live in CLI 1.5.16, 2026-11-25; mcp.md, "Tool
@@ -194,7 +236,7 @@ export const CALL_MCP_TOOL = 'call_mcp_tool'
  */
 export type McpCall = { tool: string; args: Record<string, unknown>; lazy?: { asText: boolean } }
 
-export function callOf(call: Record<string, unknown>, handlers: Record<string, Handler>, server?: string): McpCall | undefined {
+export function callOf(call: Record<string, unknown>, handlers: Record<string, unknown>, server?: string): McpCall | undefined {
   const name = typeof call.name === 'string' ? call.name : ''
   const args = isObject(call.args) ? call.args : {}
   if (name === CALL_MCP_TOOL) {
@@ -210,31 +252,54 @@ export function callOf(call: Record<string, unknown>, handlers: Record<string, H
     if (!isObject(inner)) return { tool: args.ToolName, args: {}, lazy: { asText } }
     return { tool: args.ToolName, args: inner, lazy: { asText } }
   }
+  const own = Object.fromEntries(Object.entries(args).filter(([k]) => !(HOST_ARGS as readonly string[]).includes(k)))
   if (server) {
     const prefix = `mcp_${server}_`
     const tool = name.startsWith(prefix) ? name.slice(prefix.length) : ''
-    return Object.hasOwn(handlers, tool) ? { tool, args } : undefined
+    return Object.hasOwn(handlers, tool) ? { tool, args: own } : undefined
   }
-  const found = handlerFor(name, handlers)
-  return found ? { tool: found.short, args } : undefined
+  const found = handlerFor(name, handlers as Record<string, Handler>)
+  return found ? { tool: found.short, args: own } : undefined
 }
 
-/** Antigravity's PreToolUse answer for one hook input. Never throws: anything wrong is a deny. */
-export async function answerHook(input: unknown, handlers: Record<string, Handler>, dir: string, now = Date.now(), server?: string): Promise<Record<string, unknown>> {
+/**
+ * The answer for a call that isn't this plugin's, or that the hook can't
+ * read: `allow` and nothing else, which "delegat[es] to the next hook or
+ * default policy" (hooks.md). A plugin never denies or alters another
+ * server's call. A call of this plugin's that the hook can't read gets no
+ * ticket, and its server refuses it.
+ */
+export const LET_BE = Object.freeze({ decision: 'allow' })
+
+/** Which of this plugin's calls a hook input is, or undefined. Never throws, and touches no state. */
+export function identify(input: unknown, tools: readonly string[] | Record<string, unknown>, server?: string): McpCall | undefined {
   try {
-    if (!isObject(input)) return { decision: 'deny', reason: 'The plugin could not read the call it was asked about.' }
-    const call = isObject(input.toolCall) ? input.toolCall : {}
-    const found = callOf(call, handlers, server)
-    // Not one of this plugin's tools: nothing to say about it.
-    if (!found) return { decision: 'allow' }
+    if (!isObject(input)) return undefined
+    const names = Array.isArray(tools) ? Object.fromEntries(tools.map(t => [t, true])) : (tools as Record<string, unknown>)
+    return callOf(isObject(input.toolCall) ? input.toolCall : {}, names, server)
+  } catch {
+    return undefined
+  }
+}
+
+/** Antigravity's PreToolUse answer for one hook input. Never throws: another server's call is let be, and anything wrong with this plugin's is a deny. */
+export async function answerHook(input: unknown, handlers: Record<string, Handler>, dir: string, now = Date.now(), server?: string): Promise<Record<string, unknown>> {
+  const found = identify(input, handlers, server)
+  // Not one of this plugin's tools: nothing to say about it.
+  if (!found || !isObject(input)) return { ...LET_BE }
+  try {
+    // Antigravity documents plugin hooks for the App and the CLI, not the IDE
+    // (hooks.md): the forms aren't supported there, and their calls are
+    // refused, whether or not the IDE runs this hook.
+    if (surfaceOf(input.transcriptPath) === 'ide')
+      return { decision: 'deny', reason: "This plugin isn't supported in the Antigravity IDE, which documents no plugin hooks; use the Antigravity App or the CLI." }
     const conversationId = typeof input.conversationId === 'string' ? input.conversationId : ''
     const args = ownArgs(found.args)
     // The handler sees the call under its eager name, whichever way it came.
     const named = server ? { ...input, toolCall: { name: `mcp_${server}_${found.tool}`, args } } : input
     const v = await handlers[found.tool]!(args, named as HookInput)
     if ('deny' in v) return { decision: 'deny', reason: v.deny }
-    const ttlMs = 'ask' in v ? TICKET_TTL_MS : PASS_TICKET_TTL_MS
-    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId, ttlMs, ...(v.meta ? { meta: v.meta } : {}) }, now)
+    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId, ...(v.meta ? { meta: v.meta } : {}) }, now)
     // `overwrite` is a shallow merge into the call's own arguments: for
     // call_mcp_tool, that is `Arguments` as a whole.
     const withTicket = { ...args, [TICKET_ARG]: ticket }
@@ -246,25 +311,85 @@ export async function answerHook(input: unknown, handlers: Record<string, Handle
 }
 
 /**
- * The matcher a plugin's hooks.json gives its PreToolUse gate: Antigravity's
- * call_mcp_tool, and the eager names of `tools` on `server`. Antigravity
- * matches the whole tool name.
+ * The matcher a plugin's hooks.json gives its PreToolUse gate: the eager names
+ * of `tools` on `server`, and nothing of any other server's (`also`: the
+ * host's own tools a plugin must see, such as Skills' `read_resource`).
+ * Antigravity matches the whole tool name.
  */
-export const gateMatcher = (server: string, tools: readonly string[]) =>
-  `${CALL_MCP_TOOL}|mcp_${server.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}_(${tools.join('|')})`
+export const gateMatcher = (server: string, tools: readonly string[], also: readonly string[] = []) =>
+  [`mcp_${server.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}_(${tools.join('|')})`, ...also].join('|')
 
-/** Reads the hook's stdin, answers on stdout, and exits 0. */
-export async function runHook(handlers: Record<string, Handler>, dir: string, server?: string) {
+/** A hook's stdin as JSON, or undefined. At most 4 MiB is read. */
+export async function readHookInput(): Promise<unknown> {
   let text = ''
   process.stdin.setEncoding('utf8')
-  for await (const chunk of process.stdin) text += chunk
-  let input: unknown
+  for await (const chunk of process.stdin) if (text.length < 4 * 1024 * 1024) text += chunk
   try {
-    input = JSON.parse(text)
+    return JSON.parse(text)
   } catch {
-    input = undefined
+    return undefined
   }
-  const out = await answerHook(input, handlers, dir, Date.now(), server)
-  process.stdout.write(`${JSON.stringify(out)}\n`)
+}
+
+const answer = (out: Record<string, unknown>) =>
+  new Promise<void>(resolve => {
+    process.stdout.write(`${JSON.stringify(out)}\n`, () => resolve())
+  })
+
+/** What a plugin's PreToolUse gate is made of, built only once a call is known to be the plugin's. */
+export type Gate = { handlers: Record<string, Handler>; dir: string }
+
+export type HookOptions = {
+  /** This plugin's server, as Antigravity names it: `<plugin>_<key in mcp_config.json>`. */
+  server: string
+  /** The tools the gate is for: their names are all the hook needs to tell its calls from any other. */
+  tools: readonly string[]
+  /** Builds the handlers and opens the state folder. Never called for another server's call. */
+  gate: () => Gate | Promise<Gate>
+  /**
+   * A host tool the plugin asks about although it isn't the plugin's (Skills'
+   * `read_resource`, rule X8): its answer, or undefined to let it be. A failure
+   * lets it be.
+   */
+  other?: (input: Record<string, unknown>) => Promise<Record<string, unknown> | undefined> | Record<string, unknown> | undefined
+}
+
+/**
+ * The PreToolUse hook: reads stdin, answers on stdout, and exits 0. Which call
+ * it is comes first, from the input alone; only a call of this plugin's opens
+ * its state.
+ */
+export async function runHook(o: HookOptions) {
+  const input = await readHookInput()
+  let out: Record<string, unknown> = { ...LET_BE }
+  if (identify(input, o.tools, o.server)) {
+    try {
+      const g = await o.gate()
+      out = await answerHook(input, g.handlers, g.dir, Date.now(), o.server)
+    } catch {
+      out = { decision: 'deny', reason: 'The plugin could not read its state, so it stopped this call. Nothing was done.' }
+    }
+  } else if (o.other && isObject(input)) {
+    try {
+      out = (await o.other(input)) ?? { ...LET_BE }
+    } catch {
+      out = { ...LET_BE }
+    }
+  }
+  await answer(out)
+  process.exitCode = 0
+}
+
+/**
+ * The Stop hook: the conversation's turn ended, so every unused ticket of it
+ * goes (a question declined, or never answered). Answers `{}`, which lets the
+ * stop happen, and exits 0.
+ */
+export async function runStop(dir: () => string) {
+  const input = await readHookInput()
+  try {
+    if (isObject(input) && typeof input.conversationId === 'string' && input.conversationId) revokeConversation(dir(), input.conversationId)
+  } catch {}
+  await answer({})
   process.exitCode = 0
 }

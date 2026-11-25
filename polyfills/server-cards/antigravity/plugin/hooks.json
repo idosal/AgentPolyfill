@@ -2,7 +2,7 @@
   "mcp-server-cards-approval": {
     "PreToolUse": [
       {
-        "matcher": "call_mcp_tool|mcp_mcp-server-cards_cards_(add_mcp_server)",
+        "matcher": "mcp_mcp-server-cards_cards_(add_mcp_server)",
         "hooks": [
           {
             "type": "command",
@@ -10,6 +10,13 @@
             "timeout": 30
           }
         ]
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "node ./dist/server.mjs --hook stop",
+        "timeout": 10
       }
     ]
   }

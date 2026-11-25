@@ -7,10 +7,20 @@
 // is always the version the hook asked about (adapter.test.ts G-*).
 
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
-import { closeAll, digest, Fixture, scenarioOf, skill, startApp } from './harness.ts';
+import { spawnSync } from 'node:child_process';
+import { secrets } from '../../core/src/untrusted.ts';
+import { Store } from '../../codex/src/store.ts';
+import { stateDir } from '../../../server-cards/antigravity/src/gate.ts';
+import { crossServerRead } from '../src/approval.ts';
+import { readConfig } from '../src/config.ts';
+import { recordHeld } from '../src/held.ts';
+import { closeAll, digest, Fixture, preToolUse, runHook, scenarioOf, skill, startApp, tempHome, writeConfig } from './harness.ts';
+import { fileURLToPath } from 'node:url';
+
+const SERVER = fileURLToPath(new URL('../../plugin/dist/server.mjs', import.meta.url));
 
 after(closeAll);
 
@@ -57,4 +67,59 @@ test('SF-3 a secret from the configuration that a server echoes back reaches no 
     assert.match(text, /Uses .* to sign in\./);
     const listed = await st.call('list_skills', {});
     assert.doesNotMatch(listed.text, new RegExp(secret));
+});
+
+test('SF-4 secrets are taken out after the text is cleaned, of the approval question, stubs, listings and whole answers, and a URL query value is a secret too (security review S1, S2)', async () => {
+    const secret = 'sekret-token-0123456789';
+    // Split by a character that shows as nothing: cleaned first, it is the secret again, and scrubbed.
+    const s = skill('git-workflow', { 'notes.md': `the key is ${secret}\n` }, { description: `Uses sekret\u200b-token-0123456789 to sign in.` });
+    const f = new Fixture(scenarioOf([s]));
+    const cfg = f.config;
+    Object.defineProperty(f, 'config', { get: () => ({ ...cfg, env: { ...cfg.env, DOCS_TOKEN: secret } }) });
+    const st = await startApp({ docs: f }, { answers: ['load'] });
+    const stubs = readdirSync(st.stubRoot, { withFileTypes: true }).filter((d) => d.isDirectory() && d.name.startsWith('mcp-skills-served--'));
+    const stubText = readFileSync(join(st.stubRoot, stubs[0]!.name, 'SKILL.md'), 'utf8');
+    assert.doesNotMatch(stubText, /sekret.?-token/);
+    // Stubs are private to the person (security review S6).
+    assert.equal(statSync(join(st.stubRoot, stubs[0]!.name, 'SKILL.md')).mode & 0o777, 0o600);
+    assert.equal(statSync(join(st.stubRoot, stubs[0]!.name)).mode & 0o777, 0o700);
+    assert.doesNotMatch((await st.call('list_skills', {})).text, /sekret.?-token/);
+    const loaded = await st.call('load_skill', { server: 'docs', uri: s.uri });
+    assert.ok(!loaded.isError, loaded.text);
+    assert.equal(st.questions.length, 1);
+    assert.doesNotMatch(st.questions[0]!.message, /sekret.?-token/, 'the force_ask question');
+    const file = await st.call('read_skill_file', { server: 'docs', skill: s.uri, path: 'notes.md' });
+    assert.ok(!file.isError, file.text);
+    assert.doesNotMatch(file.text, /sekret.?-token/);
+    // Header values and a URL's query values from the configuration are registered with the redactor.
+    const home = tempHome();
+    writeConfig(home, { remote: { serverUrl: 'https://mcp.example.com/mcp?key=QUERYSECRET42', headers: { Authorization: 'Bearer HEADERSECRET42' } } });
+    readConfig({ HOME: home }, new Store(join(home, 'state')));
+    assert.doesNotMatch(secrets.scrub('q QUERYSECRET42 h Bearer HEADERSECRET42'), /QUERYSECRET42|HEADERSECRET42/);
+});
+
+test('X8 once a served skill is loaded, a resource read from another server is put to the person, naming both; before any load, from the same server, or in another conversation, it is let be', async () => {
+    const s = skill('git-workflow');
+    const st = await startApp({ docs: new Fixture(scenarioOf([s])) }, { answers: ['load'] });
+    const thread = 'conversation-x8';
+    const read = (server: string, id = thread) => preToolUse('read_resource', { ServerName: server, Uri: 'notes://private' }, id) as Record<string, unknown>;
+    assert.equal(crossServerRead(read('other'), st.store, st.env), undefined, 'nothing loaded yet');
+    assert.ok(!(await st.call('load_skill', { server: 'docs', uri: s.uri }, { thread })).isError);
+    const asked = crossServerRead(read('other'), st.store, st.env)!;
+    assert.equal(asked.decision, 'force_ask');
+    assert.match(String(asked.reason), /served by the MCP server "docs" is loaded in this conversation/);
+    assert.match(String(asked.reason), /the resource notes:\/\/private from the MCP server "other"/);
+    assert.equal(asked.overwrite, undefined, 'the read is never altered');
+    assert.equal(crossServerRead(read('docs'), st.store, st.env), undefined, 'the same server');
+    assert.equal(crossServerRead(read('other', 'another-conversation'), st.store, st.env), undefined, 'another conversation');
+    // As Antigravity runs it: the bundle's hook, with read_resource in its matcher.
+    const home = tempHome();
+    const id = '0b7f6a0e-1111-4222-8333-944455556666';
+    const hook = (server: string) => runHook(SERVER, home, preToolUse('read_resource', { ServerName: server, Uri: 'notes://private' }, id));
+    assert.deepEqual(hook('other').out, { decision: 'allow' });
+    recordHeld(stateDir('mcp-skills', { HOME: home }), id, 'docs');
+    const h = hook('other');
+    assert.equal(h.status, 0); assert.equal(h.out.decision, 'force_ask'); assert.match(h.out.reason, /"docs"/);
+    assert.deepEqual(hook('docs').out, { decision: 'allow' });
+    void spawnSync;
 });

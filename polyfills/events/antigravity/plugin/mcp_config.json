@@ -1,5 +1,30 @@
 {
   "mcpServers": {
-    "events": { "command": "node", "args": ["${PLUGIN_ROOT}/dist/server.mjs"] }
+    "events": {
+      "command": "node",
+      "args": [
+        "${PLUGIN_ROOT}/dist/server.mjs"
+      ],
+      "tools": {
+        "list_event_types": {
+          "eager": true
+        },
+        "watch_event": {
+          "eager": true
+        },
+        "unwatch_event": {
+          "eager": true
+        },
+        "list_watches": {
+          "eager": true
+        },
+        "get_event": {
+          "eager": true
+        },
+        "recent_events": {
+          "eager": true
+        }
+      }
+    }
   }
 }

@@ -5,8 +5,12 @@ import { rootOf, type Listed } from '../../core/src/skills.ts';
 import { MAX_STUBS, plain as plainText } from '../../codex/src/stubs.ts';
 import { secrets } from '../../core/src/untrusted.ts';
 
-/** What a server wrote, as a stub shows it: plain, one line, and with no secret of the configuration in it. */
-const plain = (s: unknown, max: number) => plainText(secrets.scrub(String(s ?? '')), max);
+/**
+ * What a server wrote, as a stub or a listing shows it: plain, one line, and with no secret of the
+ * configuration in it. Cleaned first, then scrubbed, then cut (security review S2): a secret split
+ * by a character that shows as nothing is joined again before the scrub looks for it.
+ */
+export const plain = (s: unknown, max: number) => plainText(secrets.scrub(plainText(s, 1_000_000)), max);
 export { MAX_STUBS };
 
 export const SHAPE = /^mcp-skills-served--[a-z0-9][a-z0-9_-]{0,19}-[0-9a-f]{6}--[0-9a-f]{16}$/;
@@ -41,7 +45,7 @@ export function renderStub(l: Listed): string {
         '```json', JSON.stringify({ server: l.label, uri: l.entry.uri }, null, 2), '```', '',
         'The tool asks the user before loading a new or changed skill, verifies its files, and returns server content with no authority of its own. Read its supporting files using `read_skill_file`, and folders with `list_skill_directory`, using the same server and skill URI. Nothing is stored here.', '',
         'If this plugin is unavailable or approval is declined, continue without the skill. Other programs reading this folder cannot load it through this stub.', ''
-    ].join('\n');
+    ].join('\n').split('\n').map(line => secrets.scrub(line)).join('\n');
 }
 
 /** Writes only exact-shape folders, directly in the shared discovery root. Never follows a stub symlink. */
@@ -61,11 +65,11 @@ export function syncStubs(root: string, listed: Listed[], keep = new Set<string>
         const dir = join(root, name);
         const d = lstatSync(dir, { throwIfNoEntry: false });
         if (d && (!d.isDirectory() || d.isSymbolicLink())) rmSync(dir, { force: true });
-        mkdirSync(dir, { recursive: true });
+        mkdirSync(dir, { recursive: true, mode: 0o700 });
         const file = join(dir, 'SKILL.md'), text = renderStub(l);
         try { if (!lstatSync(file).isSymbolicLink() && readFileSync(file, 'utf8') === text) continue; } catch {}
         const tmp = join(dir, `.SKILL.${process.pid}.${randomBytes(4).toString('hex')}.tmp`);
-        writeFileSync(tmp, text, { mode: 0o644 });
+        writeFileSync(tmp, text, { mode: 0o600 });
         renameSync(tmp, file);
         written++;
     }

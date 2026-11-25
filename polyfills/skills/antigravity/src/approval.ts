@@ -2,10 +2,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkEntry, manifestHash, rootOf, SkillsHost, type SkillEntry } from '../../core/src/skills.ts';
 import { Connection, fingerprintOf } from '../../core/src/wire.ts';
-import { describeError, LocalError } from '../../core/src/untrusted.ts';
+import { describeError, LocalError, secrets } from '../../core/src/untrusted.ts';
 import { Store, type Approval } from '../../codex/src/store.ts';
-import { plain } from '../../codex/src/stubs.ts';
+import { plain } from './stubs.ts';
 import { digestOf, ownArgs, writePrivate, type Handler } from '../../../server-cards/antigravity/src/gate.ts';
+import { heldServers } from './held.ts';
 import { isOff, readConfig, SIGN_IN, VERSION } from './config.ts';
 
 // Whole-name match, including the plugin AND its MCP key. No arbitrary prefix/suffix.
@@ -67,6 +68,32 @@ export function question(server: string, entry: SkillEntry, store: Store): strin
     ].join('\n');
 }
 
+/**
+ * Rule X8: once a skill served by one MCP server is loaded in a conversation, a resource read from
+ * another server is put to the person first, naming both, as the Pi and OpenCode forms do. It
+ * can't tell which skill (or whether one) asked for it. Antigravity's agent reads MCP resources
+ * with its `read_resource` tool ({ServerName, Uri}; seen live, CLI 1.5.17), which the plugin's
+ * PreToolUse hook sees. The answer is `force_ask` or the plain `allow`; the call is never altered.
+ */
+export function crossServerRead(input: Record<string, unknown>, store: Store, env: NodeJS.ProcessEnv): Record<string, unknown> | undefined {
+    const call = input.toolCall as { name?: unknown; args?: unknown } | undefined;
+    if (call?.name !== 'read_resource' || typeof input.conversationId !== 'string') return undefined;
+    const args = (call.args && typeof call.args === 'object' ? call.args : {}) as Record<string, unknown>;
+    const target = typeof args.ServerName === 'string' ? args.ServerName : '';
+    const held = heldServers(store.dir, input.conversationId);
+    const others = held.filter(s => s !== target);
+    if (!held.length || !others.length || isOff(env, store)) return undefined;
+    readConfig(env, store); // registers the configuration's secrets with the redactor
+    const uri = plain(typeof args.Uri === 'string' ? args.Uri : '', 300);
+    return {
+        decision: 'force_ask',
+        reason: secrets.scrub([
+            `A skill served by the MCP server ${others.map(s => JSON.stringify(s)).join(', ')} is loaded in this conversation, and the agent wants to read ${uri ? `the resource ${uri}` : 'a resource'} from ${target ? `the MCP server ${JSON.stringify(plain(target, 64))}` : 'another MCP server'}.`,
+            "The loaded skill's text may be what asks for it. Allow it only if it is what you want.",
+        ].join('\n')),
+    };
+}
+
 /** Fresh metadata via the shared core, independent of the MCP server process. No resources/read. */
 export function handlers(env: NodeJS.ProcessEnv, store: Store): Record<string, Handler> {
     const handle = (tool: string): Handler => async (args, input) => {
@@ -99,7 +126,7 @@ export function handlers(env: NodeJS.ProcessEnv, store: Store): Record<string, H
                 const v = await versionOf(server, listed.entry, fingerprint);
                 return v.approval && store.isApproved(v.approval)
                     ? { pass: 'The user approved this exact skill version and server location earlier.', digest: v.digest }
-                    : { ask: question(server, listed.entry, store), digest: v.digest };
+                    : { ask: secrets.scrub(question(server, listed.entry, store)), digest: v.digest };
             } finally { await c.close(); }
         } catch (e) { return { deny: `The skill is not loaded: ${describeError(e)}` }; }
     };
