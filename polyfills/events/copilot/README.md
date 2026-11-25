@@ -23,11 +23,14 @@ copilot plugin install mcp-events@agent-polyfill
 ```
 
 Copilot loads a plugin from a local marketplace where it is, without copying
-it, so keep the clone; `git pull` in it brings the next version. Once this
-plugin is on the repository's default branch,
-`copilot plugin marketplace add idosal/AgentPolyfill` adds the same
-marketplace from GitHub (Copilot reads its `.github/plugin/marketplace.json`),
-and Copilot keeps its own copy. The install is one folder,
+it, so keep the clone; `git pull` in it brings the next version.
+From GitHub, `copilot plugin marketplace add idosal/AgentPolyfill` adds the
+same marketplace (Copilot reads its `.github/plugin/marketplace.json`), and
+Copilot keeps its own copy. That was checked on 25 November 2026 with Copilot
+CLI 1.0.105, in an isolated home with no sign-in: the three plugins installed
+from GitHub, byte-identical to main, and loaded
+([the record](docs/live-run.md#installed-from-github)). It wasn't checked on
+1.0.115, in the interactive TUI, or in VS Code. The install is one folder,
 [`plugin/`](plugin/), of about 0.6 MB: a manifest and one JavaScript file.
 
 You need:

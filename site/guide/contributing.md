@@ -133,9 +133,9 @@ Install instructions depend on the host:
   steps; `tools/opencode/install-check.ts` repeats the install from GitHub in
   a throwaway home.
 - **Copilot CLI:** `copilot plugin marketplace add idosal/AgentPolyfill`,
-  then `copilot plugin install <plugin>@agent-polyfill`. Until the plugin is
-  on the repository's default branch, the tested install is from a clone:
-  `copilot plugin marketplace add ./AgentPolyfill`. Say if it needs
+  then `copilot plugin install <plugin>@agent-polyfill`. From a clone,
+  `copilot plugin marketplace add ./AgentPolyfill` is the install tested with
+  1.0.115; from GitHub, the install was checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code. Say if it needs
   experimental mode (every Copilot extension does).
   [Getting started](./getting-started#github-copilot-cli) has the tested
   steps.

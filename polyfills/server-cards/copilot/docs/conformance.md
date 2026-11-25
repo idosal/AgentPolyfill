@@ -123,9 +123,11 @@ What this evidence doesn't establish:
 
 - S-3's live comparison, negotiation of each older protocol revision, or a
   public name that resolves to a private address.
-- An install from GitHub (`copilot plugin marketplace add idosal/AgentPolyfill`):
-  that reads the repository's default branch, which has this plugin only once
-  it is merged. The tested install is from a clone.
+- An install from GitHub (`copilot plugin marketplace add idosal/AgentPolyfill`)
+  on 1.0.115, in the interactive TUI, or in VS Code. It was checked with
+  Copilot CLI 1.0.105, in an isolated home with no sign-in: the three plugins
+  installed from GitHub, byte-identical to main, and loaded
+  ([the record](live-run.md#installed-from-github)).
 - A model of GitHub's choosing these tools in Copilot CLI: the model was
   scripted there.
 - An upstream conformance pass: the MCP conformance suite has no Server Card

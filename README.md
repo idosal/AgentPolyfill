@@ -129,9 +129,9 @@ copilot plugin install ard-discovery@agent-polyfill
 ```
 
 That is the install that was tested. Copilot loads a local marketplace's
-plugins where they are, so keep the clone. Once these plugins are on the
-default branch, `copilot plugin marketplace add idosal/AgentPolyfill` adds the
-same marketplace from GitHub; that hasn't been tested yet. Events is a Copilot
+plugins where they are, so keep the clone. From GitHub,
+`copilot plugin marketplace add idosal/AgentPolyfill` adds the same
+marketplace; that was checked on 25 November 2026 with Copilot CLI 1.0.105 in an isolated home with no sign-in (the three plugins installed and loaded, byte-identical to main), not on 1.0.115, in the interactive TUI, or in VS Code. Events is a Copilot
 extension, and Copilot loads extensions only in its experimental mode: start
 it with `copilot --experimental` (Copilot's help also names
 `/settings experimental on`; the runs here used `--experimental`). Copilot
