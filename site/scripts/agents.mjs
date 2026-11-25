@@ -46,7 +46,6 @@ const INSTALL_CODEX = [
   'codex plugin add mcp-events@agent-polyfill',
   'codex plugin add mcp-skills@agent-polyfill',
   'codex plugin add mcp-server-cards@agent-polyfill',
-  'codex plugin add mcp-resource-links@agent-polyfill',
 ]
 const HOSTS = [
   { name: 'Claude Code', command: 'claude', addKey: 'add', form: 'Mod (plugin)', polyfills: 'Events, Skills, Server Cards, Apps, ARD; resource links need nothing (handled natively)' },
@@ -383,7 +382,7 @@ ${cards.join('\n\n')}
 
 ## MCP core spec
 
-Resource links (MCP 2025-11-25, Tools > Resource Links): when a tool's result links to a resource, the model reads it and sees it, text as text and images as images. Claude Code does this itself, so nothing is installed there. In Codex, \`mcp-resource-links\` reads links through Codex, returns images as images, and asks you before reading a link from another server: \`codex plugin add mcp-resource-links@agent-polyfill\`, then trust its hook when Codex says "Hooks need review". Pi and OpenCode weren't measured. The Resource links guide: ${resolveLink('/guide/resource-links', 'index')}
+Resource links (MCP 2025-11-25, Tools > Resource Links): when a tool's result links to a resource, the model reads it and sees it, text as text and images as images. Claude Code does this itself, so nothing is installed there. In Codex, \`mcp-resource-links\` reads links through Codex, returns images as images, and asks you before reading a link from another server. It isn't in the marketplace yet, so it can't be installed with \`codex plugin add\`. Pi and OpenCode weren't measured. The Resource links guide: ${resolveLink('/guide/resource-links', 'index')}
 
 ## Beyond MCP
 

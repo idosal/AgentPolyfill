@@ -44,15 +44,19 @@ plugin's tool says otherwise.
 
 ## Install
 
-```bash
-codex plugin marketplace add idosal/AgentPolyfill
-```
+### Not installable yet
 
-```bash
-codex plugin add mcp-resource-links@agent-polyfill
-```
+`mcp-resource-links` isn't listed in this repository's Codex marketplace
+(`.agents/plugins/marketplace.json`) yet, so `codex plugin add` can't install
+it from there. It's built, tested and reviewed; listing it is a separate
+decision. For testing, [`live/take-proof.sh`](live/take-proof.sh) installs it
+from a throwaway marketplace that holds a copy of [`mod/`](mod/), in a
+throwaway Codex home. The rest of this section describes the plugin once
+it's installed that way.
 
-Then start Codex. Codex says **Hooks need review**: the plugin brings one
+### Once it's installed
+
+Start Codex. Codex says **Hooks need review**: the plugin brings one
 hook, which notes the links tools return. Choose **Review hooks**, select the
 `PostToolUse` hook from `mcp-resource-links`, and press `t` to trust it. You
 can do it later in `/hooks`. Until you trust it, the plugin can't see links,
@@ -66,13 +70,9 @@ You need:
 
 There's nothing to configure per server.
 
-To run it from a clone of this repository instead, add the clone as a
-marketplace (`codex plugin marketplace add <clone>`). It also works without
-installing from a marketplace: the recorded run below installs it from a
-copy of [`mod/`](mod/).
-
-This sequence, then a removal, was run on Codex 0.172.0 in a throwaway Codex
-home: [`live/runs/install/install.txt`](live/runs/install/install.txt). The
+An install from a throwaway marketplace, then a removal, was run on Codex
+0.172.0 in a throwaway Codex home:
+[`live/runs/install/install.txt`](live/runs/install/install.txt). The
 hook review is in the [recorded session](#a-recorded-session). Installing
 needs no sign-in. Using the plugin needs Codex signed in, as Codex itself
 does.
@@ -80,10 +80,11 @@ does.
 ### Uninstall
 
 ```bash
-codex plugin remove mcp-resource-links@agent-polyfill
+codex plugin remove mcp-resource-links@<marketplace>
 ```
 
-That removes the plugin and its entry in `config.toml`. To stop using it for
+`<marketplace>` is the name of the marketplace you installed it from. That
+removes the plugin and its entry in `config.toml`. To stop using it for
 a while instead, set `MCP_RESOURCE_LINKS_DISABLED=1` (see [Settings](#settings)).
 
 ### What it leaves behind

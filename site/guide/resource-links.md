@@ -36,17 +36,21 @@ Pi and OpenCode weren't measured.
 Nothing to install: Claude Code handles resource links itself.
 ```
 
-```bash [Codex]
-codex plugin marketplace add idosal/AgentPolyfill
-codex plugin add mcp-resource-links@agent-polyfill
+```txt [Codex]
+Not installable yet: mcp-resource-links isn't in the marketplace.
 ```
 
 :::
 
 ### In Codex
 
-Codex 0.172.0 or newer, and Node 20 or newer on your `PATH`. The next time
-Codex starts, it says **Hooks need review**: the plugin brings one hook,
+`mcp-resource-links` is built, tested and reviewed, but it isn't listed in
+this repository's Codex marketplace yet, so `codex plugin add` can't install
+it. For testing, its
+[`take-proof.sh`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/resource-links/codex/live/take-proof.sh)
+installs it from a throwaway marketplace in a throwaway Codex home. Once
+installed, it needs Codex 0.172.0 or newer, and Node 20 or newer on your
+`PATH`. The next time Codex starts, it says **Hooks need review**: the plugin brings one hook,
 which notes the links tools return. Choose **Review hooks**, select the
 `PostToolUse` hook from `mcp-resource-links`, and press `t` to trust it, or
 do it later in `/hooks`. Until you do, the plugin can't see links, and its
@@ -55,7 +59,7 @@ tool says so.
 To remove it:
 
 ```bash
-codex plugin remove mcp-resource-links@agent-polyfill
+codex plugin remove mcp-resource-links@<marketplace>
 ```
 
 That leaves `$CODEX_HOME/mcp-resource-links/` (`~/.codex/mcp-resource-links/`):

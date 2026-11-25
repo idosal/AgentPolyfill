@@ -3,7 +3,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -42,4 +42,29 @@ test('the hook is one PostToolUse command for MCP tools, running the bundled hoo
     assert.equal(entry.hooks.length, 1);
     assert.equal(entry.hooks[0].type, 'command');
     assert.equal(entry.hooks[0].command, 'node "$PLUGIN_ROOT/dist/hook.js"');
+});
+
+// Every `codex plugin add <name>@agent-polyfill` the repository's docs give must name a
+// plugin its Codex marketplace lists, or a reader's install fails. Runs and recordings
+// (runs/ folders) are left out: they show what was run, not what to run.
+test("every documented `codex plugin add <name>@agent-polyfill` names a plugin in the Codex marketplace", () => {
+    const repo = join(root, '..', '..', '..');
+    const listed = new Set((JSON.parse(readFileSync(join(repo, '.agents', 'plugins', 'marketplace.json'), 'utf8')) as { plugins: { name: string }[] }).plugins.map((p) => p.name));
+    const docs = (dir: string): string[] =>
+        readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+            const p = join(dir, e.name);
+            if (e.isDirectory()) return ['node_modules', 'runs', '.git', 'dist', '.vitepress'].includes(e.name) ? [] : docs(p);
+            return /\.(md|mjs)$/.test(e.name) ? [p] : [];
+        });
+    const files = [join(repo, 'README.md'), ...docs(join(repo, 'site', 'guide')), join(repo, 'site', 'scripts', 'agents.mjs'), ...docs(join(repo, 'polyfills'))];
+    const missing: string[] = [];
+    let seen = 0;
+    for (const f of files) {
+        for (const m of readFileSync(f, 'utf8').matchAll(/codex plugin add ([a-z0-9-]+)@agent-polyfill/g)) {
+            seen++;
+            if (!listed.has(m[1]!)) missing.push(`${f.slice(repo.length + 1)}: ${m[1]}`);
+        }
+    }
+    assert.ok(seen > 0, 'no install lines found: the scan is looking in the wrong place');
+    assert.deepEqual(missing, []);
 });

@@ -56,11 +56,11 @@ codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add mcp-events@agent-polyfill
 codex plugin add mcp-skills@agent-polyfill
 codex plugin add mcp-server-cards@agent-polyfill
-codex plugin add mcp-resource-links@agent-polyfill
 ```
 
-`mcp-resource-links` brings a hook: the next time Codex starts it says
-**Hooks need review**, and the plugin works once you trust its hook.
+Resource links for Codex (`mcp-resource-links`) is built, but it isn't in
+the marketplace yet, so it can't be installed with `codex plugin add`
+([why, and how it was tested](polyfills/resource-links/codex/README.md#not-installable-yet)).
 
 Beyond MCP, ARD (a draft; every search asks you first and goes to a registry
 you choose):
@@ -674,8 +674,8 @@ you can disable or uninstall separately. Start a new `claude` session for
 plugins to load.
 
 **Codex.** With the marketplace added, `codex plugin add <name>@agent-polyfill`
-installs one (`mcp-events`, `mcp-skills`, `mcp-server-cards`,
-`mcp-resource-links` or `ard-discovery`), and
+installs one (`mcp-events`, `mcp-skills`, `mcp-server-cards` or
+`ard-discovery`), and
 `codex plugin remove <name>@agent-polyfill` removes it.
 Codex has no bundle.
 

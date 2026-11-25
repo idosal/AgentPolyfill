@@ -74,12 +74,11 @@ codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add mcp-events@agent-polyfill
 codex plugin add mcp-skills@agent-polyfill
 codex plugin add mcp-server-cards@agent-polyfill
-codex plugin add mcp-resource-links@agent-polyfill
 ```
 
-`mcp-resource-links` brings a hook. The next time Codex starts, it says
-**Hooks need review**; trust the plugin's hook there or in `/hooks`, and the
-plugin works from then on ([Resource links](./resource-links#in-codex)).
+Resource links for Codex (`mcp-resource-links`) is built, but it isn't in
+the marketplace yet, so it can't be installed with `codex plugin add`
+([Resource links](./resource-links#in-codex)).
 
 Codex has no bundle, so add the ones you want. Apps isn't in Codex yet.
 `ard-discovery` is added by name, for the same reason as in Claude Code:
@@ -208,7 +207,7 @@ Code's own dialog. What is fetched and how it's checked is on the
 | Events | 0.170 or newer | Node 20 or newer. A watch wakes a Codex CLI session (the terminal app or `codex exec`). |
 | Skills | 0.172 (the version it was tested on) | Node 20 or newer |
 | Server Cards, ARD | 0.170 or newer | Node 20 or newer |
-| Resource links | 0.172 (the version it was tested on) | Node 20 or newer, and trusting the plugin's hook once |
+| Resource links | 0.172 (the version it was tested on); not installable yet | Node 20 or newer, and trusting the plugin's hook once |
 | Apps | not yet | |
 
 Each Codex plugin's README has the rest:
@@ -593,10 +592,7 @@ The environment variables go, for example, in the `env` block of
 `~/.claude/settings.json`.
 
 In Codex, remove the plugin: `codex plugin remove mcp-events@agent-polyfill`,
-and the same for `mcp-skills`, `mcp-server-cards`, `mcp-resource-links` and
-`ard-discovery`. `mcp-resource-links` can also be turned off with
-`MCP_RESOURCE_LINKS_DISABLED=1`; removing it leaves its notes in
-`$CODEX_HOME/mcp-resource-links/`.
+and the same for `mcp-skills`, `mcp-server-cards` and `ard-discovery`.
 
 In Pi, remove all three forms installed by the one-line command, together
 with Pi's copy of the repository:
