@@ -98,8 +98,8 @@ All of them are early. Here is what each one does, and where it stops:
   Codex CLI session (the terminal app or `codex exec`): a chat in the ChatGPT
   desktop app keeps its events but can't be woken, so ask it for
   `recent_events`. A resumed Codex session starts watching at its first Events
-  tool call. In Copilot it needs experimental mode, and VS Code's Copilot
-  harness runs a wake without showing it.
+  tool call. In Copilot it needs experimental mode. VS Code's Copilot harness
+  shows a wake as a message from the plugin, then the turn.
 - **Skills.** Skills an MCP server serves show up next to your own, load only
   after you say yes to each one, and are checked against the server's
   digests. In Codex they appear in Codex's own skill list after you ask once

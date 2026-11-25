@@ -34,7 +34,7 @@ which Copilot provides. Extensions are experimental: they load only with
 |---|---|---|---|
 | Add tools the model can call | `$.tool.register` | An MCP server in the plugin, or `dynamicTools` for an app-server client | `joinSession({ tools })`, or an MCP server in a plugin (not experimental) |
 | Draw its own UI | `ui.render` hooks | No. The desktop app shows a server's MCP App; nothing draws in the terminal. | Dialogs (`session.ui.confirm`, `select`, `input`, `elicitation`). Canvases in graphical hosts (VS Code, the Copilot app); nothing drawn inline in the terminal |
-| Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `session.send({ prompt, source: "automation-…" })`, marked as carrying no human authority. VS Code's harness runs such a turn but doesn't show it |
+| Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `session.send({ prompt, source: "automation-…" })`, marked as carrying no human authority. VS Code's harness shows such a turn only when it carries a `clientTurnId`, and then as a plain message |
 | Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives | The extension joins one session (`SESSION_ID`); a tool handler gets `sessionId` |
 | Call a server's tool over the host's connection, with its sign-in | `$.mcp.call(server, tool, args)` | `mcpServer/tool/call` | `session.rpc.mcp.callTool({ serverName, toolName, arguments })` (experimental) |
 | Ask whether the host would use a server | `$.mcp.connect(server)` | `mcpServerStatus/list` (start-up and sign-in state) | `session.rpc.mcp.listConfigured()` (enabled after trust and policy) and `list()` (status). Not how to reach it |
@@ -211,10 +211,12 @@ the live server.
   extensions (rightly), and `requestedEnvironmentVariables` asks the person,
   so a server whose header names `${GITHUB_TOKEN}` is out of reach. Change 1
   would fix this too.
-- **In VS Code's Copilot harness, show an extension's automation turns,**
-  marked as such. Today a `session.send` with an `automation-…` source runs
-  but isn't projected into the chat, so a woken session answers where nobody
-  sees it.
+- **In VS Code's Copilot harness, mark an extension's automation turns as
+  such.** A `session.send` with an `automation-…` source shows in the chat
+  only when it carries a `clientTurnId`, and then looks like a message the
+  person typed. Without the turn id it runs but isn't shown at all, so a
+  woken session answers where nobody sees it. The Events polyfill sends one
+  with every wake (seen in VS Code 1.147.0).
 - **Let an MCP server ask Copilot to reload its servers.** A server added with
   `copilot mcp add` connects only after `/mcp reload` or in the next session.
 

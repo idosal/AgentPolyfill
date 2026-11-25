@@ -207,33 +207,43 @@ a forwarder of your own (`MCP_EVENTS_PUBLIC_URL`). The plugin reads
 | The Copilot CLI TUI (`copilot --experimental`) | Yes | Yes (tested: [`docs/live-run.md`](docs/live-run.md)) |
 | `copilot -p` | Yes (your own and plugin extensions load in prompt mode) | No: the session, and the extension with it, end with the prompt |
 | `copilot --acp` (an editor driving Copilot over ACP) | No: Copilot 1.0.115 doesn't load extensions in ACP sessions | No |
-| VS Code's Copilot harness | Expected, not run live ([below](#vs-code)) | Expected to run, but VS Code shows no turn for it ([below](#vs-code)) |
+| VS Code's Copilot harness | Yes (tested in VS Code 1.147: [`docs/live-run.md`](docs/live-run.md#in-vs-code)) | Yes: the plugin's message shows in the chat, then the turn ([below](#vs-code)) |
 | The GitHub Copilot app, other SDK hosts | Only where the host turns extensions on | Not tested |
 
 It's tested live in Copilot CLI 1.0.115 on macOS, with no GitHub sign-in: a
-model on this machine stood in for Copilot's ([`docs/live-run.md`](docs/live-run.md)).
-The tests also run on Linux in CI. Windows hasn't been tried.
+model on this machine stood in for Copilot's. It's also tested in VS Code
+1.147.0's Copilot harness, signed in, with GitHub's Claude Haiku 4.5
+([`docs/live-run.md`](docs/live-run.md)). The tests also run on Linux in CI.
+Windows hasn't been tried.
 
 ### VS Code
 
-VS Code's Copilot harness runs the same runtime as Copilot CLI. From VS Code
-1.147.0's source (`src/vs/platform/agentHost`, read 25 November 2026, not run):
+VS Code's Copilot harness runs the same runtime as Copilot CLI, and this
+plugin works there. Seen in VS Code 1.147.0, signed in to GitHub
+([`docs/live-run.md`](docs/live-run.md#in-vs-code)):
 
-- **It loads Copilot CLI extensions** from the same `~/.copilot` (so a plugin
-  installed with `copilot plugin install` is seen), with experimental mode set
-  for the session, when `chat.canvases.enabled` is on (the default) and the
-  session isn't ephemeral. The setting is named after canvases, but it turns on
-  the runtime's whole extension system.
-- **A wake is likely to run unseen.** VS Code shows a turn an extension starts
-  with `session.send` only when its source is `user`, `agent-…`, or it carries
-  a `clientTurnId`. This plugin marks its wakes `automation-mcp-events`, which
-  VS Code treats as a synthetic message: the turn probably runs, but nothing
-  shows it, and its answer is dropped from the chat. Ask for `recent_events`
-  to see what came.
+- **It loads the plugin from `~/.copilot`,** as Copilot CLI installed it, when
+  `chat.canvases.enabled` is on (the default). The setting is named after
+  canvases, but it turns on the runtime's whole extension system.
+- **It asks once per chat** whether the extension may load with "skip tool
+  permission prompts, register hooks", when you send the chat's first
+  message. **Allow Once** is enough.
+- **A wake shows.** When an event arrives, the plugin's message appears in
+  the chat ("Sent by the mcp-events plugin, not typed by the user", which
+  watch, how many events, their ids), and then the turn it starts: the model
+  reads the event with `get_event` and answers. VS Code shows a turn an
+  extension starts only when it carries a `clientTurnId`, so every wake
+  carries one. Without it, VS Code runs the turn and shows none of it.
+- **A chat you open and close without a message** starts the extension, which
+  then stops. VS Code prepares a session for each new chat ahead of time, and
+  the extension's join waits for the first message. If the chat is closed
+  first, the join is refused, and the log says "Copilot did not let this
+  extension join the session".
+- **It needs a GitHub Copilot sign-in.** VS Code's harness has no offline
+  mode (from its source).
 - **A form from an extension** is shown during a turn and declined while the
-  session is idle. This plugin asks nothing through forms.
-
-A live check in VS Code needs a GitHub Copilot sign-in, and hasn't been done.
+  session is idle (from VS Code's source). This plugin asks nothing through
+  forms.
 
 ### If something doesn't work
 
@@ -339,9 +349,9 @@ The changes a host would need are in
 - **One session at a time per process.** Copilot starts one extension process
   for the session in the foreground. A session you leave by `/clear` or by
   switching sessions stops its watches until it is resumed.
-- **VS Code shows no turn for a wake** ([VS Code](#vs-code)). The change in VS
-  Code: show an extension's automation turns, marked as such, as Copilot CLI
-  does.
+- **In VS Code, a wake looks like a message in the chat** ([VS Code](#vs-code)):
+  only its first line says the plugin sent it. The change in VS Code: mark an
+  extension's automation turns as such.
 - **Events wake a session only so often.** A watch can start a wake at most
   once a minute. A session is woken at most 30 times in an hour. Then it's
   told once that events are waiting, and isn't woken again until you send a
@@ -419,7 +429,8 @@ servers that advertise events in the form from before the standard
 - [`docs/live-run.md`](docs/live-run.md): the real Copilot CLI TUI, on this
   machine with no sign-in. A watch is set through Copilot's tool prompt, an
   event is emitted while the session is idle, and the session wakes and reads
-  it.
+  it. The same in VS Code 1.147.0's Copilot harness, signed in, with GitHub's
+  Claude Haiku 4.5: the wake and its turn show in the chat.
 - **The wake model.** The hand-over and the wake limits are the Codex form's
   code, which is model-checked with TLC
   ([`../claude-code/model/README.md`](../claude-code/model/README.md#wakecodexqnt-how-often-events-wake-a-codex-session)).

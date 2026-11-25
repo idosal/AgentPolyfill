@@ -185,10 +185,11 @@ for every host.
   experimental mode for a feature that otherwise doesn't.
 - **A public name that resolves to a private address isn't caught,** because
   Node's `fetch` resolves names itself. Redirects are checked hop by hop.
-- **Not run in VS Code.** VS Code's Copilot harness should load the plugin's
-  MCP server (it shares `~/.copilot` and the plugin format), but it hasn't been
-  run there; a run needs a GitHub Copilot sign-in. VS Code's own chat (the
-  Local harness) has MCP elicitation too.
+- **In VS Code, loaded but no add run.** VS Code 1.147.0's Copilot harness
+  started the plugin's MCP server from the same `~/.copilot` (seen connected,
+  signed in to GitHub, 25 November 2026). No server was added through it
+  there, so whether VS Code shows the plugin's form is untested. VS Code's own
+  chat (the Local harness) has MCP elicitation too.
 
 ## Security
 
