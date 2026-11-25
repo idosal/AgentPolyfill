@@ -1,3 +1,7 @@
 launch/
 .DS_Store
 __pycache__/
+# Local run scripts and their records are not part of the repository.
+live/
+live-run.md
+live-test.ts

@@ -30,9 +30,9 @@ const APP = () => `<!doctype html><html><body style="margin:0;font:16px sans-ser
 <script>const s = new WebSocket(${JSON.stringify(WS)}); s.onopen = () => setTimeout(() => s.close(), 3000);</script></body></html>`;
 function mcpServer() {
   const server = new McpServer({ name: "live", version: "1.0.0" });
-  server.registerTool("feed", { description: "A live feed", inputSchema: {}, _meta: { ui: { resourceUri: "ui://live/app" } } }, async () => ({ content: [{ type: "text", text: "ok" }] }));
-  server.registerResource("app", "ui://live/app", { mimeType: "text/html;profile=mcp-app" }, async () => ({
-    contents: [{ uri: "ui://live/app", mimeType: "text/html;profile=mcp-app", text: APP(), _meta: { ui: { csp: { connectDomains: [WS] } } } }],
+  server.registerTool("feed", { description: "A live feed", inputSchema: {}, _meta: { ui: { resourceUri: "ui://feed/app" } } }, async () => ({ content: [{ type: "text", text: "ok" }] }));
+  server.registerResource("app", "ui://feed/app", { mimeType: "text/html;profile=mcp-app" }, async () => ({
+    contents: [{ uri: "ui://feed/app", mimeType: "text/html;profile=mcp-app", text: APP(), _meta: { ui: { csp: { connectDomains: [WS] } } } }],
   }));
   return server;
 }

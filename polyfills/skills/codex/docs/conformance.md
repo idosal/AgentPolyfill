@@ -36,7 +36,6 @@ not met, X8, needs a change in Codex; the row says which.
   scenarios ([output](evidence/conformance.txt)).
 - `real`: every skill and file of Hugging Face's public server
   ([output](evidence/interop-real.txt)).
-- `live`: a real Codex session ([`live/`](../live/)).
 
 The logic of the rules (entries, verification, the held entry, limits) is the
 shared core, [`../core/src/skills.ts`](../../core/src/skills.ts), which the

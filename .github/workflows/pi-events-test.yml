@@ -14,8 +14,6 @@ on:
     branches: ["**"]
     paths:
       - "polyfills/events/pi/**"
-      - "polyfills/skills/pi/live/agent-dir.ts"
-      - "polyfills/server-cards/pi/live/agent-dir.ts"
       - "polyfills/events/core/**"
       - "polyfills/events/claude-code/test/fixture-events-server.ts"
       - "tools/bundle-notices.mjs"
@@ -25,8 +23,6 @@ on:
   pull_request:
     paths:
       - "polyfills/events/pi/**"
-      - "polyfills/skills/pi/live/agent-dir.ts"
-      - "polyfills/server-cards/pi/live/agent-dir.ts"
       - "polyfills/events/core/**"
       - "polyfills/events/claude-code/test/fixture-events-server.ts"
       - "tools/bundle-notices.mjs"

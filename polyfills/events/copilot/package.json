@@ -12,7 +12,6 @@
     "typecheck": "tsc --noEmit -p .",
     "build": "node build.mjs",
     "interop": "node --no-warnings test/interop/run.ts",
-    "live": "sh test/live/run.sh",
     "conformance": "node --no-warnings test/conformance-driver.ts --suite"
   },
   "devDependencies": {
