@@ -18,17 +18,24 @@ and needs no polyfill. Details are in [Spec and conformance](#spec-and-conforman
 
 ## Install
 
+mcp-tasks isn't in the [AgentPolyfill](../../../README.md) marketplace yet. Install
+it from a clone of this repository: copy the plugin folder into a small
+marketplace of your own, then add that marketplace to Codex.
+
 ```bash
-codex plugin marketplace add idosal/AgentPolyfill && codex plugin add mcp-tasks@agent-polyfill
+git clone https://github.com/idosal/AgentPolyfill
+mkdir -p ~/mcp-tasks-marketplace/.agents/plugins
+cp -R AgentPolyfill/polyfills/tasks/codex/plugin ~/mcp-tasks-marketplace/mcp-tasks
+cat > ~/mcp-tasks-marketplace/.agents/plugins/marketplace.json <<'JSON'
+{"name": "mcp-tasks-local", "owner": {"name": "local"}, "plugins": [{"name": "mcp-tasks", "source": {"source": "local", "path": "./mcp-tasks"}, "policy": {"installation": "AVAILABLE"}, "category": "Developer Tools"}]}
+JSON
+codex plugin marketplace add ~/mcp-tasks-marketplace
+codex plugin add mcp-tasks@mcp-tasks-local
 ```
 
-The first command adds the [AgentPolyfill](../../../README.md) marketplace, and
-the second installs the plugin. Until the plugin is listed in that marketplace,
-install it from a marketplace of your own that holds a copy of
-[`plugin/`](plugin/): a folder with `.agents/plugins/marketplace.json` naming it
-(as [`live/run.sh`](live/run.sh) makes one), then
-`codex plugin marketplace add <that folder>` and
-`codex plugin add mcp-tasks@<its name>`. The install is one small folder,
+Codex says `Added marketplace mcp-tasks-local` and `Added plugin mcp-tasks`, and
+`codex mcp list` then shows `mcp-tasks`. These steps were run as written, with
+Codex 0.172.0, in a throwaway home. What is installed is one small folder,
 [`plugin/`](plugin/), of about 0.5 MB. Nothing else is downloaded.
 
 You need:
@@ -43,8 +50,9 @@ You need:
   and [mcpkit](https://github.com/panyam/mcpkit/tree/main/examples/tasks-v2) (Go,
   SEP-2663's reference). See [Which servers it works with](#which-servers-it-works-with).
 
-To remove it, run `codex plugin remove mcp-tasks@agent-polyfill`. What it kept
-is in `~/.codex/mcp-tasks/`, which you can delete.
+To remove it, run `codex plugin remove mcp-tasks@mcp-tasks-local`. What it kept
+is in `~/.codex/mcp-tasks/`, which you can delete, as you can
+`~/mcp-tasks-marketplace`.
 
 ## How it works
 
@@ -52,7 +60,7 @@ is in `~/.codex/mcp-tasks/`, which you can delete.
 
 | Step | What you see | If it is missing or declined |
 |---|---|---|
-| Install | `Added marketplace agent-polyfill`, then `Added plugin mcp-tasks`. | Nothing is installed. |
+| Install | `Added marketplace mcp-tasks-local`, then `Added plugin mcp-tasks`. | Nothing is installed. |
 | Node | Nothing. | Codex reports that the `mcp-tasks` MCP server failed to start. Nothing else changes. |
 | A server that offers Tasks | Ask Codex which of your servers can run tasks. `list_task_servers` names them with their tools, and names every other server with the reason it was left alone. | It says none offers the extension. Your servers work in Codex as before. |
 | Codex wants a long tool | First Codex's own approval for the plugin's `start_task` tool, showing the server, the tool and the arguments. Then the plugin's question, in Codex's form: `Start a task on the MCP server "<server>"?`, with the tool, every argument, and "Start it" or "Do not start it". | "Do not start it", closing the form, or Codex declining for you (`codex exec`, the approval policy `never`): nothing is sent to the server. |
