@@ -4,7 +4,7 @@
 #   input_required, stand-down, the client rules one by one, over stdio and HTTP, the committed
 #   bundle and its notices), with a typecheck, on Linux and macOS;
 # - the interop run against FastMCP with fastmcp-tasks (SEP-2663), a server whose Tasks side
-#   someone else wrote;
+#   someone else wrote, installed from a lock file with every hash;
 # - the bundled helper started on Node 20, the oldest it supports;
 # - Codex itself installing the plugin into a throwaway CODEX_HOME and seeing its MCP server.
 
@@ -35,8 +35,8 @@ concurrency:
 env:
   # The Codex release the plugin was tested live with.
   CODEX_VERSION: 0.172.0
-  # The interop server's versions (polyfills/tasks/codex/docs/interop.md).
-  FASTMCP_VERSION: 4.2.6
+  # Node 20's tarball, checked against the hash nodejs.org publishes for it (SHASUMS256.txt).
+  NODE20_SHA256: 4543670b589593f8fa5f106111fd5139081da42bb165a9239f05195e405f240a
 
 defaults:
   run:
@@ -76,10 +76,10 @@ jobs:
       - run: npm ci
         working-directory: polyfills/tasks/core
       - run: npm ci
-      - name: FastMCP with fastmcp-tasks, in a venv of its own
+      - name: FastMCP with fastmcp-tasks, in a venv of its own, every package pinned with its hash
         run: |
           python3 -m venv "$RUNNER_TEMP/fastmcp"
-          "$RUNNER_TEMP/fastmcp/bin/pip" install --quiet "fastmcp[tasks]==$FASTMCP_VERSION" "fastmcp-tasks==$FASTMCP_VERSION"
+          "$RUNNER_TEMP/fastmcp/bin/pip" install --quiet --require-hashes -r test/interop/requirements.txt
       - run: npm run interop
         env:
           MCP_TASKS_INTEROP_PYTHON: ${{ runner.temp }}/fastmcp/bin/python
@@ -90,16 +90,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - name: Start plugin/dist/helper.js on Node 20 and list its tools
+      - name: Start plugin/dist/helper.js on Node 20, list its tools and call one
         run: |
-          curl -fsSL https://nodejs.org/dist/v20.18.0/node-v20.18.0-linux-x64.tar.xz | tar -xJ -C "$RUNNER_TEMP"
-          printf '%s\n' \
-            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{"elicitation":{}},"clientInfo":{"name":"ci","version":"0"}}}' \
-            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+          curl -fsSL -o "$RUNNER_TEMP/node20.tar.xz" https://nodejs.org/dist/v20.18.0/node-v20.18.0-linux-x64.tar.xz
+          echo "$NODE20_SHA256  $RUNNER_TEMP/node20.tar.xz" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/node20.tar.xz" -C "$RUNNER_TEMP"
+          mkdir -p "$RUNNER_TEMP/codex-home"
+          { printf '%s\n' \
+              '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{"elicitation":{}},"clientInfo":{"name":"ci","version":"0"}}}' \
+              '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+              '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_task_servers","arguments":{},"_meta":{"threadId":"01a21395-0000-4000-8000-000000000000"}}}'
+            sleep 5; } \
             | CODEX_HOME="$RUNNER_TEMP/codex-home" MCP_TASKS_STATE="$RUNNER_TEMP/state" "$RUNNER_TEMP/node-v20.18.0-linux-x64/bin/node" plugin/dist/helper.js > "$RUNNER_TEMP/out.jsonl"
           cat "$RUNNER_TEMP/out.jsonl"
           grep -q '"protocolVersion":"2025-06-18"' "$RUNNER_TEMP/out.jsonl"
           grep -q '"name":"start_task"' "$RUNNER_TEMP/out.jsonl"
+          grep -q 'None of your MCP servers offers the Tasks extension' "$RUNNER_TEMP/out.jsonl"
 
   codex:
     name: codex plugin add, from a marketplace holding this folder
@@ -110,6 +116,8 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
+      # Codex at the tested version. npm installs it with no lockfile of ours: its own dependencies
+      # are whatever that release names.
       - name: Codex
         run: npm install -g --no-audit --no-fund "@openai/codex@$CODEX_VERSION"
       - name: Install the plugin into a throwaway CODEX_HOME, and see its server

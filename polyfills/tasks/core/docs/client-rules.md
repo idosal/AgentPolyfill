@@ -1,7 +1,7 @@
 # What the Tasks extension asks of a client
 
 Every MUST, SHOULD and MAY that the Tasks extension puts on a client, with an id of
-our own for each. Sources, read on 25 November 2026:
+our own for each: 22 ids, C0, C0b, C0c and C1 to C19. Sources, read on 25 November 2026:
 
 - **Spec:** the ext-tasks specification at revision 2026-07-28,
   [`specification/2026-07-28/tasks.md`](https://github.com/modelcontextprotocol/ext-tasks/blob/cc9aaac1047a9440b07486e38f37060bbebeef4c/specification/2026-07-28/tasks.md)
@@ -18,7 +18,7 @@ the words.
 |---|---|---|---|
 | C0 | MUST (derived) | Declare `io.modelcontextprotocol/tasks` in the request's own capabilities, `params._meta["io.modelcontextprotocol/clientCapabilities"].extensions`, on each request that may be answered with a task. Servers MUST NOT return a task to a request without it, "regardless of prior declarations". | Spec, Capability Negotiation |
 | C0b | MUST (derived) | Declare it on `tasks/get`, `tasks/update` and `tasks/cancel` too: servers MUST answer -32021 to a client that doesn't. | Spec, Protocol Errors |
-| C0c | MUST (derived) | Use the extension only on protocol revision 2026-07-28 or later. On 2025-11-25 the extension isn't defined, and servers MUST NOT treat the declaration as enabling tasks. | SEP, Backward Compatibility |
+| C0c | MUST (derived) | Use the extension only on protocol revision 2026-07-28 or later: the revision this specification is written for and links to throughout. On 2025-11-25 the extension isn't defined, and servers MUST NOT treat the declaration as enabling tasks. (The SEP's Backward Compatibility table, written before the revision was named, calls the canonical case `2026-06-30`.) | Spec (its revision and links); SEP, Backward Compatibility |
 | C1 | MUST | A client that has negotiated the extension handles either a `CallToolResult` or a `CreateTaskResult` in answer to any supported request it sends (today only `tools/call`). Repeated in the SEP's Backward Compatibility section. | Spec and SEP, Capability Negotiation |
 | C2 | MUST | A `CreateTaskResult` in answer to a request type that isn't supported is an invalid response to that request. | Spec, Capability Negotiation |
 | C3 | SHOULD | Implementations are designed to accommodate other request types in future revisions. | Spec, Supported Methods |
@@ -36,6 +36,8 @@ the words.
 | C15 | MAY | Delete everything about a task once `tasks/cancel` is sent; there is no need to poll for the `cancelled` status. | Spec, Task Cancellation |
 | C16 | MUST | Over Streamable HTTP, set `Mcp-Name` to `params.taskId` on `tasks/get`, `tasks/update` and `tasks/cancel`, and `Mcp-Method` to the method, as the transport's header conventions say. | Spec, Streamable HTTP: Routing Headers |
 | C17 | MAY | Subscribe to `notifications/tasks` with `subscriptions/listen` (`notifications.taskIds`), declaring the extension. A client may keep polling as well. | Spec, Task Status Notifications |
+| C18 | MAY | Show a task's `statusMessage` to the end user or the model. | Spec, `Task` (the field's comment) |
+| C19 | MAY | Expose the task's lifecycle to whoever uses the client, rather than only the final result: "New implementation surfaces can then expose the task lifecycle directly". | Spec, Implementation Considerations |
 
 What a client reads off the server's answers, which the texts put as server MUSTs and
 which this client checks so that it can refuse an answer outside them (contract rule 1):

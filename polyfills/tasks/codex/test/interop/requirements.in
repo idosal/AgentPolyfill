@@ -1,0 +1,3 @@
+# What the interop server needs (requirements.txt is this, resolved and hashed).
+fastmcp[tasks]==4.2.6
+fastmcp-tasks==4.2.6

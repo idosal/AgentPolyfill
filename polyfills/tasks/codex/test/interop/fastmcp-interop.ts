@@ -7,7 +7,7 @@
 // the versions below). Python runs isolated (-I), with an allowlisted environment and a throwaway HOME.
 
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
@@ -50,6 +50,36 @@ async function codex() {
     c.respond = choose('start');
     return { w, c, thread: newThread() };
 }
+
+const post = (method: string, params: Record<string, unknown>, headers: Record<string, string> = {}, declare = true) =>
+    fetch(URL_, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-protocol-version': '2026-07-28', 'mcp-method': method, ...headers },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params: { ...params, _meta: { 'io.modelcontextprotocol/protocolVersion': '2026-07-28', 'io.modelcontextprotocol/clientInfo': { name: 'x', version: '0' }, 'io.modelcontextprotocol/clientCapabilities': declare ? { extensions: { 'io.modelcontextprotocol/tasks': {} } } : {} } } })
+    }).then(async (r) => ({ status: r.status, body: (await r.text()) as string }));
+
+test('the Python packages are the versions tested', () => {
+    const out = execFileSync(PYTHON!, ['-I', '-c', 'import importlib.metadata as m; print(m.version("fastmcp"), m.version("fastmcp-tasks"))'], { env: { HOME: temp(), PATH: join(PYTHON!, '..') } }).toString().trim();
+    assert.equal(out, `${VERSIONS.fastmcp} ${VERSIONS['fastmcp-tasks']}`);
+});
+
+test('FastMCP gives no task to a client that doesn\'t declare the extension (C0)', async () => {
+    const r = await post('tools/call', { name: 'slow_add', arguments: { a: 1, b: 2, seconds: 0 } }, { 'mcp-name': 'slow_add' }, false);
+    assert.match(r.body, /"resultType":"complete"/);
+    assert.match(r.body, /1 \+ 2 = 3/);
+    assert.doesNotMatch(r.body, /"resultType":"task"/);
+});
+
+test('FastMCP refuses tasks/get with an Mcp-Name that isn\'t the task\'s (C16 checked by the server)', async () => {
+    const created = await post('tools/call', { name: 'long_job', arguments: { seconds: 30 } }, { 'mcp-name': 'long_job' });
+    const taskId = (JSON.parse(created.body) as { result: { taskId: string } }).result.taskId;
+    const good = await post('tasks/get', { taskId }, { 'mcp-name': taskId });
+    assert.match(good.body, /"status":"working"/);
+    const bad = await post('tasks/get', { taskId }, { 'mcp-name': 'not-the-task' });
+    assert.doesNotMatch(bad.body, /"status":"working"/);
+    assert.ok(bad.status >= 400 || /"error"/.test(bad.body), bad.body);
+    await post('tasks/cancel', { taskId }, { 'mcp-name': taskId });
+});
 
 test('FastMCP advertises the extension on 2026-07-28, and the versions are the ones tested', async () => {
     const conn = new TasksConnection('fm', { url: URL_ }, { name: 'interop', version: '0' });
