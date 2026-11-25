@@ -5,7 +5,7 @@
 
 import { strict as assert } from 'node:assert';
 import { after, test } from 'node:test';
-import { cleanup, started, newThread, sleep, startServer, stopWatcher, untilActive, waitFor, watcherLog, world, type World } from './harness.ts';
+import { teardown, newThread, sleep, startServer, stopWatcher, untilActive, waitFor, watcherLog, world, type World } from './harness.ts';
 
 const worlds: World[] = [];
 const make = (env: Record<string, string> = {}) => {
@@ -13,11 +13,7 @@ const make = (env: Record<string, string> = {}) => {
     worlds.push(w);
     return w;
 };
-after(async () => {
-    for (const s of started) if (s.child.exitCode === null) s.child.kill('SIGKILL');
-    for (const w of worlds) await stopWatcher(w);
-    cleanup();
-});
+after(() => teardown(worlds));
 
 test('a client MUST NOT send events/* to a server that has not declared the extension (with the pre-standard form turned off)', async () => {
     const w = make({ FIXTURE_CAPS: 'toplevel' });
