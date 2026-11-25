@@ -13,9 +13,10 @@ host are welcome.
 
 ## Adding a polyfill
 
-A polyfill implements the client side of one published MCP extension inside
-one host that hasn't shipped it, and does nothing once the host supports the
-extension itself. Each one is a folder in this repository.
+A polyfill implements the client side of one published extension inside one
+host that hasn't shipped it, and does nothing once the host supports the
+extension itself. The extension is an MCP extension, or a spec for agents
+published outside MCP, such as ARD. Each one is a folder in this repository.
 
 ### 1. Meet the contract
 
@@ -260,8 +261,10 @@ checks that:
 Plugins listed in the marketplaces are included in those checks
 automatically. Pi forms need their own workflow; see
 [`pi-events-test.yml`](.github/workflows/pi-events-test.yml) and
-[`pi-skills-test.yml`](.github/workflows/pi-skills-test.yml). The Muse Code
-forms' tests are part of each Codex form's suite, so its workflow runs them.
+[`pi-skills-test.yml`](.github/workflows/pi-skills-test.yml). Muse Code forms
+need their own workflow too, `muse-<extension>-test.yml`; see
+[`muse-events-test.yml`](.github/workflows/muse-events-test.yml). It also runs
+when a Codex file the form reuses changes.
 
 OpenCode forms need their own workflow too, `opencode-<extension>-test.yml`;
 copy [`opencode-events-test.yml`](.github/workflows/opencode-events-test.yml).
@@ -311,7 +314,8 @@ adapter beside the others. Events and Skills are the examples
 ([`polyfills/events`](polyfills/events), [`polyfills/skills`](polyfills/skills)):
 one `core/` with these forms:
 
-- `claude-code/`: a Claude Code mod.
+- `claude-code/`: a Claude Code mod (Events has one; Skills doesn't, because
+  Claude Code lists served skills itself).
 - `codex/`: a Codex plugin.
 - `pi/`: a Pi extension, listed in the root `pi.extensions` for the Git
   install, or installed on its own from `pi/extension/` in a clone.

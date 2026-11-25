@@ -6,10 +6,11 @@ where that is tested.
 
 **The source** is SEP-2640, status Final:
 [`seps/2640-skills-extension.md`](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md)
-at commit `2eb3a8e` (12 November 2026), the same revision the Claude Code and
-Codex forms implement ([Claude Code's table](../../claude-code/docs/conformance.md),
-[Codex's](../../codex/docs/conformance.md)). The rule ids are the same in all
-three tables. This page describes version 0.1.0 of the Pi extension, on Pi
+at commit `2eb3a8e` (12 November 2026), the same revision the Codex and
+OpenCode forms implement ([Codex's table](../../codex/docs/conformance.md),
+[OpenCode's](../../opencode/docs/conformance.md)). The rule ids are the same
+in all three tables; the ids, and each rule's text in full, are in
+[the shared rule list](../../core/docs/sep-2640-client-rules.md). This page describes version 0.1.0 of the Pi extension, on Pi
 1.6.0.
 
 **Status** is one of: **met**; **exception** (met, with a limit stated in the
@@ -44,7 +45,7 @@ in the row.
 
 The logic of the rules (entries, verification, the held entry, limits) is the
 shared core, [`../core/src/skills.ts`](../../core/src/skills.ts), which the
-other forms' tests also check rule by rule. The rows below say what the Pi
+Codex form's tests also check rule by rule. The rows below say what the Pi
 extension adds.
 
 ## Capability negotiation and the wire

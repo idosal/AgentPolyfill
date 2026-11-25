@@ -1,7 +1,7 @@
 # Security
 
 This covers `mcp-skills` for Codex. The other forms have their own:
-[Claude Code](../claude-code/SECURITY.md), [Pi](../pi/SECURITY.md), [OpenCode](../opencode/SECURITY.md).
+[Pi](../pi/SECURITY.md), [OpenCode](../opencode/SECURITY.md).
 
 The plugin puts text from MCP servers in front of a model that can run
 commands on your machine. The Skills extension (SEP-2640) says how a client
@@ -139,8 +139,7 @@ instance without Node).
   A URI is ASCII by RFC 3986: every other character is percent-encoded. Such
   an entry is refused, and its URI isn't repeated even in the note that says
   so. Control, direction and zero-width characters are refused from 0.1.1, and
-  everything but printable ASCII from 0.1.2. The same rule holds in the Claude
-  Code form from 0.3.3 and 0.3.4.
+  everything but printable ASCII from 0.1.2.
 
 ### The preview you can read before deciding
 

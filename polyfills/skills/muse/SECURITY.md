@@ -9,11 +9,11 @@ says.
 
 ## The boundary
 
-**Plainly:** Muse offers plugins no approval dialog. Where Claude Code, Codex,
-Pi and OpenCode, in a mode that asks, show you a prompt the host draws itself,
-which the model can't answer (with approvals off in Claude Code or Codex, a
-watch isn't asked), here consent is a phrase you type, checked by the plugin's
-`UserPromptSubmit` hook. That holds because Muse ran the hook for the messages
+**Plainly:** Muse offers plugins no approval dialog. Where this polyfill's
+forms for Codex, Pi and OpenCode, in a mode that asks, show you a prompt the
+host draws itself, which the model can't answer (and where Codex can't ask, a
+skill you haven't approved isn't loaded), here consent is a phrase you type,
+checked by the plugin's `UserPromptSubmit` hook. That holds because Muse ran the hook for the messages
 you typed, and none of the ways a model can put text into a session (scheduled
 prompts, monitors, subagents, other sessions, goals, workflows) ran it when
 each was

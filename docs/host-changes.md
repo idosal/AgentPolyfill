@@ -51,7 +51,7 @@ two experimental launch gates).
 | Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `pi.sendMessage(…, { triggerTurn: true })`, shown as the extension's own message | `ctx.session.synthetic` with `resume: true`, stored as synthetic rather than the user's | `t3 thread send <thread> -`, on the machine it runs on, with no sign-in. `codex queue` reaches T3 Code's app server, but the thread doesn't show the turn. | Only behind two experimental launch gates: `muse attach --stdio`, then `session/resume` and `turn/start`. By default, no. |
 | Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives | The extension runs in that session (`ctx.sessionManager.getSessionId()`) | The tool executor's `sessionID` | `T3CODE_THREAD_ID` in the environment of Codex's stdio MCP servers (not documented); not set for Claude Code's | `MUSE_SESSION_ID` in each stdio server's environment; `session_id` in a hook's input. A `tools/call` carries none. |
 | Know the person wrote | The `prompt.submit` hook | `turn_trigger` in the turn metadata of a tool call | The `input` event, with its source | `ctx.session.hook('prompt')`, which a synthetic message doesn't run | No: Codex's turn metadata has no `turn_trigger` there | The `UserPromptSubmit` hook: it ran for the person's messages, and for none of the ways a model can put text into a session that were checked |
-| Add skills | The Skills mod lists served skills in Claude's skill listing ([Skills form](../polyfills/skills/claude-code/README.md)) | A plugin's skills folder, read when the plugin loads; `~/.agents/skills` | `resources_discover` returns skill folders, read at start and at `/reload` | `ctx.skill.transform`, with no file, but with the skill's text given when it is listed | Through the agent; it lists the agent's skills in its composer | A plugin's skills; `~/.config/muse/skills/<folder>/SKILL.md` and `~/.agents/skills/<folder>/SKILL.md`, one folder down only |
+| Add skills | A mod can add to the text of the session's skill listing (`prompt.attachment`), as the Skills mod did before it was removed. From 2.1.332 Claude Code lists skills from MCP servers itself, in beta ([changelog](https://code.claude.com/docs/en/changelog)). | A plugin's skills folder, read when the plugin loads; `~/.agents/skills` | `resources_discover` returns skill folders, read at start and at `/reload` | `ctx.skill.transform`, with no file, but with the skill's text given when it is listed | Through the agent; it lists the agent's skills in its composer | A plugin's skills; `~/.config/muse/skills/<folder>/SKILL.md` and `~/.agents/skills/<folder>/SKILL.md`, one folder down only |
 | Gate a tool call | Permission hooks that allow, deny or ask | Hooks that can deny, not ask | `tool_call` handlers that can block, and ask with `ctx.ui`, for the model's calls and codemode's nested calls | `ctx.tool.hook('execute.before')`, which can refuse a call or put it to the permission rules first, for the model's calls and Code Mode's | Through the agent | `PreToolUse` hooks that can deny; their `ask` goes to the approval judge |
 | Add a server | `claude mcp add` | `codex mcp add` | `pi mcp add` (saved), `pi.registerMcpServer` (this session, connected at once) | `ctx.mcp.transform` (in memory; a plugin keeps what it added and adds it again on each load) | Through the agent (`codex mcp add`, `claude mcp add`), then **Restart agent session** | `muse mcp add`, `muse mcp add-json` |
 | Call a server's tool over the host's connection, with its sign-in | `$.mcp.call(server, tool, args)` | `mcpServer/tool/call` | Indirectly: an MCP tool is a Pi tool (`mcp__<server>__<tool>`), callable with `ctx.executeTool` | No | Only through the agent (a Claude Code mod's `$.mcp.call`) | No |
@@ -99,8 +99,9 @@ headers for the method, or takes them from the caller.
   for itself. It could be `ctx.mcp.request({ server, method, params })` beside
   `ctx.mcp.list`, on the connection OpenCode holds, with its sign-in.
 
-This change alone brings servers behind OAuth to Events and Skills in Claude
-Code, Codex and OpenCode, and to Skills in Pi, and removes their second connection.
+This change alone brings servers behind OAuth to Events in Claude Code, to
+Events and Skills in Codex and OpenCode, and to Skills in Pi, and removes
+their second connection.
 Events in Pi also needs Pi's client to speak protocol revision 2026-07-28,
 which SEP-3415 is defined for ([In Pi](#in-pi)).
 
@@ -166,11 +167,10 @@ do.
 | 4. Raw results, declaring an extension | not needed (declaring is optional) | not needed | both | not needed |
 
 Changes 1 and 2 are enough for Events (by poll and webhook) and for Skills to
-work with every server you've signed in to, in Claude Code, Codex and
-OpenCode. In Pi
-they're enough for Skills; Events also needs Pi's client to speak 2026-07-28.
-In Muse Code, Events and Skills need them too, and a way to ask the person
-(see [In Muse Code](#in-muse-code)).
+work with every server you've signed in to: Events in Claude Code, and both
+in Codex and OpenCode. In Pi they're enough for Skills; Events also needs
+Pi's client to speak 2026-07-28. In Muse Code, Events and Skills need them
+too, and a way to ask the person (see [In Muse Code](#in-muse-code)).
 
 Server Cards doesn't need any of the four to work. A card is a public document
 you read before connecting, and the server it describes is added to the host's

@@ -36,7 +36,10 @@ OpenCode's automations also take, a stated departure from rule 4. The full
 text is in
 [`docs/polyfill-contract.md`](https://github.com/idosal/AgentPolyfill/blob/main/docs/polyfill-contract.md).
 
-1. **One published extension, client side, and nothing else.** It adds no
+1. **One published extension, client side, and nothing else.** The extension
+   is an MCP extension (a SEP, or an extension repository under
+   `modelcontextprotocol`), or a spec for agents published outside MCP, such
+   as ARD, labelled as that wherever it is listed. It adds no
    methods, fields, capabilities or policy of its own. One exception is allowed:
    an earlier form of the same extension that servers in real use still speak,
    mapped onto the spec's behaviour, with one setting that turns it off, and
@@ -142,7 +145,8 @@ for each host, which wires that core into what the host lets third-party code
 do. Events and Skills are built that way, with one `core/` and an adapter
 for each host:
 
-- **Claude Code:** a mod in `claude-code/`.
+- **Claude Code:** a mod in `claude-code/` (Events has one; Skills doesn't,
+  because Claude Code lists served skills itself).
 - **Codex:** a plugin in `codex/`.
 - **Pi:** an extension in `pi/`, with a manifest and bundled file in
   `extension/`. `pi install git:github.com/idosal/AgentPolyfill` installs

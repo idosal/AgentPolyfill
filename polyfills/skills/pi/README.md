@@ -5,7 +5,7 @@ show up in Pi's skill list next to your own, Pi loads one when a task calls
 for it, and it reads the files the skill refers to as it needs them. You
 approve each skill once.
 
-Also available for Claude Code, Codex and OpenCode: [mcp-skills for Claude Code](../claude-code/README.md), [mcp-skills for Codex](../codex/README.md), [mcp-skills for OpenCode](../opencode/README.md).
+Also available for Codex and OpenCode: [mcp-skills for Codex](../codex/README.md), [mcp-skills for OpenCode](../opencode/README.md). Claude Code needs no polyfill for this: it lists skills from MCP servers itself, in beta from 2.1.332 ([changelog](https://code.claude.com/docs/en/changelog)).
 
 It implements the client side of the MCP Skills extension
 ([SEP-2640](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md),
@@ -290,8 +290,7 @@ extension's App ([output](docs/evidence/conformance.txt)). On Pi:
 From this folder (`polyfills/skills/pi` in the repository):
 
 ```bash
-(cd ../core && npm ci)         # the shared Skills client
-(cd ../claude-code && npm ci)  # the test fixtures the tests reuse
+(cd ../core && npm ci)         # the shared Skills client; the tests use its fixtures (../core/test-fixtures)
 npm ci                         # Pi 1.6.0 itself is a devDependency: the tests run it
 npm test
 npm run typecheck

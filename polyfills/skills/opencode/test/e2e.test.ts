@@ -14,7 +14,7 @@ import { freePort, waitFor, World, type Rule } from '../../../../tools/opencode/
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PLUGIN = join(ROOT, 'plugin');
-const FIXTURE = join(ROOT, '..', 'claude-code', 'test', 'fixture-skills-server.ts');
+const FIXTURE = join(ROOT, '..', 'core', 'test-fixtures', 'fixture-skills-server.ts');
 const ASK: Rule[] = [
     { action: 'mcp_skills_load', resource: '*', effect: 'ask' },
     { action: 'mcp_skills_cross_server', resource: '*', effect: 'ask' }

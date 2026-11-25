@@ -27,7 +27,8 @@ registry: name one in the request, or set `ARD_DISCOVERY_REGISTRY`. With
 neither, a search is refused and nothing is sent. Discovery by domain sends
 nothing but plain `GET`s to that domain.
 
-ARD is a draft (v0.91), not an MCP specification.
+ARD is a draft (v0.91) published by the ards-project on GitHub, not an MCP
+specification.
 
 ## Install
 

@@ -1,7 +1,7 @@
 # The Skills polyfill for Codex (polyfills/skills/codex, plugin mcp-skills), on
-# any change in its folder, in the core it shares with the Claude Code adapter
-# (polyfills/skills/core), in the Claude adapter's test fixtures it reuses, or in
-# the Codex marketplace file:
+# any change in its folder, in the core it shares with the other Skills forms
+# (polyfills/skills/core, which also holds the test fixtures the forms share),
+# or in the Codex marketplace file:
 # - the client rules, the stubs, the config reader and the bundled plugin server
 #   (and that it is what src/ builds), with a typecheck, on Linux, macOS and Windows;
 # - the plugin's manifests are valid JSON, and the Codex marketplace lists it.
@@ -14,8 +14,6 @@ on:
     paths:
       - "polyfills/skills/codex/**"
       - "polyfills/skills/core/**"
-      - "polyfills/skills/claude-code/test/harness.ts"
-      - "polyfills/skills/claude-code/test/fixture-skills-server.ts"
       - "tools/bundle-notices.mjs"
       - ".agents/plugins/marketplace.json"
       - ".github/workflows/codex-skills-test.yml"
@@ -25,8 +23,6 @@ on:
     paths:
       - "polyfills/skills/codex/**"
       - "polyfills/skills/core/**"
-      - "polyfills/skills/claude-code/test/harness.ts"
-      - "polyfills/skills/claude-code/test/fixture-skills-server.ts"
       - "tools/bundle-notices.mjs"
       - ".agents/plugins/marketplace.json"
       - ".github/workflows/codex-skills-test.yml"
@@ -57,12 +53,10 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      # The Skills logic and the connection, shared with the Claude Code adapter, with their own dependencies.
+      # The Skills logic and the connection, shared with the other forms, with their own dependencies.
+      # The test fixtures (polyfills/skills/core/test-fixtures) need nothing installed.
       - run: npm ci
         working-directory: polyfills/skills/core
-      # The test fixtures this adapter reuses from the Claude Code adapter import its code.
-      - run: npm ci
-        working-directory: polyfills/skills/claude-code
       - run: npm run typecheck
       - name: Third-party notices for the bundle are up to date
         run: node ../../../tools/bundle-notices.mjs . --check
