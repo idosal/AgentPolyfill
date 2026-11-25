@@ -8,7 +8,7 @@ where that is tested.
 [`seps/2640-skills-extension.md`](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md)
 at commit `2eb3a8e` (12 November 2026), the same revision the Claude Code
 adapter implements ([its table](../../claude-code/docs/conformance.md)). The
-rule ids are the same in both tables. This page describes version 0.1.5 of the
+rule ids are the same in both tables. This page describes version 0.1.6 of the
 Codex plugin.
 
 **Status** is one of: **met**; **exception** (met, with a limit stated in the
@@ -23,6 +23,8 @@ not met, X8, needs a change in Codex; the row says which.
 - `rules`: [`test/client-rules-test.ts`](../test/client-rules-test.ts), the
   plugin's App against a hand-written server that shares no code with it
   (`npm test`).
+- `hardening`: [`test/hardening-test.ts`](../test/hardening-test.ts), what was
+  shown against what is loaded, and a server's media type (`npm test`).
 - `stubs`: [`test/stubs-test.ts`](../test/stubs-test.ts), the SKILL.md files
   Codex lists served skills by.
 - `unsafe`: [`test/unsafe-text-test.ts`](../test/unsafe-text-test.ts),
@@ -114,7 +116,7 @@ the Codex adapter adds.
 | R3 | A nested `SKILL.md` read as a file is plain text. | met | `rules` X10/R3 |
 | R4, X12 | A nested skill needs its own consent. | met | Asked about on its own, and the question says it is nested. `rules` R4/X12 |
 | X13a | Show the origin server. | met | Everywhere |
-| X13b | Let users inspect a skill before it is loaded. | met | "Show me its SKILL.md first" in the question; shown to you, not to the model. `rules` X13 |
+| X13b | Let users inspect a skill before it is loaded. | met | "Show me its SKILL.md first" in the question; shown to you, not to the model. A generated skill, which has no digests, is then loaded from that same read (from 0.1.6). `rules` X13, `hardening` |
 | X13c | MAY gate loading per skill. | met | Always |
 | X14 | A kept approval is bound to every `uri` and `digest`, revoked when they change; a `"dynamic"` skill cannot be covered. | met | Also bound to where the server is. What is loaded is the set you were asked about. `rules` X14 (two tests), `helper` |
 | X15 | A disk cache: integrity, outside every skill-discovery path, origin kept. | met | No skill content is cached on disk. The stubs, which are in a discovery path, hold the listing's name and description and the plugin's own words, and are rewritten from the server's listing at each start. `rules` X15, `stubs` |
