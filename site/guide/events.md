@@ -728,9 +728,11 @@ not been audited by a person.
 
 A watch starts only after you send its phrase yourself, so Muse's approval
 judge can't start one with nobody asked. The phrase counts only in a message
-of yours: Muse runs the plugin's hook for your messages, not for a turn Muse or a model
-starts. The context block that hands over new events says it was sent
-by the plugin, not typed by you. The experimental wake weakens this: with
+of yours: Muse ran the plugin's hook for your messages, and none of the ways a
+model can put text into a session (scheduled prompts, monitors, subagents,
+other sessions, goals, workflows) ran it when each was checked. The context
+block that hands over new events says it was sent by the plugin, not typed by
+you. The experimental wake weakens this: with
 its gates on, any local process of the same user can attach to the session,
 start turns and type the phrases.
 
