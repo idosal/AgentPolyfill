@@ -529,8 +529,8 @@ default: servers that advertise events in the form from before the standard
   (`npm run interop`).
 - [`model/`](model/README.md) is a formal model, in Quint and in TLA+, of how
   events get from a server to the session and of how often they wake it. It
-  says what the model found in 0.4.1, what TLC found in 0.5.0 (fixed in
-  0.5.1), and what it shows of this version within small, stated bounds.
+  says what holds within small, stated bounds, and which configurations must
+  find a violation.
 
 ## Development
 
