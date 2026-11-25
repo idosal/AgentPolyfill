@@ -39,7 +39,9 @@ install it by name.
 
 In Pi, name the registry or set `ARD_DISCOVERY_REGISTRY`. Every search asks
 in a Pi dialog, showing the exact query and endpoint; without a UI it is
-refused. Pi has no bundle; this extension is installed separately too.
+refused. For the same reason, ARD is left out of
+`pi install git:github.com/idosal/AgentPolyfill`, which installs Events,
+Skills and Server Cards together. Install ARD separately from a clone.
 :::
 
 It implements ARD v0.91 at commit `f073b1ea9b`: §5.1 (domain discovery), §5.3
@@ -82,10 +84,14 @@ it finds, Codex shows you a form, and the server is added only if you accept.
 ### In Pi
 
 Pi 1.6.0 (the version tested), with Node 22 or newer. Nothing for Pi is
-published to npm or Pi's package gallery; install from a clone. The extension
-is bundled, with nothing to build. For one run without installing, use
+published to npm or Pi's package gallery. ARD is installed on its own from
+a clone: `pi install git:github.com/idosal/AgentPolyfill` installs Events,
+Skills and Server Cards, leaving ARD out for the same reason as the Claude
+Code bundle. Its search sends the words of your request to a registry after
+asking each time. The extension is bundled, with nothing to build.
+For one run without installing, use
 `pi -e ./polyfills/ard/pi/extension`. Pi loads the path where it is, so keep
-the clone; `git pull` there updates it. Remove it from the same folder with
+the clone. Remove it from the same folder with
 `pi remove ./polyfills/ard/pi/extension`. Servers you added stay in
 `mcp.json`; remove one with `pi mcp remove <name>`.
 

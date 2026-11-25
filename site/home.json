@@ -80,7 +80,7 @@
   "audiences": [
     {
       "title": "If you use an agent host",
-      "text": "Install steps and a first run for each host. Pi extensions install from a repository clone; nothing for Pi is published to npm or Pi's package gallery.",
+      "text": "Install steps and a first run for each host. In Pi, `pi install git:github.com/idosal/AgentPolyfill` installs Events, Skills and Server Cards together. A clone is the alternative for one form, and the way to install ARD separately. Nothing for Pi is published to npm or Pi's package gallery.",
       "link": "/guide/getting-started",
       "linkText": "Getting started"
     },
@@ -111,7 +111,7 @@
       "line": "Finds MCP servers through a domain's ard.json, or by searching an ARD registry you choose, and hands the cards to Server Cards.",
       "cut": "ard",
       "alt": "In Claude Code, What does buildkite.com list via ARD? shows Buildkite's MCP server, listed by buildkite.com, with an Add button. Then a search of a local demo ARD registry for a server that checks CI builds: Claude Code first asks whether to send the query to that registry and up to three it refers to, and after Yes the result lists Buildkite and Netlify, each confirmed by its own domain, and says where the query went.",
-      "addStep": "Not in the bundle. Install it on its own:",
+      "addStep": "Not in the Claude Code bundle or Pi's one-line install. Install it on its own:",
       "add": "/plugin install ard-discovery --marketplace idosal/AgentPolyfill",
       "addCodex": "codex plugin marketplace add idosal/AgentPolyfill && codex plugin add ard-discovery@agent-polyfill",
       "ask": "What MCP servers does buildkite.com list through ARD?",

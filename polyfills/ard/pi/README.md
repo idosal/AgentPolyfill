@@ -22,9 +22,15 @@ ranking is relevance, not trust.
 
 ## Install
 
-Nothing is published to npm or Pi's package gallery yet, so install it from a
-clone of this repository. You need **Pi 1.6.0**, the version it was tested
-with, and **Node 22 or newer**, which Pi needs anyway:
+Install ARD on its own from a clone. It is left out of
+`pi install git:github.com/idosal/AgentPolyfill`, which installs Events,
+Skills and Server Cards together. The reason is the same as for the Claude
+Code bundle: ARD's search sends the words of your request to a registry
+after asking you each time.
+
+Nothing is published to npm or Pi's package gallery. You need **Pi 1.6.0**,
+the version it was tested with, and **Node 22 or newer**, which Pi needs
+anyway:
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git

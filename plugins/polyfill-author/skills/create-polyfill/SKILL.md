@@ -222,9 +222,26 @@ How a polyfill is built depends on what the host lets third-party code do.
   manifest and bundle in `extension/`. Read the existing Pi forms' README,
   SECURITY.md and `docs/conformance.md` before writing part 3. Events,
   Skills, Server Cards and ARD have Pi forms; Apps does not. The forms were
-  tested with Pi 1.6.0 and require Node 22 or newer. Install from a local
-  clone with `pi install ./polyfills/<polyfill>/pi/extension`; nothing for
-  Pi is published to npm or Pi's package gallery.
+  tested with Pi 1.6.0 and require Node 22 or newer. Lead install instructions
+  with `pi install git:github.com/idosal/AgentPolyfill`: Events, Skills and
+  Server Cards together, loaded from Pi's copy of the repository under
+  `~/.pi/agent/git/`. Nothing for Pi is published to npm or Pi's package
+  gallery, and nothing is built on install. List a new Pi form's
+  `./polyfills/<polyfill>/pi/extension/dist/index.js` in the root
+  `package.json`'s `pi.extensions` to include it. ARD is left out on purpose,
+  as in the Claude Code bundle: its search sends the words of your request
+  to a registry after asking each time. For ARD or any one form alone,
+  clone `https://github.com/idosal/AgentPolyfill.git`, enter `AgentPolyfill`,
+  and use `pi install ./polyfills/<polyfill>/pi/extension`; Pi loads the
+  path where it is, so keep the clone. Use one way per form: repository
+  addresses and local paths identify separate packages, so installing both
+  loads a form twice. Document `pi update --extensions` for installed
+  packages, `pi remove git:github.com/idosal/AgentPolyfill` for all three
+  and Pi's repository copy, and `pi remove ./polyfills/<polyfill>/pi/extension`
+  from the same clone for a local install. For one run without installing,
+  use `pi -e git:github.com/idosal/AgentPolyfill` or the local extension path.
+  Removal leaves `mcp-events/` and `mcp-skills/` in Pi's agent folder and
+  added servers in `mcp.json`.
 - **Another host with an in-process extension layer:** read its extension API
   for the installed version and build the route table from that. Do not assume
   it matches Claude Code's.

@@ -13,9 +13,27 @@ Details are in [Spec and conformance](#spec-and-conformance).
 
 ## Install
 
-Nothing is published to npm or Pi's package gallery yet, so install it from a
-clone of this repository. You need **Pi 1.6.0**, the version it was tested
-with, and **Node 22 or newer**, which Pi needs anyway:
+Install the Pi forms of Events, Skills and Server Cards together:
+
+```bash
+pi install git:github.com/idosal/AgentPolyfill
+```
+
+You need **Pi 1.6.0**, the version tested, and **Node 22 or newer**. Pi clones
+the repository into its agent folder (under `~/.pi/agent/git/`) and loads
+the three extensions from there. Nothing is published to npm or Pi's package
+gallery, and nothing is built.
+
+Update installed packages with `pi update --extensions`. Remove all three
+and Pi's copy of the repository with
+`pi remove git:github.com/idosal/AgentPolyfill`. For one run of all three
+without installing:
+
+```bash
+pi -e git:github.com/idosal/AgentPolyfill
+```
+
+To install only Events, use a clone:
 
 ```bash
 git clone https://github.com/idosal/AgentPolyfill.git
@@ -23,20 +41,22 @@ cd AgentPolyfill
 pi install ./polyfills/events/pi/extension
 ```
 
-Or, to try it for one run without installing:
+Pi loads the local path where it is, so keep the clone. From the same folder,
+`pi remove ./polyfills/events/pi/extension` removes that local install;
+`pi -e ./polyfills/events/pi/extension` runs it once without installing.
+Use one way per form: Pi tells packages apart by repository address or local
+path, so a form installed both ways loads twice.
 
-```bash
-pi -e ./polyfills/events/pi/extension
-```
+[ARD](../../ard/pi/README.md#install) is left out of the one-line install,
+as it is from the Claude Code bundle: its search sends the words of your
+request to a registry after asking each time. Install it separately from a
+clone.
 
-The extension is one folder, [`extension/`](extension/): a manifest and one
-bundled file, with nothing to build or install alongside it. Pi loads it from
-where it is, so keep the clone; `git pull` in it brings the next version.
-
-To remove it, run `pi remove ./polyfills/events/pi/extension` from the same
-folder. Its watches and stored events are in `mcp-events/` in Pi's agent folder
-(`~/.pi/agent`, or `PI_CODING_AGENT_DIR`); delete that folder too to remove
-them.
+Removal leaves watches and events in `mcp-events/`, and approvals and skill
+stubs in `mcp-skills/`, in Pi's agent folder (`~/.pi/agent`, or
+`PI_CODING_AGENT_DIR`); delete those folders too to remove that data.
+Servers you added stay in `mcp.json`; remove one with
+`pi mcp remove <name>`.
 
 ## Try it
 
