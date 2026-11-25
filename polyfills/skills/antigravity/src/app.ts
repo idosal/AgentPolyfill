@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { declarationOf, SkillsHost } from '../../core/src/skills.ts';
 import { Connection, fingerprintOf } from '../../core/src/wire.ts';
 import type { ServerTable } from '../../core/src/upstream.ts';
-import { describeError, LocalError } from '../../core/src/untrusted.ts';
+import { describeError, LocalError, secrets } from '../../core/src/untrusted.ts';
 import { Store } from '../../codex/src/store.ts';
 import { directoryText, fileText, loadedText } from '../../codex/src/format.ts';
 import { plain } from '../../codex/src/stubs.ts';
@@ -154,7 +154,7 @@ export class App {
             const list = this.catalog.listed(name);
             const d = declarationOf(this.conns.get(name)!);
             out.push(`MCP server ${JSON.stringify(name)}: ${list.length} skills${d.declared && d.directoryRead ? ', lists directories' : ''}.`);
-            for (const l of list) out.push(`- ${l.entry.frontmatter.name} (server ${JSON.stringify(name)}, uri ${l.entry.uri}): ${plain(l.entry.frontmatter.description, 400)} [not a local skill; stub ${stubName(name, l.entry.uri)}${l.declined ? `; not loadable: ${l.declined}` : ''}${list.filter(x => x.entry.frontmatter.name === l.entry.frontmatter.name).length > 1 ? '; another skill of this server has the same name: use its URI' : ''}]`);
+            for (const l of list) out.push(`- ${l.entry.frontmatter.name} (server ${JSON.stringify(name)}, uri ${l.entry.uri}): ${plain(secrets.scrub(String(l.entry.frontmatter.description ?? '')), 400)} [not a local skill; stub ${stubName(name, l.entry.uri)}${l.declined ? `; not loadable: ${l.declined}` : ''}${list.filter(x => x.entry.frontmatter.name === l.entry.frontmatter.name).length > 1 ? '; another skill of this server has the same name: use its URI' : ''}]`);
             for (const r of this.catalog.refused(name)) out.push(`- left out: ${r.reason}`);
         }
         for (const u of this.unavailable) if (!only || only === u.name) out.push(`Not used: ${JSON.stringify(u.name)}: ${u.why}.`);

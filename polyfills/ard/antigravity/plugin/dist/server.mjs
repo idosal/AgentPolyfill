@@ -1616,8 +1616,8 @@ function readConfig(file) {
   try {
     const text = readFileSync2(file, "utf8").replace(/^﻿/, "");
     parsed = text.trim() ? JSON.parse(text) : {};
-  } catch (err) {
-    return { error: `${file} is not JSON the plugin can read (${err instanceof Error ? err.message : String(err)}); it was left as it is` };
+  } catch {
+    return { error: `${file} is not JSON the plugin can read; it was left as it is` };
   }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return { error: `${file} does not hold a JSON object; it was left as it is` };
   const c = parsed;

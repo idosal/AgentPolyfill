@@ -164,3 +164,27 @@ test('W-9 a CLI or IDE conversation is never woken, and says why; an App one is'
     try { await app.sidecar.tick(); assert.equal(app.fake.calls().length, 1); } finally { app.sidecar.close(); }
     assert.equal(surfaceOfSession(app.base, newThread()), 'unknown');
 });
+
+// main's takeover fix (Pi's session.ts calls budget.reload() when a standby takes over;
+// Codex's threads.ts reads the count again): here the sidecar builds its wake budget from
+// the conversation's wakes.json at every wake, so one that takes over from another carries
+// on the hour's count and pause instead of starting afresh.
+test('W-10 a sidecar that takes over carries on the previous one\'s hourly wake count and pause', async () => {
+    const r = rig({ MCP_EVENTS_WAKES_PER_HOUR: '2' });
+    r.append();
+    await r.sidecar.tick(); r.sidecar.close();
+    assert.equal(r.fake.calls().length, 1);
+    const b = new WakeSidecar(r.base, r.env);
+    try {
+        invocation(r.home, { conversationId: r.id }); r.append();
+        await b.tick();
+        assert.equal(r.fake.calls().length, 2, 'the second wake of the hour, counted on from the first sidecar');
+        invocation(r.home, { conversationId: r.id }); r.append();
+        await b.tick();
+        assert.equal(r.fake.calls().length, 3);
+        assert.match(r.fake.calls()[2]!.args[2]!, /stopped waking/, 'the third is the pause notice, not a fresh count');
+        invocation(r.home, { conversationId: r.id }); r.append();
+        await b.tick(); await b.tick();
+        assert.equal(r.fake.calls().length, 3, 'paused for the rest of the hour');
+    } finally { b.close(); }
+});

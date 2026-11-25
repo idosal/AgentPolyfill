@@ -2,7 +2,11 @@ import { createHash, randomBytes } from 'node:crypto';
 import { lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { rootOf, type Listed } from '../../core/src/skills.ts';
-import { MAX_STUBS, plain } from '../../codex/src/stubs.ts';
+import { MAX_STUBS, plain as plainText } from '../../codex/src/stubs.ts';
+import { secrets } from '../../core/src/untrusted.ts';
+
+/** What a server wrote, as a stub shows it: plain, one line, and with no secret of the configuration in it. */
+const plain = (s: unknown, max: number) => plainText(secrets.scrub(String(s ?? '')), max);
 export { MAX_STUBS };
 
 export const SHAPE = /^mcp-skills-served--[a-z0-9][a-z0-9_-]{0,19}-[0-9a-f]{6}--[0-9a-f]{16}$/;

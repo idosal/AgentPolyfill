@@ -89,8 +89,10 @@ export function readConfig(file: string): { config: McpConfig } | { error: strin
   try {
     const text = readFileSync(file, 'utf8').replace(/^﻿/, '')
     parsed = text.trim() ? JSON.parse(text) : {}
-  } catch (err) {
-    return { error: `${file} is not JSON the plugin can read (${err instanceof Error ? err.message : String(err)}); it was left as it is` }
+  } catch {
+    // Not the parser's message: Node's can quote a piece of the file, and the
+    // file can hold header values (API keys). Never shown, never logged.
+    return { error: `${file} is not JSON the plugin can read; it was left as it is` }
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { error: `${file} does not hold a JSON object; it was left as it is` }
   const c = parsed as McpConfig

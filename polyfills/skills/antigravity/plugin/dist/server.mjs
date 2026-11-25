@@ -33542,6 +33542,8 @@ function readConfig(env, store) {
       table.servers[name] = { command: v.command, args: v.args, env: v.env, cwd: v.cwd };
     } else skip("needs a command with string args/env/cwd, or a URL");
   }
+  for (const cfg of Object.values(table.servers))
+    secrets.add(...Object.values("headers" in cfg && cfg.headers || {}), ...Object.values("env" in cfg && cfg.env || {}));
   return table;
 }
 
@@ -33644,6 +33646,7 @@ function handlers(env, store) {
 import { createHash as createHash3, randomBytes as randomBytes3 } from "node:crypto";
 import { lstatSync, mkdirSync as mkdirSync3, readdirSync as readdirSync2, readFileSync as readFileSync5, renameSync as renameSync3, rmdirSync, rmSync as rmSync2, statSync as statSync2, writeFileSync as writeFileSync3 } from "node:fs";
 import { join as join5 } from "node:path";
+var plain2 = (s, max) => plain(secrets.scrub(String(s ?? "")), max);
 var SHAPE = /^mcp-skills-served--[a-z0-9][a-z0-9_-]{0,19}-[0-9a-f]{6}--[0-9a-f]{16}$/;
 var hash = (s, n) => createHash3("sha256").update(s).digest("hex").slice(0, n);
 var prefix = (label) => `mcp-skills-served--${label.toLowerCase().slice(0, 20)}-${hash(label, 6)}--`;
@@ -33674,7 +33677,7 @@ function renderStub(l) {
   return [
     "---",
     `name: ${JSON.stringify(stubName(l.label, l.entry.uri))}`,
-    `description: ${JSON.stringify(`[MCP server ${JSON.stringify(l.label)}, not a local skill] ${plain(l.entry.frontmatter.description, 900)}`)}`,
+    `description: ${JSON.stringify(`[MCP server ${JSON.stringify(l.label)}, not a local skill] ${plain2(l.entry.frontmatter.description, 900)}`)}`,
     "---",
     "",
     `# ${l.entry.frontmatter.name}, served by MCP server ${JSON.stringify(l.label)}`,
@@ -33911,7 +33914,7 @@ var App = class {
       const list = this.catalog.listed(name);
       const d = declarationOf(this.conns.get(name));
       out.push(`MCP server ${JSON.stringify(name)}: ${list.length} skills${d.declared && d.directoryRead ? ", lists directories" : ""}.`);
-      for (const l of list) out.push(`- ${l.entry.frontmatter.name} (server ${JSON.stringify(name)}, uri ${l.entry.uri}): ${plain(l.entry.frontmatter.description, 400)} [not a local skill; stub ${stubName(name, l.entry.uri)}${l.declined ? `; not loadable: ${l.declined}` : ""}${list.filter((x) => x.entry.frontmatter.name === l.entry.frontmatter.name).length > 1 ? "; another skill of this server has the same name: use its URI" : ""}]`);
+      for (const l of list) out.push(`- ${l.entry.frontmatter.name} (server ${JSON.stringify(name)}, uri ${l.entry.uri}): ${plain(secrets.scrub(String(l.entry.frontmatter.description ?? "")), 400)} [not a local skill; stub ${stubName(name, l.entry.uri)}${l.declined ? `; not loadable: ${l.declined}` : ""}${list.filter((x) => x.entry.frontmatter.name === l.entry.frontmatter.name).length > 1 ? "; another skill of this server has the same name: use its URI" : ""}]`);
       for (const r of this.catalog.refused(name)) out.push(`- left out: ${r.reason}`);
     }
     for (const u of this.unavailable) if (!only || only === u.name) out.push(`Not used: ${JSON.stringify(u.name)}: ${u.why}.`);

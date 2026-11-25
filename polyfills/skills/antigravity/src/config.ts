@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ServerTable } from '../../core/src/upstream.ts';
+import { secrets } from '../../core/src/untrusted.ts';
 import type { Store } from '../../codex/src/store.ts';
 
 export const NAME = 'mcp-skills';
@@ -45,5 +46,9 @@ export function readConfig(env: NodeJS.ProcessEnv, store: Store): ServerTable {
             table.servers[name] = { command: v.command, args: v.args as string[] | undefined, env: v.env as Record<string, string> | undefined, cwd: v.cwd as string | undefined };
         } else skip('needs a command with string args/env/cwd, or a URL');
     }
+    // A header or environment value can be a secret (an API key): known to the redactor, it is
+    // taken out of the log, the stubs and every listing, also when a server echoes it back.
+    for (const cfg of Object.values(table.servers))
+        secrets.add(...Object.values(('headers' in cfg && cfg.headers) || {}), ...Object.values(('env' in cfg && cfg.env) || {}));
     return table;
 }
