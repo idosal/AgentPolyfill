@@ -113,8 +113,8 @@ export class Helper {
     #id = 0;
     #waiting = new Map<number, (m: Json) => void>();
 
-    constructor(env: Record<string, string>, entry = HELPER) {
-        const args = entry.endsWith('.ts') ? ['--no-warnings', entry] : [entry];
+    constructor(env: Record<string, string>, entry = HELPER, extraArgs: string[] = []) {
+        const args = [...(entry.endsWith('.ts') ? ['--no-warnings', entry] : [entry]), ...extraArgs];
         this.child = spawn(process.execPath, args, { env, stdio: ['pipe', 'pipe', 'pipe'] });
         this.child.stderr!.on('data', (d) => (this.stderr += d));
         this.exited = new Promise((r) => this.child.on('close', (code) => r(code)));

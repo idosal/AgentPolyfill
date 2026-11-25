@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "name": "mcp-events",
+  "displayName": "MCP Events",
+  "version": "0.1.7",
+  "description": "MCP Events (SEP-3415) for Muse Code: watch events on your MCP servers (poll, push or webhook); new events reach the session with your next message.",
+  "compat": {
+    "source": "native",
+    "manifestDir": ".muse-plugin"
+  },
+  "capabilities": {
+    "skills": [
+      {
+        "id": "mcp-events",
+        "path": "muse/skills/mcp-events/SKILL.md",
+        "enabledDefault": true
+      }
+    ],
+    "hooks": [
+      {
+        "id": "user-prompt-submit",
+        "event": "UserPromptSubmit",
+        "command": ["node", "muse/hooks/user-prompt-submit.mjs"],
+        "timeoutMs": 5000
+      }
+    ],
+    "mcpServers": [
+      {
+        "id": "mcp-events",
+        "transport": "stdio",
+        "command": ["node", "dist/helper.js", "--host=muse"]
+      }
+    ]
+  }
+}

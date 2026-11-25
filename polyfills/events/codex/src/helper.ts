@@ -9,6 +9,10 @@
 // which wakes it if it is idle.
 //
 // It ends when Codex closes its standard input (the session was closed or unloaded).
+//
+// Muse Code starts the same file from the plugin's .muse-plugin/plugin.json, with --host=muse:
+// see muse.ts for what differs there (the session from MUSE_SESSION_ID, Muse's settings, and
+// delivery at the person's next message through the plugin's UserPromptSubmit hook).
 
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -23,16 +27,20 @@ import { isHttp } from '../../core/src/upstream.ts';
 import { codexHome, readCodexServers } from './codex-config.ts';
 import { serve } from './mcp-server.ts';
 import { isThePersons, threadOf } from './meta.ts';
+import { applyPluginSettings, attachTurn, findMuse, isMuse, MUSE, MUSE_INSTRUCTIONS, museSession, museStateDir, putInbox, readMuseServers, spokeAt, wakeMode } from './muse.ts';
 import { ThreadSession } from './threads.ts';
 import { VERSION } from './version.ts';
 import { codexNotFound, findCodex, queueMessage, THREAD_ID, type Wake } from './waker.ts';
 import { CODEX, INSTRUCTIONS, SERVER_NAME, TOOLS } from './words.ts';
 
-configureHost(CODEX);
+const onMuse = isMuse();
+configureHost(onMuse ? MUSE : CODEX);
 const env = process.env;
-const off = env.MCP_EVENTS_OFF === '1';
-const base = env.MCP_EVENTS_STATE || join(codexHome(env), 'mcp-events');
+const base = onMuse ? museStateDir(env) : env.MCP_EVENTS_STATE || join(codexHome(env), 'mcp-events');
 mkdirSync(base, { recursive: true, mode: 0o700 });
+// Muse passes a plugin's server no variables of the person's: the settings come from a file.
+const fromFile = onMuse ? applyPluginSettings(env, base) : { applied: [] };
+const off = env.MCP_EVENTS_OFF === '1';
 
 // The log is for the user: private to them, kept to a few megabytes, and with known secrets taken out.
 const logFile = join(base, 'mcp-events.log');
@@ -56,11 +64,13 @@ const log = (s: string) => {
     }
 };
 process.on('unhandledRejection', (e) => log(`unexpected failure (${describeError(e)})`));
-log(`mcp-events ${VERSION} for Codex started${off ? ' (MCP_EVENTS_OFF=1: doing nothing)' : ''}`);
+log(`mcp-events ${VERSION} for ${onMuse ? 'Muse' : 'Codex'} started${off ? ' (MCP_EVENTS_OFF=1: doing nothing)' : ''}`);
+if (fromFile.applied.length) log(`settings from ${join(base, 'settings.json')}: ${fromFile.applied.join(', ')}`);
+if ('error' in fromFile && fromFile.error) log(fromFile.error);
 
 // ---- Which servers ----
 
-const table = off ? { servers: {}, skipped: {} } : readCodexServers(env, log);
+const table = off ? { servers: {}, skipped: {} } : onMuse ? readMuseServers(env, log) : readCodexServers(env, log);
 secrets.add(env.MCP_EVENTS_RELAY_ACCESS_KEY, readRelaySettings(env)?.accessKey);
 for (const cfg of Object.values(table.servers)) {
     if (isHttp(cfg)) {
@@ -161,18 +171,43 @@ const discover = (): Promise<void> =>
 
 // ---- Sessions ----
 
-const codex = findCodex(env);
-if (!off && !codex) log(`${codexNotFound()}; events are stored, but cannot wake a session`);
-const wake: Wake = async (thread, text) => {
+const codex = onMuse ? undefined : findCodex(env);
+if (!off && !onMuse && !codex) log(`${codexNotFound()}; events are stored, but cannot wake a session`);
+const codexWake: Wake = async (thread, text) => {
     if (!codex) return { ok: false, why: codexNotFound() };
     return queueMessage(codex, thread, text, env);
 };
+
+// Muse: the session this process serves, and how a batch reaches it.
+const museSessionId = onMuse ? museSession(env) : undefined;
+const museMode = onMuse ? wakeMode(env) : 'inbox';
+const museBin = onMuse && museMode === 'attach' ? findMuse(env) : undefined;
+if (onMuse) log(`Muse session ${museSessionId?.slice(0, 8) ?? '(none: MUSE_SESSION_ID is not set)'}; new events ${museMode === 'attach' ? (museBin ? `start a turn through ${museBin} attach (experimental), or wait for the next message` : 'wait for the next message (MCP_EVENTS_MUSE_WAKE=attach, but no muse command was found)') : 'wait for the next message'}`);
+let attachRestUntil = 0;
+const museWake: Wake = async (session, text) => {
+    if (museBin && Date.now() >= attachRestUntil) {
+        const r = await attachTurn(museBin, session, text, { env });
+        if (r.ok || r.maybe) return r;
+        // Not tried again for a while: a session that can't be attached to stays so until Muse restarts.
+        attachRestUntil = Date.now() + 5 * 60000;
+        log(`[${session.slice(0, 8)}] waking through muse attach failed (${r.why}); the events wait for the next message`);
+    }
+    try {
+        putInbox(base, session, text);
+        return { ok: true, resumed: true };
+    } catch (e) {
+        return { ok: false, why: `the session's inbox could not be written (${describeError(e)})` };
+    }
+};
+const wake: Wake = onMuse ? museWake : codexWake;
+// Muse by default: the events are stored here and handed over by the plugin's UserPromptSubmit hook.
+const deliver = !(onMuse && museMode === 'inbox');
 
 const sessions = new Map<string, ThreadSession>();
 const sessionFor = (id: string): ThreadSession => {
     let s = sessions.get(id);
     if (!s) {
-        s = new ThreadSession(id, { base, connections, unavailable: () => unavailable, wake, log, env, connectTimeoutMs: timeout });
+        s = new ThreadSession(id, { base, connections, unavailable: () => unavailable, wake, log, env, connectTimeoutMs: timeout, deliver });
         sessions.set(id, s);
         s.start();
     }
@@ -180,25 +215,28 @@ const sessionFor = (id: string): ThreadSession => {
 };
 
 const names = new Set(TOOLS.map((t) => t.name));
+// The same tools in Muse, named for it.
+const tools = onMuse ? TOOLS.map((t) => ({ ...t, description: t.description.replaceAll('Codex', 'Muse') })) : TOOLS;
 const server = serve({
     name: SERVER_NAME,
     title: 'MCP Events',
     version: VERSION,
-    instructions: off ? 'mcp-events is installed but turned off (MCP_EVENTS_OFF=1).' : INSTRUCTIONS,
-    tools: () => (off ? [] : TOOLS),
+    instructions: off ? `mcp-events is installed but turned off (MCP_EVENTS_OFF=1${onMuse ? ' in its settings.json' : ''}).` : onMuse ? MUSE_INSTRUCTIONS : INSTRUCTIONS,
+    tools: () => (off ? [] : tools),
     log,
     onClose: () => void stop(),
     async call(name, args, meta) {
         if (off || !names.has(name)) return { text: 'mcp-events has no tool by that name.', isError: true };
-        const thread = threadOf(meta);
+        const thread = onMuse ? museSessionId : threadOf(meta);
         const trigger = (meta['x-codex-turn-metadata'] as { turn_trigger?: unknown } | undefined)?.turn_trigger;
-        log(`${name} from session ${thread?.slice(0, 8) ?? '(none)'} (turn started by ${typeof trigger === 'string' ? oneLine(trigger, 40) : 'unknown'})`);
+        log(`${name} from session ${thread?.slice(0, 8) ?? '(none)'}${onMuse ? '' : ` (turn started by ${typeof trigger === 'string' ? oneLine(trigger, 40) : 'unknown'})`}`);
+        if (!thread && onMuse) return { text: 'mcp-events needs Muse to say which session this is (MUSE_SESSION_ID in its environment), and it did not. Muse 1.4.25 or newer says so.', isError: true };
         if (!thread) return { text: 'mcp-events needs Codex to say which session this call is from (`_meta.threadId` on the call), and this call did not. Codex 0.170 or newer says so.', isError: true };
         // A tool called while the servers are still being looked at waits for them, within reason.
         await Promise.race([discover(), new Promise((r) => setTimeout(r, timeout + 5000).unref())]);
         const s = sessionFor(thread);
         if (!s.manager.owner) s.start();
-        if (isThePersons(meta)) s.spoke();
+        if (!onMuse && isThePersons(meta)) s.spoke();
         return s.call(name, args);
     }
 });
@@ -224,14 +262,33 @@ try {
     // best effort
 }
 
+// Muse says which session this process serves, so a resumed session's watches start again at once.
+if (!off && museSessionId) {
+    try {
+        const saved = JSON.parse(readFileSync(join(base, 'threads', museSessionId, 'watches.json'), 'utf8')) as { watches?: unknown[] };
+        if ((saved.watches ?? []).length) void discover().then(() => void sessionFor(museSessionId));
+    } catch {
+        // nothing saved for this session
+    }
+}
+
 // A second process with the same session open (a second window) leaves the watches to the first;
 // if the first goes, this one takes them over.
 const parent = process.ppid;
+// Muse: the hook stamps each message the person sends; that is how waking starts again after a pause.
+let lastSpoke = museSessionId ? spokeAt(base, museSessionId) : 0;
 const tick = setInterval(() => {
     // Orphaned: whoever started this is gone, and stdin may not say so.
     if (process.ppid !== parent) return void stop();
     for (const s of sessions.values()) {
         if (!s.manager.owner && s.start()) log(`[${s.id.slice(0, 8)}] the process that ran this session's watches has gone; this one runs them now`);
+    }
+    if (museSessionId) {
+        const at = spokeAt(base, museSessionId);
+        if (at > lastSpoke) {
+            lastSpoke = at;
+            sessions.get(museSessionId)?.spoke();
+        }
     }
 }, 5000);
 tick.unref();
