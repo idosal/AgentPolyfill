@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { stateDir, writePrivate } from '../../../server-cards/antigravity/src/gate.ts';
 import { deliveredPosition, Spool } from '../../core/src/store.ts';
 import { WakeBudget } from '../../core/src/wake.ts';
-import { requestWake, requestsDir } from '../src/pending.ts';
+import { recordSurface, requestWake, requestsDir, surfaceOfSession } from '../src/pending.ts';
 import { findAgentapi, HEARTBEAT_MS, sendMessage, WakeSidecar, wakeAvailability } from '../src/sidecar.ts';
 import { WAKE_PROMPT } from '../src/words.ts';
 import { fakeAgentapi, invocation, newThread, ROOT, SERVER, sleep, startHelper, tempHome, waitFor, world } from './harness.ts';
@@ -135,4 +135,32 @@ test('W-10 list_watches reports no sidecar and then a running sidecar', async ()
         try { await waitFor(() => existsSync(join(w.state, 'wake-heartbeat.json'))); assert.match((await h.call('list_watches', {}, id)).text, /available:.*recent heartbeat/); }
         finally { await new Promise<void>(r => { s.once('close', () => r()); s.kill(); }); }
     } finally { await h.stop(); }
+});
+
+// Found in the live run (2026-11-25): a CLI conversation was told idle wakes were
+// available because the App's sidecar was running. Only the App's conversations
+// can be woken (agentapi reaches the App's own); a CLI or IDE one is told so and
+// never sent a wake.
+test('W-9 a CLI or IDE conversation is never woken, and says why; an App one is', async () => {
+    for (const surface of ['cli', 'ide'] as const) {
+        const r = rig();
+        recordSurface(r.base, r.id, surface);
+        r.append();
+        assert.equal(existsSync(join(requestsDir(r.base), `${r.id}.json`)), false, `${surface}: no wake request`);
+        // A request written before the surface was known is dropped by the sidecar.
+        mkdirSync(requestsDir(r.base), { recursive: true });
+        writeFileSync(join(requestsDir(r.base), `${r.id}.json`), JSON.stringify({ conversationId: r.id, after: 0 }));
+        try {
+            await r.sidecar.tick();
+            assert.equal(r.fake.calls().length, 0, `${surface}: agentapi never called`);
+            assert.equal(existsSync(join(requestsDir(r.base), `${r.id}.json`)), false);
+        } finally { r.sidecar.close(); }
+        assert.match(wakeAvailability(r.base, Date.now(), surface), new RegExp(`unavailable in the Antigravity ${surface.toUpperCase()}`));
+        assert.match(invocation(r.home, { conversationId: r.id }).injectSteps[0].systemMessage.systemMessage, /1 new event/, `${surface}: still delivered at the next model call`);
+    }
+    const app = rig();
+    recordSurface(app.base, app.id, 'app');
+    app.append();
+    try { await app.sidecar.tick(); assert.equal(app.fake.calls().length, 1); } finally { app.sidecar.close(); }
+    assert.equal(surfaceOfSession(app.base, newThread()), 'unknown');
 });

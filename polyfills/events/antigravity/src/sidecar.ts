@@ -3,9 +3,9 @@ import { accessSync, constants, readFileSync, readdirSync, statSync, rmSync } fr
 import { delimiter, isAbsolute, join } from 'node:path';
 import { alive, ProjectState } from '../../core/src/store.ts';
 import { WakeBudget, wakeLimits } from '../../core/src/wake.ts';
-import { writePrivate } from '../../../server-cards/antigravity/src/gate.ts';
+import { writePrivate, type Surface } from '../../../server-cards/antigravity/src/gate.ts';
 import { conversationId } from './conversation.ts';
-import { pending, readNumber, requestsDir } from './pending.ts';
+import { pending, readNumber, requestsDir, wakeable } from './pending.ts';
 import { settings } from './settings.ts';
 import { WAKE_HEADER, WAKE_PROMPT } from './words.ts';
 
@@ -32,7 +32,9 @@ export function sendMessage(bin: string, id: string, text: string, env: NodeJS.P
     });
 }
 
-export function wakeAvailability(base: string, now = Date.now()): string {
+export function wakeAvailability(base: string, now = Date.now(), surface: Surface = 'unknown'): string {
+    if (surface === 'cli' || surface === 'ide')
+        return `Idle wakes are unavailable in the Antigravity ${surface === 'cli' ? 'CLI' : 'IDE'}: only the App runs sidecars, and they reach only the App's conversations. Events wait for this conversation's next model call.`;
     try {
         const h = JSON.parse(readFileSync(join(base, 'wake-heartbeat.json'), 'utf8'));
         if (Number.isInteger(h.pid) && h.pid > 0 && alive(h.pid) && typeof h.at === 'number' && h.at <= now && now - h.at < HEARTBEAT_MS * 3) {
@@ -66,6 +68,8 @@ export class WakeSidecar {
             try {
                 const request = JSON.parse(readFileSync(join(requestsDir(this.base), name), 'utf8'));
                 if (request.conversationId !== id || !Number.isFinite(request.after) || request.after > Date.now()) continue;
+                // A CLI or IDE conversation can't be reached by agentapi: drop its request, the events stay stored.
+                if (!wakeable(this.base, id)) { rmSync(join(requestsDir(this.base), name), { force: true }); continue; }
                 await this.wake(id, bin, env);
             } catch { this.log('a wake request could not be processed; events remain stored'); }
         }

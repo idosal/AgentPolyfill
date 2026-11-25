@@ -4,12 +4,31 @@ import { Delivery } from '../../core/src/delivery.ts';
 import { Spool } from '../../core/src/store.ts';
 import { conversationId } from './conversation.ts';
 import { milliseconds } from './settings.ts';
-import { writePrivate } from '../../../server-cards/antigravity/src/gate.ts';
+import { writePrivate, type Surface } from '../../../server-cards/antigravity/src/gate.ts';
 
 export const requestsDir = (base: string) => join(base, 'wake-requests');
+
+/**
+ * Where a conversation lives, as its hook last said. Only the App runs
+ * sidecars, and agentapi reaches only the App's conversations: a CLI or IDE
+ * conversation is never sent a wake. Unknown is tried (and a failure recorded).
+ */
+export function recordSurface(base: string, id: string, surface: Surface) {
+    if (!conversationId(id)) return;
+    const dir = join(base, 'sessions', id);
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    writePrivate(join(dir, 'surface.json'), JSON.stringify({ surface }));
+}
+export function surfaceOfSession(base: string, id: string): Surface {
+    try {
+        const s: unknown = JSON.parse(readFileSync(join(base, 'sessions', id, 'surface.json'), 'utf8')).surface;
+        return s === 'app' || s === 'cli' || s === 'ide' ? s : 'unknown';
+    } catch { return 'unknown'; }
+}
+export const wakeable = (base: string, id: string) => !['cli', 'ide'].includes(surfaceOfSession(base, id));
 /** Coalesced hint, never a second copy of a server payload. Reconciled with the spool. */
 export function requestWake(base: string, id: string, env: NodeJS.ProcessEnv) {
-    if (!conversationId(id)) return;
+    if (!conversationId(id) || !wakeable(base, id)) return;
     mkdirSync(requestsDir(base), { recursive: true, mode: 0o700 });
     const file = join(requestsDir(base), `${id}.json`);
     const now = Date.now();

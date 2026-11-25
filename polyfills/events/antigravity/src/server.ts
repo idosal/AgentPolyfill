@@ -12,7 +12,7 @@ import { serve } from '../../codex/src/mcp-server.ts';
 import { ownArgs } from '../../../server-cards/antigravity/src/gate.ts';
 import { readServers } from './config.ts';
 import { redeemConversation } from './conversation.ts';
-import { pending, requestWake } from './pending.ts';
+import { pending, recordSurface, requestWake } from './pending.ts';
 import { milliseconds, settings } from './settings.ts';
 import { wakeAvailability } from './sidecar.ts';
 import { INSTRUCTIONS, TOOLS, VERSION } from './words.ts';
@@ -90,11 +90,12 @@ export function runServer(base: string, env: NodeJS.ProcessEnv, log: (s: string)
             await discover();
             if (stopping || off()) return { text: 'mcp-events is turned off.', isError: true };
             const id = ticket.conversationId;
+            try { recordSurface(base, id, ticket.surface); } catch { log('could not record where the conversation lives'); }
             const r = await session(id).tools.call(name, ownArgs(args));
             if (name !== 'list_watches' && name !== 'watch_event') return r;
             let last = '';
             try { const error = JSON.parse(readFileSync(join(base, 'sessions', id, 'wake-error.json'), 'utf8')); if (typeof error.why === 'string') last = ` Last wake: ${oneLine(error.why, 200)}.`; } catch {}
-            return { ...r, text: `${r.text}\n\n${wakeAvailability(base)}${last}` };
+            return { ...r, text: `${r.text}\n\n${wakeAvailability(base, Date.now(), ticket.surface)}${last}` };
         }
     });
     const parent = process.ppid;

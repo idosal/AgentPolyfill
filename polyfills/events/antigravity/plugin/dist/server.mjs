@@ -617,8 +617,13 @@ function redeemTicket(dir, nonce, tool, digest, now = Date.now()) {
   if (t.tool !== tool) return { ok: false, why: "the approval was for another tool" };
   if (now - t.issued > TICKET_TTL_MS) return { ok: false, why: "the approval expired before the call ran" };
   if (t.digest !== digest) return { ok: false, why: "what the call would do changed after the person was asked" };
-  return { ok: true, conversationId: t.conversationId };
+  return { ok: true, conversationId: t.conversationId, ...t.meta ? { meta: t.meta } : {} };
 }
+var surfaceOf = (transcriptPath) => {
+  if (typeof transcriptPath !== "string") return "unknown";
+  const m = /[\\/]\.gemini[\\/](antigravity(?:-cli|-ide)?)[\\/]brain[\\/]/.exec(transcriptPath);
+  return !m ? "unknown" : m[1] === "antigravity" ? "app" : m[1] === "antigravity-cli" ? "cli" : "ide";
+};
 var ownArgs = (args) => {
   const { [TICKET_ARG]: _, ...rest } = args;
   return rest;
@@ -664,7 +669,7 @@ async function answerHook(input, handlers2, dir, now = Date.now(), server) {
     const named = server ? { ...input, toolCall: { name: `mcp_${server}_${found.tool}`, args } } : input;
     const v = await handlers2[found.tool](args, named);
     if ("deny" in v) return { decision: "deny", reason: v.deny };
-    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId: conversationId2 }, now);
+    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId: conversationId2, ...v.meta ? { meta: v.meta } : {} }, now);
     const withTicket = { ...args, [TICKET_ARG]: ticket };
     const overwrite = found.lazy ? { Arguments: found.lazy.asText ? JSON.stringify(withTicket) : withTicket } : { [TICKET_ARG]: ticket };
     return "ask" in v ? { decision: "force_ask", reason: v.ask, overwrite } : { decision: "allow", reason: v.pass, overwrite };
@@ -794,13 +799,15 @@ var callDigest = (tool, args) => digestOf({ tool, args: ownArgs(args) });
 var handlers = (off) => Object.fromEntries(TOOLS2.map((t) => [t.name, (args, input) => {
   if (off) return { deny: "mcp-events is turned off." };
   if (!conversationId(input.conversationId)) return { deny: "mcp-events needs Antigravity to supply a UUID conversationId. No conversation was guessed." };
-  return { pass: "This ticket identifies the conversation; Antigravity's usual MCP approval still applies.", digest: callDigest(t.name, args) };
+  return { pass: "This ticket identifies the conversation; Antigravity's usual MCP approval still applies.", digest: callDigest(t.name, args), meta: { surface: surfaceOf(input.transcriptPath) } };
 }]));
 function redeemConversation(base, name, args) {
   const r = redeemTicket(base, args[TICKET_ARG], name, callDigest(name, args));
   if (!r.ok) return r;
   const id = conversationId(r.conversationId);
-  return id ? { ok: true, conversationId: id } : { ok: false, why: "the ticket has no UUID conversationId; no conversation was guessed" };
+  const s = r.meta?.surface;
+  const surface = s === "app" || s === "cli" || s === "ide" ? s : "unknown";
+  return id ? { ok: true, conversationId: id, surface } : { ok: false, why: "the ticket has no UUID conversationId; no conversation was guessed" };
 }
 
 // polyfills/events/core/src/store.ts
@@ -1336,8 +1343,23 @@ var milliseconds = (v, fallback) => {
 
 // polyfills/events/antigravity/src/pending.ts
 var requestsDir = (base) => join5(base, "wake-requests");
-function requestWake(base, id, env) {
+function recordSurface(base, id, surface) {
   if (!conversationId(id)) return;
+  const dir = join5(base, "sessions", id);
+  mkdirSync3(dir, { recursive: true, mode: 448 });
+  writePrivate(join5(dir, "surface.json"), JSON.stringify({ surface }));
+}
+function surfaceOfSession(base, id) {
+  try {
+    const s = JSON.parse(readFileSync5(join5(base, "sessions", id, "surface.json"), "utf8")).surface;
+    return s === "app" || s === "cli" || s === "ide" ? s : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+var wakeable = (base, id) => !["cli", "ide"].includes(surfaceOfSession(base, id));
+function requestWake(base, id, env) {
+  if (!conversationId(id) || !wakeable(base, id)) return;
   mkdirSync3(requestsDir(base), { recursive: true, mode: 448 });
   const file = join5(requestsDir(base), `${id}.json`);
   const now = Date.now();
@@ -1614,7 +1636,9 @@ function sendMessage(bin, id, text, env, timeoutMs = 6e4) {
     child.once("close", (code) => finish(code === 0 ? { ok: true } : { ok: false, why: `agentapi exited ${code ?? "by signal"}; acceptance is unknown`, maybe: true }));
   });
 }
-function wakeAvailability(base, now = Date.now()) {
+function wakeAvailability(base, now = Date.now(), surface = "unknown") {
+  if (surface === "cli" || surface === "ide")
+    return `Idle wakes are unavailable in the Antigravity ${surface === "cli" ? "CLI" : "IDE"}: only the App runs sidecars, and they reach only the App's conversations. Events wait for this conversation's next model call.`;
   try {
     const h = JSON.parse(readFileSync7(join7(base, "wake-heartbeat.json"), "utf8"));
     if (Number.isInteger(h.pid) && h.pid > 0 && alive(h.pid) && typeof h.at === "number" && h.at <= now && now - h.at < HEARTBEAT_MS * 3) {
@@ -1658,6 +1682,10 @@ var WakeSidecar = class {
       try {
         const request = JSON.parse(readFileSync7(join7(requestsDir(this.base), name), "utf8"));
         if (request.conversationId !== id || !Number.isFinite(request.after) || request.after > Date.now()) continue;
+        if (!wakeable(this.base, id)) {
+          rmSync2(join7(requestsDir(this.base), name), { force: true });
+          continue;
+        }
         await this.wake(id, bin, env);
       } catch {
         this.log("a wake request could not be processed; events remain stored");
@@ -28497,6 +28525,11 @@ ${wakeAvailability(base)}`,
       await discover();
       if (stopping || off()) return { text: "mcp-events is turned off.", isError: true };
       const id = ticket.conversationId;
+      try {
+        recordSurface(base, id, ticket.surface);
+      } catch {
+        log("could not record where the conversation lives");
+      }
       const r = await session(id).tools.call(name, ownArgs(args));
       if (name !== "list_watches" && name !== "watch_event") return r;
       let last = "";
@@ -28507,7 +28540,7 @@ ${wakeAvailability(base)}`,
       }
       return { ...r, text: `${r.text}
 
-${wakeAvailability(base)}${last}` };
+${wakeAvailability(base, Date.now(), ticket.surface)}${last}` };
     }
   });
   const parent = process.ppid;

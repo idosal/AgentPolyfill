@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { answerHook, callOf, digestOf, gateMatcher, issueTicket, redeemTicket, TICKET_ARG, TICKET_TTL_MS } from '../src/gate'
+import { answerHook, callOf, digestOf, gateMatcher, issueTicket, redeemTicket, surfaceOf, TICKET_ARG, TICKET_TTL_MS } from '../src/gate'
 import { isNameTaken, planForAntigravity, readConfig, writeEntry } from '../src/antigravity'
 import { antigravityServer, localWeb, matches, preToolUse, runHook, tempHome } from './harness'
 
@@ -128,6 +128,17 @@ test('G-1 a ticket is good once, for its tool and digest, while fresh', () => {
   const old = issueTicket(dir, { tool: 't', digest: d, conversationId: 'c1' }, Date.now() - TICKET_TTL_MS - 1)
   assert.equal(redeemTicket(dir, old, 't', d).ok, false, 'expired')
   for (const bad of [undefined, '', '../../etc/passwd', 'a'.repeat(32), 42]) assert.equal(redeemTicket(dir, bad, 't', d).ok, false, String(bad))
+})
+
+test('G-6 the surface a conversation lives in, from its transcript path; a ticket carries the hook\'s meta to the server', async () => {
+  assert.equal(surfaceOf('/Users/me/.gemini/antigravity/brain/ec33/.system_generated/logs/transcript.jsonl'), 'app')
+  assert.equal(surfaceOf('/Users/me/.gemini/antigravity-cli/brain/ec33/.system_generated/logs/transcript.jsonl'), 'cli')
+  assert.equal(surfaceOf('~/.gemini/antigravity-ide/brain/ec33/x'), 'ide')
+  assert.equal(surfaceOf('C:\\Users\\me\\.gemini\\antigravity-cli\\brain\\ec33\\x'), 'cli')
+  for (const v of [undefined, 42, '/tmp/elsewhere/brain/x', '/Users/me/.gemini/antigravity-cloud/brain/x']) assert.equal(surfaceOf(v), 'unknown', String(v))
+  const dir = gateDir()
+  const out = await answerHook(preToolUse(TOOL, {}), { add_mcp_server: () => ({ pass: 'p', digest: 'd', meta: { surface: 'cli' } }) }, dir)
+  assert.deepEqual(redeemTicket(dir, (out.overwrite as Record<string, string>)[TICKET_ARG], 'add_mcp_server', 'd'), { ok: true, conversationId: 'ec33ebf9-0cba-4100-8142-c61503f6c587', meta: { surface: 'cli' } })
 })
 
 test('G-2 digests ignore key order', () => {

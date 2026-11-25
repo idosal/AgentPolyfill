@@ -1496,8 +1496,13 @@ function redeemTicket(dir, nonce, tool, digest, now = Date.now()) {
   if (t.tool !== tool) return { ok: false, why: "the approval was for another tool" };
   if (now - t.issued > TICKET_TTL_MS) return { ok: false, why: "the approval expired before the call ran" };
   if (t.digest !== digest) return { ok: false, why: "what the call would do changed after the person was asked" };
-  return { ok: true, conversationId: t.conversationId };
+  return { ok: true, conversationId: t.conversationId, ...t.meta ? { meta: t.meta } : {} };
 }
+var surfaceOf = (transcriptPath) => {
+  if (typeof transcriptPath !== "string") return "unknown";
+  const m = /[\\/]\.gemini[\\/](antigravity(?:-cli|-ide)?)[\\/]brain[\\/]/.exec(transcriptPath);
+  return !m ? "unknown" : m[1] === "antigravity" ? "app" : m[1] === "antigravity-cli" ? "cli" : "ide";
+};
 var ownArgs = (args) => {
   const { [TICKET_ARG]: _, ...rest } = args;
   return rest;
@@ -1543,7 +1548,7 @@ async function answerHook(input, handlers2, dir, now = Date.now(), server) {
     const named = server ? { ...input, toolCall: { name: `mcp_${server}_${found.tool}`, args } } : input;
     const v = await handlers2[found.tool](args, named);
     if ("deny" in v) return { decision: "deny", reason: v.deny };
-    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId }, now);
+    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId, ...v.meta ? { meta: v.meta } : {} }, now);
     const withTicket = { ...args, [TICKET_ARG]: ticket };
     const overwrite = found.lazy ? { Arguments: found.lazy.asText ? JSON.stringify(withTicket) : withTicket } : { [TICKET_ARG]: ticket };
     return "ask" in v ? { decision: "force_ask", reason: v.ask, overwrite } : { decision: "allow", reason: v.pass, overwrite };
@@ -2239,6 +2244,7 @@ export {
   runHook,
   start,
   stateDir,
+  surfaceOf,
   tools,
   undoText,
   writeEntry2 as writeEntry,

@@ -66,7 +66,8 @@ export const writePrivate = (file: string, text: string) => {
   renameSync(tmp, file)
 }
 
-export type Ticket = { tool: string; digest: string; conversationId: string; issued: number }
+/** `meta`: what else the hook saw about the call, for the server (short strings only). */
+export type Ticket = { tool: string; digest: string; conversationId: string; issued: number; meta?: Record<string, string> }
 
 const NONCE = /^[0-9a-f]{32}$/
 
@@ -88,7 +89,7 @@ export function issueTicket(dir: string, t: Omit<Ticket, 'issued'>, now = Date.n
   return nonce
 }
 
-export type Redeemed = { ok: true; conversationId: string } | { ok: false; why: string }
+export type Redeemed = { ok: true; conversationId: string; meta?: Record<string, string> } | { ok: false; why: string }
 
 /**
  * Takes the ticket a call carries, once: it must exist, be for this tool and
@@ -109,10 +110,23 @@ export function redeemTicket(dir: string, nonce: unknown, tool: string, digest: 
   if (t.tool !== tool) return { ok: false, why: 'the approval was for another tool' }
   if (now - t.issued > TICKET_TTL_MS) return { ok: false, why: 'the approval expired before the call ran' }
   if (t.digest !== digest) return { ok: false, why: 'what the call would do changed after the person was asked' }
-  return { ok: true, conversationId: t.conversationId }
+  return { ok: true, conversationId: t.conversationId, ...(t.meta ? { meta: t.meta } : {}) }
 }
 
 /** The arguments as the call's own: without the ticket the hook added. */
+/**
+ * Which Antigravity surface a conversation lives in, from where the hook says
+ * its transcript is: `<app_data_dir>/brain/<id>/...`, where the app data dir is
+ * ~/.gemini/antigravity (App), ~/.gemini/antigravity-cli (CLI) or
+ * ~/.gemini/antigravity-ide (IDE) (hooks.md; seen live for the App and CLI).
+ */
+export type Surface = 'app' | 'cli' | 'ide' | 'unknown'
+export const surfaceOf = (transcriptPath: unknown): Surface => {
+  if (typeof transcriptPath !== 'string') return 'unknown'
+  const m = /[\\/]\.gemini[\\/](antigravity(?:-cli|-ide)?)[\\/]brain[\\/]/.exec(transcriptPath)
+  return !m ? 'unknown' : m[1] === 'antigravity' ? 'app' : m[1] === 'antigravity-cli' ? 'cli' : 'ide'
+}
+
 export const ownArgs = (args: Record<string, unknown>) => {
   const { [TICKET_ARG]: _, ...rest } = args
   return rest
@@ -121,9 +135,9 @@ export const ownArgs = (args: Record<string, unknown>) => {
 /** What a hook handler decides about one call. */
 export type Verdict =
   /** Put the question to the person, and issue a ticket for `digest`. */
-  | { ask: string; digest: string }
+  | { ask: string; digest: string; meta?: Record<string, string> }
   /** Let the call through to Antigravity's usual approval, with a ticket that says which conversation made it. */
-  | { pass: string; digest: string }
+  | { pass: string; digest: string; meta?: Record<string, string> }
   /** Refuse it, with this reason for the model. */
   | { deny: string }
 
@@ -131,6 +145,7 @@ export type Verdict =
 export type HookInput = {
   toolCall?: { name?: unknown; args?: unknown }
   conversationId?: unknown
+  transcriptPath?: unknown
   workspacePaths?: unknown
   hookEventName?: unknown
 }
@@ -205,7 +220,7 @@ export async function answerHook(input: unknown, handlers: Record<string, Handle
     const named = server ? { ...input, toolCall: { name: `mcp_${server}_${found.tool}`, args } } : input
     const v = await handlers[found.tool]!(args, named as HookInput)
     if ('deny' in v) return { decision: 'deny', reason: v.deny }
-    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId }, now)
+    const ticket = issueTicket(dir, { tool: found.tool, digest: v.digest, conversationId, ...(v.meta ? { meta: v.meta } : {}) }, now)
     // `overwrite` is a shallow merge into the call's own arguments: for
     // call_mcp_tool, that is `Arguments` as a whole.
     const withTicket = { ...args, [TICKET_ARG]: ticket }
