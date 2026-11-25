@@ -40,6 +40,12 @@ install it by name.
 In Pi, name the registry or set `ARD_DISCOVERY_REGISTRY`. Every search asks
 in a Pi dialog, showing the exact query and endpoint; without a UI it is
 refused. Pi has no bundle; this extension is installed separately too.
+
+In OpenCode, name the registry or set `ARD_DISCOVERY_REGISTRY`; with neither,
+nothing is sent. Every search is put to OpenCode's permission rules and asked
+about by default, and so is a registry a referral names, before the query
+goes there. With nobody to answer, OpenCode refuses. OpenCode has no bundle;
+this plugin is installed separately too.
 :::
 
 It implements ARD v0.91 at commit `f073b1ea9b`: §5.1 (domain discovery), §5.3
@@ -62,6 +68,10 @@ codex plugin add ard-discovery@agent-polyfill
 git clone https://github.com/idosal/AgentPolyfill.git
 cd AgentPolyfill
 pi install ./polyfills/ard/pi/extension
+```
+
+```bash [OpenCode]
+opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/ard/opencode/plugin'
 ```
 
 :::
@@ -94,11 +104,33 @@ required. Its add tool is `ard_add_mcp_server`, so it can run beside Server
 Cards' `add_mcp_server`: Pi shares tool names across extensions and keeps
 the first registration of a name.
 
+### In OpenCode
+
+OpenCode 2.4 or newer (tested with 2.4.1). OpenCode runs the plugin itself,
+so you don't need Node. The plugin isn't on npm: the command fetches it from
+GitHub, with Git, and adds it to `plugins` in your global
+`~/.config/opencode/opencode.json`, so it runs in every project from the next
+time OpenCode opens one. A commit in place of `main` pins one version. From a
+clone, put the folder `polyfills/ard/opencode/plugin` in `plugins` in an
+`opencode.json` instead. To remove it, run `opencode plugin remove` with the
+same text; OpenCode's downloaded copy stays in `~/.cache/opencode/npm/` (a
+`git-AgentPolyfill-…` folder), which you can delete. Removing it stops adding
+the servers it added, which were never in your configuration files. Its list
+of them stays in OpenCode's plugin storage (OpenCode's own database) and
+comes back if you install it again; remove a server with
+`ard_remove_mcp_server` first to drop it from the list.
+
+It works on its own; installing `mcp-server-cards` beside it is optional.
+Adding a server it finds works as in
+[`mcp-server-cards`](./server-cards#using-it-step-by-step) in OpenCode, with
+the same code and the same permission actions.
+
 The sections below name the host where behavior differs. Full guides by host:
 
 - [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/claude-code)
 - [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex)
 - [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi)
+- [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/opencode)
 
 ## Try it
 
@@ -113,6 +145,10 @@ Then ask to add it:
 - **Pi:** choose "Add it" in the extension's dialog. This add step is
   covered by real-Pi tests with a scripted model and a local server; it was
   **not completed in the live run**.
+- **OpenCode:** ask OpenCode to add it, and allow it when OpenCode asks.
+  Adding through this plugin is covered by its tests in a real OpenCode,
+  with a scripted model and a local server; the live runs didn't add a
+  server through it.
 
 To try search, start the demo registry from a clone of the repository (it is a
 demo, not a real registry: it reads the live catalogs of ten publishers and
@@ -130,6 +166,9 @@ Claude finds Buildkite, and says buildkite.com's own catalog confirms it.
 In Pi, the recorded search returned publisher-confirmed Buildkite and
 Netlify after the extension's search question. The query stays local with
 this demo; fetching cards and checking publishers still makes public GETs.
+In OpenCode, a live search of the demo registry, sent after OpenCode asked,
+returned Buildkite's and Netlify's servers, each confirmed by its
+publisher's catalog.
 
 ## Using it, step by step
 
@@ -174,11 +213,50 @@ the server for the session. Use `/mcp` or `pi mcp login <name>` if sign-in
 is needed. Print and JSON modes cannot ask, so searches and additions are
 refused; RPC clients relay the dialogs.
 
+### In OpenCode
+
+`ard_discover` reads a domain's `ard.json`, its `rel="ard"` links and the AI
+Catalog, then fetches and checks each card. `ard_search` posts the query to
+the registry you name or set with `ARD_DISCOVERY_REGISTRY` (none by
+default), and follows its referrals one hop, to at most three registries.
+Before anything is sent, OpenCode asks you about `ard_search` on the
+registry's host; the request carries the exact query and endpoints. A
+registry a referral names is asked about the same way before the query goes
+there, and one you don't allow gets nothing. OpenCode's shipped rules allow
+every action, so the plugin makes its own actions ask by default, and "Allow
+always" saves nothing: each search is asked about on its own. A query is one
+line of plain words, at most 300 characters. The plugin option
+`askByDefault: false` (or `ARD_DISCOVERY_ASK_BY_DEFAULT=0`) leaves searches
+and additions to OpenCode's rules alone, under whose default a search is
+sent without a prompt.
+
+One limit: OpenCode 2.4.1's TUI shows a plugin's own action as only "Call
+tool `<action>`" (seen for the other three plugins; ARD wasn't tried in the
+TUI). For a search, the model's call line just above the prompt names the
+query and the registry you named. For a registry a referral names, nothing on
+screen names its host, so reject a prompt you can't read. OpenCode Desktop
+shows a plugin action's resource in its prompt (seen for Events and Skills),
+but ARD wasn't tried there either.
+
+`ard_add_mcp_server` and `ard_remove_mcp_server` add or remove a server
+either tool showed, as `mcp-server-cards` does in OpenCode: asked about,
+kept per project in the plugin's OpenCode storage, connected by OpenCode
+itself, with `opencode mcp auth <name>` for a sign-in. With nobody there to
+answer, as in a scheduled run, OpenCode refuses searches and additions.
+
 ## Settings
 
 In Pi, use `ARD_DISCOVERY_REGISTRY` for your chosen registry and
 `ARD_DISCOVERY_DISABLED=1` to turn the form off. It cannot detect native ARD
 support: remove it or use the off switch when Pi supports ARD itself.
+
+In OpenCode, `ARD_DISCOVERY_REGISTRY` sets the registry a search goes to
+when the request names none (unset by default). `ARD_DISCOVERY_DISABLED=1`,
+or the plugin option `off`, turns the plugin off, and
+`ARD_DISCOVERY_ASK_BY_DEFAULT=0`, or `askByDefault: false`, leaves searches
+and additions to OpenCode's rules alone. Set a variable in the environment
+OpenCode starts in, and an option in the object form of the plugin's entry in
+`plugins`.
 
 In Claude Code, in `/config`, under the plugin:
 
@@ -217,13 +295,28 @@ In Claude Code, in `/config`, under the plugin:
   stayed empty. Additions are covered by real-Pi tests with a scripted model
   and a local server, not by that live run.
 
+### In OpenCode
+
+- **A search discloses its query** to the registry and the registries it
+  refers to, once you allow it.
+- **The Server Cards OpenCode limits apply** to adding: streamable HTTP only,
+  secrets added by hand with `{env:VAR}`, per project, and no check against
+  the live server. See [Server Cards](./server-cards#limits).
+- **The TUI's referral prompt.** In OpenCode's TUI, nothing on screen names
+  a referred registry's host (above).
+- **No public registry was tried.** None that takes an unauthenticated
+  search was found; searches ran against the repository's demo registry.
+- **Not tried yet:** ARD in OpenCode's TUI and in OpenCode Desktop, and
+  Windows by hand (CI runs the tests there). The live runs didn't add a
+  server through it; additions are covered by its tests in OpenCode.
+
 ### In T3 Code
 
-T3 Code runs Codex and Claude Code for you, and this polyfill's Codex and Claude Code
-forms load there. With Codex, the question it asks before sending a registry search ("Send the search") is an MCP
-elicitation form, and T3 Code shows such a form only when it can answer it
-with Approve or Decline; it cancels this one without showing it, so the step
-is refused as if you had said no. Nothing is approved for you.
+T3 Code runs Codex, Claude Code or OpenCode for you, and this polyfill's
+forms for them load there. With Codex, the question it asks before sending a registry search ("Send the search") is
+an MCP elicitation form, and T3 Code shows such a form only when it can
+answer it with Approve or Decline; it cancels this one without showing it, so
+the step is refused as if you had said no. Nothing is approved for you.
 Not run live in T3 Code.
 [T3 Code](https://github.com/idosal/AgentPolyfill/blob/main/docs/t3-code.md) has the details.
 
@@ -265,6 +358,32 @@ documents the shared ARD and Server Cards rules, Pi's questions and the
 tested add path. No upstream conformance run or independent public-registry
 run is claimed. The [live-run transcript](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/pi/docs/live-run.md)
 shows discovery and the approved demo search, and stops before addition.
+
+### In OpenCode
+
+Each search is put to OpenCode's permission rules before anything is sent,
+and asked about by default; nothing is saved by "Allow always". A registry a
+referral names is put to them too, before the query goes there, so your
+`allow` and `deny` rules hold for it. What is sent is what the request shows:
+one line, at most 300 characters, with no control characters, direction
+marks or markup. The plugin never answers a prompt and never turns anything
+into `allow`. A result counts as confirmed only when its publisher's own
+catalog lists it. Fetching, showing and adding a server are as in
+`mcp-server-cards` for OpenCode. See
+[OpenCode's SECURITY.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/opencode/SECURITY.md).
+
+[OpenCode's conformance report](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/opencode/docs/conformance.md)
+records 19 rules: 17 met, 1 partly met (R-8, as in the other forms), and 1
+met with a stated exception (Q-3: the TUI's prompt doesn't name a referred
+registry). Its tests run the plugin in OpenCode 2.4.1 against a local web
+with an `ard.json`, a card, a small MCP server and a registry, with a
+scripted model; CI runs them on Linux, macOS and Windows. No upstream
+conformance run or public-registry run is claimed. The
+[live run](https://github.com/idosal/AgentPolyfill/blob/main/tools/opencode/live-run.md)
+records buildkite.com's `ard.json` read and a search of the demo registry
+sent after OpenCode asked; it added no server.
+An AI reviewer who did not build the OpenCode forms reviewed them. They have
+not been audited by a person.
 
 ## More
 

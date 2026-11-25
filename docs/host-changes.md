@@ -1,6 +1,6 @@
 # What hosts would need to change
 
-Claude Code, Codex and Pi all let outside code extend them. That gets a
+Claude Code, Codex, Pi and OpenCode all let outside code extend them. That gets a
 polyfill most of the way: it can add tools, react to what happens in a
 session, and wake a session that has gone idle. What none of them lets a
 plugin do is speak an extension's own protocol over the host's connection to
@@ -13,10 +13,12 @@ extension would use them the same way.
 We checked Claude Code against the mod API types in 2.1.330, Codex against
 CLI 0.170.0 (its `app-server` protocol, as
 `codex app-server generate-json-schema` prints it) and its source at
-`rust-v0.172.0`, and Pi against 1.6.0 (its extension API types, its built-in
-MCP extension's source, and the Pi forms' tests, run in Pi itself), and T3
-Code against 0.1.11 (its source at commit `5a156a2a`, and the T3 Events
-form's live run in it, with Codex 0.172.0).
+`rust-v0.172.0`, Pi against 1.6.0 (its extension API types, its built-in
+MCP extension's source, and the Pi forms' tests, run in Pi itself), and
+OpenCode against the V2 plugin API of 2.4.1 (`@opencode/plugin`'s
+declarations, a running OpenCode, and its source on `dev` at `b0cda20`),
+and T3 Code against 0.1.11 (its source at commit `5a156a2a`, and the T3
+Events form's live run in it, with Codex 0.172.0).
 
 ## How a plugin plugs in today
 
@@ -26,33 +28,36 @@ the host: a plugin brings MCP servers, skills and hooks, and other programs
 can drive Codex from outside through `app-server`, an experimental JSON-RPC
 API. The Codex column names that API's methods. In Pi, an extension is
 TypeScript that Pi loads into its own process, and Pi's MCP support is itself
-a built-in extension, which keeps its connections to itself. T3 Code is
-different again: it isn't a host plugins load into, but an app that runs
-Codex and Claude Code (and other agents) for you, so most of its column is
-"through the agent", and the Codex or Claude Code column then applies. What
-it adds of its own is a way to message a thread, and the thread's id in the
-environment of the MCP servers Codex starts for it ([T3 Code](t3-code.md)).
+a built-in extension, which keeps its connections to itself. In OpenCode, a
+plugin's server part runs inside the OpenCode server, once per project folder,
+and calls its V2 plugin API (`ctx`); TUI and desktop parts draw in the two
+clients. T3 Code is different again: it isn't a host plugins load into, but
+an app that runs Codex, Claude Code and other agents (OpenCode among them)
+for you ([T3 Code](t3-code.md)), so most of its column is "through the agent", and that agent's
+column then applies. What it adds of its own is a way to message a thread,
+and the thread's id in the environment of the MCP servers Codex starts for
+it.
 
-| What a polyfill needs | Claude Code (a mod) | Codex (a plugin, or an app-server client) | Pi (an extension) | T3 Code (an app that runs Codex and Claude Code; no plugins of its own) |
-|---|---|---|---|---|
-| Add tools the model can call | `$.tool.register` | An MCP server in the plugin, or `dynamicTools` for an app-server client | `pi.registerTool`. Tool names are shared by every extension, and the first one registered under a name wins. | Through the agent: a Codex plugin or MCP server, a Claude Code mod. T3 Code adds its own `t3-code` server to every thread. |
-| Draw its own UI | `ui.render` hooks | No. The desktop app shows a server's MCP App; nothing draws in the terminal. | Yes: custom components, overlays, `pi.registerToolRenderer`, images (Kitty, iTerm2), and mouse input in its default fullscreen mode | No. It shows a server's MCP App itself. A mod asking for its pane's focus ends the turn. |
-| Ask the person | A permission hook that answers "ask" | MCP elicitation, from the plugin's MCP server | `ctx.ui.confirm`, `select`, `input`; relayed to the client in RPC mode, unavailable in print and JSON modes | The agent's approvals, shown in the thread. An MCP elicitation only if T3 Code can answer it with Approve or Decline; any other form is cancelled unseen. |
-| Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `pi.sendMessage(…, { triggerTurn: true })`, shown as the extension's own message | `t3 thread send <thread> -`, on the machine it runs on, with no sign-in. `codex queue` reaches T3 Code's app server, but the thread doesn't show the turn. |
-| Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives | The extension runs in that session (`ctx.sessionManager.getSessionId()`) | `T3CODE_THREAD_ID` in the environment of Codex's stdio MCP servers (not documented); not set for Claude Code's |
-| Know the person wrote | The `prompt.submit` hook | `turn_trigger` in the turn metadata of a tool call | The `input` event, with its source | No: Codex's turn metadata has no `turn_trigger` there |
-| Add skills | The Skills mod lists served skills in Claude's skill listing ([Skills form](../polyfills/skills/claude-code/README.md)) | A plugin's skills folder, read when the plugin loads; `~/.agents/skills` | `resources_discover` returns skill folders, read at start and at `/reload` | Through the agent; it lists the agent's skills in its composer |
-| Gate a tool call | Permission hooks that allow, deny or ask | Hooks that can deny, not ask | `tool_call` handlers that can block, and ask with `ctx.ui`, for the model's calls and codemode's nested calls | Through the agent |
-| Add a server | `claude mcp add` | `codex mcp add` | `pi mcp add` (saved), `pi.registerMcpServer` (this session, connected at once) | Through the agent (`codex mcp add`, `claude mcp add`), then **Restart agent session** |
-| Call a server's tool over the host's connection, with its sign-in | `$.mcp.call(server, tool, args)` | `mcpServer/tool/call` | Indirectly: an MCP tool is a Pi tool (`mcp__<server>__<tool>`), callable with `ctx.executeTool` | Only through the agent (a Claude Code mod's `$.mcp.call`) |
-| Ask whether the host would use a server | `$.mcp.connect(server)` | `mcpServerStatus/list` (start-up and sign-in state) | No. An extension reads `mcp.json` itself. | No |
-| Read a resource over the host's connection | Only indirectly, by calling the built-in `ReadMcpResourceTool`. You get text or a saved file, without the resource's `_meta`. | `mcpServer/resource/read`, with `_meta` | Only indirectly, through Pi's `read_mcp_resource` tool, which leaves out `ui://` resources | No (it reads an MCP App's `ui://` resource itself) |
-| Send any other MCP method | No | No. Codex's MCP client has a generic `send_custom_request`, but `app-server` doesn't expose it. | No. Pi's `McpClient` has `request(method, params)`, but the MCP extension doesn't expose its clients. | No |
-| See what a server advertised | No | Mostly: capabilities (including `extensions`) and `serverInfo` are in `mcpServerStatus/list`. The negotiated protocol revision isn't. | No | No |
-| Receive a server's notifications | No | Only from OpenAI's hosted apps server. `mcpServer/event/stream/*` refuses any other server. Elicitation requests are relayed. | No | No |
-| See a tool's `_meta`, its `outputSchema`, or a result as the server sent it | No | Not checked yet | A result's `structuredContent` reaches `tool_result` hooks and codemode; a tool's `_meta` doesn't | No (it reads `_meta.ui` itself, for MCP Apps) |
-| Declare a client extension to servers | No | Only Codex's own client (the terminal or the desktop app) can, and its declaration goes to every server. A plugin or the config can't. | No. Pi's `McpClient` takes capabilities from its caller, but the MCP extension sets none for others. | No |
-| Protocol revision of the host's own connection | 2026-07-28 back to 2024-11-05 | 2025-06-18 (2026-07-28 behind a feature flag that is off) | Up to 2025-11-25 | The agent's |
+| What a polyfill needs | Claude Code (a mod) | Codex (a plugin, or an app-server client) | Pi (an extension) | OpenCode (a V2 server plugin) | T3 Code (an app that runs Codex, Claude Code and other agents; no plugins of its own) |
+|---|---|---|---|---|---|
+| Add tools the model can call | `$.tool.register` | An MCP server in the plugin, or `dynamicTools` for an app-server client | `pi.registerTool`. Tool names are shared by every extension, and the first one registered under a name wins. | `ctx.tool.transform`, in a namespace of the plugin's (the model sees `<namespace>_<name>`) | Through the agent: a Codex plugin or MCP server, a Claude Code mod. T3 Code adds its own `t3-code` server to every thread. |
+| Draw its own UI | `ui.render` hooks | No. The desktop app shows a server's MCP App; nothing draws in the terminal. | Yes: custom components, overlays, `pi.registerToolRenderer`, images (Kitty, iTerm2), and mouse input in its default fullscreen mode | TUI slots and routes (terminal text), and, experimentally, desktop panels with an embedded web view | No. It shows a server's MCP App itself. A mod asking for its pane's focus ends the turn. |
+| Ask the person | A permission hook that answers "ask" | MCP elicitation, from the plugin's MCP server | `ctx.ui.confirm`, `select`, `input`; relayed to the client in RPC mode, unavailable in print and JSON modes | `ctx.permission.assert`, under OpenCode's permission rules, with actions a plugin names itself. OpenCode's default rule allows every action; the polyfills turn that into `ask` for their own actions with an `evaluate` hook (`ctx.permission.hook`). | The agent's approvals, shown in the thread. An MCP elicitation only if T3 Code can answer it with Approve or Decline; any other form is cancelled unseen. |
+| Start a turn in an idle session | `$.prompt.submit` | `codex queue --thread <id> --resume`, or `turn/start` through the app-server daemon | `pi.sendMessage(…, { triggerTurn: true })`, shown as the extension's own message | `ctx.session.synthetic` with `resume: true`, stored as synthetic rather than the user's | `t3 thread send <thread> -`, on the machine it runs on, with no sign-in. `codex queue` reaches T3 Code's app server, but the thread doesn't show the turn. |
+| Know which session called | The hook runs in that session | `_meta.threadId` on every `tools/call` an MCP server receives | The extension runs in that session (`ctx.sessionManager.getSessionId()`) | The tool executor's `sessionID` | `T3CODE_THREAD_ID` in the environment of Codex's stdio MCP servers (not documented); not set for Claude Code's |
+| Know the person wrote | The `prompt.submit` hook | `turn_trigger` in the turn metadata of a tool call | The `input` event, with its source | `ctx.session.hook('prompt')`, which a synthetic message doesn't run | No: Codex's turn metadata has no `turn_trigger` there |
+| Add skills | The Skills mod lists served skills in Claude's skill listing ([Skills form](../polyfills/skills/claude-code/README.md)) | A plugin's skills folder, read when the plugin loads; `~/.agents/skills` | `resources_discover` returns skill folders, read at start and at `/reload` | `ctx.skill.transform`, with no file, but with the skill's text given when it is listed | Through the agent; it lists the agent's skills in its composer |
+| Gate a tool call | Permission hooks that allow, deny or ask | Hooks that can deny, not ask | `tool_call` handlers that can block, and ask with `ctx.ui`, for the model's calls and codemode's nested calls | `ctx.tool.hook('execute.before')`, which can refuse a call or put it to the permission rules first, for the model's calls and Code Mode's | Through the agent |
+| Add a server | `claude mcp add` | `codex mcp add` | `pi mcp add` (saved), `pi.registerMcpServer` (this session, connected at once) | `ctx.mcp.transform` (in memory; a plugin keeps what it added and adds it again on each load) | Through the agent (`codex mcp add`, `claude mcp add`), then **Restart agent session** |
+| Call a server's tool over the host's connection, with its sign-in | `$.mcp.call(server, tool, args)` | `mcpServer/tool/call` | Indirectly: an MCP tool is a Pi tool (`mcp__<server>__<tool>`), callable with `ctx.executeTool` | No | Only through the agent (a Claude Code mod's `$.mcp.call`) |
+| Ask whether the host would use a server | `$.mcp.connect(server)` | `mcpServerStatus/list` (start-up and sign-in state) | No. An extension reads `mcp.json` itself. | `ctx.mcp.list()` (connected, pending, disabled, failed, needs sign-in) | No |
+| Read a resource over the host's connection | Only indirectly, by calling the built-in `ReadMcpResourceTool`. You get text or a saved file, without the resource's `_meta`. | `mcpServer/resource/read`, with `_meta` | Only indirectly, through Pi's `read_mcp_resource` tool, which leaves out `ui://` resources | No. The model's `opencode_read_mcp_resource` tool reads one; a plugin can only see that call (`ctx.tool.hook`). | No (it reads an MCP App's `ui://` resource itself) |
+| Send any other MCP method | No | No. Codex's MCP client has a generic `send_custom_request`, but `app-server` doesn't expose it. | No. Pi's `McpClient` has `request(method, params)`, but the MCP extension doesn't expose its clients. | No. OpenCode's client sends `events/*` for itself. | No |
+| See what a server advertised | No | Mostly: capabilities (including `extensions`) and `serverInfo` are in `mcpServerStatus/list`. The negotiated protocol revision isn't. | No | No | No |
+| Receive a server's notifications | No | Only from OpenAI's hosted apps server. `mcpServer/event/stream/*` refuses any other server. Elicitation requests are relayed. | No | No. OpenCode takes Events push notifications itself, for its automations; a plugin sees only OpenCode's own events (`mcp.tools.changed` and the like). | No |
+| See a tool's `_meta`, its `outputSchema`, or a result as the server sent it | No | Not checked yet | A result's `structuredContent` reaches `tool_result` hooks and codemode; a tool's `_meta` doesn't | Not checked yet | No (it reads `_meta.ui` itself, for MCP Apps) |
+| Declare a client extension to servers | No | Only Codex's own client (the terminal or the desktop app) can, and its declaration goes to every server. A plugin or the config can't. | No. Pi's `McpClient` takes capabilities from its caller, but the MCP extension sets none for others. | No. OpenCode's own client declares Events to every server. | No |
+| Protocol revision of the host's own connection | 2026-07-28 back to 2024-11-05 | 2025-06-18 (2026-07-28 behind a feature flag that is off) | Up to 2025-11-25 | Not checked yet | The agent's |
 
 The row that matters most is "send any other MCP method". Because no host
 has it, each polyfill that speaks an extension's protocol (Events, Skills,
@@ -85,9 +90,12 @@ headers for the method, or takes them from the caller.
   the caller the request's JSON-RPC id (push notifications are routed by it),
   takes per-request `Mcp-*` routing headers, and refuses `tools/call`, so
   tools stay on Pi's tool pipeline, where permission extensions see them.
+- **OpenCode** has the hard part too: its MCP client already sends `events/*`
+  for itself. It could be `ctx.mcp.request({ server, method, params })` beside
+  `ctx.mcp.list`, on the connection OpenCode holds, with its sign-in.
 
 This change alone brings servers behind OAuth to Events and Skills in Claude
-Code and Codex, and to Skills in Pi, and removes their second connection.
+Code, Codex and OpenCode, and to Skills in Pi, and removes their second connection.
 Events in Pi also needs Pi's client to speak protocol revision 2026-07-28,
 which SEP-3415 is defined for ([In Pi](#in-pi)).
 
@@ -103,6 +111,8 @@ to a server that hasn't declared them, so a polyfill has to be able to check.
 - **Pi:** missing. Its client already keeps the negotiated revision, the
   capabilities as the server sent them, and `serverInfo`; the session handle
   of change 1 could expose them.
+- **OpenCode:** missing. `ctx.mcp.list()` could carry the capabilities,
+  `serverInfo` and the negotiated revision, which its client already keeps.
 
 ### 3. Deliver a server's notifications to the plugin
 
@@ -117,6 +127,9 @@ resource updates.
   that asked for them, would close it.
 - **Pi:** missing. Its client has `onNotification(method, listener)`; the
   session handle could pass it on, and keep it across reconnects.
+- **OpenCode:** missing for plugins. OpenCode's client handles Events push
+  notifications itself; a `ctx.mcp` hook for a server's notifications (with
+  those on a stream the plugin opened) would close it.
 
 ### 4. Raw tool results, and declaring a client extension
 
@@ -133,6 +146,10 @@ do.
   a tool's `_meta` doesn't, and an extension can't add to the capabilities
   Pi's client declares. An extension id in an extension's package manifest,
   added to what Pi's client declares, would close the second.
+- **OpenCode:** its own client declares Events; a plugin can't add an
+  extension id. A field in a server's configuration, which a plugin's
+  `ctx.mcp.transform` could set, would close it. Raw results we haven't
+  checked yet.
 
 ## What each extension needs from them
 
@@ -144,7 +161,8 @@ do.
 | 4. Raw results, declaring an extension | not needed (declaring is optional) | not needed | both | not needed |
 
 Changes 1 and 2 are enough for Events (by poll and webhook) and for Skills to
-work with every server you've signed in to, in Claude Code and Codex. In Pi
+work with every server you've signed in to, in Claude Code, Codex and
+OpenCode. In Pi
 they're enough for Skills; Events also needs Pi's client to speak 2026-07-28.
 
 Server Cards doesn't need any of the four to work. A card is a public document
@@ -246,6 +264,64 @@ the live server.
   Worth a line in Pi's docs: running Pi with its own agent directory
   (`PI_CODING_AGENT_DIR`) still lists the user's own skills.
 
+### In OpenCode
+
+- **Let a plugin give its own permission actions a default.** OpenCode's
+  default rule allows every action, so a plugin that asks with
+  `ctx.permission.assert` reaches you only if you added an `ask` rule for its
+  action. The polyfills ask by default anyway, with an `evaluate` hook that
+  turns `allow` into `ask` for their own actions, and follow OpenCode's
+  permission events to keep an "Allow always". That hook can't tell
+  OpenCode's default from an `allow` rule you wrote, and the plugin keeps a
+  copy of each "Allow always" that OpenCode's own list doesn't know about. A
+  default a plugin declares for actions it names (`ask` for
+  `mcp_skills_load`), below every rule of yours, would do the same with
+  neither problem, and leave the decision with your rules.
+- **Show a plugin's permission request as it was made, in the TUI.** The
+  TUI shows a request for an action it doesn't know as "Call tool `<action>`",
+  without its resources or metadata, so the person reads the model's call
+  line above it instead (2.4.1, `packages/tui/src/util/permission.ts`). The
+  desktop app already shows the resources. Showing them in the TUI too, and a
+  `title` or `description` the plugin puts in the metadata in both, would let
+  a person see the server, the skill's digest or the URL being approved.
+- **Show synthetic messages in the desktop app.** The TUI shows one as an
+  entry of its own (its `description`, such as `◈ mcp-events: new events`);
+  the desktop app (2.4.1) shows nothing, so a turn an event started appears
+  with no visible cause.
+- **Let a plugin show the person something the model doesn't see,** before
+  they decide: a preview attached to a permission request, or the session
+  forms OpenCode's client API has (`session.form.create`) offered to plugins.
+  The Skills polyfill could then show a skill's `SKILL.md` before it loads.
+- **Let a skill's text come at load time.** `ctx.skill.transform` takes a
+  skill's text when the skill is listed. A plugin-supplied loader, run by
+  OpenCode's `skill` tool when the skill is loaded, would let a served skill
+  load in one step, after the plugin's question, with nothing fetched before.
+- **Start a project's plugins when the server starts,** for projects with
+  work waiting, or give a plugin a supported way to ask for that (as
+  OpenCode's automations keep a project running). Today a project's plugins
+  load when something uses that project, so Events watches resume only when
+  the project is opened again.
+- **Have the MCP configuration during setup.** While a project's plugins are
+  set up, `ctx.mcp.transform`'s editor lists no servers yet; they appear once
+  OpenCode applies its configuration (`mcp.status.changed`). Applying it
+  before plugin setup, or documenting that event as the signal, would remove
+  the wait.
+- **Every event type, and poll and webhook, in OpenCode's own Events client.**
+  It takes push only, and skips an event type whose schemas it can't turn into
+  a checker (`pattern`, `format` and the SEP's `x-mcp-content` among what made
+  it skip the fixture server's types). With every valid schema, poll and
+  webhook, and a way to watch for a session, not only an automation, the
+  Events polyfill could stand down entirely. Until then a plugin can't ask
+  which event types OpenCode accepts (`opencode_list_mcp_events` is the
+  model's tool), so the polyfill watches them all.
+- **Mark synthetic messages to the model.** A synthetic message is stored as
+  synthetic, but reaches the model in the user's role, so the polyfill's own
+  first line is what says it isn't the user's.
+- **Show MCP Apps.** OpenCode's client has no MCP Apps support. The desktop
+  app's experimental panels can embed a web view, but a plugin can't read a
+  `ui://` resource or a tool's `_meta` over OpenCode's connection, and there
+  is no place to draw in the conversation itself (a tool-result renderer).
+
 ### In T3 Code
 
 T3 Code passes MCP through to the agent it runs, so the four changes are the
@@ -290,6 +366,11 @@ details:
   trust boundary. It does let any extension send other methods to any
   configured server with the user's sign-in, which a manifest-declared scope
   would narrow.
+- **Who may call, in OpenCode.** Every plugin runs in OpenCode's server with
+  the user's permissions, as in Pi, so change 1 creates no new trust
+  boundary. It would let any plugin send other methods to any configured
+  server with the user's sign-in, which a scope declared by the plugin would
+  narrow.
 
 ## What these changes don't cover
 

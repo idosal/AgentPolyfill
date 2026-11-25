@@ -1,8 +1,7 @@
 # Security
 
-This covers `mcp-server-cards` for Pi. The [Claude Code](../claude-code/SECURITY.md)
-and [Codex](../codex/SECURITY.md) forms use the same discovery and card rules,
-with their own host adapters.
+This covers `mcp-server-cards` for Pi. The other forms use the same discovery and card
+rules, with their own host adapters: [Claude Code](../claude-code/SECURITY.md), [Codex](../codex/SECURITY.md), [OpenCode](../opencode/SECURITY.md).
 
 The extension reads documents strangers publish and turns an accepted card
 into a Pi MCP entry. Catalogs and cards are untrusted data, including their

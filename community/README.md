@@ -5,7 +5,7 @@ here so you can find them. Each entry points at its author's repository. The
 code isn't copied here, and this project doesn't review, build or ship it.
 Listed polyfills aren't in this repository's marketplaces or in the
 `agent-polyfill` bundle. Follow its author's install instructions, whether
-from a marketplace or a local clone.
+from a marketplace, a Git repository or a local clone.
 
 The list is [`polyfills.json`](polyfills.json). It is also shown on
 [agentpolyfill.com/guide/community](https://agentpolyfill.com/guide/community).
@@ -47,13 +47,16 @@ Open a pull request that adds one object to the `polyfills` array:
   | Claude Code | `"Claude Code"` |
   | Codex | `"Codex"` |
   | Pi | `"Pi"` |
+  | OpenCode | `"OpenCode"` |
 
   Other hosts are welcome too.
 - **`summary`**: one plain sentence.
 - **`repository`** and **`install`**: where it lives, and the command or steps
   that install it. For a Pi extension, say if it needs a clone and give the
-  local path used with `pi install`. The repository's README states the spec
-  revision, its limits and what it sends where.
+  local path used with `pi install`. For an OpenCode plugin, give the
+  `opencode plugin add` line, or the folder to put in `plugins` in
+  `opencode.json`. The repository's README states the spec revision, its
+  limits and what it sends where.
 - **`maintainer`**: your GitHub handle.
 - **`contract`**: where it stands on this project's
   [contract](../docs/polyfill-contract.md), as you state it:
@@ -73,6 +76,12 @@ installable extension in `extension/`. They cover Events, Skills, Server
 Cards and ARD; Apps has no Pi form. Nothing for Pi here is published to npm
 or Pi's package gallery. The [root README](../README.md#install) has the
 tested clone-and-install steps.
+
+This repository's OpenCode forms are in `polyfills/<polyfill>/opencode/`,
+with the installable plugin in `plugin/`. They cover Events, Skills, Server
+Cards and ARD; Apps has no OpenCode form. Nothing for OpenCode here is
+published to npm: `opencode plugin add` installs each one from GitHub. The
+[root README](../README.md#install) has the tested install lines.
 
 ## What gets listed
 
