@@ -147,5 +147,26 @@ run ([the record](../../../events/antigravity/docs/live-run.md)).
   back checked against their digests, and the answer used them.
 - The same unchanged skill then loaded headless with no question.
 
-Not run: the IDE's agent, and the upstream conformance runner (no installed
-checkout); `npm run interop:real` remains for a scripted run.
+Not run: the IDE's agent. `npm run interop:real` remains for a scripted run
+against public servers.
+
+### Upstream suite
+
+The MCP conformance suite's four Skills client scenarios
+(`sep-2640-client-no-prefetch`, `-verify-digest`, `-verify-size`,
+`-verify-frontmatter`), at `c8625de3118c2d5dc0561696cddeb0baaf124f2c` (the
+revision the other forms used), run on 25 November 2026 through this form's
+App, its hook and its ticket: **all four pass**. In the three verify
+scenarios the suite serves a tampered `SKILL.md`; the plugin refuses each (a
+digest mismatch, a size mismatch, a frontmatter mismatch) and loads nothing.
+The record is [evidence/conformance.txt](evidence/conformance.txt).
+
+The first run failed the three verify scenarios before testing anything: the
+plugin read a skill's entry with `skills/get` only, and the suite's fixture
+answers `skills/list` alone. It now takes the entry from the server's listing,
+as the core's load does, and asks `skills/get` only for a skill the listing
+doesn't hold.
+
+```bash
+CONFORMANCE_DIR=<checkout of modelcontextprotocol/conformance at c8625de, dependencies installed> bash test/conformance.sh
+```

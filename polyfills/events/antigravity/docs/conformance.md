@@ -48,25 +48,30 @@ didn't write: so these runs are also this form's interop run.
 
 ## Upstream suite
 
-The Codex form records 17/17 checks against the Events scenarios in
-[conformance PR #541](https://github.com/modelcontextprotocol/conformance/pull/541)
-at `c8625de3118c2d5dc0561696cddeb0baaf124f2c`. Those are historical Codex/core
-results, not a run of this adapter. No installed checkout of those scenarios
-was available for this implementation run; no suite or dependencies were fetched.
+The Events client scenarios proposed upstream
+([conformance PR #541](https://github.com/modelcontextprotocol/conformance/pull/541)),
+at `c8625de3118c2d5dc0561696cddeb0baaf124f2c`, the revision the other forms
+used, run on 25 November 2026 through this form's committed MCP server, its
+ticket hook and a temporary `HOME`: **17 of 17 checks pass**
+(`events-client-no-extension` 1/1, `events-client-poll` 10/10,
+`events-client-push` 3/3, `events-client-webhook` 3/3). The record is
+[evidence/conformance.txt](evidence/conformance.txt).
 
-With a reviewed checkout at that revision and its dependencies already installed:
+The first run tested nothing: the driver accepted only `127.0.0.1`, and the
+suite names its server `localhost`. It now accepts any loopback name.
+
+With a checkout at that revision and its dependencies installed:
 
 ```bash
 MCP_CONFORMANCE_SUITE_DIR=/absolute/path/to/conformance npm run conformance
 ```
 
-This builds `test/probe.ts`, then runs the same four scenarios (`no-extension`,
-`poll`, `push`, `webhook`) through this form's committed MCP server, ticket
-hook and temporary HOME. `MCP_CONFORMANCE_OUTPUT_DIR` keeps suite receipts.
-The driver accepts loopback HTTP only. Its webhook scenario alone enables
-`MCP_EVENTS_DEV=1` for the suite's unauthenticated local fixture, as the
-existing Codex driver does. Tests never use a real host credential file.
+This builds `test/probe.ts`, then runs the four scenarios through this form's
+committed MCP server, ticket hook and temporary HOME.
+`MCP_CONFORMANCE_OUTPUT_DIR` keeps suite receipts. The driver accepts
+loopback HTTP only. Its webhook scenario alone enables `MCP_EVENTS_DEV=1` for
+the suite's unauthenticated local fixture, as the Codex driver does. Tests
+never use a real host credential file.
 
-The driver is provided, but no 17/17 claim is made until it is run against
-that external checkout. Property-fuzz and relay end-to-end suites remain in
-the Claude Code form; this form runs the shared clause and relay unit suites.
+Property-fuzz and relay end-to-end suites remain in the Claude Code form;
+this form runs the shared clause and relay unit suites.

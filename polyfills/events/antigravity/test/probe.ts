@@ -6,7 +6,7 @@ import { config, invocation, newThread, sleep, startHelper, untilActive, waitFor
 
 const value = (flag: string) => { const at = process.argv.indexOf(flag); return at < 0 ? undefined : process.argv[at + 1]; };
 const url = new URL(process.argv.at(-1)!);
-if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1') throw new Error('The probe accepts only an HTTP server on 127.0.0.1.');
+if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) throw new Error('The probe accepts only an HTTP server on this machine (127.0.0.1, localhost or [::1]).');
 const scenario = process.env.MCP_CONFORMANCE_SCENARIO ?? '';
 const w = world();
 const headers = value('--headers') ? JSON.parse(value('--headers')!) : {};

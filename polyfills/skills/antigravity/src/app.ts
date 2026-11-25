@@ -122,8 +122,10 @@ export class App {
                 if (!ticket.ok) throw new LocalError(`the skill is not loaded: ${ticket.why}`);
                 if (!ticket.conversationId) throw new LocalError('the ticket has no conversation');
                 const host = this.#thread(ticket.conversationId);
-                // Seed this conversation from a fresh get; refuse if anything changed after the hook.
-                const current = await host.get(server, uri);
+                // Seed this conversation from the server's current entry (its listing, or skills/get for a
+                // skill the listing doesn't hold, as the hook did); refuse if anything changed after the hook.
+                await host.list(server);
+                const current = host.listed(server).find(l => l.entry.uri === uri) ?? await host.get(server, uri);
                 if ((await versionOf(server, current.entry, fingerprint)).digest !== v.digest) throw new LocalError('the skill changed on the server after it was put to the user, so it is not loaded');
                 const asked = !v.approval || !this.store.isApproved(v.approval);
                 const loaded = await host.load(server, uri, { expect: v.hash });

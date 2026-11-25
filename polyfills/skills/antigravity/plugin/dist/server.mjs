@@ -33627,7 +33627,8 @@ function handlers(env, store) {
           throw new LocalError(c.error ?? "the server is not reachable");
         }
         const host = new SkillsHost((label) => label === server ? c : void 0, { requestTimeoutMs: 8e3 });
-        const listed = await host.get(server, uri);
+        await host.list(server);
+        const listed = host.listed(server).find((l) => l.entry.uri === uri) ?? await host.get(server, uri);
         if (listed.declined) return { deny: `this skill is not loaded: ${listed.declined}` };
         shareEntry(store.dir, server, listed.entry, fingerprint);
         const v = await versionOf(server, listed.entry, fingerprint);
@@ -33875,7 +33876,8 @@ var App = class {
         if (!ticket2.ok) throw new LocalError(`the skill is not loaded: ${ticket2.why}`);
         if (!ticket2.conversationId) throw new LocalError("the ticket has no conversation");
         const host2 = this.#thread(ticket2.conversationId);
-        const current = await host2.get(server, uri);
+        await host2.list(server);
+        const current = host2.listed(server).find((l) => l.entry.uri === uri) ?? await host2.get(server, uri);
         if ((await versionOf(server, current.entry, fingerprint)).digest !== v.digest) throw new LocalError("the skill changed on the server after it was put to the user, so it is not loaded");
         const asked = !v.approval || !this.store.isApproved(v.approval);
         const loaded = await host2.load(server, uri, { expect: v.hash });

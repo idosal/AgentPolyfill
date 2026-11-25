@@ -89,7 +89,11 @@ export function handlers(env: NodeJS.ProcessEnv, store: Store): Record<string, H
             try {
                 try { await c.connect(8000); } catch { throw new LocalError(c.error ?? 'the server is not reachable'); }
                 const host = new SkillsHost(label => label === server ? c : undefined, { requestTimeoutMs: 8000 });
-                const listed = await host.get(server, uri);
+                // The entry as the server lists it, as the core's load finds one; skills/get only for a
+                // skill the listing doesn't hold (a server need not answer skills/get for a listed one:
+                // the upstream suite's fixture doesn't). The server process re-checks at load.
+                await host.list(server);
+                const listed = host.listed(server).find(l => l.entry.uri === uri) ?? await host.get(server, uri);
                 if (listed.declined) return { deny: `this skill is not loaded: ${listed.declined}` };
                 shareEntry(store.dir, server, listed.entry, fingerprint);
                 const v = await versionOf(server, listed.entry, fingerprint);
