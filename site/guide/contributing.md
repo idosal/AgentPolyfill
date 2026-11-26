@@ -142,10 +142,11 @@ Install instructions depend on the host:
   the folder in `plugins` in `opencode.json`, and say what stays after
   removal. [Getting started](./getting-started#opencode) has the tested
   steps; `tools/opencode/install-check.ts` repeats the install from GitHub.
-- **Antigravity:** clone the repository, then
-  `agy plugin install ./polyfills/<extension>/antigravity/plugin`, which
-  needs the Antigravity CLI (the App doesn't ship `agy`). State Node 20 or
-  newer on `PATH` as the requirement, and the App and CLI versions it was
+- **Antigravity:**
+  `agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/<extension>/antigravity/plugin`,
+  which needs the Antigravity CLI (the App doesn't ship `agy`) and Git. Give
+  the clone's form too, `agy plugin install ./polyfills/<extension>/antigravity/plugin`.
+  State Node 20 or newer on `PATH` as the requirement, and the App and CLI versions it was
   run with. Nothing is published to Antigravity's Marketplace.
   [Getting started](./getting-started#antigravity) has the steps.
 - **Copilot CLI:** `copilot plugin marketplace add idosal/AgentPolyfill`,
@@ -177,8 +178,8 @@ Install instructions depend on the host:
 - **OpenCode:** there is no marketplace file and no bundle. Each plugin is
   installed from GitHub by its folder's path, so the install line in its
   README is its listing. Nothing is published to npm.
-- **Antigravity:** document the local `plugin/` install path and
-  `agy plugin uninstall <plugin>`. None of these forms is published to
+- **Antigravity:** document the install from the `plugin/` folder on GitHub,
+  the clone's path, and `agy plugin uninstall <plugin>`. None of these forms is published to
   Antigravity's Marketplace.
 - **Copilot CLI:** add an entry to `.github/plugin/marketplace.json` (Copilot
   found the marketplace there when a clone was added as a marketplace). Keep

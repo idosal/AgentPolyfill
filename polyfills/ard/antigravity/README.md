@@ -20,20 +20,21 @@ the same add as `mcp-server-cards`, which was).
 
 ## Install
 
-You need the Antigravity CLI (`agy`) to install a plugin from a folder: the
-App doesn't ship it. Node 20 or newer on your `PATH` (Antigravity runs the
-plugin's hook with `node`). From a clone of this repository:
+You need the Antigravity CLI (`agy`) to install a plugin: the App doesn't
+ship it. `agy` fetches the plugin with Git, so Git must be on your `PATH`.
+Node 20 or newer on your `PATH` (Antigravity runs the plugin's hook with
+`node`).
 
 ```bash
-git clone https://github.com/idosal/AgentPolyfill.git
-cd AgentPolyfill
-agy plugin install ./polyfills/ard/antigravity/plugin
+agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/antigravity/plugin
 agy plugin list
 ```
 
-`agy plugin install` copies the folder to `~/.gemini/config/plugins/ard-discovery/`,
-which the App and the CLI both read. Nothing is published to Antigravity's
-Marketplace. No registry is set: a search names the one you choose, or set
+`agy plugin install` fetches this repository from GitHub and copies the
+plugin's folder to `~/.gemini/config/plugins/ard-discovery/`, which the App
+and the CLI both read. Run the same line again to update it. From a clone of
+this repository, `agy plugin install ./polyfills/ard/antigravity/plugin` does
+the same. Nothing is published to Antigravity's Marketplace. No registry is set: a search names the one you choose, or set
 `ARD_DISCOVERY_REGISTRY` in the environment Antigravity starts in.
 
 ### Uninstall, and what stays behind

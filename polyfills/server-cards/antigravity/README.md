@@ -24,25 +24,23 @@ because a search sends your words to a third party.
 
 ## Install
 
-You need the Antigravity CLI (`agy`) to install a plugin from a folder: the
-App doesn't ship it. You need Node 20 or newer on your `PATH`. Antigravity
-starts the plugin's MCP server with `node` (it falls back to its own Node for
-that), and runs the plugin's approval hook with `node`, which has no such
-fallback.
-
-From a clone of this repository:
+You need the Antigravity CLI (`agy`) to install a plugin: the App doesn't
+ship it. `agy` fetches the plugin with Git, so Git must be on your `PATH`.
+You need Node 20 or newer on your `PATH`. Antigravity starts the plugin's MCP
+server with `node` (it falls back to its own Node for that), and runs the
+plugin's approval hook with `node`, which has no such fallback.
 
 ```bash
-git clone https://github.com/idosal/AgentPolyfill.git
-cd AgentPolyfill
-agy plugin install ./polyfills/server-cards/antigravity/plugin
+agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/antigravity/plugin
 agy plugin list
 ```
 
-`agy plugin install` copies the folder to
-`~/.gemini/config/plugins/mcp-server-cards/`, which the App and the CLI both
-read; the App picks it up when it next starts. Nothing is published to
-Antigravity's Marketplace. To turn it off, disable it in Customizations >
+`agy plugin install` fetches this repository from GitHub and copies the
+plugin's folder to `~/.gemini/config/plugins/mcp-server-cards/`, which the App
+and the CLI both read; the App picks it up when it next starts. Run the same
+line again to update it. From a clone of this repository,
+`agy plugin install ./polyfills/server-cards/antigravity/plugin` does the
+same. Nothing is published to Antigravity's Marketplace. To turn it off, disable it in Customizations >
 Installed, or run `agy plugin disable mcp-server-cards`.
 
 ### Uninstall, and what stays behind

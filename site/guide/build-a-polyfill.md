@@ -165,9 +165,9 @@ for each host:
   (`opencode plugin add`, with Git) or from a clone; nothing is published to
   npm.
 - **Antigravity:** a plugin in `antigravity/`, with its MCP server and hooks
-  in `plugin/`. It installs from a local clone with `agy plugin install`,
-  which needs the Antigravity CLI (the App doesn't ship `agy`); nothing is
-  published to Antigravity's Marketplace.
+  in `plugin/`. It installs from its `plugin/` folder on GitHub, or from a
+  clone, with `agy plugin install`, which needs the Antigravity CLI (the App
+  doesn't ship `agy`); nothing is published to Antigravity's Marketplace.
 - **Copilot CLI:** a plugin in `copilot/`, installed from `plugin/` (Events
   has one, which holds a Copilot extension; Skills doesn't, because Copilot
   has Skills over MCP built in). It installs from a clone added as a

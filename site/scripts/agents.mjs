@@ -108,7 +108,8 @@ const OPENCODE_FORMS = {
 const INSTALL_OPENCODE = Object.values(OPENCODE_FORMS).map(({ path }) => `opencode plugin add 'github:idosal/AgentPolyfill#main::path:${path}'`)
 const OPENCODE_INSTALL_NOTES = 'Nothing for OpenCode is published to npm. There is no bundle: install each plugin separately. OpenCode fetches each one from this repository on GitHub with Git, and runs it itself, so no Node is needed. Each command adds the plugin to `plugins` in the global `~/.config/opencode/opencode.json`, so it runs in every project from the next time OpenCode opens one. `#main` installs what the main branch holds; a commit in its place pins one version. From a clone, you can instead add a plugin\'s folder (`polyfills/<polyfill>/opencode/plugin`) to `plugins` in the global or a project\'s `opencode.json`. Remove one with `opencode plugin remove` and the same text it was added with. OpenCode keeps its downloaded copy in `~/.cache/opencode/npm/` (a `git-AgentPolyfill-…` folder), which can be deleted. Events leaves its watches, stored events and log in `~/.local/share/opencode/mcp-events/`, and Skills its log in `~/.local/share/opencode/mcp-skills/`; delete those to remove them. "Allow always" answers, the skills each session loaded, and the list of servers Server Cards and ARD added stay in OpenCode\'s plugin storage (its own database). An added server comes back if the plugin is installed again, unless it was removed first, with `server_cards_remove_mcp_server` or `ard_remove_mcp_server`.'
 const OPENCODE_APPS_LIMIT = 'Apps has no OpenCode form. OpenCode has no MCP Apps support: a plugin cannot read a `ui://` resource or a tool\'s `_meta` over OpenCode\'s connection, and there is no place to draw in the conversation. The desktop app\'s experimental panels can embed a web view, but an OpenCode Apps form was only assessed, not built.'
-// Antigravity's source installs and examples, for the Markdown served to agents.
+// Antigravity's installs from GitHub and examples, for the Markdown served to agents.
+const ANTIGRAVITY_GITHUB = 'https://github.com/idosal/AgentPolyfill/tree/main'
 const ANTIGRAVITY_FORMS = {
   'mcp-events': {
     path: 'polyfills/events/antigravity/plugin',
@@ -123,18 +124,16 @@ const ANTIGRAVITY_FORMS = {
   },
   'ard-discovery': {
     path: 'polyfills/ard/antigravity/plugin',
-    add: 'agy plugin install ./polyfills/ard/antigravity/plugin',
+    add: `agy plugin install ${ANTIGRAVITY_GITHUB}/polyfills/ard/antigravity/plugin`,
   },
 }
 const INSTALL_ANTIGRAVITY = [
-  'git clone https://github.com/idosal/AgentPolyfill.git',
-  'cd AgentPolyfill',
   ...Object.entries(ANTIGRAVITY_FORMS).flatMap(([name, { path }]) => [
     ...(name === 'ard-discovery' ? ['# Beyond MCP: ARD, a draft; every search asks you first'] : []),
-    `agy plugin install ./${path}`,
+    `agy plugin install ${ANTIGRAVITY_GITHUB}/${path}`,
   ]),
 ]
-const ANTIGRAVITY_INSTALL_NOTES = 'Nothing is published to Antigravity\'s Marketplace; each plugin installs separately. Installing needs the Antigravity CLI: the App doesn\'t ship `agy`. `agy plugin install` copies the folder to `~/.gemini/config/plugins/<name>`, which the App and the CLI both read. Uninstall one with `agy plugin uninstall <name>` (`mcp-events`, `mcp-skills`, `mcp-server-cards` or `ard-discovery`). Events wakes an idle App conversation only through its sidecar, which is off until you add `"sidecars": {"mcp-events/wake": {"enabled": true}}` to `~/.gemini/config/config.json`; the plugin never edits that file. The plugins write only their own folder, `~/.gemini/agentpolyfill/<plugin>/`; Skills\' placeholders, `~/.gemini/config/skills/mcp-skills-served--*`; and, for Server Cards and ARD after your approval, `~/.gemini/config/mcp_config.json`.'
+const ANTIGRAVITY_INSTALL_NOTES = 'Nothing is published to Antigravity\'s Marketplace; each plugin installs separately, from GitHub. Installing needs the Antigravity CLI (the App doesn\'t ship `agy`) and Git, which `agy` fetches the plugin with. `agy plugin install` copies the plugin\'s folder to `~/.gemini/config/plugins/<name>`, which the App and the CLI both read; run the same line again to update it. From a clone, `agy plugin install ./polyfills/<extension>/antigravity/plugin` does the same. Uninstall one with `agy plugin uninstall <name>` (`mcp-events`, `mcp-skills`, `mcp-server-cards` or `ard-discovery`). Events wakes an idle App conversation only through its sidecar, which is off until you add `"sidecars": {"mcp-events/wake": {"enabled": true}}` to `~/.gemini/config/config.json`; the plugin never edits that file. The plugins write only their own folder, `~/.gemini/agentpolyfill/<plugin>/`; Skills\' placeholders, `~/.gemini/config/skills/mcp-skills-served--*`; and, for Server Cards and ARD after your approval, `~/.gemini/config/mcp_config.json`.'
 const ANTIGRAVITY_ADD_NOTES = 'To add a server in the CLI: `agy mcp add <name> <url>`, with `--header "Authorization: Bearer <token>"` for a header; `agy mcp remove <name>` removes it. Both are in CLI 1.5.17\'s own help, not in Antigravity\'s docs, and both edit `~/.gemini/config/mcp_config.json`. The App doesn\'t ship `agy`; there, use Customizations > Installed > MCP Servers or edit that file.'
 const ANTIGRAVITY_APPS_LIMIT = 'Apps has no Antigravity form. Antigravity\'s App renders MCP Apps itself (v2.34.0 and later); the CLI and IDE show text only.'
 // Copilot CLI's plugins, from a clone added as a marketplace (the install
@@ -438,7 +437,7 @@ ${OPENCODE_INSTALL_NOTES}
 
 ${OPENCODE_APPS_LIMIT}
 
-**Antigravity** (App v2.35.1 and CLI v1.5.17; not supported in the IDE, which documents no plugin hooks; Node 20 or newer on \`PATH\`). From a clone, with the Antigravity CLI:
+**Antigravity** (App v2.35.1 and CLI v1.5.17; not supported in the IDE, which documents no plugin hooks; Node 20 or newer and Git on \`PATH\`). From GitHub, with the Antigravity CLI:
 
 \`\`\`bash
 ${INSTALL_ANTIGRAVITY.join('\n')}
@@ -478,7 +477,7 @@ Beyond MCP, ARD is a draft. Every search asks you first and goes to a registry y
 - **Codex:** \`codex plugin add ard-discovery@agent-polyfill\`.
 - **Pi:** \`pi install ./polyfills/ard/pi/extension\` from a clone; it is left out of the one-line install.
 - **OpenCode:** \`${OPENCODE_FORMS['ard-discovery'].add}\` (included in the commands above).
-- **Antigravity:** \`agy plugin install ./polyfills/ard/antigravity/plugin\` from the clone (included in the commands above).
+- **Antigravity:** \`${ANTIGRAVITY_FORMS['ard-discovery'].add}\` (included in the commands above).
 - **Copilot CLI:** \`copilot plugin install ard-discovery@agent-polyfill\`, with the marketplace added (included in the commands above).
 - **Hermes:** \`hermes plugins install idosal/AgentPolyfill/polyfills/ard/hermes/plugin --enable\` (included in the commands above).
 
@@ -589,7 +588,7 @@ OpenCode's shipped permission rules allow every action. Each polyfill puts its o
 
 Each also takes the plugin options \`{"off": true}\` and \`{"askByDefault": false}\`, in the object form of its entry in \`plugins\`.
 
-Antigravity, from a clone:
+Antigravity, from GitHub:
 
 \`\`\`bash
 ${INSTALL_ANTIGRAVITY.join('\n')}

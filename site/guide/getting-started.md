@@ -181,27 +181,27 @@ in App 2.35.1 and CLI 1.5.17. The IDE documents no plugin hooks, so the forms
 aren't supported there, and their gated calls are refused. The plugins'
 hooks run `node`, so Node 20 or newer must be on `PATH`. Nothing is
 published to Antigravity's Marketplace. Installing needs the Antigravity CLI:
-`agy plugin install` is a CLI command, and the App doesn't ship `agy`. From a
-clone of this repository, install the plugins you want:
+`agy plugin install` is a CLI command, and the App doesn't ship `agy`. It
+fetches each plugin from GitHub with Git, so Git must be on `PATH` too.
+Install the plugins you want:
 
 ```bash
-git clone https://github.com/idosal/AgentPolyfill.git
-cd AgentPolyfill
-agy plugin install ./polyfills/events/antigravity/plugin
-agy plugin install ./polyfills/skills/antigravity/plugin
-agy plugin install ./polyfills/server-cards/antigravity/plugin
+agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity/plugin
+agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/antigravity/plugin
+agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/antigravity/plugin
 ```
 
-`ard-discovery`, for ARD (a draft from outside MCP), installs the same way,
-from the same clone. Every search asks you first and goes to a registry you
-choose:
+`ard-discovery`, for ARD (a draft from outside MCP), installs the same way.
+Every search asks you first and goes to a registry you choose:
 
 ```bash
-agy plugin install ./polyfills/ard/antigravity/plugin
+agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/antigravity/plugin
 ```
 
-`agy plugin install` copies the folder to `~/.gemini/config/plugins/<name>`,
-which the App and the CLI both read. Apps has no Antigravity form: the App
+`agy plugin install` copies the plugin's folder to
+`~/.gemini/config/plugins/<name>`, which the App and the CLI both read. Run
+the same line again to update it. From a clone of this repository,
+`agy plugin install ./polyfills/<extension>/antigravity/plugin` does the same. Apps has no Antigravity form: the App
 renders MCP Apps itself (v2.34.0 and later), and the CLI and IDE show text
 only.
 

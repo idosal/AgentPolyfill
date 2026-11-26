@@ -38,7 +38,7 @@ Nothing for Pi is published to npm or Pi's package gallery.
 Nothing for OpenCode is published to npm either; OpenCode installs each plugin
 from the repository on GitHub, with Git.
 Nothing is published to Antigravity's Marketplace either; its plugins install
-from a clone, with the Antigravity CLI (the App doesn't ship `agy`).
+from GitHub, with the Antigravity CLI (the App doesn't ship `agy`) and Git.
 In Copilot CLI, add a clone of the repository as a marketplace and install
 each plugin from it; that is the install that was tested.
 

@@ -269,9 +269,11 @@ README's OpenCode column; Apps has no OpenCode form.
 
 For Antigravity, there is no marketplace file here either, and nothing is
 published to Antigravity's Marketplace. Each form installs on its own.
-Document `agy plugin install` from a clone, which needs the Antigravity CLI
-(the App doesn't ship `agy`), and keep the installable folder at
-`polyfills/<extension>/antigravity/plugin`. Include
+Document `agy plugin install` from the plugin's folder on GitHub
+(`https://github.com/idosal/AgentPolyfill/tree/main/polyfills/<extension>/antigravity/plugin`),
+and from a clone (`./polyfills/<extension>/antigravity/plugin`). It needs the
+Antigravity CLI (the App doesn't ship `agy`) and Git. Keep the installable
+folder at `polyfills/<extension>/antigravity/plugin`. Include
 `agy plugin uninstall <plugin>` for removal, and say what data remains. Add
 the form to the root README's Antigravity column; Apps has no Antigravity
 form, because the App shows MCP Apps itself.

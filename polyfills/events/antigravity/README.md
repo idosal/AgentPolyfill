@@ -13,23 +13,23 @@ Checked in Antigravity App 2.35.1 and CLI 1.5.17.
 
 ## Install
 
-You need the Antigravity CLI (`agy`) to install a plugin from a folder: the
-App doesn't ship it. Node 20 or newer must be on Antigravity's `PATH` for the
-plugin's hooks (webhook delivery through a relay needs Node 22 or newer).
-From a clone of this repository:
+You need the Antigravity CLI (`agy`) to install a plugin: the App doesn't
+ship it. `agy` fetches the plugin with Git, so Git must be on your `PATH`.
+Node 20 or newer must be on Antigravity's `PATH` for the plugin's hooks
+(webhook delivery through a relay needs Node 22 or newer).
 
 ```bash
-git clone https://github.com/idosal/AgentPolyfill.git
-cd AgentPolyfill
-agy plugin install ./polyfills/events/antigravity/plugin
+agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity/plugin
 agy plugin list
 ```
 
-`agy plugin install` copies `plugin/` (the committed bundle, manifests, hooks,
-skill and sidecar definition) to `~/.gemini/config/plugins/mcp-events/`, which
-the App and the CLI both read. No npm install is needed to use it. Nothing is
-published to Antigravity's Marketplace. Start a new conversation, or restart
-the App, after installing.
+`agy plugin install` fetches this repository from GitHub and copies `plugin/`
+(the committed bundle, manifests, hooks, skill and sidecar definition) to
+`~/.gemini/config/plugins/mcp-events/`, which the App and the CLI both read.
+Run the same line again to update it. From a clone of this repository,
+`agy plugin install ./polyfills/events/antigravity/plugin` does the same. No
+npm install is needed to use it. Nothing is published to Antigravity's
+Marketplace. Start a new conversation, or restart the App, after installing.
 
 ### Uninstall, and what stays behind
 

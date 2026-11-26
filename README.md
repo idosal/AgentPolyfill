@@ -112,29 +112,30 @@ bundle. OpenCode runs the plugins itself, so you don't need Node. They load
 the next time OpenCode opens a project.
 
 **Google Antigravity** (App 2.35.1 and CLI 1.5.17, the versions these builds
-were tested in; Node 20 or newer on your `PATH`). Nothing for
-Antigravity is published to its Marketplace. Install from a clone, with the
+were tested in; Node 20 or newer and Git on your `PATH`). Nothing for
+Antigravity is published to its Marketplace. Install from GitHub, with the
 Antigravity CLI: `agy plugin install` needs it, and the App doesn't ship
 `agy`.
 
 ```bash
-git clone https://github.com/idosal/AgentPolyfill.git
-cd AgentPolyfill
-agy plugin install ./polyfills/events/antigravity/plugin
-agy plugin install ./polyfills/skills/antigravity/plugin
-agy plugin install ./polyfills/server-cards/antigravity/plugin
+agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity/plugin
+agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/antigravity/plugin
+agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/antigravity/plugin
 ```
 
 Beyond MCP, ARD (a draft; every search asks you first and goes to a registry
-you choose), from the same clone:
+you choose):
 
 ```bash
-agy plugin install ./polyfills/ard/antigravity/plugin
+agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/antigravity/plugin
 ```
 
-Each line copies one plugin to `~/.gemini/config/plugins/`, which the App
-and the CLI both read. The IDE documents no plugin hooks, so the forms
-aren't supported there, and their gated calls are refused.
+Each line fetches this repository with Git and copies one plugin to
+`~/.gemini/config/plugins/`, which the App and the CLI both read. Run a line
+again to update that plugin. From a clone,
+`agy plugin install ./polyfills/<extension>/antigravity/plugin` does the
+same. The IDE documents no plugin hooks, so the forms aren't supported there,
+and their gated calls are refused.
 
 **GitHub Copilot CLI** (1.0.115, the version tested). From a clone, added as a
 marketplace:
@@ -368,8 +369,8 @@ sends the words of your request to that registry, so every search asks you
 first and names where it's going. That's also why it isn't part of the Claude
 Code `agent-polyfill` bundle or Pi's one-line install. Install it by name in
 Claude Code, Codex or Copilot, from a clone in Pi, with its own
-`opencode plugin add` in OpenCode, with its own `agy plugin install` from a
-clone in Antigravity, and with its own `hermes plugins install` in Hermes.
+`opencode plugin add` in OpenCode, with its own `agy plugin install` from
+GitHub in Antigravity, and with its own `hermes plugins install` in Hermes.
 
 In Pi, `ard_search` asks "Don't send it" or "Send the search", naming the
 registry endpoint and exact query. There is no default registry: name one
@@ -1207,10 +1208,12 @@ added; their list stays in that storage and comes back if you install the
 plugin again, unless you remove each server first
 (`server_cards_remove_mcp_server` or `ard_remove_mcp_server`).
 
-**Antigravity.** `agy plugin install ./polyfills/<polyfill>/antigravity/plugin`
-from the clone installs one, and `agy plugin uninstall <name>` removes it
-(`mcp-events`, `mcp-skills`, `mcp-server-cards` or `ard-discovery`). Both
-need the Antigravity CLI; the App doesn't ship `agy`. The
+**Antigravity.**
+`agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/<polyfill>/antigravity/plugin`
+(or `./polyfills/<polyfill>/antigravity/plugin` from a clone) installs one,
+and `agy plugin uninstall <name>` removes it (`mcp-events`, `mcp-skills`,
+`mcp-server-cards` or `ard-discovery`). Both need the Antigravity CLI; the
+App doesn't ship `agy`. The
 plugins' own data stays in `~/.gemini/agentpolyfill/<name>/`, Skills'
 placeholders in `~/.gemini/config/skills/mcp-skills-served--*`, and servers
 added by Server Cards or ARD in `~/.gemini/config/mcp_config.json`; each
@@ -1344,7 +1347,7 @@ against.
   `opencode plugin add`; none is published to npm, and there is no
   marketplace file for them.
   Antigravity's are installed with `agy plugin install` from their `plugin/`
-  folders; none is in its Marketplace.
+  folders on GitHub; none is in its Marketplace.
   [`.github/plugin/marketplace.json`](.github/plugin/marketplace.json) lists
   the Copilot CLI plugins. Hermes's forms are installed from their folders
   on GitHub with `hermes plugins install`; there is no marketplace file for
