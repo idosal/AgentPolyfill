@@ -88,10 +88,11 @@ Every check here runs the Node helper by default, and the binary
   Chrome (no `ps` or `pgrep`), so CI runs it on Windows too: ready line and
   token, `/discover`, Chrome, a view's first frame, and no Chrome left once
   the helper is ended outright.
-- `node change-check.mjs`: an app redrawing a canvas from a timer (no DOM
-  change, no animation frame); each redraw must become a picture within
-  600 ms (about 50 ms in practice: the page tells the helper). Before the
-  helpers counted canvas draws, a redraw showed only at the 3 s capture.
+- `node change-check.mjs`: an app redrawing a canvas from a timer once a
+  second (no DOM change, no animation frame), each time in a colour of its
+  own; each redraw must become a picture of its own, in its colour. With the
+  3 s full capture alone, most redraws would never be shown. It prints each
+  redraw's delay to its picture.
 - `SOAK_MIN=60 node soak-check.mjs`: three views that never stop (the 3D
   scene, live stats, a hover sweep) for an hour, memory sampled every 30 s;
   it passes when memory levels off and every view keeps drawing.
