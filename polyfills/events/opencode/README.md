@@ -3,6 +3,15 @@
 OpenCode can watch events on your MCP servers ("tell me when a deploy fails")
 and act when one fires, even while the session sits idle with nobody typing.
 
+<a href="https://agentpolyfill.com/media/events.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/events.jpg">
+    <img src="../../../docs/media/demos/events.gif" alt="An idle Claude Code session wakes when a Cloudflare Worker throws a JSON parsing error.">
+  </picture>
+</a>
+
+[Watch a Worker error wake Claude Code (15 s)](https://agentpolyfill.com/media/events.mp4)
+
 Also available for Claude Code, Codex and Pi: [mcp-events for Claude Code](../claude-code/README.md), [mcp-events for Codex](../codex/README.md), [mcp-events for Pi](../pi/README.md).
 
 This plugin implements the client side of the MCP Events extension,

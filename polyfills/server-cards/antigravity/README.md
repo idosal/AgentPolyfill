@@ -5,6 +5,15 @@ publishes. Ask it to add one, approve it in Antigravity's own approval card,
 and the server goes into Antigravity's MCP configuration, where Antigravity
 connects it with its own sign-in.
 
+<a href="https://agentpolyfill.com/media/server-cards.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/server-cards.jpg">
+    <img src="../../../docs/media/demos/server-cards.gif" alt="Claude Code and Codex discover Neon’s MCP servers by domain and add Neon Docs after approval.">
+  </picture>
+</a>
+
+[Watch Claude Code and Codex discover and add Neon Docs (27 s)](https://agentpolyfill.com/media/server-cards.mp4)
+
 Also available for [Claude Code](../claude-code/README.md) and
 [Codex](../codex/README.md).
 

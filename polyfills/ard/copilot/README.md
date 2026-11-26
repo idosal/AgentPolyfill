@@ -4,6 +4,15 @@ Copilot finds MCP servers through Agentic Resource Discovery (ARD): in what a
 domain lists, or by asking an ARD registry for a server that can do a task.
 You choose the registry, and Copilot shows you a form before every search.
 
+<a href="https://agentpolyfill.com/media/ard.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/ard.jpg">
+    <img src="../../../docs/media/demos/ard.gif" alt="Claude Code finds Buildkite’s MCP server by domain, then asks permission to search a local ARD registry.">
+  </picture>
+</a>
+
+[Watch Claude Code look up Buildkite and search a registry (16 s)](https://agentpolyfill.com/media/ard.mp4)
+
 Also available for [Claude Code](../claude-code/README.md),
 [Codex](../codex/README.md) and [Pi](../pi/README.md).
 
@@ -148,7 +157,7 @@ Copilot doesn't read ARD yet. When it does, uninstall the plugin, disable it
 - **Search results today.** The one public registry, Hugging Face Discover,
   returns MCP Registry `server.json` entries, not Server Cards, so nothing it
   returns can be added yet (the Claude Code form's
-  [findings](../claude-code/README.md#findings-to-report-upstream)).
+  [findings](../claude-code/README.md#interoperability-notes)).
 - **Two questions per search or add:** Copilot's tool prompt, then the form.
 - **Search was run only against this repository's demo registry.** No public
   ARD registry that takes an unauthenticated search was found (contract rule 3
@@ -215,8 +224,3 @@ CI: [`copilot-ard-test.yml`](../../../.github/workflows/copilot-ard-test.yml).
 
 Part of [AgentPolyfill](../../../README.md). Apache-2.0. See
 [`LICENSE`](../../../LICENSE).
-
-This is a community project. It isn't affiliated with or endorsed by GitHub,
-Microsoft, Google, Hugging Face, the Model Context Protocol project, the
-Agentic AI Foundation or the Linux Foundation. GitHub Copilot is a trademark of
-GitHub, Inc.

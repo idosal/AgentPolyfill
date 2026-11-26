@@ -4,6 +4,15 @@ OpenCode finds MCP servers through Agentic Resource Discovery (ARD): in what a
 domain lists, or by asking an ARD registry for a server that can do a task.
 You choose the registry, and OpenCode asks you before every search.
 
+<a href="https://agentpolyfill.com/media/ard.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/ard.jpg">
+    <img src="../../../docs/media/demos/ard.gif" alt="Claude Code finds Buildkite’s MCP server by domain, then asks permission to search a local ARD registry.">
+  </picture>
+</a>
+
+[Watch Claude Code look up Buildkite and search a registry (16 s)](https://agentpolyfill.com/media/ard.mp4)
+
 Also available for Claude Code, Codex and Pi: [ard-discovery for Claude Code](../claude-code/README.md), [ard-discovery for Codex](../codex/README.md), [ard-discovery for Pi](../pi/README.md).
 
 > Find an MCP server that can check why my CI build failed.

@@ -17,8 +17,8 @@ plugin finds servers in two ways:
 
 <Recording
   cut="ard"
-  alt="In Claude Code, What does buildkite.com list via ARD? shows Buildkite's MCP server, listed by buildkite.com, with an Add button. Then a search of a local demo ARD registry for a server that checks CI builds: Claude Code first asks whether to send the query to that registry and up to three it refers to, and after Yes the result lists Buildkite and Netlify, each confirmed by its own domain, and says where the query went."
-  caption="A real session (16 s; waits sped up, with a badge saying how fast): buildkite.com's own listing, found from its domain, then a search of a local demo registry, asked about first."
+  alt="Claude Code lists the MCP server published by buildkite.com. The user approves searching a local registry, which returns servers from Buildkite and Netlify."
+  caption="Domain discovery and an approved registry search in Claude Code."
 />
 
 In Claude Code, it only finds. Each Server Card it finds goes to
@@ -111,116 +111,9 @@ hermes plugins install idosal/AgentPolyfill/polyfills/ard/hermes/plugin --enable
 
 :::
 
-### In Claude Code
+Install ARD separately. In Claude Code it also installs Server Cards. Registry searches require approval before the query leaves the host.
 
-The terminal form is `claude plugin install ard-discovery --marketplace idosal/AgentPolyfill`.
-It lists `mcp-server-cards` as a dependency, and Claude Code installs that from
-the same marketplace. You need Claude Code 2.1.329 or newer, with mods, and
-nothing else: no helper process, no Node, no account.
-
-### In Codex
-
-Codex 0.170 or newer, with Node 20 or newer. As in Claude Code, no registry is
-set: name one in the request, or set `ARD_DISCOVERY_REGISTRY`. To add a server
-it finds, Codex shows you a form, and the server is added only if you accept.
-
-### In Pi
-
-Pi 1.6.0 (the version tested), with Node 22 or newer. Nothing for Pi is
-published to npm or Pi's package gallery. ARD is installed on its own from
-a clone: `pi install git:github.com/idosal/AgentPolyfill` installs Events,
-Skills and Server Cards, leaving ARD out for the same reason as the Claude
-Code bundle. Its search sends the words of your request to a registry after
-asking each time. The extension is bundled, with nothing to build.
-For one run without installing, use
-`pi -e ./polyfills/ard/pi/extension`. Pi loads the path where it is, so keep
-the clone. Remove it from the same folder with
-`pi remove ./polyfills/ard/pi/extension`. Servers you added stay in
-`mcp.json`; remove one with `pi mcp remove <name>`.
-
-This form includes Server Cards checking and adding; no other polyfill is
-required. Its add tool is `ard_add_mcp_server`, so it can run beside Server
-Cards' `add_mcp_server`: Pi shares tool names across extensions and keeps
-the first registration of a name.
-
-### In OpenCode
-
-OpenCode 2.4 or newer (tested with 2.4.1). OpenCode runs the plugin itself,
-so you don't need Node. The plugin isn't on npm: the command fetches it from
-GitHub, with Git, and adds it to `plugins` in your global
-`~/.config/opencode/opencode.json`, so it runs in every project from the next
-time OpenCode opens one. A commit in place of `main` pins one version. From a
-clone, put the folder `polyfills/ard/opencode/plugin` in `plugins` in an
-`opencode.json` instead. To remove it, run `opencode plugin remove` with the
-same text; OpenCode's downloaded copy stays in `~/.cache/opencode/npm/` (a
-`git-AgentPolyfill-…` folder), which you can delete. Removing it stops adding
-the servers it added, which were never in your configuration files. Its list
-of them stays in OpenCode's plugin storage (OpenCode's own database) and
-comes back if you install it again; remove a server with
-`ard_remove_mcp_server` first to drop it from the list.
-
-It works on its own; installing `mcp-server-cards` beside it is optional.
-Adding a server it finds works as in
-[`mcp-server-cards`](./server-cards#using-it-step-by-step) in OpenCode, with
-the same code and the same permission actions.
-
-### In Antigravity
-
-Node 20 or newer on `PATH`. Nothing is published to Antigravity's
-Marketplace; install from GitHub, with the Antigravity CLI (the App doesn't
-ship `agy`) and Git. `agy plugin install` copies the plugin's folder to
-`~/.gemini/config/plugins/ard-discovery`, which the App and the CLI both
-read. Remove it with `agy plugin uninstall ard-discovery`. Servers you added
-stay in `~/.gemini/config/mcp_config.json`; remove one with
-`agy mcp remove <name>` (in CLI 1.5.17's own help, not in Antigravity's
-docs).
-
-This form carries the Server Cards checks and add step itself, as the Codex
-and Pi forms do; it doesn't need `mcp-server-cards` installed. Checked in
-App 2.35.1 and CLI 1.5.17.
-
-### In Copilot CLI
-
-Copilot CLI 1.0.115 (the version tested), with Node 20 or newer on your
-`PATH`. It is an MCP server in a plugin, so it needs no experimental mode. The
-install from a clone is the one tested; keep the clone. From GitHub,
-`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace.
-Checked in Copilot CLI 1.0.105. Not checked in 1.0.115, in the interactive
-TUI, or in VS Code. Start a new
-Copilot session afterwards. Remove it with
-`copilot plugin uninstall ard-discovery@agent-polyfill`. Servers you added
-stay in `~/.copilot/mcp-config.json`; remove one with
-`copilot mcp remove <name>`.
-
-It works on its own, with its own `add_mcp_server`, the one from the Server
-Cards Copilot form. Installing `mcp-server-cards` beside it is optional;
-Copilot keeps the two tools apart by server name.
-
-### In Hermes
-
-Hermes Agent v0.23.4 (the version tested), with Node 20 or newer on the
-gateway's PATH. `AGENTPOLYFILL_NODE` can name another executable. The plugin
-ships its Python code and bundled helper, with no npm install needed.
-
-It works on its own, with `ard_add_mcp_server` and `ard_remove_mcp_server`.
-Those names avoid a collision with Server Cards, so both plugins can run
-together. Each owns its own additions.
-
-Disable it with `hermes plugins disable ard-discovery`. Servers stay in
-`mcp_servers` in `config.yaml`; ask the plugin to remove an unchanged entry
-it added, or use `hermes mcp remove <name>`, then `/reload-mcp`. Its removal
-record is `$HERMES_HOME/ard-discovery/added.json`. Discovery state lives in
-memory; rediscover after restarting the helper or gateway.
-
-The sections below name the host where behavior differs. Full guides by host:
-
-- [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/claude-code)
-- [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex)
-- [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi)
-- [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/opencode)
-- [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/antigravity)
-- [Copilot CLI](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/copilot)
-- [Hermes](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/hermes)
+See [Getting started](./getting-started) for host prerequisites and configuration.
 
 ## Try it
 
@@ -640,4 +533,4 @@ its card. No live registry search or upstream ARD conformance run is claimed.
 On GitHub, in [`polyfills/ard/claude-code`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/claude-code):
 the full [`README.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/ard/claude-code/README.md),
 with one row for each rule ARD v0.91 puts on a consumer of MCP Server Cards and
-the test that covers it, the proof, and the findings to report upstream.
+the test that covers it, test results and interoperability notes.

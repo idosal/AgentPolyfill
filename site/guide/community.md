@@ -1,14 +1,12 @@
 ---
-description: Polyfills that other people build and keep in their own repositories, listed so they can be found. Not reviewed or shipped by AgentPolyfill.
+description: Independently maintained polyfills and how to list a project.
 ---
 
 # Community
 
-Polyfills that other people build and keep in their own repositories. Each
-entry points at its author's repository, and is installed from there. This
-project does not review, build or ship them, and they are not in its
-marketplaces or in the `agent-polyfill` bundle. What each says about the
-[contract](./build-a-polyfill#the-contract) is its author's own statement.
+Install community polyfills from the repositories listed below. Their maintainers
+provide the compatibility and [conformance](./build-a-polyfill#the-contract) information.
+AgentPolyfill does not review or distribute these packages.
 
 <CommunityList />
 

@@ -28,8 +28,8 @@ Final). The forms fill these gaps:
 
 <Recording
   cut="events"
-  alt="In Claude Code, asked to watch the acme-checkout Worker on Cloudflare and say what breaks, Claude starts a watch through Cloudflare's MCP server, run locally with a fix, delivered by webhook through a relay, and the session goes idle. When the Worker throws an error, the idle session wakes by itself with a prompt from the mcp-events plugin, reads the event and says what broke: a SyntaxError, where a request that expected JSON got plain text."
-  caption="A real session (14 s; the wait is sped up, with a badge saying how fast). Cloudflare's MCP server, run locally with a fix its hosted server doesn't have yet (cloudflare/mcp#438); the Worker's error was set off from outside."
+  alt="Claude Code watches a Cloudflare Worker. When the Worker throws a JSON parsing error, the idle session wakes and reports the error."
+  caption="A Worker error wakes a Claude Code session. This demo uses a local build of Cloudflare’s MCP server with the webhook fix from cloudflare/mcp#438."
 />
 
 ## Install
@@ -69,106 +69,9 @@ hermes plugins install idosal/AgentPolyfill/polyfills/events/hermes/plugin --ena
 
 :::
 
-**In Claude Code** (2.1.326 or newer, with Node 20 or newer or Bun), the
-terminal form is `claude plugin install mcp-events --marketplace idosal/AgentPolyfill`.
-The install is one small folder (about 0.8 MB), and nothing else is downloaded
-unless you ask for it with `/mcp-events setup`.
+For webhook delivery, see [relay setup](#webhook-delivery-the-relay). The Pi command installs Events, Skills and Server Cards together.
 
-**In Codex** (0.170 or newer, with Node 20 or newer), a watch wakes a Codex
-CLI session (the terminal app or `codex exec`). A chat in the ChatGPT desktop
-app keeps its events but can't be woken, so ask it for `recent_events`. A
-resumed Codex session starts watching at its first Events tool call.
-
-**In Pi** (1.6.0, the version tested, with Node 22 or newer), the command
-above installs Events, Skills and Server Cards together.
-Pi clones the repository under `~/.pi/agent/git/` and loads the three
-extensions from there. Nothing is published to npm or Pi's package gallery,
-and nothing is built.
-
-Update installed packages with `pi update --extensions`. Remove all three
-and Pi's copy of the repository with
-`pi remove git:github.com/idosal/AgentPolyfill`. For one run of all three
-without installing, use `pi -e git:github.com/idosal/AgentPolyfill`.
-
-To install only Events, use a clone:
-
-```bash
-git clone https://github.com/idosal/AgentPolyfill.git
-cd AgentPolyfill
-pi install ./polyfills/events/pi/extension
-```
-
-Pi loads the local path where it is, so keep the clone. From the same folder,
-`pi remove ./polyfills/events/pi/extension` removes that local install;
-`pi -e ./polyfills/events/pi/extension` runs it once without installing.
-Use one way per form: Pi tells packages apart by repository address or local
-path, so a form installed both ways loads twice.
-
-[ARD](./ard#install) is left out of the one-line install, as it is from the
-Claude Code bundle: its search sends the words of your request to a registry
-after asking each time. Install it separately from a clone.
-
-Removal leaves watches and events in `mcp-events/`, and approvals and skill
-stubs in `mcp-skills/`, in Pi's agent folder (`~/.pi/agent`, or
-`PI_CODING_AGENT_DIR`); delete those folders too to remove that data.
-Servers you added stay in `mcp.json`; remove one with
-`pi mcp remove <name>`.
-
-**In OpenCode** (2.4 or newer; tested with 2.4.1), OpenCode runs the plugin
-itself, so you don't need Node. The plugin isn't on npm: the command fetches
-it from GitHub, with Git, and adds it to `plugins` in your global
-`~/.config/opencode/opencode.json`, so it runs in every project from the next
-time OpenCode opens one. A commit in place of `main` pins one version. From a
-clone, put the folder `polyfills/events/opencode/plugin` in `plugins` in an
-`opencode.json` instead. To remove it, run `opencode plugin remove` with the
-same text; OpenCode's downloaded copy stays in `~/.cache/opencode/npm/` (a
-`git-AgentPolyfill-…` folder), which you can delete. Watches, events and the
-log stay in `~/.local/share/opencode/mcp-events/` (or `MCP_EVENTS_STATE`);
-delete that folder too to remove them. The "Allow always" answers it kept
-stay in OpenCode's plugin storage (OpenCode's own database).
-
-**In Antigravity** (Node 20 or newer on `PATH`), install from GitHub, with
-the Antigravity CLI (the App doesn't ship `agy`) and Git: nothing is published to
-Antigravity's Marketplace. `agy plugin install` copies the plugin's folder to
-`~/.gemini/config/plugins/mcp-events`, which the App and the CLI both read.
-To wake an idle App conversation, the plugin's sidecar
-must be on: add `"sidecars": {"mcp-events/wake": {"enabled": true}}` to
-`~/.gemini/config/config.json`. The plugin never edits that file. To remove
-it, run `agy plugin uninstall mcp-events`. Its state is in
-`~/.gemini/agentpolyfill/mcp-events/`; delete that folder too to remove it.
-
-**In Copilot CLI** (1.0.115, the version tested), the plugin is a Copilot
-extension, and Copilot loads extensions only in experimental mode: start it
-with `copilot --experimental`, or, per Copilot's help, run `/settings experimental on` once (not checked). The
-whole extension API is experimental, so it may change in any release.
-Copilot runs the extension with its own Node, so you need none. The install
-from a clone is the one tested; Copilot loads the plugin where it is, so keep
-the clone. From GitHub,
-`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace.
-Checked in Copilot CLI 1.0.105. Not checked in 1.0.115, in the interactive
-TUI, or in VS Code. To remove it, run
-`copilot plugin uninstall mcp-events@agent-polyfill`. Watches and events stay
-in `~/.copilot/mcp-events/`; delete that folder too to remove them.
-
-**In Hermes** (v0.23.4, the version tested), Node 20 or newer must be on the
-gateway's PATH; `AGENTPOLYFILL_NODE` can name another executable. Name the
-servers in `plugins.entries.mcp-events.settings.servers` in your profile's
-`config.yaml`, and set `allow_gateway_injection: true` in that plugin entry
-to let an event start a turn. The demo below includes both. Without the
-injection grant, events are stored but sessions cannot be woken.
-
-Remove it with `hermes plugins remove mcp-events`. Watches, events, cursors,
-wake counts and `mcp-events.log` are kept in `$HERMES_HOME/mcp-events/`.
-
-The sections below name the host where behavior differs. Full guides by host:
-
-- [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/claude-code)
-- [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex)
-- [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi)
-- [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/opencode)
-- [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity)
-- [Copilot CLI](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/copilot)
-- [Hermes](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/hermes)
+See [Getting started](./getting-started) for host prerequisites and configuration.
 
 ## Try it
 
@@ -284,7 +187,7 @@ log, and tells you the cause.
   :width="960"
   :height="540"
   alt="A Claude Code session is asked to watch the demo server for failed deploys, and goes idle. On the demo's page a bad commit is deployed; the idle session wakes by itself, reads the deploy's log and names the cause."
-  caption="A real session with the deploys demo server (24 s). Waits are shortened, and the frame zooms in on what is being typed or shown."
+  caption="Claude Code watches the demo server and reports a failed deployment."
 />
 
 ## From install to the first event
@@ -567,7 +470,7 @@ Webhook delivery through a relay needs Node 22 or newer (or Bun); push and poll
 work on Node 20.
 
 **The public relay** is off unless you turn it on by name, with
-`MCP_EVENTS_RELAY=public`. It is run by Ido Salomon, the author of the mod.
+`MCP_EVENTS_RELAY=public`. Ido Salomon operates the relay.
 The payloads of your webhook-delivered events pass through that server and are
 stored there until the mod collects them, for about a day at most; webhooks are
 signed, not encrypted, so whoever runs a relay can read them. It cannot create

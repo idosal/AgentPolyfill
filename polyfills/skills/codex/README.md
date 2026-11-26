@@ -5,6 +5,15 @@ They show up in Codex's skill list, Codex loads one when a task calls for it,
 and it reads the files the skill refers to as it needs them. You approve each
 skill once.
 
+<a href="https://agentpolyfill.com/media/skills.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/skills.jpg">
+    <img src="../../../docs/media/demos/skills.gif" alt="Codex lists skills from Hugging Face and asks permission to load one before recommending a model quantization.">
+  </picture>
+</a>
+
+[Watch Codex use a Hugging Face skill (25 s)](https://agentpolyfill.com/media/skills.mp4)
+
 Also available for Pi and OpenCode: [mcp-skills for Pi](../pi/README.md), [mcp-skills for OpenCode](../opencode/README.md). Claude Code needs no polyfill for this: it lists skills from MCP servers itself, in beta from 2.1.332 ([changelog](https://code.claude.com/docs/en/changelog)).
 
 It implements the client side of the MCP Skills extension
@@ -390,11 +399,3 @@ server (`dist/helper.js`, with the shared core inside it), and the plugin's own
 [Apache-2.0](../../../LICENSE). The bundled server (`mod/dist/helper.js`)
 includes npm packages under their own licences:
 [`mod/THIRD_PARTY_LICENSES.txt`](mod/THIRD_PARTY_LICENSES.txt).
-
-This plugin is one of a set of polyfills that add MCP extensions to Claude
-Code, Codex, Pi and OpenCode ahead of native support, collected at
-[AgentPolyfill](../../../README.md). It's a community project by Ido Salomon.
-It isn't affiliated with or endorsed by Anthropic, OpenAI, the Model Context
-Protocol project, the Agentic AI Foundation or the Linux Foundation. Claude and
-Claude Code are trademarks of Anthropic, PBC. OpenAI and Codex are trademarks
-of OpenAI.

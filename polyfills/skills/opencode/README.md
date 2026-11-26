@@ -5,6 +5,15 @@ They show up in OpenCode's own skill list, OpenCode loads one when a task
 calls for it, and it reads the files the skill refers to as it needs them.
 Loading goes through OpenCode's permission rules.
 
+<a href="https://agentpolyfill.com/media/skills.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/skills.jpg">
+    <img src="../../../docs/media/demos/skills.gif" alt="Codex lists skills from Hugging Face and asks permission to load one before recommending a model quantization.">
+  </picture>
+</a>
+
+[Watch Codex use a Hugging Face skill (25 s)](https://agentpolyfill.com/media/skills.mp4)
+
 Also available for Codex and Pi: [mcp-skills for Codex](../codex/README.md), [mcp-skills for Pi](../pi/README.md). Claude Code needs no polyfill for this: it lists skills from MCP servers itself, in beta from 2.1.332 ([changelog](https://code.claude.com/docs/en/changelog)).
 
 It implements the client side of the MCP Skills extension

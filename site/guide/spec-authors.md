@@ -10,45 +10,24 @@ client-side and one server-side, that interoperate", carry a conformance
 scenario, and show that the extension has been in real use
 ([SEP-3392](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3392-extension-lifecycle.md)).
 
-A polyfill can be that client-side implementation, in hosts that haven't
-shipped the extension yet, used by real people against real servers. Each one
-here names the spec revision it implements. Events and Skills have a test for
-every client rule and run against servers their authors didn't write. Skills
-passes the official conformance suite's Skills client scenarios in the Codex,
-Pi, Antigravity and Hermes forms; the suite was not run for the OpenCode form. The
-shared Events client passes the Events client scenarios proposed
-upstream (still an open pull request in the conformance suite); the Pi
-end-to-end run has limits listed below. Apps checks the spec requirement by
-requirement in its compliance page. Whether a polyfill counts as an independent
-implementation for a given SEP is up to that extension's maintainers.
+Extension maintainers decide which implementations qualify for their SEP.
+The tables below link to the client requirements, test suites and independent
+servers used for interoperability checks. Shared protocol code is tested
+separately from each host’s approval, transport and delivery behavior.
 
-Events and Skills share their protocol code and its tests in each
-extension's `core/`. Host results are listed separately:
-
-- **Claude Code:** the first table below gives its results.
-- **Codex:** each form's README gives its results:
-  [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex),
-  [Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex),
-  [Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex)
-  and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex).
-- **Pi:** the second table gives its results, checked in Pi 1.6.0.
-- **OpenCode:** the third table gives its results, checked in OpenCode
-  2.4.1.
-- **Antigravity:** the fourth table gives its results, checked in App
-  v2.35.1 and CLI v1.5.17.
-- **Copilot CLI:** the fifth table gives its results, checked in Copilot CLI
-  1.0.115.
-- **Hermes Agent:** the sixth table gives its results, checked in Hermes Agent
-  v0.23.4.
+For Codex, see the adapter results for [Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/codex),
+[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex),
+[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex) and
+[ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/codex).
 
 ## What each one has been checked against
 
 ### Claude Code
 
-| | Revision | Client rules | Someone else's servers or documents | Upstream conformance |
+| | Revision | Client rules | Independent servers or documents | Upstream conformance |
 |---|---|---|---|---|
 | [Events](./events) | SEP-3415, Final | Every client-side rule, clause by clause, with the code and the test for each ([conformance.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/claude-code/docs/conformance.md)) | Three interop runs against servers built on Mastra's `@mastra/mcp` | The suite's Events client scenarios (an unmerged pull request): 17 of 17, run on 0.5.0 |
-| [Apps](./apps) | MCP Apps 2026-01-26, Stable, plus `ui/download-file` from the draft | Requirement by requirement: each MUST, SHOULD and MAY, with its test where it has one; one MUST, the default CSP, is not met, on purpose ([COMPLIANCE.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/docs/COMPLIANCE.md)) | Not stated as a separate run | The suite has no client scenarios for MCP Apps yet, so there is nothing of it to run |
+| [Apps](./apps) | MCP Apps 2026-01-26, Stable, plus `ui/download-file` from the draft | Requirement by requirement: each MUST, SHOULD and MAY, with its test where it has one; one MUST, the default CSP, is not met ([COMPLIANCE.md](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/apps/claude-code/docs/COMPLIANCE.md)) | Not stated as a separate run | The suite has no client scenarios for MCP Apps yet, so there is nothing of it to run |
 | [Server Cards](./server-cards) | SEP-2127, Final (extension Beta); ext-server-card at `28db12c9b4`; AI Catalog v0.9 | One row per rule, with the test that covers it (108 tests); two rules are met by design, and the one to check a card against the live server is not met ([README](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/README.md#client-rules)) | The live catalogs and cards of Buildkite, GitHub, Hugging Face, Neon, Netlify, Notion, Context7, Exa, Supabase and Zapier; ajv with the official schema gives the same verdict on all eleven cards | The suite has no Server Card scenarios |
 
 Skills isn't in this table. Claude Code lists skills from MCP servers itself,
@@ -61,7 +40,7 @@ talks to servers that advertise events in the form from before SEP-3415, and
 `MCP_EVENTS_PRE_STANDARD=off` makes it follow the SEP exactly. Apps lists its
 departures (the default CSP, display modes and `platform`), which have no
 setting to turn them off.
-Server Cards and [ARD discovery](./ard) each list findings to report upstream
+Server Cards and [ARD discovery](./ard) document interoperability issues
 in their READMEs, such as a `specVersion` mismatch between the AI Catalog and
 the Server Cards discovery doc.
 

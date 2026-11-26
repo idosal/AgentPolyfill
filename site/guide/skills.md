@@ -18,8 +18,8 @@ over MCP built in: see [Copilot CLI](#copilot-cli).
 
 <Recording
   cut="skills"
-  alt="In Codex, in the ChatGPT desktop app, asked what skills the Hugging Face MCP server serves, Codex lists its 25 skills, all visible in Codex. Asked which GGUF quantization to use for a 7B model on a 16 GB Mac, Codex asks in its own form whether to load the skill huggingface-local-models from that server, saying its 4 files are each checked against the server's SHA-256 digest when read, with Do not load it, Show me its SKILL.md first, and Load it. After Load it, Codex answers from the skill: Q4_K_M."
-  caption="A real session in Codex, in the ChatGPT desktop app, against Hugging Face's public MCP server (25 s; waits sped up, with a badge saying how fast)."
+  alt="Codex lists skills from Hugging Face. The user approves loading huggingface-local-models, and Codex recommends Q4_K_M for a 7B model on a 16 GB Mac."
+  caption="Codex loads a skill from Hugging Face after approval."
 />
 
 ## Claude Code
@@ -51,7 +51,7 @@ has the rest.
 
 ## Copilot CLI
 
-There is no Copilot form, on purpose. Copilot CLI 1.0.115 has Skills over MCP
+Copilot CLI 1.0.115 has Skills over MCP
 built in: it declares `io.modelcontextprotocol/skills` to every server it
 connects, in its `initialize`, and VS Code 1.147.0's Copilot harness has
 it on by default (from its source). Listing or loading a served skill in
@@ -85,100 +85,9 @@ hermes plugins install idosal/AgentPolyfill/polyfills/skills/hermes/plugin --ena
 
 :::
 
-### In Codex
+Install the plugin for the host where you want the served skills to appear. The Pi command installs Events, Skills and Server Cards together.
 
-Codex 0.172 (the version it was tested on), with Node 20 or newer. Served
-skills appear in Codex's own `$` skill list from the turn after the plugin's
-server starts (if Codex's daemon was already running, after you ask once to
-list the served skills), and from the first turn of every later session. They
-load after a yes for each one in Codex's own form, and are checked against
-the server's digests. One rule of the spec can't be met in
-Codex yet: a skill from one server reading another server's resources isn't
-put to you first (rule X8), because Codex doesn't let a plugin ask.
-
-### In Pi
-
-Pi 1.6.0 (the version tested), with Node 22 or newer. The command above
-installs Events, Skills and Server Cards together.
-Pi clones the repository under `~/.pi/agent/git/` and loads the three
-extensions from there. Nothing is published to npm or Pi's package gallery,
-and nothing is built.
-
-Update installed packages with `pi update --extensions`. Remove all three
-and Pi's copy of the repository with
-`pi remove git:github.com/idosal/AgentPolyfill`. For one run of all three
-without installing, use `pi -e git:github.com/idosal/AgentPolyfill`.
-
-To install only Skills, use a clone:
-
-```bash
-git clone https://github.com/idosal/AgentPolyfill.git
-cd AgentPolyfill
-pi install ./polyfills/skills/pi/extension
-```
-
-Pi loads the local path where it is, so keep the clone. From the same folder,
-`pi remove ./polyfills/skills/pi/extension` removes that local install;
-`pi -e ./polyfills/skills/pi/extension` runs it once without installing.
-Use one way per form: Pi tells packages apart by repository address or local
-path, so a form installed both ways loads twice.
-
-[ARD](./ard#install) is left out of the one-line install, as it is from the
-Claude Code bundle: its search sends the words of your request to a registry
-after asking each time. Install it separately from a clone.
-
-Removal leaves watches and events in `mcp-events/`, and approvals and skill
-stubs in `mcp-skills/`, in Pi's agent folder (`~/.pi/agent`, or
-`PI_CODING_AGENT_DIR`); delete those folders too to remove that data.
-Servers you added stay in `mcp.json`; remove one with
-`pi mcp remove <name>`.
-
-### In OpenCode
-
-OpenCode 2.4 or newer (tested with 2.4.1). OpenCode runs the plugin itself,
-so you don't need Node. The plugin isn't on npm: the command fetches it from
-GitHub, with Git, and adds it to `plugins` in your global
-`~/.config/opencode/opencode.json`, so it runs in every project from the next
-time OpenCode opens one. A commit in place of `main` pins one version. From a
-clone, put the folder `polyfills/skills/opencode/plugin` in `plugins` in an
-`opencode.json` instead. To remove it, run `opencode plugin remove` with the
-same text; OpenCode's downloaded copy stays in `~/.cache/opencode/npm/` (a
-`git-AgentPolyfill-…` folder), which you can delete. Its log stays in
-`~/.local/share/opencode/mcp-skills/` (or `MCP_SKILLS_STATE`); delete that
-folder too to remove it. Which skills each session loaded, and the "Allow
-always" answers it kept, stay in OpenCode's plugin storage (OpenCode's own
-database). No skill content is kept anywhere.
-
-### In Antigravity
-
-Node 20 or newer on `PATH`. Nothing is published to Antigravity's
-Marketplace; install from GitHub, with the Antigravity CLI (the App doesn't
-ship `agy`) and Git. `agy plugin install` copies the plugin's folder to
-`~/.gemini/config/plugins/mcp-skills`, which the App and the CLI both read.
-Remove it with `agy plugin uninstall mcp-skills`. Its state stays in
-`~/.gemini/agentpolyfill/mcp-skills/`, and its placeholders in
-`~/.gemini/config/skills/mcp-skills-served--*`; delete those too to remove
-them.
-
-### In Hermes
-
-Hermes Agent v0.23.4 (the version tested), with Node 20 or newer on the
-gateway's PATH. `AGENTPOLYFILL_NODE` can name another executable. Name the
-servers in `plugins.entries.mcp-skills.settings.servers` in your profile's
-`config.yaml`; the demo below includes this. This is the plugin's own grant,
-separate from Hermes's `mcp_allowlist`.
-
-Remove it with `hermes plugins remove mcp-skills`. Its stubs are kept in
-`$HERMES_HOME/mcp-skills/`; what each session loaded is kept in Hermes's
-plugin state.
-
-The sections below name the host where behavior differs. Full guides by host:
-
-- [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/codex)
-- [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi)
-- [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/opencode)
-- [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/antigravity)
-- [Hermes](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/hermes)
+See [Getting started](./getting-started) for host prerequisites and configuration.
 
 ## Try it
 

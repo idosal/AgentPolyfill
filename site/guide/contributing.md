@@ -14,26 +14,15 @@ listed in the [community directory](#listing-a-polyfill-in-the-community-directo
 
 ## Adding a polyfill
 
-A polyfill implements the client side of one published extension inside one
-host that has not shipped it, and does nothing once the host supports the
-extension itself. The extension is an MCP extension, or a spec for agents
-published outside MCP, such as ARD. Each one is a folder in the repository.
-
 ### 1. Meet the contract
 
-Every polyfill meets [the contract](./build-a-polyfill#the-contract): one
-published extension and nothing else, a named spec revision, a test for each
-client rule plus a run against a server someone else wrote, a stand-down, stated
-limits, and server content treated as untrusted data. The `create-polyfill`
-skill walks an agent through building one to that contract. In Claude Code,
-install the authoring plugin:
+Implement the client side of a published extension for a specific host. Name the
+specification revision, test the client requirements, and document any exceptions.
+Include an interoperability test with an independent server and a way to disable
+the adapter when the host adds native support. Treat server content as untrusted.
 
-```
-/plugin install polyfill-author --marketplace idosal/AgentPolyfill
-```
-
-If what you want is not in any spec, the `design-extension` skill in the same
-plugin covers that case: a polyfill never adds behaviour of its own.
+See the [polyfill contract](https://github.com/idosal/AgentPolyfill/blob/main/docs/polyfill-contract.md)
+and the [guide to building an adapter](./build-a-polyfill).
 
 ### 2. Put it in its folder
 

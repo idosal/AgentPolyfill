@@ -5,19 +5,19 @@ MCP Apps in the Claude Code terminal. When Claude calls a tool that ships an
 interface appears inline, under the tool call, and you can click, drag and
 type into it. Existing MCP servers work unmodified.
 
+<a href="https://agentpolyfill.com/media/apps.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/apps.jpg">
+    <img src="../../../docs/media/demos/apps.gif" alt="Claude Code runs DOOM, plots CPU usage and rotates a 3D model in the terminal.">
+  </picture>
+</a>
+
+[Watch DOOM, a live chart and a 3D model in Claude Code (19 s)](https://agentpolyfill.com/media/apps.mp4)
+
 - **Real pixels** in terminals that show images: iTerm2 3.5+, kitty and
   Ghostty.
 - **Character cells** everywhere else: Terminal.app, VS Code, tmux and so on.
   Text, including chart labels, stays real characters.
-
-![Real pixels on the left, character cells on the right](docs/demo-side-by-side.png)
-
-The [video](https://github.com/idosal/AgentPolyfill/releases/download/mcp-apps-cli-v0.1.0/mcp-apps-cli-demo.mp4)
-(33 s, MP4) starts with a classic shareware game from the hosted arcade
-server, played with keys and clicks. Next, a cohort heatmap from an MCP server
-opens under the tool call and answers the pointer. Last comes a 3D scene
-Claude writes, turned by dragging. The still above is from an earlier
-recording of two terminals side by side.
 
 Codex: not yet. What Codex would need is in
 [What hosts would need to change](../../../docs/host-changes.md).
@@ -108,6 +108,8 @@ Each of these comes up once.
 ## How it works
 
 ### Using a view
+
+![Graphics and character-cell rendering side by side](docs/demo-side-by-side.png)
 
 Add MCP servers as usual. When Claude calls a tool with an MCP App, the app
 appears under the call, sized to fit.
@@ -307,11 +309,3 @@ Releases are built on GitHub Actions
 Apache-2.0 ([LICENSE](../../../LICENSE)). The helper includes third-party
 crates and npm packages under their own licenses:
 [THIRD_PARTY_LICENSES.txt](THIRD_PARTY_LICENSES.txt).
-
-Part of [AgentPolyfill](../../../README.md): MCP extensions for hosts that
-haven't shipped them yet.
-
-This is a community project. It isn't affiliated with or endorsed by
-Anthropic, OpenAI, the Model Context Protocol project, the Agentic AI
-Foundation or the Linux Foundation. Claude and Claude Code are trademarks of
-Anthropic, PBC. OpenAI and Codex are trademarks of OpenAI.

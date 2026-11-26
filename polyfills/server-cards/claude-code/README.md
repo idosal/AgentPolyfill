@@ -4,6 +4,15 @@ Name a company, and Claude finds the MCP servers its domain publishes. Press
 **Add** under the answer, and Claude Code connects the server with its own
 sign-in.
 
+<a href="https://agentpolyfill.com/media/server-cards.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/server-cards.jpg">
+    <img src="../../../docs/media/demos/server-cards.gif" alt="Claude Code and Codex discover Neon’s MCP servers by domain and add Neon Docs after approval.">
+  </picture>
+</a>
+
+[Watch Claude Code and Codex discover and add Neon Docs (27 s)](https://agentpolyfill.com/media/server-cards.mp4)
+
 Also available for Codex, Pi and OpenCode: [mcp-server-cards for Codex](../codex/README.md), [mcp-server-cards for Pi](../pi/README.md), [mcp-server-cards for OpenCode](../opencode/README.md).
 
 > What MCP servers does buildkite.com publish?
@@ -300,7 +309,7 @@ rows where Codex differs.
 | D-5 | Use a `data` entry's card inline | discovery.md, step 3 | D-4 | met |
 | D-6 | Exactly one of `url` and `data` per entry | AI Catalog (MUST) | D-5, O-1 | met |
 | D-7 | Limit nested catalogs; depth 4 is recommended | AI Catalog (SHOULD) | D-8 | met: limit 4 |
-| D-8 | Read `specVersion` first, and reject an unsupported major version with an informative error | AI Catalog, Consumer Behavior (SHOULD) | D-9 | met (see [Findings](#findings-to-report-upstream)) |
+| D-8 | Read `specVersion` first, and reject an unsupported major version with an informative error | AI Catalog, Consumer Behavior (SHOULD) | D-9 | met (see [Findings](#interoperability-notes)) |
 | D-9 | The same `identifier` names the same artifact | AI Catalog | D-6 | met |
 | V-1 | A card conforms to the schema: the v1 `$schema` URL, a reverse-DNS `name`, `version`, a `description` of 100 characters or fewer, remotes, inputs | schema.ts and schema.json | V-1 to V-5 | met: an invalid card is refused, never repaired |
 | V-2 | `version` is one version, not a range | schema.ts, `ServerCard.version` | V-3 | met (see Findings) |
@@ -384,9 +393,7 @@ in this session. A URL is never taken from the conversation.
 - **Upstream conformance:** the MCP conformance suite has no Server Card
   scenarios (`modelcontextprotocol/conformance` at `96a6f9478b`).
 
-### Findings to report upstream
-
-Not yet reported upstream:
+### Interoperability notes
 
 - **specVersion.** AI Catalog v0.9 says implementations of the release
   candidate use `"0.9"`, and that consumers "should not assume compatibility"
@@ -432,8 +439,3 @@ The code is in [`mod/hooks`](mod/hooks):
 ## Licence
 
 Apache-2.0, like the rest of this repository ([LICENSE](../../../LICENSE)).
-
-This is a community project. It isn't affiliated with or endorsed by
-Anthropic, OpenAI, the Model Context Protocol project, the Agentic AI
-Foundation or the Linux Foundation. Claude and Claude Code are trademarks of
-Anthropic, PBC. OpenAI and Codex are trademarks of OpenAI.

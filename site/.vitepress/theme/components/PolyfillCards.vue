@@ -2,8 +2,7 @@
 import Recording from './Recording.vue'
 import home from '../../../home.json'
 
-// The cards' lines are in home.json, shared with the Markdown copy of the home
-// page for agents, which also keeps each one's demo command and first question.
+// Home page cards are shared with the Markdown export.
 // group="beyond" shows the polyfills for drafts outside MCP.
 const props = defineProps<{ group?: 'mcp' | 'beyond' }>()
 const polyfills = props.group === 'beyond' ? home.beyond : home.polyfills

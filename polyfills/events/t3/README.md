@@ -5,6 +5,15 @@ events on your MCP servers ("tell me when a deploy fails") and act when one
 fires, even after the thread has gone idle, its agent session has closed, or
 T3 Code has restarted.
 
+<a href="https://agentpolyfill.com/media/events.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/events.jpg">
+    <img src="../../../docs/media/demos/events.gif" alt="An idle Claude Code session wakes when a Cloudflare Worker throws a JSON parsing error.">
+  </picture>
+</a>
+
+[Watch a Worker error wake Claude Code (15 s)](https://agentpolyfill.com/media/events.mp4)
+
 Also available for: [Claude Code](../claude-code/README.md),
 [Codex](../codex/README.md). Why T3 Code gets a form of its own, and what the
 other polyfills do there, is in [T3 Code](../../../docs/t3-code.md).

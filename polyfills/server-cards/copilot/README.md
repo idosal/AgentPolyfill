@@ -4,6 +4,15 @@ Name a company, and Copilot finds the MCP servers its domain publishes. Ask
 it to add one, accept the form Copilot shows you, and the server goes into
 Copilot's own MCP configuration.
 
+<a href="https://agentpolyfill.com/media/server-cards.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/server-cards.jpg">
+    <img src="../../../docs/media/demos/server-cards.gif" alt="Claude Code and Codex discover Neon’s MCP servers by domain and add Neon Docs after approval.">
+  </picture>
+</a>
+
+[Watch Claude Code and Codex discover and add Neon Docs (27 s)](https://agentpolyfill.com/media/server-cards.mp4)
+
 Also available for [Claude Code](../claude-code/README.md),
 [Codex](../codex/README.md) and [Pi](../pi/README.md).
 
@@ -295,7 +304,3 @@ npm run build    # plugin/dist/server.mjs; a test fails when it is stale
 
 Part of [AgentPolyfill](../../../README.md). Apache-2.0. See
 [`LICENSE`](../../../LICENSE).
-
-This is a community project. It isn't affiliated with or endorsed by GitHub,
-Microsoft, the Model Context Protocol project, the Agentic AI Foundation or
-the Linux Foundation. GitHub Copilot is a trademark of GitHub, Inc.

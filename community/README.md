@@ -56,15 +56,7 @@ Open a pull request that adds one object to the `polyfills` array:
   Other hosts are welcome too.
 - **`summary`**: one plain sentence.
 - **`repository`** and **`install`**: where it lives, and the command or steps
-  that install it. For a Pi extension, give its tested `pi install` command;
-  if it needs a clone, include the clone steps and local path. For an
-  OpenCode plugin, give the `opencode plugin add` line, or the folder to put
-  in `plugins` in `opencode.json`. For an Antigravity plugin, give the
-  `agy plugin install` line and the folder it takes. For a Copilot CLI plugin,
-  give the marketplace and `copilot plugin install` lines, and say if it needs
-  experimental mode (every Copilot extension does). For a Hermes Agent
-  plugin, give the `hermes plugins install` line and the settings it needs
-  in `config.yaml`. The repository's README states the spec revision, its
+  that install it, including any required host settings. The repository’s README states the spec revision, its
   limits and what it sends where.
 - **`maintainer`**: your GitHub handle.
 - **`contract`**: where it stands on this project's
@@ -79,44 +71,6 @@ Open a pull request that adds one object to the `polyfills` array:
 
 Entries stay in the order they were added. The site's build checks each one
 for these fields.
-
-This repository's Pi forms are in `polyfills/<polyfill>/pi/`, with the
-installable extension in `extension/`. They cover Events, Skills, Server
-Cards and ARD; Apps has no Pi form.
-`pi install git:github.com/idosal/AgentPolyfill` installs Events, Skills and
-Server Cards together. A clone is the alternative for one form, and the
-way to install ARD: its search sends the words of your request to a registry
-after asking each time, so it is left out of the one-line install as it is
-from the Claude Code bundle. Nothing for Pi here is published to npm or
-Pi's package gallery. The [root README](../README.md#install) has the steps.
-
-This repository's OpenCode forms are in `polyfills/<polyfill>/opencode/`,
-with the installable plugin in `plugin/`. They cover Events, Skills, Server
-Cards and ARD; Apps has no OpenCode form. Nothing for OpenCode here is
-published to npm: `opencode plugin add` installs each one from GitHub. The
-[root README](../README.md#install) has the tested install lines.
-
-This repository's Antigravity forms are in `polyfills/<polyfill>/antigravity/`,
-with the installable plugin in `plugin/`. They cover Events, Skills, Server
-Cards and ARD; Apps has no Antigravity form, because the App shows MCP Apps
-itself. Nothing is published to Antigravity's Marketplace. Each installs from
-its `plugin/` folder on GitHub with `agy plugin install`, which needs the
-Antigravity CLI (the App doesn't ship `agy`) and Git, as the
-[root README](../README.md#install) shows.
-
-This repository's Copilot CLI forms are in `polyfills/<polyfill>/copilot/`,
-with the installable plugin in `plugin/`. They cover Events, Server Cards and
-ARD; Copilot has Skills and Apps built in. Its marketplace is
-`.github/plugin/marketplace.json`, installed from a clone (tested with 1.0.115) or from GitHub
-(checked in Copilot CLI 1.0.105; not checked in 1.0.115, in the interactive
-TUI, or in VS Code). The [root README](../README.md#install) has
-the steps.
-
-This repository's Hermes Agent forms are in `polyfills/<polyfill>/hermes/`,
-with the installable plugin in `plugin/`. They cover Events, Skills, Server
-Cards and ARD; Apps has no Hermes form yet. `hermes plugins install` installs
-each one from its folder on GitHub; there is no marketplace file. The
-[root README](../README.md#install) has the install lines.
 
 ## What gets listed
 

@@ -4,6 +4,15 @@ Codex finds MCP servers through Agentic Resource Discovery (ARD): in what a
 domain lists, or by asking an ARD registry for a server that can do a task.
 You choose the registry, and Codex shows you a form before every search.
 
+<a href="https://agentpolyfill.com/media/ard.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/ard.jpg">
+    <img src="../../../docs/media/demos/ard.gif" alt="Claude Code finds Buildkite’s MCP server by domain, then asks permission to search a local ARD registry.">
+  </picture>
+</a>
+
+[Watch Claude Code look up Buildkite and search a registry (16 s)](https://agentpolyfill.com/media/ard.mp4)
+
 Also available for Claude Code, Pi and OpenCode: [ard-discovery for Claude Code](../claude-code/README.md), [ard-discovery for Pi](../pi/README.md), [ard-discovery for OpenCode](../opencode/README.md).
 
 > Find an MCP server that can check why my CI build failed.
@@ -189,7 +198,7 @@ plugin (`codex plugin remove ard-discovery@agent-polyfill`), or set
 - **Search results today.** The one public registry, Hugging Face Discover,
   returns MCP Registry `server.json` entries, not Server Cards, so nothing it
   returns can be added yet. See the
-  [findings](../claude-code/README.md#findings-to-report-upstream).
+  [findings](../claude-code/README.md#interoperability-notes).
 - **A public name that resolves to a private address isn't caught,** because
   Node's `fetch` resolves names itself. Redirects are checked. Checking the
   resolved address in the plugin's own fetch (a `lookup` that refuses private
@@ -267,11 +276,11 @@ the rows where Codex differs:
 - **Upstream conformance:** the MCP conformance suite has no Server Card or
   ARD scenarios.
 
-### Findings to report upstream
+### Interoperability notes
 
 The findings concern the specs and the public registry, so they apply to both
 forms. They are listed once, with the Claude Code form's
-[findings](../claude-code/README.md#findings-to-report-upstream): Hugging Face
+[findings](../claude-code/README.md#interoperability-notes): Hugging Face
 Discover's results, and the well-known path.
 
 ## Development
@@ -294,8 +303,3 @@ npm test            # against the committed plugin/dist/server.mjs: run npm run 
 ## Licence
 
 Apache-2.0, like the rest of this repository ([LICENSE](../../../LICENSE)).
-
-This is a community project. It isn't affiliated with or endorsed by OpenAI,
-Anthropic, the Model Context Protocol project, the Agentic AI Foundation, the
-Linux Foundation, or the authors of ARD. Claude and Claude Code are trademarks
-of Anthropic, PBC. OpenAI and Codex are trademarks of OpenAI.

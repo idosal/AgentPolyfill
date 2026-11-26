@@ -1,17 +1,11 @@
 # What hosts would need to change
 
-Claude Code, Codex, Pi, OpenCode, Antigravity, GitHub Copilot CLI and Hermes
-Agent all let outside code extend them. That gets a polyfill most of the way:
-it can add tools, react to what happens in a
-session, and wake a session that has gone idle. What none of them lets a
-plugin do is speak an extension's own protocol over the host's connection to
-a server. This page explains that gap, the four small changes that would close
-it in each host, and what each extension needs from them.
+Events, Skills and Apps need MCP methods or notifications that host plugin APIs
+do not fully expose. Adapters that open their own connection cannot reuse the
+host’s OAuth session. The tables below identify the missing APIs and the
+extensions that would use them.
 
-None of the changes names an extension. They are generic, and any future
-extension would use them the same way.
-
-This page is for these versions:
+Versions examined:
 
 - Claude Code 2.1.330 (its mod API types).
 - Codex CLI 0.170.0 (its `app-server` protocol, as
@@ -96,11 +90,11 @@ headers for the method, or takes them from the caller.
 
 - **Claude Code** has nothing like it today. It could be
   `$.mcp.request(server, method, params)` next to the existing `$.mcp.call`.
-- **Codex** already has the hard part. Its MCP client can send any request
+- The **Codex** MCP client can send any request
   (`send_custom_request`), but only Codex itself can use it. It could be an
   app-server method such as `mcpServer/request { threadId, server, method, params }`,
   behind `experimentalApi`, returning the raw result.
-- **Pi** has the hard part too. Its MCP client (`McpClient.request()` in
+- The **Pi** MCP client (`McpClient.request()` in
   `pi-mcp`) sends any method, but the built-in MCP extension keeps its clients
   to itself. It could be `pi.getMcpServerSession(name)` in the extension API,
   provided by whichever extension connects MCP servers, as
@@ -109,18 +103,18 @@ headers for the method, or takes them from the caller.
   the caller the request's JSON-RPC id (push notifications are routed by it),
   takes per-request `Mcp-*` routing headers, and refuses `tools/call`, so
   tools stay on Pi's tool pipeline, where permission extensions see them.
-- **OpenCode** has the hard part too: its MCP client already sends `events/*`
+- The **OpenCode** MCP client sends `events/*`
   for itself. It could be `ctx.mcp.request({ server, method, params })` beside
   `ctx.mcp.list`, on the connection OpenCode holds, with its sign-in.
 - **Antigravity** has nothing like it. Its MCP client is closed, so this
   would be a new plugin API, for example a method a plugin's MCP server or
   sidecar can call.
-- **Copilot** has the same shape next to it: `session.rpc.mcp.callTool` and
+- **Copilot** exposes two related methods: `session.rpc.mcp.callTool` and
   `resources.read` already go over Copilot's connection "with the existing
   server admission and tool permission checks". A
   `session.rpc.mcp.request({ serverName, method, params })` beside them,
   returning the raw result, would close it.
-- **Hermes** has the hard part too: its webhook support for Events
+- The **Hermes** webhook implementation for Events
   (`tools/mcp_tool_events.py`) sends `events/*` over the native session with
   `session.send_request`, under the server's RPC lock. It could be
   `ctx.mcp_request(server, method, params, timeout)` next to `ctx.call_mcp`,
@@ -560,8 +554,8 @@ details:
 - **Scope.** A plugin could declare in its manifest which extension it
   implements and which method prefixes it will send (`events/`, `skills/`).
   Then you see the grant when you install it, and the pipe isn't open-ended.
-- **Credentials.** Requests go out with your sign-in. That's the point, and
-  it's also why the scope above matters.
+- **Credentials.** Requests use the host’s authenticated connection. Restrict that access
+  to the servers and methods granted to the plugin.
 - **Who may call, in Copilot.** An extension already gets an elevated-permission
   question before it may skip tool prompts or register hooks. A raw MCP pipe
   is the same kind of grant, and could be asked the same way, naming the
@@ -592,4 +586,4 @@ details:
 - **MCP Apps in Antigravity's CLI and IDE,** which show text only. The App
   supports MCP Apps itself, so there is no Apps polyfill for Antigravity.
 - **Hosts with no extension layer and no API like Codex's `app-server`**
-  (ChatGPT is one). See the [README](../README.md#other-hosts).
+  (ChatGPT is one). See the [host support table](../README.md#polyfills).

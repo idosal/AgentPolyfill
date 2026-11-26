@@ -43,7 +43,7 @@ function play() {
         preload="none"
         :width="launch.width"
         :height="launch.height"
-        :aria-label="`The AgentPolyfill launch video. ${launch.description}`"
+        :aria-label="`AgentPolyfill demo. ${launch.description}`"
         @play="started = true"
       >
         <source v-if="launch.small" :src="src(launch.small.file)" type="video/mp4" media="(max-width: 799px)" />
@@ -61,11 +61,11 @@ function play() {
         fetchpriority="high"
         decoding="async"
       />
-      <button v-if="hydrated && !started" type="button" class="play" :aria-label="`Play the launch video, ${seconds} seconds`" @click="play">
+      <button v-if="hydrated && !started" type="button" class="play" :aria-label="`Play the demo, ${seconds} seconds`" @click="play">
         <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
           <path d="M4.5 2.9v10.2a.6.6 0 0 0 .92.5l8.03-5.1a.6.6 0 0 0 0-1L5.42 2.4a.6.6 0 0 0-.92.5z" />
         </svg>
-        <span aria-hidden="true">Play<span class="long"> the launch video</span></span>
+        <span aria-hidden="true">Play<span class="long"> the demo</span></span>
         <span class="len" aria-hidden="true">{{ seconds }} s</span>
       </button>
     </div>

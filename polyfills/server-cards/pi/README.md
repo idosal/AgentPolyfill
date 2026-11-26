@@ -4,6 +4,15 @@ Name a company, and Pi finds the MCP servers its domain publishes. Ask it to
 add one, choose **Add it** in Pi's question, and the server goes into Pi's
 own MCP configuration and connects in the current session.
 
+<a href="https://agentpolyfill.com/media/server-cards.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/server-cards.jpg">
+    <img src="../../../docs/media/demos/server-cards.gif" alt="Claude Code and Codex discover Neon’s MCP servers by domain and add Neon Docs after approval.">
+  </picture>
+</a>
+
+[Watch Claude Code and Codex discover and add Neon Docs (27 s)](https://agentpolyfill.com/media/server-cards.mp4)
+
 Also available for Claude Code, Codex and OpenCode: [mcp-server-cards for Claude Code](../claude-code/README.md), [mcp-server-cards for Codex](../codex/README.md), [mcp-server-cards for OpenCode](../opencode/README.md).
 All four use the same card and discovery modules, and all but OpenCode the
 same configuration modules.
@@ -207,4 +216,4 @@ from the Events Pi form, with temporary files kept under `test/.tmp`.
 Tests need permission to listen on loopback. They do not rebuild the shipping
 bundle silently: run `npm run build` after source changes.
 
-Apache-2.0. This is a community project, independent of the host and spec authors.
+[Apache-2.0](../../../LICENSE).

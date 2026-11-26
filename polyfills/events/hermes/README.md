@@ -4,6 +4,15 @@ Hermes Agent can watch events on your MCP servers ("tell me when a deploy
 fails") and act when one fires, even while the session sits idle with nobody
 typing.
 
+<a href="https://agentpolyfill.com/media/events.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/events.jpg">
+    <img src="../../../docs/media/demos/events.gif" alt="An idle Claude Code session wakes when a Cloudflare Worker throws a JSON parsing error.">
+  </picture>
+</a>
+
+[Watch a Worker error wake Claude Code (15 s)](https://agentpolyfill.com/media/events.mp4)
+
 Also available for [Claude Code](../claude-code/README.md),
 [Codex](../codex/README.md), [Pi](../pi/README.md),
 [OpenCode](../opencode/README.md), [T3 Code](../t3/README.md) and

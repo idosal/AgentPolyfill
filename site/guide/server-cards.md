@@ -28,8 +28,8 @@ extension, which these hosts don't support natively yet:
 
 <Recording
   cut="server-cards"
-  alt="In Claude Code, What MCP servers does neon.com publish? lists Neon and Neon Docs from neon.com's own catalog, each with an Add button, and Add on Neon Docs marks it added, with a note to run /mcp to connect or sign in. Then the same in Codex, in the ChatGPT desktop app: Codex lists the two servers, and asked to add Neon Docs, shows its own form naming the host, the URL, the headers (none) and the Server Card it came from, with Don't add it and Add it. After Add it, neon-docs is in Codex's config; codex mcp remove neon-docs undoes it."
-  caption="Real sessions (27 s; waits sped up, with a badge saying how fast): neon.com's two servers, found from its domain, in Claude Code and then in Codex. Adding one writes it to the host's own config, and the host connects it."
+  alt="Claude Code and Codex each list the servers published by neon.com. The user selects Neon Docs and approves adding it to the host configuration."
+  caption="Adding Neon Docs to Claude Code and Codex."
 />
 
 ## Install
@@ -69,121 +69,9 @@ hermes plugins install idosal/AgentPolyfill/polyfills/server-cards/hermes/plugin
 
 :::
 
-### In Claude Code
+After installation, start a new session and ask for a domain’s MCP servers. The Pi command installs Events, Skills and Server Cards together.
 
-The terminal form is `claude plugin install mcp-server-cards --marketplace idosal/AgentPolyfill`.
-It's also part of the `agent-polyfill` bundle. You need:
-
-- **Claude Code 2.1.329 or newer**, with mods.
-- Nothing else: no helper process, no Node, no account.
-- To add a server, it runs the `claude` command. That is found on your `PATH`,
-  or in the usual install folders. If neither works, it gives you the exact
-  command to run yourself.
-
-### In Codex
-
-Codex 0.170 or newer, with Node 20 or newer. The same discovery and checks,
-and a server is added to Codex's config only after you choose "Add it" in
-Codex's own form.
-
-### In Pi
-
-Pi 1.6.0 (the version tested), with Node 22 or newer. The command above
-installs Events, Skills and Server Cards together.
-Pi clones the repository under `~/.pi/agent/git/` and loads the three
-extensions from there. Nothing is published to npm or Pi's package gallery,
-and nothing is built.
-
-Update installed packages with `pi update --extensions`. Remove all three
-and Pi's copy of the repository with
-`pi remove git:github.com/idosal/AgentPolyfill`. For one run of all three
-without installing, use `pi -e git:github.com/idosal/AgentPolyfill`.
-
-To install only Server Cards, use a clone:
-
-```bash
-git clone https://github.com/idosal/AgentPolyfill.git
-cd AgentPolyfill
-pi install ./polyfills/server-cards/pi/extension
-```
-
-Pi loads the local path where it is, so keep the clone. From the same folder,
-`pi remove ./polyfills/server-cards/pi/extension` removes that local install;
-`pi -e ./polyfills/server-cards/pi/extension` runs it once without installing.
-Use one way per form: Pi tells packages apart by repository address or local
-path, so a form installed both ways loads twice.
-
-[ARD](./ard#install) is left out of the one-line install, as it is from the
-Claude Code bundle: its search sends the words of your request to a registry
-after asking each time. Install it separately from a clone.
-
-Removal leaves watches and events in `mcp-events/`, and approvals and skill
-stubs in `mcp-skills/`, in Pi's agent folder (`~/.pi/agent`, or
-`PI_CODING_AGENT_DIR`); delete those folders too to remove that data.
-Servers you added stay in `mcp.json`; remove one with
-`pi mcp remove <name>`.
-
-### In OpenCode
-
-OpenCode 2.4 or newer (tested with 2.4.1), and nothing else: no account, no
-key, no Node. The plugin isn't on npm: the command fetches it from GitHub,
-with Git, and adds it to `plugins` in your global
-`~/.config/opencode/opencode.json`, so it runs in every project from the next
-time OpenCode opens one. A commit in place of `main` pins one version. From a
-clone, put the folder `polyfills/server-cards/opencode/plugin` in `plugins`
-in an `opencode.json` instead. To remove it, run `opencode plugin remove`
-with the same text; OpenCode's downloaded copy stays in
-`~/.cache/opencode/npm/` (a `git-AgentPolyfill-…` folder), which you can
-delete. Removing it stops adding the servers it added, which were never in
-your configuration files. Its list of them stays in OpenCode's plugin storage
-(OpenCode's own database) and comes back if you install it again; remove a
-server with `server_cards_remove_mcp_server` first to drop it from the list.
-
-### In Antigravity
-
-Node 20 or newer on `PATH`. Nothing is published to Antigravity's
-Marketplace; install from GitHub, with the Antigravity CLI (the App doesn't
-ship `agy`) and Git. `agy plugin install` copies the plugin's folder to
-`~/.gemini/config/plugins/mcp-server-cards`, which the App and the CLI both
-read. Remove it with `agy plugin uninstall mcp-server-cards`. Servers you
-added stay in `~/.gemini/config/mcp_config.json`; remove one with
-`agy mcp remove <name>` (in CLI 1.5.17's own help, not in Antigravity's
-docs).
-
-### In Copilot CLI
-
-Copilot CLI 1.0.115 (the version tested), with Node 20 or newer on your
-`PATH`. The plugin is an MCP server, so it needs no experimental mode. The
-install from a clone is the one tested; Copilot loads the plugin where it is,
-so keep the clone. From GitHub,
-`copilot plugin marketplace add idosal/AgentPolyfill` adds the marketplace.
-Checked in Copilot CLI 1.0.105. Not checked in 1.0.115, in the interactive
-TUI, or in VS Code. Start a new Copilot session afterwards.
-Remove it with `copilot plugin uninstall mcp-server-cards@agent-polyfill`.
-Servers you added stay in `~/.copilot/mcp-config.json`; remove one with
-`copilot mcp remove <name>`.
-
-### In Hermes
-
-Hermes Agent v0.23.4 (the version tested), with Node 20 or newer on the
-gateway's PATH. `AGENTPOLYFILL_NODE` can name its executable. The plugin
-ships its Python code and bundled helper; no npm install is needed.
-
-Disable it with `hermes plugins disable mcp-server-cards`. Added servers
-stay in `mcp_servers` in `config.yaml`. Ask to remove an unchanged server the
-plugin added, or use `hermes mcp remove <name>`, then `/reload-mcp`. The
-removal record is `$HERMES_HOME/mcp-server-cards/added.json`; discovery state
-lives in memory and must be fetched again after a restart.
-
-The sections below name the host where behavior differs. Full guides by host:
-
-- [Claude Code](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/claude-code)
-- [Codex](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/codex)
-- [Pi](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi)
-- [OpenCode](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/opencode)
-- [Antigravity](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/antigravity)
-- [Copilot CLI](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/copilot)
-- [Hermes](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/hermes)
+See [Getting started](./getting-started) for host prerequisites and configuration.
 
 ## Try it
 
@@ -712,5 +600,4 @@ Server Cards client scenarios.
 
 On GitHub, in [`polyfills/server-cards/claude-code`](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/claude-code):
 the full [`README.md`](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/claude-code/README.md),
-with one row for each client rule and the test that covers it, and the findings
-to report upstream.
+with one row for each client rule and the test that covers it, and interoperability notes.

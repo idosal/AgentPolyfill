@@ -5,6 +5,15 @@ show up in Pi's skill list next to your own, Pi loads one when a task calls
 for it, and it reads the files the skill refers to as it needs them. You
 approve each skill once.
 
+<a href="https://agentpolyfill.com/media/skills.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/skills.jpg">
+    <img src="../../../docs/media/demos/skills.gif" alt="Codex lists skills from Hugging Face and asks permission to load one before recommending a model quantization.">
+  </picture>
+</a>
+
+[Watch Codex use a Hugging Face skill (25 s)](https://agentpolyfill.com/media/skills.mp4)
+
 Also available for Codex and OpenCode: [mcp-skills for Codex](../codex/README.md), [mcp-skills for OpenCode](../opencode/README.md). Claude Code needs no polyfill for this: it lists skills from MCP servers itself, in beta from 2.1.332 ([changelog](https://code.claude.com/docs/en/changelog)).
 
 It implements the client side of the MCP Skills extension
@@ -304,7 +313,3 @@ haven't shipped them yet.
 Apache-2.0. See [`LICENSE`](../../../LICENSE). The bundle includes npm
 packages under their own licences:
 [`extension/THIRD_PARTY_LICENSES.txt`](extension/THIRD_PARTY_LICENSES.txt).
-
-This is a community project. It isn't affiliated with or endorsed by
-Anthropic, OpenAI, Earendil, the Model Context Protocol project, the Agentic
-AI Foundation or the Linux Foundation.
