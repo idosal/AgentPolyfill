@@ -1,0 +1,7 @@
+name: mcp-tasks
+version: "0.1.0"
+description: Run MCP tasks in the originating Hermes session with /mcp-tasks.
+author: Ido Salomon
+provides_hooks:
+  - pre_llm_call
+  - on_session_open

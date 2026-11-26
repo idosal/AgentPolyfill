@@ -30,6 +30,8 @@ type OpenOptions = {
   locale: string;
   timeZone: string;
   userAgent: string;
+  pi: boolean;
+  serverTools: boolean;
   /** The CSP domains the helper applied, from the resource's `_meta.ui.csp`. */
   csp: Record<string, string[]>;
   /** The app asked for clipboardWrite: its copies reach the person's clipboard. */
@@ -153,13 +155,10 @@ window.__openView = async (options) => {
     null,
     { name: "mcp-apps-cli", version: "0.1.0" },
     {
-      openLinks: {},
-      downloadFile: {},
-      serverTools: {},
+      ...(options.pi ? {} : { openLinks: {}, downloadFile: {}, updateModelContext: { text: {} }, message: { text: {} } }),
+      ...(options.serverTools ? { serverTools: {} } : {}),
       serverResources: {},
       logging: {},
-      updateModelContext: { text: {} },
-      message: { text: {} },
       // What the helper applied: the declared domains, no more.
       sandbox: { csp: options.csp as never, ...(options.clipboard ? { permissions: { clipboardWrite: {} } } : {}) },
     },
@@ -172,11 +171,11 @@ window.__openView = async (options) => {
         timeZone: options.timeZone,
         userAgent: options.userAgent,
         // A mouse in a terminal: no touch; hover is reported as the pointer moves.
-        deviceCapabilities: { touch: false, hover: true },
+        deviceCapabilities: { touch: false, hover: !options.pi },
         safeAreaInsets: { top: 0, right: 0, bottom: 0, left: 0 },
         displayMode: "inline",
         // fullscreen: the view fills the terminal; pip: a pane beside the chat.
-        availableDisplayModes: ["inline", "fullscreen", "pip"],
+        availableDisplayModes: options.pi ? ["inline"] : ["inline", "fullscreen", "pip"],
         containerDimensions: {
           width: options.width,
           maxHeight: options.maxHeight,
@@ -199,20 +198,22 @@ window.__openView = async (options) => {
     (await window.__cliHost(kind, params)) as never;
 
   // Requests the helper answers (through the mod for tools/call).
-  bridge.oncalltool = call("tools/call");
+  if (options.serverTools) bridge.oncalltool = call("tools/call");
   bridge.onreadresource = call("resources/read");
   bridge.onlistresources = call("resources/list");
   bridge.onlistresourcetemplates = call("resources/templates/list");
   // The person is asked; the answer says whether it happened ({ isError }).
-  bridge.onmessage = call("ui/message");
-  bridge.onopenlink = call("ui/open-link");
-  bridge.ondownloadfile = call("ui/download-file");
+  if (!options.pi) {
+    bridge.onmessage = call("ui/message");
+    bridge.onopenlink = call("ui/open-link");
+    bridge.ondownloadfile = call("ui/download-file");
 
-  // Notifications the host only has to acknowledge.
-  bridge.onupdatemodelcontext = async (params) => {
-    await window.__cliHost("ui/update-model-context", params);
-    return {};
-  };
+    // Notifications the host only has to acknowledge.
+    bridge.onupdatemodelcontext = async (params) => {
+      await window.__cliHost("ui/update-model-context", params);
+      return {};
+    };
+  }
   bridge.onloggingmessage = (params) => {
     void window.__cliHost("log", params);
   };

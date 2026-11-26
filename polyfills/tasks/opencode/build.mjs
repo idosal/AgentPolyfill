@@ -15,3 +15,15 @@ await build({
     external: ['@opencode/plugin/*', '@opencode/plugin'],
     banner: { js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);' }
 });
+
+// Desktop loads one CommonJS bundle and provides its own GUI and Solid modules.
+await build({
+    absWorkingDir: root,
+    entryPoints: ['src/gui.ts'],
+    outfile: resolve(process.argv[2] ?? resolve(root, 'plugin'), 'gui.cjs'),
+    platform: 'browser',
+    format: 'cjs',
+    bundle: true,
+    minify: true,
+    external: ['@opencode/plugin/gui', '@opencode/plugin/rpc', 'solid-js']
+});

@@ -21,6 +21,12 @@ Apps (`io.modelcontextprotocol/ui`) as published in `specification/2026-01-26`
   caption="DOOM, a system monitor and a 3D model in the Claude Code terminal."
 />
 
+## Pi
+
+In Pi 1.6.0, install the Pi package from the local checkout and use `/mcp-app`
+after calling an app-enabled MCP tool. The terminal renders the original result
+and accepts keyboard input. [Setup and supported interactions](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/apps/pi).
+
 ## Install
 
 ```

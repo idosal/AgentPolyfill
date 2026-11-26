@@ -22754,13 +22754,10 @@ container holding the app. Specify either width or maxWidth, and either height o
     frameLook(options.styles);
     document.body.appendChild(iframe);
     bridge = new DX(null, { name: "mcp-apps-cli", version: "0.1.0" }, {
-      openLinks: {},
-      downloadFile: {},
-      serverTools: {},
+      ...options.pi ? {} : { openLinks: {}, downloadFile: {}, updateModelContext: { text: {} }, message: { text: {} } },
+      ...options.serverTools ? { serverTools: {} } : {},
       serverResources: {},
       logging: {},
-      updateModelContext: { text: {} },
-      message: { text: {} },
       sandbox: { csp: options.csp, ...options.clipboard ? { permissions: { clipboardWrite: {} } } : {} }
     }, {
       hostContext: context = {
@@ -22770,10 +22767,10 @@ container holding the app. Specify either width or maxWidth, and either height o
         locale: options.locale,
         timeZone: options.timeZone,
         userAgent: options.userAgent,
-        deviceCapabilities: { touch: false, hover: true },
+        deviceCapabilities: { touch: false, hover: !options.pi },
         safeAreaInsets: { top: 0, right: 0, bottom: 0, left: 0 },
         displayMode: "inline",
-        availableDisplayModes: ["inline", "fullscreen", "pip"],
+        availableDisplayModes: options.pi ? ["inline"] : ["inline", "fullscreen", "pip"],
         containerDimensions: {
           width: options.width,
           maxHeight: options.maxHeight
@@ -22790,17 +22787,20 @@ container holding the app. Specify either width or maxWidth, and either height o
       return { mode: answer?.mode ?? current };
     };
     const call = (kind) => async (params) => await window.__cliHost(kind, params);
-    bridge.oncalltool = call("tools/call");
+    if (options.serverTools)
+      bridge.oncalltool = call("tools/call");
     bridge.onreadresource = call("resources/read");
     bridge.onlistresources = call("resources/list");
     bridge.onlistresourcetemplates = call("resources/templates/list");
-    bridge.onmessage = call("ui/message");
-    bridge.onopenlink = call("ui/open-link");
-    bridge.ondownloadfile = call("ui/download-file");
-    bridge.onupdatemodelcontext = async (params) => {
-      await window.__cliHost("ui/update-model-context", params);
-      return {};
-    };
+    if (!options.pi) {
+      bridge.onmessage = call("ui/message");
+      bridge.onopenlink = call("ui/open-link");
+      bridge.ondownloadfile = call("ui/download-file");
+      bridge.onupdatemodelcontext = async (params) => {
+        await window.__cliHost("ui/update-model-context", params);
+        return {};
+      };
+    }
     bridge.onloggingmessage = (params) => {
       window.__cliHost("log", params);
     };

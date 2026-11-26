@@ -1,0 +1,20 @@
+{
+  "name": "agentpolyfill-pi-apps",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "1.6.0",
+    "@types/node": "^22.10.0",
+    "typescript": "^5.9.3"
+  }
+}

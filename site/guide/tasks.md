@@ -36,6 +36,9 @@ Requires Pi 1.6+ and Node 22+. [Pi setup and limits](https://github.com/idosal/A
 
 ### GitHub Copilot CLI
 
+Experimental CLI 1.0.115 and 1.0.116 start and poll tasks natively. The plugin
+stays idle unless you set `MCP_TASKS_FALLBACK=1` in a profile that needs it.
+
 ```sh
 copilot plugin marketplace add idosal/AgentPolyfill
 copilot plugin install mcp-tasks@agent-polyfill
@@ -48,8 +51,15 @@ Requires Copilot CLI 1.0.115+ and Node 20+. [Copilot setup and limits](https://g
 
 For OpenCode 2.4.1+, add the absolute path of
 `polyfills/tasks/opencode/plugin` from your checkout to the `plugins` array
-in OpenCode's configuration. Open a terminal session in that location.
+in OpenCode's configuration. Open a terminal session or the project in Desktop (verified on 2.4.2).
 [OpenCode setup and limits](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/tasks/opencode).
+
+### Hermes
+
+Enable the local `mcp-tasks` plugin and name its allowed servers. In the gateway,
+use `/mcp-tasks servers` to discover them. Its viewer shows the complete start
+request and asks you to confirm typed task answers.
+[Hermes setup and limits](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/tasks/hermes).
 
 ## Try it
 

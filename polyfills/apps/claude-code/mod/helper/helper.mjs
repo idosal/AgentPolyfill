@@ -346,6 +346,8 @@ const REQUEST_TIMEOUT_MS = 120_000;
 const CONSENT_TIMEOUT_MS = 600_000;
 
 const args = parseArgs(process.argv.slice(2));
+// Pi supplies only the selected, approved server over the private stdin pipe.
+const piEntry = args.pi ? JSON.parse(fs.readFileSync(0, "utf8")) : undefined;
 const socketPath =
   args.socket ?? path.join(os.tmpdir(), `mcp-apps-cli-${process.pid}.sock`);
 // The mod reaches the helper over a Unix socket only the person can open.
@@ -623,6 +625,10 @@ iframe{display:block;border:0;background:transparent}
  * started, sent or expanded before this.
  */
 function serverEntry(server) {
+  if (args.pi) {
+    if (server !== piEntry.server) throw new Error("server is outside this Pi view");
+    return { config: piEntry.config, scope: "Pi session" };
+  }
   return resolveServer(server, {
     places: placesHere(cwd),
     own: args.mcpConfig ?? [],
@@ -1145,7 +1151,7 @@ async function openViewNow(options) {
   const theme = THEMES[scheme];
   const { context, page } = await made;
   // Before the host page and the app load, so it runs in the app's frame.
-  const clipboard = Boolean(meta.permissions?.clipboardWrite);
+  const clipboard = !args.pi && Boolean(meta.permissions?.clipboardWrite);
   if (clipboard) await context.addInitScript(CLIPBOARD_HOOK);
   const origins = viewOrigins(server, meta.domain);
   const view = {
@@ -1250,6 +1256,8 @@ async function openViewNow(options) {
     tool: (await discover(server)).definitions[toolName],
     locale: Intl.DateTimeFormat().resolvedOptions().locale,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    pi: args.pi === true,
+    serverTools: !args.pi || options.serverTools === true,
     userAgent: options.userAgent ?? "Claude Code (mcp-apps-cli)",
     csp,
     clipboard,
@@ -3114,7 +3122,8 @@ process.stdout.on("error", () => void shutdown());
 function parseArgs(list) {
   const out = { mcpConfig: [] };
   for (let i = 0; i < list.length; i++) {
-    if (list[i] === "--socket") out.socket = list[++i];
+    if (list[i] === "--pi") out.pi = true;
+    else if (list[i] === "--socket") out.socket = list[++i];
     else if (list[i] === "--cwd") out.cwd = list[++i];
     else if (list[i] === "--mcp-config") out.mcpConfig.push(list[++i]);
   }

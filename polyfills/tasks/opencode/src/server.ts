@@ -34,6 +34,10 @@ export default Plugin.define({
         if (process.env.MCP_TASKS_OFF === '1') return;
         const pending = new Map<string, Question>();
         const rpc = await ctx.rpc.register(Dialog, {
+            async pending(raw) {
+                const question = pending.get((raw as { sessionID: string }).sessionID);
+                return question && !question.proof ? { ticket: question.ticket } : {};
+            },
             async question(raw) {
                 const { sessionID, ticket } = raw as { sessionID: string; ticket: string };
                 const q = pending.get(sessionID);
@@ -69,10 +73,10 @@ export default Plugin.define({
                         resolve(value);
                     };
                     const cancel = () => finish({ action: 'cancel' });
-                    const timeout = setTimeout(() => finish({ unavailable: 'no answer from an OpenCode terminal showing this session' }), 90_000);
+                    const timeout = setTimeout(() => finish({ unavailable: 'no answer from an OpenCode window or terminal showing this session' }), 90_000);
                     signal.addEventListener('abort', cancel, { once: true });
                     pending.set(sessionID, { ticket, title, message: question, input, finish });
-                    void rpc.events.emit('question', { sessionID, ticket }).catch(() => finish({ unavailable: 'OpenCode could not send the question to its terminal' }));
+                    void rpc.events.emit('question', { sessionID, ticket }).catch(() => finish({ unavailable: 'OpenCode could not send the question to its active frontend' }));
                 });
                 if ('unavailable' in reply) return reply;
                 if (reply.action !== 'accept') return { action: reply.action };
@@ -123,6 +127,7 @@ export default Plugin.define({
                 async wake(sessionID, text) {
                     try {
                         await ctx.session.synthetic({ sessionID, text, description: 'MCP Tasks', metadata: { source: 'mcp-tasks' }, delivery: 'queue', resume: true });
+                        await rpc.events.emit('wake', { sessionID, message: text }).catch(() => {});
                         return { ok: true, resumed: true };
                     } catch {
                         return { ok: false, why: 'OpenCode did not admit the task notification' };

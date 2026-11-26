@@ -80,7 +80,9 @@ function ask(session: Session, signal: AbortSignal): AskForm {
 }
 
 export async function start(joinSession: Join, env: NodeJS.ProcessEnv = process.env) {
-    if (env.MCP_TASKS_OFF === '1') {
+    // The extension itself requires experimental mode, which also enables native
+    // SEP-2663 in stock CLI 1.0.115 and 1.0.116. Join without tools by default.
+    if (env.MCP_TASKS_OFF === '1' || env.MCP_TASKS_FALLBACK !== '1') {
         await joinSession({});
         return { stop: async () => {} };
     }

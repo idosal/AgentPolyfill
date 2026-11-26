@@ -5,5 +5,5 @@
   "type": "module",
   "main": "./server.js",
   "license": "Apache-2.0",
-  "exports": { ".": "./server.js", "./tui": "./tui.js", "./rpc": "./rpc.js" }
+  "exports": { ".": "./server.js", "./tui": "./tui.js", "./rpc": "./rpc.js", "./gui-experimental": "./gui.cjs" }
 }

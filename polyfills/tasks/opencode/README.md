@@ -16,19 +16,17 @@ the plugin folder to the `plugins` array in OpenCode's configuration.
 }
 ```
 
-Open a terminal session in that location. The server and terminal load their
-respective parts from the same plugin folder. Remove the entry to uninstall.
+Open the project in the terminal or in OpenCode Desktop. For Desktop, the global
+OpenCode configuration can load the plugin for every project. Remove the entry to uninstall.
 
 ## Use
 
 Ask OpenCode which MCP servers offer Tasks. When it starts a task, the
-terminal shows the server, tool and arguments before the approval choice.
+active frontend shows the server, tool and arguments before the approval choice.
 The session gets a follow-up when the task completes or needs input. When a
-task asks for input, answer in the terminal using the displayed JSON fields.
+task asks for input, answer in the dialog using the displayed JSON fields.
 
-- Approval or input needs a terminal displaying the exact session. A
-  disconnected or inactive terminal leaves the question unanswered. Other
-  frontends need their own dialog integration.
+- Approval or input needs a terminal or a focused Desktop window displaying the exact session. Desktop uses its experimental GUI plugin entry point and native confirm and text dialogs. Switching sessions invalidates a pending answer. A disconnected frontend leaves the question unanswered.
 - The tool shows text and text resources. Binary result blocks are omitted.
 - The plugin uses a separate connection to an enabled MCP server and does
   not read OpenCode's stored sign-in. Stdio servers run a second process.
@@ -45,6 +43,7 @@ integration test uses a pinned OpenCode server and an isolated tool fixture.
 It checks the exact question, one-time session-scoped replies, decline, wake,
 and the structured answer received by the server. The real 2.4.1 terminal
 also exercised decline, approval, wake, and a typed answer that reached the
-server in `tasks/update`. Run `npm ci` in
+server in `tasks/update`. Desktop 2.4.2 also exercised decline, approval,
+notification, a typed JSON answer and the final greeting in the original thread. Run `npm ci` in
 `../core`, `../../../tools/opencode` and here, then `npm run typecheck`,
 `npm run build` and `npm test`.

@@ -38,7 +38,7 @@ test('Copilot declines without a call and routes an accepted task and its answer
                 return allow ? { action: 'accept', content: decision ? { decision } : { name: 'Luca' } } : { action: 'decline' };
             } }
         };
-    }, { COPILOT_HOME: home, MCP_TASKS_STATE: join(home, 'state') });
+    }, { MCP_TASKS_FALLBACK: '1', COPILOT_HOME: home, MCP_TASKS_STATE: join(home, 'state') });
     const run = (name: string, args: Record<string, unknown>, id = sessionId) => tools!.find((tool) => tool.name === name)!.handler(args, { sessionId: id });
     const requests = () => readFileSync(log, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
     try {
@@ -66,4 +66,12 @@ test('Copilot declines without a call and routes an accepted task and its answer
         await runtime.stop();
         rmSync(home, { force: true, recursive: true });
     }
+});
+
+test('stock Copilot receives no duplicate tools, hooks or server connections', async () => {
+    const runtime = await start(async config => {
+        assert.deepEqual(config, {});
+        return { sessionId: 'native' } as never;
+    }, {});
+    await runtime.stop();
 });

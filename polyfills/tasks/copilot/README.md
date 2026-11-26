@@ -5,6 +5,16 @@ to it when the server needs input or the task finishes. This is the client
 side of [SEP-2663](https://github.com/modelcontextprotocol/ext-tasks/blob/cc9aaac1047a9440b07486e38f37060bbebeef4c/seps/2663-tasks-extension.md)
 for MCP revision 2026-07-28.
 
+## Native Tasks and fallback
+
+Stock Copilot CLI 1.0.115 and 1.0.116 started and polled a SEP-2663 task
+in experimental mode in an isolated stdio test. Stock 1.0.116 in default mode
+returned ordinary tool content. Native form handling and visible idle wake
+depend on the client. Try the native tool first. This extension joins without
+registering tools or opening connections by default. Only in a profile where
+you verified that the actual tool call lacks native Tasks, set
+`MCP_TASKS_FALLBACK=1` before starting the host to enable the adapter.
+
 ## Install
 
 Requires Copilot CLI 1.0.115 or newer, experimental extensions, and Node 20+.
