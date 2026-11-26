@@ -150,6 +150,11 @@ impl View {
     pub async fn input_event(&self, event: &Value) -> Result<()> {
         let _input = self.inputs.lock().await;
         if !self.alive.load(Ordering::SeqCst) { return Ok(()); }
+        // Wait for Chrome to restore hit-testing after a screenshot (View::shoot).
+        let _gate = match string(event, "kind") {
+            "pointer" | "wheel" => Some(self.pointer_gate.lock().await),
+            _ => None,
+        };
         match string(event,"kind") {
             "pointer" => {
                 let (cell_h,top,scale,image) = { let s = self.state.lock().unwrap(); (s.cell_h,s.scroll,s.scale,s.image) };

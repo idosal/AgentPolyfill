@@ -48,7 +48,8 @@ must be up for the last two.
   another server on this machine its CSP names, but its own; nothing sent
   away by a form or by navigating; double clicks, emoji and text, unknown
   key sequences dropped; clicks in a tall view scrolled down, and in a
-  frame from another site inside it; its own Claude domain, not another
+  frame from another site inside it, also while the page keeps changing and
+  is captured all the time; its own Claude domain, not another
   server's; out of sight, its page paused, a frame from another site in it
   too, while it still answers a request, and running again when back), and
   what happens when an app's page crashes, Chrome stops, or

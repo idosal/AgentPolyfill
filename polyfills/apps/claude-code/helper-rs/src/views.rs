@@ -38,6 +38,9 @@ const LIVENESS_MS: u64 = 2000;
 const LIVENESS_TIMEOUT_MS: u64 = 3000;
 const MAX_MISSES: u32 = 3;
 const ALT_SETTLE_MS: u64 = 1500;
+/// The longest a screenshot holds pointer input back for the page to draw
+/// again (see `View::shoot`).
+const POINTER_SETTLE_MS: u64 = 250;
 const TEARDOWN_MS: u64 = 1500;
 const REQUEST_TIMEOUT_MS: u64 = 120_000;
 const CONSENT_TIMEOUT_MS: u64 = 600_000;
@@ -369,6 +372,9 @@ pub struct View {
     pub page: Arc<Page>,
     pub state: Mutex<State>,
     pub turn: AsyncMutex<()>,
+    /// Held from just before each screenshot until the page has drawn again
+    /// after it, and while a pointer or wheel event is sent (see `shoot`).
+    pub pointer_gate: Arc<AsyncMutex<()>>,
     pub inputs: AsyncMutex<()>,
     shown_turn: AsyncMutex<()>,
     store_saving: AsyncMutex<()>,
@@ -777,10 +783,25 @@ impl View {
         // It shoots in a session of its own, with no pixel-ratio override, so
         // Chrome scales by `scale` alone; this session has the page's ratio
         // (2 for pictures), which Chrome multiplies in: divided out here.
+        // After a clipped screenshot Chrome can hit-test the parent of an
+        // embedded frame until it has composited again. One animation frame
+        // sometimes precedes that update. Hold pointer input for two frames.
+        let gate = self.pointer_gate.clone().lock_owned().await;
         let result = self.page.send("Page.captureScreenshot", json!({
             "format":"png","clip":{"x":0,"y":top,"width":f64::from(cols)*8.0,"height":f64::from(rows)*cell_h,"scale":scale/dpr},
             "optimizeForSpeed":true,"captureBeyondViewport":true,
         })).await?;
+        let page = self.page.clone();
+        tokio::spawn(async move {
+            let repaint = page.eval("new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(0))))");
+            tokio::pin!(repaint);
+            // A frozen page may never repaint. Unblock input at the deadline,
+            // but let the CDP write and its pending-reply cleanup finish.
+            if tokio::time::timeout(Duration::from_millis(POINTER_SETTLE_MS), &mut repaint).await.is_err() {
+                drop(gate);
+                let _ = repaint.await;
+            }
+        });
         Ok(B64.decode(string(&result,"data"))?)
     }
 
@@ -1307,7 +1328,7 @@ async fn open_now(helper: &Arc<Helper>, options: &Value) -> Result<Value> {
         me:me.clone(),
         id:id.into(),open_gen:gen_of(options).into(),server:server.into(),helper:Arc::downgrade(helper),page,
         structured_from_text:(options["structuredFromText"] == true).then(|| discovered["definitions"][tool]["outputSchema"].clone()).filter(Value::is_object),
-        turn:AsyncMutex::new(()),inputs:AsyncMutex::new(()),shown_turn:AsyncMutex::new(()),store_saving:AsyncMutex::new(()),
+        turn:AsyncMutex::new(()),pointer_gate:Arc::new(AsyncMutex::new(())),inputs:AsyncMutex::new(()),shown_turn:AsyncMutex::new(()),store_saving:AsyncMutex::new(()),
         alive:AtomicBool::new(true),timers:Notify::new(),store_file:file,file_stem:policy::image_file_stem(id),input_tx,
         state:Mutex::new(State {
             image,cols,max_rows,cell_h,dpr:if image {2.0} else {1.0},display:"inline".into(),height:0.0,scale:1.0,scroll:0.0,generation:0,

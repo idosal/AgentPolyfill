@@ -142,14 +142,15 @@ const TALL_APP = `<!doctype html><html><body style="margin:0">${Array.from({ len
 // The nested app: a tall page with a frame from another site (its server's
 // own address) part way down; says when that frame has loaded ("frame ready")
 // and when the button inside it is clicked.
-const NESTED_APP = () => `<!doctype html><html><body style="margin:0"><div style="height:300px">top</div><iframe src="${MCP_ORIGIN}/frame" style="display:block;border:0;width:100%;height:200px"></iframe><div style="height:1100px">bottom</div><script>
+const NESTED_APP = (busy) => `<!doctype html><html><body style="margin:0"><div style="height:300px">top <span id="n">0</span></div><iframe src="${MCP_ORIGIN}/frame" style="display:block;border:0;width:100%;height:200px"></iframe><div style="height:1100px">bottom</div><script>
 (function () {
-  var frameReady = false, initialized = false;
+  var frameReady = false, initialized = false, n = 0, clicks = 0;
   function send(m) { parent.postMessage(m, "*"); }
   function say(text) { send({ jsonrpc: "2.0", id: Date.now(), method: "ui/update-model-context", params: { content: [{ type: "text", text: text }] } }); }
+  if (${busy}) setInterval(function () { document.getElementById("n").textContent = String(++n); }, 100);
   window.addEventListener("message", function (e) {
     var m = e.data;
-    if (m === "frame clicked") say("frame clicked");
+    if (m === "frame clicked") say("frame clicked " + (++clicks));
     if (m === "frame ready") { frameReady = true; if (initialized) say("frame ready"); }
     if (m && m.jsonrpc === "2.0" && m.id === 1 && m.result) {
       send({ jsonrpc: "2.0", method: "ui/notifications/initialized" });
@@ -208,17 +209,20 @@ const claudeDomain = (url) => `${createHash("sha256").update(url).digest("hex").
 
 function mcpServer() {
   const server = new McpServer({ name: "host-check", version: "1.0.0" });
-  server.registerTool("nested", { description: "Nested", inputSchema: {}, _meta: { ui: { resourceUri: "ui://host-check/nested" } } }, async () => ({
-    content: [{ type: "text", text: "ok" }],
-  }));
+  for (const name of ["nested", "busy"]) {
+    const uri = `ui://host-check/${name}`;
+    server.registerTool(name, { description: "Embedded frame", inputSchema: {}, _meta: { ui: { resourceUri: uri } } }, async () => ({
+      content: [{ type: "text", text: "ok" }],
+    }));
+    server.registerResource(name, uri, { mimeType: "text/html;profile=mcp-app" }, async () => ({
+      contents: [{ uri, mimeType: "text/html;profile=mcp-app", text: NESTED_APP(name === "busy"), _meta: { ui: { csp: { frameDomains: [MCP_ORIGIN] } } } }],
+    }));
+  }
   server.registerTool("ticker", { description: "Ticker", inputSchema: {}, _meta: { ui: { resourceUri: "ui://host-check/ticker" } } }, async () => ({
     content: [{ type: "text", text: "ok" }],
   }));
   server.registerResource("ticker", "ui://host-check/ticker", { mimeType: "text/html;profile=mcp-app" }, async () => ({
     contents: [{ uri: "ui://host-check/ticker", mimeType: "text/html;profile=mcp-app", text: TICKER_APP(), _meta: { ui: { csp: { frameDomains: [MCP_ORIGIN] } } } }],
-  }));
-  server.registerResource("nested", "ui://host-check/nested", { mimeType: "text/html;profile=mcp-app" }, async () => ({
-    contents: [{ uri: "ui://host-check/nested", mimeType: "text/html;profile=mcp-app", text: NESTED_APP(), _meta: { ui: { csp: { frameDomains: [MCP_ORIGIN] } } } }],
   }));
   server.registerTool("tall", { description: "Tall", inputSchema: {}, _meta: { ui: { resourceUri: "ui://host-check/tall" } } }, async () => ({
     content: [{ type: "text", text: "ok" }],
@@ -527,37 +531,39 @@ for (const label of ["Button 7", "Button 10"]) {
   clicked.push(`${label} → ${h.said.get("tall") ?? "nothing"}`);
   await sleep(700);
 }
-// A frame from another site in it (Chrome may give it a process of its own).
-await post(socket, "/close", { viewId: "tall" });
-await post(socket, "/open", { viewId: "nested", server: "echo", toolName: "nested", toolInput: {}, cols: 60, maxRows: 10, theme: "dark", mode: "cells" });
-// Clicked only once the frame from another site has loaded (it can take
-// seconds on a slow machine), and the view has drawn it.
-await until(() => h.said.get("nested") === "frame ready", 15000);
-await sleep(500);
-// Two pages down (16 rows), each sent once the one before shows in a frame,
-// and again if the helper didn't scroll (it scrolls a view only once it
-// knows the page is taller: before that, the key goes to the page).
-for (let n = 0, want = 8; want <= 16 && n < 12; n++) {
-  await post(socket, "/input", { viewId: "nested", event: { kind: "key", key: "pagedown" } });
-  await until(() => (h.tops.get("nested") ?? 0) >= want, 1500);
-  if ((h.tops.get("nested") ?? 0) >= want) want += 8;
-}
-// Clicked once the view is still: a scrolled view is captured again just
-// after, and a click while a capture has the viewport fitted to its shot
-// can land elsewhere (on a slow machine, 300 ms was not always enough).
-await until(() => Date.now() - (h.lastFrame.get("nested") ?? 0) > 400, 5000);
-h.said.delete("nested");
-// 300 px down the page is the frame: rows of the scrolled window inside it.
-const rows = await post(socket, "/ping", {});
-const cellH = rows.rowHeights?.[0] ?? 16;
-const top = h.tops.get("nested") ?? 0;
-const row = Math.floor((350 - top * cellH) / cellH);
-await post(socket, "/input", { viewId: "nested", event: { kind: "pointer", type: "down", x: 20, y: row, button: "left" } });
-await post(socket, "/input", { viewId: "nested", event: { kind: "pointer", type: "up", x: 20, y: row, button: "left" } });
-await until(() => h.said.has("nested"), 3000);
-check("in a tall view scrolled down, a click lands in a frame from another site", h.said.get("nested") === "frame clicked", `row ${row} (scrolled ${top} rows): ${h.said.get("nested") ?? "nothing"}`);
-await post(socket, "/close", { viewId: "nested" });
 check("in a tall view scrolled down, a click lands on what's under it", clicked.every((c) => /^Button (\d+) → Button \1$/.test(c)), clicked.join("; "));
+await post(socket, "/close", { viewId: "tall" });
+
+// The quiet frame is clicked once after scrolling. The busy page changes
+// every 100 ms, so screenshots and pointer events compete in both modes.
+for (const [toolName, mode, clicks] of [["nested", "cells", 1], ["busy", "cells", 20], ["busy", "image", 20]]) {
+  const viewId = `${toolName}-${mode}`;
+  const opened = await post(socket, "/open", { viewId, server: "echo", toolName, toolInput: {}, cols: 60, maxRows: 10, theme: "dark", mode });
+  const ready = opened.ok && await until(() => h.said.get(viewId) === "frame ready", 15000);
+  let landed = 0;
+  if (ready) {
+    // Two pages down. The helper starts scrolling once it knows the page height.
+    for (let n = 0, want = 8; want <= 16 && n < 12; n++) {
+      await post(socket, "/input", { viewId, event: { kind: "key", key: "pagedown" } });
+      if (await until(() => (h.tops.get(viewId) ?? 0) >= want, 1500)) want += 8;
+    }
+    if (toolName === "nested") await until(() => Date.now() - (h.lastFrame.get(viewId) ?? 0) > 400, 5000);
+    const { rowHeights } = await post(socket, "/ping", {});
+    const top = h.tops.get(viewId) ?? 0;
+    const row = Math.floor(350 / rowHeights[0]) - top; // The iframe spans y=300..500.
+    if (top > 0 && row >= 0 && row < 10) {
+      for (let i = 0; i < clicks; i++) {
+        await post(socket, "/input", { viewId, event: { kind: "pointer", type: "down", x: 20, y: row, button: "left" } });
+        await post(socket, "/input", { viewId, event: { kind: "pointer", type: "up", x: 20, y: row, button: "left" } });
+        if (await until(() => h.said.get(viewId) === `frame clicked ${landed + 1}`, 3000)) landed++;
+        if (i + 1 < clicks) await sleep(600); // Separate single clicks.
+      }
+    }
+  }
+  check(`${toolName} embedded frame receives every click in ${mode} mode`, landed === clicks,
+    `${landed}/${clicks}, top ${h.tops.get(viewId)}, ${ready ? "ready" : opened.error ?? "frame did not load"}`);
+  await post(socket, "/close", { viewId });
+}
 // Out of sight, a view's page is paused, a frame from another site in it
 // too: a game scrolled away takes no CPU. It still answers, and runs again.
 await post(socket, "/open", { viewId: "ticker", server: "echo", toolName: "ticker", toolInput: {}, cols: 60, maxRows: 4, theme: "dark", mode: "cells" });
