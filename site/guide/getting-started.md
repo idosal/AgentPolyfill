@@ -38,12 +38,13 @@ codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add mcp-events@agent-polyfill
 codex plugin add mcp-skills@agent-polyfill
 codex plugin add mcp-server-cards@agent-polyfill
+codex plugin add mcp-tasks@agent-polyfill
 codex plugin add ard-discovery@agent-polyfill
 ```
 
 ### Pi
 
-With Pi 1.6.0 and Node.js 22+, install Events, Skills and Server Cards together:
+With Pi 1.6.0 and Node.js 22+, install Events, Skills, Server Cards and Tasks together:
 
 ```sh
 pi install git:github.com/idosal/AgentPolyfill
@@ -72,6 +73,8 @@ opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/server-car
 opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/ard/opencode/plugin'
 ```
 
+For Tasks, use OpenCode 2.4.1+ and [load the plugin from a clone](./tasks#opencode).
+
 ### Antigravity
 
 Install with the Antigravity CLI (`agy`), Git and Node.js 20+ on `PATH`.
@@ -97,11 +100,12 @@ directory, so keep it after installation. Tested with Copilot CLI 1.0.115.
 git clone https://github.com/idosal/AgentPolyfill.git
 copilot plugin marketplace add ./AgentPolyfill
 copilot plugin install mcp-events@agent-polyfill
+copilot plugin install mcp-tasks@agent-polyfill
 copilot plugin install mcp-server-cards@agent-polyfill
 copilot plugin install ard-discovery@agent-polyfill
 ```
 
-Start Copilot with `copilot --experimental` for Events. Server Cards and ARD
+Start Copilot with `copilot --experimental` for Events and Tasks. Server Cards and ARD
 run in standard mode and require Node.js 20+.
 
 ### Hermes Agent
@@ -189,9 +193,9 @@ it, `/plugin uninstall mcp-skills@agent-polyfill` removes it
 ([Skills](./skills#claude-code)).
 
 In Codex, remove the plugin: `codex plugin remove mcp-events@agent-polyfill`,
-and the same for `mcp-skills`, `mcp-server-cards` and `ard-discovery`.
+and the same for `mcp-skills`, `mcp-server-cards`, `mcp-tasks` and `ard-discovery`.
 
-In Pi, remove all three forms installed by the one-line command, together
+In Pi, remove the forms installed by the one-line command, together
 with Pi's copy of the repository:
 
 ```bash
@@ -207,6 +211,7 @@ folder you installed from:
 | Events | `MCP_EVENTS_OFF=1` | `pi remove ./polyfills/events/pi/extension` |
 | Skills | `MCP_SKILLS_OFF=1` | `pi remove ./polyfills/skills/pi/extension` |
 | Server Cards | `MCP_SERVER_CARDS_DISABLED=1` | `pi remove ./polyfills/server-cards/pi/extension` |
+| Tasks | `MCP_TASKS_OFF=1` | `pi remove ./polyfills/tasks/pi/extension` |
 | ARD discovery | `ARD_DISCOVERY_DISABLED=1` | `pi remove ./polyfills/ard/pi/extension` |
 
 Pi has no per-skill switch for an extension's skills. To leave out a server's
@@ -281,6 +286,7 @@ disable or uninstall the plugin:
 | | Off without uninstalling | Remove |
 |---|---|---|
 | Events | `MCP_EVENTS_OFF=1`, or `copilot plugin disable mcp-events@agent-polyfill` | `copilot plugin uninstall mcp-events@agent-polyfill` |
+| Tasks | `MCP_TASKS_OFF=1`, or `copilot plugin disable mcp-tasks@agent-polyfill` | `copilot plugin uninstall mcp-tasks@agent-polyfill` |
 | Server Cards | `MCP_SERVER_CARDS_DISABLED=1`, or `copilot plugin disable mcp-server-cards@agent-polyfill` | `copilot plugin uninstall mcp-server-cards@agent-polyfill` |
 | ARD discovery | `ARD_DISCOVERY_DISABLED=1`, or `copilot plugin disable ard-discovery@agent-polyfill` | `copilot plugin uninstall ard-discovery@agent-polyfill` |
 

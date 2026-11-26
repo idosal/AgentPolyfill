@@ -6,9 +6,12 @@ Implements the client side of `io.modelcontextprotocol/tasks` ([SEP-2663](https:
 
 ## Install
 
-Requires Pi 1.6 and Node 22 or newer. From a checkout containing this extension:
+Requires Pi 1.6 and Node 22 or newer. The AgentPolyfill Pi package includes
+Tasks. To install Tasks on its own, run the second command from a checkout.
 
 ```bash
+pi install git:github.com/idosal/AgentPolyfill
+# From a checkout, just Tasks
 pi install ./polyfills/tasks/pi/extension
 ```
 

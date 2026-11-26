@@ -13,6 +13,12 @@
       "source": "./polyfills/events/copilot/plugin"
     },
     {
+      "name": "mcp-tasks",
+      "description": "MCP Tasks (SEP-2663): start long-running tools, follow their progress and answer task questions in an interactive Copilot terminal.",
+      "version": "0.1.0",
+      "source": "./polyfills/tasks/copilot/plugin"
+    },
+    {
       "name": "mcp-server-cards",
       "description": "MCP Server Cards (SEP-2127): Copilot finds the MCP servers a domain publishes, checks their Server Cards, and adds one to its configuration once you approve it in a form",
       "version": "0.1.1",

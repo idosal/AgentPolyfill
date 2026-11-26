@@ -98,6 +98,8 @@ export type AppOptions = {
     /** Revalidate the server's configuration and trust immediately before an operation. */
     serverAllowed?: (name: string, config: UpstreamConfig) => boolean;
     requireOwner?: boolean;
+    /** Filesystem-safe thread IDs on hosts whose native session identifier is not a UUID. */
+    sessionId?: RegExp;
     log?: (s: string) => void;
     connectTimeoutMs?: number;
     off?: boolean;
@@ -266,7 +268,7 @@ export class TaskApp {
         if (!this.active) return;
         const root = join(this.#o.base, 'threads');
         for (const id of existsSync(root) ? readdirSync(root) : []) {
-            if (!SESSION_ID.test(id) || this.#sessions.has(id)) continue;
+            if (!(this.#o.sessionId ?? SESSION_ID).test(id) || this.#sessions.has(id)) continue;
             const store = new TaskStore(this.#o.base, id);
             // Another process may own this session. Leave its state untouched until we claim it.
             if (store.all().some((t) => t.outcome === 'open' || t.announce)) this.session(id);
@@ -351,7 +353,7 @@ export class TaskApp {
     // ---- Tools ----
 
     noteTurn(thread: string, state: WakeState): void {
-        if (!SESSION_ID.test(thread) || !this.active) return;
+        if (!(this.#o.sessionId ?? SESSION_ID).test(thread) || !this.active) return;
         const s = this.session(thread);
         if (state.visible !== undefined) s.wakeVisible = state.visible;
         if (state.userStarted) this.#announceSoon(s);
@@ -359,7 +361,7 @@ export class TaskApp {
 
     async call(name: string, args: Json, ctx: CallContext, thread: string | undefined): Promise<ToolAnswer> {
         if (!this.active || !TOOLS.some((t) => t.name === name)) return { text: 'mcp-tasks has no tool by that name.', isError: true };
-        if (!thread || !SESSION_ID.test(thread)) return { text: `mcp-tasks needs ${this.host} to say which session this call is from, and this call did not.`, isError: true };
+        if (!thread || !(this.#o.sessionId ?? SESSION_ID).test(thread)) return { text: `mcp-tasks needs ${this.host} to say which session this call is from, and this call did not.`, isError: true };
         const s = this.session(thread);
         if (this.#o.requireOwner && ['start_task', 'provide_task_input', 'cancel_task'].includes(name) && !s.owner) {
             this.#claim(s);

@@ -24,13 +24,32 @@ Requires Codex 0.172+ and Node 20+. For a local checkout, pass its path to
 
 ### Pi
 
-From a checkout of AgentPolyfill, run:
+Install the AgentPolyfill Pi package, or install Tasks on its own from a clone.
 
 ```sh
+pi install git:github.com/idosal/AgentPolyfill
+# From a checkout, just Tasks
 pi install ./polyfills/tasks/pi/extension
 ```
 
 Requires Pi 1.6+ and Node 22+. [Pi setup and limits](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/tasks/pi).
+
+### GitHub Copilot CLI
+
+```sh
+copilot plugin marketplace add idosal/AgentPolyfill
+copilot plugin install mcp-tasks@agent-polyfill
+copilot --experimental
+```
+
+Requires Copilot CLI 1.0.115+ and Node 20+. [Copilot setup and limits](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/tasks/copilot).
+
+### OpenCode
+
+For OpenCode 2.4.1+, add the absolute path of
+`polyfills/tasks/opencode/plugin` from your checkout to the `plugins` array
+in OpenCode's configuration. Open a terminal session in that location.
+[OpenCode setup and limits](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/tasks/opencode).
 
 ## Try it
 

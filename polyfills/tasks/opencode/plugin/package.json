@@ -1,0 +1,9 @@
+{
+  "name": "mcp-tasks-opencode",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./server.js",
+  "license": "Apache-2.0",
+  "exports": { ".": "./server.js", "./tui": "./tui.js", "./rpc": "./rpc.js" }
+}
