@@ -3,11 +3,11 @@ layout: home
 markdownStyles: false
 titleTemplate: false
 title: AgentPolyfill
-description: "Polyfills for agent protocols: bring more of MCP to the clients you already use. See which polyfills each host can run."
+description: "Plugins for MCP Events, Skills, Server Cards and Apps, with optional Agentic Resource Discovery."
 hero:
   name: AgentPolyfill
   text: Polyfills for agent protocols
-  tagline: Bring more of MCP to the clients you already use. Find Apps, Skills, Events, Server Cards and ARD for your host below.
+  tagline: Watch server events, load remote skills, discover MCP servers and use interactive apps in your agent.
   image:
     light: /mark-light.svg
     dark: /mark-dark.svg
@@ -26,19 +26,17 @@ hero:
 
 <div class="ap-home"><div class="wrap">
 
-<p class="poc"><strong>An early proof of concept.</strong> Some gaps, like servers behind OAuth, need small changes to the hosts' plugin APIs. <a href="/guide/how-it-works#how-it-works-in-each-host-and-where-it-stops">What's missing</a>.</p>
-
-<section aria-label="The launch video">
+<section aria-label="Plugin demonstrations">
   <LaunchVideo />
 </section>
 
 <section>
   <h2>The polyfills</h2>
-  <p class="lede">Each one implements an MCP extension's client side, to spec, and steps aside once the host ships its own. Servers don't change.</p>
+  <p class="lede">Choose an extension to see its supported hosts, install command and examples.</p>
   <PolyfillCards />
   <h3 class="beyond">Beyond MCP</h3>
   <PolyfillCards group="beyond" />
-  <p class="closing">Building a polyfill, bringing one to another host, or writing a spec? <a href="/guide/build-a-polyfill">Build a polyfill</a> · <a href="/guide/community">Community</a> · <a href="/guide/spec-authors">For spec authors</a></p>
+  <p class="closing"><a href="/guide/build-a-polyfill">Build a polyfill</a> · <a href="/guide/community">Community plugins</a> · <a href="/guide/spec-authors">Conformance results</a></p>
 </section>
 
 </div></div>

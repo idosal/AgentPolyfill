@@ -4,6 +4,15 @@ Name a company, and OpenCode finds the MCP servers its domain publishes. Ask
 it to add one, and once you allow it, the server is in OpenCode's MCP
 servers.
 
+<a href="https://agentpolyfill.com/media/server-cards.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/server-cards.jpg">
+    <img src="../../../docs/media/demos/server-cards.gif" alt="Claude Code and Codex discover Neon’s MCP servers by domain and add Neon Docs after approval.">
+  </picture>
+</a>
+
+[Watch Claude Code and Codex discover and add Neon Docs (27 s)](https://agentpolyfill.com/media/server-cards.mp4)
+
 Also available for Claude Code, Codex and Pi: [mcp-server-cards for Claude Code](../claude-code/README.md), [mcp-server-cards for Codex](../codex/README.md), [mcp-server-cards for Pi](../pi/README.md).
 
 > What MCP servers does neon.com publish?

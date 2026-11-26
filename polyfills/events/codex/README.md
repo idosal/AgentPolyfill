@@ -3,6 +3,15 @@
 Codex can watch events on your MCP servers ("tell me when a deploy fails")
 and act when one fires, even while the session sits idle with nobody typing.
 
+<a href="https://agentpolyfill.com/media/events.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/events.jpg">
+    <img src="../../../docs/media/demos/events.gif" alt="An idle Claude Code session wakes when a Cloudflare Worker throws a JSON parsing error.">
+  </picture>
+</a>
+
+[Watch a Worker error wake Claude Code (15 s)](https://agentpolyfill.com/media/events.mp4)
+
 Also available for Claude Code, Pi and OpenCode: [mcp-events for Claude Code](../claude-code/README.md), [mcp-events for Pi](../pi/README.md), [mcp-events for OpenCode](../opencode/README.md).
 
 This plugin implements the client side of the MCP Events extension,
@@ -203,7 +212,7 @@ It writes `~/.mcp-events/relay.json`, which the plugin reads.
 
 #### The public relay (opt-in)
 
-It's run by Ido Salomon, the author of this plugin, at
+Ido Salomon operates the relay at
 `https://mcp-events-public-relay.idosalomon.workers.dev`. It's off unless you
 set `MCP_EVENTS_RELAY=public` in the environment Codex starts from.
 
@@ -504,8 +513,3 @@ haven't shipped them yet.
 Apache-2.0. See [`LICENSE`](../../../LICENSE). The bundled helper includes npm
 packages under their own licences:
 [`plugin/THIRD_PARTY_LICENSES.txt`](plugin/THIRD_PARTY_LICENSES.txt).
-
-This is a community project. It isn't affiliated with or endorsed by
-Anthropic, OpenAI, the Model Context Protocol project, the Agentic AI
-Foundation or the Linux Foundation. Claude and Claude Code are trademarks of
-Anthropic, PBC. OpenAI and Codex are trademarks of OpenAI.

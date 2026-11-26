@@ -3,14 +3,13 @@ import { ref } from 'vue'
 import { useData } from 'vitepress'
 import CopyCommand from './CopyCommand.vue'
 
-// The install, for each host, under the hero's buttons. The README's Install
-// section has the same commands: keep them in step.
+// Quick install commands displayed on the home page.
 const hosts = [
   {
     id: 'claude-code',
     name: 'Claude Code',
     command: '/plugin install agent-polyfill --marketplace idosal/AgentPolyfill',
-    label: 'Install every polyfill in Claude Code',
+    label: 'Install the Claude Code bundle',
   },
   {
     id: 'codex',

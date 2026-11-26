@@ -1,5 +1,5 @@
 ---
-description: mcp-apps-cli renders MCP Apps inline in the Claude Code terminal, with mouse and keyboard. Real pixels in iTerm2, kitty and Ghostty, character cells elsewhere.
+description: mcp-apps-cli renders MCP Apps inline in the Claude Code terminal, with mouse and keyboard. Graphics in iTerm2, kitty and Ghostty, character cells elsewhere.
 ---
 
 # Apps
@@ -11,14 +11,14 @@ drag and type into it. Existing MCP servers work unmodified. It implements MCP
 Apps (`io.modelcontextprotocol/ui`) as published in `specification/2026-01-26`
 (Stable), plus `ui/download-file` from the draft.
 
-- **Real pixels** in terminals that show images: iTerm2 3.5+, kitty and Ghostty.
+- **Graphics** in terminals that show images: iTerm2 3.5+, kitty and Ghostty.
 - **Character cells** everywhere else: Terminal.app, VS Code, tmux and so on.
-  Text, including chart labels, stays real characters.
+  Text, including chart labels, uses text characters.
 
 <Recording
   cut="apps"
-  alt="In Claude Code, Play DOOM opens the game from the hosted arcade server under the tool call, and it is played. A system monitor app draws a live CPU chart with a tooltip under the pointer, and in a terminal with no image support it draws the chart in text. Then a 3D torus knot renders inline and turns when dragged."
-  caption="A real session (19 s; waits sped up, with a badge saying how fast): DOOM from the hosted arcade server; a system monitor, drawn as a picture and, where the terminal shows none, in text; and a 3D scene, turned by dragging."
+  alt="Claude Code displays DOOM, a CPU chart and a draggable 3D model inline. A terminal without image support displays the chart with text characters."
+  caption="DOOM, a system monitor and a 3D model in the Claude Code terminal."
 />
 
 ## Install
@@ -27,38 +27,9 @@ Apps (`io.modelcontextprotocol/ui`) as published in `specification/2026-01-26`
 /plugin install mcp-apps-cli --marketplace idosal/AgentPolyfill
 ```
 
-Or in a terminal, `claude plugin install mcp-apps-cli --marketplace idosal/AgentPolyfill`.
-Start a new `claude` session for it to load.
+Start a new Claude Code session after installation. Apps requires a Chromium-based browser. The fullscreen layout forwards clicks and keystrokes to the app.
 
-Apps isn't in Codex yet. Codex gives a plugin no way to draw in its terminal,
-and its terminal doesn't declare MCP Apps to servers, which no plugin can
-change ([How it works](./how-it-works#how-a-plugin-plugs-in-today)).
-
-Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`,
-so an extension cannot get an App's UI through Pi. Pi's terminal could draw
-one in principle, but no Pi Apps form is built or tested.
-
-Apps has no OpenCode form. OpenCode 2.4.1 has no MCP Apps support of its own,
-and its TUI draws only terminal text. OpenCode Desktop's experimental panels
-can embed a web view, but a plugin can't read a `ui://` resource or a tool's
-`_meta` over OpenCode's connection, and there is no place in the
-conversation to draw a view. That was looked into, not built.
-
-Apps has no Antigravity form. The Antigravity App renders MCP Apps itself
-(v2.34.0 and later); the CLI and IDE show text only.
-
-Apps has no Copilot form, because Copilot has MCP Apps built in where they
-can be drawn: VS Code's Copilot harness turns them on (from its source; no app was drawn there). The Copilot CLI
-terminal draws none and doesn't declare MCP Apps to servers, and Copilot's
-extensions have no UI hooks like the ones this plugin uses in Claude Code
-([why](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/README.md#skills-and-apps-in-copilot)).
-
-Apps has no Hermes form yet.
-
-The plugin is one zip, attached to a release of the repository and checked
-against the SHA-256 in the repository's marketplace file before Claude Code
-unpacks it. It carries a small helper program for each platform and needs
-nothing else installed, not even Node.
+See [Getting started](./getting-started) for host prerequisites and configuration.
 
 ## Try it
 

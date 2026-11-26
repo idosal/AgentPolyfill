@@ -3,8 +3,6 @@ import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vitepress'
 
 const repo = 'https://github.com/idosal/AgentPolyfill'
-// The author on X, top right and in the footer.
-const x = 'https://x.com/idosal1'
 const site = 'https://agentpolyfill.com'
 // The link-preview card (og/og.html, rendered to public/og.jpg). Its hash is in
 // the URL, so services that cached an older card fetch the new one.
@@ -14,7 +12,7 @@ const ogVersion = createHash('sha256')
   .slice(0, 12)
 const ogImage = `${site}/og.jpg?v=${ogVersion}`
 const description =
-  'Polyfills for agent protocols: bring more of MCP to the clients you already use. Plugins add Apps, Skills, Events, Server Cards and ARD to Claude Code and Codex.'
+  'Plugins for MCP Events, Skills, Server Cards and Apps, with optional Agentic Resource Discovery.'
 
 export default defineConfig({
   lang: 'en',
@@ -149,7 +147,6 @@ export default defineConfig({
 
     socialLinks: [
       { icon: 'github', link: repo, ariaLabel: 'AgentPolyfill on GitHub' },
-      { icon: 'x', link: x, ariaLabel: 'Ido Salomon on X' },
     ],
 
     editLink: {
@@ -164,8 +161,8 @@ export default defineConfig({
     docFooter: { prev: 'Previous', next: 'Next' },
 
     footer: {
-      message: 'Not affiliated with Anthropic, OpenAI, MCP, ARD or the AAIF. <a href="/about">About</a>',
-      copyright: `By <a href="${x}">@idosal1</a> · Apache-2.0 · <a href="${repo}">Source on GitHub</a> · <a href="/llms.txt">llms.txt</a>`,
+      message: '<a href="/about">About AgentPolyfill</a>',
+      copyright: `Apache-2.0 · <a href="${repo}">Source on GitHub</a> · <a href="/llms.txt">llms.txt</a>`,
     },
 
     externalLinkIcon: true,

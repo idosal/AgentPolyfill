@@ -11,13 +11,6 @@ Checked against T3 Code 0.1.11 (the `t3` npm package, released 20 November
 
 ## What T3 Code is
 
-T3 Tools makes one agent product that runs on your machine: T3 Code. T3 Chat,
-the company's chat app, is a hosted web product. Neither pingdotgg nor
-t3dotgg publishes its source (the repositories named after it on GitHub are
-other people's clones), and T3 Code's docs mention it only as a plan that lets
-T3 Connect link more machines. It has nothing local for a polyfill to plug
-into, so nothing here applies to it.
-
 T3 Code doesn't have an agent loop of its own. It drives the agents you
 already have and are signed in to: Claude Code, Codex, Cursor, OpenCode, Grok
 Build, Antigravity, Kiro, Pi, Muse Code, fx, and any ACP agent. Each is a

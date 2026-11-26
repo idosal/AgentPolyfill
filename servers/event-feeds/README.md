@@ -1,13 +1,9 @@
 # event-feeds
 
-A public MCP server that offers **events**: things an agent can watch, so that it wakes up and acts
-when they happen. It implements the server side of the MCP Events extension,
-[SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
-(`io.modelcontextprotocol/events`, protocol revision 2026-07-28), on one Cloudflare Worker.
-
-It is run by Ido Salomon as part of [AgentPolyfill](https://github.com/idosal/AgentPolyfill), so that anyone
-with an Events-capable client can try Events in a minute without running anything. Source:
-[`servers/event-feeds`](https://github.com/idosal/AgentPolyfill/tree/main/servers/event-feeds).
+A public MCP Events server for Hacker News, npm, GitHub releases, earthquakes and
+a demo button. It implements [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
+(`io.modelcontextprotocol/events`, protocol revision 2026-07-28) on Cloudflare Workers.
+The hosted instance accepts clients without sign-in and is operated by Ido Salomon.
 
 - Server: `https://event-feeds.idosalomon.workers.dev/mcp`
 - Web page: <https://event-feeds.idosalomon.workers.dev/> (what this is, and a demo button)

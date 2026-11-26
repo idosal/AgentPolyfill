@@ -4,6 +4,15 @@ Name a company, and Codex finds the MCP servers its domain publishes. Ask it
 to add one, accept the form Codex shows you, and the server goes into Codex's
 own MCP configuration.
 
+<a href="https://agentpolyfill.com/media/server-cards.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/server-cards.jpg">
+    <img src="../../../docs/media/demos/server-cards.gif" alt="Claude Code and Codex discover Neon’s MCP servers by domain and add Neon Docs after approval.">
+  </picture>
+</a>
+
+[Watch Claude Code and Codex discover and add Neon Docs (27 s)](https://agentpolyfill.com/media/server-cards.mp4)
+
 Also available for Claude Code, Pi and OpenCode: [mcp-server-cards for Claude Code](../claude-code/README.md), [mcp-server-cards for Pi](../pi/README.md), [mcp-server-cards for OpenCode](../opencode/README.md).
 
 > What MCP servers does neon.com publish?
@@ -313,11 +322,11 @@ These are the rows where Codex differs:
 - **Upstream conformance:** the MCP conformance suite has no Server Card
   scenarios.
 
-### Findings to report upstream
+### Interoperability notes
 
 The findings concern the specs themselves, so they apply to both forms. They
 are listed once, with the Claude Code form's
-[findings](../claude-code/README.md#findings-to-report-upstream): on
+[findings](../claude-code/README.md#interoperability-notes): on
 `specVersion`, the well-known path, version ranges, Zapier's card, JSON
 values, and the ext-server-card README's stage.
 
@@ -350,8 +359,3 @@ result differs.
 ## Licence
 
 Apache-2.0, like the rest of this repository ([LICENSE](../../../LICENSE)).
-
-This is a community project. It isn't affiliated with or endorsed by OpenAI,
-Anthropic, the Model Context Protocol project, the Agentic AI Foundation or
-the Linux Foundation. Claude and Claude Code are trademarks of Anthropic, PBC.
-OpenAI and Codex are trademarks of OpenAI.

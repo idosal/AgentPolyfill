@@ -5,6 +5,15 @@ serve. They're listed with your own skills, Hermes loads one when a task calls
 for it, after asking you, and reads the files the skill refers to as it needs
 them.
 
+<a href="https://agentpolyfill.com/media/skills.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/skills.jpg">
+    <img src="../../../docs/media/demos/skills.gif" alt="Codex lists skills from Hugging Face and asks permission to load one before recommending a model quantization.">
+  </picture>
+</a>
+
+[Watch Codex use a Hugging Face skill (25 s)](https://agentpolyfill.com/media/skills.mp4)
+
 Also available for [Codex](../codex/README.md), [Pi](../pi/README.md) and
 [OpenCode](../opencode/README.md). Claude Code serves MCP skills itself.
 

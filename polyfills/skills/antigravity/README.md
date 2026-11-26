@@ -4,6 +4,15 @@ Use skills served by your MCP servers in Google Antigravity. The plugin lists
 them with Antigravity's local skills, asks before loading a new or changed
 version, and checks each file against the server's published manifest.
 
+<a href="https://agentpolyfill.com/media/skills.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/skills.jpg">
+    <img src="../../../docs/media/demos/skills.gif" alt="Codex lists skills from Hugging Face and asks permission to load one before recommending a model quantization.">
+  </picture>
+</a>
+
+[Watch Codex use a Hugging Face skill (25 s)](https://agentpolyfill.com/media/skills.mp4)
+
 This implements the client side of [SEP-2640, Final](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/2eb3a8e345aaee53461a3c5c5f6900659d3ecb27/seps/2640-skills-extension.md),
 commit `2eb3a8e`, the same revision as the [Codex form](../codex/README.md).
 It shares [Skills core](../core/), Codex's approval store and content formatting,

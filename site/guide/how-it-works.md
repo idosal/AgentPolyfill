@@ -200,11 +200,11 @@ headers for the method, or takes them from the caller.
 
 - **Claude Code** has nothing like it today. It could be
   `$.mcp.request(server, method, params)` next to the existing `$.mcp.call`.
-- **Codex** already has the hard part. Its MCP client can send any request
+- The **Codex** MCP client can send any request
   (`send_custom_request`), but only Codex itself can use it. It could be an
   app-server method such as `mcpServer/request { threadId, server, method, params }`,
   behind `experimentalApi`, returning the raw result.
-- **Pi** has the hard part too. Its MCP client (`McpClient.request()` in
+- The **Pi** MCP client (`McpClient.request()` in
   `pi-mcp`) sends any method, but the built-in MCP extension keeps its clients
   to itself. It could be `pi.getMcpServerSession(name)` in the extension API,
   provided by whichever extension connects MCP servers, as
@@ -213,13 +213,13 @@ headers for the method, or takes them from the caller.
   the caller the request's JSON-RPC id (push notifications are routed by it),
   takes per-request `Mcp-*` routing headers, and refuses `tools/call`, so
   tools stay on Pi's tool pipeline, where permission extensions see them.
-- **OpenCode** has the hard part too: its MCP client already sends `events/*`
+- The **OpenCode** MCP client sends `events/*`
   for itself. It could be `ctx.mcp.request({ server, method, params })` beside
   `ctx.mcp.list`, on the connection OpenCode holds, with its sign-in.
 - **Antigravity** has nothing like it. Its MCP client is closed, so this
   would be a new plugin API, for example a method a plugin's MCP server or
   sidecar can call.
-- **Copilot** has the same shape next to it: `session.rpc.mcp.callTool` and
+- **Copilot** exposes two related methods: `session.rpc.mcp.callTool` and
   `resources.read` already go over Copilot's connection "with the existing
   server admission and tool permission checks". A
   `session.rpc.mcp.request({ serverName, method, params })` beside them,
@@ -644,8 +644,8 @@ has the details:
 - **Scope.** A plugin could declare in its manifest which extension it
   implements and which method prefixes it will send (`events/`, `skills/`).
   Then you see the grant when you install it, and the pipe isn't open-ended.
-- **Credentials.** Requests go out with your sign-in. That's the point, and
-  it's also why the scope above matters.
+- **Credentials.** Requests use the host’s authenticated connection. Restrict that access
+  to the servers and methods granted to the plugin.
 - **Who may call, in Codex.** An app-server method is open to anything that
   can reach the socket, so a raw request there needs a per-plugin scope even
   more than an in-process API does.

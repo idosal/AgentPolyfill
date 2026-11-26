@@ -183,9 +183,9 @@ prevented.
   Code's permissions are the boundary.
 - **A relay's operator can read event payloads.** Webhooks are signed, not
   encrypted. With a relay of your own, that operator is you.
-  - The public relay (`MCP_EVENTS_RELAY=public`) is run by the author of this
-    mod, and is never used unless you set that by name.
-  - With it, your webhook-delivered payloads pass through his server and are
+  - Ido Salomon operates the public relay. Enable it explicitly with
+    `MCP_EVENTS_RELAY=public`.
+  - Webhook payloads pass through the public relay and are
     stored there until collected, for about a day at most. An uncollected
     delivery is dropped after 23 hours by a clear-out that runs hourly.
   - He could read them. He couldn't forge or alter one: the signing secret

@@ -5,6 +5,15 @@ registry for a capability. Hermes asks before sending your words to a
 registry, then shows the cards it found and whether their publisher confirms
 them. Adding a server requires a separate Hermes approval.
 
+<a href="https://agentpolyfill.com/media/ard.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/ard.jpg">
+    <img src="../../../docs/media/demos/ard.gif" alt="Claude Code finds Buildkite’s MCP server by domain, then asks permission to search a local ARD registry.">
+  </picture>
+</a>
+
+[Watch Claude Code look up Buildkite and search a registry (16 s)](https://agentpolyfill.com/media/ard.mp4)
+
 ARD is a spec from outside MCP: a draft (v0.91) published by the
 ards-project on GitHub, not an MCP specification. It stays separate from
 [`mcp-server-cards`](../../server-cards/hermes/README.md), which discovers only

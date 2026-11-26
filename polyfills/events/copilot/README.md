@@ -3,6 +3,15 @@
 Copilot can watch events on your MCP servers ("tell me when a deploy fails")
 and act when one fires, even while the session sits idle with nobody typing.
 
+<a href="https://agentpolyfill.com/media/events.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/events.jpg">
+    <img src="../../../docs/media/demos/events.gif" alt="An idle Claude Code session wakes when a Cloudflare Worker throws a JSON parsing error.">
+  </picture>
+</a>
+
+[Watch a Worker error wake Claude Code (15 s)](https://agentpolyfill.com/media/events.mp4)
+
 Also available for [Claude Code](../claude-code/README.md),
 [Codex](../codex/README.md) and [Pi](../pi/README.md).
 
@@ -413,7 +422,7 @@ The changes a host would need are in
 
 ### Skills and Apps in Copilot
 
-There is no Copilot form of the Skills or Apps polyfills, on purpose: Copilot
+Copilot
 has both, and a polyfill would be a second client beside Copilot's own.
 
 - **Skills over MCP (SEP-2640).**
@@ -526,8 +535,3 @@ haven't shipped them yet.
 Apache-2.0. See [`LICENSE`](../../../LICENSE). The bundled extension includes
 npm packages under their own licences:
 [`plugin/THIRD_PARTY_LICENSES.txt`](plugin/THIRD_PARTY_LICENSES.txt).
-
-This is a community project. It isn't affiliated with or endorsed by GitHub,
-Microsoft, Anthropic, OpenAI, the Model Context Protocol project, the Agentic
-AI Foundation or the Linux Foundation. GitHub Copilot is a trademark of
-GitHub, Inc.

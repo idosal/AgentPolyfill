@@ -4,6 +4,15 @@ Pi finds MCP servers through Agentic Resource Discovery (ARD): in what a
 domain lists, or by asking a registry for a server that can do a task. You
 choose the registry, and Pi asks before every search and every addition.
 
+<a href="https://agentpolyfill.com/media/ard.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/ard.jpg">
+    <img src="../../../docs/media/demos/ard.gif" alt="Claude Code finds Buildkite’s MCP server by domain, then asks permission to search a local ARD registry.">
+  </picture>
+</a>
+
+[Watch Claude Code look up Buildkite and search a registry (16 s)](https://agentpolyfill.com/media/ard.mp4)
+
 Also available for Claude Code, Codex and OpenCode: [ard-discovery for Claude Code](../claude-code/README.md), [ard-discovery for Codex](../codex/README.md), [ard-discovery for OpenCode](../opencode/README.md).
 All four use the same ARD registry client and Server Cards modules.
 
@@ -220,4 +229,4 @@ Server Cards Pi adapter tests against ARD's own bundle. Tests need loopback
 listening permission. Rebuild after changing source; tests never silently
 refresh the shipping bundle.
 
-Apache-2.0. This is a community project, independent of the host and spec authors.
+[Apache-2.0](../../../LICENSE).

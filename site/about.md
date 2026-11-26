@@ -1,79 +1,23 @@
 ---
-description: Who makes AgentPolyfill, its licence, and what it is not affiliated with.
+description: Project source, license, issue tracker and security reporting.
 aside: false
 ---
 
-# About
+# About AgentPolyfill
 
-AgentPolyfill is a community project by
-[Ido Salomon](https://github.com/idosal): polyfills for agent protocols. They
-bring more of MCP to the clients you already use, before those clients
-support it. Today that's four MCP extensions and one open draft beyond MCP.
-What runs in each host:
+AgentPolyfill is an independent open-source project that implements agent
+protocol extensions as host plugins.
 
-- **Claude Code:** Events, Server Cards, Apps and ARD. Skills needs no
-  polyfill there: Claude Code lists skills from MCP servers itself, in beta
-  from 2.1.332.
-- **Codex:** Events, Skills, Server Cards and ARD.
-- **Pi:** Events, Skills, Server Cards and ARD, as Pi extensions. Apps has no
-  Pi form.
-- **OpenCode:** Events, Skills, Server Cards and ARD, as OpenCode plugins.
-  Apps has no OpenCode form.
-- **Antigravity:** Events, Skills, Server Cards and ARD, as Antigravity
-  plugins. Apps has no Antigravity form: the App renders MCP Apps itself.
-- **Copilot CLI:** Events, Server Cards and ARD, as Copilot CLI plugins.
-  Events is a Copilot extension and needs Copilot's experimental mode. Skills
-  and Apps have no Copilot form: Copilot CLI has Skills over MCP built in, and
-  VS Code's Copilot harness turns MCP Apps on (from its source; no app was drawn there).
-- **Hermes Agent:** Events, Skills, Server Cards and ARD, as Hermes plugins.
-  Events adds poll and push; webhook delivery is Hermes's own. Apps has no
-  Hermes form yet.
+- [Source and releases](https://github.com/idosal/AgentPolyfill)
+- [Report a bug or request a feature](https://github.com/idosal/AgentPolyfill/issues)
+- [Report a security vulnerability](./guide/security)
+- [Contribute an adapter](./guide/contributing)
 
-See [Getting started](/guide/getting-started) for installation. In Pi,
-`pi install git:github.com/idosal/AgentPolyfill` installs Events, Skills and
-Server Cards together. A clone is the alternative for one form, and the way
-to install ARD separately: its search sends your request's words to a registry
-after asking each time, so it is left out as it is from the Claude Code bundle.
-Nothing for Pi is published to npm or Pi's package gallery.
-Nothing for OpenCode is published to npm either; OpenCode installs each plugin
-from the repository on GitHub, with Git.
-Nothing is published to Antigravity's Marketplace either; its plugins install
-from GitHub, with the Antigravity CLI (the App doesn't ship `agy`) and Git.
-In Copilot CLI, add a clone of the repository as a marketplace and install
-each plugin from it; that is the install that was tested.
+## License and trademarks
 
-In Hermes Agent, install each plugin with
-`hermes plugins install idosal/AgentPolyfill/polyfills/<extension>/hermes/plugin --enable`.
-Events and Skills then need the servers named in their settings in
-`config.yaml`, and Events the grant to start a turn.
-
-## Not affiliated
-
-AgentPolyfill isn't part of the MCP specification, and it isn't affiliated
-with or endorsed by the MCP project, the Agentic AI Foundation, the Linux
-Foundation, Anthropic, OpenAI or any other host vendor, or the authors of
-Agentic Resource Discovery. The author works in the MCP Apps working group;
-this isn't working-group output.
+AgentPolyfill is licensed under [Apache-2.0](https://github.com/idosal/AgentPolyfill/blob/main/LICENSE).
+Bundled dependencies have their own license notices in each adapter.
 
 Model Context Protocol and MCP are trademarks of LF Projects, LLC. Claude and
 Claude Code are trademarks of Anthropic, PBC. OpenAI and Codex are trademarks
 of OpenAI. GitHub Copilot is a trademark of GitHub, Inc.
-
-## Licence
-
-Apache-2.0. See
-[LICENSE](https://github.com/idosal/AgentPolyfill/blob/main/LICENSE). Each
-polyfill that ships third-party code includes its notices in its folder.
-
-## Source
-
-The plugins and extensions, their docs and this site are in one repository:
-[github.com/idosal/AgentPolyfill](https://github.com/idosal/AgentPolyfill). This
-site is built with VitePress from the `site/` folder, from the repository's own
-READMEs, with a launch video and one recording per polyfill made for the site.
-
-## Contact
-
-Problems and questions:
-[open an issue](https://github.com/idosal/AgentPolyfill/issues). Security
-problems: see [Security](/guide/security).

@@ -1,7 +1,7 @@
 # The polyfill contract
 
-A polyfill in this repository meets these rules. Where one doesn't yet, its
-README says so.
+These requirements apply to each host adapter. Document exceptions in the
+adapter’s README.
 
 ## 1. One published extension, client side, and nothing else
 
@@ -20,7 +20,6 @@ unchanged, and "extension" below means either kind.
 
 It adds no methods, fields, capabilities or policy of its own. If a server
 behaves in a way the spec doesn't define, the polyfill refuses or ignores it.
-It doesn't invent an accommodation.
 
 One exception is allowed: an earlier form of the same extension that servers
 in real use still speak. A polyfill may accept that form if it:
@@ -30,8 +29,7 @@ in real use still speak. A polyfill may accept that form if it:
   exactly;
 - says in its README that this goes beyond the spec.
 
-Any other exception is one the user makes on purpose, for one server at a
-time, and is off by default.
+Other exceptions require explicit opt-in for each server and are disabled by default.
 
 Example: by default `mcp-events` also uses servers that advertise events in
 the form from before SEP-3415. `MCP_EVENTS_PRE_STANDARD=off` turns that off,

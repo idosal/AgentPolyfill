@@ -4,6 +4,15 @@ Claude finds MCP servers through Agentic Resource Discovery (ARD): in what a
 domain lists, or by asking an ARD registry for a server that can do a task.
 You choose the registry, and Claude Code asks you before every search.
 
+<a href="https://agentpolyfill.com/media/ard.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/ard.jpg">
+    <img src="../../../docs/media/demos/ard.gif" alt="Claude Code finds Buildkite’s MCP server by domain, then asks permission to search a local ARD registry.">
+  </picture>
+</a>
+
+[Watch Claude Code look up Buildkite and search a registry (16 s)](https://agentpolyfill.com/media/ard.mp4)
+
 Also available for Codex, Pi and OpenCode: [ard-discovery for Codex](../codex/README.md), [ard-discovery for Pi](../pi/README.md), [ard-discovery for OpenCode](../opencode/README.md).
 
 > Search for an MCP server that can check why my CI build failed.
@@ -262,7 +271,7 @@ Codex differs.
 
 The one public ARD registry found returns MCP results that point at an MCP
 Registry `server.json` rather than a Server Card, so `mcp-server-cards`
-refuses every one (see [Findings](#findings-to-report-upstream)). Until a
+refuses every one (see [Findings](#interoperability-notes)). Until a
 public registry serves valid cards, the [demo registry](#demo-registry)
 stands in.
 
@@ -297,9 +306,7 @@ stands in.
 - **Upstream conformance:** the MCP conformance suite has no Server Card or
   ARD scenarios (`modelcontextprotocol/conformance` at `96a6f9478b`).
 
-### Findings to report upstream
-
-Not yet reported upstream:
+### Interoperability notes
 
 - **Hugging Face Discover** (the Space at `huggingface-hf-discover.hf.space`)
   answers searches with entries typed `application/mcp-server-card+json`
@@ -335,9 +342,3 @@ The code is in [`mod/hooks`](mod/hooks):
 ## Licence
 
 Apache-2.0, like the rest of this repository ([LICENSE](../../../LICENSE)).
-
-This is a community project. It isn't affiliated with or endorsed by
-Anthropic, OpenAI, the Model Context Protocol project, the Agentic AI
-Foundation, the Linux Foundation, or the authors of ARD. Claude and Claude
-Code are trademarks of Anthropic, PBC. OpenAI and Codex are trademarks of
-OpenAI.

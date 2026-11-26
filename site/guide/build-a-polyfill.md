@@ -1,40 +1,28 @@
 ---
-description: The create-polyfill and design-extension skills, and the contract every AgentPolyfill polyfill meets.
+description: Requirements for a new host adapter and optional tools for implementing or designing an extension.
 ---
 
 # Build a polyfill
 
-Two skills, in one plugin, walk an agent through the work:
+Start with a published specification and a host that lacks client support for it.
+If an adapter already exists for another host, reuse its protocol implementation
+and tests. The [contribution guide](./contributing) covers packaging and CI.
 
-- **`create-polyfill`** builds client support for a published MCP extension
-  inside a host that has not shipped it, to the contract below.
-- **`design-extension`** designs new behaviour on top of MCP the way the
-  protocol's extension rules expect, starting by checking whether an existing
-  slot or proposal already covers it.
+The optional `polyfill-author` plugin includes two skills. Use `create-polyfill`
+to implement an existing specification and `design-extension` to propose new
+protocol behavior. To install the skills in Claude Code, run
 
-In Claude Code, install the authoring plugin:
-
-```
+```text
 /plugin install polyfill-author --marketplace idosal/AgentPolyfill
 ```
 
-Then ask for the extension you want, for example "polyfill MCP Server Cards in
-Claude Code". The skill points the agent at the primary sources (the SEP, the
-extension's spec, the core spec for the revision in use, the conformance suite)
-and has it work from those.
-
-Both skills are plain `SKILL.md` files
-([create-polyfill](https://github.com/idosal/AgentPolyfill/blob/main/plugins/polyfill-author/skills/create-polyfill/SKILL.md),
-[design-extension](https://github.com/idosal/AgentPolyfill/blob/main/plugins/polyfill-author/skills/design-extension/SKILL.md)),
-so other agents that read skills can use them too.
+The [skill definitions](https://github.com/idosal/AgentPolyfill/tree/main/plugins/polyfill-author/skills)
+also work with other agents that read `SKILL.md` files.
 
 ## The contract
 
-Every polyfill in this repository meets these rules. Where one does not yet, its
-README says so: the OpenCode form of Events watches push events that
-OpenCode's automations also take, a stated departure from rule 4. The full
-text is in
-[`docs/polyfill-contract.md`](https://github.com/idosal/AgentPolyfill/blob/main/docs/polyfill-contract.md).
+The [polyfill contract](https://github.com/idosal/AgentPolyfill/blob/main/docs/polyfill-contract.md)
+defines the requirements below. Each adapter documents its exceptions.
 
 1. **One published extension, client side, and nothing else.** The extension
    is an MCP extension (a SEP, or an extension repository under
@@ -62,11 +50,8 @@ text is in
 
 ## `create-polyfill`
 
-**The spec is the feature list.** What the polyfill does is the set of client
-rules in the spec. That is what lets it be deleted later without anyone
-noticing.
-
-The skill asks for seven parts, and the work is done when all seven exist:
+Use the specification’s client requirements to scope the implementation. The
+`create-polyfill` skill produces the following artifacts.
 
 | # | Part | What it is |
 |---|---|---|
@@ -139,145 +124,15 @@ independent implementations that interoperate, and a conformance scenario.
 
 ## An existing polyfill in another host
 
-A polyfill is one folder per extension: the host-neutral part (the protocol,
-the spec's client rules and their tests) in `core/`, and one adapter beside it
-for each host, which wires that core into what the host lets third-party code
-do. Events and Skills are built that way, with one `core/` and an adapter
-for each host:
+For an existing extension, add an adapter under `polyfills/<extension>/<host>/`.
+Reuse the shared `core/` for the wire protocol and its tests where available.
+The host adapter handles connection setup, tool registration, approvals and
+delivery into the session.
 
-- **Claude Code:** a mod in `claude-code/` (Events has one; Skills doesn't,
-  because Claude Code lists served skills itself).
-- **Codex:** a plugin in `codex/`.
-- **Pi:** an extension in `pi/`, with a manifest and bundled file in
-  `extension/`. `pi install git:github.com/idosal/AgentPolyfill` installs
-  Events, Skills and Server Cards together; a local clone is the
-  alternative for one form. Nothing for Pi is published to npm or Pi's
-  package gallery. List a new form's
-  `./polyfills/<extension>/pi/extension/dist/index.js` in the root
-  `package.json`'s `pi.extensions` to include it in the one-line install.
-  ARD is left out on purpose, as in the Claude Code bundle: its search
-  sends your request's words to a registry after asking each time. Install
-  it separately from a clone; [Getting started](./getting-started#pi) has
-  both install paths.
-- **OpenCode:** a V2 server plugin in `opencode/`, with one bundled file,
-  `server.js`, in `plugin/`. OpenCode runs it inside its own server, once per
-  project folder. It installs from GitHub by its folder's path
-  (`opencode plugin add`, with Git) or from a clone; nothing is published to
-  npm.
-- **Antigravity:** a plugin in `antigravity/`, with its MCP server and hooks
-  in `plugin/`. It installs from its `plugin/` folder on GitHub, or from a
-  clone, with `agy plugin install`, which needs the Antigravity CLI (the App
-  doesn't ship `agy`); nothing is published to Antigravity's Marketplace.
-- **Copilot CLI:** a plugin in `copilot/`, installed from `plugin/` (Events
-  has one, which holds a Copilot extension; Skills doesn't, because Copilot
-  has Skills over MCP built in). It installs from a clone added as a
-  marketplace.
-- **Hermes Agent:** a Python plugin in `hermes/`, installed from `plugin/`,
-  with a bundled Node helper. Each installs with
-  `hermes plugins install idosal/AgentPolyfill/polyfills/<extension>/hermes/plugin --enable`.
-
-The Pi examples are
-[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/pi),
-[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/pi),
-[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/pi)
-and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/pi).
-Apps has no Pi form. Pi 1.6.0 leaves out `ui://` resources and tool `_meta`;
-its terminal could draw an App in principle, but nothing is built or tested.
-
-The OpenCode examples are
-[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/opencode),
-[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/opencode),
-[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/opencode)
-and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/opencode).
-Apps has no OpenCode form. OpenCode has no MCP Apps support, and a plugin
-can't read a `ui://` resource or a tool's `_meta` over OpenCode's connection;
-that was looked into, not built.
-
-The Antigravity examples are
-[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity),
-[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/antigravity),
-[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/antigravity)
-and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/antigravity).
-Apps has no Antigravity form: the App renders MCP Apps itself (v2.34.0 and
-later), and the CLI and IDE show text only.
-
-The Copilot CLI examples are
-[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/copilot),
-[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/copilot)
-and [ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/copilot).
-Skills and Apps have no Copilot form: Copilot has them built in.
-
-The Hermes examples are
-[Events](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/hermes),
-[Skills](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/hermes),
-[Server Cards](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/server-cards/hermes) and
-[ARD](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/hermes). Apps has no Hermes form yet.
-
-Bringing a polyfill to another host is a new adapter: find how the host lets
-it reach the wire (a connection of its own, a tool call, a way to wake an idle
-session), meet the contract there, say what that host cannot do, and document
-installation. Add a marketplace entry where that host uses one.
-[Contributing](./contributing#bringing-a-polyfill-to-another-host) has the
-steps; `create-polyfill` covers it too ("polyfill MCP Apps in Codex").
-
-The Pi forms show why each host needs its own account of what its API allows
-and what was checked.
-Events and Skills need their own connections and cannot use Pi's sign-in;
-the Skills form can meet X8 with Pi's `tool_call` hook, including codemode's
-nested calls. Each form asks before its consequential step, since Pi has no
-tool approval prompt unless a permission extension asks. Each has an off
-switch because native support cannot be detected. Their READMEs,
-`SECURITY.md` and `docs/conformance.md` record what was checked. ARD's add
-step is checked by the form's tests only.
-
-The OpenCode forms show the same. An OpenCode plugin can add tools, start a
-turn in an idle session, ask through OpenCode's own permission rules, add a
-skill to its list and an MCP server to its servers, and see a tool call
-before it runs. It can't send an MCP method over OpenCode's connection or
-read a resource. So Events and Skills need their own connections and cannot
-use OpenCode's OAuth sign-in, while Server Cards adds a server that OpenCode
-connects itself. The Skills form meets X8 with a hook on OpenCode's resource
-read. OpenCode's shipped rules allow every action, so each form makes its own
-actions ask by default. OpenCode takes push events for its automations but
-skips event types it can't check, so the Events form watches every type and
-states its departure from rule 4. Their READMEs, `SECURITY.md` and
-`docs/conformance.md` record what was checked. ARD's add step is checked by
-the form's tests only.
-
-The Antigravity forms show it from another side. Antigravity documents no
-MCP elicitation, and its client cancels every request without showing it, so
-each form asks through its `PreToolUse` hook, which answers `force_ask` with
-Antigravity's own approval card. An MCP server isn't told which conversation
-calls it, but hooks are, so the hook passes the conversation id to the call
-in a one-use ticket. Only the App can wake an idle conversation, through a
-sidecar the person turns on. X8 isn't met: the Skills hook asks before
-another server's resource read, but Antigravity ignores that question (CLI
-1.5.17, App 2.35.1).
-In CLI 1.5.17 a hook that fails makes the call fail. Each form has an off
-switch because native support cannot be detected. Their READMEs,
-`SECURITY.md` and `docs/conformance.md` record what was checked. The IDE documents no plugin hooks, so the forms aren't
-supported there, and their gated calls are refused.
-
-The Copilot CLI forms show the same from another side. Only an extension can
-start a turn (`session.send`), so Events is an extension and needs Copilot's
-experimental mode; Server Cards and ARD are MCP servers in plugins and don't.
-Events needs its own connection and cannot use Copilot's sign-in. Copilot's
-own tool prompt comes before each tool that acts. Copilot can approve a call
-without the person, in assisted mode (an LLM review, which an organisation can
-make the default) or with allow-all, so each form asks its own question after
-it: Events in a Copilot dialog, by default, and Server Cards and ARD in a form
-before adding a server or sending a search. Each has an off switch because
-native support cannot be detected. Their READMEs, `SECURITY.md` and
-`docs/conformance.md` record what was checked.
-
-The Hermes forms put the host tools, hooks and approvals in Python, inside
-the gateway, and run the existing client rules in a bundled Node helper.
-Events and Skills open their own connections to explicitly named servers;
-Events leaves webhook servers to Hermes. Server Cards and ARD write
-`mcp_servers` with Hermes's config API, and need `/reload-mcp` to connect.
-The READMEs give the tests and limits. The shared harness in
-[`tools/hermes`](https://github.com/idosal/AgentPolyfill/tree/main/tools/hermes)
-runs the forms' tests in Hermes v0.23.4, with no account or API key.
+Document which server connections the host exposes, how the adapter handles
+authentication, and what happens when the host adds native support. Include an
+end-to-end test that exercises the adapter through the host. See the
+[host adapter checklist](./contributing#bringing-a-polyfill-to-another-host).
 
 ## Your own, listed in the community directory
 

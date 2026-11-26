@@ -4,6 +4,15 @@ Antigravity can watch events on your MCP servers: “tell me when a deploy
 fails.” New events reach the conversation at its next model call. In the
 Antigravity App, an optional sidecar can also wake the conversation.
 
+<a href="https://agentpolyfill.com/media/events.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/events.jpg">
+    <img src="../../../docs/media/demos/events.gif" alt="An idle Claude Code session wakes when a Cloudflare Worker throws a JSON parsing error.">
+  </picture>
+</a>
+
+[Watch a Worker error wake Claude Code (15 s)](https://agentpolyfill.com/media/events.mp4)
+
 This plugin implements the client side of MCP Events,
 [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md),
 the **Final text as of 24 November 2026**, the same revision as

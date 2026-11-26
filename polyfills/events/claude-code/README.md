@@ -3,18 +3,21 @@
 Claude can watch events on your MCP servers ("tell me when a deploy fails")
 and act when one fires, even while the session sits idle with nobody typing.
 
+<a href="https://agentpolyfill.com/media/events.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/events.jpg">
+    <img src="../../../docs/media/demos/events.gif" alt="An idle Claude Code session wakes when a Cloudflare Worker throws a JSON parsing error.">
+  </picture>
+</a>
+
+[Watch a Worker error wake Claude Code (15 s)](https://agentpolyfill.com/media/events.mp4)
+
 Also available for Codex, Pi and OpenCode: [mcp-events for Codex](../codex/README.md), [mcp-events for Pi](../pi/README.md), [mcp-events for OpenCode](../opencode/README.md).
 
 This mod implements the client side of the MCP Events extension,
 [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
 (Final), which Claude Code doesn't support by itself yet. Details are in
 [Spec and conformance](#spec-and-conformance).
-
-![A Claude Code session is asked to watch the demo server for failed deploys, and goes idle. On the demo's page a bad commit is deployed; the idle session wakes by itself, reads the deploy's log and names the cause.](docs/media/demo.gif)
-
-*A real session with the demo server in [`demo/`](demo/): Claude watches it,
-and it fires the event. Waits are shortened, and the frame zooms in on what is
-being typed or shown. [Full video](docs/media/demo.mp4) (24 seconds).*
 
 ## Install
 
@@ -124,6 +127,8 @@ all delivered by poll.
 To stop: "Stop watching the demo button."
 
 ### Or run a demo server yourself
+
+[Watch the local deployment demo (24 s)](docs/media/demo.mp4)
 
 [`demo/`](demo/) holds a small Events server: a "deploys" service with a page
 of buttons. It needs Node 22.18 or newer.
@@ -335,7 +340,7 @@ turn it on by name, in `~/.claude/settings.json`:
 
 Know what that means before you do:
 
-- It's run by Ido Salomon, the author of this mod, at
+- Ido Salomon operates the relay at
   `https://mcp-events-public-relay.idosalomon.workers.dev`. Opening that
   address in a browser shows what it is and what it keeps.
 - **The payloads of your webhook-delivered events pass through that server**,
@@ -574,8 +579,3 @@ haven't shipped them yet.
 Apache-2.0. See [`LICENSE`](../../../LICENSE). The bundled helper
 (`mod/dist/helper.js`) includes npm packages under their own licences:
 [`mod/THIRD_PARTY_LICENSES.txt`](mod/THIRD_PARTY_LICENSES.txt).
-
-This is a community project. It isn't affiliated with or endorsed by
-Anthropic, OpenAI, the Model Context Protocol project, the Agentic AI
-Foundation or the Linux Foundation. Claude and Claude Code are trademarks of
-Anthropic, PBC. OpenAI and Codex are trademarks of OpenAI.

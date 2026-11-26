@@ -5,6 +5,15 @@ Find MCP servers for Google Antigravity through Agentic Resource Discovery
 a task in plain words. Each search, and each server you add, is put to you
 first in Antigravity's own approval card.
 
+<a href="https://agentpolyfill.com/media/ard.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/ard.jpg">
+    <img src="../../../docs/media/demos/ard.gif" alt="Claude Code finds Buildkite’s MCP server by domain, then asks permission to search a local ARD registry.">
+  </picture>
+</a>
+
+[Watch Claude Code look up Buildkite and search a registry (16 s)](https://agentpolyfill.com/media/ard.mp4)
+
 ARD is a draft from outside MCP, published by the
 [ards-project](https://github.com/ards-project/ard-spec) on GitHub; this
 plugin follows v0.91 (see [Spec and conformance](#spec-and-conformance)).
