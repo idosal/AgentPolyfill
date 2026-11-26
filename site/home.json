@@ -93,7 +93,7 @@
   "audiences": [
     {
       "title": "If you use an agent host",
-      "text": "Install steps and a first run for each host. Pi installs Events, Skills and Server Cards with one line from this repository on GitHub, and OpenCode installs each plugin from it with Git; nothing for either is published to npm. Antigravity plugins install from a clone with the Antigravity CLI (the App doesn't ship `agy`), and nothing is published to Antigravity's Marketplace. Copilot CLI installs from a clone added as a marketplace. Hermes Agent installs each plugin from its folder in this repository.",
+      "text": "Install steps and a first run for each host. Pi installs Events, Skills and Server Cards with one line from this repository on GitHub, and OpenCode installs each plugin from it with Git; nothing for either is published to npm. Antigravity plugins install from GitHub with the Antigravity CLI (the App doesn't ship `agy`) and Git, and nothing is published to Antigravity's Marketplace. Copilot CLI installs from a clone added as a marketplace. Hermes Agent installs each plugin from its folder in this repository.",
       "link": "/guide/getting-started",
       "linkText": "Getting started"
     },

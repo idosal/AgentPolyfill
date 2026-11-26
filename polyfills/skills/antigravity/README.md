@@ -15,21 +15,22 @@ Antigravity shows no question for the plugin's `force_ask` on a resource read
 
 ## Install
 
-You need the Antigravity CLI (`agy`) to install a plugin from a folder: the
-App doesn't ship it. Node 20 or newer must be on your `PATH`, for the MCP
-server and the command hook (the hook runs `node ./dist/server.mjs --hook`
-from the plugin root). From a clone of this repository:
+You need the Antigravity CLI (`agy`) to install a plugin: the App doesn't
+ship it. `agy` fetches the plugin with Git, so Git must be on your `PATH`.
+Node 20 or newer must be on your `PATH`, for the MCP server and the command
+hook (the hook runs `node ./dist/server.mjs --hook` from the plugin root).
 
 ```bash
-git clone https://github.com/idosal/AgentPolyfill.git
-cd AgentPolyfill
-agy plugin install ./polyfills/skills/antigravity/plugin
+agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/skills/antigravity/plugin
 agy plugin list
 ```
 
-`agy plugin install` copies the folder to `~/.gemini/config/plugins/mcp-skills/`,
-which the App and the CLI both read. Nothing is published to Antigravity's
-Marketplace. Restart the App if it has not picked up the installation.
+`agy plugin install` fetches this repository from GitHub and copies the
+plugin's folder to `~/.gemini/config/plugins/mcp-skills/`, which the App and
+the CLI both read. Run the same line again to update it. From a clone of this
+repository, `agy plugin install ./polyfills/skills/antigravity/plugin` does
+the same. Nothing is published to Antigravity's Marketplace. Restart the App
+if it has not picked up the installation.
 
 ### Uninstall, and what stays behind
 

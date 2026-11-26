@@ -258,10 +258,11 @@ How a polyfill is built depends on what the host lets third-party code do.
   and ARD have Antigravity forms; Apps does not, as the App shows MCP Apps
   itself. Checked in CLI v1.5.17 and App
   v2.35.1 (ARD in the CLI only). The IDE documents no plugin hooks, so the
-  forms aren't supported there. They need Node 20 or newer. Install from a
-  local clone with the Antigravity CLI (the App doesn't ship `agy`):
-  `agy plugin install ./polyfills/<polyfill>/antigravity/plugin`; nothing is
-  published to Antigravity's Marketplace.
+  forms aren't supported there. They need Node 20 or newer. Install from GitHub
+  with the Antigravity CLI (the App doesn't ship `agy`) and Git:
+  `agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/<polyfill>/antigravity/plugin`,
+  or `agy plugin install ./polyfills/<polyfill>/antigravity/plugin` from a
+  clone; nothing is published to Antigravity's Marketplace.
 - **GitHub Copilot CLI:** a Copilot plugin in `polyfills/<polyfill>/copilot/`,
   with its installable folder in `plugin/` and an entry in
   `.github/plugin/marketplace.json`. A polyfill that only needs tools and a

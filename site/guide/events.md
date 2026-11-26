@@ -54,9 +54,7 @@ opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/events/ope
 ```
 
 ```bash [Antigravity]
-git clone https://github.com/idosal/AgentPolyfill.git
-cd AgentPolyfill
-agy plugin install ./polyfills/events/antigravity/plugin
+agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/events/antigravity/plugin
 ```
 
 ```bash [Copilot CLI]
@@ -129,9 +127,9 @@ log stay in `~/.local/share/opencode/mcp-events/` (or `MCP_EVENTS_STATE`);
 delete that folder too to remove them. The "Allow always" answers it kept
 stay in OpenCode's plugin storage (OpenCode's own database).
 
-**In Antigravity** (Node 20 or newer on `PATH`), install from a clone, with
-the Antigravity CLI (the App doesn't ship `agy`): nothing is published to
-Antigravity's Marketplace. `agy plugin install` copies the folder to
+**In Antigravity** (Node 20 or newer on `PATH`), install from GitHub, with
+the Antigravity CLI (the App doesn't ship `agy`) and Git: nothing is published to
+Antigravity's Marketplace. `agy plugin install` copies the plugin's folder to
 `~/.gemini/config/plugins/mcp-events`, which the App and the CLI both read.
 To wake an idle App conversation, the plugin's sidecar
 must be on: add `"sidecars": {"mcp-events/wake": {"enabled": true}}` to

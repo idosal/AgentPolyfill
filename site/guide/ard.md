@@ -96,9 +96,7 @@ opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/ard/openco
 ```
 
 ```bash [Antigravity]
-git clone https://github.com/idosal/AgentPolyfill.git
-cd AgentPolyfill
-agy plugin install ./polyfills/ard/antigravity/plugin
+agy plugin install https://github.com/idosal/AgentPolyfill/tree/main/polyfills/ard/antigravity/plugin
 ```
 
 ```bash [Copilot CLI]
@@ -169,8 +167,8 @@ the same code and the same permission actions.
 ### In Antigravity
 
 Node 20 or newer on `PATH`. Nothing is published to Antigravity's
-Marketplace; install from a clone, with the Antigravity CLI (the App doesn't
-ship `agy`). `agy plugin install` copies the folder to
+Marketplace; install from GitHub, with the Antigravity CLI (the App doesn't
+ship `agy`) and Git. `agy plugin install` copies the plugin's folder to
 `~/.gemini/config/plugins/ard-discovery`, which the App and the CLI both
 read. Remove it with `agy plugin uninstall ard-discovery`. Servers you added
 stay in `~/.gemini/config/mcp_config.json`; remove one with
