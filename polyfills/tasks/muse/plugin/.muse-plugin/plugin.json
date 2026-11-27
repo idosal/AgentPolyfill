@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "name": "mcp-task-monitor",
   "displayName": "MCP Tasks",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Run explicitly configured task tools and check their status.",
   "capabilities": {
     "mcpServers": [

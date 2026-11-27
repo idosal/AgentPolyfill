@@ -11,6 +11,7 @@ export function settings(defaults: Settings): Settings {
     if (configAt !== -1 && !path) throw Error('--config needs a configuration file');
     const cfg = path && (configAt !== -1 || existsSync(path)) ? JSON.parse(readFileSync(path, 'utf8')) : defaults;
     if (!cfg || !cfg.sources || Array.isArray(cfg.sources) || typeof cfg.sources !== 'object') throw Error('Configure a sources object');
+    if (cfg.tools !== undefined && (!cfg.tools || typeof cfg.tools !== 'object' || Array.isArray(cfg.tools))) throw Error('Configure tools as an object keyed by source');
     if (cfg.askBeforeReading !== undefined && typeof cfg.askBeforeReading !== 'boolean') throw Error('askBeforeReading must be a boolean');
     for (const [label, value] of Object.entries(cfg.sources)) {
         if (!/^[A-Za-z0-9_-]{1,64}$/.test(label) || typeof value !== 'string') throw Error('Invalid source');
@@ -51,7 +52,7 @@ async function body(req: IncomingMessage) {
 /** Single-operator, stateless Streamable HTTP for the Bot's remote connector. Put HTTPS in front. */
 export function launch(name: string, instructions: string, tools: Tool[]) {
     if (!process.argv.includes('--http')) {
-        serve({ name, version: '0.1.0', instructions, tools });
+        serve({ name, version: '0.1.1', instructions, tools });
         return;
     }
     const secret = process.env.AGENTPOLYFILL_TOKEN;
@@ -59,11 +60,20 @@ export function launch(name: string, instructions: string, tools: Tool[]) {
     const digest = (str: string) => createHash('sha256').update(str).digest();
     const wanted = digest('Bearer ' + secret);
     const port = Number(process.env.PORT ?? 8787);
+    let activeTools = 0;
     const server = createServer(async (req, res) => {
         if (req.url !== '/mcp') return send(res, 404);
         if (req.headers.origin) return send(res, 403);
-        if (!timingSafeEqual(wanted, digest(req.headers.authorization ?? ''))) return send(res, 401);
-        if (req.method !== 'POST') return send(res, 405);
+        if (!timingSafeEqual(wanted, digest(req.headers.authorization ?? ''))) {
+            res.setHeader('WWW-Authenticate', 'Bearer');
+            return send(res, 401);
+        }
+        if (req.method !== 'POST') {
+            res.setHeader('Allow', 'POST');
+            return send(res, 405);
+        }
+        const revision = req.headers['mcp-protocol-version'];
+        if (revision !== undefined && (typeof revision !== 'string' || !PROTOCOL_VERSIONS.includes(revision))) return send(res, 400);
         if (req.headers['content-type']?.split(';')[0] !== 'application/json') return send(res, 415);
         let q;
         try { q = await body(req); } catch { return send(res, 400); }
@@ -73,18 +83,27 @@ export function launch(name: string, instructions: string, tools: Tool[]) {
         const error = (code: number, message: string) => send(res, 200, { jsonrpc: '2.0', id: q.id, error: { code, message } });
         if (q.method === 'initialize') return reply({
             protocolVersion: PROTOCOL_VERSIONS.includes(q.params?.protocolVersion) ? q.params.protocolVersion : PROTOCOL_VERSIONS[0],
-            serverInfo: { name, version: '0.1.0' }, capabilities: { tools: {} }, instructions
+            serverInfo: { name, version: '0.1.1' }, capabilities: { tools: {} }, instructions
         });
         if (q.method === 'ping') return reply({});
         if (q.method === 'tools/list') return reply({ tools: tools.map(({ run, ...def }) => def) });
         if (q.method !== 'tools/call') return error(-32601, 'Unsupported method');
         const tool = tools.find(t => t.name === q.params?.name);
         if (!tool) return error(-32602, 'Unknown tool');
+        if (activeTools >= 16) {
+            res.setHeader('Retry-After', '1');
+            return send(res, 429);
+        }
+        const args = q.params.arguments ?? {};
+        if (typeof args !== 'object' || Array.isArray(args)) return error(-32602, 'Supply an arguments object');
+        activeTools++;
         try {
-            const result = await tool.run(q.params.arguments ?? {}, { canElicit: false, protocol: PROTOCOL_VERSIONS[0]!, meta: {}, elicit: async () => ({ action: 'cancel' }) });
+            const result = await tool.run(args, { canElicit: false, protocol: revision ?? PROTOCOL_VERSIONS[0]!, meta: {}, elicit: async () => ({ action: 'cancel' }) });
             reply({ content: [{ type: 'text', text: result.text }], ...(result.isError ? { isError: true } : {}) });
         } catch {
-            reply({ isError: true, content: [{ type: 'text', text: 'Request refused or the configured source was unavailable.' }] });
+            reply({ isError: true, content: [{ type: 'text', text: 'The request did not return a confirmed result. If you started a job, check the publisher before retrying.' }] });
+        } finally {
+            activeTools--;
         }
     });
     server.requestTimeout = 30000;

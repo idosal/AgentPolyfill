@@ -34,7 +34,7 @@ export { originOf }
 
 export const NAME = 'ard-discovery'
 /** The Muse Code form's own version. Kept equal to package.json and the plugin's .muse-plugin/plugin.json (test/bundle.test.ts checks). */
-export const VERSION = '0.1.0'
+export const VERSION = '0.1.1'
 export const DISCOVER = 'ard_discover'
 export const BY = 'ard-discovery (ARD v0.91 draft)'
 /** Where ARD discovery looks, as in the Codex form: ard.json (no specVersion needed) and rel="ard" links, beside the AI Catalog. */
@@ -62,7 +62,9 @@ export function tools(session: Session): Tool[] {
       const d = await discover(session.deps, domain, ARD_SOURCES)
       if ('error' in d) return refuse(d.error)
       session.remember(d)
-      return { text: formatDiscovery(d) }
+      const count = d.servers.length
+      const summary = `The directory lists ${count} MCP server${count === 1 ? '' : 's'}. Each remote URL is a connection option for the server it appears under.`
+      return { text: summary + '\n\n' + formatDiscovery(d) }
     },
   }
   return [discoverTool, museAddTool(session, DISCOVER, DISCOVER)]

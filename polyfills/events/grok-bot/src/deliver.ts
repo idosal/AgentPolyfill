@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { open, mkdir } from 'node:fs/promises';
+import { open, mkdir, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 export function destination(value: string) {
@@ -14,6 +14,10 @@ export function receiptFor(url: URL, directory: string) {
 export async function deliverOnce(url: URL, key: string, directory: string, send = fetch) {
     if (!/^[A-Za-z0-9._~+/=-]{12,512}$/.test(key)) throw Error('Invalid routine key.');
     await mkdir(directory, { recursive: true, mode: 0o700 });
+    const stat = await lstat(directory);
+    if (!stat.isDirectory() || (stat.mode & 0o077) || (process.getuid && stat.uid !== process.getuid())) {
+        throw Error('Use a private receipt directory owned by the watcher account (chmod 700).');
+    }
     const receipt = await open(receiptFor(url, directory), 'wx', 0o600);
     try { await receipt.writeFile(JSON.stringify({ reservedAt: new Date().toISOString() })); await receipt.sync(); }
     finally { await receipt.close(); }

@@ -4,19 +4,27 @@ import { Connection } from '../../core/src/wire.ts';
 import { SkillsHost, manifestHash, rootOf } from '../../core/src/skills.ts';
 import { launch, settings, schema, sourceUrl, stringField, text, type Settings } from '../../../../tools/muse-grok/runtime.ts';
 
+import { readDecision } from './approval.ts';
+
 const exec = promisify(execFile);
-async function approve(label: string, uri: string, bytes: number): Promise<boolean> {
-    if (process.platform !== 'darwin' || process.argv.includes('--http')) return false;
+const remote = process.argv.includes('--http');
+const ownerDialog = remote && process.argv.includes('--owner-approval');
+if (ownerDialog && process.platform !== 'darwin') throw Error('--owner-approval requires a signed-in Mac desktop.');
+let asking = false;
+async function approve(publisher: string, uri: string, bytes: number): Promise<boolean> {
+    if (process.platform !== 'darwin' || asking) return false;
+    asking = true;
     const script = 'on run argv\nset choice to display dialog (item 1 of argv) with title "Read publisher guidance" buttons {"Decline","Read once"} default button "Decline" cancel button "Decline" giving up after 45\nreturn button returned of choice\nend run';
     try {
-        const message = 'Read ' + uri + ' from ' + label + ' (' + bytes + ' bytes) into this conversation?';
+        const message = 'Read ' + uri + ' from ' + publisher + ' (' + bytes + ' bytes) into this conversation?';
         const reply = await exec('/usr/bin/osascript', ['-e', script, message], { timeout: 50000 });
         return reply.stdout.trim() === 'Read once';
     } catch { return false; }
+    finally { asking = false; }
 }
 
 async function withSource<T>(cfg: Settings, label: string, fn: (host: SkillsHost) => Promise<T>) {
-    const wire = new Connection(label, { url: sourceUrl(cfg, label) }, { client: { name: 'agentpolyfill-skill-reference', version: '0.1.0' } });
+    const wire = new Connection(label, { url: sourceUrl(cfg, label) }, { client: { name: 'agentpolyfill-skill-reference', version: '0.1.1' } });
     try {
         await wire.connect(12000);
         return await fn(new SkillsHost(name => name === label ? wire : undefined));
@@ -59,8 +67,13 @@ launch('mcp-skill-reference', instructions, [
                 const hash = await manifestHash(item.entry);
                 if (!root || !hash) throw Error('No fingerprinted root file.');
                 const nested = skills.some(s => s.entry.uri !== uri && uri.startsWith(rootOf(s.entry.uri) + '/'));
-                if (nested || (cfg.askBeforeReading ?? !process.argv.includes('--http'))) {
-                    if (!await approve(label, uri, root.size)) return text('Read declined or approval unavailable. No instructions were fetched.');
+                const decision = readDecision({ remote, nested, ownerDialog, askBeforeReading: cfg.askBeforeReading });
+                if (decision === 'decline') {
+                    const reason = nested ? 'Nested reads are disabled on the remote connector.' : 'This connector cannot show the approval dialog.';
+                    return { isError: true, text: 'Read declined. ' + reason + ' No instructions were fetched.' };
+                }
+                if (decision === 'ask' && !await approve(sourceUrl(cfg, label), uri, root.size)) {
+                    return { isError: true, text: 'Read declined or approval unavailable. No instructions were fetched. Tell the user the guide was not read.' };
                 }
                 const fresh = await host.get(label, uri);
                 if (await manifestHash(fresh.entry) !== hash) throw Error('Publisher changed the entry. Discover it again.');

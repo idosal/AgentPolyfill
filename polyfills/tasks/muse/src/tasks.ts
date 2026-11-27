@@ -11,7 +11,7 @@ for (const [source, names] of Object.entries(cfg.tools ?? {})) {
 }
 const allowed = (source: string) => Object.hasOwn(cfg.tools ?? {}, source) ? cfg.tools![source]! : [];
 async function connect(source: string) {
-    const wire = new TasksConnection(source, { url: sourceUrl(cfg, source) }, { name: 'agentpolyfill-task-monitor', version: '0.1.0' });
+    const wire = new TasksConnection(source, { url: sourceUrl(cfg, source) }, { name: 'agentpolyfill-task-monitor', version: '0.1.1' });
     await wire.connect(10000);
     if (wire.offersTasks) return wire;
     await wire.close();
@@ -30,7 +30,7 @@ function result(handle: string, entry: RecordEntry) {
 function remember(entry: RecordEntry, state: TaskState) {
     entry.state = state;
     const created = Date.parse(state.createdAt);
-    entry.expires = Math.min(created + 3600000, created + (state.ttlMs ?? 3600000));
+    entry.expires = Math.min(entry.expires, created + (state.ttlMs ?? 3600000));
     entry.next = Date.now() + Math.max(250, state.pollIntervalMs ?? 1000);
     if (TERMINAL.has(state.status)) {
         entry.expires = Math.min(entry.expires, Date.now() + 600000);

@@ -25,7 +25,7 @@ async function main() {
     if (status < 200 || status >= 300) process.exitCode = 1;
 }
 main().catch(err => {
-    const known = ['Use SOURCE', 'Use the HTTPS', 'Set absolute', 'Restrict the', 'This routine has', 'Choose a configured', 'No new matching'];
+    const known = ['Use a private receipt', 'Use SOURCE', 'Use the HTTPS', 'Set absolute', 'Restrict the', 'This routine has', 'Choose a configured', 'No new matching'];
     const reason = String(err?.message ?? '');
     console.error(known.some(prefix => reason.startsWith(prefix)) ? reason : 'Watch ended. Check the receipt and Bot history. No automatic retry.');
     process.exitCode = 1;

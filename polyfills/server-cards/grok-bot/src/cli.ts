@@ -6,7 +6,7 @@
 // It sends GET requests only, follows no redirect off https, and never sees a secret: inputs the
 // card marks secret are left for the person to type into the form.
 
-import { readCard, discover, type FoundServer } from '../../claude-code/mod/hooks/discover'
+import { readCard, discover, isLoopback, type FoundServer } from '../../claude-code/mod/hooks/discover'
 import { plainText, type ServerCard } from '../../claude-code/mod/hooks/card'
 import { isCompatible } from '../../claude-code/mod/hooks/configure'
 import type { Store } from '../../claude-code/mod/hooks/http'
@@ -26,7 +26,10 @@ export function parseArgs(argv: string[]): Args | { error: string } {
     const x = argv[i]!
     if (x === '--ard') a.ard = true
     else if (x === '--json') a.json = true
-    else if (x === '--server') a.server = argv[++i]
+    else if (x === '--server') {
+      a.server = argv[++i]
+      if (!a.server || a.server.startsWith('--')) return { error: '--server needs a server name' }
+    }
     else if (x === '--remote') a.remote = Number(argv[++i])
     else if (x === '--set') {
       const m = /^([A-Za-z_][A-Za-z0-9_.-]*)=(.*)$/s.exec(argv[++i] ?? '')
@@ -64,12 +67,7 @@ export async function run(argv: string[], fetchImpl: typeof fetch = globalThis.f
     }
   }
   if (directCard) {
-    let local = false
-    try {
-      local = /^(localhost|127\.|\[::1\])/.test(new URL(target).host)
-    } catch {
-      // the URL was read already
-    }
+    const local = isLoopback(new URL(target).hostname)
     found = [{ identifier: directCard.name, listedIn: [], cardFrom: target, cardUrl: target, card: directCard, isLocal: local, errors: [] }]
   } else {
     const d = await discover(deps, target, a.ard ? { catalogs: [{ url: '/.well-known/ard.json', requireVersion: false }], rels: ['ard'], by: 'ARD v0.91 draft' } : {})

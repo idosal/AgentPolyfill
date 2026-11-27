@@ -1,18 +1,64 @@
-"""Build the private Grok Bot discovery skill archive from this checkout."""
+"""Build the private Grok discovery upload, or the install kit for both hosts."""
 import argparse
 import json
 from pathlib import Path
-from zipfile import ZipFile, ZIP_DEFLATED
+from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
-parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("output", type=Path, help="New ZIP file for team administrator review")
-output = parser.parse_args().output
-folder = Path(__file__).resolve().parents[2] / "polyfills/server-cards/grok-bot"
-manifest = {"name": "server-card-connector", "version": "0.1.0",
-            "description": "Find a publisher's Server Cards and ARD entries and prepare its Grok connector fields."}
-with ZipFile(output, "x", compression=ZIP_DEFLATED) as archive:
-    archive.writestr(".claude-plugin/plugin.json", json.dumps(manifest, indent=2) + "\n")
-    for file in ["skills/server-card-connector/SKILL.md", "skills/server-card-connector/scripts/card-to-connector.mjs"]:
-        archive.write(folder / file, file)
-    archive.write(folder.parents[2] / "LICENSE", "LICENSE")
-print(output)
+ROOT = Path(__file__).resolve().parents[2]
+DISCOVERY = Path("polyfills/server-cards/grok-bot")
+GROK_FILES = [
+    "skills/server-card-connector/SKILL.md",
+    "skills/server-card-connector/scripts/card-to-connector.mjs",
+]
+
+
+def kit_files():
+    paths = [
+        Path("LICENSE"), Path("docs/muse-grok.md"),
+        Path("tools/muse-grok/install-muse.mjs"), Path("tools/muse-grok/package.py"),
+        Path("polyfills/tasks/codex/test/fixture-tasks-server.mjs"),
+        Path("polyfills/events/grok-bot/dist/watch.mjs"),
+        Path("polyfills/events/grok-bot/THIRD_PARTY_LICENSES.txt"),
+        DISCOVERY / "package.json", *(DISCOVERY / path for path in GROK_FILES),
+    ]
+    for feature in ("server-cards", "ard", "skills", "events", "tasks"):
+        shared = feature in ("server-cards", "ard")
+        plugin = Path("polyfills") / feature / ("codex" if shared else "muse") / "plugin"
+        manifest_path = plugin / ".muse-plugin/plugin.json"
+        manifest = json.loads((ROOT / manifest_path).read_text())
+        paths.append(manifest_path)
+        for server in manifest["capabilities"]["mcpServers"]:
+            command, entry = server["command"]
+            if command != "node":
+                raise ValueError(f"Unsupported launcher in {manifest_path}")
+            paths.append(plugin / entry)
+        paths.extend(plugin / skill["path"] for skill in manifest["capabilities"]["skills"])
+        if not shared:
+            paths.append(plugin / "THIRD_PARTY_LICENSES.txt")
+    return [("agentpolyfill-hosts/" + str(path), (ROOT / path).read_bytes()) for path in paths]
+
+
+def discovery_files():
+    version = json.loads((ROOT / DISCOVERY / "package.json").read_text())["version"]
+    manifest = {"name": "server-card-connector", "version": version,
+                "description": "Find a publisher's Server Cards and ARD entries and prepare its Grok connector fields."}
+    return [
+        (".claude-plugin/plugin.json", (json.dumps(manifest, indent=2) + "\n").encode()),
+        ("LICENSE", (ROOT / "LICENSE").read_bytes()),
+        *((name, (ROOT / DISCOVERY / name).read_bytes()) for name in GROK_FILES),
+    ]
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("output", type=Path, help="New ZIP file")
+    parser.add_argument("--kit", action="store_true", help="Package all five integrations for both hosts")
+    args = parser.parse_args()
+    files = kit_files() if args.kit else discovery_files()
+    with ZipFile(args.output, "x") as archive:
+        for name, data in sorted(files):
+            member = ZipInfo(name)  # fixed timestamp makes the archive reproducible
+            member.create_system = 3
+            member.external_attr = 0o100644 << 16
+            archive.writestr(member, data, compress_type=ZIP_DEFLATED)
+    print(args.output)

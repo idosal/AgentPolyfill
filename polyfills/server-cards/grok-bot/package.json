@@ -1,7 +1,7 @@
 {
   "name": "mcp-server-cards-grok-bot",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "MCP Server Cards (SEP-2127) for Grok Bot: a skill, and the script it runs, that read a server's card and say exactly what to paste into Add a custom connector.",
   "engines": {

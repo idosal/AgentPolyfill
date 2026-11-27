@@ -1,6 +1,6 @@
 # Conformance: ARD's client rules, for Muse Code
 
-The Muse form (0.1.0, on Muse Code 1.4.25) runs the Codex form's discovery, in a
+The Muse form (0.1.1, on Muse Code 1.4.25) runs the Codex form's discovery, in a
 bundle of its own, against ARD v0.91 (a draft). Its discovery and card checks
 are the shared code, so the Codex form's [rules](../../codex/README.md#client-rules)
 hold for discovery and for each card. The rows below are where Muse differs.

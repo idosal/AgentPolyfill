@@ -46,10 +46,10 @@ export function connectorFor(card: ServerCard, remoteIndex: number, values: Reco
   const urlSecrets = [...plan.url.matchAll(REF)].map(m => describe(m[1]!))
   const notes: string[] = []
   if (plan.transport === 'sse') notes.push("This remote speaks the older HTTP+SSE transport. Grok Bot's Remote HTTPS connector is documented for HTTPS MCP servers; whether it speaks SSE is not documented, so it may not connect.")
-  if (!plan.url.startsWith('https://')) notes.push('This URL is not https. Grok Bot calls remote connectors from Cursor\'s servers, which need a public https address.')
+  if (!plan.url.startsWith('https://')) notes.push('This URL is not https. Grok Bot calls remote connectors from the cloud, which need a public https address.')
   else {
     try {
-      if (isPrivateHost(new URL(plan.url.replace(REF, 'x')).hostname)) notes.push('This host is on a private network. Grok Bot calls remote connectors from Cursor\'s servers, so it has to be reachable from the internet (a private server needs your approval and may not work).')
+      if (isPrivateHost(new URL(plan.url.replace(REF, 'x')).hostname)) notes.push('This host is on a private network. Grok Bot calls remote connectors from the cloud, so it has to be reachable from the internet (a private server needs your approval and may not work).')
     } catch {
       // planAdd already checked the URL
     }
@@ -73,10 +73,11 @@ export async function oauthHint(fetch: Fetch, url: string): Promise<OAuthHint> {
     return { kind: 'unknown', why: 'the URL is not complete yet' }
   }
   const local = isPrivateHost(u.hostname)
-  const getJson = async (where: string): Promise<Record<string, unknown> | undefined> => {
+  const getJson = async (where: string): Promise<Record<string, unknown> | null | undefined> => {
     const w = new URL(where)
     if (!mayFollow(w, local)) return undefined
     const r = await fetch(w.href, { headers: { accept: 'application/json' } }).catch(() => undefined)
+    if (r?.status === 404 || r?.status === 410) return null
     if (!r?.ok) return undefined
     try {
       const j = JSON.parse(r.text)
@@ -86,8 +87,14 @@ export async function oauthHint(fetch: Fetch, url: string): Promise<OAuthHint> {
     }
   }
   const path = u.pathname === '/' ? '' : u.pathname.replace(/\/+$/, '')
-  const resource = (await getJson(`${u.origin}/.well-known/oauth-protected-resource${path}`)) ?? (path ? await getJson(`${u.origin}/.well-known/oauth-protected-resource`) : undefined)
-  if (!resource) return { kind: 'none' }
+  const metadata = u.origin + '/.well-known/oauth-protected-resource'
+  const scoped = await getJson(metadata + path)
+  const fallback = !scoped && path ? await getJson(metadata) : null
+  const resource = scoped ?? fallback
+  if (!resource) {
+    if (scoped === null && fallback === null) return { kind: 'none' }
+    return { kind: 'unknown', why: 'the server’s OAuth metadata could not be checked' }
+  }
   const servers = Array.isArray(resource.authorization_servers) ? resource.authorization_servers.filter((s): s is string => typeof s === 'string') : []
   const issuer = servers[0]
   if (!issuer) return { kind: 'unknown', why: 'the server publishes OAuth metadata without an authorization server' }
@@ -102,6 +109,7 @@ export async function oauthHint(fetch: Fetch, url: string): Promise<OAuthHint> {
     (await getJson(`${iu.origin}/.well-known/oauth-authorization-server${ipath}`)) ?? (await getJson(`${iu.origin}/.well-known/openid-configuration${ipath}`)) ?? (ipath ? await getJson(`${iu.origin}${ipath}/.well-known/openid-configuration`) : undefined)
   const shown = plainText(iu.origin + ipath)
   if (!meta) return { kind: 'unknown', why: `its authorization server (${shown}) publishes no metadata this script could read` }
+  if (meta.issuer !== issuer) return { kind: 'unknown', why: 'the sign-in metadata names a different issuer' }
   return typeof meta.registration_endpoint === 'string' ? { kind: 'dynamic', issuer: shown } : { kind: 'needs-client-id', issuer: shown }
 }
 
@@ -118,7 +126,7 @@ export function pasteText(card: ServerCard, c: Extract<Connector, { ok: true }>,
   if (c.urlSecrets.length) lines.push(`         (the URL holds a secret: type ${c.urlSecrets.join(' and ')} in place of <secret> yourself)`)
   if (!c.headers.length) lines.push('  Headers: none')
   for (const h of c.headers) lines.push(h.secret ? `  Header: ${h.name} = ${h.ask}   ← type this value yourself; it is a secret` : `  Header: ${h.name} = ${h.value}`)
-  if (oauth.kind === 'none') lines.push('  OAuth client id: leave empty (the server advertises no OAuth; it authenticates by the headers above, if at all)')
+  if (oauth.kind === 'none') lines.push('  OAuth client id: leave empty (no OAuth metadata was published at the checked addresses; confirm the provider’s sign-in instructions)')
   else if (oauth.kind === 'dynamic') lines.push(`  OAuth client id: leave empty. The server signs in with OAuth through ${oauth.issuer}, which lets clients register themselves; Grok Bot should ask you to sign in when it connects.`)
   else if (oauth.kind === 'needs-client-id') lines.push(`  OAuth client id (and secret): needed. The server signs in with OAuth through ${oauth.issuer}, which does not let clients register themselves: create an OAuth app with that provider and paste its client id (and secret) here.`)
   else lines.push(`  OAuth client id: could not tell (${oauth.why}). Try leaving it empty first.`)

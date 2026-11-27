@@ -2,6 +2,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { EventsConnection, type Occurrence } from '../../core/src/events-client.ts';
 
 export async function nextOccurrence(url: string, source: string, name: string, signal: AbortSignal): Promise<Occurrence | undefined> {
+    const started = Date.now();
     const wire = new EventsConnection(source, { url });
     const stop = () => { void wire.close(); };
     signal.addEventListener('abort', stop, { once: true });
@@ -9,8 +10,8 @@ export async function nextOccurrence(url: string, source: string, name: string, 
         signal.throwIfAborted();
         await wire.connect(10000);
         signal.throwIfAborted();
-        if (!(await wire.list()).some(e => e.name === name && e.delivery.includes('poll'))) throw Error('This source does not advertise this event for polling.');
-        const started = Date.now();
+        const names = (await wire.list()).filter(e => e.delivery.includes('poll')).map(e => e.name);
+        if (!names.includes(name)) throw Error('Choose an advertised event from this source: ' + JSON.stringify(names));
         let cursor: string | null = null;
         // Ignore replayed occurrences older than this watch, including on the initial poll.
         while (!signal.aborted) {

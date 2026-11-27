@@ -66,7 +66,9 @@ export async function museMain({ root, codexRoot, entry, name, version }) {
     const own = readdirSync(resolve(root, 'test'))
       .filter(f => f.endsWith('.test.ts'))
       .map(f => resolve(root, 'test', f))
-    await bundleMuseTests({ esbuild, root, files: own, server })
+    const rules = ['card', 'configure', 'discover', 'format'].map(name =>
+      resolve(here, '../claude-code/mod/tests', name + '.test.ts'))
+    await bundleMuseTests({ esbuild, root, files: [...own, ...rules], server })
     return
   }
   const text = (await bundle({ esbuild, root, entry, name, version })).replace(/^(\/\/ \S+ \S+), for Codex\./, '$1, for Muse Code.')

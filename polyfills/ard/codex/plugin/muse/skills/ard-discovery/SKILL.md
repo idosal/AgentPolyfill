@@ -15,6 +15,6 @@ Searching an ARD registry for a task (`ard_search` in other hosts) is not offere
 How to use them:
 
 - Run `ard_discover` for the domain the person names: it sends nothing but plain GETs to that domain.
-- Tell the person which servers it found and the URL each connects to. A result is the publisher's claim, not a check of the server.
+- Use the MCP server count from the lookup. A single server can list several connection addresses. Present these as choices under its name. A result is the publisher's claim, not a check of the server.
 - To add one, call `add_mcp_server` with its `domain`, `identifier` and the URL it connects to, then show the person the command exactly as the result gives it. Don't run it yourself: running it is the person's yes.
 - Pass on the rest: the undo command (`muse mcp remove <name>`), any environment variable to set, and `muse mcp login <name>` if the server needs a sign-in.

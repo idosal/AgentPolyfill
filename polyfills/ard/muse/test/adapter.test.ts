@@ -52,6 +52,7 @@ test('M-1 in Muse there is no registry search: it is not listed, a call to it is
 test('M-2 in Muse ard_discover reads ard.json, and add_mcp_server gives the muse mcp add command, writing nothing', async () => {
   const s = museServer()
   const d = await s.call('ard_discover', { domain: web.origin })
+  assert.match(d.text, /^The directory lists 1 MCP server\./)
   assert.match(d.text, /urn:air:localhost:ci/)
   const r = await s.call('add_mcp_server', { domain: web.origin, identifier: 'urn:air:localhost:ci', url: `${web.origin}/ci/mcp` })
   assert.equal(r.isError, false, r.text)

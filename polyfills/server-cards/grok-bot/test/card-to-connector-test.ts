@@ -38,11 +38,13 @@ before(async () => {
       ]
     }),
     '/open.json': card({ name: 'com.example/open', title: 'Open', remotes: [{ type: 'streamable-http', url: `${o}/{workspace}/mcp`, variables: { workspace: { isRequired: true, description: 'Your workspace id' } } }] }),
+    '/unavailable.json': card({ name: 'com.example/unavailable', title: 'Unavailable', remotes: [{ type: 'streamable-http', url: `${o}/unavailable/mcp` }] }),
     '/oauth.json': card({ name: 'com.example/oauth', title: 'OAuthy', remotes: [{ type: 'streamable-http', url: `${o}/oauth/mcp` }] }),
     '/.well-known/oauth-protected-resource/oauth/mcp': { resource: `${o}/oauth/mcp`, authorization_servers: [`${o}/auth`] },
     '/.well-known/oauth-authorization-server/auth': { issuer: `${o}/auth`, authorization_endpoint: `${o}/auth/authorize`, token_endpoint: `${o}/auth/token`, registration_endpoint: `${o}/auth/register` }
   })
   server = createServer((req, res) => {
+    if (req.url === '/.well-known/oauth-protected-resource/unavailable/mcp') { res.writeHead(503).end(); return }
     const body = routes(origin)[req.url ?? '']
     if (body === undefined) return void res.writeHead(404).end()
     res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(body))
@@ -76,7 +78,7 @@ describe('card-to-connector', () => {
     assert.ok(r.out.includes(`URL:   ${origin}/mcp`), r.out)
     assert.match(r.out, /Header: Authorization = Bearer <token \(Your API token\)> {3}← type this value yourself; it is a secret/)
     assert.match(r.out, /Header: X-Region = eu/)
-    assert.match(r.out, /OAuth client id: leave empty \(the server advertises no OAuth/)
+    assert.match(r.out, /OAuth client id: leave empty \(no OAuth metadata was published/)
     assert.match(r.out, /Note: This URL is not https/)
   })
 
@@ -102,6 +104,12 @@ describe('card-to-connector', () => {
     const r = await run(origin, '--ard', '--server', 'urn:air:localhost:ard-only', '--json')
     assert.equal(r.code, 0, r.out)
     assert.equal(JSON.parse(r.out).connector.url, origin + '/oauth/mcp')
+  })
+
+  test('temporary failure checking sign-in is reported as unknown', async () => {
+    const r = await run(origin + '/unavailable.json', '--json')
+    assert.equal(r.code, 0, r.out)
+    assert.equal(JSON.parse(r.out).oauth.kind, 'unknown')
   })
 
   test('nothing there: it says so', async () => {

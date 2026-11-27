@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "name": "mcp-event-monitor",
   "displayName": "MCP Events monitor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Watch a configured public feed in the current terminal.",
   "capabilities": {
     "mcpServers": [

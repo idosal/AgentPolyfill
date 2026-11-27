@@ -5,13 +5,25 @@ import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { once } from 'node:events';
 import { randomBytes } from 'node:crypto';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { chmodSync, mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { skill, scenarioOf } from '../../polyfills/skills/core/test-fixtures/harness.ts';
 import { deliverOnce, destination } from '../../polyfills/events/grok-bot/src/deliver.ts';
+
+import { readDecision } from '../../polyfills/skills/muse/src/approval.ts';
+
+test('skill approval policy names who decides before a file may be fetched', () => {
+    for (const askBeforeReading of [undefined, true, false]) {
+        for (const nested of [false, true]) {
+            assert.equal(readDecision({ remote: true, ownerDialog: true, nested, askBeforeReading }), nested ? 'decline' : 'ask');
+            assert.equal(readDecision({ remote: true, ownerDialog: false, nested, askBeforeReading }), !nested && askBeforeReading === false ? 'read' : 'decline');
+            assert.equal(readDecision({ remote: false, ownerDialog: false, nested, askBeforeReading }), !nested && askBeforeReading === false ? 'read' : 'ask');
+        }
+    }
+});
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const jobs = [];
@@ -65,6 +77,12 @@ async function plugin(feature, config, http = false) {
         const [line] = await once(proc.stderr, 'data');
         const url = 'http://127.0.0.1:' + line.toString().match(/Listening on 127\.0\.0\.1:(\d+)/)[1] + '/mcp';
         assert.equal((await fetch(url, { method:'POST' })).status, 401);
+        const headers = { 'content-type': 'application/json', authorization: 'Bearer ' + secret };
+        const get = await fetch(url, { headers });
+        assert.equal(get.status, 405);
+        assert.equal(get.headers.get('allow'), 'POST');
+        const unsupported = await fetch(url, { method: 'POST', headers: { ...headers, 'mcp-protocol-version': 'unknown' } });
+        assert.equal(unsupported.status, 400);
         rpc = async (method, params = {}) => (await fetch(url, { method:'POST',headers:{ 'content-type':'application/json', authorization:'Bearer ' + secret },body:JSON.stringify({ jsonrpc:'2.0',id:1,method,params }) })).json();
     } else rpc = stdio(proc);
     assert.ok((await rpc('initialize', { protocolVersion:'2025-11-25',capabilities:{},clientInfo:{name:'test',version:'1'} })).result.capabilities.tools);
@@ -87,8 +105,11 @@ test('catalogs preserve identity and only read the selected verified root', { ti
     assert.deepEqual(catalog.skills.map(s => s.uri).sort(), [a.uri,b.uri,nested.uri].sort());
     const reads = () => readFileSync(log,'utf8').split('\n').filter(l => l && JSON.parse(l).method === 'resources/read').length;
     assert.equal(reads(),0);
-    assert.match(await call('read_skill',{source:'local',uri:nested.uri}), /declined/);
+    await assert.rejects(call('read_skill',{source:'local',uri:nested.uri}), /declined/);
     assert.equal(reads(),0);
+    const byDefault = await plugin('skills', { sources: { local: url } }, true);
+    await assert.rejects(byDefault('read_skill', { source: 'local', uri: b.uri }), /cannot show the approval dialog/);
+    assert.equal(reads(), 0);
     const result = await call('read_skill',{source:'local',uri:b.uri});
     assert.equal(result.uri,b.uri); assert.match(result.instructions,/Body of setup/); assert.equal(reads(),1);
     scenario.files[b.uri].text += '!'; writeFileSync(src,JSON.stringify(scenario));
@@ -136,6 +157,47 @@ test('Muse monitor polls after attachment, wakes once with fixed text, and keeps
     assert.equal((await call('read_notice')).event.data.title,'publisher content');
     assert.match(await call('read_notice'),/empty/);
 });
+test('foreground wait receives a new event, times out, and releases its single watch on cancellation', { timeout: 30000 }, async () => {
+    const dir = scratch(), log = join(dir, 'wire'), feed = join(dir, 'feed');
+    writeFileSync(feed, '');
+    const url = await publisher('polyfills/events/claude-code/test/fixture-events-server.ts', { FIXTURE_UPSTREAM: feed, FIXTURE_LOG: log });
+    const call = await plugin('events', { sources: { tickets: url } });
+    const watch = seconds => call('wait_for_event', { source: 'tickets', event: 'ticket.created', seconds });
+    await assert.rejects(watch(0));
+    assert.equal((await watch(1)).status, 'timed_out');
+    const pending = watch(10);
+    await assert.rejects(watch(1));
+    await call('stop_watch');
+    assert.equal((await pending).status, 'stopped');
+    const ready = watch(10);
+    await delay(200);
+    const event = { name: 'ticket.created', eventId: 'once', timestamp: new Date().toISOString(), data: { title: 'Blue notebook' } };
+    writeFileSync(feed, JSON.stringify(event) + '\n');
+    const notice = await ready;
+    assert.equal(notice.status, 'received');
+    assert.deepEqual(notice.event.data, event.data);
+    assert.match(await call('read_notice'), /No active watch/);
+});
+
+const fastMcpUrl = process.env.MUSE_GROK_FASTMCP_URL;
+test('the packaged Tasks adapters finish a job on FastMCP over both transports', { skip: !fastMcpUrl, timeout: 45000 }, async () => {
+    const config = { sources: { arithmetic: fastMcpUrl }, tools: { arithmetic: ['slow_add'] } };
+    for (const remote of [false, true]) {
+        const call = await plugin('tasks', config, remote);
+        const job = call.tools.find(t => t.name.startsWith('job_arithmetic_slow_add_'));
+        assert.ok(job, 'FastMCP advertised its addition job');
+        let state = await call(job.name, { a: 37, b: 48, seconds: 0.5 });
+        const handle = state.handle;
+        assert.equal(typeof handle, 'string');
+        while (state.status === 'working') {
+            await delay(Math.max(250, state.retryAfterMs));
+            state = await call('check_task', { handle });
+        }
+        assert.equal(state.status, 'completed');
+        assert.match(JSON.stringify(state.result), /37 \+ 48 = 85/);
+    }
+});
+
 test('a Grok routine gets one empty POST across concurrent senders and ambiguous failures', async () => {
     const dir=scratch();
     const url=destination('https://api2.cursor.sh/automations/webhook/01234567-1234-1234-1234-123456789abc');
@@ -143,6 +205,10 @@ test('a Grok routine gets one empty POST across concurrent senders and ambiguous
     let sent=0;
     const send=async (_url, opts) => { sent++; assert.equal(opts.body,''); assert.equal(opts.redirect,'error'); throw Error('connection lost after dispatch'); };
     const attempt=()=>deliverOnce(url,'test-test-test-key',dir,send);
+    chmodSync(dir, 0o755);
+    await assert.rejects(attempt(), /private receipt directory/);
+    assert.equal(sent, 0);
+    chmodSync(dir, 0o700);
     await Promise.all([assert.rejects(attempt()),assert.rejects(attempt())]); await assert.rejects(attempt());
     assert.equal(sent,1);
 });
