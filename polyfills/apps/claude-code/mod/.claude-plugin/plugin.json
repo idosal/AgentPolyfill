@@ -60,7 +60,7 @@
     "ownSignIn": {
       "type": "string",
       "title": "Own sign-in (OAuth)",
-      "description": "Off unless you list servers here: MCP server names, separated by commas, as Claude Code names them. Claude Code doesn't share its MCP sign-in with plugins, so for a server behind OAuth the helper can't read the app's UI. For a server listed here, the helper uses a sign-in of its own, which you start from a terminal with `mcp-apps-cli-helper signin <server>`. That is a second grant, separate from Claude Code's: its own client registration and consent screen, its own refresh token kept in a file on this machine, and it is not seen or revoked by `/mcp` or by your organisation's MCP sign-in settings. Claude Code's own sign-in stays the recommended way; this goes away when Claude Code lets plugins use its connection.",
+      "description": "Off unless you list servers here: MCP server names, separated by commas. For each one the helper signs in on its own (run `mcp-apps-cli-helper signin <server>`) to read the app's UI. That is a separate grant: `/mcp` and your organisation's MCP settings don't see it. The login is kept in the macOS Keychain or a passphrase-encrypted file. macOS only for now; Linux and Windows will follow if the idea is kept. Claude Code's own sign-in stays the recommended way.",
       "default": ""
     }
   }

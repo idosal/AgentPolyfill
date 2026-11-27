@@ -9,15 +9,19 @@
 //! server the person chose, is sign in itself, with the MCP authorization
 //! spec's flow as rmcp implements it (protected resource metadata, dynamic
 //! client registration, authorization code with PKCE, refresh). That is a
-//! second grant, with its own life, so each step is the person's:
+//! separate grant, with its own life, so each step is the person's:
 //!
-//! - `mcp-apps-cli-helper signin <server>` says what that means, asks to
-//!   continue (default no), opens the person's browser at the server's
-//!   authorization page, takes the answer on a loopback address of its own,
-//!   and keeps the tokens (and the client the server registered) in a file
-//!   only the person can read (`folder`);
+//! - `mcp-apps-cli-helper signin <server>` shows a short consent page in the
+//!   person's browser (served on a loopback address of its own, with a token
+//!   against forged requests, stopped after the answer or a delay): what it
+//!   means, where to keep the login (the macOS Keychain, or a file encrypted
+//!   with a passphrase; a plain file is an advanced option), Accept or
+//!   Refuse. Accept goes on to the server's own sign-in in the same tab and
+//!   keeps the tokens. Without a browser (`--no-browser`), a y/N question in
+//!   the terminal asks the same; `--yes` and `MCP_APPS_CLI_SIGNIN_YES=1` skip
+//!   it (vault.rs for the stores, consent.rs for the page);
 //! - `mcp-apps-cli-helper signout <server>` asks the server to revoke the
-//!   tokens where it offers that (RFC 7009) and deletes the file;
+//!   tokens where it offers that (RFC 7009) and deletes them;
 //! - the mod tells the helper, with each request that names a server, whether
 //!   the person listed it; only then does the helper's connection carry the
 //!   token (refreshed by rmcp when it ends). Nothing is written to Claude
@@ -26,41 +30,27 @@
 //! The helper uses it only for a server it may already use (config.rs), and
 //! only over `https` or to a loopback address.
 
+use std::collections::HashMap;
 use std::io::{BufRead, IsTerminal, Write};
-use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow, bail};
 use async_trait::async_trait;
 use rmcp::transport::auth::{AuthClient, AuthError, AuthorizationManager, AuthorizationRequest, AuthorizationSession, CredentialStore, StoredCredentials};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener, TcpStream};
 
-/// How long `signin` waits for the person to answer in the browser.
+use crate::vault::{self, Kind, PASSPHRASE_ENV, Place};
+
+/// How long `signin` waits for the person to answer, in the browser, at each step.
 const WAIT: Duration = Duration::from_secs(300);
 
-/// The one folder sign-ins are kept in: `$MCP_APPS_CLI_OAUTH_DIR` if it is
-/// set (the tests use it), else `~/.cache/mcp-apps-cli/oauth`.
-fn folder() -> Option<PathBuf> {
-    if let Some(dir) = std::env::var_os("MCP_APPS_CLI_OAUTH_DIR").filter(|d| !d.is_empty()) {
-        return Some(PathBuf::from(dir));
-    }
-    crate::tmp::home().map(|home| home.join(".cache").join("mcp-apps-cli").join("oauth"))
-}
+/// Where the detail is.
+pub const MORE: &str = "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/apps/claude-code#limits";
 
-/// The file for one server at one url, so a token is never used for another url.
-fn file(name: &str, url: &str) -> Option<PathBuf> {
-    folder().map(|folder| folder.join(crate::store::file_name(name, url)))
-}
-
-/// The file a sign-in to one server at one url was kept in, if there is one.
-fn kept_file(name: &str, url: &str) -> Option<PathBuf> {
-    file(name, url).filter(|path| path.is_file())
-}
-
-/// The tokens of one server, in a file only the person can read.
-struct FileStore {
-    path: PathBuf,
+/// The tokens of one server.
+struct TokenStore {
+    place: Place,
 }
 
 fn failed(error: impl std::fmt::Display) -> AuthError {
@@ -68,23 +58,20 @@ fn failed(error: impl std::fmt::Display) -> AuthError {
 }
 
 #[async_trait]
-impl CredentialStore for FileStore {
+impl CredentialStore for TokenStore {
     async fn load(&self) -> Result<Option<StoredCredentials>, AuthError> {
-        match crate::store::read(&self.path) {
+        match self.place.read().map_err(failed)? {
             Some(value) => serde_json::from_value(value).map(Some).map_err(failed),
             None => Ok(None),
         }
     }
 
     async fn save(&self, credentials: StoredCredentials) -> Result<(), AuthError> {
-        crate::store::write_json(&self.path, &serde_json::to_value(&credentials).map_err(failed)?).map_err(failed)
+        self.place.write(&serde_json::to_value(&credentials).map_err(failed)?).map_err(failed)
     }
 
     async fn clear(&self) -> Result<(), AuthError> {
-        match std::fs::remove_file(&self.path) {
-            Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(failed(e)),
-            _ => Ok(()),
-        }
+        self.place.delete().map_err(failed)
     }
 }
 
@@ -110,9 +97,9 @@ pub async fn client(name: &str, url: &str) -> Result<Option<AuthClient<reqwest::
     if !allowed(url) {
         return Ok(None);
     }
-    let Some(path) = kept_file(name, url) else { return Ok(None) };
+    let Some(place) = vault::kept(name, url) else { return Ok(None) };
     let mut manager = AuthorizationManager::new(url).await.map_err(|e| anyhow!("{e}"))?;
-    manager.set_credential_store(FileStore { path });
+    manager.set_credential_store(TokenStore { place });
     if !manager.initialize_from_store().await.map_err(|e| anyhow!("{e}"))? {
         return Ok(None);
     }
@@ -121,50 +108,235 @@ pub async fn client(name: &str, url: &str) -> Result<Option<AuthClient<reqwest::
     Ok(Some(AuthClient::new(http, manager)))
 }
 
-/// Signs in to `name` at `url`: `show` is given the address the person opens
-/// (the CLI prints it and tries the browser). Returns when the tokens are kept.
-pub async fn signin(name: &str, url: &str, show: impl FnOnce(&str)) -> Result<()> {
-    if !allowed(url) {
-        bail!("\"{name}\" is at {url}: the helper signs in only to an https address, or one on this machine");
-    }
-    let path = file(name, url).context("no folder to keep the sign-in in")?;
-    crate::store::private_folder(path.parent().context("no folder to keep the sign-in in")?)?;
-    let listener = TcpListener::bind("127.0.0.1:0").await?;
-    let redirect = format!("http://127.0.0.1:{}/callback", listener.local_addr()?.port());
+/// Starts the flow with the server: its metadata, a client registered, and
+/// the address the person opens. The tokens go to `place` when it is done.
+async fn begin(name: &str, url: &str, place: Place, redirect: &str) -> Result<AuthorizationSession> {
+    let _ = name;
     let mut manager = AuthorizationManager::new(url).await.map_err(|e| anyhow!("{e}"))?;
-    manager.set_credential_store(FileStore { path });
+    manager.set_credential_store(TokenStore { place });
     let found = manager.resolve_metadata().await.map_err(|e| anyhow!("the server's sign-in page was not found: {e}"))?;
     manager.set_metadata(found.metadata);
-    let request = AuthorizationRequest::new(redirect.clone()).with_client_name("mcp-apps-cli");
-    let session = AuthorizationSession::new(manager, request).await.map_err(|(_, e)| anyhow!("{e}"))?;
-    show(&session.auth_url);
-    let callback = tokio::time::timeout(WAIT, wait_for_callback(&listener)).await.map_err(|_| anyhow!("nobody answered in the browser"))??;
-    session.handle_callback_url(&format!("http://127.0.0.1:{}{callback}", listener.local_addr()?.port())).await.map_err(|e| anyhow!("{e}"))?;
+    let request = AuthorizationRequest::new(redirect.to_string()).with_client_name("mcp-apps-cli");
+    AuthorizationSession::new(manager, request).await.map_err(|(_, e)| anyhow!("{e}"))
+}
+
+/// Makes the folder a file store needs.
+fn prepare(place: &Place) -> Result<()> {
+    if let Place::File(path) | Place::Encrypted(path, _) = place {
+        crate::store::private_folder(path.parent().context("no folder to keep the sign-in in")?)?;
+    }
     Ok(())
 }
 
-/// The request target (`/callback?code=…&state=…`) of the browser's return.
-async fn wait_for_callback(listener: &TcpListener) -> Result<String> {
+fn check_url(name: &str, url: &str) -> Result<()> {
+    if !allowed(url) {
+        bail!("\"{name}\" is at {url}: the helper signs in only to an https address, or one on this machine");
+    }
+    Ok(())
+}
+
+/// Signs in to `name` at `url` with the place already chosen: `show` is given
+/// the address the person opens (the terminal path prints it and tries the
+/// browser). Returns when the tokens are kept.
+pub async fn signin(name: &str, url: &str, kind: Kind, show: impl FnOnce(&str)) -> Result<()> {
+    check_url(name, url)?;
+    let place = Place::of(kind, name, url, std::env::var(PASSPHRASE_ENV).ok()).context("no folder to keep the sign-in in")?;
+    prepare(&place)?;
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let port = listener.local_addr()?.port();
+    let mut requests = listen(listener, port);
+    let session = begin(name, url, place, &format!("http://127.0.0.1:{port}/callback")).await?;
+    show(&session.auth_url);
+    callback(&mut requests, port, session).await
+}
+
+/// The browser's return from the server's sign-in page.
+async fn callback(requests: &mut Requests, port: u16, session: AuthorizationSession) -> Result<()> {
+    let target = tokio::time::timeout(WAIT, wait_for_callback(requests)).await.map_err(|_| anyhow!("nobody answered in the browser"))??;
+    session.handle_callback_url(&format!("http://127.0.0.1:{port}{target}")).await.map(|_| ()).map_err(|e| anyhow!("{e}"))
+}
+
+// ---- a small HTTP server, for the consent page and the sign-in's return ----
+
+struct Http {
+    method: String,
+    target: String,
+    headers: HashMap<String, String>,
+    body: String,
+}
+
+impl Http {
+    fn path(&self) -> &str {
+        self.target.split('?').next().unwrap_or("")
+    }
+    fn query(&self, key: &str) -> Option<String> {
+        let query = self.target.split_once('?')?.1;
+        url::form_urlencoded::parse(query.as_bytes()).find(|(k, _)| k == key).map(|(_, v)| v.into_owned())
+    }
+    fn form(&self) -> HashMap<String, String> {
+        url::form_urlencoded::parse(self.body.as_bytes()).map(|(k, v)| (k.into_owned(), v.into_owned())).collect()
+    }
+}
+
+/// One request, read whole (headers and a body up to 64 KB), or none.
+async fn read_http(stream: &mut TcpStream) -> Option<Http> {
+    let mut buf = Vec::new();
+    let mut chunk = [0u8; 4096];
     loop {
-        let (mut stream, peer) = listener.accept().await?;
-        if !peer.ip().is_loopback() {
-            continue;
+        let n = tokio::time::timeout(Duration::from_secs(5), stream.read(&mut chunk)).await.ok()?.ok()?;
+        if n == 0 || buf.len() > 65536 {
+            return None;
         }
-        let mut head = vec![0u8; 8192];
-        let n = tokio::time::timeout(Duration::from_secs(5), stream.read(&mut head)).await.ok().and_then(Result::ok).unwrap_or(0);
-        let text = String::from_utf8_lossy(&head[..n]).to_string();
-        let target = text.lines().next().and_then(|l| l.strip_prefix("GET ")).and_then(|l| l.split_whitespace().next()).unwrap_or("").to_string();
-        let ours = target.starts_with("/callback?");
-        let body = if ours { "<!doctype html><title>Signed in</title><p>Signed in. You can close this tab." } else { "" };
-        let status = if ours { "200 OK" } else { "404 Not Found" };
-        let _ = stream
-            .write_all(format!("HTTP/1.1 {status}\r\ncontent-type: text/html\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len()).as_bytes())
-            .await;
-        if ours {
-            if target.contains("error=") {
-                bail!("the server refused the sign-in: {target}");
+        buf.extend_from_slice(&chunk[..n]);
+        let Some(end) = buf.windows(4).position(|w| w == b"\r\n\r\n") else { continue };
+        let head = String::from_utf8_lossy(&buf[..end]).to_string();
+        let mut lines = head.lines();
+        let mut first = lines.next()?.split_whitespace();
+        let (method, target) = (first.next()?.to_string(), first.next()?.to_string());
+        let headers: HashMap<String, String> = lines.filter_map(|l| l.split_once(':')).map(|(k, v)| (k.trim().to_ascii_lowercase(), v.trim().to_string())).collect();
+        let length: usize = headers.get("content-length").and_then(|v| v.parse().ok()).unwrap_or(0);
+        if buf.len() >= end + 4 + length {
+            let body = String::from_utf8_lossy(&buf[end + 4..end + 4 + length]).to_string();
+            return Some(Http { method, target, headers, body });
+        }
+    }
+}
+
+async fn respond(stream: &mut TcpStream, status: &str, extra: &str, body: &str) {
+    let head = format!(
+        "HTTP/1.1 {status}\r\ncontent-type: text/html; charset=utf-8\r\ncontent-length: {}\r\nconnection: close\r\ncache-control: no-store\r\n\
+         content-security-policy: default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'\r\nx-frame-options: DENY\r\nreferrer-policy: same-origin\r\n{extra}\r\n",
+        body.len()
+    );
+    let _ = stream.write_all(head.as_bytes()).await;
+    let _ = stream.write_all(body.as_bytes()).await;
+}
+
+/// The requests this server gets from this machine, to its own address (a
+/// page on another site can't reach it by a name that points here). Each
+/// connection is read on its own, so a browser's idle spare connection (they
+/// open some ahead) never holds up the one that carries the request.
+struct Requests {
+    rx: tokio::sync::mpsc::UnboundedReceiver<(TcpStream, Http)>,
+}
+
+fn listen(listener: TcpListener, port: u16) -> Requests {
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    tokio::spawn(async move {
+        while let Ok((mut stream, peer)) = listener.accept().await {
+            if !peer.ip().is_loopback() {
+                continue;
             }
-            return Ok(target);
+            let tx = tx.clone();
+            tokio::spawn(async move {
+                let Some(request) = read_http(&mut stream).await else { return };
+                let host = request.headers.get("host").map(String::as_str).unwrap_or("");
+                if host != format!("127.0.0.1:{port}") && host != format!("localhost:{port}") {
+                    respond(&mut stream, "400 Bad Request", "", "").await;
+                    return;
+                }
+                let _ = tx.send((stream, request));
+            });
+        }
+    });
+    Requests { rx }
+}
+
+impl Requests {
+    async fn next(&mut self) -> Result<(TcpStream, Http)> {
+        self.rx.recv().await.context("the local server stopped")
+    }
+}
+
+/// The request target (`/callback?code=…&state=…`) of the browser's return.
+async fn wait_for_callback(requests: &mut Requests) -> Result<String> {
+    loop {
+        let (mut stream, request) = requests.next().await?;
+        let ours = request.method == "GET" && request.path() == "/callback";
+        let body = if ours { crate::consent::done_page() } else { String::new() };
+        respond(&mut stream, if ours { "200 OK" } else { "404 Not Found" }, "", &body).await;
+        if ours {
+            if request.target.contains("error=") {
+                bail!("the server refused the sign-in: {}", request.target);
+            }
+            return Ok(request.target);
+        }
+    }
+}
+
+enum Answer {
+    Refused,
+    Accepted(Box<AuthorizationSession>, Place),
+}
+
+/// The consent page: served until the person accepts or refuses.
+async fn wait_for_consent(requests: &mut Requests, port: u16, token: &str, name: &str, url: &str) -> Result<Answer> {
+    let mut problem: Option<String> = None;
+    loop {
+        let (mut stream, request) = requests.next().await?;
+        let origin_ok = request.headers.get("origin").is_none_or(|o| o == &format!("http://127.0.0.1:{port}") || o == &format!("http://localhost:{port}"));
+        match (request.method.as_str(), request.path()) {
+            ("GET", "/consent") if request.query("t").as_deref() == Some(token) => {
+                respond(&mut stream, "200 OK", "", &crate::consent::page(name, url, token, problem.as_deref())).await;
+            }
+            ("POST", "/decision") if origin_ok && request.form().get("t").map(String::as_str) == Some(token) => {
+                let form = request.form();
+                if form.get("decision").map(String::as_str) != Some("accept") {
+                    respond(&mut stream, "200 OK", "", &crate::consent::refused_page(name)).await;
+                    return Ok(Answer::Refused);
+                }
+                match accepted(&form, name, url, port).await {
+                    Ok((session, place)) => {
+                        let location = format!("location: {}\r\n", session.auth_url);
+                        respond(&mut stream, "303 See Other", &location, "").await;
+                        return Ok(Answer::Accepted(Box::new(session), place));
+                    }
+                    Err(why) => {
+                        problem = Some(format!("{why:#}"));
+                        respond(&mut stream, "200 OK", "", &crate::consent::page(name, url, token, problem.as_deref())).await;
+                    }
+                }
+            }
+            _ => respond(&mut stream, "404 Not Found", "", "").await,
+        }
+    }
+}
+
+/// What the page's form chose, checked, and the flow begun with the server.
+async fn accepted(form: &HashMap<String, String>, name: &str, url: &str, port: u16) -> Result<(AuthorizationSession, Place)> {
+    let kind = Kind::parse(form.get("store").map(String::as_str).unwrap_or("keychain"))?;
+    let passphrase = if kind == Kind::Encrypted {
+        let first = form.get("passphrase").cloned().unwrap_or_default();
+        vault::check_passphrase(&first)?;
+        if form.get("again") != Some(&first) {
+            bail!("the two passphrases differ");
+        }
+        Some(first)
+    } else {
+        None
+    };
+    vault::usable(kind)?;
+    let place = Place::of(kind, name, url, passphrase).context("no folder to keep the sign-in in")?;
+    prepare(&place)?;
+    let session = begin(name, url, place.clone(), &format!("http://127.0.0.1:{port}/callback")).await?;
+    Ok((session, place))
+}
+
+/// The browser path: consent page, then the server's own sign-in in the same
+/// tab. `ready` is given the page's address. None: the person refused.
+pub async fn signin_in_browser(name: &str, url: &str, ready: impl FnOnce(&str)) -> Result<Option<Place>> {
+    check_url(name, url)?;
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let port = listener.local_addr()?.port();
+    let token = crate::tmp::random_hex(16)?;
+    let mut requests = listen(listener, port);
+    ready(&format!("http://127.0.0.1:{port}/consent?t={token}"));
+    let answer = tokio::time::timeout(WAIT, wait_for_consent(&mut requests, port, &token, name, url)).await.map_err(|_| anyhow!("nobody answered in the browser"))??;
+    match answer {
+        Answer::Refused => Ok(None),
+        Answer::Accepted(session, place) => {
+            callback(&mut requests, port, *session).await?;
+            Ok(Some(place))
         }
     }
 }
@@ -178,36 +350,95 @@ fn target(args: &crate::Args, words: &[String]) -> Result<(String, String)> {
     Ok((name.clone(), url))
 }
 
-/// What `signin` says before it opens the browser.
-fn notice(name: &str, url: &str, path: &str) -> String {
+/// What the terminal says before its y/N question (the fallback to the
+/// consent page): plain words, one idea a line.
+fn notice(name: &str, url: &str, place: &Place) -> String {
     format!(
-        "This signs the helper in to \"{name}\" ({url}) on its own.\n\
-         It is not Claude Code's sign-in, which the helper never reads.\n\
-         \n\
-         \x20 - A second grant. The server registers \"mcp-apps-cli\" as a new client and\n\
-         \x20   shows its own consent screen. Claude Code's `/mcp` neither lists this\n\
-         \x20   grant nor clears it, and your organisation's MCP sign-in settings don't\n\
-         \x20   apply to it.\n\
-         \x20 - Kept on this machine. The access and refresh tokens go in one file only\n\
-         \x20   you can read, not encrypted:\n\
-         \x20   {path}\n\
-         \x20   The helper refreshes them until you sign out.\n\
-         \x20 - To end it: `mcp-apps-cli-helper signout {name}` deletes the file and asks\n\
-         \x20   the server to revoke the tokens where it offers that. You can also remove\n\
-         \x20   \"mcp-apps-cli\" from the server's list of connected apps.\n"
+        "Sign in to \"{name}\" ({url}) for this helper only (Claude Code's own sign-in is not used).\n\
+         \x20 - What it does: gives the helper its own login to \"{name}\", kept in {}.\n\
+         \x20 - What to know: Claude Code's `/mcp` and your organisation's MCP rules can't see or cancel it.\n\
+         \x20 - To undo it: `mcp-apps-cli-helper signout {name}`\n\
+         More: {MORE}\n",
+        place.describe()
     )
 }
 
-/// `mcp-apps-cli-helper signin <server> [--yes] [--mcp-config …] [--cwd …]`
+fn flag(words: &[String], name: &str) -> bool {
+    words.iter().any(|w| w == name)
+}
+
+/// The final lines of a sign-in that worked.
+fn signed_in(name: &str, place: &Place) {
+    println!("\nSigned in to {name}. The login is kept in the {}.", place.short());
+    if matches!(place, Place::Encrypted(..)) {
+        println!("When you start Claude Code, set {PASSPHRASE_ENV} in the environment: the helper can't ask for it.");
+    }
+    // From a terminal the helper can't read /config, so it can't know.
+    println!("If \"{name}\" isn't under \"Own sign-in (OAuth)\" in /config, add it.");
+}
+
+/// `mcp-apps-cli-helper signin <server> [--yes] [--no-browser] [--token-store keychain|encrypted|file]`
 pub async fn cli(args: crate::Args, words: &[String]) -> Result<()> {
     let (name, url) = target(&args, words)?;
     let name = name.as_str();
-    let path = file(name, &url).context("no folder to keep the sign-in in")?;
-    let shown = path.display().to_string();
-    println!("{}", notice(name, &url, &shown));
+    let asked = vault::asked(words)?;
     // `--yes`, or `MCP_APPS_CLI_SIGNIN_YES=1` for someone who always wants it
-    // (a terminal can't read /config): the text above is still shown.
-    let assumed = words.iter().any(|w| w == "--yes") || std::env::var("MCP_APPS_CLI_SIGNIN_YES").is_ok_and(|v| !v.is_empty() && v != "0");
+    // (a terminal can't read /config), and `--no-browser`: no consent page.
+    let assumed = flag(words, "--yes") || std::env::var("MCP_APPS_CLI_SIGNIN_YES").is_ok_and(|v| !v.is_empty() && v != "0");
+    if !assumed && !flag(words, "--no-browser") {
+        let interactive = std::io::stdin().is_terminal();
+        let place = signin_in_browser(name, &url, |page| {
+            if interactive {
+                println!("Press Enter to review and approve in your browser\n(or open: {page})");
+                let page = page.to_string();
+                // Not a task: a read of the terminal that never ends must not hold the process.
+                std::thread::spawn(move || {
+                    let mut line = String::new();
+                    if std::io::stdin().lock().read_line(&mut line).is_ok() && std::env::var_os("MCP_APPS_CLI_NO_BROWSER").is_none() {
+                        open_browser(&page);
+                    }
+                });
+            } else {
+                println!("Review and approve in your browser: {page}");
+                if std::env::var_os("MCP_APPS_CLI_NO_BROWSER").is_none() {
+                    open_browser(page);
+                }
+            }
+        })
+        .await?;
+        match place {
+            Some(place) => signed_in(name, &place),
+            None => println!("Not signed in to {name}."),
+        }
+        return Ok(());
+    }
+    // The terminal: the same question, and the same choices.
+    let kind = match asked {
+        Some(kind) => kind,
+        None if !assumed && std::io::stdin().is_terminal() && Kind::Encrypted.available() => {
+            print!("Where to keep the login?  [1] macOS Keychain (default)  [2] file encrypted with a passphrase: ");
+            std::io::stdout().flush()?;
+            let mut choice = String::new();
+            std::io::stdin().lock().read_line(&mut choice)?;
+            if choice.trim() == "2" { Kind::Encrypted } else { Kind::Keychain }
+        }
+        None => if Kind::Keychain.available() { Kind::Keychain } else { Kind::File },
+    };
+    vault::usable(kind)?;
+    let mut passphrase = std::env::var(PASSPHRASE_ENV).ok().filter(|p| !p.is_empty());
+    if kind == Kind::Encrypted && passphrase.is_none() {
+        if !std::io::stdin().is_terminal() {
+            bail!("a passphrase can't be asked for here: set {PASSPHRASE_ENV}");
+        }
+        let first = vault::prompt_passphrase("Passphrase (at least 8 characters): ")?;
+        vault::check_passphrase(&first)?;
+        if vault::prompt_passphrase("Again: ")? != first {
+            bail!("the two passphrases differ");
+        }
+        passphrase = Some(first);
+    }
+    let place = Place::of(kind, name, &url, passphrase.clone()).context("no folder to keep the sign-in in")?;
+    println!("{}", notice(name, &url, &place));
     if !assumed {
         if !std::io::stdin().is_terminal() {
             bail!("signin asks a question: run it in a terminal, or pass --yes (or set MCP_APPS_CLI_SIGNIN_YES=1)");
@@ -217,28 +448,31 @@ pub async fn cli(args: crate::Args, words: &[String]) -> Result<()> {
         let mut answer = String::new();
         std::io::stdin().lock().read_line(&mut answer)?;
         if !matches!(answer.trim().to_ascii_lowercase().as_str(), "y" | "yes") {
-            println!("Not signed in to {name}. Nothing was kept.");
+            println!("Not signed in to {name}.");
             return Ok(());
         }
     }
     println!();
-    signin(name, &url, |address| {
+    // The passphrase is read from the environment inside `signin`.
+    if let Some(p) = &passphrase {
+        // SAFETY: nothing else runs yet that reads the environment.
+        unsafe { std::env::set_var(PASSPHRASE_ENV, p) };
+    }
+    signin(name, &url, kind, |address| {
         println!("Open this address to sign in to {name}:\n{address}");
         if std::env::var_os("MCP_APPS_CLI_NO_BROWSER").is_none() {
             open_browser(address);
         }
     })
     .await?;
-    println!("\nSigned in to {name}.\nTokens kept in {shown}\nSign out with: mcp-apps-cli-helper signout {name}");
-    // From a terminal the helper can't read /config, so it can't know.
-    println!("If \"{name}\" isn't listed under \"Own sign-in (OAuth)\" in /config yet, add it there: the next tool call then shows the app.");
+    signed_in(name, &place);
     Ok(())
 }
 
 /// Asks the server to revoke the tokens in `path` (RFC 7009): what to say about it.
-async fn revoke(name: &str, url: &str, path: &std::path::Path) -> String {
+async fn revoke(name: &str, url: &str, place: &Place) -> String {
     let none = format!("{name} offers no way to revoke from here: remove \"mcp-apps-cli\" in its connected apps.");
-    let Some(kept) = crate::store::read(path) else { return none };
+    let Ok(Some(kept)) = place.read() else { return none };
     let attempt = async {
         let manager = AuthorizationManager::new(url).await.map_err(|e| anyhow!("{e}"))?;
         let found = manager.resolve_metadata().await.map_err(|e| anyhow!("{e}"))?;
@@ -268,13 +502,16 @@ async fn revoke(name: &str, url: &str, path: &std::path::Path) -> String {
 /// `mcp-apps-cli-helper signout <server> [--mcp-config …] [--cwd …]`
 pub async fn signout(args: crate::Args, words: &[String]) -> Result<()> {
     let (name, url) = target(&args, words)?;
-    let Some(path) = kept_file(&name, &url) else {
-        println!("The helper is not signed in to {name}: nothing to delete.");
+    let Some(place) = vault::kept(&name, &url) else {
+        println!("Not signed in to {name}: nothing to delete.");
         return Ok(());
     };
-    println!("{}", revoke(&name, &url, &path).await);
-    std::fs::remove_file(&path).with_context(|| format!("deleting {}", path.display()))?;
-    println!("Deleted {}", path.display());
+    println!("{}", revoke(&name, &url, &place).await);
+    place.delete().map_err(|why| anyhow!("deleting the tokens from {}: {why}", place.describe()))?;
+    match &place {
+        Place::File(path) | Place::Encrypted(path, _) => println!("Deleted {}", path.display()),
+        Place::Keychain(_) => println!("Removed the tokens from the macOS Keychain."),
+    }
     Ok(())
 }
 

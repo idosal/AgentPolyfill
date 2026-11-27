@@ -442,7 +442,7 @@ fn sign_in_hint(name: &str, listed: bool) -> String {
     if listed {
         format!(" (signed out or expired: run `mcp-apps-cli-helper signin {name}`)")
     } else {
-        " (this server needs sign-in, which the helper doesn't share with Claude Code: see \"Servers that need sign-in\" in the README)".to_string()
+        " (needs sign-in, which the helper doesn't share with Claude Code: see \"Servers that need sign-in\" in the README)".to_string()
     }
 }
 
@@ -701,7 +701,7 @@ mod tests {
         }
         /// The person signing in: the address `signin` shows is opened as a browser would.
         async fn sign_in(&self) -> anyhow::Result<()> {
-            crate::oauth::signin("docs", &self.url, |address| {
+            crate::oauth::signin("docs", &self.url, crate::vault::Kind::File, |address| {
                 let address = address.to_string();
                 tokio::spawn(async move {
                     let _ = reqwest::get(address).await;
@@ -732,7 +732,10 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         // SAFETY: the only test that sets it, and nothing else here reads it concurrently.
-        unsafe { std::env::set_var("MCP_APPS_CLI_OAUTH_DIR", dir.join("tokens")) };
+        unsafe {
+            std::env::set_var("MCP_APPS_CLI_OAUTH_DIR", dir.join("tokens"));
+            std::env::set_var("MCP_APPS_CLI_TOKEN_STORE", "file");
+        }
         let view = json!({"uri": "ui://demo/view.html"});
         let modes = ["modern", "legacy", "dual", "open"];
         for serves in modes {

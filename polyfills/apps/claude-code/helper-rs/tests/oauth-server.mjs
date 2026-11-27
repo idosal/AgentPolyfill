@@ -36,6 +36,36 @@ if (process.argv[2] === "browse") {
   process.exit(answer.ok ? 0 : 1);
 }
 
+if (process.argv[2] === "consent") {
+  // The person's browser at the consent page: reads it, then answers it, and
+  // follows the redirects through the server's sign-in back to the helper.
+  //   node oauth-server.mjs consent <page url> accept|refuse|forge [keychain|encrypted|file] [passphrase]
+  const [, , , pageUrl, action, store = "file", passphrase = ""] = process.argv;
+  const page = await fetch(pageUrl);
+  const html = await page.text();
+  for (const needle of ["its own login", "can\u2019t see or cancel", "mcp-apps-cli-helper signout", "Accept", "Refuse", "Where to keep the login"]) {
+    if (!html.includes(needle)) {
+      console.log(`the page lacks "${needle}"`);
+      process.exit(2);
+    }
+  }
+  console.log(`page ${page.status} ${page.headers.get("content-security-policy")?.includes("default-src 'none'") ? "csp" : "no-csp"} ${/macOS Keychain/.test(html) ? "keychain-offered" : "no-keychain"}`);
+  const token = /name="t" value="([^"]+)"/.exec(html)[1];
+  const t = token;
+  const post = (fields, headers = {}) =>
+    fetch(new URL("/decision", pageUrl), { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", ...headers }, body: new URLSearchParams(fields) });
+  if (action === "forge") {
+    const wrong = await post({ t: "not-the-token", decision: "accept", store: "file" });
+    const foreign = await post({ t, decision: "accept", store: "file" }, { origin: "https://evil.example" });
+    console.log(`forged ${wrong.status} ${foreign.status}`);
+    process.exit(wrong.status === 404 && foreign.status === 404 ? 0 : 1);
+  }
+  const answered = await post({ t: token, decision: action, store, passphrase, again: passphrase });
+  const text = await answered.text();
+  console.log(`answered ${answered.status} ${text.includes("Not signed in") ? "refused" : text.includes("Signed in") ? "signed-in" : text.slice(0, 200)}`);
+  process.exit(0);
+}
+
 const [log, lasts = "3600", serves = "dual"] = process.argv.slice(2);
 const MODERN = "2026-07-28";
 const LEGACY = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
