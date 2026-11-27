@@ -9,7 +9,7 @@ export type Scroll = { top: number; rows: number; total: number }
  */
 export type Run = [string, string, string, number]
 
-export type Frame = { cols: number; rows: number; cells?: string; styled?: Run[][]; scroll?: Scroll }
+export type Frame = { cols: number; rows: number; cells?: string; styled?: Run[][]; motion?: boolean; scroll?: Scroll }
 
 /** A picture: inline PNG bytes, or (kitty, Ghostty) a PNG file the terminal reads itself. */
 export type ImageFrame = {

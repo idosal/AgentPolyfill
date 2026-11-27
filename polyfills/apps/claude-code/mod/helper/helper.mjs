@@ -301,6 +301,10 @@ function imageCapable() {
   const program = process.env.TERM_PROGRAM ?? "";
   const version = (process.env.TERM_PROGRAM_VERSION ?? "0").split(".").map(Number);
   if (program === "iTerm.app") return version[0] > 3 || (version[0] === 3 && version[1] >= 5);
+  // Kitty placeholders need at least indexed color in the host renderer.
+  const forced = process.env.FORCE_COLOR;
+  if (["", "true", "false", "0", "1"].includes(forced) ||
+      (forced !== "2" && forced !== "3" && process.env.NO_COLOR)) return false;
   if (program === "ghostty" || process.env.GHOSTTY_RESOURCES_DIR) return true;
   if (process.env.KITTY_WINDOW_ID || process.env.TERM === "xterm-kitty") return true;
   return false;
@@ -2488,12 +2492,40 @@ async function capture(view) {
     // earlier fit before handing off this frame, bounding memory and latency.
     if (view.pendingCells) await view.pendingCells;
     const current = () => views.get(view.id) === view && !stale() && view.scrollY === top && !view.paused && view.mode !== "image";
-    if (!current() || (hash === view.hash && rows === view.rows)) return;
+    if (!current()) return;
+    const newPixels = hash !== view.hash || rows !== view.rows;
+    let motion = false;
+    if (!args.pi) {
+      const largePicture = photos.some(({ x, y, w, h }) => {
+        const width = Math.max(0, Math.min(clip.width, x + w) - Math.max(0, x));
+        const height = Math.max(0, Math.min(clip.height, y + h) - Math.max(0, y));
+        return width * height >= clip.width * clip.height / 2;
+      });
+      const now = Date.now();
+      if (!texts.length || largePicture) {
+        if (newPixels) {
+          if (now - (view.cellChangedAt ?? 0) < 180) {
+            view.cellSettleAt = now + 300;
+            clearTimeout(view.cellSettleTimer);
+            view.cellSettleTimer = setTimeout(() => void capture(view), 301);
+          }
+          view.cellChangedAt = now;
+        }
+        motion = now < (view.cellSettleAt ?? 0);
+      } else {
+        view.cellSettleAt = view.cellChangedAt = 0;
+      }
+    }
+    if (!newPixels && motion === Boolean(view.drewMotion)) return;
+    if (motion !== Boolean(view.drewMotion)) view.cellState = undefined;
+    view.drewMotion = motion;
+    const styled = TRUECOLOR && !motion;
     const request = { png, texts, photos, top, cols, rows, cellWidth: CELL_WIDTH, cellHeight: view.cellH,
-      pageBackground: view.background, sextants: SEXTANTS, truecolor: TRUECOLOR,
-      lines: TRUECOLOR || Boolean(process.env.MCP_APPS_CLI_LINES) };
+      pageBackground: view.background, sextants: (args.pi || styled) && SEXTANTS, truecolor: styled,
+      lines: styled || Boolean(process.env.MCP_APPS_CLI_LINES) };
     const deliver = frame => {
       if (!current()) return;
+      if (motion) frame.motion = true;
       view.hash = hash;
       view.rows = rows;
       view.version++;
@@ -2965,6 +2997,7 @@ function forgetView(view) {
   clearTimeout(view.storeSoon);
   clearTimeout(view.soon);
   clearTimeout(view.navigationTimer);
+  clearTimeout(view.cellSettleTimer);
   worker?.postMessage({ drop: view.id });
   if (imageFolder) {
     for (let k = 0; k < 3; k++) {

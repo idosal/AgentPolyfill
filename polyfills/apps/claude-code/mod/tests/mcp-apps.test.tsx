@@ -435,6 +435,41 @@ for (const [terminal, swapEveryDraw, expected] of [
   })
 }
 
+test('moving cells blit into the mounted raster and release the frame clock when the view settles', async ($, on) => {
+  let begin!: () => void, stop!: () => void
+  const mounted = new Promise<void>(resolve => { begin = resolve })
+  const still = new Promise<void>(resolve => { stop = resolve })
+  const swaps: unknown[] = []
+  on('ui.blit', (_$, args) => { swaps.push(args); return { value: {} } })
+  const { sent, finish } = standIns(on, { script: async function* () {
+    await mounted
+    for (const v of [2, 3, 4]) yield { type:'frame', viewId:TOOL_USE_ID, v, frame:{...FRAME, motion:true} }
+    await still
+    yield { type:'frame', viewId:TOOL_USE_ID, v:5, frame:{ cols:2, rows:1, styled:[[['OK','#ffffff','',1]]] } }
+  } })
+  await $.session.start({cwd:'/', surface:'terminal', isInteractive:true})
+  await $.tool.call({tool:TOOL, tool_use_id:TOOL_USE_ID})
+  await until(() => sent.some(item => item.route === '/open'), () => Promise.resolve())
+  let ui = await $.ui.mount({...ROW, surface:'terminal'})
+  for (let i=0; i<20 && !(await ui.find({type:'Raster'})); i++) {
+    await ui.unmount(); ui = await $.ui.mount({...ROW, surface:'terminal'})
+  }
+  begin()
+  await settle(() => swaps.length >= 2)
+  expect(swaps[0]).toMatchObject({ key:`cells-inline-${TOOL_USE_ID}`, cells:FRAME.cells, columns:2, rows:1 })
+  await ui.unmount()
+  ui = await $.ui.mount({...ROW, surface:'terminal'})
+  expect(await ui.find({type:'Client', key:`paint-inline-${TOOL_USE_ID}`})).toBeDefined()
+  stop()
+  for (let i=0; i<500; i++) await Promise.resolve()
+  await ui.unmount()
+  ui = await $.ui.mount({...ROW, surface:'terminal'})
+  expect(Boolean(await ui.find({type:'Client', key:`paint-inline-${TOOL_USE_ID}`}))).toBe(false)
+  expect(Boolean(await ui.find({type:'Raster'}))).toBe(false)
+  await ui.unmount()
+  finish()
+})
+
 // Each new picture is swapped in place in every terminal: Claude Code paints
 // swaps at its frame rate, where redraws come ten a second at most (kitty and
 // Ghostty drew each picture anew, which held an animation to 10 fps).
@@ -568,6 +603,41 @@ for (const [deny, inlined] of [
       ui = await $.ui.mount({ ...ROW, surface: 'terminal' })
       expect((await ui.find({ type: 'Image' }))?.props).toMatchObject({ source: { file: FILE, format: 'png', generation: 2 } })
     }
+    await ui.unmount()
+    finish()
+  })
+}
+
+for (const [denial, nextMode] of [
+  ['the Image draws its alt here: every 8-bit image id is in use', 'image'],
+  ['the Image draws its alt here: the terminal cannot show graphics', 'cells'],
+] as const) {
+  test(`an image refusal switches this view to cells and opens the next one in ${nextMode}: ${denial}`, async ($, on) => {
+    let mounted!: () => void
+    const isMounted = new Promise<void>((resolve) => (mounted = resolve))
+    on('ui.blit', () => ({ value: { deny: denial } }))
+    const { sent, finish } = standIns(on, {
+      images: true,
+      swapEveryDraw: false,
+      script: async function* () {
+        await isMounted
+        yield { type: 'frame', viewId: TOOL_USE_ID, v: 2, image: { png: PNG, cols: 20, rows: 2 } }
+      },
+    })
+    await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+    await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+    await settle(() => sent.some(s => s.route === '/open'))
+    let ui = await $.ui.mount({ ...ROW, surface: 'terminal' })
+    for (let i = 0; i < 20 && !(await ui.find({ type: 'Image' })); i++) {
+      await ui.unmount()
+      ui = await $.ui.mount({ ...ROW, surface: 'terminal' })
+    }
+    mounted()
+    await settle(() => sent.some(s => s.route === '/mode' && s.body.mode === 'cells'))
+    expect(sent.some(s => s.route === '/mode' && s.body.viewId === TOOL_USE_ID && s.body.mode === 'cells')).toBe(true)
+    await $.tool.call({ tool: TOOL, tool_use_id: 'toolu_next_image' })
+    await settle(() => sent.some(s => s.route === '/open' && s.body.viewId === 'toolu_next_image'))
+    expect(sent.find(s => s.route === '/open' && s.body.viewId === 'toolu_next_image')?.body.mode).toBe(nextMode)
     await ui.unmount()
     finish()
   })

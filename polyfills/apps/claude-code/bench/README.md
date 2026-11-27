@@ -9,17 +9,30 @@ need `claude` on PATH, Chrome, Node 22+, Python 3 with `pyte`
 
 ## Gameplay frame timing
 
-In Claude Code 2.1.331 on macOS, a local MCP App replayed 34 recorded DOOM
-frames at 31.25 fps in a 104 × 44 Kitty window. With the rebuilt Rust helper,
-the median screenshot stage fell from 56 ms to 38 ms. The helper can start
-the next screenshot while Chromium settles its pointer hit-testing after the
-previous one. Pointer events still wait for the repaint.
+Claude Code 2.1.331 on macOS ran a local MCP App replaying 34 recorded DOOM
+frames at 31.25 fps. The same 104 × 44 Kitty 0.50.0 window received arrow
+input for three four-second intervals per run.
 
-Sampling the visible inline game area during three four-second intervals
-gave about 9.8 changed cell frames per second on both builds. Claude Code
-coalesces the redraws used for cells. In the Kitty graphics check, Claude
-Code reported that all 8-bit image IDs were in use and the plugin switched
-to cells, so the run yielded no graphics-mode FPS measurement.
+| Terminal output | Previous build | With this change | What was counted |
+| --- | ---: | ---: | --- |
+| Character cells | 10.0 fps | 22.5 fps | Changes to a 55-column × 9-row crop inside the game, sampled from Kitty's plain-text screen |
+| Kitty graphics | 29.7 fps | 29.6 fps | Distinct consecutive PNG image payloads sent to Kitty |
+
+Values are medians of the three intervals. The cell runs measured
+9.9, 10.0 and 10.0 fps before the change and 22.5, 24.9 and 22.1 fps
+after it. The cropped sample excludes the host UI and the blank cell that
+wakes Claude Code's renderer. During motion the plugin updates a mounted
+Raster directly. Once the picture settles, it restores full-detail rendering.
+
+For a color-capable Kitty run, keep the launching environment consistent
+with the user's terminal. Our first benchmark inherited `NO_COLOR=1` from
+its runner. Claude Code then declined Kitty image placeholders with the message
+“every 8-bit image id is in use.” Removing that runner override restored
+graphics on both builds. The plugin respects a user's color setting and
+selects cells when Claude Code's Kitty path lacks the required color depth.
+
+These timings measure terminal output for controlled playback. Live game
+speed also depends on the emulator, the scene and the machine.
 
 ## The example servers
 

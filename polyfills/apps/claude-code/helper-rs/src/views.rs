@@ -261,6 +261,28 @@ pub struct Press { pub at: u64, pub x: f64, pub y: f64, pub button: String, pub 
 #[derive(Clone)]
 pub struct Held { pub mods: Vec<String>, pub until: u64 }
 
+// A short burst of changing pictures can use a native Raster. A settled
+// view gets one final frame with the original text styling and photo detail.
+#[derive(Default)]
+struct CellMotion {
+    last_change: Option<u64>,
+    settle_at: Option<u64>,
+}
+
+impl CellMotion {
+    fn observe(&mut self, at: u64, changed: bool, eligible: bool) -> bool {
+        if !eligible {
+            *self = Self::default();
+        } else if changed {
+            if self.last_change.is_some_and(|last| at.saturating_sub(last) < 180) {
+                self.settle_at = Some(at + 300);
+            }
+            self.last_change = Some(at);
+        }
+        self.settle_at.is_some_and(|end| at < end)
+    }
+}
+
 pub struct State {
     pub image: bool,
     pub cols: u32,
@@ -331,6 +353,8 @@ pub struct State {
     cell_memory: mcp_apps_render::Memory,
     painter: mcp_apps_render::Painter,
     memory_top: f64,
+    cell_motion: CellMotion,
+    drew_motion: bool,
     /// iTerm2 strips: the encoder's state (out while a job runs), one job at a
     /// time, the latest picture next, and whether a fresh copy of every band
     /// was asked for on the way.
@@ -981,12 +1005,28 @@ impl View {
         let hash = Sha256::new().chain_update(&png).chain_update(texts.to_string()).chain_update(top.to_string()).finalize().to_vec();
         let mut s = self.state.lock().unwrap();
         if !self.alive.load(Ordering::SeqCst) || s.image || s.generation != generation { return Ok(false); }
-        if hash == s.hash && rows == s.rows { return Ok(false); }
-        if s.memory_top != top { s.cell_memory = Default::default(); s.memory_top = top; }
-        // Cells are whole pixels tall (only pictures use half ones).
+        let changed = hash != s.hash || rows != s.rows;
+        let width = f64::from(cols) * 8.0;
+        let height_px = f64::from(rows) * cell_h;
+        let large_picture = photos.as_array().is_some_and(|rects| rects.iter().any(|p| {
+            let x = num(p, "x", 0.0); let y = num(p, "y", 0.0);
+            let w = (x + num(p, "w", 0.0)).min(width) - x.max(0.0);
+            let h = (y + num(p, "h", 0.0)).min(height_px) - y.max(0.0);
+            w.max(0.0) * h.max(0.0) >= width * height_px * 0.5
+        }));
+        let motion = s.cell_motion.observe(now(), changed, large_picture || texts.as_array().is_some_and(Vec::is_empty));
+        if !changed && motion == s.drew_motion { return Ok(false); }
+        if s.memory_top != top || motion != s.drew_motion {
+            s.cell_memory = Default::default();
+            s.memory_top = top;
+        }
+        s.drew_motion = motion;
+        let styled = terminal::truecolor() && !motion;
+        // Raster accepts only width-one BMP glyphs and 1024 colour pairs.
+        // The existing palette fitter chooses shapes and colours within that budget.
         let options = json!({"cols":cols,"rows":rows,"cellWidth":8,"cellHeight":cell_h.round() as u64,
-            "pageBackground":s.background,"photos":photos,"sextants":terminal::sextants(),"truecolor":terminal::truecolor(),
-            "lines":terminal::truecolor() || std::env::var_os("MCP_APPS_CLI_LINES").is_some()});
+            "pageBackground":s.background,"photos":photos,"sextants":styled && terminal::sextants(),"truecolor":styled,
+            "lines":styled || std::env::var_os("MCP_APPS_CLI_LINES").is_some()});
         if let Ok(dir) = std::env::var("MCP_APPS_CLI_DUMP") {
             let name = if std::env::var_os("MCP_APPS_CLI_DUMP_ALL").is_some() {format!("{}-{:04}",self.id,s.version+1)} else {self.id.clone()};
             let _ = std::fs::write(PathBuf::from(&dir).join(format!("{name}.png")),&png);
@@ -997,7 +1037,8 @@ impl View {
         // The renderer seam intentionally emits no cells frame, but still
         // receives coherent screenshots, texts, photos and persistent state.
         if let Some(mut frame) = frame {
-            if terminal::truecolor() {
+            if motion { frame["motion"] = json!(true); }
+            if styled {
                 frame["styled"] = frame["lines"].take();
                 if let Some(object) = frame.as_object_mut() { object.remove("lines"); object.remove("cells"); }
             }
@@ -1180,7 +1221,9 @@ async fn timers(view: Arc<View>) {
             if poll { s.poll_at = time+POLL_MS; }
             let navigation_ended = s.navigation_until.is_some_and(|until| until <= time);
             if navigation_ended { s.navigation_until = None; }
-            let capture = navigation_ended || s.capture_at.iter().any(|t| *t <= time) || s.pace_at.is_some_and(|t| t <= time);
+            let cells_settled = s.cell_motion.settle_at.is_some_and(|end| end <= time);
+            if cells_settled { s.cell_motion.settle_at = None; }
+            let capture = cells_settled || navigation_ended || s.capture_at.iter().any(|t| *t <= time) || s.pace_at.is_some_and(|t| t <= time);
             s.capture_at.retain(|t| *t > time);
             if s.pace_at.is_some_and(|t| t <= time) { s.pace_at = None; }
             let describe = s.describe_at.is_some_and(|t| t <= time);
@@ -1188,7 +1231,7 @@ async fn timers(view: Arc<View>) {
             let save = time >= s.store_at || s.store_soon.is_some_and(|t| t <= time);
             if save { s.store_at = time+store::STORE_SAVE_MS; s.store_soon = None; }
             let release: Vec<_> = s.held.iter().filter(|(_,h)| h.until <= time).map(|(key,_)|key.clone()).collect();
-            let next = [Some(s.poll_at),s.capture_at.iter().copied().min(),s.pace_at,s.navigation_until,s.describe_at,Some(s.store_at),s.store_soon,s.held.values().map(|h|h.until).min()]
+            let next = [Some(s.poll_at),s.capture_at.iter().copied().min(),s.pace_at,s.navigation_until,s.cell_motion.settle_at,s.describe_at,Some(s.store_at),s.store_soon,s.held.values().map(|h|h.until).min()]
                 .into_iter().flatten().min().unwrap_or(time+400).saturating_sub(time).max(1);
             (poll,capture,describe,save,release,next)
         };
@@ -1345,7 +1388,7 @@ async fn open_now(helper: &Arc<Helper>, options: &Value) -> Result<Value> {
             input_at:0,last_arrow_at:None,navigation_until:None,activated_at:0,pointer_held:false,mouse:(0.0,0.0),buttons:0,last_press:None,held:HashMap::new(),hover_at:0,hold_for_rest:false,
             rest_until:0,held_since:0,sweep:false,idle_change_at:0,motion:Vec::new(),captured_at:0,capture_started:0,hinted:false,backstop:false,boost_until:0,alive_check_at:now()+LIVENESS_MS,checking:false,misses:0,
             capture_at:Vec::new(),pace_at:None,describe_at:None,poll_at:now()+POLL_MS,store_at:now()+store::STORE_SAVE_MS,store_soon:None,alt:String::new(),title:String::new(),text_cache:None,timings:Vec::new(),dropped:0,
-            cell_memory:Default::default(),painter:Default::default(),memory_top:0.0,downloading:false,
+            cell_memory:Default::default(),painter:Default::default(),memory_top:0.0,cell_motion:CellMotion::default(),drew_motion:false,downloading:false,
             moved:Vec::new(),snapped:None,strip_state:Some(Default::default()),strip_busy:false,strip_again:false,strip_all:false,strip_chars:Vec::new(),max_scale:2.0,capped_at:0,painting:false,painted:false,own_paint_until:0,paints:0,idle_paints:0,
         }),
     });
@@ -1611,6 +1654,20 @@ fn split_html(mut read: Value) -> (Value, Option<Arc<str>>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn raster_motion_needs_repeated_changes_and_settles_without_new_pixels() {
+        let mut motion = CellMotion::default();
+        assert!(!motion.observe(1000, true, true));
+        assert!(!motion.observe(1020, false, true));
+        assert!(motion.observe(1050, true, true));
+        assert!(motion.observe(1349, false, true));
+        assert!(!motion.observe(1350, false, true));
+        assert!(!motion.observe(2000, true, true));
+        assert!(motion.observe(2100, true, true));
+        assert!(!motion.observe(2150, true, false));
+        assert!(!motion.observe(2170, true, true));
+    }
 
     // Each open of a view has its own generation (model/AppsViews.tla,
     // FixGen; before 0.1.3 the helper matched everything by view id alone).
