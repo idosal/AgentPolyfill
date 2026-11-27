@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentpolyfill-a2a-tasks"
-version = "0.1.0"
+version = "0.2.0"
 description = "AgentPolyfill A2A delegation for interactive agent hosts"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -24,4 +24,4 @@ packages = ["agentpolyfill_a2a"]
 script-files = ["a2a-agents"]
 
 [tool.setuptools.data-files]
-"share/agentpolyfill-a2a" = ["manage.py", "configure.py"]
+"share/agentpolyfill-a2a" = ["manage.py", "configure.py", "chat_settings.py"]

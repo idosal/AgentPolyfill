@@ -10,26 +10,20 @@ Connect a named A2A agent to your chat. Ask the agent to do a job, review its qu
 
 ## Install from the AgentPolyfill Codex marketplace
 
-On macOS or Linux, make [uv](https://docs.astral.sh/uv/) available on Codex’s PATH. Add the marketplace once, then install A2A. No agent URL or account is needed to install the plugin.
+Add the AgentPolyfill marketplace once. Install **A2A Delegation** there, or use the CLI.
 
 ```sh
 codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add a2a@agent-polyfill
 ```
 
-For delegation in Codex versions without native MCP Tasks, install the shared Tasks plugin once (Node 20+):
+Open the plugin’s setup action or a new chat. Ask **“Connect the research agent at https://research.example.org”** using your agent’s actual URL. Codex can propose a local name and endpoint. Its approval form shows the exact change before saving. The directory starts empty and supports multiple connections. Ask to list, edit, or disconnect an agent in the same chat.
 
-```sh
-codex plugin add mcp-tasks@agent-polyfill
-```
+Ask **“Delegate the swatch check to research.”** Codex shows the destination and message before sending. The plugin includes the shared Tasks client, so newly connected agents can take work in that chat immediately. On hosts that advertise native Tasks the bundled client stands down. Native hosts load newly registered servers according to their own configuration refresh behavior.
 
-In a new chat, ask **“Which A2A agents do I have, and how do I add one?”** The directory starts empty. Its first start installs the locked runtime and a local settings command. With the default Codex profile, open it with:
+For a paired A2A Serve agent, tell Codex to use the existing local Serve pairing. Install the official Serve CLI and pair with the destination out of band if required. Chat tools accept names, URLs and the chosen authentication mode. The local settings command returned by `list_agents` also supports owner-only bearer files. Changing destinations disconnects previous credentials.
 
-```sh
-~/.codex/agentpolyfill-a2a/.runtime/bin/a2a-agents
-```
-
-Use the terminal menu or append `add NAME --url URL`, `list`, `edit NAME --url URL`, or `remove NAME`. The directory returns the exact settings command for custom profiles. This installation keeps its runtime outside Codex’s versioned plugin cache, so upgrading the plugin retains its named agents. Existing checkout-managed agents remain managed from their original checkout. Reload Codex’s MCP configuration or open a fresh chat to pick up changes to delegation tools. Remove named agents using the settings command before uninstalling if you also want their registrations removed. On restart, remaining marketplace-managed entries stand down when the plugin is disabled or removed.
+The first launch needs network access to prepare a locked runtime. On macOS and glibc Linux (arm64 or x86-64), the plugin reuses installed tools or downloads checksum-pinned uv and Node binaries into the Codex profile as needed. Codex Desktop’s bundled Node is supported. Offline setups can supply their own uv, Node 20+, Python 3.12+ and cached packages. Each Codex profile retains its agent names across upgrades. Existing checkout installations remain under their original settings command.
 
 ## Install from this checkout
 

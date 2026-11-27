@@ -1,0 +1,49 @@
+#!/bin/sh
+# Sourced by codex-directory with a private umask. Download only on first use.
+platform=$(uname -s)-$(uname -m)
+case "$platform" in
+    Darwin-arm64)  uv_target=aarch64-apple-darwin; node_target=darwin-arm64
+        uv_hash=2b25be1af546be330b340b0a76b99f989daa6d92678fdffb87438e661e9d88fb
+        node_hash=ff6e17d4874b76d272212b908cc020d6e815fba5a6c7eaaa06add725840307fd ;;
+    Darwin-x86_64) uv_target=x86_64-apple-darwin; node_target=darwin-x64
+        uv_hash=6b91ae3de155f51bd1f5b74814821c79f016a176561f252cd9ddfb976939af2e
+        node_hash=977614af0504c81045e7fd85596dbca0e5f951b96681516dadafedcca8c447f7 ;;
+    Linux-aarch64) uv_target=aarch64-unknown-linux-gnu; node_target=linux-arm64
+        uv_hash=8c9d0f0ee98166ae6ab198747519ba6f25db29d185bd2ae5960ecebc91a5c22a
+        node_hash=261af2af250dfd7e9f25cf151d1b2713a0adf8f10a9ad116c4947f68627affe8 ;;
+    Linux-x86_64)  uv_target=x86_64-unknown-linux-gnu; node_target=linux-x64
+        uv_hash=74947fe2c03315cf07e82ab3acc703eddef01aba4d5232a98e4c6825ec116131
+        node_hash=061ec3e3062115705b56b51fa9cc330ab50d34b6969387d4e4b1a50c6809acc2 ;;
+    *) uv_target=; node_target= ;;
+esac
+provision() (
+    dest=$1 url=$2 member=$3 expected=$4
+    if [ -x "$dest" ]; then exit 0; fi
+    if [ -z "$uv_target" ] || [ "${UV_OFFLINE:-0}" = 1 ]; then
+        echo "Install uv and Node 20+ on PATH for this platform or offline profile." >&2
+        exit 1
+    fi
+    mkdir -p "$(dirname "$dest")"
+    tmp=$(mktemp -d "$(dirname "$dest")/.download.XXXXXX")
+    trap 'rm -rf "$tmp"' EXIT
+    curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' --retry 2 --max-time 120 --output "$tmp/archive" "$url"
+    if command -v sha256sum >/dev/null; then sum=$(sha256sum "$tmp/archive"); else sum=$(shasum -a 256 "$tmp/archive"); fi
+    [ "${sum%% *}" = "$expected" ] || { echo "Runtime archive failed SHA-256 verification." >&2; exit 1; }
+    tar -xzOf "$tmp/archive" "$member" > "$tmp/program"
+    chmod 700 "$tmp/program"
+    mv -f "$tmp/program" "$dest"
+)
+uv_bin=$(command -v uv || true)
+if [ -z "$uv_bin" ]; then
+    uv_bin="$base/agentpolyfill-a2a/.bin/uv-0.11.16"
+    provision "$uv_bin" "https://github.com/astral-sh/uv/releases/download/0.11.16/uv-$uv_target.tar.gz" "uv-$uv_target/uv" "${uv_hash:-}"
+fi
+node_bin=$(command -v node || true)
+usable_node() { [ -x "$1" ] && "$1" -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 20 ? 0 : 1)'; }
+if ! usable_node "$node_bin"; then
+    node_bin=/Applications/ChatGPT.app/Contents/Resources/node
+    if ! usable_node "$node_bin"; then
+        node_bin="$base/agentpolyfill-a2a/.bin/node-24.22.3"
+        provision "$node_bin" "https://nodejs.org/dist/v24.22.3/node-v24.22.3-$node_target.tar.gz" "node-v24.22.3-$node_target/bin/node" "${node_hash:-}"
+    fi
+fi

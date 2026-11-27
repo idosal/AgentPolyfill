@@ -9,15 +9,14 @@ Connect a chat to a named A2A agent and review its questions before it finishes 
 
 ## Codex marketplace
 
-With uv available to Codex on macOS or Linux, add the AgentPolyfill marketplace and install the A2A plugin. For Codex versions without native Tasks, also install the shared MCP Tasks client (Node 20+).
+Install **A2A Delegation** from the AgentPolyfill marketplace. The plugin includes the shared Tasks client. You can start with zero agents.
 
 ```sh
 codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add a2a@agent-polyfill
-codex plugin add mcp-tasks@agent-polyfill
 ```
 
-Open a new chat and ask which A2A agents are configured. The directory includes the local settings command for adding agents later. [Marketplace setup and operating notes](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/a2a#install-from-the-agentpolyfill-codex-marketplace)
+In Codex, ask to connect a named agent at its URL. The model can suggest the settings, and Codex shows you the change before saving. Add more agents, edit or remove them, and delegate in that chat. Paired agents use the official Serve CLI on your machine. [Marketplace setup and operating notes](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/a2a#install-from-the-agentpolyfill-codex-marketplace)
 
 ## Install from a checkout
 

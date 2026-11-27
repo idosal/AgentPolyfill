@@ -299,8 +299,8 @@ def directory_settings(host, servers, base, path):
 def setup(host, name, url, mode, credentials=None, token_file=None, *, install_directory=False, marketplace=False):
     if name is not None:
         origin(url)
-        if not re.fullmatch(r"[a-z][a-z0-9_-]{0,47}", name) or name == "mcp-tasks":
-            raise SetupError("Choose a short lowercase agent name starting with a letter; mcp-tasks is reserved.")
+        if not re.fullmatch(r"[a-z][a-z0-9_-]{0,47}", name) or name == "mcp-tasks" or (marketplace and name == "a2a-directory"):
+            raise SetupError("Choose a short lowercase agent name starting with a letter; choose a name other than the plugin servers.")
     # Keep task handles isolated even for two different host profiles using the same agent.
     configs = []
     actions = []

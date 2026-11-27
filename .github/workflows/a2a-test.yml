@@ -32,6 +32,24 @@ jobs:
       - run: pipx install uv==0.11.16
       - run: uv sync --locked --python 3.12 --extra setup
       - run: .venv/bin/python -m unittest discover -s tests -v
+      - name: Provision private runtimes without user-installed Node or uv
+        run: |
+          base="$RUNNER_TEMP/runtime-profile"
+          mkdir -p "$base/path"
+          for tool in uname mkdir mktemp dirname curl sha256sum tar gzip chmod mv rm; do
+            ln -s "$(command -v "$tool")" "$base/path/$tool"
+          done
+          export PATH="$base/path"
+          . ./codex/runtime
+          "$uv_bin" --version
+          "$node_bin" --version
+      - name: Verify the packaged Codex Tasks client
+        working-directory: .
+        run: |
+          npm ci --prefix polyfills/tasks/core --no-audit --no-fund
+          npm ci --prefix polyfills/tasks/codex --no-audit --no-fund
+          node polyfills/a2a/codex/build.mjs
+          git diff --exit-code -- polyfills/a2a/codex/host.mjs
       - name: Install once and manage connections in a fresh profile
         run: |
           export CODEX_HOME="$RUNNER_TEMP/a2a-codex"

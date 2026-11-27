@@ -2,10 +2,24 @@
   "mcpServers": {
     "a2a-directory": {
       "command": "sh",
-      "args": ["./codex-directory"],
+      "args": [
+        "./codex-directory"
+      ],
       "cwd": ".",
-      "env_vars": ["CODEX_HOME", "UV_CACHE_DIR", "UV_PYTHON_INSTALL_DIR", "UV_OFFLINE"],
-      "startup_timeout_sec": 120
+      "env_vars": [
+        "CODEX_HOME",
+        "UV_CACHE_DIR",
+        "UV_PYTHON_INSTALL_DIR",
+        "UV_OFFLINE",
+        "MCP_TASKS_OFF",
+        "MCP_TASKS_SERVERS",
+        "MCP_TASKS_SKIP",
+        "MCP_TASKS_CODEX_BIN",
+        "MCP_TASKS_CODEX_REMOTE",
+        "MCP_TASKS_WAKE_GAP_S"
+      ],
+      "startup_timeout_sec": 240,
+      "tool_timeout_sec": 600
     }
   }
 }
