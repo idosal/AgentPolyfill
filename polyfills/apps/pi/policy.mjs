@@ -33,12 +33,22 @@ export function piContentSecurityPolicy(csp) {
     ].join('; ');
 }
 
-export function reviewMessage(server, tool, csp) {
+// Browser logs can include terminal control sequences and private app data.
+// Show them on demand in the view, without writing their data to the session.
+export function appLogLine({level, data}) {
+    const clean = value => String(value).slice(0, 640).replace(/[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]/gu, ' ');
+    return clean(level) + ' · ' + clean(typeof data === 'string' ? data : JSON.stringify(data));
+}
+
+export function reviewMessage(server, tool, csp, review = {}) {
     const destinations = [...new Set(Object.values(csp).flat().filter(source => source !== 'blob:'))].sort();
     const quoted = value => JSON.stringify(value);
     const lines = [
         'Share the original input and result of ' + quoted(tool) + ' with its app?',
         'The app can list and read resources from ' + quoted(server) + '.',
+        'Chat messages, model context, tool calls, opening links and downloads each ask for approval.',
+        ...(review.clipboard ? ['This app requests permission to copy text after you approve it.'] : []),
+        ...(review.warnings ?? []),
         ...(csp.frameDomains?.includes('blob:') ? ['The app can create embedded pages from its own data.'] : []),
         destinations.length ? 'External destinations: ' + destinations.map(quoted).join(', ') : 'External destinations: none.',
     ];

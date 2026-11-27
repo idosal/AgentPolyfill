@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { openRenderer, originalMcpResult } from '../renderer.mjs';
+import { originalMcpResult } from '../renderer.mjs';
+import { fixtureRenderer as openRenderer } from './renderer-fixture.mjs';
 
 test('renders the original structured result without replay and enforces nested consent', async t => {
     const cwd = await mkdtemp(join(tmpdir(), 'pi-apps-test-'));

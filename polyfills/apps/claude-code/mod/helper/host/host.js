@@ -22753,10 +22753,12 @@ container holding the app. Specify either width or maxWidth, and either height o
     bordered = options.border;
     frameLook(options.styles);
     document.body.appendChild(iframe);
+    const modalities = { text: {}, ...options.pi && options.images ? { image: {} } : {} };
     bridge = new DX(null, { name: "mcp-apps-cli", version: "0.1.0" }, {
-      ...options.pi ? {} : { openLinks: {}, downloadFile: {}, updateModelContext: { text: {} }, message: { text: {} } },
-      ...options.serverTools ? { serverTools: {} } : {},
-      serverResources: {},
+      ...options.pi && !options.actions ? {} : { openLinks: {}, downloadFile: {}, updateModelContext: { ...modalities, ...options.pi ? { structuredContent: {} } : {} }, message: modalities },
+      ...options.serverTools ? { serverTools: options.changes?.tools ? { listChanged: true } : {} } : {},
+      ...options.resources === false ? {} : { serverResources: options.changes?.resources ? { listChanged: true } : {} },
+      ...options.prompts ? { serverPrompts: options.changes?.prompts ? { listChanged: true } : {} } : {},
       logging: {},
       sandbox: { csp: options.csp, ...options.clipboard ? { permissions: { clipboardWrite: {} } } : {} }
     }, {
@@ -22767,10 +22769,10 @@ container holding the app. Specify either width or maxWidth, and either height o
         locale: options.locale,
         timeZone: options.timeZone,
         userAgent: options.userAgent,
-        deviceCapabilities: { touch: false, hover: !options.pi },
+        deviceCapabilities: { touch: false, hover: options.hover ?? !options.pi },
         safeAreaInsets: { top: 0, right: 0, bottom: 0, left: 0 },
         displayMode: "inline",
-        availableDisplayModes: options.pi ? ["inline"] : ["inline", "fullscreen", "pip"],
+        availableDisplayModes: options.pi ? ["inline", ...options.fullscreen ? ["fullscreen"] : [], ...options.pip ? ["pip"] : []] : ["inline", "fullscreen", "pip"],
         containerDimensions: {
           width: options.width,
           maxHeight: options.maxHeight
@@ -22787,12 +22789,20 @@ container holding the app. Specify either width or maxWidth, and either height o
       return { mode: answer?.mode ?? current };
     };
     const call = (kind) => async (params) => await window.__cliHost(kind, params);
+    if (options.pi && options.serverTools)
+      bridge.setRequestHandler(ListToolsRequestSchema, (req) => call("tools/list")(req.params));
+    if (options.prompts)
+      bridge.onlistprompts = call("prompts/list");
+    if (options.pi)
+      bridge.onrequestteardown = () => {
+        window.__cliHost("ui/request-teardown", {});
+      };
     if (options.serverTools)
       bridge.oncalltool = call("tools/call");
     bridge.onreadresource = call("resources/read");
     bridge.onlistresources = call("resources/list");
     bridge.onlistresourcetemplates = call("resources/templates/list");
-    if (!options.pi) {
+    if (!options.pi || options.actions) {
       bridge.onmessage = call("ui/message");
       bridge.onopenlink = call("ui/open-link");
       bridge.ondownloadfile = call("ui/download-file");
@@ -22849,7 +22859,26 @@ container holding the app. Specify either width or maxWidth, and either height o
     }
     const target = iframe.contentWindow;
     await bridge.connect(new E(target, target));
-    iframe.src = options.src;
+    if (options.proxy) {
+      let onProxy = function(event) {
+        if (event.origin !== origin || event.source !== target || event.data?.method !== "ui/notifications/sandbox-proxy-ready")
+          return;
+        window.removeEventListener("message", onProxy);
+        target.postMessage({
+          jsonrpc: "2.0",
+          method: "ui/notifications/sandbox-resource-ready",
+          params: { html: options.proxy.html, sandbox: options.sandbox, csp: options.csp }
+        }, origin);
+      };
+      const origin = new URL(options.proxy.url).origin;
+      window.addEventListener("message", (event) => {
+        if (event.source === target && event.origin === origin && event.data?.jsonrpc === "2.0" && typeof event.data.method === "string")
+          window.__cliHost("audit", { method: event.data.method });
+      });
+      window.addEventListener("message", onProxy);
+      iframe.src = options.proxy.url;
+    } else
+      iframe.src = options.src;
   };
   window.__toolArgs = (next, partial2) => {
     if (args.whole)
@@ -22913,6 +22942,38 @@ container holding the app. Specify either width or maxWidth, and either height o
     if (ready)
       bridge?.setHostContext(context);
   }
+  window.__serverChange = (kind) => {
+    if (!ready || !bridge)
+      return;
+    if (kind === "tools")
+      bridge.sendToolListChanged();
+    if (kind === "resources")
+      bridge.sendResourceListChanged();
+    if (kind === "prompts")
+      bridge.sendPromptListChanged();
+  };
+  window.__viewTools = async () => {
+    if (!ready || !bridge?.getAppCapabilities()?.tools)
+      return [];
+    const tools = [];
+    let cursor;
+    const seen = new Set;
+    do {
+      const page = await bridge.listTools({ cursor }, { timeout: 5000 });
+      tools.push(...page.tools);
+      cursor = page.nextCursor;
+      if (tools.length > 256 || cursor && seen.has(cursor))
+        throw Error("App tool catalog is too large.");
+      if (cursor)
+        seen.add(cursor);
+    } while (cursor);
+    return tools;
+  };
+  window.__callViewTool = async (name, args2) => {
+    if (!ready || !bridge?.getAppCapabilities()?.tools)
+      throw Error("The view has no tools.");
+    return bridge.callTool({ name, arguments: args2 }, { timeout: 15000 });
+  };
   window.__teardown = async () => {
     if (!ready)
       return;

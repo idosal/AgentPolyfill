@@ -110,6 +110,10 @@ const SANDBOX = "allow-scripts allow-forms allow-same-origin allow-pointer-lock"
 function viewOrigins(server, domain) {
   const local = { view: VIEW_ORIGIN, host: HOST_ORIGIN };
   if (typeof domain !== "string" || !domain) return local;
+  if (args.pi) {
+    const expected = createHash("sha256").update(server).digest("hex").slice(0,32) + ".mcp-app.localhost";
+    return domain.toLowerCase() === expected ? {view:"http://" + expected, host:"http://host." + expected} : local;
+  }
   const url = serverUrl(server);
   const expected = url ? `${createHash("sha256").update(url).digest("hex").slice(0, 32)}.claudemcpcontent.com` : undefined;
   if (domain.toLowerCase() !== expected) {
@@ -651,6 +655,7 @@ const serverScopes = new Map(); // server name -> the scope its config came from
 
 /** A read-only connection of our own, for tools/list and resources/read. */
 function sideClient(name) {
+  if (args.pi) throw Error("This view uses the original Pi connection.");
   if (!sideClients.has(name)) {
     const promise = (async () => {
       const { config, scope } = serverEntry(name);
@@ -1092,20 +1097,23 @@ async function newViewPage(mode, cols, maxRows, cellH, theme, store, localNetwor
 // result. Keep the read in this per-view process so changes on the server
 // cannot substitute a different document or policy between review and open.
 let piReview;
-async function reviewPiView({ server, toolName, viewId }) {
+async function reviewPiView({ server, toolName, viewId, definition, resource }) {
   if (!args.pi) return { ok: false, error: "Pi only" };
-  const { tools } = await discover(server);
-  const entry = Object.hasOwn(tools, toolName) && tools[toolName];
-  if (!entry || !entry.resourceUri.startsWith("ui://")) throw new Error("This tool has no MCP App.");
-  const content = (await readUiResource(server, entry.resourceUri)).contents?.[0];
+  if (server !== piEntry.server || definition?.name !== toolName) throw Error("Mismatched Pi view.");
+  const entry = { resourceUri: definition?._meta?.ui?.resourceUri ?? definition?._meta?.["ui/resourceUri"] };
+  if (!entry || !entry.resourceUri?.startsWith("ui://")) throw new Error("This tool has no MCP App.");
+  const content = resource;
   if (!content || content.uri !== entry.resourceUri ||
       !/^text\/html;\s*profile=mcp-app$/i.test(content.mimeType ?? "")) {
     throw new Error("The tool did not provide an MCP App resource.");
   }
   const { piContentSecurityPolicy, piDomainSources } = await import("../../../pi/policy.mjs");
   const csp = cspDomains(allowedCsp(piDomainSources(content._meta?.ui?.csp), server));
-  piReview = { server, toolName, viewId, entry, content, csp, policy: piContentSecurityPolicy(csp) };
-  return { ok: true, csp };
+  piReview = { server, toolName, viewId, entry, definition, content, csp, policy: piContentSecurityPolicy(csp) };
+  const html = typeof content.text === 'string' ? content.text : Buffer.from(content.blob ?? '', 'base64').toString('utf8');
+  const hash = createHash('sha256').update(html).digest('hex');
+  return { ok: true, csp, hash, clipboard:Boolean(content._meta?.ui?.permissions?.clipboardWrite),
+    warnings: /<form\b[^>]*action\s*=|<input\b[^>]*type\s*=\s*["']?password/i.test(html) ? ['This app contains a form with a destination or a password field.'] : [] };
 }
 
 async function openView(options) {
@@ -1183,6 +1191,7 @@ async function openViewNow(options) {
   const clipboard = !args.pi && Boolean(meta.permissions?.clipboardWrite);
   if (clipboard) await context.addInitScript(CLIPBOARD_HOOK);
   const origins = viewOrigins(server, meta.domain);
+  const piClipboard = args.pi && options.clipboard === true && Boolean(meta.permissions?.clipboardWrite);
   const view = {
     fileStem: createHash("sha1").update(viewId).digest("hex").slice(0, 12),
     origins,
@@ -1192,6 +1201,7 @@ async function openViewNow(options) {
     gen: genOf(options),
     mode,
     visibility: entry.visibility,
+    piImages:args.pi && options.images === true,
     context,
     page,
     frame: undefined,
@@ -1225,14 +1235,26 @@ async function openViewNow(options) {
   // holds in the URL or the form past its CSP (connect-src doesn't cover a
   // navigation, and a document from elsewhere brings no CSP of ours). Frames
   // it embeds (frameDomains) load and move as their CSP lets them.
+  const viewUrl = origins.view + "/view/" + encodeURIComponent(viewId);
+  const proxyOrigin = origins.view.replace("://", "://sandbox.");
+  const proxyUrl = proxyOrigin + "/proxy";
+  if (args.pi) {
+    const { sandboxPage } = await import("../../../pi/sandbox.mjs");
+    const digest = createHash("sha256").update(html).digest("hex");
+    const body = sandboxPage(origins.host, viewUrl, digest, SANDBOX);
+    await page.route(proxyOrigin + "/**", (route, request) =>
+      request.url() !== proxyUrl || !request.isNavigationRequest() || request.frame().parentFrame() !== page.mainFrame()
+        ? route.abort("blockedbyclient") : route.fulfill({ contentType: "text/html", body,
+      headers: { "Content-Security-Policy": "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-src " + origins.view + "; base-uri 'none'" } }));
+  }
   await page.route(
-    (url) => url.origin !== origins.view && url.origin !== origins.host,
+    (url) => url.origin !== origins.view && url.origin !== origins.host && (!args.pi || url.href !== proxyUrl),
     (route, request) => {
       let frame;
       try {
         frame = request.frame();
       } catch {}
-      const ours = frame && (frame === page.mainFrame() || frame.parentFrame() === page.mainFrame());
+      const ours = frame && (frame === page.mainFrame() || frame.parentFrame() === page.mainFrame() || (args.pi && frame.parentFrame()?.url() === proxyUrl));
       if (request.isNavigationRequest() && ours) {
         log(`view ${viewId}: navigation away refused (${request.url().slice(0, 120)})`);
         return route.abort("blockedbyclient");
@@ -1241,10 +1263,14 @@ async function openViewNow(options) {
     },
   );
   await page.route(`${origins.view}/**`, (route) =>
-    route.fulfill({
+    args.pi && (route.request().url() !== viewUrl || !route.request().isNavigationRequest() ||
+      route.request().frame().parentFrame()?.url() !== proxyUrl)
+      ? route.abort("blockedbyclient") : route.fulfill({
       status: 200,
       contentType: "text/html; charset=utf-8",
-      headers: { "Content-Security-Policy": policy },
+      headers: { "Content-Security-Policy": policy, ...(args.pi ? {
+        "Permissions-Policy":"camera=(), microphone=(), geolocation=(), clipboard-read=()"
+      } : {}) },
       body: html,
     }),
   );
@@ -1252,6 +1278,20 @@ async function openViewNow(options) {
   // sandboxed iframe and anything it embeds included: only the host page's
   // own frame may use it. The app reaches the host through AppBridge's
   // postMessage, which validates what it sends.
+  if (piClipboard) {
+    await context.addInitScript(({url}) => {
+      if (location.href !== url) return;
+      Object.defineProperty(navigator, "clipboard", {configurable:true, value:{
+        writeText: text => window.__piCopy(String(text))
+      }});
+    }, {url:viewUrl});
+    await page.exposeBinding("__piCopy", async (source, text) => {
+      if (source.frame !== view.frame || typeof text !== "string" || !text || text.length > 8000 ||
+          Date.now() - (view.activatedAt ?? 0) > 2000) throw Error("Click the view to copy text.");
+      view.activatedAt = 0;
+      await requestFromMod(view, "ui/copy", { text }, CONSENT_TIMEOUT_MS);
+    });
+  }
   await page.exposeBinding("__cliHost", (source, kind, payload) => {
     if (source.frame !== page.mainFrame()) throw new Error("not available to the view");
     return onHostCall(view, kind, payload);
@@ -1264,11 +1304,19 @@ async function openViewNow(options) {
   });
   const host = hostPage(theme.background, scheme);
   await page.route(`${origins.host}/**`, (route) =>
-    route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: host }),
+    args.pi && (route.request().frame() !== page.mainFrame() || !route.request().isNavigationRequest())
+      ? route.abort("blockedbyclient") : route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: host }),
   );
   await page.goto(`${origins.host}/`);
   await page.evaluate((o) => window.__openView(o), {
-    src: `${origins.view}/view/${encodeURIComponent(viewId)}`,
+    src: viewUrl,
+    proxy: args.pi ? { url: proxyUrl, html } : undefined,
+    actions: args.pi && options.actions === true,
+    images:options.images === true,
+    fullscreen: args.pi && options.fullscreen === true,
+    pip: args.pi && options.pip === true,
+    hover: args.pi ? options.hover === true : undefined,
+    resources: args.pi ? options.resources !== false : true,
     sandbox: SANDBOX,
     toolName,
     // While Claude is still writing the call (`streaming`), none yet: what
@@ -1282,14 +1330,14 @@ async function openViewNow(options) {
     fit: view.mode === "image",
     theme: scheme,
     styles: theme.styles,
-    tool: (await discover(server)).definitions[toolName],
+    tool: reviewed?.definition ?? (await discover(server)).definitions[toolName],
     locale: Intl.DateTimeFormat().resolvedOptions().locale,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     pi: args.pi === true,
     serverTools: !args.pi || options.serverTools === true,
     userAgent: options.userAgent ?? "Claude Code (mcp-apps-cli)",
     csp,
-    clipboard,
+    clipboard:clipboard || piClipboard, changes:options.changes, prompts:options.prompts,
     // A border and background drawn by the host (`prefersBorder`); the
     // spec leaves an omitted one to the host, and here that's none.
     border: meta.prefersBorder === true,
@@ -1342,7 +1390,7 @@ function normalizeResult(result) {
 
 async function onHostCall(view, kind, payload) {
   if (process.env.MCP_APPS_CLI_DEBUG && kind !== "log") {
-    log(`host call ${kind} ${JSON.stringify(payload ?? {}).slice(0, 100)}`);
+    log(args.pi ? `host call ${kind}` : `host call ${kind} ${JSON.stringify(payload ?? {}).slice(0, 100)}`);
   }
   switch (kind) {
     case "size":
@@ -1355,6 +1403,9 @@ async function onHostCall(view, kind, payload) {
       });
       setTimeout(() => void capture(view), 30);
       return {};
+    case "audit":
+      if (args.pi) emit({type:"notify", viewId:view.id, method:"ui/audit", params:{method:String(payload?.method).slice(0,80)}});
+      return {};
     case "initialized":
       setTimeout(() => void capture(view), 60);
       emit({ type: "notify", viewId: view.id, gen: view.gen, method: "ui/app-modes", params: { modes: payload?.modes ?? null } });
@@ -1366,6 +1417,7 @@ async function onHostCall(view, kind, payload) {
     }
     case "tools/call": {
       const name = payload?.name;
+      if (args.pi) return requestFromMod(view, kind, { name, arguments: payload?.arguments ?? {} }, CONSENT_TIMEOUT_MS);
       const discoveredTools = await discover(view.server);
       if (discoveredTools.visibility[name] && !discoveredTools.visibility[name].includes("app")) {
         throw new Error(`tool ${name} is not available to apps`);
@@ -1390,9 +1442,18 @@ async function onHostCall(view, kind, payload) {
       }
       return normalizeResult(await requestFromMod(view, kind, payload));
     }
+    case "ui/request-teardown":
+      if (args.pi) emit({type:"notify", viewId:view.id, method:kind});
+      return {};
+    case "tools/list":
+    case "prompts/list":
+      if (args.pi) return requestFromMod(view, kind, payload ?? {});
+      throw Error("No Pi connection.");
     case "resources/read":
+      if (args.pi) return requestFromMod(view, kind, payload);
       return (await sideClient(view.server)).readResource(payload);
     case "resources/list":
+      if (args.pi) return requestFromMod(view, kind, payload ?? {});
       return (await sideClient(view.server)).listResources(payload ?? {});
     // The app copied text: to the person's clipboard, if they just clicked or
     // typed in the view (a copy button), as a browser requires; once per click.
@@ -1404,22 +1465,43 @@ async function onHostCall(view, kind, payload) {
       return {};
     }
     case "resources/templates/list":
+      if (args.pi) return requestFromMod(view, kind, payload ?? {});
       return (await sideClient(view.server)).listResourceTemplates(payload ?? {});
     // The mod answers these, asking the person where it should: { isError }
     // when it didn't happen.
     case "ui/message":
+      if (args.pi) return piContentRequest(view, kind, payload);
       return requestFromMod(view, kind, payload);
     case "ui/open-link":
       return requestFromMod(view, kind, payload, CONSENT_TIMEOUT_MS);
     case "ui/download-file":
       return downloadFiles(view, payload?.contents ?? []);
     case "ui/update-model-context":
+      if (args.pi) return piContentRequest(view, kind, payload);
+      emit({ type: "notify", viewId: view.id, gen: view.gen, method: kind, params: payload });
+      return {};
     case "log":
+      if (args.pi) {
+        const { appLogLine } = await import("../../../pi/policy.mjs");
+        emit({type:"notify", viewId:view.id, method:"log", params:{text:appLogLine(payload)}});
+        return {};
+      }
       emit({ type: "notify", viewId: view.id, gen: view.gen, method: kind, params: payload });
       return {};
     default:
       throw new Error(`unsupported host call ${kind}`);
   }
+}
+
+async function piContentRequest(view, kind, payload) {
+  const blocks = payload?.content ?? [];
+  const images = blocks.filter(b => b.type === "image");
+  if (!images.length) return requestFromMod(view, kind, payload, CONSENT_TIMEOUT_MS);
+  if (!view.piImages || images.length > 3) throw Error("Pi cannot review these images with the current model.");
+  const { reviewImage } = await import("../../../pi/media.mjs");
+  const content = [];
+  for (const block of blocks) content.push(block.type === "image" ? await view.page.evaluate(reviewImage, block) : block);
+  return requestFromMod(view, kind, {...payload, content}, CONSENT_TIMEOUT_MS);
 }
 
 /**
@@ -1448,9 +1530,14 @@ async function downloadBounded(view, contents) {
   for (const item of contents) {
     let resource = item?.type === "resource" ? item.resource : undefined;
     if (item?.type === "resource_link") {
-      resource = (await (await sideClient(view.server)).readResource({ uri: item.uri })).contents?.[0];
+      const read = args.pi ? await requestFromMod(view, "resources/read", {uri: item.uri})
+        : await (await sideClient(view.server)).readResource({ uri: item.uri });
+      resource = args.pi ? read.contents?.find(content => content.uri === item.uri) : read.contents?.[0];
     }
-    if (!resource) continue;
+    if (!resource) {
+      if (args.pi) return {isError:true};
+      continue;
+    }
     // The size before decoding: base64 is 4 characters for 3 bytes.
     total += typeof resource.blob === "string" ? Math.floor((resource.blob.length * 3) / 4) : Buffer.byteLength(String(resource.text ?? ""));
     if (total > MAX_DOWNLOAD_BYTES) return { isError: true };
@@ -2239,7 +2326,7 @@ async function appEvalNow(view, expression) {
     await view.cdp.send("Runtime.enable");
   }
   const { frameTree } = await view.cdp.send("Page.getFrameTree");
-  const app = (frameTree.childFrames ?? []).find((child) => child.frame.url.startsWith(`${view.origins.view}/view/`));
+  const app = (args.pi ? (frameTree.childFrames ?? []).flatMap(proxy => proxy.childFrames ?? []) : (frameTree.childFrames ?? [])).find((child) => child.frame.url.startsWith(`${view.origins.view}/view/`));
   const contextId = app && view.contexts.get(app.frame.id);
   if (!contextId) throw new Error("the view's frame has no context yet");
   const result = await view.cdp.send("Runtime.evaluate", { expression, contextId, returnByValue: true, awaitPromise: true });
@@ -2340,19 +2427,9 @@ async function capture(view) {
     const cache = backstop || Date.now() - (view.inputAt ?? 0) <= TEXT_AFTER_INPUT_MS ? undefined : view.textCache;
     const reuse = typeof domBefore === "number" && domBefore >= 0 && cache?.dom === domBefore && cache.gen === gen;
     let textBefore = reuse ? JSON.stringify([...cache.domLines, ...canvasBefore]) : JSON.stringify(await appEval(view, `(${EXTRACT_TEXT})()`));
-    const png = await inTurn(view, async () => {
-      const wanted = wantedViewport(view);
-      if (wanted.height > Math.ceil(view.maxRows * view.cellH)) await fitViewport(view, true);
-      return view.page.screenshot({
-      // Viewport coordinates: the page is scrolled to `top` already. CSS
-      // scale: the cell renderer works at one pixel per CSS pixel, also for a
-      // view that started as an image and was sent back to cells.
-      clip,
-      caret: "initial",
-      animations: "allow",
-      scale: "css",
-    });
-    });
+    // Capture the same document-space rectangle as graphics mode. The cell
+    // encoder consumes one pixel per CSS pixel even on a high-density display.
+    const png = await shoot(view, clip, 1);
     // Debug: keep the screenshot the cells are fitted from.
     // MCP_APPS_CLI_DUMP_ALL keeps every frame (numbered) instead of the last.
     const dumpName = process.env.MCP_APPS_CLI_DUMP_ALL ? `${view.id}-${String(view.version + 1).padStart(4, "0")}` : view.id;
@@ -2540,7 +2617,7 @@ function input(view, event) {
     view.activatedAt = view.inputAt;
   }
   describeSoon(view, ALT_INPUT_MS);
-  view.inputs = view.inputs.then(async () => {
+  const deliver = async () => {
     const { mouse, keyboard } = view.page;
     if (event.kind === "pointer") {
       const x = (event.fine?.x ?? event.x + 0.5) * CELL_WIDTH;
@@ -2678,7 +2755,11 @@ function input(view, event) {
     }
     setTimeout(() => void capture(view), 50);
     setTimeout(() => void capture(view), 250);
-  }).catch((error) => log(`input ${view.id}:`, error.message));
+  };
+  // Chromium changes its viewport temporarily to take a screenshot. Keep
+  // pointer hit-testing and dispatch together while the viewport is stable.
+  view.inputs = view.inputs.then(() => event.kind === "pointer" ? inTurn(view, deliver) : deliver())
+    .catch((error) => log(`input ${view.id}:`, error.message));
   return { ok: true };
 }
 
@@ -2764,9 +2845,12 @@ async function inOwnTmp(launch) {
 /** The viewport a view needs: its own size, or its frame's before a shrink, if larger. */
 function wantedViewport(view) {
   const scale = view.scale ?? 1;
+  const visibleHeight = Math.ceil(view.maxRows * view.cellH);
   return {
     width: Math.ceil((view.cols * CELL_WIDTH) / scale),
-    height: Math.max(Math.ceil(view.maxRows * view.cellH), Math.ceil((view.heightPx ?? 0) / scale)),
+    // Unscaled views scroll the real browser viewport. A document-height
+    // viewport puts scrolled targets outside the composited terminal window.
+    height: scale === 1 ? visibleHeight : Math.max(visibleHeight, Math.ceil((view.heightPx ?? 0) / scale)),
   };
 }
 
@@ -2856,7 +2940,7 @@ async function describe(view) {
     try {
       view.cdp ??= await view.page.context().newCDPSession(view.page);
       const { frameTree } = await view.cdp.send("Page.getFrameTree");
-      const app = (frameTree.childFrames ?? []).find((child) => child.frame.url.startsWith(`${view.origins.view}/view/`));
+      const app = (args.pi ? (frameTree.childFrames ?? []).flatMap(proxy => proxy.childFrames ?? []) : (frameTree.childFrames ?? [])).find((child) => child.frame.url.startsWith(`${view.origins.view}/view/`));
       if (app) text = altFromTree(await view.cdp.send("Accessibility.getFullAXTree", { frameId: app.frame.id }));
     } catch {}
   }
@@ -2937,6 +3021,19 @@ const routes = {
   "/ping": async () => ({ ok: true, views: [...views.keys()], rowHeights: [...views.values()].map((v) => v.cellH) }),
   "/discover": async ({ server, refresh }) => ({ ok: true, ...(await discover(server, refresh)) }),
   "/pi/review": reviewPiView,
+  "/pi/change": async ({viewId, kind}) => {
+    if (!args.pi) return {ok:false};
+    await views.get(viewId)?.page.evaluate(k => window.__serverChange(k), kind);
+    return {ok:true};
+  },
+  "/pi/view-tools": async ({viewId}) => {
+    if (!args.pi) return {ok:false};
+    return {ok:true, tools:await views.get(viewId)?.page.evaluate(() => window.__viewTools())};
+  },
+  "/pi/view-tool": async ({viewId, name, args:input}) => {
+    if (!args.pi) return {ok:false};
+    return {ok:true, result:await views.get(viewId)?.page.evaluate(([n,a]) => window.__callViewTool(n,a), [name,input])};
+  },
   "/open": openView,
   "/input": async ({ viewId, event }) => {
     const view = views.get(viewId);

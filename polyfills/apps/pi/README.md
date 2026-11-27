@@ -1,7 +1,6 @@
 # MCP Apps in Pi
 
-After Pi calls an MCP tool, type `/mcp-app` to open its most recent successful
-MCP result. Pi first asks to inspect the app on that server. Before the app
+Type `/mcp-app` to open the latest app from a running or completed MCP tool call. Pi first asks to inspect the app on that server. Before the app
 opens, a second prompt names the tool whose input and result the app will receive,
 the server whose resources it can list and read, and any permitted external
 destinations. Declining either prompt leaves you in the conversation.
@@ -40,7 +39,7 @@ Refreshing the clock asks for a separate tool approval and displays a new server
   </picture>
 </a>
 
-[Watch the 17-second clock walkthrough](../../../docs/media/demos/apps-pi.mp4).
+[Watch the 18-second clock walkthrough](../../../docs/media/demos/apps-pi.mp4).
 
 ### Play Arcade
 
@@ -66,15 +65,7 @@ character cells, launch `PI_IMAGE_PROTOCOL=none pi`.
 
 ## Compatibility
 
-This is a partial client for the stable 2026-01-26 MCP Apps specification
-(`io.modelcontextprotocol/ui`). The supported Node CLI builds are Pi 1.6.0 and
-1.6.1. Both expose the original server and tool in completed MCP tool details
-but filter App resources from Pi's own client. The command uses a separate
-connection to read the tool definition and app resource. The reviewed document
-and its browser policy stay together until you open or decline it. Opening an
-app never replays the original tool call. A stdio server starts a second
-process. Views requiring Pi's stored OAuth credentials, or a resource held
-only in the first process, are unavailable.
+The interactive Node builds of Pi 1.6.0 and 1.6.1 support the stable 2026-01-26 MCP Apps revision through this adapter. Pi negotiates Apps on the same MCP connection that runs the tool. Its view can read session-specific resources and receive private result metadata without repeating the call or sharing that metadata with the model. [Feature coverage, spec obligations and remaining limits](COMPLIANCE.md)
 
 **Tool visibility.** The adapter filters the native MCP catalog before Pi
 registers tools, including after a server announces a list change. Tools whose
@@ -96,15 +87,11 @@ The specification makes the restrictive default mandatory
 and recommends warning users about external access. [MCP Apps host behavior](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx#host-behavior)
 and [security requirements](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx#4-content-security-policy-enforcement).
 
-Only Pi's built-in MCP tool results qualify. A disabled server, a changed
-configuration or a session switch invalidates the saved result. The view
-receives the original input, content and structured content that Pi exposes.
-Pi omits the result's private MCP metadata. When the agent opens the viewer
-with `open_mcp_app`, the app can request an exposed tool on the same server.
-Pi asks you to approve its exact arguments and dispatches the call through Pi.
-Views opened via the slash command cannot initiate tool calls. App-only tool
-calls, sending chat messages, external links and downloads are unavailable.
-Browser storage is scoped to the open view.
+Use `/mcp-app` while an authorized MCP tool is running or after it completes. Pi asks before reading its app and again before sharing the input and result. The reviewed app can request chat messages, model context, external links, downloads, clipboard text and same-server tool calls. Each action has a separate approval. Use Ctrl+G to list and call tools the app offers. Ctrl+L shows its recent log messages inside the view.
+
+Model-visible tool calls require the agent to open the viewer with `open_mcp_app` so Pi can apply its normal tool permissions. App-only tools use explicit approval on the original connection. Print, JSON and RPC modes have no interactive viewer. Camera, microphone and geolocation are unavailable. The [coverage report](COMPLIANCE.md#limits-and-exceptions) describes these limits and the difference between the stable spec and optional SDK features.
+
+For an optional resource hash policy, set `PI_MCP_APPS_ALLOW_HASHES` or `PI_MCP_APPS_DENY_HASHES` to comma-separated SHA-256 digests. Denials take precedence. Find reviewed digests in the session's `mcp-app-policy` entries.
 
 ## Verification
 
@@ -114,7 +101,7 @@ example builds the scene from JavaScript at runtime and requires evaluation
 that the default policy blocks. The recorded fixture omits CSP metadata and
 exercises the restrictive default, drag-to-orbit, wheel zoom and Esc.
 
-The second recording uses Pi 1.6.1 and the unmodified upstream vanilla clock
+The clock recording uses Pi 1.6.1 and the unmodified upstream vanilla clock
 example. Pi displayed the original server timestamp, asked for approval when
 the app requested a refresh, then displayed the updated time. Both recordings
 used a scripted local model to select tools.

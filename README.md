@@ -65,6 +65,7 @@ The Antigravity App renders MCP Apps natively. Copilot CLI advertises Skills and
 ## Compatibility and security
 
 - Events, Skills and Apps adapters that open a separate connection to a server cannot reuse the host’s OAuth session. [Host API limitations](docs/host-changes.md)
+- Pi Apps uses the originating Pi connection, including its OAuth refresh. [Pi Apps coverage and limits](polyfills/apps/pi/COMPLIANCE.md)
 - Codex cannot prompt before a loaded skill reads resources from another server. [Skills in Codex](polyfills/skills/codex)
 - When an app omits `ui.csp`, the Claude Code adapter uses a more permissive default content security policy. [Apps conformance](polyfills/apps/claude-code/docs/COMPLIANCE.md)
 

@@ -330,9 +330,11 @@ the live server.
   accepted for the session, or none when its MCP support is off, would
   replace both. With change 1 neither is needed.
 - **Keep `ui://` resources and tool `_meta` for extensions.** Pi leaves out
-  MCP Apps resources because it doesn't render them. An extension that
-  renders them needs them, and the tool's `_meta.ui`; with change 1 it can
-  read both itself.
+  MCP Apps resources from its public extension API. The Apps adapter can
+  now negotiate on the originating connection and retrieve the original tool
+  metadata on two verified Node builds. Public hooks for negotiation, catalog
+  filtering and the originating connection would remove that version
+  dependency. [Pi Apps coverage](../polyfills/apps/pi/COMPLIANCE.md)
 - **Pi reads `~/.agents/skills` from `HOME`, whatever its agent directory.**
   Worth a line in Pi's docs: running Pi with its own agent directory
   (`PI_CODING_AGENT_DIR`) still lists the user's own skills.

@@ -67,3 +67,13 @@ for (const exposure of ['direct','codemode','deferred']) {
         }
     });
 }
+
+for (const [scenario, flags] of [
+    ['completed call', []], ['running call', ['--live']], ['unsuccessful running call', ['--cancel']],
+    ['HTTP session with rotating OAuth credentials', ['--oauth']]
+]) {
+    test('real Pi opens a capability-gated app on its original connection for the ' + scenario,
+        {skip:process.platform === 'win32' && 'The real terminal fixture uses a POSIX PTY.'}, async () => {
+            await run('python3', [path('session.py'),process.execPath,cli,...flags], {timeout:120000});
+        });
+}

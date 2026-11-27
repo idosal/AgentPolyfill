@@ -9,7 +9,12 @@ import {
   PostMessageTransport,
 } from "@modelcontextprotocol/ext-apps/app-bridge";
 
+import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+
 type OpenOptions = {
+  changes?: Record<string,boolean>;
+  images?: boolean;
+  prompts?: boolean;
   /** URL the helper serves the view's HTML from, with its CSP header. */
   src: string;
   sandbox: string;
@@ -31,6 +36,12 @@ type OpenOptions = {
   timeZone: string;
   userAgent: string;
   pi: boolean;
+  proxy?: { url: string; html: string };
+  actions?: boolean;
+  fullscreen?: boolean;
+  pip?: boolean;
+  hover?: boolean;
+  resources?: boolean;
   serverTools: boolean;
   /** The CSP domains the helper applied, from the resource's `_meta.ui.csp`. */
   csp: Record<string, string[]>;
@@ -47,6 +58,9 @@ declare global {
     __cliHost(kind: string, payload: unknown): Promise<unknown>;
     __openView(options: OpenOptions): Promise<void>;
     __teardown(): Promise<void>;
+    __serverChange(kind: string): void;
+    __viewTools(): Promise<unknown>;
+    __callViewTool(name: string, args: Record<string, unknown>): Promise<unknown>;
     /**
      * The call's arguments: partial while Claude writes them (the view
      * opened early), then whole once, after which no partial is sent.
@@ -151,13 +165,15 @@ window.__openView = async (options) => {
   frameLook(options.styles);
   document.body.appendChild(iframe);
 
+  const modalities = {text:{}, ...(options.pi && options.images ? {image:{}} : {})};
   bridge = new AppBridge(
     null,
     { name: "mcp-apps-cli", version: "0.1.0" },
     {
-      ...(options.pi ? {} : { openLinks: {}, downloadFile: {}, updateModelContext: { text: {} }, message: { text: {} } }),
-      ...(options.serverTools ? { serverTools: {} } : {}),
-      serverResources: {},
+      ...((options.pi && !options.actions) ? {} : { openLinks: {}, downloadFile: {}, updateModelContext: { ...modalities, ...(options.pi ? {structuredContent:{}} : {}) }, message: modalities }),
+      ...(options.serverTools ? { serverTools: options.changes?.tools ? {listChanged:true} : {} } : {}),
+      ...(options.resources === false ? {} : { serverResources: options.changes?.resources ? {listChanged:true} : {} }),
+      ...(options.prompts ? {serverPrompts:options.changes?.prompts ? {listChanged:true} : {}} : {}),
       logging: {},
       // What the helper applied: the declared domains, no more.
       sandbox: { csp: options.csp as never, ...(options.clipboard ? { permissions: { clipboardWrite: {} } } : {}) },
@@ -171,11 +187,11 @@ window.__openView = async (options) => {
         timeZone: options.timeZone,
         userAgent: options.userAgent,
         // A mouse in a terminal: no touch; hover is reported as the pointer moves.
-        deviceCapabilities: { touch: false, hover: !options.pi },
+        deviceCapabilities: { touch: false, hover: options.hover ?? !options.pi },
         safeAreaInsets: { top: 0, right: 0, bottom: 0, left: 0 },
         displayMode: "inline",
         // fullscreen: the view fills the terminal; pip: a pane beside the chat.
-        availableDisplayModes: options.pi ? ["inline"] : ["inline", "fullscreen", "pip"],
+        availableDisplayModes: options.pi ? ["inline", ...(options.fullscreen ? ["fullscreen"] : []), ...(options.pip ? ["pip"] : [])] : ["inline", "fullscreen", "pip"],
         containerDimensions: {
           width: options.width,
           maxHeight: options.maxHeight,
@@ -198,12 +214,15 @@ window.__openView = async (options) => {
     (await window.__cliHost(kind, params)) as never;
 
   // Requests the helper answers (through the mod for tools/call).
+  if (options.pi && options.serverTools) bridge.setRequestHandler(ListToolsRequestSchema, req => call("tools/list")(req.params));
+  if (options.prompts) bridge.onlistprompts = call("prompts/list");
+  if (options.pi) bridge.onrequestteardown = () => { void window.__cliHost("ui/request-teardown", {}); };
   if (options.serverTools) bridge.oncalltool = call("tools/call");
   bridge.onreadresource = call("resources/read");
   bridge.onlistresources = call("resources/list");
   bridge.onlistresourcetemplates = call("resources/templates/list");
   // The person is asked; the answer says whether it happened ({ isError }).
-  if (!options.pi) {
+  if (!options.pi || options.actions) {
     bridge.onmessage = call("ui/message");
     bridge.onopenlink = call("ui/open-link");
     bridge.ondownloadfile = call("ui/download-file");
@@ -266,7 +285,22 @@ window.__openView = async (options) => {
   // Connect before the view loads so its ui/initialize is not missed.
   const target = iframe.contentWindow!;
   await bridge.connect(new PostMessageTransport(target, target));
-  iframe.src = options.src;
+  if (options.proxy) {
+    const origin = new URL(options.proxy.url).origin;
+    window.addEventListener("message", event => {
+      if (event.source === target && event.origin === origin && event.data?.jsonrpc === "2.0" &&
+          typeof event.data.method === "string") void window.__cliHost("audit", {method:event.data.method});
+    });
+    function onProxy(event: MessageEvent) {
+      if (event.origin !== origin || event.source !== target ||
+          event.data?.method !== "ui/notifications/sandbox-proxy-ready") return;
+      window.removeEventListener("message", onProxy);
+      target.postMessage({ jsonrpc: "2.0", method: "ui/notifications/sandbox-resource-ready",
+        params: { html: options.proxy!.html, sandbox: options.sandbox, csp: options.csp } }, origin);
+    }
+    window.addEventListener("message", onProxy);
+    iframe.src = options.proxy.url;
+  } else iframe.src = options.src;
 };
 
 window.__toolArgs = (next, partial) => {
@@ -342,6 +376,31 @@ window.__setTheme = (theme, styles, background) => {
 function updateContext() {
   if (ready) bridge?.setHostContext(context as never);
 }
+
+window.__serverChange = kind => {
+  if (!ready || !bridge) return;
+  if (kind === "tools") void bridge.sendToolListChanged();
+  if (kind === "resources") void bridge.sendResourceListChanged();
+  if (kind === "prompts") void bridge.sendPromptListChanged();
+};
+window.__viewTools = async () => {
+  if (!ready || !bridge?.getAppCapabilities()?.tools) return [];
+  const tools = [];
+  let cursor: string | undefined;
+  const seen = new Set<string>();
+  do {
+    const page = await bridge.listTools({cursor}, { timeout: 5000 });
+    tools.push(...page.tools);
+    cursor = page.nextCursor;
+    if (tools.length > 256 || (cursor && seen.has(cursor))) throw Error("App tool catalog is too large.");
+    if (cursor) seen.add(cursor);
+  } while (cursor);
+  return tools;
+};
+window.__callViewTool = async (name, args) => {
+  if (!ready || !bridge?.getAppCapabilities()?.tools) throw Error("The view has no tools.");
+  return bridge.callTool({name, arguments:args}, {timeout:15000});
+};
 
 window.__teardown = async () => {
   // An app that never initialized has nothing to save, and no answer to give.
