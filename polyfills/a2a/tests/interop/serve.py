@@ -1,5 +1,6 @@
 """Run from the installed Python environment. Pass the official a2a-serve v0.1.0 executable."""
 
+import argparse
 import json
 import os
 import shlex
@@ -59,11 +60,32 @@ def check_tasks(command, env):
     assert poll("completed")["result"]["content"][0]["text"] == "Artifact: BLUE GREEN"
 
 
-def exercise(serve, base):
+def marketplace_directory(source, env, home):
+    for args in (["marketplace", "add", source], ["add", "a2a@agent-polyfill"],
+                 ["add", "mcp-tasks@agent-polyfill"]):
+        subprocess.run(["codex", "plugin", *args], env=env, cwd=home, check=True)
+    servers = json.loads(subprocess.check_output(["codex", "mcp", "list", "--json"], env=env, cwd=home))
+    active = {s["name"]: s["transport"] for s in servers if s["enabled"]}
+    assert "mcp-tasks" in active
+    directory = active["a2a-directory"]
+    root = Path(directory["cwd"]).resolve()
+    assert root.is_relative_to(home / ".codex/plugins/cache/agent-polyfill/a2a")
+    return [directory["command"], str(root / directory["args"][0])]
+
+
+def exercise(serve, base, marketplace=None):
     work, home = base / "agent", base / "home"
     work.mkdir()
     home.mkdir()
     env = {"HOME": str(home), "PATH": os.defpath, "XDG_CONFIG_HOME": str(home / ".config")}
+
+    env["CODEX_HOME"] = str(home / ".codex")
+    if marketplace:
+        env.update(PATH=os.environ["PATH"], GIT_TERMINAL_PROMPT="0",
+                   CODEX_DISABLE_UPDATE_CHECK="1", OTEL_SDK_DISABLED="true")
+        for key in ("UV_CACHE_DIR", "UV_PYTHON_INSTALL_DIR", "UV_OFFLINE"):
+            if key in os.environ:
+                env[key] = os.environ[key]
 
     def cli(*args):
         return subprocess.check_output([serve, *args], cwd=work, env=env, text=True, timeout=45)
@@ -93,24 +115,31 @@ def exercise(serve, base):
         invitation = json.loads(cli("pair", "invite", "test-caller", "-o", "json"))
         cli("pair", "join", url, invitation["code"])
         package = Path(__file__).resolve().parents[2]
-        # Exercise the same saved entry the host launches after installing with no agent.
-        def settings(script, *args):
-            subprocess.run([sys.executable, str(package / script), "codex", *args],
-                           env=env, cwd=base, check=True, stdout=subprocess.DEVNULL)
-
-        settings("configure.py")
-        settings("manage.py", "add", "control", "--url", "http://127.0.0.1:1")
-        settings("manage.py", "add", "swatch", "--url", url, "--serve-credentials", str(serve))
-        profile = tomllib.loads((home / ".codex/config.toml").read_text())["mcp_servers"]
-        def command_for(name):
+        def configured(name):
+            profile = tomllib.loads((home / ".codex/config.toml").read_text())["mcp_servers"]
             entry = profile[name]
             return [entry["command"], *entry["args"]]
 
-        directory = wire(command_for("a2a-directory"), env, "tools/call", {"name": "list_agents"})
+        if marketplace:
+            directory_cmd = marketplace_directory(marketplace, env, home)
+        else:
+            subprocess.run([sys.executable, str(package / "configure.py"), "codex"], env=env, check=True)
+            directory_cmd = configured("a2a-directory")
+
+        def listing():
+            return wire(directory_cmd, env, "tools/call", {"name": "list_agents"})
+
+        initial = json.loads(listing()["result"]["content"][0]["text"])
+        assert initial["agents"] == []
+        settings_cmd = shlex.split(initial["manageLocally"])
+        for args in (["add", "control", "--url", "http://127.0.0.1:1"],
+                     ["add", "swatch", "--url", url, "--serve-credentials", str(serve)]):
+            subprocess.run([*settings_cmd, *args], env=env, cwd=base, check=True)
+        directory = listing()
         agents = json.loads(directory["result"]["content"][0]["text"])["agents"]
         assert agents == [{"name": "control", "url": "http://127.0.0.1:1"}, {"name": "swatch", "url": url}]
         assert remote_count() == 0
-        command = command_for("swatch")
+        command = configured("swatch")
 
         def call(params, owner="origin"):
             meta = {
@@ -154,11 +183,20 @@ def exercise(serve, base):
         assert remote_count() == 1
         check_tasks(command, env)
         assert remote_count() == 2
+        if marketplace:
+            subprocess.run(["codex", "plugin", "remove", "a2a@agent-polyfill"], env=env, cwd=home, check=True)
+            assert wire(command, env, "tools/list", {})["result"]["tools"] == []
+            assert remote_count() == 2
+            print("Clean marketplace install, real delegation and uninstall passed.")
         print("Native Tasks and active-turn interop passed. Verified decline, two questions, stale reply, conversation isolation, restart and artifact.")
     finally:
         cli("stop")
 
 
 if __name__ == "__main__":
-    with TemporaryDirectory(prefix="a2a-", dir="/tmp") as directory:
-        exercise(Path(sys.argv[1]).resolve(strict=True), Path(directory))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("serve", type=Path)
+    parser.add_argument("--marketplace", help="Install from this local path or public owner/repo")
+    args = parser.parse_args()
+    with TemporaryDirectory(prefix="a2a-", dir=os.environ.get("A2A_TEST_TMP", "/tmp")) as directory:
+        exercise(args.serve.resolve(strict=True), Path(directory).resolve(), args.marketplace)

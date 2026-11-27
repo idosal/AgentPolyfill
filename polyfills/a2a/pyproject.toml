@@ -21,3 +21,7 @@ agentpolyfill-a2a = "agentpolyfill_a2a.server:main"
 
 [tool.setuptools]
 packages = ["agentpolyfill_a2a"]
+script-files = ["a2a-agents"]
+
+[tool.setuptools.data-files]
+"share/agentpolyfill-a2a" = ["manage.py", "configure.py"]

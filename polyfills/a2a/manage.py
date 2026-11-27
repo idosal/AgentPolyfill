@@ -87,7 +87,8 @@ class Directory:
     """A read-only MCP catalog. Configuration changes belong to the local user."""
     legacy_initialized = False
 
-    def __init__(self, host, base, path):
+    def __init__(self, host, base, path, marketplace=False):
+        self.marketplace = marketplace
         self.host, self.base, self.path = host, base, path
 
     async def dispatch(self, method, params):
@@ -111,7 +112,8 @@ class Directory:
             if params.get("arguments", {}) != {}:
                 raise AdapterError("list_agents takes no arguments.")
             agents = named_connections(self.host, self.base, self.path)
-            settings = settings_command(self.host, self.base, self.path)
+            settings = (shlex.quote(str(Path(sys.executable).parent / "a2a-agents")) if self.marketplace
+                        else settings_command(self.host, self.base, self.path))
             return {"content": [{"type": "text", "text": json.dumps({
                 "agents": agents, "manageLocally": settings,
             })}]}
@@ -134,13 +136,14 @@ def credentials(parser, editing=False):
         auth.add_argument("--clear-auth", action="store_true", help="Remove the stored credential reference")
 
 
-def apply(args):
+def apply(args, marketplace=False):
     if args.action == "list":
         show(args.host)
         return
     with profile_lock(args.host):
         if args.action == "add":
-            setup(args.host, args.name, args.url, None, args.serve_credentials, args.bearer_file)
+            setup(args.host, args.name, args.url, "existing" if marketplace else None,
+                  args.serve_credentials, args.bearer_file, marketplace=marketplace)
         elif args.action == "edit":
             if not any((args.url, args.serve_credentials, args.bearer_file, args.clear_auth)):
                 raise SetupError("Choose a URL or a credential change to save.")
@@ -149,7 +152,7 @@ def apply(args):
             remove(args.host, args.name)
 
 
-def interactive(host, parser):
+def interactive(host, parser, marketplace=False):
     while True:
         show(host)
         action = input("Add, edit, remove, or quit? ").strip().lower()
@@ -176,12 +179,19 @@ def interactive(host, parser):
         elif input(f"Remove {name}? [y/N] ").strip().lower() != "y":
             continue
         try:
-            apply(parser.parse_args(command))
+            apply(parser.parse_args(command), marketplace)
         except (SetupError, AdapterError, OSError, ValueError, subprocess.CalledProcessError) as exc:
             print(f"Could not save: {exc}", file=sys.stderr)
 
 
 def main():
+    if sys.argv[1:] == ["--marketplace-directory"]:
+        base, path = host_path("codex")
+        asyncio.run(serve(Directory("codex", base, path, marketplace=True)))
+        return
+    marketplace = sys.argv[1:3] == ["--marketplace-settings", "codex"]
+    if marketplace:
+        del sys.argv[1]
     if sys.argv[1:2] == ["--catalog"] and len(sys.argv) == 6:
         _, _, host, base, path, _mode = sys.argv
         asyncio.run(serve(Directory(host, Path(base), Path(path))))
@@ -203,9 +213,9 @@ def main():
     args = parser.parse_args()
     try:
         if args.action:
-            apply(args)
+            apply(args, marketplace)
         elif sys.stdin.isatty():
-            interactive(args.host, parser)
+            interactive(args.host, parser, marketplace)
         else:
             show(args.host)
             parser.print_help()

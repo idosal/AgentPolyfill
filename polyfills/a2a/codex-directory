@@ -1,0 +1,14 @@
+#!/bin/sh
+# Codex sets cwd to the installed plugin copy. Keep registered agents independent
+# of that versioned cache path when a later plugin version replaces this one.
+set -eu
+umask 077
+cd -- "$(dirname -- "$0")"
+base=${CODEX_HOME:-"$HOME/.codex"}
+runtime="$base/agentpolyfill-a2a/.runtime"
+if ! command -v uv >/dev/null 2>&1; then
+    echo "A2A Delegation requires uv on the Codex host's PATH." >&2
+    exit 1
+fi
+UV_PROJECT_ENVIRONMENT="$runtime" uv sync --project . --locked --no-editable --extra setup --no-dev --quiet
+exec "$runtime/bin/python" "$runtime/share/agentpolyfill-a2a/manage.py" --marketplace-directory
