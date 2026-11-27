@@ -31,8 +31,12 @@ its runner. Claude Code then declined Kitty image placeholders with the message
 graphics on both builds. The plugin respects a user's color setting and
 selects cells when Claude Code's Kitty path lacks the required color depth.
 
-These timings measure terminal output for controlled playback. Live game
-speed also depends on the emulator, the scene and the machine.
+In separate sessions the hosted Arcade server booted shareware DOOM. In both
+cells and Kitty graphics, keyboard input moved and turned the player, opened
+the automap, and returned to the level. The timed Kitty replay used file-backed
+PNGs. For the live game on a temporary memory volume Kitty declined a frame
+file, so the gameplay check used inline PNGs (`MCP_APPS_CLI_IMAGE_FILES=0`).
+The table measures the replay only.
 
 ## The example servers
 
