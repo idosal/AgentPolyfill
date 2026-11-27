@@ -31,8 +31,8 @@ const community = JSON.parse(readFileSync(join(site, '..', 'community', 'polyfil
 // line in llms.txt.
 const SECTIONS = [
   ['Start', ['guide/introduction', 'guide/getting-started']],
-  ['Polyfills for MCP extensions', ['guide/events', 'guide/skills', 'guide/server-cards', 'guide/apps']],
-  ['Beyond MCP', ['guide/ard']],
+  ['Polyfills for MCP extensions', ['guide/events', 'guide/skills', 'guide/server-cards', 'guide/apps', 'guide/tasks']],
+  ['Beyond MCP', ['guide/a2a', 'guide/ard']],
   ['Build', ['guide/build-a-polyfill', 'guide/spec-authors', 'guide/contributing', 'guide/community']],
   ['Reference', ['guide/how-it-works', 'guide/security']],
   ['Project', ['about']],

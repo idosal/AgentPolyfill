@@ -1,6 +1,6 @@
 # Remaining Tasks hosts
 
-Local checks on November 26–27, 2026, building on the rollout at `e7d415e6`.
+Local host checks on November 26–27, 2026.
 The target is the [SEP-2663 extension for MCP 2026-07-28](https://github.com/modelcontextprotocol/ext-tasks/blob/cc9aaac1047a9440b07486e38f37060bbebeef4c/seps/2663-tasks-extension.md).
 Each row identifies the host surface exercised.
 

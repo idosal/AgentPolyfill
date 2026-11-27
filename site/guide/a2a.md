@@ -1,3 +1,8 @@
+---
+title: A2A delegation
+description: Connect a named Agent2Agent peer, review its questions and receive the result in the originating chat.
+---
+
 # A2A delegation
 
 Connect a chat to a named A2A agent and review its questions before it finishes the job. This first-party client implements A2A 1.0 JSON-RPC and Structured Input v1 with the official Python SDK. On hosts with MCP Tasks, the originating chat can continue working and wake when a question or result arrives.
