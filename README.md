@@ -25,11 +25,12 @@ It includes Apps, Events and Server Cards.
 /plugin install agent-polyfill --marketplace idosal/AgentPolyfill
 ```
 
-**Codex** · With Codex 0.170+ and Node.js 20+, add the marketplace once, then install a plugin. To try Server Cards, run
+**Codex** · With Codex 0.170+ and Node.js 20+, add the marketplace once, then install Events and Skills for the examples below.
 
 ```sh
 codex plugin marketplace add idosal/AgentPolyfill
-codex plugin add mcp-server-cards@agent-polyfill
+codex plugin add mcp-events@agent-polyfill
+codex plugin add mcp-skills@agent-polyfill
 ```
 
 **Cursor** · Server Cards runs in the Cursor IDE with Node.js 20+. [Install the local plugin](polyfills/server-cards/codex/README.md#cursor-ide).
@@ -38,11 +39,46 @@ The [installation guide](https://agentpolyfill.com/guide/getting-started) covers
 
 ## Try it
 
-With Server Cards installed, try this prompt.
+### Play DOOM with MCP Apps
 
-> What MCP servers does neon.com publish?
+Add the arcade server from your shell, then start Claude Code.
 
-Choose **Neon Docs**, review its address and approve the addition. Your host handles the connection and any required sign-in.
+```sh
+claude mcp add --transport http arcade https://mcp-apps-arcade.idosalomon.workers.dev/mcp
+```
+
+> Load shareware DOOM from the arcade.
+
+Play the game inside the Claude Code terminal, right below the tool call.
+
+### Wake an idle session with MCP Events
+
+Add the demo feed for your host, then start a new session.
+
+```sh
+# Claude Code
+claude mcp add --transport http feeds https://event-feeds.idosalomon.workers.dev/mcp
+# Codex
+codex mcp add feeds --url https://event-feeds.idosalomon.workers.dev/mcp
+```
+
+> Give me a demo button and tell me what I type when I press it.
+
+Open the link the agent gives you, type a message, and press the button.
+The idle session wakes up and tells you what you sent. To finish, ask it to stop watching the demo button.
+
+### Pick a local model quantization with Skills over MCP
+
+Add Hugging Face's MCP server from your shell, then start Codex.
+
+```sh
+codex mcp add huggingface --url https://huggingface.co/mcp
+```
+
+> Which GGUF quantization should I use to run a 7B model on a 16 GB Mac?
+
+Approve the `huggingface-local-models` skill when prompted. Codex loads it
+from Hugging Face and uses its reference files to answer.
 
 ## Polyfills
 
