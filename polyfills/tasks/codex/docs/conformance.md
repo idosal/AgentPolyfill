@@ -1,6 +1,6 @@
 # Tasks client conformance, in Codex
 
-How this client (mcp-tasks for Codex, 0.1.0) stands against SEP-2663 (Final)
+How this client (mcp-tasks for Codex, 0.1.1) stands against SEP-2663 (Final)
 and the ext-tasks specification at revision 2026-07-28, at commit `cc9aaac` of
 `modelcontextprotocol/ext-tasks`. The rules, with their ids and where each is
 written, are in [`../../core/docs/client-rules.md`](../../core/docs/client-rules.md).

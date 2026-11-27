@@ -1,14 +1,15 @@
 {
   "name": "agent-polyfill",
   "private": true,
-  "description": "This repository as a Pi package: `pi install git:github.com/idosal/AgentPolyfill` installs the Pi forms of Events, Skills and Server Cards. ARD is installed on its own, from a clone.",
+  "description": "This repository as a Pi package: `pi install git:github.com/idosal/AgentPolyfill` installs the Pi forms of Events, Skills, Server Cards and Tasks. ARD is installed on its own, from a clone.",
   "license": "Apache-2.0",
   "repository": "github:idosal/AgentPolyfill",
   "pi": {
     "extensions": [
       "./polyfills/events/pi/extension/dist/index.js",
       "./polyfills/skills/pi/extension/dist/index.js",
-      "./polyfills/server-cards/pi/extension/dist/index.js"
+      "./polyfills/server-cards/pi/extension/dist/index.js",
+      "./polyfills/tasks/pi/extension/dist/index.js"
     ],
     "skills": [],
     "prompts": [],

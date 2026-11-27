@@ -1,7 +1,7 @@
 {
   "name": "mcp-tasks-codex",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "A Codex plugin that adds the client side of MCP Tasks (SEP-2663): a server's tool can run as a long task, the person approves each start in Codex's own form, and the idle session is woken when the task finishes.",
   "engines": {

@@ -13,6 +13,7 @@ on:
     branches: ["**"]
     paths:
       - "polyfills/*/hermes/**"
+      - "polyfills/tasks/core/**"
       - "polyfills/events/core/**"
       - "polyfills/skills/core/**"
       - "polyfills/skills/codex/src/**"
@@ -27,6 +28,7 @@ on:
   pull_request:
     paths:
       - "polyfills/*/hermes/**"
+      - "polyfills/tasks/core/**"
       - "tools/hermes/**"
       - ".github/workflows/hermes-test.yml"
 
@@ -53,9 +55,15 @@ jobs:
           node-version: 22
       - name: Dependencies
         run: |
-          for d in polyfills/events/core polyfills/skills/core polyfills/skills/codex polyfills/server-cards/codex polyfills/events/hermes polyfills/skills/hermes polyfills/server-cards/hermes polyfills/ard/hermes; do
+          for d in polyfills/events/core polyfills/skills/core polyfills/skills/codex polyfills/server-cards/codex polyfills/events/hermes polyfills/skills/hermes polyfills/server-cards/hermes polyfills/ard/hermes polyfills/tasks/core polyfills/tasks/hermes; do
             (cd "$d" && npm ci --no-audit --no-fund)
           done
+      - name: Tasks helper
+        working-directory: polyfills/tasks/hermes
+        run: |
+          npm run typecheck
+          npm run build
+          git diff --exit-code -- plugin
       - name: Shared Python modules
         run: python3 -m unittest discover -s tools/hermes/shared -p 'test_*.py' -v
       - name: Events
@@ -110,3 +118,4 @@ jobs:
           (cd polyfills/skills/hermes && "$HERMES_PYTHON" test/e2e_test.py -v)
           (cd polyfills/server-cards/hermes && python3 ../../../tools/hermes/run_card_e2e.py)
           (cd polyfills/ard/hermes && python3 ../../../tools/hermes/run_card_e2e.py)
+          (cd polyfills/tasks/hermes && python3 test/gateway.py)

@@ -42,6 +42,17 @@
       "category": "Developer Tools"
     },
     {
+      "name": "mcp-tasks",
+      "source": {
+        "source": "local",
+        "path": "./polyfills/tasks/codex/plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE"
+      },
+      "category": "Developer Tools"
+    },
+    {
       "name": "ard-discovery",
       "source": {
         "source": "local",
