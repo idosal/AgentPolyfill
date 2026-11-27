@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "target": "ESNext", "module": "NodeNext", "moduleResolution": "NodeNext",
+    "strict": true, "allowJs": true, "noEmit": true, "skipLibCheck": true,
+    "allowImportingTsExtensions": true, "types": ["node"]
+  },
+  "include": ["index.ts", "renderer.mjs"]
+}

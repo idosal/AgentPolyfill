@@ -218,6 +218,14 @@ function mcpServer() {
       contents: [{ uri, mimeType: "text/html;profile=mcp-app", text: NESTED_APP(name === "busy"), _meta: { ui: { csp: { frameDomains: [MCP_ORIGIN] } } } }],
     }));
   }
+  const motionUri = "ui://host-check/motion";
+  server.registerTool("motion", { description: "A canvas that stops moving", inputSchema: {}, _meta: { ui: { resourceUri: motionUri } } }, async () => ({ content: [] }));
+  server.registerResource("motion", motionUri, { mimeType: "text/html;profile=mcp-app" }, async () => ({
+    contents: [{ uri: motionUri, mimeType: "text/html;profile=mcp-app", text: `<canvas width="200" height="90"></canvas><script>
+      const ctx = document.querySelector('canvas').getContext('2d'); let i = 0;
+      const timer = setInterval(() => { ctx.fillStyle = i++ % 2 ? 'red' : 'blue'; ctx.fillRect(0,0,200,90); if (i >= 30) clearInterval(timer); }, 65);
+      <\/script>` }],
+  }));
   server.registerTool("ticker", { description: "Ticker", inputSchema: {}, _meta: { ui: { resourceUri: "ui://host-check/ticker" } } }, async () => ({
     content: [{ type: "text", text: "ok" }],
   }));
@@ -338,6 +346,7 @@ function startHelper(term = "Apple_Terminal", extraEnv = {}) {
   const said = new Map();
   const alts = new Map();
   const firstFrame = new Map();
+  let motionSeen = false, motionSettled = false;
   // Each view's scroll as its latest frame says it, in rows from the top.
   const tops = new Map();
   // When each view's latest frame came (ms).
@@ -358,13 +367,17 @@ function startHelper(term = "Apple_Terminal", extraEnv = {}) {
         if (m.type === "describe") alts.set(m.viewId, m.text);
         if (m.type === "frame" && !firstFrame.has(m.viewId)) firstFrame.set(m.viewId, Date.now());
         if (m.type === "frame") {
+          if (m.viewId === "motion" && m.frame) {
+            if (m.frame.motion === true && m.frame.cells) motionSeen = true;
+            else if (motionSeen) motionSettled = true;
+          }
           tops.set(m.viewId, (m.frame ?? m.image)?.scroll?.top ?? 0);
           lastFrame.set(m.viewId, Date.now());
         }
       }
     }),
   );
-  return { helper, said, alts, firstFrame, tops, lastFrame, ready };
+  return { helper, said, alts, firstFrame, tops, lastFrame, ready, motionSettled: () => motionSettled };
 }
 
 // The helper's socket, or on Windows (MCP_APPS_CLI_TRANSPORT=tcp) its URL; and its token.
@@ -564,6 +577,9 @@ for (const [toolName, mode, clicks] of [["nested", "cells", 1], ["busy", "cells"
     `${landed}/${clicks}, top ${h.tops.get(viewId)}, ${ready ? "ready" : opened.error ?? "frame did not load"}`);
   await post(socket, "/close", { viewId });
 }
+await post(socket, "/open", { viewId: "motion", server: "echo", toolName: "motion", toolInput: {}, cols: 32, maxRows: 8, mode: "cells" });
+check("an animated canvas delivers raster updates and a final still frame", await until(h.motionSettled, 8000), "motion then rest");
+await post(socket, "/close", { viewId: "motion" });
 // Out of sight, a view's page is paused, a frame from another site in it
 // too: a game scrolled away takes no CPU. It still answers, and runs again.
 await post(socket, "/open", { viewId: "ticker", server: "echo", toolName: "ticker", toolInput: {}, cols: 60, maxRows: 4, theme: "dark", mode: "cells" });

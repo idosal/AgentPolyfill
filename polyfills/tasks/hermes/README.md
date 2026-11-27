@@ -4,6 +4,17 @@ Hermes 0.23.4 gateway users can start SEP-2663 tasks, continue their conversatio
 receive a notification when input is needed, and retrieve the result in the same
 session. The command needs a viewer that can answer Hermes’s choice prompt.
 
+Watch the Hermes terminal approve a job, confirm the name and retrieve the greeting.
+
+<a href="../../../docs/media/demos/tasks-hermes.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../docs/media/demos/tasks-hermes.jpg">
+    <img src="../../../docs/media/demos/tasks-hermes.gif" alt="Watch the Hermes terminal Tasks walkthrough">
+  </picture>
+</a>
+
+[Watch the 21-second walkthrough](../../../docs/media/demos/tasks-hermes.mp4).
+
 ## Local setup
 
 Copy the contents of `plugin/` into `$HERMES_HOME/plugins/mcp-tasks/`, enable

@@ -16,6 +16,17 @@ Claude Code lists it as supported in the MCP [client
 matrix](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/extensions/client-matrix.mdx)
 and needs no polyfill. Details are in [Spec and conformance](#spec-and-conformance).
 
+Watch Codex approve the report, wake when it finishes and retrieve the result.
+
+<a href="../../../docs/media/demos/tasks-codex.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../docs/media/demos/tasks-codex.jpg">
+    <img src="../../../docs/media/demos/tasks-codex.gif" alt="Watch Codex approve the report, wake when it finishes and retrieve the result">
+  </picture>
+</a>
+
+[Watch the 10-second walkthrough](../../../docs/media/demos/tasks-codex.mp4).
+
 ## Install
 
 Add the [AgentPolyfill](../../../README.md) marketplace and install the plugin.

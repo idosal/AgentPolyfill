@@ -10,6 +10,7 @@
 //   {type:"log", level, text}                  diagnostics
 // Nothing else is ever written to stdout; logs go to stderr.
 
+import { fitCellFrame, createCellWorker } from "./cell-frame.mjs";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
@@ -29,15 +30,12 @@ import {
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { chromium } from "playwright-core";
 
-import { decodePng } from "./png.mjs";
 import { kindOf, parentCommandWords, placesHere, resolveServer } from "./servers.mjs";
 import { tooBroad } from "./csp.mjs";
 import { markDownloaded, privateFolder as checkedFolder } from "./platform.mjs";
 import { altFromTree, plainText } from "./alt.mjs";
-import { SNAP_ON, applySnap, planSnap } from "./snap.mjs";
 import { crc32, encodeStrips } from "./strips.mjs";
 import { genOf, pageHeld, sameOpen } from "./generations.mjs";
-import { composeFrame } from "./render.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CELL_WIDTH = 8;
@@ -110,6 +108,10 @@ const SANDBOX = "allow-scripts allow-forms allow-same-origin allow-pointer-lock"
 function viewOrigins(server, domain) {
   const local = { view: VIEW_ORIGIN, host: HOST_ORIGIN };
   if (typeof domain !== "string" || !domain) return local;
+  if (args.pi) {
+    const expected = createHash("sha256").update(server).digest("hex").slice(0,32) + ".mcp-app.localhost";
+    return domain.toLowerCase() === expected ? {view:"http://" + expected, host:"http://host." + expected} : local;
+  }
   const url = serverUrl(server);
   const expected = url ? `${createHash("sha256").update(url).digest("hex").slice(0, 32)}.claudemcpcontent.com` : undefined;
   if (domain.toLowerCase() !== expected) {
@@ -299,6 +301,10 @@ function imageCapable() {
   const program = process.env.TERM_PROGRAM ?? "";
   const version = (process.env.TERM_PROGRAM_VERSION ?? "0").split(".").map(Number);
   if (program === "iTerm.app") return version[0] > 3 || (version[0] === 3 && version[1] >= 5);
+  // Kitty placeholders need at least indexed color in the host renderer.
+  const forced = process.env.FORCE_COLOR;
+  if (["", "true", "false", "0", "1"].includes(forced) ||
+      (forced !== "2" && forced !== "3" && process.env.NO_COLOR)) return false;
   if (program === "ghostty" || process.env.GHOSTTY_RESOURCES_DIR) return true;
   if (process.env.KITTY_WINDOW_ID || process.env.TERM === "xterm-kitty") return true;
   return false;
@@ -346,6 +352,8 @@ const REQUEST_TIMEOUT_MS = 120_000;
 const CONSENT_TIMEOUT_MS = 600_000;
 
 const args = parseArgs(process.argv.slice(2));
+// Pi supplies only the selected, approved server over the private stdin pipe.
+const piEntry = args.pi ? JSON.parse(fs.readFileSync(0, "utf8")) : undefined;
 const socketPath =
   args.socket ?? path.join(os.tmpdir(), `mcp-apps-cli-${process.pid}.sock`);
 // The mod reaches the helper over a Unix socket only the person can open.
@@ -623,6 +631,10 @@ iframe{display:block;border:0;background:transparent}
  * started, sent or expanded before this.
  */
 function serverEntry(server) {
+  if (args.pi) {
+    if (server !== piEntry.server) throw new Error("server is outside this Pi view");
+    return { config: piEntry.config, scope: "Pi session" };
+  }
   return resolveServer(server, {
     places: placesHere(cwd),
     own: args.mcpConfig ?? [],
@@ -645,6 +657,7 @@ const serverScopes = new Map(); // server name -> the scope its config came from
 
 /** A read-only connection of our own, for tools/list and resources/read. */
 function sideClient(name) {
+  if (args.pi) throw Error("This view uses the original Pi connection.");
   if (!sideClients.has(name)) {
     const promise = (async () => {
       const { config, scope } = serverEntry(name);
@@ -1082,6 +1095,29 @@ async function newViewPage(mode, cols, maxRows, cellH, theme, store, localNetwor
   return { context, page: await context.newPage() };
 }
 
+// Pi reviews one exact resource before sharing the original tool arguments or
+// result. Keep the read in this per-view process so changes on the server
+// cannot substitute a different document or policy between review and open.
+let piReview;
+async function reviewPiView({ server, toolName, viewId, definition, resource }) {
+  if (!args.pi) return { ok: false, error: "Pi only" };
+  if (server !== piEntry.server || definition?.name !== toolName) throw Error("Mismatched Pi view.");
+  const entry = { resourceUri: definition?._meta?.ui?.resourceUri ?? definition?._meta?.["ui/resourceUri"] };
+  if (!entry || !entry.resourceUri?.startsWith("ui://")) throw new Error("This tool has no MCP App.");
+  const content = resource;
+  if (!content || content.uri !== entry.resourceUri ||
+      !/^text\/html;\s*profile=mcp-app$/i.test(content.mimeType ?? "")) {
+    throw new Error("The tool did not provide an MCP App resource.");
+  }
+  const { piContentSecurityPolicy, piDomainSources } = await import("../../../pi/policy.mjs");
+  const csp = cspDomains(allowedCsp(piDomainSources(content._meta?.ui?.csp), server));
+  piReview = { server, toolName, viewId, entry, definition, content, csp, policy: piContentSecurityPolicy(csp) };
+  const html = typeof content.text === 'string' ? content.text : Buffer.from(content.blob ?? '', 'base64').toString('utf8');
+  const hash = createHash('sha256').update(html).digest('hex');
+  return { ok: true, csp, hash, clipboard:Boolean(content._meta?.ui?.permissions?.clipboardWrite),
+    warnings: /<form\b[^>]*action\s*=|<input\b[^>]*type\s*=\s*["']?password/i.test(html) ? ['This app contains a form with a destination or a password field.'] : [] };
+}
+
 async function openView(options) {
   const held = views.get(options.viewId);
   // The same open asked again gets its page; a page of another open is
@@ -1110,15 +1146,24 @@ async function openViewNow(options) {
   const scheme = themeName(options.theme);
   const made = newViewPage(mode, cols, maxRows, cellH, scheme, store, localServer(server));
   const unmade = () => made.then(({ context }) => context.close(), () => {}).catch(() => {});
-  let content, entry;
+  let content, entry, reviewed;
   try {
-    const tools = (await discover(server)).tools;
-    entry = tools[toolName];
-    if (!entry) {
-      unmade();
-      return { ok: false, error: `${server}/${toolName} has no UI resource` };
+    if (args.pi) {
+      if (!piReview || piReview.server !== server || piReview.toolName !== toolName || piReview.viewId !== viewId) {
+        throw new Error("The app access review is missing.");
+      }
+      reviewed = piReview;
+      ({ entry, content } = reviewed);
+      piReview = undefined;
+    } else {
+      const tools = (await discover(server)).tools;
+      entry = tools[toolName];
+      if (!entry) {
+        unmade();
+        return { ok: false, error: `${server}/${toolName} has no UI resource` };
+      }
+      content = (await readUiResource(server, entry.resourceUri)).contents?.[0];
     }
-    content = (await readUiResource(server, entry.resourceUri)).contents?.[0];
   } catch (error) {
     unmade();
     throw error;
@@ -1137,17 +1182,18 @@ async function openViewNow(options) {
   }
   const meta = content._meta?.ui ?? {};
   // Logged for review; the mod tells the person about domains beyond the view.
-  const declared = allowedCsp(meta.csp, server);
-  const csp = cspDomains(declared);
+  const csp = reviewed?.csp ?? cspDomains(allowedCsp(meta.csp, server));
   const external = [...new Set(Object.values(csp).flat())];
-  log(`view ${viewId}: CSP ${buildCsp(declared)}`);
+  const policy = reviewed?.policy ?? buildCsp(csp);
+  log(`view ${viewId}: CSP ${policy}`);
 
   const theme = THEMES[scheme];
   const { context, page } = await made;
   // Before the host page and the app load, so it runs in the app's frame.
-  const clipboard = Boolean(meta.permissions?.clipboardWrite);
+  const clipboard = !args.pi && Boolean(meta.permissions?.clipboardWrite);
   if (clipboard) await context.addInitScript(CLIPBOARD_HOOK);
   const origins = viewOrigins(server, meta.domain);
+  const piClipboard = args.pi && options.clipboard === true && Boolean(meta.permissions?.clipboardWrite);
   const view = {
     fileStem: createHash("sha1").update(viewId).digest("hex").slice(0, 12),
     origins,
@@ -1157,6 +1203,8 @@ async function openViewNow(options) {
     gen: genOf(options),
     mode,
     visibility: entry.visibility,
+    piImages:args.pi && options.images === true,
+    inlineKitty: args.pi && options.kittyGraphics === true,
     context,
     page,
     frame: undefined,
@@ -1190,14 +1238,26 @@ async function openViewNow(options) {
   // holds in the URL or the form past its CSP (connect-src doesn't cover a
   // navigation, and a document from elsewhere brings no CSP of ours). Frames
   // it embeds (frameDomains) load and move as their CSP lets them.
+  const viewUrl = origins.view + "/view/" + encodeURIComponent(viewId);
+  const proxyOrigin = origins.view.replace("://", "://sandbox.");
+  const proxyUrl = proxyOrigin + "/proxy";
+  if (args.pi) {
+    const { sandboxPage } = await import("../../../pi/sandbox.mjs");
+    const digest = createHash("sha256").update(html).digest("hex");
+    const body = sandboxPage(origins.host, viewUrl, digest, SANDBOX);
+    await page.route(proxyOrigin + "/**", (route, request) =>
+      request.url() !== proxyUrl || !request.isNavigationRequest() || request.frame().parentFrame() !== page.mainFrame()
+        ? route.abort("blockedbyclient") : route.fulfill({ contentType: "text/html", body,
+      headers: { "Content-Security-Policy": "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-src " + origins.view + "; base-uri 'none'" } }));
+  }
   await page.route(
-    (url) => url.origin !== origins.view && url.origin !== origins.host,
+    (url) => url.origin !== origins.view && url.origin !== origins.host && (!args.pi || url.href !== proxyUrl),
     (route, request) => {
       let frame;
       try {
         frame = request.frame();
       } catch {}
-      const ours = frame && (frame === page.mainFrame() || frame.parentFrame() === page.mainFrame());
+      const ours = frame && (frame === page.mainFrame() || frame.parentFrame() === page.mainFrame() || (args.pi && frame.parentFrame()?.url() === proxyUrl));
       if (request.isNavigationRequest() && ours) {
         log(`view ${viewId}: navigation away refused (${request.url().slice(0, 120)})`);
         return route.abort("blockedbyclient");
@@ -1206,10 +1266,14 @@ async function openViewNow(options) {
     },
   );
   await page.route(`${origins.view}/**`, (route) =>
-    route.fulfill({
+    args.pi && (route.request().url() !== viewUrl || !route.request().isNavigationRequest() ||
+      route.request().frame().parentFrame()?.url() !== proxyUrl)
+      ? route.abort("blockedbyclient") : route.fulfill({
       status: 200,
       contentType: "text/html; charset=utf-8",
-      headers: { "Content-Security-Policy": buildCsp(declared) },
+      headers: { "Content-Security-Policy": policy, ...(args.pi ? {
+        "Permissions-Policy":"camera=(), microphone=(), geolocation=(), clipboard-read=()"
+      } : {}) },
       body: html,
     }),
   );
@@ -1217,6 +1281,20 @@ async function openViewNow(options) {
   // sandboxed iframe and anything it embeds included: only the host page's
   // own frame may use it. The app reaches the host through AppBridge's
   // postMessage, which validates what it sends.
+  if (piClipboard) {
+    await context.addInitScript(({url}) => {
+      if (location.href !== url) return;
+      Object.defineProperty(navigator, "clipboard", {configurable:true, value:{
+        writeText: text => window.__piCopy(String(text))
+      }});
+    }, {url:viewUrl});
+    await page.exposeBinding("__piCopy", async (source, text) => {
+      if (source.frame !== view.frame || typeof text !== "string" || !text || text.length > 8000 ||
+          Date.now() - (view.activatedAt ?? 0) > 2000) throw Error("Click the view to copy text.");
+      view.activatedAt = 0;
+      await requestFromMod(view, "ui/copy", { text }, CONSENT_TIMEOUT_MS);
+    });
+  }
   await page.exposeBinding("__cliHost", (source, kind, payload) => {
     if (source.frame !== page.mainFrame()) throw new Error("not available to the view");
     return onHostCall(view, kind, payload);
@@ -1229,11 +1307,19 @@ async function openViewNow(options) {
   });
   const host = hostPage(theme.background, scheme);
   await page.route(`${origins.host}/**`, (route) =>
-    route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: host }),
+    args.pi && (route.request().frame() !== page.mainFrame() || !route.request().isNavigationRequest())
+      ? route.abort("blockedbyclient") : route.fulfill({ status: 200, contentType: "text/html; charset=utf-8", body: host }),
   );
   await page.goto(`${origins.host}/`);
   await page.evaluate((o) => window.__openView(o), {
-    src: `${origins.view}/view/${encodeURIComponent(viewId)}`,
+    src: viewUrl,
+    proxy: args.pi ? { url: proxyUrl, html } : undefined,
+    actions: args.pi && options.actions === true,
+    images:options.images === true,
+    fullscreen: args.pi && options.fullscreen === true,
+    pip: args.pi && options.pip === true,
+    hover: args.pi ? options.hover === true : undefined,
+    resources: args.pi ? options.resources !== false : true,
     sandbox: SANDBOX,
     toolName,
     // While Claude is still writing the call (`streaming`), none yet: what
@@ -1247,12 +1333,14 @@ async function openViewNow(options) {
     fit: view.mode === "image",
     theme: scheme,
     styles: theme.styles,
-    tool: (await discover(server)).definitions[toolName],
+    tool: reviewed?.definition ?? (await discover(server)).definitions[toolName],
     locale: Intl.DateTimeFormat().resolvedOptions().locale,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    pi: args.pi === true,
+    serverTools: !args.pi || options.serverTools === true,
     userAgent: options.userAgent ?? "Claude Code (mcp-apps-cli)",
     csp,
-    clipboard,
+    clipboard:clipboard || piClipboard, changes:options.changes, prompts:options.prompts,
     // A border and background drawn by the host (`prefersBorder`); the
     // spec leaves an omitted one to the host, and here that's none.
     border: meta.prefersBorder === true,
@@ -1305,7 +1393,7 @@ function normalizeResult(result) {
 
 async function onHostCall(view, kind, payload) {
   if (process.env.MCP_APPS_CLI_DEBUG && kind !== "log") {
-    log(`host call ${kind} ${JSON.stringify(payload ?? {}).slice(0, 100)}`);
+    log(args.pi ? `host call ${kind}` : `host call ${kind} ${JSON.stringify(payload ?? {}).slice(0, 100)}`);
   }
   switch (kind) {
     case "size":
@@ -1318,6 +1406,9 @@ async function onHostCall(view, kind, payload) {
       });
       setTimeout(() => void capture(view), 30);
       return {};
+    case "audit":
+      if (args.pi) emit({type:"notify", viewId:view.id, method:"ui/audit", params:{method:String(payload?.method).slice(0,80)}});
+      return {};
     case "initialized":
       setTimeout(() => void capture(view), 60);
       emit({ type: "notify", viewId: view.id, gen: view.gen, method: "ui/app-modes", params: { modes: payload?.modes ?? null } });
@@ -1329,6 +1420,7 @@ async function onHostCall(view, kind, payload) {
     }
     case "tools/call": {
       const name = payload?.name;
+      if (args.pi) return requestFromMod(view, kind, { name, arguments: payload?.arguments ?? {} }, CONSENT_TIMEOUT_MS);
       const discoveredTools = await discover(view.server);
       if (discoveredTools.visibility[name] && !discoveredTools.visibility[name].includes("app")) {
         throw new Error(`tool ${name} is not available to apps`);
@@ -1353,9 +1445,18 @@ async function onHostCall(view, kind, payload) {
       }
       return normalizeResult(await requestFromMod(view, kind, payload));
     }
+    case "ui/request-teardown":
+      if (args.pi) emit({type:"notify", viewId:view.id, method:kind});
+      return {};
+    case "tools/list":
+    case "prompts/list":
+      if (args.pi) return requestFromMod(view, kind, payload ?? {});
+      throw Error("No Pi connection.");
     case "resources/read":
+      if (args.pi) return requestFromMod(view, kind, payload);
       return (await sideClient(view.server)).readResource(payload);
     case "resources/list":
+      if (args.pi) return requestFromMod(view, kind, payload ?? {});
       return (await sideClient(view.server)).listResources(payload ?? {});
     // The app copied text: to the person's clipboard, if they just clicked or
     // typed in the view (a copy button), as a browser requires; once per click.
@@ -1367,22 +1468,43 @@ async function onHostCall(view, kind, payload) {
       return {};
     }
     case "resources/templates/list":
+      if (args.pi) return requestFromMod(view, kind, payload ?? {});
       return (await sideClient(view.server)).listResourceTemplates(payload ?? {});
     // The mod answers these, asking the person where it should: { isError }
     // when it didn't happen.
     case "ui/message":
+      if (args.pi) return piContentRequest(view, kind, payload);
       return requestFromMod(view, kind, payload);
     case "ui/open-link":
       return requestFromMod(view, kind, payload, CONSENT_TIMEOUT_MS);
     case "ui/download-file":
       return downloadFiles(view, payload?.contents ?? []);
     case "ui/update-model-context":
+      if (args.pi) return piContentRequest(view, kind, payload);
+      emit({ type: "notify", viewId: view.id, gen: view.gen, method: kind, params: payload });
+      return {};
     case "log":
+      if (args.pi) {
+        const { appLogLine } = await import("../../../pi/policy.mjs");
+        emit({type:"notify", viewId:view.id, method:"log", params:{text:appLogLine(payload)}});
+        return {};
+      }
       emit({ type: "notify", viewId: view.id, gen: view.gen, method: kind, params: payload });
       return {};
     default:
       throw new Error(`unsupported host call ${kind}`);
   }
+}
+
+async function piContentRequest(view, kind, payload) {
+  const blocks = payload?.content ?? [];
+  const images = blocks.filter(b => b.type === "image");
+  if (!images.length) return requestFromMod(view, kind, payload, CONSENT_TIMEOUT_MS);
+  if (!view.piImages || images.length > 3) throw Error("Pi cannot review these images with the current model.");
+  const { reviewImage } = await import("../../../pi/media.mjs");
+  const content = [];
+  for (const block of blocks) content.push(block.type === "image" ? await view.page.evaluate(reviewImage, block) : block);
+  return requestFromMod(view, kind, {...payload, content}, CONSENT_TIMEOUT_MS);
 }
 
 /**
@@ -1411,9 +1533,14 @@ async function downloadBounded(view, contents) {
   for (const item of contents) {
     let resource = item?.type === "resource" ? item.resource : undefined;
     if (item?.type === "resource_link") {
-      resource = (await (await sideClient(view.server)).readResource({ uri: item.uri })).contents?.[0];
+      const read = args.pi ? await requestFromMod(view, "resources/read", {uri: item.uri})
+        : await (await sideClient(view.server)).readResource({ uri: item.uri });
+      resource = args.pi ? read.contents?.find(content => content.uri === item.uri) : read.contents?.[0];
     }
-    if (!resource) continue;
+    if (!resource) {
+      if (args.pi) return {isError:true};
+      continue;
+    }
     // The size before decoding: base64 is 4 characters for 3 bytes.
     total += typeof resource.blob === "string" ? Math.floor((resource.blob.length * 3) / 4) : Buffer.byteLength(String(resource.text ?? ""));
     if (total > MAX_DOWNLOAD_BYTES) return { isError: true };
@@ -2202,7 +2329,7 @@ async function appEvalNow(view, expression) {
     await view.cdp.send("Runtime.enable");
   }
   const { frameTree } = await view.cdp.send("Page.getFrameTree");
-  const app = (frameTree.childFrames ?? []).find((child) => child.frame.url.startsWith(`${view.origins.view}/view/`));
+  const app = (args.pi ? (frameTree.childFrames ?? []).flatMap(proxy => proxy.childFrames ?? []) : (frameTree.childFrames ?? [])).find((child) => child.frame.url.startsWith(`${view.origins.view}/view/`));
   const contextId = app && view.contexts.get(app.frame.id);
   if (!contextId) throw new Error("the view's frame has no context yet");
   const result = await view.cdp.send("Runtime.evaluate", { expression, contextId, returnByValue: true, awaitPromise: true });
@@ -2256,7 +2383,7 @@ async function capture(view) {
       // A drag (a button held) moves the page too. Its changes follow input,
       // so `animating` doesn't count them: without this a drag went at 2x,
       // four times the pixels, and only 1-2 pictures a second got through.
-      const moving = !IMAGE_FILES && (animating || sweeping || view.pointerHeld);
+      const moving = now < (view.navigationUntil ?? 0) || (!IMAGE_FILES && (animating || sweeping || view.pointerHeld));
       // Strips (below) need each row to be whole pixels: just over 1x then.
       // At most the view's own cap: lowered when its strips grew too big.
       let scale = Math.min(moving ? (inlineStrips(view) ? Math.ceil(view.cellH) / view.cellH : 1) : 2, view.maxScale ?? 2);
@@ -2303,19 +2430,9 @@ async function capture(view) {
     const cache = backstop || Date.now() - (view.inputAt ?? 0) <= TEXT_AFTER_INPUT_MS ? undefined : view.textCache;
     const reuse = typeof domBefore === "number" && domBefore >= 0 && cache?.dom === domBefore && cache.gen === gen;
     let textBefore = reuse ? JSON.stringify([...cache.domLines, ...canvasBefore]) : JSON.stringify(await appEval(view, `(${EXTRACT_TEXT})()`));
-    const png = await inTurn(view, async () => {
-      const wanted = wantedViewport(view);
-      if (wanted.height > Math.ceil(view.maxRows * view.cellH)) await fitViewport(view, true);
-      return view.page.screenshot({
-      // Viewport coordinates: the page is scrolled to `top` already. CSS
-      // scale: the cell renderer works at one pixel per CSS pixel, also for a
-      // view that started as an image and was sent back to cells.
-      clip,
-      caret: "initial",
-      animations: "allow",
-      scale: "css",
-    });
-    });
+    // Capture the same document-space rectangle as graphics mode. The cell
+    // encoder consumes one pixel per CSS pixel even on a high-density display.
+    const png = await shoot(view, clip, 1);
     // Debug: keep the screenshot the cells are fitted from.
     // MCP_APPS_CLI_DUMP_ALL keeps every frame (numbered) instead of the last.
     const dumpName = process.env.MCP_APPS_CLI_DUMP_ALL ? `${view.id}-${String(view.version + 1).padStart(4, "0")}` : view.id;
@@ -2371,48 +2488,68 @@ async function capture(view) {
       .update(JSON.stringify(texts))
       .update(String(top))
       .digest("hex");
-    if (hash === view.hash && rows === view.rows) return;
-    // Glyph memory for photo cells, per view; a scroll starts it afresh.
-    if (!view.cellMemory || view.cellMemoryTop !== top) {
-      view.cellMemory = {};
-      view.cellMemoryTop = top;
+    // A Pi view may fit one frame while Chrome captures the next. Await the
+    // earlier fit before handing off this frame, bounding memory and latency.
+    if (view.pendingCells) await view.pendingCells;
+    const current = () => views.get(view.id) === view && !stale() && view.scrollY === top && !view.paused && view.mode !== "image";
+    if (!current()) return;
+    const newPixels = hash !== view.hash || rows !== view.rows;
+    let motion = false;
+    if (!args.pi) {
+      const largePicture = photos.some(({ x, y, w, h }) => {
+        const width = Math.max(0, Math.min(clip.width, x + w) - Math.max(0, x));
+        const height = Math.max(0, Math.min(clip.height, y + h) - Math.max(0, y));
+        return width * height >= clip.width * clip.height / 2;
+      });
+      const now = Date.now();
+      if (!texts.length || largePicture) {
+        if (newPixels) {
+          if (now - (view.cellChangedAt ?? 0) < 180) {
+            view.cellSettleAt = now + 300;
+            clearTimeout(view.cellSettleTimer);
+            view.cellSettleTimer = setTimeout(() => void capture(view), 301);
+          }
+          view.cellChangedAt = now;
+        }
+        motion = now < (view.cellSettleAt ?? 0);
+      } else {
+        view.cellSettleAt = view.cellChangedAt = 0;
+      }
     }
-    // Long edges onto the cell grid first (see snap.mjs).
-    let fitted = { img: decodePng(png), texts, photos };
-    const anchors = SNAP_ON ? planSnap(fitted.img, Math.round(view.cellH), texts, photos) : null;
-    if (anchors) fitted = applySnap(anchors, fitted.img, texts, photos);
-    const frame = composeFrame(fitted.img, fitted.texts, {
-      cols,
-      rows,
-      cellWidth: CELL_WIDTH,
-      cellHeight: view.cellH,
-      pageBackground: view.background,
-      photos: fitted.photos,
-      memory: view.cellMemory,
-      // Kept for the view's life: its photo palette and a mirror of Claude
-      // Code's pair slots for its Raster.
-      painter: (view.painter ??= {}),
-      sextants: SEXTANTS,
-      truecolor: TRUECOLOR,
-      lines: TRUECOLOR || Boolean(process.env.MCP_APPS_CLI_LINES),
-    });
-    if (TRUECOLOR) {
-      // Rows of styled runs for the mod to draw as text: [text, fg, bg, flags].
-      frame.styled = frame.lines;
-      delete frame.lines;
-      delete frame.cells;
+    if (!newPixels && motion === Boolean(view.drewMotion)) return;
+    if (motion !== Boolean(view.drewMotion)) view.cellState = undefined;
+    view.drewMotion = motion;
+    const styled = TRUECOLOR && !motion;
+    const request = { png, texts, photos, top, cols, rows, cellWidth: CELL_WIDTH, cellHeight: view.cellH,
+      pageBackground: view.background, sextants: (args.pi || styled) && SEXTANTS, truecolor: styled,
+      lines: styled || Boolean(process.env.MCP_APPS_CLI_LINES) };
+    const deliver = frame => {
+      if (!current()) return;
+      if (motion) frame.motion = true;
+      view.hash = hash;
+      view.rows = rows;
+      view.version++;
+      const totalRows = Math.ceil(heightPx / view.cellH);
+      if (totalRows > rows) frame.scroll = { top: Math.round(top / view.cellH), rows, total: totalRows };
+      emit({ type: "frame", viewId: view.id, gen: view.gen, v: view.version, frame });
+      if (process.env.MCP_APPS_CLI_DEBUG && view.version % 10 === 0) log(`view ${view.id}: frame ${view.version}`);
+    };
+    if (args.pi && !view.cellWorkerFailed) {
+      view.pendingCells = Promise.resolve().then(() => {
+        view.cellWorker ??= createCellWorker();
+        return view.cellWorker.paint(request);
+      }).then(deliver).catch(error => {
+        if (views.get(view.id) !== view) return;
+        log(`cell renderer ${view.id}:`, error.message);
+        view.cellWorker?.close();
+        view.cellWorkerFailed = true;
+        // Retry on the main thread with the current layout and scroll position.
+        setTimeout(() => void capture(view), 0);
+      });
+    } else {
+      deliver(fitCellFrame(view.cellState ??= {}, request));
     }
-    view.hash = hash;
-    view.rows = rows;
-    view.version++;
     changed = true;
-    const totalRows = Math.ceil(heightPx / view.cellH);
-    frame.scroll =
-      totalRows > rows
-        ? { top: Math.round(top / view.cellH), rows, total: totalRows }
-        : undefined;
-    emit({ type: "frame", viewId: view.id, gen: view.gen, v: view.version, frame });
-    if (process.env.MCP_APPS_CLI_DEBUG && view.version % 10 === 0) log(`view ${view.id}: frame ${view.version}`);
   } catch (error) {
     if (views.has(view.id)) log(`capture ${view.id}:`, error.message);
   } finally {
@@ -2441,7 +2578,10 @@ async function capture(view) {
     if (view.again || changed) {
       view.again = false;
       clearTimeout(view.soon);
-      const pace = view.mode !== "image" ? ANIMATION_MS : IMAGE_FILES ? IMAGE_FILE_PACE_MS : IMAGE_ANIMATION_MS;
+      // Compact moving PNGs fit the Kitty graphics transport at the file-mode
+      // cadence. Retain the inline bandwidth budget for large pictures and iTerm.
+      const fastKitty = view.inlineKitty && view.lastScale <= 1 && view.lastImage?.png.length <= 160 * 1024;
+      const pace = view.mode !== "image" ? ANIMATION_MS : (IMAGE_FILES || fastKitty) ? IMAGE_FILE_PACE_MS : IMAGE_ANIMATION_MS;
       // Counted from when this capture started: a capture's own time is part
       // of the pace, not added to it.
       const wait = changed ? Math.max(1, view.captureStarted + pace - Date.now()) : 20;
@@ -2497,13 +2637,21 @@ function isKeyName(name) {
 
 function input(view, event) {
   view.inputAt = Date.now();
+  if (view.mode === "image" && event.kind === "key" && ["up", "down", "left", "right"].includes(event.key)) {
+    if (view.inputAt - (view.lastArrowAt ?? 0) < 400) {
+      view.navigationUntil = view.inputAt + 450;
+      clearTimeout(view.navigationTimer);
+      view.navigationTimer = setTimeout(() => void capture(view), 451);
+    }
+    view.lastArrowAt = view.inputAt;
+  }
   // A click or a key, as a browser's user activation: what lets the app copy
   // once (see "copy"). A hover, a move or the wheel doesn't.
   if (event.kind === "key" || (event.kind === "pointer" && (event.type === "down" || event.type === "up"))) {
     view.activatedAt = view.inputAt;
   }
   describeSoon(view, ALT_INPUT_MS);
-  view.inputs = view.inputs.then(async () => {
+  const deliver = async () => {
     const { mouse, keyboard } = view.page;
     if (event.kind === "pointer") {
       const x = (event.fine?.x ?? event.x + 0.5) * CELL_WIDTH;
@@ -2641,7 +2789,11 @@ function input(view, event) {
     }
     setTimeout(() => void capture(view), 50);
     setTimeout(() => void capture(view), 250);
-  }).catch((error) => log(`input ${view.id}:`, error.message));
+  };
+  // Chromium changes its viewport temporarily to take a screenshot. Keep
+  // pointer hit-testing and dispatch together while the viewport is stable.
+  view.inputs = view.inputs.then(() => event.kind === "pointer" ? inTurn(view, deliver) : deliver())
+    .catch((error) => log(`input ${view.id}:`, error.message));
   return { ok: true };
 }
 
@@ -2727,9 +2879,12 @@ async function inOwnTmp(launch) {
 /** The viewport a view needs: its own size, or its frame's before a shrink, if larger. */
 function wantedViewport(view) {
   const scale = view.scale ?? 1;
+  const visibleHeight = Math.ceil(view.maxRows * view.cellH);
   return {
     width: Math.ceil((view.cols * CELL_WIDTH) / scale),
-    height: Math.max(Math.ceil(view.maxRows * view.cellH), Math.ceil((view.heightPx ?? 0) / scale)),
+    // Unscaled views scroll the real browser viewport. A document-height
+    // viewport puts scrolled targets outside the composited terminal window.
+    height: scale === 1 ? visibleHeight : Math.max(visibleHeight, Math.ceil((view.heightPx ?? 0) / scale)),
   };
 }
 
@@ -2819,7 +2974,7 @@ async function describe(view) {
     try {
       view.cdp ??= await view.page.context().newCDPSession(view.page);
       const { frameTree } = await view.cdp.send("Page.getFrameTree");
-      const app = (frameTree.childFrames ?? []).find((child) => child.frame.url.startsWith(`${view.origins.view}/view/`));
+      const app = (args.pi ? (frameTree.childFrames ?? []).flatMap(proxy => proxy.childFrames ?? []) : (frameTree.childFrames ?? [])).find((child) => child.frame.url.startsWith(`${view.origins.view}/view/`));
       if (app) text = altFromTree(await view.cdp.send("Accessibility.getFullAXTree", { frameId: app.frame.id }));
     } catch {}
   }
@@ -2832,6 +2987,7 @@ async function describe(view) {
 
 /** Stops a view's timers and what it waits on; it's no longer in `views`. */
 function forgetView(view) {
+  view.cellWorker?.close();
   views.delete(view.id);
   // A paused page resumes as its debugger sessions go (crash, close, Chrome stopping).
   void settleShown(view);
@@ -2840,6 +2996,8 @@ function forgetView(view) {
   clearInterval(view.storeTimer);
   clearTimeout(view.storeSoon);
   clearTimeout(view.soon);
+  clearTimeout(view.navigationTimer);
+  clearTimeout(view.cellSettleTimer);
   worker?.postMessage({ drop: view.id });
   if (imageFolder) {
     for (let k = 0; k < 3; k++) {
@@ -2899,6 +3057,20 @@ const PAGELESS_ROUTES = new Set(["/ping", "/discover", "/prewarm", "/shown", "/r
 const routes = {
   "/ping": async () => ({ ok: true, views: [...views.keys()], rowHeights: [...views.values()].map((v) => v.cellH) }),
   "/discover": async ({ server, refresh }) => ({ ok: true, ...(await discover(server, refresh)) }),
+  "/pi/review": reviewPiView,
+  "/pi/change": async ({viewId, kind}) => {
+    if (!args.pi) return {ok:false};
+    await views.get(viewId)?.page.evaluate(k => window.__serverChange(k), kind);
+    return {ok:true};
+  },
+  "/pi/view-tools": async ({viewId}) => {
+    if (!args.pi) return {ok:false};
+    return {ok:true, tools:await views.get(viewId)?.page.evaluate(() => window.__viewTools())};
+  },
+  "/pi/view-tool": async ({viewId, name, args:input}) => {
+    if (!args.pi) return {ok:false};
+    return {ok:true, result:await views.get(viewId)?.page.evaluate(([n,a]) => window.__callViewTool(n,a), [name,input])};
+  },
   "/open": openView,
   "/input": async ({ viewId, event }) => {
     const view = views.get(viewId);
@@ -3114,7 +3286,8 @@ process.stdout.on("error", () => void shutdown());
 function parseArgs(list) {
   const out = { mcpConfig: [] };
   for (let i = 0; i < list.length; i++) {
-    if (list[i] === "--socket") out.socket = list[++i];
+    if (list[i] === "--pi") out.pi = true;
+    else if (list[i] === "--socket") out.socket = list[++i];
     else if (list[i] === "--cwd") out.cwd = list[++i];
     else if (list[i] === "--mcp-config") out.mcpConfig.push(list[++i]);
   }

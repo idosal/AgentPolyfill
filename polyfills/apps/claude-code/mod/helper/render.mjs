@@ -211,7 +211,10 @@ function fitOf(s, cand) {
 
 /** A UI cell: free colours, a glyph only where it clearly beats flat. */
 function fitCell(img, x0, y0, cw, ch, prm) {
-  const s = gather(img, x0, y0, cw, ch, prm.weights);
+  return fitGathered(gather(img, x0, y0, cw, ch, prm.weights), cw, ch, prm);
+}
+
+function fitGathered(s, cw, ch, prm) {
   const { list } = candidates(cw, ch);
   const { T, n, sf } = s;
   const [w0, w1, w2] = s.w;
@@ -1255,12 +1258,12 @@ export function composeFrame(img, texts, opts) {
       }
       const prm = photos.length && isPhoto(c, r) ? PHOTO : UI;
       if (prm.photo && truecolor) {
-        const fit = fitCell(img, x0, y0, cw, ch, PHOTO);
+        const s = gather(img, x0, y0, cw, ch, PHOTO.weights);
+        const fit = fitGathered(s, cw, ch, PHOTO);
         const prev = previous && !isFlatPhoto(c, r) ? previous[r * cols + c] : -2;
         // Glyph hysteresis as in palette cells: keep last frame's shape unless clearly worse.
         let index = fit.index;
         if (prev >= 0 && prev !== index) {
-          const s = gather(img, x0, y0, cw, ch, PHOTO.weights);
           const keep = fitOf(s, list[prev]);
           const best = index >= 0 ? fitOf(s, list[index]) : 0;
           if (index < 0 || keep >= KEEP * best) index = prev;
@@ -1270,7 +1273,10 @@ export function composeFrame(img, texts, opts) {
           cells[r * cols + c] = { ch: " ", fg: -1, bg: fit.mean, flags: 0 };
           continue;
         }
-        const s = gather(img, x0, y0, cw, ch, PHOTO.weights);
+        if (index === fit.index) {
+          cells[r * cols + c] = { ch: list[index].ch, fg: fit.fg, bg: fit.bg, flags: 0 };
+          continue;
+        }
         const cand = list[index];
         fitOf(s, cand);
         const nb = s.n - cand.nf;
@@ -1492,7 +1498,7 @@ export function composeFrame(img, texts, opts) {
   }
 
   if (photos.length && !truecolor) admitPairs(cells, painter, opts.now ?? Date.now());
-  return { cols, rows, cells: packRaster(cells), lines: opts.lines ? toRuns(cells, cols, rows) : undefined };
+  return { cols, rows, cells: opts.raster === false ? undefined : packRaster(cells), lines: opts.lines ? toRuns(cells, cols, rows) : undefined };
 }
 
 /**
