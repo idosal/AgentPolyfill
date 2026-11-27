@@ -125,6 +125,11 @@ pub fn write(path: &Path, state: &Value) -> Result<()> {
         state["origins"].as_array().into_iter().flatten().all(|o|
             o["localStorage"].as_array().is_none_or(Vec::is_empty) && o["indexedDB"].as_array().is_none_or(Vec::is_empty));
     if empty { let _ = fs::remove_file(path); return Ok(()); }
+    write_json(path, state)
+}
+
+/// Writes `state` as `path`, whole or not at all, readable by this user only.
+pub fn write_json(path: &Path, state: &Value) -> Result<()> {
     let temp = path.with_extension(format!("json.{}.tmp", crate::tmp::random_hex(8)?));
     let result = (|| -> Result<()> {
         let mut options = OpenOptions::new();

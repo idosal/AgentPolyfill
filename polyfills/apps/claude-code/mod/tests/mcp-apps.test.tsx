@@ -284,6 +284,30 @@ for (const [setting, expected] of [
   })
 }
 
+// The helper's own sign-in is opt-in the same way: the person lists the
+// server under "Own sign-in (OAuth)" (off by default), and the mod says so
+// with each request that names the server.
+for (const [setting, expected] of [
+  [undefined, false],
+  ['', false],
+  ['vanilla', true],
+  [' other ,vanilla ', true],
+  ['vanil', false],
+  ['other', false],
+] as const) {
+  const options: Record<string, string> = setting === undefined ? {} : { ownSignIn: setting }
+  test(`own sign-in, setting ${JSON.stringify(setting ?? 'default')}: ${expected ? 'listed' : 'not listed'} for the helper`, { options }, async ($, on) => {
+    const { sent, finish } = standIns(on)
+    await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+    await $.tool.call({ tool: TOOL, tool_use_id: TOOL_USE_ID })
+    await until(() => sent.some((s) => s.route === '/open'), () => Promise.resolve())
+    const asked = sent.filter((s) => (s.body as { server?: unknown }).server === 'vanilla')
+    expect(asked.length).toBeGreaterThan(0)
+    for (const request of asked) expect(request.body.ownSignIn).toBe(expected)
+    finish()
+  })
+}
+
 test('the tool result reaches Claude unchanged and the view opens', async ($, on) => {
   const { sent, finish } = standIns(on)
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
@@ -1967,7 +1991,7 @@ for (const [what, matches, prewarm] of [
         const body = sent.find((s) => s.route === '/prewarm')!.body
         expect(body.server).toBe('vanilla')
         expect(body.tool).toBe('get-time')
-        expect(Object.keys(body).sort()).toEqual(['server', 'theme', 'tool'])
+        expect(Object.keys(body).sort()).toEqual(['ownSignIn', 'server', 'theme', 'tool'])
       } else {
         for (let i = 0; i < 300; i++) await Promise.resolve()
         expect(routes()).not.toContain('/prewarm')

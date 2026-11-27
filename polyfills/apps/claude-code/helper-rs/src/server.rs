@@ -250,6 +250,11 @@ async fn route(helper: &Arc<Helper>, path: &str, input: Value) -> Option<Result<
         "/open", "/input", "/shown", "/activity", "/resize", "/reply", "/theme", "/args", "/result", "/cancel", "/inline-png",
         "/refresh", "/close", "/locate", "/mode",
     ];
+    // The routes that name a server say whether the person listed it under
+    // "Own sign-in (OAuth)": the helper's token is used for it only then.
+    if let (Some(server), Some(listed)) = (input.get("server").and_then(Value::as_str), input.get("ownSignIn").and_then(Value::as_bool)) {
+        helper.mcp.set_own_sign_in(server, listed).await;
+    }
     Some(match path {
         "/ping" => Ok(helper.views.ping().await),
         // Whether app views have a browser to run in, and which.
@@ -268,7 +273,7 @@ async fn route(helper: &Arc<Helper>, path: &str, input: Value) -> Option<Result<
             let refresh = input.get("refresh").and_then(Value::as_bool).unwrap_or(false);
             match helper.mcp.discover(&server, refresh).await {
                 Ok(found) => {
-                    let mut answer = json!({ "ok": true });
+                    let mut answer = json!({ "ok": true, "ownSignIn": helper.mcp.uses_own_sign_in(&server) });
                     if let (Value::Object(a), Value::Object(f)) = (&mut answer, found) {
                         a.extend(f);
                     }
