@@ -45,6 +45,12 @@ codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add mcp-server-cards@agent-polyfill
 ```
 
+```bash [Cursor IDE]
+# From a clone of AgentPolyfill, with Node.js 20+ installed
+mkdir -p ~/.cursor/plugins/local
+cp -R polyfills/server-cards/codex/plugin ~/.cursor/plugins/local/mcp-server-cards
+```
+
 ```bash [Pi]
 pi install git:github.com/idosal/AgentPolyfill
 ```
@@ -79,6 +85,7 @@ Nothing to set up. Start your host:
 
 - **Claude Code:** `claude`.
 - **Codex:** `codex`.
+- **Cursor IDE** — Restart the editor after copying the plugin.
 - **Pi:** `pi`.
 - **OpenCode:** `opencode`.
 - **Antigravity:** the App or `agy`.
@@ -93,6 +100,7 @@ Then add **Neon Docs** (no sign-in):
 
 - **Claude Code:** press **Add**.
 - **Codex:** choose "Add it" in Codex's own form.
+- **Cursor IDE** — Open the returned install link and review the server name and URL. **Install** adds the server to your user MCP settings. **Cancel** dismisses the dialog. The plugin offers links for Streamable HTTP remotes without headers or secrets and checks for a name collision before generating a link.
 - **Pi:** ask "Add Neon Docs", then choose "Add it" in Pi's dialog. It is
   saved and registered for the current session, without a restart.
 - **OpenCode:** ask "Add Neon Docs", then allow it when OpenCode asks. It is

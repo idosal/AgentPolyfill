@@ -32,6 +32,8 @@ codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add mcp-server-cards@agent-polyfill
 ```
 
+**Cursor** · Server Cards runs in the Cursor IDE with Node.js 20+. [Install the local plugin](polyfills/server-cards/codex/README.md#cursor-ide).
+
 The [installation guide](https://agentpolyfill.com/guide/getting-started) covers prerequisites, setup and removal for each host.
 
 ## Try it
@@ -51,7 +53,7 @@ Select a host adapter for its install commands, examples and limits.
 | [**Apps**](https://agentpolyfill.com/guide/apps) | Play DOOM or explore a chart inside a tool call. | [Claude Code](polyfills/apps/claude-code) |
 | [**Events**](https://agentpolyfill.com/guide/events) | Wake an idle agent when a deployment fails. | [Claude Code](polyfills/events/claude-code) · [Codex](polyfills/events/codex) · [Pi](polyfills/events/pi) · [OpenCode](polyfills/events/opencode) · [Antigravity](polyfills/events/antigravity) · [Copilot CLI](polyfills/events/copilot) · [Hermes](polyfills/events/hermes) · [T3 Code](polyfills/events/t3) |
 | [**Skills**](https://agentpolyfill.com/guide/skills) | Load a skill from Hugging Face to choose a model quantization. | [Codex](polyfills/skills/codex) · [Pi](polyfills/skills/pi) · [OpenCode](polyfills/skills/opencode) · [Antigravity](polyfills/skills/antigravity) · [Hermes](polyfills/skills/hermes) |
-| [**Server Cards**](https://agentpolyfill.com/guide/server-cards) | Find the MCP servers published by `neon.com` and add Neon Docs. | [Claude Code](polyfills/server-cards/claude-code) · [Codex](polyfills/server-cards/codex) · [Pi](polyfills/server-cards/pi) · [OpenCode](polyfills/server-cards/opencode) · [Antigravity](polyfills/server-cards/antigravity) · [Copilot CLI](polyfills/server-cards/copilot) · [Hermes](polyfills/server-cards/hermes) |
+| [**Server Cards**](https://agentpolyfill.com/guide/server-cards) | Find the MCP servers published by `neon.com` and add Neon Docs. | [Claude Code](polyfills/server-cards/claude-code) · [Codex](polyfills/server-cards/codex) · [Cursor IDE](polyfills/server-cards/codex/README.md#cursor-ide) · [Pi](polyfills/server-cards/pi) · [OpenCode](polyfills/server-cards/opencode) · [Antigravity](polyfills/server-cards/antigravity) · [Copilot CLI](polyfills/server-cards/copilot) · [Hermes](polyfills/server-cards/hermes) |
 | [**ARD**](https://agentpolyfill.com/guide/ard) | Find Buildkite’s MCP server by domain or search an ARD registry. | [Claude Code](polyfills/ard/claude-code) · [Codex](polyfills/ard/codex) · [Pi](polyfills/ard/pi) · [OpenCode](polyfills/ard/opencode) · [Antigravity](polyfills/ard/antigravity) · [Copilot CLI](polyfills/ard/copilot) · [Hermes](polyfills/ard/hermes) |
 
 Agentic Resource Discovery (ARD) is a separate draft protocol. Its plugin asks before sending your query to a registry.

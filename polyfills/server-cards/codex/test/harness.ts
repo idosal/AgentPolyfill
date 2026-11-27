@@ -118,8 +118,9 @@ const yesOf = (schema: any): Record<string, unknown> => {
 }
 
 /** The built server on stdio, and a client that answers its forms with `answer`. */
-export function startServer(serverFile: string, opts: { env?: Record<string, string>; elicitation?: boolean; answer?: Answer; protocol?: string } = {}) {
+export function startServer(serverFile: string, opts: { cwd?: string; env?: Record<string, string>; elicitation?: boolean; answer?: Answer; protocol?: string } = {}) {
   const child: ChildProcess = spawn(process.execPath, [serverFile], {
+    cwd: opts.cwd,
     env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', ...(opts.env ?? {}) },
     stdio: ['pipe', 'pipe', 'pipe'],
   })
