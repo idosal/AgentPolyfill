@@ -113,6 +113,25 @@ player, fired the pistol and toggled the Hangar automap. One session emitted
 Kitty graphics and the other emitted ANSI-colored characters on a 136 × 48
 grid. The recorded gameplay uses the game served by Arcade.
 
+For a repeatable frame-rate comparison, we replayed the same 34 DOOM frames
+at 31.25 frames per second in a 104 × 38 Kitty window. We held an arrow key
+for three five-second intervals per mode and counted changed pictures or
+game-area writes from Pi 1.6.1. The median rates were:
+
+| Pi display mode | Before | After |
+| --- | ---: | ---: |
+| Kitty graphics | 17.4 fps | 29.4 fps |
+| Character cells | 19.9 fps | 30.0 fps |
+
+Kitty uses one image pixel per CSS pixel during sustained arrow input and
+restores full detail when the view settles. In cell mode, Chromium can
+capture the next picture while a worker fits glyphs and colors to the
+previous one. A separate read of Kitty's visible character grid observed
+29.4 changed frames per second at the median with the new renderer. In live
+Arcade play, three measured intervals ranged from 7.5 to 16.4 fps in Kitty
+graphics and 21.2 to 24.2 fps in cells. The live sessions had different game
+states.
+
 Run `npm ci` at the repository root and `npm ci && npm run typecheck && npm test`
 in this directory. The regressions cover Pi's model-facing catalog and its live
 updates, Chromium's applied policy, accepting and declining access, using the

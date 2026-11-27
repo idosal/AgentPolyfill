@@ -46,18 +46,32 @@ test('renders the original structured result without replay and enforces nested 
     assert.ok(!(await readFile(log, 'utf8')).includes('tools/call'));
 });
 
-test('an image-capable viewer receives a PNG', async t => {
+test('Kitty uses full detail at rest and restores it after sustained navigation', async t => {
     const cwd = await mkdtemp(join(tmpdir(), 'pi-apps-image-'));
     t.after(() => rm(cwd, {recursive:true, force:true}));
-    const frame = Promise.withResolvers();
+    const widths = [];
     const viewer = await openRenderer({
         server:'fixture', tool:'example', input:{}, result:{content:[],structuredContent:{label:'IMAGE'}},
         config:{command:process.execPath,args:[fileURLToPath(new URL('app-server.mjs', import.meta.url)), join(cwd, 'methods')]},
-        cols:50, rows:12, cwd, confirmOpen: () => true, onFrame() {}, onImage:frame.resolve
+        cols:50, rows:12, cwd, kittyGraphics:true, confirmOpen: () => true, onFrame() {},
+        onImage(data) {
+            const header = Buffer.from(data.slice(0, 32), 'base64');
+            assert.equal(header.subarray(0,8).toString('hex'), '89504e470d0a1a0a');
+            widths.push(header.readUInt32BE(16));
+        }
     });
     try {
-        const bytes = Buffer.from(await Promise.race([frame.promise, sleep(6000, null, {ref:false})]), 'base64');
-        assert.equal(bytes.subarray(0,8).toString('hex'), '89504e470d0a1a0a');
+        async function waitForWidth(pixels) {
+            for (let i = 0; i < 80 && widths.at(-1) !== pixels; i++) await sleep(75);
+            assert.equal(widths.at(-1), pixels, 'observed widths ' + widths.join(','));
+        }
+        await waitForWidth(800); // 50 columns, 8 CSS pixels each, at 2x.
+        for (let i = 0; i < 35 && widths.at(-1) !== 400; i++) {
+            await viewer.input({kind:'key', key:'left'});
+            await sleep(80);
+        }
+        assert.equal(widths.at(-1), 400);
+        await waitForWidth(800);
     } finally {
         viewer.close();
         await viewer.closed;

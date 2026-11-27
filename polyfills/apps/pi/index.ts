@@ -156,7 +156,7 @@ export default function apps(pi: ExtensionAPI) {
                 const policyConfig = typeof config.config.url === 'string' ? {url:(() => {
                     try { return new URL(config.config.url as string).origin; } catch { return 'https://unresolved.invalid'; }
                 })()} : {command:'stdio'};
-                const renderer = openRenderer({ ...item, config:policyConfig, native:item.native, theme, modes:true, images:ctx.model?.input.includes('image'), isCurrent:valid,
+                const renderer = openRenderer({ ...item, config:policyConfig, native:item.native, theme, kittyGraphics:protocol === 'kitty', modes:true, images:ctx.model?.input.includes('image'), isCurrent:valid,
                     hover:tui.mode === 'fullscreen', onRequest: actions.request,
                     onLog: (line: string) => { logs.push(line); if (logs.length > 50) logs.shift(); },
                     audit: (method: string) => {

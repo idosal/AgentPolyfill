@@ -10,6 +10,7 @@
 //   {type:"log", level, text}                  diagnostics
 // Nothing else is ever written to stdout; logs go to stderr.
 
+import { fitCellFrame, createCellWorker } from "./cell-frame.mjs";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
@@ -29,15 +30,12 @@ import {
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { chromium } from "playwright-core";
 
-import { decodePng } from "./png.mjs";
 import { kindOf, parentCommandWords, placesHere, resolveServer } from "./servers.mjs";
 import { tooBroad } from "./csp.mjs";
 import { markDownloaded, privateFolder as checkedFolder } from "./platform.mjs";
 import { altFromTree, plainText } from "./alt.mjs";
-import { SNAP_ON, applySnap, planSnap } from "./snap.mjs";
 import { crc32, encodeStrips } from "./strips.mjs";
 import { genOf, pageHeld, sameOpen } from "./generations.mjs";
-import { composeFrame } from "./render.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CELL_WIDTH = 8;
@@ -1202,6 +1200,7 @@ async function openViewNow(options) {
     mode,
     visibility: entry.visibility,
     piImages:args.pi && options.images === true,
+    inlineKitty: args.pi && options.kittyGraphics === true,
     context,
     page,
     frame: undefined,
@@ -2380,7 +2379,7 @@ async function capture(view) {
       // A drag (a button held) moves the page too. Its changes follow input,
       // so `animating` doesn't count them: without this a drag went at 2x,
       // four times the pixels, and only 1-2 pictures a second got through.
-      const moving = !IMAGE_FILES && (animating || sweeping || view.pointerHeld);
+      const moving = now < (view.navigationUntil ?? 0) || (!IMAGE_FILES && (animating || sweeping || view.pointerHeld));
       // Strips (below) need each row to be whole pixels: just over 1x then.
       // At most the view's own cap: lowered when its strips grew too big.
       let scale = Math.min(moving ? (inlineStrips(view) ? Math.ceil(view.cellH) / view.cellH : 1) : 2, view.maxScale ?? 2);
@@ -2485,48 +2484,40 @@ async function capture(view) {
       .update(JSON.stringify(texts))
       .update(String(top))
       .digest("hex");
-    if (hash === view.hash && rows === view.rows) return;
-    // Glyph memory for photo cells, per view; a scroll starts it afresh.
-    if (!view.cellMemory || view.cellMemoryTop !== top) {
-      view.cellMemory = {};
-      view.cellMemoryTop = top;
+    // A Pi view may fit one frame while Chrome captures the next. Await the
+    // earlier fit before handing off this frame, bounding memory and latency.
+    if (view.pendingCells) await view.pendingCells;
+    const current = () => views.get(view.id) === view && !stale() && view.scrollY === top && !view.paused && view.mode !== "image";
+    if (!current() || (hash === view.hash && rows === view.rows)) return;
+    const request = { png, texts, photos, top, cols, rows, cellWidth: CELL_WIDTH, cellHeight: view.cellH,
+      pageBackground: view.background, sextants: SEXTANTS, truecolor: TRUECOLOR,
+      lines: TRUECOLOR || Boolean(process.env.MCP_APPS_CLI_LINES) };
+    const deliver = frame => {
+      if (!current()) return;
+      view.hash = hash;
+      view.rows = rows;
+      view.version++;
+      const totalRows = Math.ceil(heightPx / view.cellH);
+      if (totalRows > rows) frame.scroll = { top: Math.round(top / view.cellH), rows, total: totalRows };
+      emit({ type: "frame", viewId: view.id, gen: view.gen, v: view.version, frame });
+      if (process.env.MCP_APPS_CLI_DEBUG && view.version % 10 === 0) log(`view ${view.id}: frame ${view.version}`);
+    };
+    if (args.pi && !view.cellWorkerFailed) {
+      view.pendingCells = Promise.resolve().then(() => {
+        view.cellWorker ??= createCellWorker();
+        return view.cellWorker.paint(request);
+      }).then(deliver).catch(error => {
+        if (views.get(view.id) !== view) return;
+        log(`cell renderer ${view.id}:`, error.message);
+        view.cellWorker?.close();
+        view.cellWorkerFailed = true;
+        // Retry on the main thread with the current layout and scroll position.
+        setTimeout(() => void capture(view), 0);
+      });
+    } else {
+      deliver(fitCellFrame(view.cellState ??= {}, request));
     }
-    // Long edges onto the cell grid first (see snap.mjs).
-    let fitted = { img: decodePng(png), texts, photos };
-    const anchors = SNAP_ON ? planSnap(fitted.img, Math.round(view.cellH), texts, photos) : null;
-    if (anchors) fitted = applySnap(anchors, fitted.img, texts, photos);
-    const frame = composeFrame(fitted.img, fitted.texts, {
-      cols,
-      rows,
-      cellWidth: CELL_WIDTH,
-      cellHeight: view.cellH,
-      pageBackground: view.background,
-      photos: fitted.photos,
-      memory: view.cellMemory,
-      // Kept for the view's life: its photo palette and a mirror of Claude
-      // Code's pair slots for its Raster.
-      painter: (view.painter ??= {}),
-      sextants: SEXTANTS,
-      truecolor: TRUECOLOR,
-      lines: TRUECOLOR || Boolean(process.env.MCP_APPS_CLI_LINES),
-    });
-    if (TRUECOLOR) {
-      // Rows of styled runs for the mod to draw as text: [text, fg, bg, flags].
-      frame.styled = frame.lines;
-      delete frame.lines;
-      delete frame.cells;
-    }
-    view.hash = hash;
-    view.rows = rows;
-    view.version++;
     changed = true;
-    const totalRows = Math.ceil(heightPx / view.cellH);
-    frame.scroll =
-      totalRows > rows
-        ? { top: Math.round(top / view.cellH), rows, total: totalRows }
-        : undefined;
-    emit({ type: "frame", viewId: view.id, gen: view.gen, v: view.version, frame });
-    if (process.env.MCP_APPS_CLI_DEBUG && view.version % 10 === 0) log(`view ${view.id}: frame ${view.version}`);
   } catch (error) {
     if (views.has(view.id)) log(`capture ${view.id}:`, error.message);
   } finally {
@@ -2555,7 +2546,10 @@ async function capture(view) {
     if (view.again || changed) {
       view.again = false;
       clearTimeout(view.soon);
-      const pace = view.mode !== "image" ? ANIMATION_MS : IMAGE_FILES ? IMAGE_FILE_PACE_MS : IMAGE_ANIMATION_MS;
+      // Compact moving PNGs fit the Kitty graphics transport at the file-mode
+      // cadence. Retain the inline bandwidth budget for large pictures and iTerm.
+      const fastKitty = view.inlineKitty && view.lastScale <= 1 && view.lastImage?.png.length <= 160 * 1024;
+      const pace = view.mode !== "image" ? ANIMATION_MS : (IMAGE_FILES || fastKitty) ? IMAGE_FILE_PACE_MS : IMAGE_ANIMATION_MS;
       // Counted from when this capture started: a capture's own time is part
       // of the pace, not added to it.
       const wait = changed ? Math.max(1, view.captureStarted + pace - Date.now()) : 20;
@@ -2611,6 +2605,14 @@ function isKeyName(name) {
 
 function input(view, event) {
   view.inputAt = Date.now();
+  if (view.mode === "image" && event.kind === "key" && ["up", "down", "left", "right"].includes(event.key)) {
+    if (view.inputAt - (view.lastArrowAt ?? 0) < 400) {
+      view.navigationUntil = view.inputAt + 450;
+      clearTimeout(view.navigationTimer);
+      view.navigationTimer = setTimeout(() => void capture(view), 451);
+    }
+    view.lastArrowAt = view.inputAt;
+  }
   // A click or a key, as a browser's user activation: what lets the app copy
   // once (see "copy"). A hover, a move or the wheel doesn't.
   if (event.kind === "key" || (event.kind === "pointer" && (event.type === "down" || event.type === "up"))) {
@@ -2953,6 +2955,7 @@ async function describe(view) {
 
 /** Stops a view's timers and what it waits on; it's no longer in `views`. */
 function forgetView(view) {
+  view.cellWorker?.close();
   views.delete(view.id);
   // A paused page resumes as its debugger sessions go (crash, close, Chrome stopping).
   void settleShown(view);
@@ -2961,6 +2964,7 @@ function forgetView(view) {
   clearInterval(view.storeTimer);
   clearTimeout(view.storeSoon);
   clearTimeout(view.soon);
+  clearTimeout(view.navigationTimer);
   worker?.postMessage({ drop: view.id });
   if (imageFolder) {
     for (let k = 0; k < 3; k++) {

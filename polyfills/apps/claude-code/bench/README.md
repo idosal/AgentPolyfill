@@ -7,6 +7,20 @@ need `claude` on PATH, Chrome, Node 22+, Python 3 with `pyte`
 (`pip install pyte`), and the helper's packages (`npm install` in
 `../mod/helper`).
 
+## Gameplay frame timing
+
+In Claude Code 2.1.331 on macOS, a local MCP App replayed 34 recorded DOOM
+frames at 31.25 fps in a 104 × 44 Kitty window. With the rebuilt Rust helper,
+the median screenshot stage fell from 56 ms to 38 ms. The helper can start
+the next screenshot while Chromium settles its pointer hit-testing after the
+previous one. Pointer events still wait for the repaint.
+
+Sampling the visible inline game area during three four-second intervals
+gave about 9.8 changed cell frames per second on both builds. Claude Code
+coalesces the redraws used for cells. In the Kitty graphics check, Claude
+Code reported that all 8-bit image IDs were in use and the plugin switched
+to cells, so the run yielded no graphics-mode FPS measurement.
+
 ## The example servers
 
 The example servers are the ones in the MCP Apps SDK repository. In a

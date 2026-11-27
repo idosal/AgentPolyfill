@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getCapabilities, setCapabilities } from '@earendil-works/pi-tui';
+import { getCapabilities, setCapabilities, stripTerminalSequences, visibleWidth } from '@earendil-works/pi-tui';
 import { AppSurface } from '../surface.ts';
 
 const event = (type, x, y, button = 'left') => ({ type, x, y, button });
@@ -45,4 +45,15 @@ test('routes a wheel at its cell and leaves the clipped area and footer to Pi', 
         { kind: 'pointer', type: 'move', button: undefined, fine: {x:4.5, y:1.5} },
         { kind: 'wheel', by: -1 },
     ]);
+});
+
+test('cell rows preserve default colours and clip wide text by terminal columns', () => {
+    const surface = new AppSurface(null, () => {});
+    surface.setCells([[['A', '#ff0000', '#000000'], ['B', '#ff0000', ''], ['界', '', '']]], 4);
+    const [full] = surface.render(4, 1);
+    assert.equal(stripTerminalSequences(full), 'AB界');
+    assert.match(full, /49mB/);
+    assert.match(full, /39m界/);
+    assert.equal((full.match(/38;2/g) ?? []).length, 1);
+    assert.ok(visibleWidth(surface.render(3, 1)[0]) <= 3);
 });

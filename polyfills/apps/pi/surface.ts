@@ -1,5 +1,5 @@
 import {
-    allocateImageId, getPngDimensions, renderImage, truncateToWidth,
+    allocateImageId, getPngDimensions, renderImage, truncateToWidth, visibleWidth,
     type ImageDimensions, type ImageProtocol, type TuiMouseEvent, type TuiMouseEventResult
 } from '@earendil-works/pi-tui';
 
@@ -9,13 +9,15 @@ type PointerInput = { kind: 'pointer'; type: 'down' | 'up' | 'move'; fine: { x: 
     | { kind: 'wheel'; by: number };
 
 function color(hex: string, code: number) {
-    return /^#[a-f0-9]{6}$/i.test(hex)
-        ? '\x1b[' + code + ';2;' + hex.slice(1).match(/../g)!.map(x => parseInt(x, 16)).join(';') + 'm' : '';
+    if (!/^#[a-f0-9]{6}$/i.test(hex)) return '';
+    const rgb = parseInt(hex.slice(1), 16);
+    return '\x1b[' + code + ';2;' + (rgb >> 16) + ';' + ((rgb >> 8) & 255) + ';' + (rgb & 255) + 'm';
 }
 
 /** Map terminal-local input back to the grid of the last frame actually drawn. */
 export class AppSurface {
     private cells = ['Opening MCP App…'];
+    private cellWidth = 0;
     private picture?: { png: string; dimensions: ImageDimensions };
     private frame?: Grid;
     private drawn?: { box: Grid; scaleX: number; scaleY: number };
@@ -30,15 +32,30 @@ export class AppSurface {
         if (protocol === 'kitty') this.imageId = allocateImageId();
     }
     setImage(png: string, grid: Grid) {
-        const dimensions = getPngDimensions(png);
+        const dimensions = getPngDimensions(png.slice(0, 32)); // Only the 24-byte PNG header contains the dimensions.
         if (!dimensions) return;
         this.picture = { png, dimensions };
         this.frame = grid;
         this.invalidate();
     }
     setCells(frame: Cell[][], cols: number) {
-        this.cells = frame.map(line => line.map(([text, fg, bg]) =>
-            color(fg, 38) + color(bg, 48) + text.replace(/[\x00-\x1f\x7f-\x9f]/g, '') + '\x1b[0m').join(''));
+        this.cellWidth = 0;
+        this.cells = frame.map(line => {
+            let row = '', plain = '', foreground = '', background = '';
+            for (const [text, fg, bg] of line) {
+                if (fg !== foreground) row += color(fg, 38) || '\x1b[39m';
+                if (bg !== background) row += color(bg, 48) || '\x1b[49m';
+                foreground = fg;
+                background = bg;
+                const glyphs = text.replace(/[\x00-\x1f\x7f-\x9f]/g, '');
+                row += glyphs;
+                plain += glyphs;
+            }
+            // Measure only the glyphs, once. Parsing every colour escape on
+            // every render can cost more than drawing the row.
+            this.cellWidth = Math.max(this.cellWidth, visibleWidth(plain));
+            return row + '\x1b[0m';
+        });
         this.frame = { cols, rows: frame.length };
     }
     invalidate() { this.imageLines = undefined; }
@@ -65,7 +82,8 @@ export class AppSurface {
         // Character cells are clipped, never scaled.
         this.drawn = this.frame && { box: { cols: Math.min(width, this.frame.cols), rows: Math.min(height, this.frame.rows) },
             scaleX: 1, scaleY: 1 };
-        return this.cells.slice(0, height).map(line => truncateToWidth(line, width));
+        const rows = this.cells.slice(0, height);
+        return this.frame && width >= this.cellWidth ? rows : rows.map(line => truncateToWidth(line, width));
     }
     handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
         if (!this.drawn) return;

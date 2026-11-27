@@ -15,7 +15,7 @@ export function originalMcpResult(result) {
 }
 
 /** @param {any} options */
-export async function openRenderer({ server, config, tool, input, result, cwd, cols, rows, onFrame, onImage, onTool, allowTool, confirmOpen, signal, native, onRequest = undefined, theme = undefined, modes = undefined, images = false, hover = false, audit = undefined, onLog = undefined, isCurrent = () => true }) {
+export async function openRenderer({ server, config, tool, input, result, cwd, cols, rows, onFrame, onImage, onTool, allowTool, confirmOpen, signal, native, kittyGraphics = false, onRequest = undefined, theme = undefined, modes = undefined, images = false, hover = false, audit = undefined, onLog = undefined, isCurrent = () => true }) {
     const runtimeEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
         /^(PATH|HOME|USERPROFILE|TMP|TEMP|TMPDIR|LANG|LC_.*|TZ|TERM|COLORTERM|COLORFGBG|DISPLAY|WAYLAND_DISPLAY|XDG_(RUNTIME|CONFIG|CACHE)_HOME|XDG_RUNTIME_DIR|SYSTEMROOT|WINDIR|LOCALAPPDATA|APPDATA|PROGRAMFILES.*|PROGRAMDATA|MCP_APPS_CLI_.*)$/i.test(key)));
     const child = spawn(process.execPath, [helper, '--pi', '--cwd', cwd], {
@@ -99,7 +99,7 @@ export async function openRenderer({ server, config, tool, input, result, cwd, c
         await post('/open', { server, toolName: tool, toolInput: input, toolResult: openingResult,
             serverTools: Boolean(allowTool), resources: native.hasResources, actions: Boolean(onRequest), clipboard: Boolean(onRequest && clipboard),
             changes:native.changes, prompts:native.hasPrompts,
-            fullscreen: Boolean(modes), pip: Boolean(modes), images, hover, theme, mode: onImage ? 'image' : 'cells', cols, maxRows: rows, userAgent: 'Pi (AgentPolyfill)' });
+            fullscreen: Boolean(modes), pip: Boolean(modes), kittyGraphics, images, hover, theme, mode: onImage ? 'image' : 'cells', cols, maxRows: rows, userAgent: 'Pi (AgentPolyfill)' });
         // Preserve the order of a physical gesture across separate HTTP requests.
         let queued = Promise.resolve();
         function enqueue(route, body) {
