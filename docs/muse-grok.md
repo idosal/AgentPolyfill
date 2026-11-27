@@ -27,6 +27,8 @@ Use Node 22.18 or newer and Muse Code. To install and approve all five reviewed 
 node tools/muse-grok/install-muse.mjs all --approve
 ```
 
+Keep the extracted kit in a stable folder. To update, unpack the new kit over that folder and run the installer again. It asks Muse to refresh the existing packages and checks every selected plugin for source conflicts before changing any of them.
+
 For a smaller install, replace `all` with a space-separated list such as `skills cards`. Omit `--approve` to review them before activation.
  These paths work from the repository root. Install only the features you want. After reviewing each plugin, approve its MCP server and start a new trusted session.
 

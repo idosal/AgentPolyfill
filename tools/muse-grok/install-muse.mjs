@@ -1,3 +1,5 @@
+import { realpathSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -21,10 +23,30 @@ function muse(...command) {
     if (run.error) console.error(run.error.message);
     if (run.status !== 0) process.exit(run.status ?? 1);
 }
-for (const name of selected) {
+// Check every source before changing any plugin. Muse ties local updates to the original folder.
+const inventory = spawnSync('muse', ['plugins', 'list', '--json'], { encoding: 'utf8' });
+if (inventory.error || inventory.status !== 0) {
+    console.error(inventory.error?.message ?? inventory.stderr);
+    process.exit(inventory.status ?? 1);
+}
+const installed = new Map(JSON.parse(inventory.stdout).plugins.map(({ record }) => [record.id, record]));
+function canonical(path) {
+    try { return realpathSync(path); } catch { return resolve(path); }
+}
+const plan = selected.map(name => {
     const [path, id] = plugins[name];
     const plugin = fileURLToPath(new URL('../../polyfills/' + path + '/plugin', import.meta.url));
-    muse('plugins', 'install', plugin);
+    const record = installed.get(id);
+    if (record && (!record.source?.path || canonical(record.source.path) !== canonical(plugin))) {
+        console.error(id + ' is installed from a different source: ' + (record.source?.path ?? record.source?.provenance ?? 'unknown'));
+        console.error('For a local installation, unpack the update over the original kit folder and run this installer there.');
+        process.exit(1);
+    }
+    return { id, plugin, update: Boolean(record) };
+});
+for (const { id, plugin, update } of plan) {
+    if (update) muse('plugins', 'update', id);
+    else muse('plugins', 'install', plugin);
     if (approve) muse('plugins', 'approve', id);
     else console.log('After reviewing the plugin, run: muse plugins approve ' + id);
 }

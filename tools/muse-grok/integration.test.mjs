@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { createServer } from 'node:http';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { once } from 'node:events';
 import { randomBytes } from 'node:crypto';
@@ -95,6 +95,37 @@ async function plugin(feature, config, http = false) {
     call.tools = (await rpc('tools/list')).result.tools;
     return call;
 }
+test('the installer checks all selected sources before changing any plugin', () => {
+    const dir = scratch(), fake = join(dir, 'muse'), log = join(dir, 'commands');
+    writeFileSync(fake, [
+        '#!/usr/bin/env node',
+        'const fs = require("node:fs");',
+        'const args = process.argv.slice(2);',
+        'fs.appendFileSync(process.env.MUSE_TEST_LOG, JSON.stringify(args) + "\\n");',
+        'if (args[1] === "list") console.log(process.env.MUSE_TEST_INVENTORY);'
+    ].join('\n'), { mode: 0o700 });
+    function install(source) {
+        writeFileSync(log, '');
+        const inventory = { plugins: [{ record: { id: 'mcp-task-monitor', source: { path: source } } }] };
+        const result = spawnSync(process.execPath, ['tools/muse-grok/install-muse.mjs', 'events', 'tasks'], {
+            cwd: root, encoding: 'utf8', env: { ...process.env, PATH: dir + ':' + process.env.PATH,
+                MUSE_TEST_INVENTORY: JSON.stringify(inventory), MUSE_TEST_LOG: log }
+        });
+        const commands = readFileSync(log, 'utf8').trim().split('\n').map(line => JSON.parse(line));
+        return { result, commands };
+    }
+    const conflict = install(join(dir, 'other-source'));
+    assert.equal(conflict.result.status, 1);
+    assert.match(conflict.result.stderr, /different source/);
+    assert.deepEqual(conflict.commands, [['plugins', 'list', '--json']]);
+    const same = install(resolve(root, 'polyfills/tasks/muse/plugin'));
+    assert.equal(same.result.status, 0, same.result.stderr);
+    assert.deepEqual(same.commands.slice(1), [
+        ['plugins', 'install', resolve(root, 'polyfills/events/muse/plugin')],
+        ['plugins', 'update', 'mcp-task-monitor']
+    ]);
+});
+
 test('catalogs preserve identity and only read the selected verified root', { timeout: 30000 }, async () => {
     const dir = scratch(), src = join(dir, 'catalog'), log = join(dir, 'reads');
     const a = skill('guide/one/setup'), b = skill('guide/two/setup'), nested = skill('guide/one/setup/nested');
