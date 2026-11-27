@@ -1,19 +1,29 @@
 {
-  "name": "agent-polyfill",
-  "private": true,
-  "description": "This repository as a Pi package: `pi install git:github.com/idosal/AgentPolyfill` installs the Pi forms of Apps, Events, Skills, Server Cards and Tasks. ARD is installed on its own, from a clone.",
+  "name": "agentpolyfill-pi-apps",
+  "version": "0.1.0",
+  "description": "Interactive MCP Apps for the Pi terminal",
   "license": "Apache-2.0",
   "repository": "github:idosal/AgentPolyfill",
+  "type": "module",
+  "keywords": [
+    "pi-package"
+  ],
   "pi": {
     "extensions": [
-      "./polyfills/apps/pi/index.ts",
-      "./polyfills/events/pi/extension/dist/index.js",
-      "./polyfills/skills/pi/extension/dist/index.js",
-      "./polyfills/server-cards/pi/extension/dist/index.js",
-      "./polyfills/tasks/pi/extension/dist/index.js"
+      "./polyfills/apps/pi/index.ts"
     ],
-    "skills": [],
     "prompts": [],
+    "skills": [],
     "themes": []
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "playwright-core": "1.65.1",
+    "zod": "4.6.7"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
   }
 }
