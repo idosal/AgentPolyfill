@@ -220,6 +220,7 @@ impl Helper {
             .env("MCP_APPS_CLI_STORAGE_DIR", "off")
             // Where sign-ins are kept: a file, so no test touches the person's keychain.
             .env("MCP_APPS_CLI_OAUTH_DIR", world.root.join("tokens"))
+            .env("MCP_APPS_CLI_TEST_NO_KEYCHAIN", "1")
             .envs(vars.iter().copied());
         // What Windows itself needs to start programs and open sockets (node
         // among them), and the transport a run asks for.
@@ -679,6 +680,7 @@ fn terminal_with(w: &World, args: &[&str], file_store: bool) -> Command {
         .env("USERPROFILE", w.root.join("home"))
         .env("MCP_APPS_CLI_OAUTH_DIR", w.root.join("tokens"))
         .env("MCP_APPS_CLI_NO_BROWSER", "1")
+        .env("MCP_APPS_CLI_TEST_NO_KEYCHAIN", "1")
         .stdin(Stdio::null());
     if file_store {
         command.env("MCP_APPS_CLI_TOKEN_STORE", "file");
@@ -875,6 +877,46 @@ fn the_consent_page_shows_what_the_server_publishes_and_falls_back_without_it() 
         assert!(ok && said.contains(expected), "{said}");
         assert!(child.wait().unwrap().success());
     }
+}
+
+// Changing the store setting after signing in: the earlier login is still used,
+// signing in again under the new setting moves it (one login left, the old one
+// revoked), and `signout` removes a login wherever it is, in every store.
+#[cfg(target_os = "macos")]
+#[test]
+fn changing_the_store_setting_keeps_one_login_and_signout_removes_every_copy() {
+    let w = World::new("store-change");
+    let server = OAuthServer::start(&w, "modern");
+    let requests = || std::fs::read_to_string(w.marker("oauth-requests")).unwrap_or_default();
+    w.claude_json(json!({"docs": {"type": "http", "url": server.url}}), json!({}));
+    let tokens = || -> Vec<String> { std::fs::read_dir(w.root.join("tokens")).map(|d| d.flatten().map(|e| e.file_name().to_string_lossy().to_string()).collect()).unwrap_or_default() };
+    let browser_signed_in = |env: &[(&str, &str)], file_store: bool| {
+        let (mut child, page, _lines) = browser_signin_with(&w, file_store, env);
+        let (ok, said) = browser_plays(&page, &["accept"]);
+        assert!(ok && said.contains("answered 200 signed-in"), "{said}");
+        assert!(child.wait().unwrap().success());
+    };
+    // 1. A plain-file login, then the setting changes to the encrypted file: the old login is still read.
+    browser_signed_in(&[], true);
+    assert_eq!(tokens().len(), 1, "{:?}", tokens());
+    let later = w.discover_with(&["docs"], true, &[("MCP_APPS_CLI_TOKEN_STORE", "encrypted"), ("MCP_APPS_CLI_PASSPHRASE", "correct horse battery")]);
+    let (_, docs) = later.iter().find(|(n, _)| n == "docs").unwrap();
+    assert_eq!(docs["ok"], true, "the earlier login is not read after the setting changed: {docs}");
+    // 2. Signing in again under the new setting: one login left, in the new store, the old one revoked.
+    let before = requests().matches("POST /revoke").count();
+    browser_signed_in(&[("MCP_APPS_CLI_TOKEN_STORE", "encrypted"), ("MCP_APPS_CLI_PASSPHRASE", "correct horse battery")], false);
+    let left = tokens();
+    assert!(left.len() == 1 && left[0].ends_with(".enc"), "{left:?}");
+    // One revoke asks twice (the refresh token, then the access token).
+    assert_eq!(requests().matches("POST /revoke").count(), before + 2, "the earlier login was not revoked: {}", requests());
+    // 3. A login in two stores (a plain copy planted beside the encrypted one): `signout` removes both.
+    let enc = w.root.join("tokens").join(&left[0]);
+    std::fs::copy(&enc, w.root.join("tokens").join(left[0].trim_end_matches(".enc"))).unwrap();
+    assert_eq!(tokens().len(), 2);
+    let out = terminal_with(&w, &["signout", "docs"], false).env("MCP_APPS_CLI_PASSPHRASE", "correct horse battery").output().unwrap();
+    let said = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(out.status.success() && said.matches("Deleted ").count() == 2, "{said}");
+    assert!(tokens().is_empty(), "{:?}", tokens());
 }
 
 // An encrypted store set globally without the passphrase: `signin` says what

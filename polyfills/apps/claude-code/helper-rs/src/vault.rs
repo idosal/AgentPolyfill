@@ -36,7 +36,12 @@ impl Kind {
 
     /// Whether this machine can keep tokens that way (the first two: macOS only for now).
     pub fn available(self) -> bool {
-        self == Kind::File || cfg!(target_os = "macos")
+        match self {
+            Kind::File => true,
+            // MCP_APPS_CLI_TEST_NO_KEYCHAIN keeps the tests off the person's real Keychain.
+            Kind::Keychain => cfg!(target_os = "macos") && std::env::var_os("MCP_APPS_CLI_TEST_NO_KEYCHAIN").is_none(),
+            Kind::Encrypted => cfg!(target_os = "macos"),
+        }
     }
 }
 
@@ -152,14 +157,27 @@ impl Place {
     }
 }
 
-/// Where a sign-in to one server at one url is kept, if there is one: the
-/// Keychain, then an encrypted file, then a plain file (unless only the file
-/// store was asked for, as the tests do).
-pub fn kept(name: &str, url: &str) -> Option<Place> {
+/// The stores in the order they are tried: the one that is set, then the rest.
+fn kinds_in_order(set: Option<Kind>) -> Vec<Kind> {
+    let mut kinds = vec![Kind::Keychain, Kind::Encrypted, Kind::File];
+    if let Some(set) = set {
+        kinds.retain(|k| *k != set);
+        kinds.insert(0, set);
+    }
+    kinds
+}
+
+/// Every place a sign-in to one server at one url is kept: the store that is
+/// set first, then the others (Keychain, encrypted file, plain file), so a
+/// login made before the setting was changed is still found.
+pub fn all_kept(name: &str, url: &str) -> Vec<Place> {
     let passphrase = std::env::var(PASSPHRASE_ENV).ok();
-    let file_only = std::env::var("MCP_APPS_CLI_TOKEN_STORE").is_ok_and(|v| v == "file");
-    let kinds: &[Kind] = if file_only { &[Kind::File] } else { &[Kind::Keychain, Kind::Encrypted, Kind::File] };
-    kinds.iter().filter(|k| k.available()).filter_map(|k| Place::of(*k, name, url, passphrase.clone())).find(Place::exists)
+    kinds_in_order(asked(&[]).ok().flatten()).iter().filter(|k| k.available()).filter_map(|k| Place::of(*k, name, url, passphrase.clone())).filter(Place::exists).collect()
+}
+
+/// The place a sign-in is read from: the first of `all_kept`.
+pub fn kept(name: &str, url: &str) -> Option<Place> {
+    all_kept(name, url).into_iter().next()
 }
 
 /// Refuses early, and says what to do, if `kind` can't be used here.
@@ -444,5 +462,15 @@ mod tests {
         place.delete().unwrap();
         assert!(!place.exists());
         place.delete().expect("deleting what is gone is not an error");
+    }
+
+    // The stores are tried with the one that is set first, then the others in the usual order,
+    // so a login made before the setting changed is still found (and the plain-file setting hides nothing).
+    #[test]
+    fn the_set_store_is_tried_first_and_the_others_after_it() {
+        assert_eq!(kinds_in_order(None), [Kind::Keychain, Kind::Encrypted, Kind::File]);
+        assert_eq!(kinds_in_order(Some(Kind::Keychain)), [Kind::Keychain, Kind::Encrypted, Kind::File]);
+        assert_eq!(kinds_in_order(Some(Kind::Encrypted)), [Kind::Encrypted, Kind::Keychain, Kind::File]);
+        assert_eq!(kinds_in_order(Some(Kind::File)), [Kind::File, Kind::Keychain, Kind::Encrypted]);
     }
 }

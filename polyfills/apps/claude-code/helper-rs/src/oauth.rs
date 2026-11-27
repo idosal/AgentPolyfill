@@ -406,7 +406,10 @@ pub async fn cli(args: crate::Args, words: &[String]) -> Result<()> {
         })
         .await?;
         match place {
-            Some(place) => signed_in(name, &place),
+            Some(place) => {
+                signed_in(name, &place);
+                retire_others(name, &url, &place).await;
+            }
             None => println!("Not signed in to {name}."),
         }
         return Ok(());
@@ -454,6 +457,7 @@ pub async fn cli(args: crate::Args, words: &[String]) -> Result<()> {
     })
     .await?;
     signed_in(name, &place);
+    retire_others(name, &url, &place).await;
     Ok(())
 }
 
@@ -490,17 +494,39 @@ async fn revoke(name: &str, url: &str, place: &Place) -> String {
 /// `mcp-apps-cli-helper signout <server> [--mcp-config …] [--cwd …]`
 pub async fn signout(args: crate::Args, words: &[String]) -> Result<()> {
     let (name, url) = target(&args, words)?;
-    let Some(place) = vault::kept(&name, &url) else {
+    // Wherever it is kept: a login made before the store setting changed counts too.
+    let places = vault::all_kept(&name, &url);
+    if places.is_empty() {
         println!("Not signed in to {name}: nothing to delete.");
         return Ok(());
-    };
-    println!("{}", revoke(&name, &url, &place).await);
-    place.delete().map_err(|why| anyhow!("deleting the tokens from {}: {why}", place.describe()))?;
-    match &place {
-        Place::File(path) | Place::Encrypted(path, _) => println!("Deleted {}", path.display()),
-        Place::Keychain(_) => println!("Removed the tokens from the macOS Keychain."),
+    }
+    for place in places {
+        println!("{}", revoke(&name, &url, &place).await);
+        place.delete().map_err(|why| anyhow!("deleting the tokens from {}: {why}", place.describe()))?;
+        match &place {
+            Place::File(path) | Place::Encrypted(path, _) => println!("Deleted {}", path.display()),
+            Place::Keychain(_) => println!("Removed the tokens from the macOS Keychain."),
+        }
     }
     Ok(())
+}
+
+/// After a sign-in into `kept`: the same server's login kept anywhere else
+/// (made before the store setting changed) is revoked and removed, so one
+/// login is active. One that can't be opened (an encrypted file without its
+/// passphrase) is left alone, and said.
+async fn retire_others(name: &str, url: &str, kept: &Place) {
+    for place in vault::all_kept(name, url).into_iter().filter(|p| p.kind() != kept.kind()) {
+        if let Err(why) = place.read() {
+            println!("An earlier login in the {} was left in place: {why:#}", place.short());
+            continue;
+        }
+        let said = revoke(name, url, &place).await;
+        match place.delete() {
+            Ok(()) => println!("Removed the earlier login kept in the {}. {said}", place.short()),
+            Err(why) => println!("The earlier login in the {} could not be removed: {why:#}", place.short()),
+        }
+    }
 }
 
 fn open_browser(address: &str) {

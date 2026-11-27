@@ -735,6 +735,7 @@ mod tests {
         unsafe {
             std::env::set_var("MCP_APPS_CLI_OAUTH_DIR", dir.join("tokens"));
             std::env::set_var("MCP_APPS_CLI_TOKEN_STORE", "file");
+            std::env::set_var("MCP_APPS_CLI_TEST_NO_KEYCHAIN", "1");
         }
         let view = json!({"uri": "ui://demo/view.html"});
         let modes = ["modern", "legacy", "dual", "open"];
