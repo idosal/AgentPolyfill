@@ -25,10 +25,12 @@ The rules are tested through the adapters (`npm test` in the Codex and Pi
 folders goes through them rule by rule; OpenCode's tests run the bundled
 plugin in OpenCode), against the hand-written server in `test-fixtures/`.
 
-Until November 2026 there was a fourth adapter, for Claude Code. It was
-removed when Claude Code began listing skills from MCP servers itself;
-[`polyfills/claude-code/skills`](../../claude-code/skills/README.md) says
-what moved here from it.
+The Claude Code adapter was retired when Claude Code added native MCP Skills
+support in beta. The [former adapter and its tests](https://github.com/idosal/AgentPolyfill/tree/ed2279a6a2979b90a3bb1a8673f34ee92cac87f6/polyfills/skills/claude-code)
+are available in the repository history. The shared
+[test harness](test-fixtures/harness.ts), [fixture Skills server](test-fixtures/fixture-skills-server.ts),
+and [SEP-2640 client rule reference](docs/sep-2640-client-rules.md) moved here
+from that adapter.
 
 ```bash
 npm ci
