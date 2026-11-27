@@ -7,6 +7,37 @@ need `claude` on PATH, Chrome, Node 22+, Python 3 with `pyte`
 (`pip install pyte`), and the helper's packages (`npm install` in
 `../mod/helper`).
 
+## Gameplay frame timing
+
+Claude Code 2.1.331 on macOS ran a local MCP App replaying 34 recorded DOOM
+frames at 31.25 fps. The same 104 × 44 Kitty 0.50.0 window received arrow
+input for three four-second intervals per run.
+
+| Terminal output | Previous build | With this change | What was counted |
+| --- | ---: | ---: | --- |
+| Character cells | 10.0 fps | 22.5 fps | Changes to a 55-column × 9-row crop inside the game, sampled from Kitty's plain-text screen |
+| Kitty graphics | 29.7 fps | 29.6 fps | Distinct consecutive PNG image payloads sent to Kitty |
+
+Values are medians of the three intervals. The cell runs measured
+9.9, 10.0 and 10.0 fps before the change and 22.5, 24.9 and 22.1 fps
+after it. The cropped sample excludes the host UI and the blank cell that
+wakes Claude Code's renderer. During motion the plugin updates a mounted
+Raster directly. Once the picture settles, it restores full-detail rendering.
+
+For a color-capable Kitty run, keep the launching environment consistent
+with the user's terminal. Our first benchmark inherited `NO_COLOR=1` from
+its runner. Claude Code then declined Kitty image placeholders with the message
+“every 8-bit image id is in use.” Removing that runner override restored
+graphics on both builds. The plugin respects a user's color setting and
+selects cells when Claude Code's Kitty path lacks the required color depth.
+
+In separate sessions the hosted Arcade server booted shareware DOOM. In both
+cells and Kitty graphics, keyboard input moved and turned the player, opened
+the automap, and returned to the level. The timed Kitty replay used file-backed
+PNGs. For the live game on a temporary memory volume Kitty declined a frame
+file, so the gameplay check used inline PNGs (`MCP_APPS_CLI_IMAGE_FILES=0`).
+The table measures the replay only.
+
 ## The example servers
 
 The example servers are the ones in the MCP Apps SDK repository. In a

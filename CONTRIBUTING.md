@@ -124,7 +124,7 @@ It states:
   - In Codex:
     `codex plugin marketplace add idosal/AgentPolyfill && codex plugin add <plugin>@agent-polyfill`.
   - In Pi: lead with `pi install git:github.com/idosal/AgentPolyfill`, which
-    installs Events, Skills and Server Cards together. For one form alone,
+    installs Apps, Events, Skills, Server Cards and Tasks together. For one form alone,
     clone `https://github.com/idosal/AgentPolyfill.git`, enter `AgentPolyfill`,
     then `pi install ./polyfills/<extension>/pi/extension`; keep the clone.
     ARD uses this separate install because its search sends the words of
@@ -231,14 +231,14 @@ asking each time. There is no Pi marketplace file here, and nothing is
 published to npm or Pi's package gallery.
 
 Document `pi update --extensions` to update installed packages and
-`pi remove git:github.com/idosal/AgentPolyfill` to remove all three forms
+`pi remove git:github.com/idosal/AgentPolyfill` to remove the bundled forms
 and Pi's copy of the repository. Keep the local install as an alternative,
 with `pi remove ./polyfills/<extension>/pi/extension` from the same clone
 for removal. Use one way per form: Pi tells packages apart by repository
 address or local path, so a form installed both ways loads twice. Say what
 data remains: `mcp-events/` and `mcp-skills/` in Pi's agent folder, and
-added servers in `mcp.json`. Add the form to the root README's Pi column;
-Apps has no Pi form.
+added servers in `mcp.json`. Add the form to the root README's Pi column. The [Pi Apps renderer](polyfills/apps/pi/README.md) uses
+its own locked dependencies, installed separately from the root manifest.
 
 For OpenCode, there is no marketplace file or bundle here either, and
 nothing is published to npm. `opencode plugin add` installs a form straight

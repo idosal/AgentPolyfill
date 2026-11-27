@@ -5,6 +5,17 @@ to it when the server needs input or the task finishes. This is the client
 side of [SEP-2663](https://github.com/modelcontextprotocol/ext-tasks/blob/cc9aaac1047a9440b07486e38f37060bbebeef4c/seps/2663-tasks-extension.md)
 for MCP revision 2026-07-28.
 
+Watch the opt-in fallback ask for approval, collect the requested field and confirm delivery.
+
+<a href="../../../docs/media/demos/tasks-copilot.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../docs/media/demos/tasks-copilot.jpg">
+    <img src="../../../docs/media/demos/tasks-copilot.gif" alt="Watch the opt-in fallback ask for approval, collect the requested field and confirm delivery">
+  </picture>
+</a>
+
+[Watch the 20-second walkthrough](../../../docs/media/demos/tasks-copilot.mp4).
+
 ## Native Tasks and fallback
 
 Stock Copilot CLI 1.0.115 and 1.0.116 started and polled a SEP-2663 task

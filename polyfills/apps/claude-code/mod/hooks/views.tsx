@@ -416,7 +416,11 @@ function pictureBlock({ Box, Text, Client, Image, Raster }: ViewElements, view: 
         width: '100%',
         height: rows,
         children: [
-          drawn,
+          view.mode === 'cells' && view.status === 'live' && view.frame?.motion && !view.paused
+            ? Box({ flexDirection: 'row', children: [
+                drawn, Client({ key: `paint-${site}-${view.id}`, module: './paint.tsx', width: 1, height: 1, props: {} }),
+              ] })
+            : drawn,
           // As wide as the room, not the picture: the width it reports is
           // what the picture is sized to, so tying it to the picture would
           // shrink it a column per frame. Only the active view has one.
@@ -1188,10 +1192,9 @@ function noteRows($: EngineInterface, view: View, rows: number) {
 let rowsSaving = false
 
 /**
- * A new picture. Cells are drawn anew; an image is swapped in place where
- * it's drawn (no re-render), or drawn anew when its size or scroll changed.
- * A refused image swap because the terminal drew the alt text means no
- * images here: back to cells.
+ * Update a mounted image or a moving Raster in place. Layout changes and
+ * still cell frames redraw the view. A terminal that declines an image can
+ * display that view in cells.
  */
 export async function showPicture($: EngineInterface, view: View, next: { frame?: Frame; image?: ImageFrame }) {
   const previous = next.image ? view.image : view.frame
@@ -1211,14 +1214,25 @@ export async function showPicture($: EngineInterface, view: View, next: { frame?
     if (!sameBands) view.strips = []
     for (const strip of next.image.strips) view.strips![strip.i] = { png: strip.png, rows: strip.rows }
   } else if (next.image) view.strips = undefined
-  // Cells are redrawn, not swapped. An idle session paints only when a
-  // drawing changes its text, and neither a swap nor new Raster cells count:
-  // a swapped or redrawn animation stood still. So each new frame redraws
-  // the view (ten a second at most; sooner ones fold) with the header line
-  // ending in one of two blank characters, alternating: a change of text,
-  // so the frame is painted. The redraw also keeps the drawn tree current,
-  // so scrolling repaints the latest frame.
   if (next.frame) {
+    const frame = next.frame
+    const last = previous as Frame | null
+    const fits = last?.motion && last.cols === frame.cols && last.rows === frame.rows &&
+      last.scroll?.top === frame.scroll?.top && last.scroll?.total === frame.scroll?.total
+    if (frame.motion && frame.cells && fits && !view.paused && view.status === 'live') {
+      // The pane and the transcript have distinct keys. Old transcript sites
+      // can linger after expansion or scrolling; one successful mount suffices.
+      const sites = view.display === 'pip' ? [paneId(view)] : [...view.sites].filter(id => id !== paneId(view))
+      let painted = false
+      for (const requestId of sites) {
+        const answer = await $.ui.blit({ requestId, key: pictureKey(view), cells: frame.cells, columns: frame.cols, rows: frame.rows })
+          .catch((error: unknown) => ({ deny: String(error) }))
+        if (!('deny' in answer && answer.deny)) painted = true
+        if (view.frame !== frame || view.mode !== 'cells') return
+      }
+      if (painted) return
+    }
+    // Mount, resize, settle, or a host which declined the direct update.
     $.ui.invalidate('ui.render')
     return
   }
@@ -1248,6 +1262,7 @@ export async function showPicture($: EngineInterface, view: View, next: { frame?
     const swap = { requestId, key: band.key, source: band.source, columns: picture.cols, rows: band.rows }
     const answer = await $.ui.blit(swap).catch((error: unknown) => ({ deny: String(error) }))
     if (answer && 'deny' in answer && answer.deny) {
+      if (view.mode !== 'image' || view.image !== next.image) return
       const deny = String(answer.deny)
       $.ui.log(`mcp-apps-cli: swap refused at ${requestId}: ${deny}`, { to: 'debug' })
       if (next.image?.file && /not yet/i.test(deny)) {
@@ -1265,7 +1280,8 @@ export async function showPicture($: EngineInterface, view: View, next: { frame?
       }
       if (next.image && /alt|placeholder|cannot read/i.test(deny)) {
         $.ui.log(`mcp-apps-cli: no images in this terminal (${deny}); drawing cells`, { to: 'debug' })
-        state.terminalShowsImages = false
+        // A single view can exhaust image slots while other views still draw.
+        if (!/8-bit image id/i.test(deny)) state.terminalShowsImages = false
         view.mode = 'cells'
         send($, view, '/mode', { viewId: view.id, mode: 'cells' })
         view.sizedFor = undefined

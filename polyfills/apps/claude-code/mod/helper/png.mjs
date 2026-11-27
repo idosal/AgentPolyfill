@@ -45,6 +45,17 @@ export function decodePng(buffer) {
     const filter = raw[y * (stride + 1)];
     const line = raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1));
     const out = pixels.subarray(y * stride, (y + 1) * stride);
+    if (filter === 0 || (filter === 2 && y === 0)) {
+      out.set(line);
+      continue;
+    }
+    // Chrome's fast screenshots usually use the Up filter for whole rows.
+    // Only the previous row is needed, so decode it in one linear pass.
+    if (filter === 2) {
+      const above = (y - 1) * stride;
+      for (let x = 0; x < stride; x++) out[x] = line[x] + pixels[above + x];
+      continue;
+    }
     const prev = y > 0 ? pixels.subarray((y - 1) * stride, y * stride) : null;
     for (let x = 0; x < stride; x++) {
       const a = x >= channels ? out[x - channels] : 0;
@@ -54,9 +65,6 @@ export function decodePng(buffer) {
       switch (filter) {
         case 1:
           value += a;
-          break;
-        case 2:
-          value += b;
           break;
         case 3:
           value += (a + b) >> 1;
