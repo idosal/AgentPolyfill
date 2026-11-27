@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext, ExtensionToolContext } from '@earendil-works/pi-coding-agent';
-import { getCapabilities, Image, parseKey, truncateToWidth } from '@earendil-works/pi-tui';
+import { getCapabilities, parseKey, truncateToWidth } from '@earendil-works/pi-tui';
 import { parseEntry, piRunsMcp, readPiEntries } from '../../events/pi/src/pi-config.ts';
+import { AppSurface } from './surface.ts';
 import { openRenderer, originalMcpResult } from './renderer.mjs';
 
 export default function apps(pi: ExtensionAPI) {
@@ -45,12 +46,13 @@ export default function apps(pi: ExtensionAPI) {
         if (signal?.aborted) active.abort();
         try {
             await ctx.ui.custom<void>((tui, _theme, _keys, done) => {
-                let rows: string[] = ['Opening MCP App…'];
-                let picture: Image | undefined;
+                const protocol = getCapabilities().images;
+                const maxRows = () => Math.max(4, tui.terminal.rows - 5);
+                let cols = Math.max(20, tui.terminal.columns - 2), height = maxRows();
+                const surface = new AppSurface(protocol, event => { void renderer.then(r => r.input(event)).catch(() => {}); });
                 let closed = false;
                 const finish = () => { if (!closed) { closed = true; done(); } };
-                const renderer = openRenderer({ ...item, config, cwd: ctx.cwd, cols: Math.max(20, tui.terminal.columns - 2),
-                    rows: Math.max(4, tui.terminal.rows - 5), signal: active.signal,
+                const renderer = openRenderer({ ...item, config, cwd: ctx.cwd, cols, rows: height, signal: active.signal,
                     allowTool: nested ? async (name: string, args: Record<string, unknown>) => {
                         if (!nested || active.signal.aborted || JSON.stringify(snapshot(item.server, ctx)) !== item.config) return false;
                         const description = JSON.stringify({ server: item.server, tool: name, arguments: args }, null, 2);
@@ -68,22 +70,26 @@ export default function apps(pi: ExtensionAPI) {
                         const result = originalMcpResult(response.result);
                         return { ...result, isError: response.isError || result.isError };
                     },
-                    onImage: getCapabilities().images ? (png: string) => {
-                        picture = new Image(png, 'image/png', { fallbackColor: text => text }, {
-                            imageId: picture?.getImageId(), maxHeightCells: Math.max(4, tui.terminal.rows - 5)
-                        });
-                        tui.requestRender();
+                    onImage: protocol ? (png: string, grid: { cols: number; rows: number }) => {
+                        surface.setImage(png, grid); tui.requestRender();
                     } : undefined,
-                    onFrame: (frame: [string, string, string][][]) => {
-                        rows = frame.map(line => line.map(([text, fg, bg]) => {
-                            const color = (hex: string, code: number) => /^#[a-f0-9]{6}$/i.test(hex)
-                                ? '\x1b[' + code + ';2;' + hex.slice(1).match(/../g)!.map(x => parseInt(x,16)).join(';') + 'm' : '';
-                            return color(fg,38) + color(bg,48) + text.replace(/[\x00-\x1f\x7f-\x9f]/g,'') + '\x1b[0m';
-                        }).join('')); tui.requestRender();
+                    onFrame: (frame: [string, string, string][][], frameCols: number) => {
+                        surface.setCells(frame, frameCols); tui.requestRender();
                     } });
                 void renderer.then(r => r.closed.then(finish), e => { ctx.ui.notify(String(e.message), 'error'); finish(); });
-                return { invalidate() {}, render: width => [...(picture?.render(width) ?? rows.map(line => truncateToWidth(line, width))),
-                        truncateToWidth('Tab to focus · Enter to activate · Esc to close', width)],
+                return {
+                    invalidate: () => surface.invalidate(),
+                    render(width) {
+                        const nextCols = Math.min(240, Math.max(20, width - 2)), nextHeight = Math.min(80, maxRows());
+                        if (nextCols !== cols || nextHeight !== height) {
+                            cols = nextCols; height = nextHeight;
+                            void renderer.then(r => r.resize(nextCols, nextHeight)).catch(() => {});
+                        }
+                        const hint = tui.mode === 'fullscreen' ? 'Click or drag · Tab to focus · Enter to activate · Esc to close'
+                            : 'Tab to focus · Enter to activate · Esc to close';
+                        return [...surface.render(width, height), truncateToWidth(hint, width)];
+                    },
+                    handleMouse: event => surface.handleMouse(event),
                     handleInput(data) {
                         const key = parseKey(data);
                         if (key === 'escape' || key === 'ctrl+c') { active.abort(); finish(); return; }

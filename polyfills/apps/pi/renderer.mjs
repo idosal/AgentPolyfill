@@ -70,8 +70,8 @@ export async function openRenderer({ server, config, tool, input, result, cwd, c
         try { m = JSON.parse(line); } catch { return; }
         if (m.type === 'ready') ready.resolve(m);
         if (m.viewId !== viewId) return;
-        if (m.type === 'frame' && m.image?.png) onImage?.(m.image.png);
-        if (m.type === 'frame' && m.frame) onFrame(m.frame.styled ?? m.frame.lines ?? []);
+        if (m.type === 'frame' && m.image?.png) onImage?.(m.image.png, { cols: m.image.cols, rows: m.image.rows });
+        if (m.type === 'frame' && m.frame) onFrame(m.frame.styled ?? m.frame.lines ?? [], m.frame.cols);
         if (m.type === 'request') {
             void answer(m).then(result => ({ result }), error => ({ error: error.message }))
                 .then(reply => post('/reply', { id: m.id, gen: m.gen, ...reply })).catch(() => {});
@@ -84,7 +84,15 @@ export async function openRenderer({ server, config, tool, input, result, cwd, c
         if (!Object.hasOwn(discovery.tools, tool)) throw new Error('This tool has no MCP App.');
         await post('/open', { server, toolName: tool, toolInput: input, toolResult: result,
             serverTools: Boolean(onTool && allowTool), mode: onImage ? 'image' : 'cells', cols, maxRows: rows, userAgent: 'Pi (AgentPolyfill)' });
-        return { close, closed: closed.promise, input: event => post('/input', { event }) };
+        // Preserve the order of a physical gesture across separate HTTP requests.
+        let queued = Promise.resolve();
+        function enqueue(route, body) {
+            const next = queued.then(() => { if (!signal?.aborted) return post(route, body); });
+            queued = next.catch(() => {});
+            return next;
+        }
+        return { close, closed: closed.promise, input: event => enqueue('/input', { event }),
+            resize: (cols, maxRows) => enqueue('/resize', { cols, maxRows }) };
     } catch (err) {
         close();
         throw err;

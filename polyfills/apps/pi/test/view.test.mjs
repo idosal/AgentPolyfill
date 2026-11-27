@@ -11,12 +11,17 @@ test('renders the original structured result without replay and enforces nested 
     const cwd = await mkdtemp(join(tmpdir(), 'pi-apps-test-'));
     t.after(() => rm(cwd, {recursive:true, force:true}));
     const log = join(cwd, 'methods');
-    let text = '', approved = false, nested = 0;
+    let text = '', approved = false, nested = 0, button;
     const viewer = await openRenderer({
         server:'fixture', tool:'example', input:{}, result:{content:[],structuredContent:{label:'ORIGINAL'}},
         config:{command:process.execPath,args:[fileURLToPath(new URL('app-server.mjs', import.meta.url)), log]},
         cols:80, rows:24, cwd,
-        onFrame(frame) { text = frame.flat().map(cell => cell[0]).join(''); },
+        onFrame(frame) {
+            const rows = frame.map(row => row.map(cell => cell[0]).join(''));
+            text = rows.join(' ');
+            const y = rows.findIndex(row => row.includes('Refresh'));
+            if (y >= 0) button = {x: rows[y].indexOf('Refresh') + 2.5, y: y + 0.5};
+        },
         allowTool(name, args) { assert.equal(name, 'example'); assert.deepEqual(args, {}); return approved; },
         onTool() { nested++; return {content:[],structuredContent:{label:'UPDATED'}}; }
     });
@@ -32,7 +37,9 @@ test('renders the original structured result without replay and enforces nested 
     await see('DECLINED');
     assert.equal(nested, 0);
     approved = true;
-    await key('return');
+    assert.ok(button, 'Refresh button is visible');
+    // A quick click can enqueue release before the press request has completed.
+    await Promise.all(['down', 'up'].map(type => viewer.input({kind:'pointer', type, button:'left', fine:button})));
     await see('UPDATED');
     assert.equal(nested, 1);
     assert.ok(!(await readFile(log, 'utf8')).includes('tools/call'));
