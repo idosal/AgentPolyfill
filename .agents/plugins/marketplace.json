@@ -62,6 +62,18 @@
         "installation": "AVAILABLE"
       },
       "category": "Developer Tools"
+    },
+    {
+      "name": "a2a",
+      "source": {
+        "source": "local",
+        "path": "./polyfills/a2a"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_USE"
+      },
+      "category": "Developer Tools"
     }
   ]
 }

@@ -7,7 +7,19 @@ description: Connect a named Agent2Agent peer, review its questions and receive 
 
 Connect a chat to a named A2A agent and review its questions before it finishes the job. This first-party client implements A2A 1.0 JSON-RPC and Structured Input v1 with the official Python SDK. On hosts with MCP Tasks, the originating chat can continue working and wake when a question or result arrives.
 
-## Install locally
+## Codex marketplace
+
+With uv available to Codex on macOS or Linux, add the AgentPolyfill marketplace and install the A2A plugin. For Codex versions without native Tasks, also install the shared MCP Tasks client (Node 20+).
+
+```sh
+codex plugin marketplace add idosal/AgentPolyfill
+codex plugin add a2a@agent-polyfill
+codex plugin add mcp-tasks@agent-polyfill
+```
+
+Open a new chat and ask which A2A agents are configured. The directory includes the local settings command for adding agents later. [Marketplace setup and operating notes](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/a2a#install-from-the-agentpolyfill-codex-marketplace)
+
+## Install from a checkout
 
 From an AgentPolyfill checkout with uv installed, enable A2A for your host:
 

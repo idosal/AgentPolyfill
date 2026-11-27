@@ -2,12 +2,14 @@ name: A2A delegation
 on:
   push:
     paths:
+      - '.agents/plugins/marketplace.json'
       - 'polyfills/a2a/**'
       - 'polyfills/tasks/**'
       - 'polyfills/server-cards/antigravity/src/gate.ts'
       - '.github/workflows/a2a-test.yml'
   pull_request:
     paths:
+      - '.agents/plugins/marketplace.json'
       - 'polyfills/a2a/**'
       - 'polyfills/tasks/**'
       - 'polyfills/server-cards/antigravity/src/gate.ts'
@@ -55,4 +57,13 @@ jobs:
           tar -xzf serve.tgz
           cd "$GITHUB_WORKSPACE/polyfills/a2a"
           .venv/bin/python tests/interop/serve.py "$RUNNER_TEMP/serve/a2a-serve"
+      - name: Verify clean marketplace installation and delegation
+        working-directory: .
+        run: |
+          mkdir "$RUNNER_TEMP/a2a-marketplace"
+          git archive HEAD .agents/plugins/marketplace.json polyfills/a2a polyfills/tasks/codex/plugin | tar -x -C "$RUNNER_TEMP/a2a-marketplace"
+          polyfills/a2a/.venv/bin/python polyfills/a2a/tests/interop/serve.py "$RUNNER_TEMP/serve/a2a-serve" --marketplace "$RUNNER_TEMP/a2a-marketplace"
+      - name: Verify the public AgentPolyfill Codex marketplace on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: .venv/bin/python tests/interop/serve.py "$RUNNER_TEMP/serve/a2a-serve" --marketplace idosal/AgentPolyfill
       - run: uv build --wheel --out-dir "$RUNNER_TEMP/dist"

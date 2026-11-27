@@ -296,7 +296,7 @@ def directory_settings(host, servers, base, path):
     return None, None
 
 
-def setup(host, name, url, mode, credentials=None, token_file=None, *, install_directory=False):
+def setup(host, name, url, mode, credentials=None, token_file=None, *, install_directory=False, marketplace=False):
     if name is not None:
         origin(url)
         if not re.fullmatch(r"[a-z][a-z0-9_-]{0,47}", name) or name == "mcp-tasks":
@@ -334,6 +334,9 @@ def setup(host, name, url, mode, credentials=None, token_file=None, *, install_d
     if name is not None:
         args = ["--url", url, *credential_args(credentials, token_file),
                 "--state-dir", str(base / "agentpolyfill-a2a" / name)]
+        if marketplace:
+            # Named entries remain in user config when the marketplace plugin is disabled.
+            args += ["--codex-plugin-config", str(path)]
         entry = local_entry(host, str(Path(sys.executable).parent / "agentpolyfill-a2a"), args, ["delegate"])
         if host == "antigravity" and not native:
             entry["args"].append("--antigravity")

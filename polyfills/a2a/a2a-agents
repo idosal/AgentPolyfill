@@ -1,0 +1,6 @@
+#!/bin/sh
+# Installed alongside the adapter in this Codex profile's private runtime.
+set -eu
+runtime=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd -P)
+base=$(CDPATH='' cd -- "$runtime/../.." && pwd -P)
+CODEX_HOME="$base" exec "$runtime/bin/python" "$runtime/share/agentpolyfill-a2a/manage.py" --marketplace-settings codex "$@"

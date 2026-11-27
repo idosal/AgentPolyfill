@@ -6,6 +6,7 @@ import json
 import os
 import sqlite3
 import sys
+import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -250,8 +251,17 @@ class DisabledAdapter:
         raise AdapterError("A2A delegation is disabled for this agent.", -32601)
 
 
+def plugin_enabled(path):
+    try:
+        with path.open("rb") as stream:
+            settings = tomllib.load(stream)
+        return settings["plugins"]["a2a@agent-polyfill"]["enabled"] is True
+    except (OSError, KeyError, TypeError, ValueError):
+        return False
+
+
 async def run(args):
-    if args.disabled:
+    if args.disabled or (args.codex_plugin_config and not plugin_enabled(args.codex_plugin_config)):
         await serve(DisabledAdapter())
         return
     async with httpx.AsyncClient(timeout=20, follow_redirects=False, headers={"Accept-Encoding": "identity"},
@@ -267,6 +277,7 @@ async def run(args):
 def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--codex-plugin-config", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--disabled", action="store_true", help="Stand down without opening the agent or task store")
     parser.add_argument("--url", required=True, help="Configured A2A agent base URL")
     parser.add_argument(

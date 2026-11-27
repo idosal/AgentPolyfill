@@ -2,6 +2,35 @@
 
 Connect a named A2A agent to your chat. Ask the agent to do a job, review its questions, and receive its artifact in the originating conversation. AgentPolyfill implements the **client** for the Agent2Agent project’s A2A 1.0 protocol using its official Python SDK. Structured Input v1 is a draft extension. A Tasks-capable host handles background work. Antigravity CLI can also finish a delegation during an active turn using its own permission cards.
 
+## Codex Desktop demo
+
+[![Codex Desktop shows the configured agents, asks for two file permissions and returns BLUE GREEN](../../docs/media/demos/a2a-codex-marketplace.gif)](../../docs/media/demos/a2a-codex-marketplace.mp4)
+
+[Watch the full 53-second recording (MP4).](../../docs/media/demos/a2a-codex-marketplace.mp4) It shows a marketplace install with no agent URL, two agents added after installation, and an edit and removal reflected in the open chat. After reloading Desktop, the user delegates to a paired A2A Serve agent, reviews two file permissions, and receives the artifact in the originating chat. The recording used a signed-out profile, a local scripted model and worker, and official A2A Serve 0.1.0 on loopback.
+
+## Install from the AgentPolyfill Codex marketplace
+
+On macOS or Linux, make [uv](https://docs.astral.sh/uv/) available on Codex’s PATH. Add the marketplace once, then install A2A. No agent URL or account is needed to install the plugin.
+
+```sh
+codex plugin marketplace add idosal/AgentPolyfill
+codex plugin add a2a@agent-polyfill
+```
+
+For delegation in Codex versions without native MCP Tasks, install the shared Tasks plugin once (Node 20+):
+
+```sh
+codex plugin add mcp-tasks@agent-polyfill
+```
+
+In a new chat, ask **“Which A2A agents do I have, and how do I add one?”** The directory starts empty. Its first start installs the locked runtime and a local settings command. With the default Codex profile, open it with:
+
+```sh
+~/.codex/agentpolyfill-a2a/.runtime/bin/a2a-agents
+```
+
+Use the terminal menu or append `add NAME --url URL`, `list`, `edit NAME --url URL`, or `remove NAME`. The directory returns the exact settings command for custom profiles. This installation keeps its runtime outside Codex’s versioned plugin cache, so upgrading the plugin retains its named agents. Existing checkout-managed agents remain managed from their original checkout. Reload Codex’s MCP configuration or open a fresh chat to pick up changes to delegation tools. Remove named agents using the settings command before uninstalling if you also want their registrations removed. On restart, remaining marketplace-managed entries stand down when the plugin is disabled or removed.
+
 ## Install from this checkout
 
 Install A2A once for your host. You can start with an empty directory and connect agents whenever you need them. From a stable AgentPolyfill checkout on macOS or Linux with uv installed, run:
