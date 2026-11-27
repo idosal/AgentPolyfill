@@ -79,8 +79,12 @@ mechanism through; the Codex and Claude Code columns of that page then apply.
   desktop, web and phone, sandboxed, asking before the app calls a tool that
   isn't read-only and before every message (`docs/user/html-renders.md`,
   `apps/server/src/mcpApps`). The Apps polyfill must not run in T3 Code.
-- **Events: as a server only.** T3 Code's own MCP server offers events to
-  outside agents. It has no Events client for your servers.
+- **Events: as a server only.** T3 Code 0.1.13 offers its own events to
+  outside agents. Codex threads need the adapter to watch configured MCP
+  servers. Codex 0.172.0 exposes an experimental app-server stream endpoint,
+  but a direct local call returned “MCP event subscriptions are only
+  supported for hosted apps.” T3 Code 0.1.13 never calls that endpoint.
+  [Verification](../polyfills/events/t3/docs/conformance.md#released-host-checks).
 - **Skills (SEP-2640), Server Cards, ARD: no.** T3 Code lists the agent's own
   skills; it doesn't read skills from MCP servers.
 
@@ -163,9 +167,10 @@ shows it as a message in the thread.
 
 This needs nothing undocumented except `T3CODE_THREAD_ID`, which is what T3
 Code sets for exactly this question (which thread a process belongs to), and
-which we ask T3 Code to document. It needs no sign-in, reads no credentials,
-and approves nothing: `watch_event` and `unwatch_event` go through Codex's
-approval in T3 Code like any tool that changes something.
+which we ask T3 Code to document. The adapter uses local host access through
+`t3 thread send`. `watch_event` and `unwatch_event` follow Codex's approval
+in T3 Code. In 0.1.13, **Supervised** shows the approval card and **Full
+access** accepts it automatically.
 
 ### Most for the least
 

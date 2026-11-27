@@ -5,23 +5,23 @@ events on your MCP servers ("tell me when a deploy fails") and act when one
 fires, even after the thread has gone idle, its agent session has closed, or
 T3 Code has restarted.
 
-<a href="https://agentpolyfill.com/media/events.mp4">
-  <picture>
-    <source media="(prefers-reduced-motion: reduce)" srcset="../../../site/public/media/events.jpg">
-    <img src="../../../docs/media/demos/events.gif" alt="An idle Claude Code session wakes when a Cloudflare Worker throws a JSON parsing error.">
-  </picture>
-</a>
+[![A Codex thread in T3 Code wakes and summarizes ticket T-104](../../../docs/media/demos/events-t3.jpg)](../../../docs/media/demos/events-t3.mp4)
 
-[Watch a Worker error wake Claude Code (15 s)](https://agentpolyfill.com/media/events.mp4)
+[Watch a ticket wake its T3 Code thread (18 s)](../../../docs/media/demos/events-t3.mp4).
+Recorded in T3 Code 0.1.13 with the Codex 0.172.0 provider, a local ticket
+fixture and a scripted model endpoint. The approval, subscription, idle wake
+and event retrieval ran through the real host. The clip shortens the wait at
+the approval prompt.
 
 Also available for: [Claude Code](../claude-code/README.md),
 [Codex](../codex/README.md). Why T3 Code gets a form of its own, and what the
 other polyfills do there, is in [T3 Code](../../../docs/t3-code.md).
 
 This server implements the client side of the MCP Events extension,
-[SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
-(the Final text, as of 24 November 2026), which T3 Code doesn't support as a
-client. Details are in [Spec and conformance](#spec-and-conformance).
+[SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/bbc31f8ded5762eae4df115b93942f5e71c8b3a7/seps/3415-events-extension.md)
+(Final, checked 27 November 2026). T3 Code can serve its own Events to outside
+clients. Watching your own MCP servers from a T3 thread still needs the
+adapter. See [Spec and conformance](#spec-and-conformance).
 
 ## Install
 
@@ -106,28 +106,37 @@ have that too, see [Beside the Codex plugin](#beside-the-codex-plugin).
 
 ## Try it
 
-The fixture server of this repository's tests is enough. In another clone of
-the repository or the same one, with Node 22.18 or newer, add it to Codex
-(paths are examples):
+From this directory, register the test server with a fresh local ticket log.
+The fixture needs Node 22.18 or newer.
 
 ```bash
-codex mcp add tickets --env FIXTURE_UPSTREAM=/tmp/tickets.jsonl -- node --no-warnings /path/to/AgentPolyfill/polyfills/events/claude-code/test/fixture-events-server.ts
+ticket_log="$(mktemp -d)/tickets.jsonl"
+codex mcp add tickets --env "FIXTURE_UPSTREAM=$ticket_log" -- node --no-warnings "$PWD/../claude-code/test/fixture-events-server.ts"
 ```
 
-In a T3 Code thread with Codex, ask:
+If the watcher is already running, stop it with
+`node plugin/dist/server.js --stop` so it reads the new server entry. Start a
+T3 Code thread with Codex and set its permission mode to **Supervised** to see
+the approval prompt. Ask:
 
 > Watch new high-priority tickets on the tickets server, and summarize each in
 > one line.
 
-Then make a ticket:
+Approve **Watch event**. After the thread confirms the watch and becomes idle,
+add a ticket from the same terminal:
 
 ```bash
-echo '{"eventId":"t1","name":"ticket.created","timestamp":"2026-11-25T00:00:00Z","data":{"id":"T-1","priority":"high","title":"Checkout returns 500"}}' >> /tmp/tickets.jsonl
+node -e 'console.log(JSON.stringify({
+  eventId: "ticket-" + Date.now(),
+  name: "ticket.created",
+  timestamp: new Date().toISOString(),
+  data: {ticketId: "T-104", priority: "high", title: "Checkout returns 500"}
+}))' >> "$ticket_log"
 ```
 
-Within a few seconds the thread gets a message that starts with
-`[mcp-events]`, reads the ticket, and summarizes it. That works whether the
-thread was idle, its session closed, or T3 Code was restarted in between.
+The same thread receives an `[mcp-events]` message and retrieves and summarizes
+the ticket. To end the watch, ask the thread to stop watching tickets and
+approve **Stop a watch**.
 
 ## How it works
 
@@ -169,8 +178,8 @@ T3 Code ◄── t3 thread send <thread> - ("[mcp-events] …" on stdin) ──
   minutes, until it is.
 - **The message.** Its first line says it's from the polyfill, not typed by
   you. The rest names the server and event type, gives the new events' ids,
-  and repeats the note saved with the watch. It carries nothing the server
-  wrote: the agent reads what happened with `get_event`.
+  and repeats the note saved with the watch. By default the payload stays in
+  the event store and the agent reads it with `get_event`.
 
 ### What the agent can do with it
 
@@ -182,8 +191,12 @@ T3 Code ◄── t3 thread send <thread> - ("[mcp-events] …" on stdin) ──
 | "Show me that last event in full." | `get_event`, `recent_events` |
 | "Stop watching tickets." | `unwatch_event` |
 
-`watch_event` and `unwatch_event` change something, so they go through
-Codex's approval in a thread whose mode asks. The other four only read.
+`watch_event` and `unwatch_event` go through Codex's tool approval.
+In T3 Code 0.1.13, **Supervised** shows Approve and Decline. Declining a new
+watch leaves the upstream stream unopened. Declining a stop leaves the watch
+running. **Full access** accepts these Codex approvals automatically. The
+four read-only tools are marked accordingly. In the live run, listing watches
+and reading an event needed no approval.
 
 ### Which servers it works with
 
@@ -208,9 +221,12 @@ Webhook delivery needs a relay, set up as for the other forms
 | A T3 Code thread with another agent | Not tested | |
 | Codex outside T3 Code | No tools: use the [Codex plugin](../codex/README.md) | |
 
-Checked in T3 Code 0.1.11 with Codex 0.172.0 on macOS. The tests run on
-Linux and macOS in CI, including the wake against the real `t3` command.
-Not checked on Windows.
+Checked on macOS with Codex 0.172.0 in T3 Code 0.1.11 and 0.1.13. Both
+versions subscribed, woke the original thread and stopped its watch. The
+0.1.13 web interface was also checked for consent, thread scope, recovery after
+**Restart agent session**, and retry after a full T3 Code stop and start. The
+tests run on Linux and macOS in CI, including the wake against the real
+`t3` command. Windows remains unverified.
 
 ### Beside the Codex plugin
 
@@ -241,7 +257,7 @@ watcher takes them from the server that starts it; after changing one, run
 
 | Variable | What it does |
 |---|---|
-| `MCP_EVENTS_OFF=1` | Installed, and doing nothing. |
+| `MCP_EVENTS_OFF=1` | New adapter processes expose no tools and start no watcher. Stop any existing watcher as described below. |
 | `MCP_EVENTS_T3_BIN` | The full path of `t3` (or of the `t3` package's `dist/bin.mjs`). Default: the first `t3` on PATH, then `~/.local/bin/t3`, where T3 Code's installer puts it. |
 | `MCP_EVENTS_PRE_STANDARD` | As in the other forms: `off` refuses servers that advertise events only in the form from before the standard; a comma-separated list allows that form for those servers only. |
 | `MCP_EVENTS_SERVERS` / `MCP_EVENTS_SKIP` | Only these server names, or never these. |
@@ -252,8 +268,12 @@ watcher takes them from the server that starts it; after changing one, run
 
 ### When T3 Code supports Events itself
 
-Remove the server (above). It can't stand down by itself: nothing tells an
-MCP server what T3 Code's own client supports.
+Remove the server, or set `MCP_EVENTS_OFF=1` in its Codex server environment.
+Then run `node plugin/dist/server.js --stop` with the same `CODEX_HOME` and
+`MCP_EVENTS_STATE` settings, if customized, and restart the affected agent
+sessions. The watcher is a separate process, so
+this stops existing watches while keeping their saved state. T3 Code provides
+no capability signal to the adapter for automatic stand-down.
 
 ## Limits
 
@@ -281,9 +301,9 @@ MCP server what T3 Code's own client supports.
   `runtime/versions/<version>.staging-…` folder in the T3 Code home, and the
   next wake starts it again. A download that fails is tried again later, like
   T3 Code not running.
-- **Not checked:** the approval prompt for `watch_event` in a thread
-  whose mode asks; a T3 Code environment on another machine (the server and
-  `t3` then run there, which should work the same); Windows.
+- **Unverified in the T3 interface:** a remote T3 Code environment, OAuth-backed
+  upstreams, and live webhook delivery. The local walkthrough exercises
+  stdio push. Poll and webhook coverage are in the conformance notes.
 - What every host would need to change for this to need no second connection
   is in [What hosts would need to change](../../../docs/host-changes.md).
 
@@ -294,12 +314,11 @@ socket.
 
 ## Spec and conformance
 
-SEP-3415, Final (as of 24 November 2026), through the shared client in
-[`../core`](../core). How it stands, clause by clause, and what is different
-in T3 Code: [`docs/conformance.md`](docs/conformance.md). The upstream
-conformance suite's Events client scenarios haven't been run for this form
-yet; the driver is ready, and the reason is there. Beyond the spec, and listed
-as the contract asks:
+SEP-3415 Final, through the shared client in [`../core`](../core). The
+[conformance notes](docs/conformance.md) record the clause coverage, 17 of 17
+upstream checks through the T3 adapter, and a separate Streamable HTTP push run
+against Hookbench. The adapter also accepts one documented compatibility
+exception:
 
 - **The form from before the standard** (a top-level `events` capability) is
   accepted by default, as in the other forms. `MCP_EVENTS_PRE_STANDARD=off`
@@ -316,8 +335,8 @@ Nothing else is added: no methods, fields or capabilities of its own.
   each event handed to the thread once across a restart.
 - The shared client's clause-by-clause tests run in `mcp-events-test.yml`.
 - `test/server-test.ts`: the server and the watcher (watches outliving the
-  server, one watcher for many threads, resuming after a restart, T3 Code not
-  running, a thread T3 Code no longer knows).
+  server, one watcher under simultaneous starts, resuming after a restart,
+  T3 Code not running, a thread T3 Code no longer knows).
 - `test/t3-cli-test.ts`: the wake against the real `t3` 0.1.11 in a
   temporary home. T3 Code runs the agent CLIs it finds when it starts, and `gh` for a
   GitHub token, so the test gives it a PATH of its own (only `node`, `sh`,

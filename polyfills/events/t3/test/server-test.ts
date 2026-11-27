@@ -104,6 +104,18 @@ test('one watcher serves many threads; each thread sees and is woken for its own
     await two.stop();
 });
 
+test('simultaneous first calls start only one watcher for the state folder', async () => {
+    const w = make();
+    const servers = await Promise.all(Array.from({ length: 12 }, () => startServer(w, newThread())));
+    const results = await Promise.all(servers.map((s) => s.call('list_event_types')));
+    for (const result of results) {
+        assert.equal(result.isError, false, result.text);
+        assert.match(result.text, /ticket\.created/);
+    }
+    assert.equal((watcherLog(w).match(/watcher started/g) ?? []).length, 1, watcherLog(w));
+    await Promise.all(servers.map((s) => s.stop()));
+});
+
 test('a watcher that was stopped resumes every saved watch when it starts again, without waiting for a call', async () => {
     const w = make();
     const thread = newThread();

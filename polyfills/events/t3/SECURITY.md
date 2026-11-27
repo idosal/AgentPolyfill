@@ -77,10 +77,10 @@ instructions given to the model, are what tell it apart from what you typed.
     installer puts it. It's started directly.
   - **On Windows** (not checked) only `t3.exe`, or Node with the package's
     `dist/bin.mjs`, is run, never a `.cmd` or `.bat`.
-- **Starting and stopping a watch ask first.** `watch_event` and
-  `unwatch_event` aren't marked read-only, so Codex, in T3 Code, asks in the
-  thread before each in a mode that asks. The four tools that only read are
-  marked read-only.
+- **Watch changes follow the thread's permission mode.** In T3 Code 0.1.13,
+  **Supervised** shows approval for `watch_event` and `unwatch_event`.
+  **Full access** accepts those Codex prompts automatically. The four tools
+  that only read are marked read-only.
 - **It connects only where Codex does, and with only what Codex would use.**
   The watcher reads `[mcp_servers.*]` from `$CODEX_HOME/config.toml` with the
   Codex form's reader, so the same rules hold: a server with `enabled = false`

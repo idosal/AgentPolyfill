@@ -20,7 +20,7 @@ import { readCodexServers } from '../../codex/src/codex-config.ts';
 import { EventsConnection, preStandardPolicy } from '../../core/src/events-client.ts';
 import { configureHost } from '../../core/src/host.ts';
 import { readRelaySettings } from '../../core/src/relay.ts';
-import { pruneSessions } from '../../core/src/store.ts';
+import { ProjectState, pruneSessions } from '../../core/src/store.ts';
 import type { Unavailable } from '../../core/src/tools.ts';
 import { describeError, secrets } from '../../core/src/untrusted.ts';
 import { isHttp } from '../../core/src/upstream.ts';
@@ -49,7 +49,16 @@ export async function runWatcher(env: NodeJS.ProcessEnv = process.env): Promise<
     process.on('unhandledRejection', (e) => log(`unexpected failure (${describeError(e)})`));
     const path = socketPath(base);
 
-    // One watcher per state folder: if one answers at the socket, this one has nothing to do.
+    // Thread servers can spawn concurrently after their first ping fails. Claim the state
+    // before probing or removing the socket, so no contender can unlink the winner's socket.
+    const owner = new ProjectState(base, 't3 watcher', { dir: join(base, 'watcher') });
+    if (!owner.claim('watcher').owner) {
+        log('another watcher owns this state; this one ends');
+        return;
+    }
+    process.once('exit', () => owner.release());
+
+    // An older watcher may already be running without the state claim.
     try {
         await ask(path, { op: 'ping' }, 3000);
         log('another watcher already runs; this one ends');
