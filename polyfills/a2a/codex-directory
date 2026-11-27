@@ -8,9 +8,6 @@ base=${CODEX_HOME:-"$HOME/.codex"}
 base=$(CDPATH= cd -- "$base" && pwd -P)
 export CODEX_HOME="$base"
 runtime="$base/agentpolyfill-a2a/.runtime"
-if ! command -v uv >/dev/null 2>&1; then
-    echo "A2A Delegation requires uv on the Codex host's PATH." >&2
-    exit 1
-fi
-UV_PROJECT_ENVIRONMENT="$runtime" uv sync --project . --locked --no-editable --extra setup --no-dev --quiet
-exec "$runtime/bin/python" "$runtime/share/agentpolyfill-a2a/manage.py" --marketplace-directory
+. ./codex/runtime
+UV_PROJECT_ENVIRONMENT="$runtime" "$uv_bin" sync --project . --locked --no-editable --extra setup --no-dev --quiet
+exec "$node_bin" ./codex/host.mjs

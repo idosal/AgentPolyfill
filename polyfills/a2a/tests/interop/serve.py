@@ -9,6 +9,8 @@ import subprocess
 import sys
 import time
 import tomllib
+
+from codex_chat import exercise_chat
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -61,12 +63,11 @@ def check_tasks(command, env):
 
 
 def marketplace_directory(source, env, home):
-    for args in (["marketplace", "add", source], ["add", "a2a@agent-polyfill"],
-                 ["add", "mcp-tasks@agent-polyfill"]):
+    for args in (["marketplace", "add", source], ["add", "a2a@agent-polyfill"]):
         subprocess.run(["codex", "plugin", *args], env=env, cwd=home, check=True)
     servers = json.loads(subprocess.check_output(["codex", "mcp", "list", "--json"], env=env, cwd=home))
     active = {s["name"]: s["transport"] for s in servers if s["enabled"]}
-    assert "mcp-tasks" in active
+    assert "mcp-tasks" not in active
     directory = active["a2a-directory"]
     root = Path(directory["cwd"]).resolve()
     assert root.is_relative_to(home / ".codex/plugins/cache/agent-polyfill/a2a")
@@ -82,9 +83,9 @@ def exercise(serve, base, marketplace=None):
     env["CODEX_HOME"] = str(home / ".codex")
     if marketplace:
         (home / ".codex").mkdir()
-        env.update(PATH=os.environ["PATH"], GIT_TERMINAL_PROMPT="0",
+        env.update(PATH=str(serve.parent) + os.pathsep + os.environ["PATH"], GIT_TERMINAL_PROMPT="0",
                    CODEX_DISABLE_UPDATE_CHECK="1", OTEL_SDK_DISABLED="true")
-        for key in ("UV_CACHE_DIR", "UV_PYTHON_INSTALL_DIR", "UV_OFFLINE"):
+        for key in ("UV_CACHE_DIR", "UV_PYTHON_INSTALL_DIR", "UV_OFFLINE", "TMPDIR"):
             if key in os.environ:
                 env[key] = os.environ[key]
 
@@ -133,13 +134,19 @@ def exercise(serve, base, marketplace=None):
         initial = json.loads(listing()["result"]["content"][0]["text"])
         assert initial["agents"] == []
         settings_cmd = shlex.split(initial["manageLocally"])
-        for args in (["add", "control", "--url", "http://127.0.0.1:1"],
-                     ["add", "swatch", "--url", url, "--serve-credentials", str(serve)]):
+        prior = 0
+        if marketplace:
+            exercise_chat(home, env, url, remote_count)
+            prior = 1
+        commands = [["add", "control", "--url", "http://127.0.0.1:1"]]
+        if not marketplace:
+            commands.append(["add", "swatch", "--url", url, "--serve-credentials", str(serve)])
+        for args in commands:
             subprocess.run([*settings_cmd, *args], env=env, cwd=base, check=True)
         directory = listing()
         agents = json.loads(directory["result"]["content"][0]["text"])["agents"]
         assert agents == [{"name": "control", "url": "http://127.0.0.1:1"}, {"name": "swatch", "url": url}]
-        assert remote_count() == 0
+        assert remote_count() == prior
         command = configured("swatch")
 
         def call(params, owner="origin"):
@@ -158,7 +165,7 @@ def exercise(serve, base, marketplace=None):
 
         token = call({})["result"]["requestState"]
         call(reply(token, "start", {"send": False}))
-        assert remote_count() == 0
+        assert remote_count() == prior
         token = call({})["result"]["requestState"]
         assert "error" in call(reply(token, "start", {"send": True}), "other")
         form1 = call(reply(token, "start", {"send": True}))["result"]["inputRequests"]
@@ -181,17 +188,30 @@ def exercise(serve, base, marketplace=None):
         assert "error" in call(reply(token, second, {"option": "once"}), "other")
         result = await_next(reply(token, second, {"option": "once"}), second)
         assert result["content"][0]["text"] == "Artifact: BLUE GREEN"
-        assert remote_count() == 1
+        assert remote_count() == prior + 1
         check_tasks(command, env)
-        assert remote_count() == 2
+        assert remote_count() == prior + 2
         if marketplace:
+            # A host advertising native Tasks keeps chat settings and has only one delegation path.
+            hello = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                     "params": {"protocolVersion": "2025-11-25", "clientInfo": {"name": "native", "version": "1"},
+                                "capabilities": {"extensions": {"io.modelcontextprotocol/tasks": {}}}}}
+            tools = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
+            replies = subprocess.check_output(directory_cmd, input=json.dumps(hello) + "\n" + json.dumps(tools) + "\n",
+                                              env=env, text=True, timeout=30)
+            catalog = next(json.loads(line)["result"] for line in replies.splitlines() if json.loads(line)["id"] == 2)
+            assert {t["name"] for t in catalog["tools"]} == {"list_agents", "add_agent", "edit_agent", "remove_agent"}
+            # An independently installed Tasks plugin still belongs to the user after A2A is removed.
+            subprocess.run(["codex", "plugin", "add", "mcp-tasks@agent-polyfill"], env=env, cwd=home, check=True)
             subprocess.run(["codex", "plugin", "remove", "a2a@agent-polyfill"], env=env, cwd=home, check=True)
+            servers = json.loads(subprocess.check_output(["codex", "mcp", "list", "--json"], env=env, cwd=home))
+            assert any(s["name"] == "mcp-tasks" and s["enabled"] for s in servers)
             metadata = {"_meta": {"io.modelcontextprotocol/protocolVersion": REV}}
             discover = wire(command, env, "server/discover", metadata)["result"]
             assert not discover["capabilities"]
             assert wire(command, env, "tools/list", metadata)["result"]["tools"] == []
             assert "error" in wire(command, env, "tasks/get", {**metadata, "taskId": "former-task"})
-            assert remote_count() == 2
+            assert remote_count() == prior + 2
             print("Clean marketplace install, real delegation and uninstall passed.")
         print("Native Tasks and active-turn interop passed. Verified decline, two questions, stale reply, conversation isolation, restart and artifact.")
     finally:

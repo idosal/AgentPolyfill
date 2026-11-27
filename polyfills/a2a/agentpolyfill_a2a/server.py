@@ -22,7 +22,7 @@ from .reviewed import ANSWER, CONFIRM, Reviewed
 
 REV = "2026-07-28"
 EXT = "io.modelcontextprotocol/tasks"
-INFO = {"name": "agentpolyfill-a2a", "version": "0.1.0"}
+INFO = {"name": "agentpolyfill-a2a", "version": "0.2.0"}
 CAPS = {"tools": {}, "extensions": {EXT: {}}}
 TOOL = {
     "name": "delegate",
