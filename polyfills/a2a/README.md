@@ -2,6 +2,12 @@
 
 Connect a named A2A agent to your chat. Ask the agent to do a job, review its questions, and receive its artifact in the originating conversation. AgentPolyfill implements the **client** for the Agent2Agent project’s A2A 1.0 protocol using its official Python SDK. Structured Input v1 is a draft extension. A Tasks-capable host handles background work. Antigravity CLI can also finish a delegation during an active turn using its own permission cards.
 
+## Codex Desktop demo
+
+[![Codex Desktop shows the configured agents, asks for two file permissions and returns BLUE GREEN](../../docs/media/demos/a2a-codex-marketplace.gif)](../../docs/media/demos/a2a-codex-marketplace.mp4)
+
+[Watch the full 53-second recording (MP4).](../../docs/media/demos/a2a-codex-marketplace.mp4) It shows a marketplace install with no agent URL, two agents added after installation, and an edit and removal reflected in the open chat. After reloading Desktop, the user delegates to a paired A2A Serve agent, reviews two file permissions, and receives the artifact in the originating chat. The recording used a signed-out profile, a local scripted model and worker, and official A2A Serve 0.1.0 on loopback.
+
 ## Install from the AgentPolyfill Codex marketplace
 
 On macOS or Linux, make [uv](https://docs.astral.sh/uv/) available on Codex’s PATH. Add the marketplace once, then install A2A. No agent URL or account is needed to install the plugin.
