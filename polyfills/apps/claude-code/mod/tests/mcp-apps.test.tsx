@@ -92,7 +92,7 @@ function standIns(
   on('ui.log', () => ({ value: undefined }))
   const asked: string[] = []
   on('tool.call', (_$, e) => {
-    if (e.tool === 'ToolSearch') {
+    if (/^ToolSearch$/.test(e.tool)) {
       return { result: { matches: opts.searchMatches ?? [], query: 'select:', total_deferred_tools: 3 } as never }
     }
     if (e.tool !== 'AskUserQuestion') return { result: (opts.result ?? RESULT) as never }

@@ -25,7 +25,7 @@ export function registerToolHooks(on: On) {
   // its server's discovery and Chrome started now, so its view's first
   // picture doesn't wait on them; Chrome only for a tool that has an app.
   // ToolSearch itself runs and answers as it would.
-  on('tool.run', { tool: 'ToolSearch' }, async ($, e, next) => {
+  on('tool.run', { tool: /^ToolSearch$/ }, async ($, e, next) => {
     const ran = await next(e)
     if (state.isActive && next.origin.plugin === ENGINE && 'result' in ran) {
       const matches = (ran.result as { matches?: unknown } | undefined)?.matches
