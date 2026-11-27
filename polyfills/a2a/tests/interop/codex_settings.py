@@ -14,7 +14,10 @@ PACKAGE = Path(__file__).resolve().parents[2]
 def exercise(profile):
     codex = shutil.which("codex")
     env = {"HOME": str(profile), "CODEX_HOME": str(profile / "codex"), "PATH": os.environ["PATH"],
-           "OTEL_SDK_DISABLED": "true", "CODEX_DISABLE_UPDATE_CHECK": "1"}
+           "OTEL_SDK_DISABLED": "true", "CODEX_DISABLE_UPDATE_CHECK": "1",
+           "GIT_ALLOW_PROTOCOL": "file", "GIT_TERMINAL_PROMPT": "0",
+           "HTTPS_PROXY": "http://127.0.0.1:1", "HTTP_PROXY": "http://127.0.0.1:1",
+           "NO_PROXY": "localhost,127.0.0.1,::1"}
     # The shell installer and package build are exercised separately in CI.
     python = str(PACKAGE / ".venv/bin/python")
     subprocess.run([python, str(PACKAGE / "configure.py"), "codex"], env=env, check=True)
@@ -23,7 +26,7 @@ def exercise(profile):
             "-c", 'model_providers.fixture.base_url="http://127.0.0.1:1/v1"',
             "-c", 'model_providers.fixture.wire_api="responses"']
     with subprocess.Popen(args, env=env, cwd=profile, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                          stderr=subprocess.DEVNULL, text=True) as proc:
+                          stderr=subprocess.DEVNULL, text=True, start_new_session=True) as proc:
         request_id = 0
 
         def request(method, params):
@@ -67,7 +70,17 @@ def exercise(profile):
             assert "delegate" in tools["design"] and "research" not in tools
             print("Live Codex directory passed: empty, two agents, edit, remove, and remaining delegation tool.")
         finally:
-            proc.terminate()
+            # The npm launcher can outlive or orphan helper processes that write to CODEX_HOME.
+            # Give the server EOF, then stop remaining children in this fixture's own process group.
+            proc.stdin.close()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
 
 
 if __name__ == "__main__":
