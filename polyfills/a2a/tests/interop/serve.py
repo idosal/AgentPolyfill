@@ -6,10 +6,56 @@ import shlex
 import sqlite3
 import subprocess
 import sys
+import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 REV = "2026-07-28"
+
+
+def wire(command, env, method, params):
+    # A separate real stdio process per request also checks persisted routing.
+    request = {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
+    output = subprocess.check_output(command, input=json.dumps(request) + "\n", env=env, text=True, timeout=40)
+    return json.loads(output)
+
+
+def check_tasks(command, env):
+    meta = {
+        "io.modelcontextprotocol/protocolVersion": REV,
+        "io.modelcontextprotocol/clientCapabilities": {"extensions": {"io.modelcontextprotocol/tasks": {}}},
+    }
+
+    def call(method, **params):
+        response = wire(command, env, method, {"_meta": meta, **params})
+        assert "result" in response, response
+        return response["result"]
+
+    created = call("tools/call", name="delegate", arguments={"message": "Create a second swatch."})
+    assert created["resultType"] == "task"
+    handle = created["taskId"]
+
+    def poll(status, previous=None):
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            result = call("tasks/get", taskId=handle)
+            if result["status"] == status and previous not in result.get("inputRequests", {}):
+                return result
+            time.sleep(0.25)
+        raise AssertionError(f"Serve did not reach {status} for the expected question.")
+
+    answer = {"action": "accept", "content": {"option": "once"}}
+    first_form = poll("input_required")["inputRequests"]
+    first, = first_form
+    assert "first.txt" in first_form[first]["params"]["message"]
+    call("tasks/update", taskId=handle, inputResponses={first: answer})
+    second_form = poll("input_required", first)["inputRequests"]
+    second, = second_form
+    assert "second.txt" in second_form[second]["params"]["message"]
+    call("tasks/update", taskId=handle, inputResponses={first: answer})
+    assert list(call("tasks/get", taskId=handle)["inputRequests"]) == [second]
+    call("tasks/update", taskId=handle, inputResponses={second: answer})
+    assert poll("completed")["result"]["content"][0]["text"] == "Artifact: BLUE GREEN"
 
 
 def exercise(serve, base):
@@ -53,7 +99,6 @@ def exercise(serve, base):
             str(serve),
             "--state-dir",
             str(home / "routing"),
-            "--antigravity",
         ]
 
         def call(params, owner="origin"):
@@ -62,21 +107,10 @@ def exercise(serve, base):
                 "antigravity.google/conversation_id": owner,
                 "io.modelcontextprotocol/clientCapabilities": {"elicitation": {"form": {}}},
             }
-            request = {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "tools/call",
-                "params": {
-                    "_meta": meta,
-                    "name": "delegate",
-                    "arguments": {"message": "Create a swatch."},
-                    **params,
-                },
-            }
-            response = subprocess.check_output(
-                command, input=json.dumps(request) + "\n", env=env, text=True, timeout=40
+            return wire(
+                [*command, "--antigravity"], env, "tools/call",
+                {"_meta": meta, "name": "delegate", "arguments": {"message": "Create a swatch."}, **params},
             )
-            return json.loads(response)
 
         def reply(token, key, value):
             return {"requestState": token, "inputResponses": {key: {"action": "accept", "content": value}}}
@@ -91,8 +125,6 @@ def exercise(serve, base):
         assert "first.txt" in form1[first]["params"]["message"]
 
         def await_next(params, previous):
-            import time
-
             for _ in range(12):
                 result = call(params)["result"]
                 if previous not in result.get("inputRequests", {}):
@@ -109,7 +141,9 @@ def exercise(serve, base):
         result = await_next(reply(token, second, {"option": "once"}), second)
         assert result["content"][0]["text"] == "Artifact: BLUE GREEN"
         assert remote_count() == 1
-        print("Passed decline, two questions, stale reply, conversation isolation, restart and artifact.")
+        check_tasks(command, env)
+        assert remote_count() == 2
+        print("Native Tasks and active-turn interop passed. Verified decline, two questions, stale reply, conversation isolation, restart and artifact.")
     finally:
         cli("stop")
 

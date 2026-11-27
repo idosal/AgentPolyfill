@@ -22,6 +22,6 @@ uv sync --locked --python 3.12 --extra setup
 .venv/bin/python tests/interop/serve.py /absolute/path/to/a2a-serve
 ```
 
-The [CI workflow](../../.github/workflows/a2a-test.yml) verifies a checksum-pinned Serve release on Linux, installs and removes the adapter in a fresh profile, runs the tests and builds the wheel. The [host verification table](README.md#host-verification) records the separately exercised macOS surfaces. The eight-host runs used real hosts with synthetic models and a paired Serve process.
+The [CI workflow](../../.github/workflows/a2a-test.yml) verifies a checksum-pinned Serve release on Linux through both the standard MCP Tasks stdio protocol and the active-turn fallback, installs and removes the adapter in a fresh profile, runs the tests and builds the wheel. The [host verification table](README.md#host-verification) records the separately exercised macOS surfaces. The eight-host runs used real hosts with synthetic models and a paired Serve process.
 
 The [bounded TLA+ model](model/A2AReplay.tla) checks two successive questions, concurrent remote advancement and a local restart. Correlation checks passed in 154 distinct states. With receiver deduplication the additional single-effect invariant passed in 70 distinct states. Negative controls show how the wrong question can receive an answer without correlation and how a crash can repeat an effect without remote deduplication. These model assumptions also apply to real agents.
