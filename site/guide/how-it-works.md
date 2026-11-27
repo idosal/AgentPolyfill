@@ -104,7 +104,7 @@ Each host lets outside code in, in its own way.
   register tools and skills, put a tool call to Hermes's own approval, start
   a turn with `ctx.inject_message`, and call a server's tools over Hermes's
   connection. Each form here starts a bundled Node helper for the client
-  rules. Events adds poll and push and leaves webhook servers to Hermes.
+  rules. Events supports webhook, push and poll for session watches. Hermes handles servers with `events: true`.
 
 That's the host half of almost any extension. The protocol half is missing in
 each. No host lets a plugin send an extension's own methods, such as
@@ -326,7 +326,7 @@ work with every server you've signed in to: Events in Claude Code and
 Copilot CLI, and both in Codex and OpenCode. In Pi they're enough for Skills; Events also needs
 Pi's client to speak 2026-07-28. In Hermes, poll and Skills need the native
 request and capability calls; push also needs notifications on its request.
-Webhook delivery is already Hermes's own.
+Hermes also provides native webhook delivery for servers with `events: true`.
 
 Server Cards doesn't need any of the four to work. A card is a public document
 you read before connecting, and the server it describes is added to the host's

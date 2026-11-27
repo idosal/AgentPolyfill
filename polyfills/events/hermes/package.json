@@ -1,9 +1,9 @@
 {
   "name": "mcp-events-hermes",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
-  "description": "A Hermes Agent plugin that adds MCP Events (SEP-3415) by poll and push: Hermes can watch events on your MCP servers, and an event wakes the idle session that asked for it.",
+  "description": "A Hermes Agent plugin that adds MCP Events (SEP-3415) by webhook, push and poll: Hermes can watch events on your MCP servers, and an event wakes the idle session that asked for it.",
   "engines": {
     "node": ">=20"
   },

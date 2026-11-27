@@ -26,7 +26,6 @@ import { createTools, type ToolAnswer, type Unavailable } from '../../core/src/t
 import { secrets } from '../../core/src/untrusted.ts';
 import { WakeBudget, wakeLimits } from '../../core/src/wake.ts';
 import { WatchManager } from '../../core/src/watcher.ts';
-import { HERMES } from './words.ts';
 
 /** The first line of every wake: the message lands in the conversation as the user's input, so it says whose it is. */
 export const WAKE_HEADER = `${LINE_PREFIX} (Sent by the mcp-events plugin, not typed by the user.)`;
@@ -110,7 +109,6 @@ export class HermesSession {
     readonly budget: WakeBudget;
     readonly manager: WatchManager;
     readonly #tools: ReturnType<typeof createTools>;
-    readonly #connections: Map<string, EventsConnection>;
     readonly #wake: Wake;
     readonly #log: (s: string) => void;
     readonly #batchMs: number;
@@ -144,7 +142,6 @@ export class HermesSession {
         if (this.budget.noticeHanded) this.budget.pause();
         this.manager = new WatchManager({ connections: o.connections, project: this.project, spool: this.spool, session: this.id, log: this.#log, env: o.env, connectTimeoutMs: o.connectTimeoutMs, redact: secrets });
         this.#tools = createTools(() => [...o.connections.values()], o.unavailable, this.manager);
-        this.#connections = o.connections;
         this.spool.onAppend = (rec) => {
             const gate = this.budget.gate([String(rec.watch ?? '')]);
             if (gate.kind === 'paused') {
@@ -177,12 +174,6 @@ export class HermesSession {
 
     async call(name: string, input: Record<string, unknown>): Promise<ToolAnswer> {
         const answer = await this.#tools.call(name, input);
-        // An event type delivered by webhook only isn't watched here, whatever the shared client's reason:
-        // Hermes does webhooks itself, and the answer says how to use that.
-        if (name === 'watch_event' && answer.isError) {
-            const type = this.#connections.get(String(input.server ?? ''))?.eventTypes.find((t) => t.name === input.event);
-            if (type && HERMES.noPublicUrl && !type.delivery.some((d) => d === 'push' || d === 'poll')) return { ...answer, text: HERMES.noPublicUrl };
-        }
         if (name === 'list_watches' && this.lastWakeError) return { ...answer, text: `${answer.text}\n\nWaking this session failed the last time it was tried (${this.lastWakeError}); it is tried again, and when the user next writes here.` };
         return answer;
     }

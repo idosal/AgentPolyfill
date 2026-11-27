@@ -7,6 +7,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { appendFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -15,6 +16,19 @@ import { fileURLToPath } from 'node:url';
 export const ROOT = fileURLToPath(new URL('..', import.meta.url));
 export const HELPER = join(ROOT, 'src', 'helper.ts');
 export const FIXTURE = join(ROOT, '..', 'claude-code', 'test', 'fixture-events-server.ts');
+
+/** A loopback callback for the fixture, which verifies and delivers signed webhooks by HTTP. */
+export async function localWebhookEnv(): Promise<Record<string, string>> {
+    const port = await new Promise<number>((resolve, reject) => {
+        const server = createServer();
+        server.once('error', reject);
+        server.listen(0, '127.0.0.1', () => {
+            const { port } = server.address() as { port: number };
+            server.close(() => resolve(port));
+        });
+    });
+    return { MCP_EVENTS_DEV: '1', MCP_EVENTS_RECEIVER_PORT: String(port), MCP_EVENTS_PUBLIC_URL: `http://127.0.0.1:${port}` };
+}
 
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** A Hermes session key, in the shapes Hermes uses: a stored session id, or a messaging chat's routing key. */
