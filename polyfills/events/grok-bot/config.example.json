@@ -1,0 +1,15 @@
+{
+  "servers": {
+    "demo": {
+      "upstream": { "url": "https://event-feeds.idosalomon.workers.dev/mcp" }
+    }
+  },
+  "watches": [
+    {
+      "server": "demo",
+      "name": "button",
+      "event": "demo.button",
+      "arguments": { "channel": "YOUR_DEMO_CHANNEL" }
+    }
+  ]
+}
