@@ -635,7 +635,17 @@ fn oauth_script() -> PathBuf {
 impl OAuthServer {
     /// One that serves `serves`: `modern` (2026-07-28 only) or `legacy` (the 2025 revisions only).
     fn start(w: &World, serves: &str) -> Self {
-        let mut child = Command::new("node").arg(oauth_script()).arg(w.marker("oauth-requests")).args(["3600", serves]).stdout(Stdio::piped()).spawn().unwrap();
+        Self::start_with(w, serves, false)
+    }
+
+    /// The same; `about` makes it publish who it is (name, icon, links, scopes).
+    fn start_with(w: &World, serves: &str, about: bool) -> Self {
+        let mut command = Command::new("node");
+        command.arg(oauth_script()).arg(w.marker("oauth-requests")).args(["3600", serves]).stdout(Stdio::piped());
+        if about {
+            command.env("OAUTH_ABOUT", "1");
+        }
+        let mut child = command.spawn().unwrap();
         let mut line = String::new();
         BufReader::new(child.stdout.take().unwrap()).read_line(&mut line).unwrap();
         let port = line.trim().strip_prefix("listening ").expect("the stand-in server names its port").to_string();
@@ -845,6 +855,21 @@ fn the_consent_page_is_answered_in_the_browser_and_a_refusal_keeps_nothing() {
     assert_eq!(std::fs::read_dir(w.root.join("tokens")).unwrap().count(), 1);
     // The page is gone with the answer.
     assert!(Command::new("node").arg(oauth_script()).args(["consent", &page, "refuse"]).output().map_or(true, |o| !o.status.success()));
+}
+
+// The page says who the server is from what it publishes (name, icon, links,
+// permissions), and falls back to the configured name when it publishes nothing.
+#[test]
+fn the_consent_page_shows_what_the_server_publishes_and_falls_back_without_it() {
+    for (about, expected) in [(true, "about scopes icon title links"), (false, "about no-scopes no-icon no-title no-links")] {
+        let w = World::new(if about { "about" } else { "no-about" });
+        let server = OAuthServer::start_with(&w, "modern", about);
+        w.claude_json(json!({"docs": {"type": "http", "url": server.url}}), json!({}));
+        let (mut child, page, _lines) = browser_signin(&w, true);
+        let (ok, said) = browser_plays(&page, &["refuse"]);
+        assert!(ok && said.contains(expected), "{said}");
+        assert!(child.wait().unwrap().success());
+    }
 }
 
 // The encrypted file, from the page to a session's helper: the passphrase is

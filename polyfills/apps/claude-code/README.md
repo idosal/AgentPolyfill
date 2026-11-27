@@ -200,8 +200,13 @@ Or remove it with `claude plugin uninstall mcp-apps-cli@agent-polyfill`.
   `signin` prints one line ("Press Enter to review and approve in your
   browser"), then serves a small consent page on a loopback address of its own
   (a random port, a token against forged requests, closed after your answer
-  or after five minutes). The page says what the above means in three lines,
-  asks where to keep the login, and has Accept and Refuse; Accept goes on to
+  or after five minutes). The page shows who the server says it is, read from
+  what the server publishes without signing in (its name, icon, website,
+  description and permissions, from the MCP `serverInfo` and the OAuth
+  protected resource metadata, RFC 9728, with links to its policy and terms
+  when it gives them; what it does not publish is left out, and the icon is
+  downloaded by the helper, never loaded by the page). It says what the above
+  means in three lines, asks where to keep the login, and has Accept and Refuse; Accept goes on to
   the server's own sign-in in the same tab, Refuse keeps nothing. Without a
   browser, `--no-browser` asks the same in the terminal (`Continue? [y/N]`,
   no by default; without a terminal it refuses). To skip the question and the

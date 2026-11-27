@@ -8,6 +8,7 @@ mod chrome;
 mod fetch_browser;
 mod config;
 mod mcp;
+mod about;
 mod consent;
 mod oauth;
 mod vault;

@@ -205,7 +205,7 @@ async fn read_http(stream: &mut TcpStream) -> Option<Http> {
 async fn respond(stream: &mut TcpStream, status: &str, extra: &str, body: &str) {
     let head = format!(
         "HTTP/1.1 {status}\r\ncontent-type: text/html; charset=utf-8\r\ncontent-length: {}\r\nconnection: close\r\ncache-control: no-store\r\n\
-         content-security-policy: default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'\r\nx-frame-options: DENY\r\nreferrer-policy: same-origin\r\n{extra}\r\n",
+         content-security-policy: default-src 'none'; style-src 'unsafe-inline'; img-src data:; frame-ancestors 'none'\r\nx-frame-options: DENY\r\nreferrer-policy: same-origin\r\n{extra}\r\n",
         body.len()
     );
     let _ = stream.write_all(head.as_bytes()).await;
@@ -270,14 +270,14 @@ enum Answer {
 }
 
 /// The consent page: served until the person accepts or refuses.
-async fn wait_for_consent(requests: &mut Requests, port: u16, token: &str, name: &str, url: &str) -> Result<Answer> {
+async fn wait_for_consent(requests: &mut Requests, port: u16, token: &str, name: &str, url: &str, about: &crate::about::About) -> Result<Answer> {
     let mut problem: Option<String> = None;
     loop {
         let (mut stream, request) = requests.next().await?;
         let origin_ok = request.headers.get("origin").is_none_or(|o| o == &format!("http://127.0.0.1:{port}") || o == &format!("http://localhost:{port}"));
         match (request.method.as_str(), request.path()) {
             ("GET", "/consent") if request.query("t").as_deref() == Some(token) => {
-                respond(&mut stream, "200 OK", "", &crate::consent::page(name, url, token, problem.as_deref())).await;
+                respond(&mut stream, "200 OK", "", &crate::consent::page(name, url, about, token, problem.as_deref())).await;
             }
             ("POST", "/decision") if origin_ok && request.form().get("t").map(String::as_str) == Some(token) => {
                 let form = request.form();
@@ -293,7 +293,7 @@ async fn wait_for_consent(requests: &mut Requests, port: u16, token: &str, name:
                     }
                     Err(why) => {
                         problem = Some(format!("{why:#}"));
-                        respond(&mut stream, "200 OK", "", &crate::consent::page(name, url, token, problem.as_deref())).await;
+                        respond(&mut stream, "200 OK", "", &crate::consent::page(name, url, about, token, problem.as_deref())).await;
                     }
                 }
             }
@@ -330,8 +330,10 @@ pub async fn signin_in_browser(name: &str, url: &str, ready: impl FnOnce(&str)) 
     let port = listener.local_addr()?.port();
     let token = crate::tmp::random_hex(16)?;
     let mut requests = listen(listener, port);
+    // What the server publishes about itself, for the page (what is missing is left out).
+    let about = tokio::time::timeout(crate::about::BUDGET, crate::about::fetch(url)).await.unwrap_or_default();
     ready(&format!("http://127.0.0.1:{port}/consent?t={token}"));
-    let answer = tokio::time::timeout(WAIT, wait_for_consent(&mut requests, port, &token, name, url)).await.map_err(|_| anyhow!("nobody answered in the browser"))??;
+    let answer = tokio::time::timeout(WAIT, wait_for_consent(&mut requests, port, &token, name, url, &about)).await.map_err(|_| anyhow!("nobody answered in the browser"))??;
     match answer {
         Answer::Refused => Ok(None),
         Answer::Accepted(session, place) => {

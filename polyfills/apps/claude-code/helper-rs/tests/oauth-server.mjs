@@ -24,6 +24,10 @@
 // sent: yes|no> <JSON-RPC method or grant_type>", and one to /mcp with the
 // revision its `_meta` names after that, or "-" for none.
 // With OAUTH_NO_REVOKE set in the environment, it publishes no revocation endpoint.
+// With OAUTH_ABOUT set, it describes itself: resource metadata with a name,
+// documentation, policy and terms links and scopes, and an `initialize` that
+// answers without a token with a serverInfo (title, description, website,
+// an icon served at /icon.png).
 // Second form: opens <url> the way a browser does (follows redirects).
 
 import { createHash, randomUUID } from "node:crypto";
@@ -50,6 +54,7 @@ if (process.argv[2] === "consent") {
     }
   }
   console.log(`page ${page.status} ${page.headers.get("content-security-policy")?.includes("default-src 'none'") ? "csp" : "no-csp"} ${/macOS Keychain/.test(html) ? "keychain-offered" : "no-keychain"}`);
+  console.log(`about ${/Permissions the server lists/.test(html) ? "scopes" : "no-scopes"} ${/<img class="icon" src="data:image\/png;base64,/.test(html) ? "icon" : "no-icon"} ${/Acme Docs/.test(html) ? "title" : "no-title"} ${/Privacy policy/.test(html) ? "links" : "no-links"}`);
   const token = /name="t" value="([^"]+)"/.exec(html)[1];
   const t = token;
   const post = (fields, headers = {}) =>
@@ -77,6 +82,8 @@ const codes = new Map(); // code -> { challenge, redirect }
 const refresh = new Set();
 const tokens = new Map(); // access token -> end (ms)
 const registered = new Set();
+const about = Boolean(process.env.OAUTH_ABOUT);
+const ICON = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAMAAADVRocKAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAkUExURQ92bhJ4cP///1igmmSmoYO4tCOBeqfNyjSLhNHl40mXkRF3b2M41LsAAAABYktHRAJmC3xkAAAAB3RJTUUH6gsbESc7/enhzQAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyNi0xMS0yN1QxNzozOTo1OSswMDowML3eDowAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjYtMTEtMjdUMTc6Mzk6NTkrMDA6MDDMg7YwAAAAKHRFWHRkYXRlOnRpbWVzdGFtcAAyMDI2LTExLTI3VDE3OjM5OjU5KzAwOjAwm5aX7wAAAZFJREFUaN7t1tuOgzAMBFDAufP//7ssbVmwk1CSsbQP8WM8dDiqonaaxowZM2bMmOczL7NuAS2kDFh0CbQVaBJ+AaoE2gv0CC+AIoHeBVqED0CNQEeBDuEPoESgU4EG4QxQIdClAE+4AhQIxArQBA6AE0gUYAkSACZQpgBJyAGgBMoW4Ah5AJBAhQIUoQSAEahYgCGUASACVQoQhBoAQmAAgyaI3wE0gQHsZLEE/sJuclgCA/jtyCMJHBC2s4AkMEDcDyOOwAFpP004Ar/E6366wq4zB5j3uUERqPBBM4jAP8ceG4shcIA7Ng5C4AB/2nkEgQPCaRcABA6Il23sJ3BAumxTN0H8kK2XNb9szwkcYNjedBLmuze8DTwEWJGwXQTxfk5EXBeBA3wm4zsIAhAyodBB4ICYTcVmggCkbCw1E8S/0TUbE5ftW4IAmELQNBLo2+fmNoJ4zBajtokgAK4YdS0EAfCVsG8gCECohMNzggDEajw+JghAqsbTYwJ/oHDJPiMu23L/JYwZM2bMmP83Pxi2Ds5FxdiuAAAAAElFTkSuQmCC", "base64");
 
 const issue = (res) => {
   const access = `at-${randomUUID()}`;
@@ -102,7 +109,16 @@ const server = createServer((req, res) => {
       res.end(JSON.stringify(value));
     };
     if (url.pathname === "/.well-known/oauth-protected-resource" || url.pathname === "/.well-known/oauth-protected-resource/mcp") {
-      return json(200, { resource: `${origin}/mcp`, authorization_servers: [origin] });
+      return json(200, {
+        resource: `${origin}/mcp`,
+        authorization_servers: [origin],
+        ...(about ? { resource_name: "Acme Docs", resource_documentation: "https://docs.acme.example/mcp", resource_policy_uri: "https://acme.example/privacy", resource_tos_uri: "https://acme.example/terms", scopes_supported: ["docs:read", "docs:write", "openid"] } : {}),
+      });
+    }
+    if (about && url.pathname === "/icon.png") {
+      note(200);
+      res.writeHead(200, { "content-type": "image/png" });
+      return res.end(ICON);
     }
     if (url.pathname.startsWith("/.well-known/oauth-authorization-server")) {
       return json(200, {
@@ -173,6 +189,11 @@ const server = createServer((req, res) => {
     const meta = message?.params?._meta ?? {};
     const envelope = meta["io.modelcontextprotocol/protocolVersion"] ?? null;
     if (message) what = `${message.method} ${envelope ?? "-"}`;
+    if (about && message?.method === "initialize" && !bearer) {
+      note(200);
+      res.writeHead(200, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ jsonrpc: "2.0", id: message.id, result: { protocolVersion: LEGACY[0], capabilities: {}, serverInfo: { name: "acme-docs", title: "Acme Docs", version: "1", description: "Search the Acme documentation.", websiteUrl: "https://acme.example/", icons: [{ src: `${origin}/icon.png`, mimeType: "image/png", sizes: ["96x96"] }] } } }));
+    }
     const live = tokens.has(bearer) && tokens.get(bearer) > Date.now();
     if (!live && !(serves === "open" && message?.method === "server/discover")) {
       note(401);
