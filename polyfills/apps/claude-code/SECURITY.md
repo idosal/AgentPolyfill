@@ -96,6 +96,24 @@ server's headers never reach another host that way.
 The plugin never reads Claude Code's stored credentials (the keychain, OAuth
 tokens). It reads the same MCP configuration files Claude Code reads.
 
+Off by default, per server (the **Own sign-in (OAuth)** setting), the person
+can have the helper sign in to a server itself (`signin <server>`, after it
+says what that means and asks to continue): authorization code with PKCE, to a
+loopback address of the helper's own, for a server it may already use and only
+over `https` or to the person's own machine. It is a second grant, which
+Claude Code's `/mcp` and an organisation's MCP sign-in settings don't see. The
+tokens, and the client the server registered, are kept in a file only the
+person can read, in a folder only they can open
+(`~/.cache/mcp-apps-cli/oauth/`), one file for each server and address, so a
+token is sent only to the address it was issued for. They are not encrypted
+there: the file's mode is what protects them, as for the view stores. A
+connection that carries a token follows no redirect, and says once a session,
+in the debug log, that it is using its own sign-in. `signout <server>` asks the
+server to revoke the tokens where it offers that (RFC 7009) and deletes the
+file; taking the server off the setting stops their use at once. These are the
+helper's own tokens, issued to it by the server: Claude Code's are still never
+read.
+
 ## What an app may do, and when you're asked
 
 Each view runs in a sandboxed iframe in a dedicated headless Chrome, under the
