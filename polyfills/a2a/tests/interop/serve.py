@@ -192,7 +192,20 @@ def exercise(serve, base, marketplace=None):
         check_tasks(command, env)
         assert remote_count() == prior + 2
         if marketplace:
+            # A host advertising native Tasks keeps chat settings and has only one delegation path.
+            hello = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                     "params": {"protocolVersion": "2025-11-25", "clientInfo": {"name": "native", "version": "1"},
+                                "capabilities": {"extensions": {"io.modelcontextprotocol/tasks": {}}}}}
+            tools = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
+            replies = subprocess.check_output(directory_cmd, input=json.dumps(hello) + "\n" + json.dumps(tools) + "\n",
+                                              env=env, text=True, timeout=30)
+            catalog = next(json.loads(line)["result"] for line in replies.splitlines() if json.loads(line)["id"] == 2)
+            assert {t["name"] for t in catalog["tools"]} == {"list_agents", "add_agent", "edit_agent", "remove_agent"}
+            # An independently installed Tasks plugin still belongs to the user after A2A is removed.
+            subprocess.run(["codex", "plugin", "add", "mcp-tasks@agent-polyfill"], env=env, cwd=home, check=True)
             subprocess.run(["codex", "plugin", "remove", "a2a@agent-polyfill"], env=env, cwd=home, check=True)
+            servers = json.loads(subprocess.check_output(["codex", "mcp", "list", "--json"], env=env, cwd=home))
+            assert any(s["name"] == "mcp-tasks" and s["enabled"] for s in servers)
             metadata = {"_meta": {"io.modelcontextprotocol/protocolVersion": REV}}
             discover = wire(command, env, "server/discover", metadata)["result"]
             assert not discover["capabilities"]

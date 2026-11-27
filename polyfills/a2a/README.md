@@ -4,9 +4,9 @@ Connect a named A2A agent to your chat. Ask the agent to do a job, review its qu
 
 ## Codex Desktop demo
 
-[![Codex Desktop shows the configured agents, asks for two file permissions and returns BLUE GREEN](../../docs/media/demos/a2a-codex-marketplace.gif)](../../docs/media/demos/a2a-codex-marketplace.mp4)
+[![Codex reviews the agent connection and two file permissions before returning BLUE GREEN](../../docs/media/demos/a2a-codex-marketplace.gif)](../../docs/media/demos/a2a-codex-marketplace.mp4)
 
-[Watch the full 53-second recording (MP4).](../../docs/media/demos/a2a-codex-marketplace.mp4) It shows a marketplace install with no agent URL, two agents added after installation, and an edit and removal reflected in the open chat. After reloading Desktop, the user delegates to a paired A2A Serve agent, reviews two file permissions, and receives the artifact in the originating chat. The recording used a signed-out profile, a local scripted model and worker, and official A2A Serve 0.1.0 on loopback.
+[Watch the 26-second recording (MP4).](../../docs/media/demos/a2a-codex-marketplace.mp4) Starting from an A2A-only installation, the user asks Codex to connect a paired swatch agent. The model proposes the name and URL, Codex requests approval, and the user delegates in the same chat. Two file permissions later, the agent returns `BLUE GREEN`. This is a screen recording of Codex Desktop 26.1120.50957 with a signed-out profile, a scripted local model and worker, and official A2A Serve 0.1.0 on loopback.
 
 ## Install from the AgentPolyfill Codex marketplace
 
@@ -23,7 +23,7 @@ Ask **“Delegate the swatch check to research.”** Codex shows the destination
 
 For a paired A2A Serve agent, tell Codex to use the existing local Serve pairing. Install the official Serve CLI and pair with the destination out of band if required. Chat tools accept names, URLs and the chosen authentication mode. The local settings command returned by `list_agents` also supports owner-only bearer files. Changing destinations disconnects previous credentials.
 
-The first launch needs network access to prepare a locked runtime. On macOS and glibc Linux (arm64 or x86-64), the plugin reuses installed tools or downloads checksum-pinned uv and Node binaries into the Codex profile as needed. Codex Desktop’s bundled Node is supported. Offline setups can supply their own uv, Node 20+, Python 3.12+ and cached packages. Each Codex profile retains its agent names across upgrades. Existing checkout installations remain under their original settings command.
+The first launch needs network access to prepare a locked runtime. On macOS and glibc Linux (arm64 or x86-64), the plugin reuses installed tools or downloads checksum-pinned uv and Node binaries into the Codex profile as needed. Codex Desktop’s bundled Node is supported. Offline setups can supply their own uv, Node 20+, Python 3.12+ and cached packages. Each Codex profile retains its agent names across upgrades. Existing checkout installations remain under their original settings command. Tasks started with the separate Tasks plugin continue to use that plugin for replies and results.
 
 ## Install from this checkout
 
