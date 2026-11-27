@@ -60,7 +60,7 @@ Select a host adapter for its install commands, examples and limits.
 
 Agentic Resource Discovery (ARD) is a separate draft protocol. Its plugin asks before sending your query to a registry.
 
-Claude Code 2.1.332+ includes native Skills in beta. [Migrating from the older plugin](polyfills/claude-code/skills/README.md).
+Claude Code 2.1.332+ includes native Skills in beta. [Migrating from the older plugin](site/guide/skills.md#migrate-from-the-retired-plugin).
 The Antigravity App renders MCP Apps natively. Copilot CLI advertises Skills and its VS Code integration enables Apps. [Copilot compatibility notes](polyfills/events/copilot/README.md#skills-and-apps-in-copilot).
 
 [T3 Code](docs/t3-code.md) uses the underlying agent’s plugins and has a dedicated Events adapter for Codex threads.

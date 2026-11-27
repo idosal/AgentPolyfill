@@ -31,23 +31,28 @@ servers itself, in beta from 2.1.332 (25 November 2026). Its
 beta and may not be on for every account or server yet; where it isn't on,
 there is currently no Skills over MCP in Claude Code.
 
-This project had a Claude Code form of `mcp-skills` until then, and removed
-it. The marketplace no longer lists it, and from version 0.3.0 the
-`agent-polyfill` bundle no longer depends on it. If you installed it, by name
-or through the bundle, remove it at the prompt of a `claude` session:
+### Migrate from the retired plugin
 
-```
+The marketplace retired the Claude Code version of `mcp-skills`.
+Version 0.3.0 of the `agent-polyfill` bundle dropped it. If you installed
+it directly or through the bundle, check `/plugin` for an existing install.
+
+Before uninstalling, run `/mcp-skills forget` to clear approvals. The plugin
+stored approvals and disabled skills in its own store under your Claude Code
+configuration directory. If `/mcp-skills setup` downloaded Bun, run
+`/mcp-skills setup remove` to delete that copy.
+
+To uninstall, run this at the prompt of a Claude Code session.
+
+```text
 /plugin uninstall mcp-skills@agent-polyfill
 ```
 
-Whether Claude Code removes it by itself when the bundle stops depending on it
-isn't known here, so look in `/plugin`. Before you uninstall,
-`/mcp-skills forget` drops the approvals it kept, and `/mcp-skills setup remove`
-deletes its copy of Bun, if you had it download one. The approvals were in the
-mod's own store in your Claude Code configuration folder; its log was in the
-plugin's data folder, which uninstalling leaves in place.
-[What it kept on your machine](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/claude-code/skills/README.md)
-has the rest.
+Uninstalling leaves the plugin's data folder under `~/.claude/plugins/data/`
+(or under `CLAUDE_CONFIG_DIR`) in place. You can delete the plugin's folder
+to remove its log and the list of which MCP servers served skills. If you
+set `MCP_SKILLS_STATE`, the log and server list are in that directory.
+The plugin stored no skill content or tokens.
 
 ## Copilot CLI
 

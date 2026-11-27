@@ -1,5 +1,5 @@
 // The tools, as Codex sees them. The reading, checks and wording are the shared
-// modules' (polyfills/claude-code/server-cards/mod/hooks); what is new here is
+// modules' (polyfills/server-cards/claude-code/mod/hooks); what is new here is
 // how a person is asked (MCP elicitation, in place of Claude Code's hook-made
 // ask) and how a server is written (codex mcp add).
 
