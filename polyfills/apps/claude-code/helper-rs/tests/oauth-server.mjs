@@ -47,14 +47,14 @@ if (process.argv[2] === "consent") {
   const [, , , pageUrl, action] = process.argv;
   const page = await fetch(pageUrl);
   const html = await page.text();
-  for (const needle of ["separate", "mcp-apps-cli-helper signout", "Accept", "Refuse", "MCP_APPS_CLI_TOKEN_STORE"]) {
+  for (const needle of ["Separate from Claude Code", "mcp-apps-cli-helper signout", "Continue to", "Cancel", "MCP_APPS_CLI_TOKEN_STORE"]) {
     if (!html.includes(needle)) {
       console.log(`the page lacks "${needle}"`);
       process.exit(2);
     }
   }
-  console.log(`page ${page.status} ${page.headers.get("content-security-policy")?.includes("default-src 'none'") ? "csp" : "no-csp"} saved:${/Saved in the macOS Keychain/.test(html) ? "keychain" : /Saved in a file protected/.test(html) ? "encrypted" : /Saved in a plain file/.test(html) ? "file" : "unsaid"} ${/name="store"|name="passphrase"/.test(html) ? "has-store-choice" : "no-store-choice"}`);
-  console.log(`about ${/Permissions the server lists/.test(html) ? "scopes" : "no-scopes"} ${/<img class="icon" src="data:image\/png;base64,/.test(html) ? "icon" : "no-icon"} ${/Acme Docs/.test(html) ? "title" : "no-title"} ${/Privacy policy/.test(html) ? "links" : "no-links"}`);
+  console.log(`page ${page.status} ${page.headers.get("content-security-policy")?.includes("default-src 'none'") ? "csp" : "no-csp"} saved:${/Saved securely on this Mac/.test(html) ? "keychain" : /Locked with your passphrase/.test(html) ? "encrypted" : /Not encrypted/.test(html) ? "file" : "unsaid"} ${/name="store"|name="passphrase"/.test(html) ? "has-store-choice" : "no-store-choice"}`);
+  console.log(`about ${/class="perms"/.test(html) ? "scopes" : "no-scopes"} ${/<img class="icon" src="data:image\/png;base64,/.test(html) ? "icon" : "no-icon"} ${/Acme Docs/.test(html) ? "title" : "no-title"} ${/Privacy policy/.test(html) ? "links" : "no-links"}`);
   const token = /name="t" value="([^"]+)"/.exec(html)[1];
   const t = token;
   const post = (fields, headers = {}) =>
@@ -67,7 +67,7 @@ if (process.argv[2] === "consent") {
   }
   const answered = await post({ t: token, decision: action });
   const text = await answered.text();
-  console.log(`answered ${answered.status} ${text.includes("Not signed in") ? "refused" : text.includes("Signed in") ? "signed-in" : text.slice(0, 200)}`);
+  console.log(`answered ${answered.status} ${text.includes("Nothing was connected") ? "refused" : text.includes("connected") ? "signed-in" : text.slice(0, 200)}`);
   process.exit(0);
 }
 

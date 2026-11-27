@@ -205,11 +205,13 @@ Or remove it with `claude plugin uninstall mcp-apps-cli@agent-polyfill`.
   description and permissions, from the MCP `serverInfo` and the OAuth
   protected resource metadata, RFC 9728, with links to its policy and terms
   when it gives them; what it does not publish is left out, and the icon is
-  downloaded by the helper, never loaded by the page). It says where the login
-  will be saved (the global setting below, not a choice made per server), has a
-  "?" that explains the rest (a separate sign-in that Claude Code doesn't list
-  or cancel, kept on this computer, removed with `signout`), and has Accept and
-  Refuse; Accept goes on to the server's own sign-in in the same tab, Refuse
+  downloaded by the helper, never loaded by the page). It shows what the add-on will be able to do
+  in everyday words (with the server's own permission names in small print),
+  where the login is saved (a green check for the Keychain or a passphrase-locked
+  file, a warning for a plain file; "Edit" tells how to change it), and has a
+  "?" for the details (it is separate from Claude Code's own login, how to
+  disconnect, the server's links). The buttons say what happens
+  ("Continue to <server>", "Cancel"); Accept goes on to the server's own sign-in in the same tab, Refuse
   keeps nothing. Without a
   browser, `--no-browser` asks the same in the terminal (`Continue? [y/N]`,
   no by default; without a terminal it refuses). To skip the question and the
