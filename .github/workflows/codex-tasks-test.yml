@@ -15,6 +15,7 @@ on:
     branches: ["**"]
     paths:
       - "polyfills/tasks/**"
+      - ".agents/plugins/marketplace.json"
       - "tools/bundle-notices.mjs"
       - ".github/workflows/codex-tasks-test.yml"
   # Pull requests from forks; a branch of this repository is checked by its
@@ -22,6 +23,7 @@ on:
   pull_request:
     paths:
       - "polyfills/tasks/**"
+      - ".agents/plugins/marketplace.json"
       - "tools/bundle-notices.mjs"
       - ".github/workflows/codex-tasks-test.yml"
 
@@ -108,7 +110,7 @@ jobs:
           grep -q 'None of your MCP servers offers the Tasks extension' "$RUNNER_TEMP/out.jsonl"
 
   codex:
-    name: codex plugin add, from a marketplace holding this folder
+    name: codex plugin add, from the AgentPolyfill marketplace
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
@@ -124,11 +126,9 @@ jobs:
         env:
           CODEX_HOME: ${{ runner.temp }}/codex-home
         run: |
-          mkdir -p "$CODEX_HOME" "$RUNNER_TEMP/mkt/.agents/plugins"
-          cp -R plugin "$RUNNER_TEMP/mkt/mcp-tasks-plugin"
-          printf '%s' '{"name":"ci","owner":{"name":"ci"},"plugins":[{"name":"mcp-tasks","source":{"source":"local","path":"./mcp-tasks-plugin"},"policy":{"installation":"AVAILABLE"},"category":"Developer Tools"}]}' > "$RUNNER_TEMP/mkt/.agents/plugins/marketplace.json"
-          codex plugin marketplace add "$RUNNER_TEMP/mkt"
-          codex plugin add mcp-tasks@ci
+          mkdir -p "$CODEX_HOME"
+          codex plugin marketplace add "$GITHUB_WORKSPACE"
+          codex plugin add mcp-tasks@agent-polyfill
           codex mcp list | tee "$RUNNER_TEMP/mcp.txt"
           grep -q 'mcp-tasks' "$RUNNER_TEMP/mcp.txt"
           grep -q 'dist/helper.js' "$RUNNER_TEMP/mcp.txt"

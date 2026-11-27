@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+root=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
+if ! command -v uv >/dev/null 2>&1; then
+    echo "Install uv to set up this checkout, or use the Python package instructions in README.md." >&2
+    exit 1
+fi
+# Keep the interpreter and adapter at a stable path that desktop apps can launch.
+UV_PROJECT_ENVIRONMENT="$root/.venv" uv sync --project "$root" --locked --extra setup --no-dev --quiet
+exec "$root/.venv/bin/python" "$root/configure.py" "$@"

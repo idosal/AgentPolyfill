@@ -167,6 +167,7 @@ The host handles the connection and any required sign-in.
 | [Events](./events#try-it) | Create a demo button and have the agent report what you typed when you press it. |
 | [Skills](./skills#try-it) | Load Hugging Face’s local-model skill to choose a quantization for a 7B model. |
 | [Apps](./apps#try-it) | Open a game from the arcade MCP server in the Claude Code terminal. |
+| [A2A delegation](./a2a) | Connect a named agent, review its questions, and receive its result in the originating chat. |
 | [ARD](./ard#try-it) | Look up the MCP servers Buildkite publishes through its domain. |
 
 ## Servers behind a sign-in

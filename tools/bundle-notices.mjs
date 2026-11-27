@@ -42,8 +42,8 @@ const { metafile } = await build({
     entryPoints: [entry],
     // A Pi extension leaves Pi's own packages to Pi, as its build.mjs does.
     // Packages a host gives its extensions stay out, as each polyfill's build.mjs leaves them:
-    // Pi's own, and the SDK Copilot provides.
-    external: ['@earendil-works/*', '@github/copilot-sdk', '@github/copilot-sdk/*', '@microsoft/copilot-sdk', '@microsoft/copilot-sdk/*'],
+    // Pi's own, and the SDKs Copilot and OpenCode provide.
+    external: ['@earendil-works/*', '@github/copilot-sdk', '@github/copilot-sdk/*', '@microsoft/copilot-sdk', '@microsoft/copilot-sdk/*', '@opencode/plugin', '@opencode/plugin/*'],
     platform: 'node',
     format: 'esm',
     target: 'node20',
