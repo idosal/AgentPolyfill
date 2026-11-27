@@ -1,6 +1,6 @@
 {
   "name": "mcp-server-cards",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Find a domain's MCP Server Cards and review a selected server in Cursor.",
   "author": { "name": "Ido Salomon" },
   "license": "Apache-2.0",

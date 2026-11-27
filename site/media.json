@@ -115,6 +115,10 @@
   ],
   "copy": [
     {
+      "file": "cursor-server-cards.mp4",
+      "from": "docs/media/demos/cursor-server-cards.mp4"
+    },
+    {
       "file": "events-deploys.mp4",
       "from": "polyfills/events/claude-code/docs/media/demo.mp4"
     }
