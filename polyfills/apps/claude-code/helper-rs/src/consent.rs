@@ -36,7 +36,7 @@ fn shell(title: &str, body: &str) -> String {
 
 /// What the page calls the thing that asks: the tool's own name, said to be a
 /// Claude Code add-on.
-const APP: &str = "mcp-apps-cli";
+pub const APP: &str = "mcp-apps-cli";
 
 /// The words of the page. Three candidates, until one is chosen.
 // Only one is used until the choice is made.
@@ -51,18 +51,18 @@ pub enum Version {
     Three,
 }
 
-struct Words {
-    heading: String,
-    lead: String,
+pub struct Words {
+    pub heading: String,
+    pub lead: String,
     /// Above the list of permissions; empty when there is no list.
-    list_heading: String,
+    pub list_heading: String,
     /// In place of the list, when the server names no permissions.
-    no_list: String,
-    go: String,
-    cancel: &'static str,
+    pub no_list: String,
+    pub go: String,
+    pub cancel: &'static str,
 }
 
-fn words(version: Version, title: &str, with_list: bool) -> Words {
+pub fn words(version: Version, title: &str, with_list: bool) -> Words {
     let t = title;
     match version {
         Version::One => Words {
@@ -106,7 +106,7 @@ fn identity(title: &str, url: &str, about: &About) -> String {
 /// A permission in everyday words, when its name says it: the standard
 /// OpenID Connect ones, and the common `thing:read`, `write`, `thing.delete`
 /// forms. None: the server's word is shown as it is.
-fn plain(scope: &str, title: &str) -> Option<String> {
+pub fn plain(scope: &str, title: &str) -> Option<String> {
     match scope {
         "openid" => return Some("Confirm who you are".into()),
         "email" => return Some("See your email address".into()),
@@ -149,6 +149,17 @@ fn permissions(about: &About, title: &str, w: &Words) -> String {
     format!("{heading}{list}{also}")
 }
 
+/// The storage line: whether it is fine (a green check) or a warning, and its words. A
+/// passphrase-locked file is as safe as the Keychain (the same strong encryption), so it is
+/// green too; only the plain file is a warning.
+pub fn storage_status(kind: Kind) -> (bool, &'static str) {
+    match kind {
+        Kind::Keychain => (true, "Saved securely on this Mac"),
+        Kind::Encrypted => (true, "Locked with your passphrase"),
+        Kind::File => (false, "Not encrypted"),
+    }
+}
+
 /// The consent page for `name` at `url`; `kind` is where the login will be
 /// kept (a global setting, so the page only says it); `token` guards the
 /// form; `problem` is what went wrong with the last answer, if anything.
@@ -170,11 +181,7 @@ pub fn render(version: Version, open: bool, name: &str, url: &str, about: &About
     let checked = if open || problem.is_some() { " checked" } else { "" };
     // A passphrase-locked file is as safe as the Keychain (the same strong encryption), so it is
     // green too; only the plain file is a warning.
-    let (good, headline) = match kind {
-        Kind::Keychain => (true, "Saved securely on this Mac"),
-        Kind::Encrypted => (true, "Locked with your passphrase"),
-        Kind::File => (false, "Not encrypted"),
-    };
+    let (good, headline) = storage_status(kind);
     let status = format!(
         "<div class=\"status\"><span class=\"dot {}\">{}</span><b>{headline}</b><label for=\"store\" class=\"edit\" title=\"Change where the login is saved\">\u{270E} Edit</label></div>",
         if good { "ok" } else { "warn" },

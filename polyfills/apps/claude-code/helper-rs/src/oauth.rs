@@ -351,16 +351,6 @@ fn target(args: &crate::Args, words: &[String]) -> Result<(String, String)> {
 
 /// What the terminal says before its y/N question (the fallback to the
 /// consent page): plain words, one idea a line.
-fn notice(name: &str, url: &str, place: &Place) -> String {
-    format!(
-        "Sign in to \"{name}\" ({url}) for this helper only (Claude Code's own sign-in is not used).\n\
-         \x20 - What it does: gives the helper its own login to \"{name}\", kept in {}.\n\
-         \x20 - What to know: Claude Code's `/mcp` and your organisation's MCP rules can't see or cancel it.\n\
-         \x20 - To undo it: `mcp-apps-cli-helper signout {name}`\n\
-         More: {MORE}\n",
-        place.describe()
-    )
-}
 
 fn flag(words: &[String], name: &str) -> bool {
     words.iter().any(|w| w == name)
@@ -429,18 +419,29 @@ pub async fn cli(args: crate::Args, words: &[String]) -> Result<()> {
         passphrase = Some(first);
     }
     let place = Place::of(kind, name, &url, passphrase.clone()).context("no folder to keep the sign-in in")?;
-    println!("{}", notice(name, &url, &place));
-    if !assumed {
-        if !std::io::stdin().is_terminal() {
-            bail!("signin asks a question: run it in a terminal, or pass --yes (or set MCP_APPS_CLI_SIGNIN_YES=1)");
-        }
-        print!("Continue? [y/N] ");
-        std::io::stdout().flush()?;
-        let mut answer = String::new();
-        std::io::stdin().lock().read_line(&mut answer)?;
-        if !matches!(answer.trim().to_ascii_lowercase().as_str(), "y" | "yes") {
-            println!("Not signed in to {name}.");
-            return Ok(());
+    if !assumed && !std::io::stdin().is_terminal() {
+        bail!("signin asks a question: run it in a terminal, or pass --yes (or set MCP_APPS_CLI_SIGNIN_YES=1)");
+    }
+    // What the server says about itself, shown like the page does (what is missing is left out).
+    let about = tokio::time::timeout(crate::about::BUDGET, crate::about::fetch(&url)).await.unwrap_or_default();
+    let color = crate::ask::color_on();
+    println!("{}", crate::ask::screen(name, &url, &about, kind, color));
+    if assumed {
+        println!("{}", crate::ask::disconnect_hint(name));
+    } else {
+        loop {
+            print!("{}", crate::ask::question(name, &about));
+            std::io::stdout().flush()?;
+            let mut answer = String::new();
+            let read = std::io::stdin().lock().read_line(&mut answer)?;
+            match answer.trim().to_ascii_lowercase().as_str() {
+                "y" | "yes" => break,
+                "?" if read > 0 => println!("\n{}", crate::ask::details(name, &url, &about, color)),
+                _ => {
+                    println!("Not signed in to {name}.");
+                    return Ok(());
+                }
+            }
         }
     }
     println!();

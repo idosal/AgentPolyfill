@@ -213,8 +213,10 @@ Or remove it with `claude plugin uninstall mcp-apps-cli@agent-polyfill`.
   disconnect, the server's links). The buttons say what happens
   ("Continue to <server>", "Cancel"); Accept goes on to the server's own sign-in in the same tab, Refuse
   keeps nothing. Without a
-  browser, `--no-browser` asks the same in the terminal (`Continue? [y/N]`,
-  no by default; without a terminal it refuses). To skip the question and the
+  browser, `--no-browser` shows the same in the terminal (the summary, with
+  colours where the terminal takes them and none when `NO_COLOR` is set, then
+  `Continue to <server> [y/N/?]`: no by default, `?` shows the details; without
+  a terminal it refuses). To skip the question and the
   page, pass `--yes`, or set `MCP_APPS_CLI_SIGNIN_YES=1` in your environment
   to skip them every time (a terminal can't read `/config`); only do that for
   servers you have already decided to sign in to. Where logins are

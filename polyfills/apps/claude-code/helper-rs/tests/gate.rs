@@ -737,8 +737,8 @@ fn the_own_sign_in_is_opt_in_and_a_listed_server_is_discovered_after_signin_in_e
             }
             shown.push_str(&line);
         };
-        assert!(shown.contains("its own login") && shown.contains("plain file") && shown.contains("signout docs") && shown.contains("More: https://"), "{serves}: {shown}");
-        assert!(shown.lines().filter(|l| !l.trim().is_empty()).count() <= 5, "{serves}: the warning is longer than five lines: {shown}");
+        assert!(shown.contains("wants to use your docs account") && shown.contains("Not encrypted") && shown.contains("signout docs") && !shown.contains('\x1b'), "{serves}: {shown}");
+        assert!(shown.lines().filter(|l| !l.trim().is_empty()).count() <= 8, "{serves}: the summary is longer than eight lines: {shown}");
         assert!(address.starts_with(&server.url.replace("/mcp", "/authorize?")), "{serves}: {address}");
         let browsed = Command::new("node").arg(oauth_script()).args(["browse", &address]).output().unwrap();
         assert!(browsed.status.success(), "{serves}: {}", String::from_utf8_lossy(&browsed.stdout));
@@ -879,6 +879,49 @@ fn the_consent_page_shows_what_the_server_publishes_and_falls_back_without_it() 
     }
 }
 
+// The terminal's version of the page (`--no-browser`), in a real terminal (a
+// pseudo-terminal from tests/pty-run.py): the summary, the question, "?" shows the
+// details and asks again, "n" keeps nothing.
+#[cfg(target_os = "macos")]
+#[test]
+fn the_terminal_shows_the_summary_and_the_details_behind_a_question_mark() {
+    let w = World::new("terminal-ask");
+    let server = OAuthServer::start(&w, "modern");
+    w.claude_json(json!({"docs": {"type": "http", "url": server.url}}), json!({}));
+    let inner = terminal(&w, &["signin", "docs", "--no-browser"]);
+    let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests").join("pty-run.py");
+    let mut command = Command::new("python3");
+    command.args(["-I"]).arg(script).arg("?|n").arg("--").arg(inner.get_program()).args(inner.get_args()).env_clear().current_dir(&w.project);
+    for (key, value) in inner.get_envs() {
+        if let Some(value) = value {
+            command.env(key, value);
+        }
+    }
+    let out = command.output().unwrap();
+    let said = String::from_utf8_lossy(&out.stdout).to_string();
+    let first = said.find("[y/N/?]").expect(&said);
+    let second = said[first + 7..].find("[y/N/?]").expect(&said);
+    assert!(said.contains("wants to use your docs account") && said.contains("Not encrypted"), "{said}");
+    // The details come after the first question and before the second.
+    let between = &said[first..first + 7 + second];
+    assert!(between.contains("signout docs") && between.contains("MCP_APPS_CLI_TOKEN_STORE"), "{said}");
+    assert!(said.contains("Not signed in to docs.") && !said.contains('\x1b'), "{said}");
+    assert!(!w.root.join("tokens").exists(), "a refusal kept something");
+}
+
+// An encrypted store set globally without the passphrase: `signin` says what
+// to set before it shows any page.
+#[cfg(target_os = "macos")]
+#[test]
+fn an_encrypted_store_without_its_passphrase_is_refused_before_the_page() {
+    let w = World::new("encrypted-no-passphrase");
+    let server = OAuthServer::start(&w, "modern");
+    w.claude_json(json!({"docs": {"type": "http", "url": server.url}}), json!({}));
+    let out = terminal_with(&w, &["signin", "docs"], false).env("MCP_APPS_CLI_TOKEN_STORE", "encrypted").output().unwrap();
+    let said = String::from_utf8_lossy(&out.stderr).to_string() + &String::from_utf8_lossy(&out.stdout);
+    assert!(!out.status.success() && said.contains("MCP_APPS_CLI_PASSPHRASE") && !said.contains("/consent"), "{said}");
+}
+
 // Changing the store setting after signing in: the earlier login is still used,
 // signing in again under the new setting moves it (one login left, the old one
 // revoked), and `signout` removes a login wherever it is, in every store.
@@ -917,19 +960,6 @@ fn changing_the_store_setting_keeps_one_login_and_signout_removes_every_copy() {
     let said = String::from_utf8_lossy(&out.stdout).to_string();
     assert!(out.status.success() && said.matches("Deleted ").count() == 2, "{said}");
     assert!(tokens().is_empty(), "{:?}", tokens());
-}
-
-// An encrypted store set globally without the passphrase: `signin` says what
-// to set before it shows any page.
-#[cfg(target_os = "macos")]
-#[test]
-fn an_encrypted_store_without_its_passphrase_is_refused_before_the_page() {
-    let w = World::new("encrypted-no-passphrase");
-    let server = OAuthServer::start(&w, "modern");
-    w.claude_json(json!({"docs": {"type": "http", "url": server.url}}), json!({}));
-    let out = terminal_with(&w, &["signin", "docs"], false).env("MCP_APPS_CLI_TOKEN_STORE", "encrypted").output().unwrap();
-    let said = String::from_utf8_lossy(&out.stderr).to_string() + &String::from_utf8_lossy(&out.stdout);
-    assert!(!out.status.success() && said.contains("MCP_APPS_CLI_PASSPHRASE") && !said.contains("/consent"), "{said}");
 }
 
 // The encrypted file, from the page to a session's helper: the passphrase is
