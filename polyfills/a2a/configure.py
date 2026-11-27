@@ -1,6 +1,7 @@
-"""Register one A2A agent in a host profile, using that host's Tasks integration."""
+"""Install A2A in a host profile, optionally registering the first agent."""
 
 import argparse
+import fcntl
 import io
 import json
 import os
@@ -11,6 +12,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 import tomlkit
@@ -125,6 +127,9 @@ def copilot_tasks():
 
 
 def antigravity_hook(base, name, entry):
+    # agy plugin install/uninstall selects its target from HOME, even if MCP config is overridden.
+    if base.resolve() != (Path.home() / ".gemini/config").resolve():
+        raise SetupError("Select the target Antigravity HOME before managing its approval plugins.")
     node = shutil.which("node")
     if not node:
         raise SetupError("Antigravity's permission hook needs Node 22.18 or newer.")
@@ -211,22 +216,91 @@ def host_path(host):
     return base, path
 
 
-def setup(host, name, url, mode, credentials=None, token_file=None):
-    origin(url)
-    if not re.fullmatch(r"[a-z][a-z0-9_-]{0,47}", name) or name == "mcp-tasks":
-        raise SetupError("Choose a short lowercase agent name starting with a letter; mcp-tasks is reserved.")
-    native = mode in {"native", "existing"} or (mode == "auto" and host in {"claude", "copilot"})
-    adapter_args = ["--url", url]
+def section(host):
+    return {"codex": "mcp_servers", "hermes": "mcp_servers", "opencode": "mcp"}.get(host, "mcpServers")
+
+
+@contextmanager
+def profile_lock(host):
+    base, _ = host_path(host)
+    folder = base / "agentpolyfill-a2a"
+    folder.mkdir(parents=True, mode=0o700, exist_ok=True)
+    with (folder / ".settings.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        yield
+
+
+def credential_args(credentials, token_file):
+    if credentials and token_file:
+        raise SetupError("Select one credential source.")
     if credentials:
         binary = shutil.which(credentials)
         if not binary or not Path(binary).is_file():
             raise SetupError("Provide the path to the installed A2A Serve executable.")
-        adapter_args += ["--serve-credentials", str(Path(binary).absolute())]
+        return ["--serve-credentials", str(Path(binary).absolute())]
     if token_file:
         path = Path(token_file).expanduser().resolve(strict=True)
-        if not path.is_file() or path.stat().st_mode & 0o077:
+        info = path.stat()
+        if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o077 or info.st_uid != os.getuid():
             raise SetupError("Use an owner-only file containing the agent bearer token.")
-        adapter_args += ["--bearer-file", str(path)]
+        return ["--bearer-file", str(path)]
+    return []
+
+
+def local_entry(host, command, args, tools):
+    if host == "opencode":
+        return {"type": "local", "command": [command, *args]}
+    entry = {"command": command, "args": args}
+    if host == "copilot":
+        entry.update(type="local", tools=tools)
+    elif host == "claude":
+        entry["type"] = "stdio"
+    return entry
+
+
+def argv_of(entry):
+    if not isinstance(entry, dict):
+        return []
+    command = entry.get("command")
+    if isinstance(command, list):
+        return command
+    args = entry.get("args", [])
+    if isinstance(command, str) and isinstance(args, list):
+        return [command, *args]
+    return []
+
+
+def owned_agent(entry, base, name):
+    argv = argv_of(entry)
+    binary = str(Path(sys.executable).parent / "agentpolyfill-a2a")
+    expected = ["--state-dir", str(base / "agentpolyfill-a2a" / name)]
+    return (argv[:1] == [binary] and "--url" in argv and
+            any(argv[i:i + 2] == expected for i in range(len(argv))))
+
+
+MODES = ("auto", "native", "existing", "polyfill")
+
+
+def directory_command(host, base, path):
+    # T3's Pi provider shares Pi's actual config, including this directory.
+    return [sys.executable, str(HERE / "manage.py"), "--catalog",
+            "pi" if host == "t3" else host, str(base), str(path)]
+
+
+def directory_settings(host, servers, base, path):
+    command = directory_command(host, base, path)
+    for key, entry in servers.items():
+        argv = argv_of(entry)
+        if argv[:-1] == command and argv[-1] in MODES:
+            return key, argv[-1]
+    return None, None
+
+
+def setup(host, name, url, mode, credentials=None, token_file=None, *, install_directory=False):
+    if name is not None:
+        origin(url)
+        if not re.fullmatch(r"[a-z][a-z0-9_-]{0,47}", name) or name == "mcp-tasks":
+            raise SetupError("Choose a short lowercase agent name starting with a letter; mcp-tasks is reserved.")
     # Keep task handles isolated even for two different host profiles using the same agent.
     configs = []
     actions = []
@@ -236,38 +310,63 @@ def setup(host, name, url, mode, credentials=None, token_file=None):
         configs.append(file)
         return file.data
 
+    base, path = host_path(host)
+    data = config(path)
+    servers = table(data, section(host))
+    directory, saved_mode = directory_settings(host, servers, base, path)
+    mode = mode or saved_mode or "auto"
     if host == "claude" and mode == "polyfill":
         raise SetupError("Claude Code uses native Tasks. Use the native or auto setting.")
-    base, path = host_path(host)
-    adapter_args += ["--state-dir", str(base / "agentpolyfill-a2a" / name)]
-    entry = {"command": str(Path(sys.executable).parent / "agentpolyfill-a2a"), "args": adapter_args}
-    data = config(path)
-    if host == "codex":
-        servers = table(data, "mcp_servers")
+    native = mode in {"native", "existing"} or (mode == "auto" and host in {"claude", "copilot"})
+    prepare_host = install_directory or directory is None
+    if install_directory:
+        if directory is None:
+            directory = "a2a-directory"
+            n = 1
+            while directory in servers or directory == name:
+                n += 1
+                directory = f"a2a-directory-{n}"
+            cmd = directory_command(host, base, path)
+            servers[directory] = local_entry(host, cmd[0], [*cmd[1:], mode], ["list_agents"])
+        elif name is None and mode != saved_mode:
+            field = "command" if host == "opencode" else "args"
+            servers[directory][field][-1] = mode
+    if name is not None:
+        args = ["--url", url, *credential_args(credentials, token_file),
+                "--state-dir", str(base / "agentpolyfill-a2a" / name)]
+        entry = local_entry(host, str(Path(sys.executable).parent / "agentpolyfill-a2a"), args, ["delegate"])
+        if host == "antigravity" and not native:
+            entry["args"].append("--antigravity")
+            actions.append(antigravity_hook(base, name, entry))
         register(servers, name, entry)
+    if host == "codex":
         plugins = data.get("plugins", {})
-        if not native and not plugins.get("mcp-tasks@agent-polyfill", {}).get("enabled"):
+        if prepare_host and not native and not plugins.get("mcp-tasks@agent-polyfill", {}).get("enabled"):
             helper = json.loads((TASKS / "codex/plugin/.mcp.json").read_text())["mcpServers"]["mcp-tasks"]
             helper["cwd"] = str(TASKS / "codex/plugin")
             helper["args"] = [str(TASKS / "codex/plugin/dist/helper.js")]
             register(servers, "mcp-tasks", helper)
     elif host == "opencode":
-        register(table(data, "mcp"), name, {"type": "local", "command": [entry["command"], *entry["args"]]})
-        if not native:
+        if prepare_host and not native:
             include(data, "plugins", str(TASKS / "opencode/plugin"))
     elif host == "hermes":
-        register(table(data, "mcp_servers"), name, entry)
         if not native:
             plugins = table(data, "plugins")
-            include(plugins, "enabled", "mcp-tasks")
+            if prepare_host:
+                include(plugins, "enabled", "mcp-tasks")
             dep = table(table(plugins, "entries"), "mcp-tasks")
             if dep.get("allow_gateway_injection") is False:
                 raise SetupError("The Hermes profile explicitly disables Tasks notifications.")
-            dep["allow_gateway_injection"] = True
-            include(table(dep, "settings"), "servers", name)
+            if prepare_host:
+                dep["allow_gateway_injection"] = True
+            allowed = table(dep, "settings")
+            if name is not None:
+                include(allowed, "servers", name)
+            else:
+                allowed.setdefault("servers", [])
             link = base / "plugins/mcp-tasks"
             source = TASKS / "hermes/plugin"
-            if link.resolve() != source:
+            if prepare_host and link.resolve() != source:
                 if link.exists() or link.is_symlink():
                     # An installed copy must match the shipped plugin before granting it access.
                     if not all(
@@ -285,18 +384,9 @@ def setup(host, name, url, mode, credentials=None, token_file=None):
 
                     actions.append(install_plugin)
     else:
-        if host == "copilot":
-            entry["type"] = "local"
-            entry["tools"] = ["delegate"]
-            if not native:
-                actions.append(copilot_tasks)
-        if host == "antigravity" and not native:
-            entry["args"].append("--antigravity")
-            actions.append(antigravity_hook(base, name, entry))
-        if host == "claude":
-            entry["type"] = "stdio"
-        register(table(data, "mcpServers"), name, entry)
-        if host in {"pi", "t3"} and not native:
+        if prepare_host and host == "copilot" and not native:
+            actions.append(copilot_tasks)
+        if prepare_host and host in {"pi", "t3"} and not native:
             settings = config(base / "settings.json")
             source = str(TASKS / "pi/extension")
             installed = settings.get("packages", [])
@@ -313,6 +403,10 @@ def setup(host, name, url, mode, credentials=None, token_file=None):
         action()
     for file in reversed(configs):
         file.save()
+    if install_directory:
+        print(f"A2A is installed for {host}. Manage connections with {shlex.join([str(HERE / 'agents'), host])}.")
+    if name is None:
+        return
     print(f"Registered {name} for {host} in {path}. Agent destination: {url}")
     if host == "copilot" and not native:
         print("Start the interactive CLI with MCP_TASKS_FALLBACK=1 copilot --experimental.")
@@ -330,18 +424,13 @@ def setup(host, name, url, mode, credentials=None, token_file=None):
 def remove(host, name):
     base, path = host_path(host)
     file = Config(path)
-    section = {"codex": "mcp_servers", "hermes": "mcp_servers", "opencode": "mcp"}.get(host, "mcpServers")
-    servers = file.data.get(section, {})
+    servers = file.data.get(section(host), {})
     if name not in servers:
         print(f"{name} is already absent from {path}.")
         return
-    entry = servers[name]
-    binary = str(Path(sys.executable).parent / "agentpolyfill-a2a")
-    run = entry.get("command") if isinstance(entry, dict) else None
-    argv = run if isinstance(run, list) else [run, *entry.get("args", [])] if isinstance(entry, dict) else []
-    expected = ["--state-dir", str(base / "agentpolyfill-a2a" / name)]
-    if not argv or argv[0] != binary or not any(argv[i : i + 2] == expected for i in range(len(argv))):
+    if not owned_agent(servers[name], base, name):
         raise SetupError(f"{name} belongs to a different installation.")
+    argv = argv_of(servers[name])
     del servers[name]
     if host == "hermes":
         allow = (
@@ -354,28 +443,58 @@ def remove(host, name):
         if name in allow:
             allow.remove(name)
     if host == "antigravity" and "--approval-hook" in argv:
-        subprocess.run(["agy", "plugin", "uninstall", f"a2a-review-{name}"], check=True)
+        folder = base / "plugins" / f"a2a-review-{name}"
+        if folder.exists():
+            # Only uninstall this checkout's original hook; preserve user customizations.
+            antigravity_hook(base, name, {"args": []})
+            if folder.is_symlink() or {p.name for p in folder.iterdir()} != {"plugin.json", "hooks.json"}:
+                raise SetupError(f"The approval plugin at {folder} contains other files.")
+            subprocess.run(["agy", "plugin", "uninstall", f"a2a-review-{name}"], check=True)
     file.save()
     print(f"Removed {name} from {path}. Shared Tasks support and local history are retained.")
+
+
+def remove_directory(host):
+    base, path = host_path(host)
+    config = Config(path)
+    servers = config.data.get(section(host), {})
+    name, _ = directory_settings(host, servers, base, path)
+    if name is None:
+        print(f"The A2A directory is already absent from {path}.")
+        return
+    if any(owned_agent(entry, base, key) for key, entry in servers.items()):
+        raise SetupError("Disconnect the named agents before removing their directory.")
+    del servers[name]
+    config.save()
+    print(f"Removed the A2A directory for {host}. Shared Tasks support is retained.")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("host", choices=HOSTS)
-    parser.add_argument("--name", required=True, help="Local MCP server name for this agent")
-    action = parser.add_mutually_exclusive_group(required=True)
-    action.add_argument("--remove", action="store_true", help="Disconnect this checkout's named agent")
+    parser.add_argument("--name", help="Local MCP server name for this agent")
+    action = parser.add_mutually_exclusive_group()
+    action.add_argument("--remove", action="store_true", help="Disconnect an agent, or remove an empty directory")
     action.add_argument("--url", help="Configured A2A base URL")
-    parser.add_argument("--tasks", choices=["auto", "native", "existing", "polyfill"], default="auto")
+    parser.add_argument("--tasks", choices=MODES)
     auth = parser.add_mutually_exclusive_group()
     auth.add_argument("--bearer-file", metavar="PATH", help="Read a bearer token from this owner-only file")
     auth.add_argument("--serve-credentials", metavar="EXECUTABLE", help="Use this A2A Serve pairing helper")
     args = parser.parse_args()
     try:
-        if args.remove:
-            remove(args.host, args.name)
-            return
-        setup(args.host, args.name, args.url, args.tasks, args.serve_credentials, args.bearer_file)
+        if (args.url and not args.name) or (args.name and not args.url and not args.remove):
+            parser.error("Use a host alone to install, or supply --name with --url or --remove.")
+        if (args.bearer_file or args.serve_credentials) and not args.url:
+            parser.error("Credential options require an agent URL.")
+        with profile_lock(args.host):
+            if args.remove:
+                if args.name:
+                    remove(args.host, args.name)
+                else:
+                    remove_directory(args.host)
+            else:
+                setup(args.host, args.name, args.url, args.tasks, args.serve_credentials,
+                      args.bearer_file, install_directory=True)
     except (AdapterError, SetupError, OSError, ValueError, subprocess.CalledProcessError) as exc:
         parser.exit(1, f"Setup failed: {exc}\n")
 

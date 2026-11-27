@@ -4,13 +4,31 @@ Connect a named A2A agent to your chat. Ask the agent to do a job, review its qu
 
 ## Install from this checkout
 
-From the AgentPolyfill checkout, run the following command with your host and agent URL. It installs the locked Python runtime and registers the agent and the host integration. Keep this checkout at the same path. The local installer requires uv and Python 3.12 or newer (uv can provision Python). The shell entry point targets macOS and Linux. Host runs listed below were on macOS.
+Install A2A once for your host. You can start with an empty directory and connect agents whenever you need them. From a stable AgentPolyfill checkout on macOS or Linux with uv installed, run:
 
 ```sh
-./polyfills/a2a/install codex --name swatch --url https://agent.example.org
+./polyfills/a2a/install codex
 ```
 
-Use `pi`, `t3`, `opencode`, `hermes`, `copilot`, `claude`, or `antigravity` in place of `codex`. Give each endpoint a distinct name. For A2A Serve, pair with the agent first and append `--serve-credentials /absolute/path/to/a2a-serve`. A bearer-authenticated endpoint can use `--bearer-file /absolute/path/to/private-token`. The installer stores the path. The adapter invokes the Serve helper or reads the token file when making a request. HTTPS and loopback HTTP are supported. Listing the local tool or adding the agent makes no call to the agent.
+Use `pi`, `t3`, `opencode`, `hermes`, `copilot`, `claude`, or `antigravity` in place of `codex`. The installer prepares the locked Python environment (Python 3.12+, which uv can provision), the local agent directory, and the selected host's Tasks integration. Set `--tasks native`, `existing` or `polyfill` at install to override the host default. New agents inherit that choice.
+
+## Manage agents
+
+Run `./polyfills/a2a/agents codex` in a terminal to list your connections and choose **add**, **edit**, or **remove**. The same operations work in scripts:
+
+```sh
+./polyfills/a2a/agents codex add swatch --url https://swatch.example.org
+./polyfills/a2a/agents codex add research --url https://research.example.org
+./polyfills/a2a/agents codex list
+./polyfills/a2a/agents codex edit research --url https://research.example.com
+./polyfills/a2a/agents codex remove research
+```
+
+Ask “Which A2A agents are configured?” in chat to list their names and destinations. The directory reads the current host profile on each call. Open a fresh chat or reload your host's MCP configuration so it picks up changes to delegation tools. For Hermes, restart the gateway. Pi and the Pi provider in T3 share a directory.
+
+For A2A Serve, pair first and pass `--serve-credentials /absolute/path/to/a2a-serve` when adding or editing the connection. For a bearer token, use `--bearer-file /absolute/path/to/private-token`. The adapter stores the reference and reads credentials when making a request. Editing the URL to point at a different destination clears the old credential reference. Supply a new one explicitly if needed. Use `edit NAME --clear-auth` to disconnect credentials. Finish pending work before changing destinations. Task handles remain bound to the agent that created them.
+
+Managing connections is local. Installation, listing and edits make no call to any configured agent. Already registered agents from this checkout appear automatically after upgrading. For scripts that also register the first agent at installation, `./polyfills/a2a/install codex --name swatch --url https://swatch.example.org` remains available.
 
 Open a new chat and ask “Delegate the swatch check to the swatch agent.” On a Tasks host, use the `delegate` tool through its Tasks client. A person can decline the start, leave a question pending, explicitly deny a remote permission, or cancel the task.
 
@@ -23,15 +41,17 @@ Open a new chat and ask “Delegate the swatch check to the swatch agent.” On 
 | Hermes | A local MCP entry, Tasks plugin, and a notification grant for the named server. | Restart the gateway with Node 22 available. Run `/mcp-tasks start swatch delegate {"message":"Create a swatch"}`. |
 | GitHub Copilot CLI | Native Tasks by default. For the verified interactive fallback, add `--tasks polyfill` at install and launch with `MCP_TASKS_FALLBACK=1 copilot --experimental`. | Review each decision in the interactive terminal. |
 | Claude Code | User-scoped stdio MCP server for native Tasks. | Review the native permission prompt and both input forms in a Tasks-eligible interactive terminal. [Native eligibility and UI limits](https://code.claude.com/docs/en/mcp#what-a-call-needs-to-become-an-mcp-task) |
-| Antigravity | A named MCP server and a per-agent approval plugin. Requires `agy` and Node 22.18+. | Review the exact destination, message, question and proposed answer on the permission card. To choose another answer, decline and request a different proposal. Longer-running work returns a handle for `resume_delegation` in the same conversation. |
+| Antigravity | A named MCP server and a per-agent approval plugin. Requires `agy` and Node 22.18+. Select the target Antigravity profile with `HOME`. | Review the exact destination, message, question and proposed answer on the permission card. To choose another answer, decline and request a different proposal. Longer-running work returns a handle for `resume_delegation` in the same conversation. |
 
-`--tasks native` configures just the agent for a native Tasks client. `--tasks existing` does the same for a separately managed Tasks client. Pi and T3 honor `PI_CODING_AGENT_DIR`. Codex honors `CODEX_HOME`, Hermes honors `HERMES_HOME`, and OpenCode honors `OPENCODE_CONFIG`. Automatic OpenCode setup supports plain JSON profiles. A profile with JSONC comments can register the stdio command and Tasks plugin manually. The installer refuses a different entry using the same name. Repeating an identical installation preserves other settings.
+`--tasks native` configures just the agent for a native Tasks client. `--tasks existing` does the same for a separately managed Tasks client. Pi and T3 honor `PI_CODING_AGENT_DIR`. Codex honors `CODEX_HOME`, Hermes honors `HERMES_HOME`, and OpenCode honors `OPENCODE_CONFIG`. Automatic OpenCode setup supports plain JSON profiles. A profile with JSONC comments can register the stdio command and Tasks plugin manually. The installer refuses a different entry using the same name. Repeating the install reuses the shared integration.
 
 Disconnect the named agent with the following command. It retains shared Tasks integrations and chat history. Antigravity's per-agent approval plugin is removed with the entry.
 
 ```sh
-./polyfills/a2a/install codex --name swatch --remove
+./polyfills/a2a/agents codex remove swatch
 ```
+
+After disconnecting the last agent, use `./polyfills/a2a/install HOST --remove` to also remove the empty directory.
 
 For a manually managed host, the package also provides `agentpolyfill-a2a --url URL` over stdio. The original `servers/a2a-tasks` path resolves to this package.
 
@@ -56,9 +76,9 @@ The Antigravity active-turn path checks a single-use host approval against the e
 
 ## Operating the adapter
 
-Use a stable checkout path. To upgrade, update that checkout and repeat the install command for each configured agent. Restart the host or its gateway to pick up new code. Keep the routing database when upgrading or reconnecting so pending questions retain their identity. A different URL requires a new agent name or an explicit removal and reinstall.
+Use a stable checkout path. To upgrade, update that checkout and repeat the install command once per host profile. Restart the host or its gateway to pick up new code. Keep the routing database when upgrading or reconnecting so pending questions retain their identity.
 
-When the host provides native **A2A** for the endpoint, disconnect the named adapter with `--remove`. To keep its registration dormant, add `--disabled` to the adapter’s stdio arguments and restart the host. Disabled mode exposes an empty catalog and opens neither the agent connection nor its task database. Native **MCP Tasks** can still use this adapter for its A2A connection via `--tasks native`.
+When the host provides native **A2A** for the endpoint, disconnect the named adapter using `agents HOST remove NAME`. To keep its registration dormant, add `--disabled` to the adapter’s stdio arguments and restart the host. Disabled mode exposes an empty catalog and opens neither the agent connection nor its task database. Native **MCP Tasks** can still use this adapter for its A2A connection via `--tasks native`.
 
 Pair Serve using its own CLI. For bearer authentication, rotate the owner-only token file in place. The adapter reads it for each request. Keep agent credentials out of chat messages. The configured endpoint receives approved messages and answers, and the host retains its own normal chat history. An interrupted submission can have an unknown outcome. Inspect the originating chat or agent before submitting again. Remote deduplication determines whether a retried request can cause a second effect.
 

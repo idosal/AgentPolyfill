@@ -7,6 +7,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+import tomllib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -91,15 +92,25 @@ def exercise(serve, base):
         url = cli("status", "--url=local").strip()
         invitation = json.loads(cli("pair", "invite", "test-caller", "-o", "json"))
         cli("pair", "join", url, invitation["code"])
-        command = [
-            str(Path(sys.executable).parent / "agentpolyfill-a2a"),
-            "--url",
-            url,
-            "--serve-credentials",
-            str(serve),
-            "--state-dir",
-            str(home / "routing"),
-        ]
+        package = Path(__file__).resolve().parents[2]
+        # Exercise the same saved entry the host launches after installing with no agent.
+        def settings(script, *args):
+            subprocess.run([sys.executable, str(package / script), "codex", *args],
+                           env=env, cwd=base, check=True, stdout=subprocess.DEVNULL)
+
+        settings("configure.py")
+        settings("manage.py", "add", "control", "--url", "http://127.0.0.1:1")
+        settings("manage.py", "add", "swatch", "--url", url, "--serve-credentials", str(serve))
+        profile = tomllib.loads((home / ".codex/config.toml").read_text())["mcp_servers"]
+        def command_for(name):
+            entry = profile[name]
+            return [entry["command"], *entry["args"]]
+
+        directory = wire(command_for("a2a-directory"), env, "tools/call", {"name": "list_agents"})
+        agents = json.loads(directory["result"]["content"][0]["text"])["agents"]
+        assert agents == [{"name": "control", "url": "http://127.0.0.1:1"}, {"name": "swatch", "url": url}]
+        assert remote_count() == 0
+        command = command_for("swatch")
 
         def call(params, owner="origin"):
             meta = {
