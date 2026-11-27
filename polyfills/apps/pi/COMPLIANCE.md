@@ -1,6 +1,6 @@
 # MCP Apps in Pi
 
-This report covers the interactive Node builds of Pi 1.6.0 and 1.6.1, with the
+This report covers the interactive Node builds of Pi 1.6.0, 1.6.1 and 1.7.0, with the
 Apps adapter enabled and a working Chromium installation. The protocol under
 review is the stable **2026-01-26** revision of `io.modelcontextprotocol/ui`.
 The browser bridge uses the repository's pinned SDK 1.7.5. A newer SDK release

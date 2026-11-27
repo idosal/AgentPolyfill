@@ -10,7 +10,15 @@ printable keys enter text and Esc returns to the conversation. Pi draws full-col
 graphics when its terminal image renderer is available and colored character
 cells otherwise.
 
-Install the repository with `pi install git:github.com/idosal/AgentPolyfill`, or use
+Install the Apps-only release using Pi's package manager and restart Pi:
+
+```sh
+pi install git:github.com/idosal/AgentPolyfill@pi-mcp-apps-v0.1.0
+```
+
+The tagged Git package installs the renderer dependencies alongside the extension. It requires a Node build of Pi listed under Compatibility and a local Chrome or Chromium browser. If you already use the full AgentPolyfill bundle, follow the bundle setup below.
+
+**Full bundle or source checkout.** Install the repository with `pi install git:github.com/idosal/AgentPolyfill`, or use
 `pi install /absolute/path/to/AgentPolyfill` for a local clone. Run `/mcp-app`
 in Pi to see the renderer directory for that installation. From that directory,
 run `npm ci --omit=dev --ignore-scripts`, then restart Pi. From a local clone
@@ -73,7 +81,7 @@ character cells, launch `PI_IMAGE_PROTOCOL=none pi`.
 
 ## Compatibility
 
-The interactive Node builds of Pi 1.6.0 and 1.6.1 support the stable 2026-01-26 MCP Apps revision through this adapter. Pi negotiates Apps on the same MCP connection that runs the tool. Its view can read session-specific resources and receive private result metadata without repeating the call or sharing that metadata with the model. [Feature coverage, spec obligations and remaining limits](COMPLIANCE.md)
+The interactive Node builds of Pi 1.6.0, 1.6.1 and 1.7.0 support the stable 2026-01-26 MCP Apps revision through this adapter. Pi negotiates Apps on the same MCP connection that runs the tool. Its view can read session-specific resources and receive private result metadata without repeating the call or sharing that metadata with the model. [Feature coverage, spec obligations and remaining limits](COMPLIANCE.md)
 
 **Tool visibility.** The adapter filters the native MCP catalog before Pi
 registers tools, including after a server announces a list change. Tools whose

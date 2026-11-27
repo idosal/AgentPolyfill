@@ -12,6 +12,7 @@ import { nativeBridge, modelVisible, bridgeKey } from './native.mjs';
 const releases = {
     '1.6.0': ['chunk-E6LJTZYC.js', '6129fa4537b28cfdc0669052d6f69d8b3563b52adc8c55132409ae3b3dbb7f97'],
     '1.6.1': ['chunk-VUZTGLGT.js', '2451dad9d2a61442579015572f103f5efc53bbcdf33586fa09ee278a19944f84'],
+    '1.7.0': ['chunk-AIIDHDL2.js', '8ad9373ed0be3750ba4326f0f91b3eba9160f7784cded40839bbcc3ccc4316bd'],
 };
 const sourceDigest = '1ed03790749c1c494f6ff3891652a4ad895cb25bf2ad4ed61202837c5e3055fb';
 const installed = Symbol.for('agentpolyfill.pi.apps.model-catalog.v1');
@@ -20,7 +21,7 @@ export { modelVisible as isModelVisible };
 
 export function protectModelCatalog(packageDir, version) {
     if (!Object.hasOwn(releases, version) || !nodeModule.registerHooks) {
-        throw new Error('Pi Apps needs the supported Node build of Pi 1.6.0 or 1.6.1.');
+        throw new Error(`Pi Apps needs a supported Node build of Pi (${Object.keys(releases).join(', ')}).`);
     }
     const root = realpathSync(packageDir);
     const entry = realpathSync(process.argv[1]);

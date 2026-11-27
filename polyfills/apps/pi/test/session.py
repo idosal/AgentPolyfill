@@ -1,4 +1,4 @@
-"""Run the checked-in fixture through an isolated stock Pi TUI. Requires POSIX and Python 3."""
+"""Exercise a stock Pi TUI. Pass --install SOURCE to test Pi package discovery in a fresh profile."""
 import fcntl
 import json
 import os
@@ -45,8 +45,22 @@ with tempfile.TemporaryDirectory(prefix="pi-app-session-") as directory:
            "PI_IMAGE_PROTOCOL":"none", "PI_CODING_AGENT_DIR": str(profile), "PI_APPS_OBSERVATIONS": str(observations)}
     if os.environ.get("MCP_APPS_CLI_CHROME"):
         env["MCP_APPS_CLI_CHROME"] = os.environ["MCP_APPS_CLI_CHROME"]
+    extensions = ["-e", str(here / "session-provider.ts")]
+    if "--install" in sys.argv[3:]:
+        source = sys.argv[sys.argv.index("--install") + 1]
+        (home / "tmp").mkdir()
+        env["TMPDIR"] = str(home / "tmp")
+        subprocess.run([node, cli, "install", source], cwd=home, env=env, check=True, timeout=240)
+        settings = json.loads((profile / "settings.json").read_text())
+        installed, = settings["packages"]
+        if Path(source).is_absolute():
+            assert (profile / installed).resolve() == Path(source).resolve()
+        else:
+            assert installed == source, installed
+    else:
+        extensions.extend(["-e", str(here.parent / "index.ts")])
     proc = subprocess.Popen([node, cli, "--offline", "--no-session", "--provider", "session-test",
-        "--model", "offline", "-e", str(here / "session-provider.ts"), "-e", str(here.parent / "index.ts")],
+        "--model", "offline", *extensions],
         cwd=directory, env=env, stdin=slave, stdout=slave, stderr=slave, preexec_fn=terminal)
     os.close(slave)
     buffer = bytearray()
