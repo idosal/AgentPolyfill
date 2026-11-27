@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+root=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
+if [ ! -x "$root/.venv/bin/python" ]; then
+    echo "First run $root/install HOST to install A2A from this checkout." >&2
+    exit 1
+fi
+exec "$root/.venv/bin/python" "$root/manage.py" "$@"

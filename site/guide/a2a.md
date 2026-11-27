@@ -9,22 +9,29 @@ Connect a chat to a named A2A agent and review its questions before it finishes 
 
 ## Install locally
 
-From an AgentPolyfill checkout with uv installed, run the installer for your host and agent URL.
+From an AgentPolyfill checkout with uv installed, enable A2A for your host:
 
 ```sh
-./polyfills/a2a/install codex --name swatch --url https://agent.example.org
+./polyfills/a2a/install codex
 ```
 
-The same command accepts `pi`, `t3`, `opencode`, `hermes`, `copilot`, `claude` and `antigravity`. Use `--serve-credentials /absolute/path/to/a2a-serve` for a paired Serve endpoint. Open a new chat and ask it to delegate a message to the named agent.
+You can start with zero agents. Open the local settings with `./polyfills/a2a/agents codex` to add, edit, or remove named connections. Or add agents directly:
+
+```sh
+./polyfills/a2a/agents codex add swatch --url https://swatch.example.org
+./polyfills/a2a/agents codex add research --url https://research.example.org
+```
+
+Ask your chat to list its configured A2A agents. After adding a connection, reload the host or open a fresh chat and ask it to delegate to the agent by name. The same setup supports `pi`, `t3`, `opencode`, `hermes`, `copilot`, `claude` and `antigravity`. For a paired Serve endpoint, add `--serve-credentials /absolute/path/to/a2a-serve` when configuring that agent.
 
 ## Host coverage
 
 Codex Desktop, Pi, the Pi provider in T3, the OpenCode session API, the Hermes gateway, and the interactive Copilot CLI Tasks fallback have completed two successive questions and retrieved the artifact against A2A Serve in disposable profiles. Claude Code completed the same replay through native Tasks in its interactive terminal. Antigravity CLI completed it during an active ACP turn using its own permission cards. Longer Antigravity jobs can be resumed in the same chat.
 
-For a native Tasks client, add `--tasks native`. To disconnect an agent, run `./polyfills/a2a/install HOST --name NAME --remove`. See the [Tasks guide](/guide/tasks) for the background job and session behavior on each host.
+For a native Tasks client, add `--tasks native`. To disconnect an agent, run `./polyfills/a2a/agents HOST remove NAME`. See the [Tasks guide](/guide/tasks) for the background job and session behavior on each host.
 
 ## Operating a connection
 
-Keep the checkout at a stable path. Repeat the installer after updating it, then restart the host or gateway. Rotate a bearer credential using its owner-only token file. Keep the existing routing database when resuming pending jobs. If delivery was interrupted, check the agent before submitting the request again.
+Keep the checkout at a stable path. Repeat the installer once per host profile after updating the checkout, then restart the host or gateway. Rotate a bearer credential using its owner-only token file. Editing an agent to use a different destination clears its credential reference. Keep the existing routing database when resuming pending jobs. If delivery was interrupted, check the agent before submitting the request again.
 
 For native A2A takeover, remove this registration or append `--disabled` to its stdio arguments. The [verification guide](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/a2a/VERIFICATION.md) describes the protocol profile, security boundaries and reproducible checks.

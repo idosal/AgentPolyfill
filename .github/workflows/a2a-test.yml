@@ -30,12 +30,21 @@ jobs:
       - run: pipx install uv==0.11.16
       - run: uv sync --locked --python 3.12 --extra setup
       - run: .venv/bin/python -m unittest discover -s tests -v
-      - name: Verify checkout installation and removal in a fresh profile
+      - name: Install once and manage connections in a fresh profile
         run: |
           export CODEX_HOME="$RUNNER_TEMP/a2a-codex"
-          ./install codex --name demo --url https://agent.example.org
+          ./install codex
+          ./agents codex add research --url https://research.example.org
+          ./agents codex add design --url https://design.example.org
+          ./agents codex edit design --url https://new.example.org
+          ./agents codex list
+          ./agents codex remove design
           ./install codex --name demo --url https://agent.example.org
           ./install codex --name demo --remove
+      - name: Verify the directory through a signed-out Codex app-server
+        run: |
+          npm install --global --no-audit --no-fund @openai/codex@0.172.0
+          .venv/bin/python tests/interop/codex_settings.py
       - name: Verify the two-question replay with official A2A Serve
         run: |
           mkdir -p "$RUNNER_TEMP/serve"
