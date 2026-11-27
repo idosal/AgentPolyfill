@@ -1,20 +1,20 @@
 # Security
 
-This covers `mcp-server-cards` for Codex. The other forms have their own:
-[Claude Code](../claude-code/SECURITY.md), [Pi](../pi/SECURITY.md), [OpenCode](../opencode/SECURITY.md). Where this file says nothing
-different, the Claude Code form's SECURITY.md applies.
+Codex and Cursor IDE install the same Server Cards package. Both read publisher catalogs and validate cards using the same code. Cursor’s install flow is described below. The remaining sections cover Codex’s form, configuration writer and sign-in.
 
-This plugin reads documents that strangers publish on the web: catalogs and
-Server Cards. It turns one of those cards into an entry in your Codex MCP
-configuration. Every rule below follows from that. What a catalog or card says
-is someone else's claim, read before any connection. Codex's own permissions
-and sign-in are the boundary, and the plugin adds no policy of its own beyond
-asking you.
+[Client rules and tests](README.md#client-rules) · [Claude Code security](../claude-code/SECURITY.md) · [Pi security](../pi/SECURITY.md) · [OpenCode security](../opencode/SECURITY.md)
 
-Both forms run the same card, discovery and configuration code. This file
-describes the Codex form, and says where it differs from the Claude Code
-form. The client rules and their tests are in the
-[README](README.md#client-rules).
+## Cursor install link
+
+**What leaves the machine.** Discovery makes HTTP requests to the publisher and the catalog and card URLs it names. The Cursor adapter uses the shared fetcher and validator. They check URL schemes, hostnames and redirects. DNS resolution happens later in Node, so a hostname check cannot guarantee the network address ultimately reached. A card describes the publisher’s server. Review its destination before connecting.
+
+**What goes into a link.** The plugin keeps validated cards in memory for its running process. To prepare a link it looks up the publisher and identifier, selects the remote, resolves any declared non-secret inputs and compares the resulting URL to the one supplied for review. It accepts Streamable HTTP remotes without declared headers or secret variables. The native link contains the proposed name and a base64-encoded JSON object with one field, `url`. Anyone with the link can decode that URL. Use public endpoint URLs and keep credentials out of paths, queries and input values.
+
+**What gets read locally.** Before offering a link the plugin checks `~/.cursor/mcp.json` and `.cursor/mcp.json` in the server process’s working directory. An existing name, unreadable or malformed settings, a dangling file link, or a file larger than 1 MiB stops the offer. Valid links to regular settings files are supported. Existing server values stay local and are omitted from tool output.
+
+**Who installs it.** Preparing the link starts no target connection and writes no configuration. Opening it shows Cursor’s native dialog. Compare the **Name** and **Server URL** fields before choosing **Install**. Cursor saves an accepted entry in user settings across projects and can then connect. **Cancel** dismisses the proposal. The name check happens when the link is generated. It cannot reserve the name across other plugins, workspace roots or later settings edits. Request a fresh link if settings change. Remove a saved entry through **Customize → MCPs**.
+
+[Cursor’s native install link format](https://cursor.com/docs/mcp/install-links) · [Cursor MCP settings](https://cursor.com/docs/mcp)
 
 ## What is trusted
 
@@ -35,8 +35,7 @@ form. The client rules and their tests are in the
 It makes plain `GET`s with Node's `fetch`, with only `Accept`, `If-None-Match`
 and a `User-Agent` naming the plugin: no cookies, no credentials. For a domain
 Codex names, it reads `/.well-known/ai-catalog.json`, that domain's home page
-for `rel="ai-catalog"` links, and the cards and nested catalogs those name. It
-sends nothing to a third party.
+for `rel="ai-catalog"` links, and the cards and nested catalogs those name. A lookup contacts the domain and the hosts its catalog names. Each contacted host can observe the request and the client’s network address.
 
 Every answer is read up to 512 KiB and no further, a card up to 64 KiB. It
 reads at most 20 cards and 3 page links, and catalogs 4 deep.

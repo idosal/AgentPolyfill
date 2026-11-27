@@ -38,18 +38,30 @@ codex plugin marketplace add idosal/AgentPolyfill
 codex plugin add mcp-events@agent-polyfill
 codex plugin add mcp-skills@agent-polyfill
 codex plugin add mcp-server-cards@agent-polyfill
+codex plugin add mcp-tasks@agent-polyfill
 codex plugin add ard-discovery@agent-polyfill
 ```
 
+### Cursor IDE
+
+Install Server Cards from a clone with Node.js 20+ available to Cursor. From the repository root on macOS or Linux, run
+
+```sh
+mkdir -p ~/.cursor/plugins/local/mcp-server-cards
+cp -R polyfills/server-cards/codex/plugin/. ~/.cursor/plugins/local/mcp-server-cards/
+```
+
+Restart the editor. Open **Customize → MCPs** and look for `mcp-server-cards`. Ask which MCP servers a domain publishes, then pick one to review. [Watch a Cursor install review](./server-cards#in-cursor-ide).
+
 ### Pi
 
-With Pi 1.6.0 and Node.js 22+, install Events, Skills and Server Cards together:
+With Pi 1.6.0 and Node.js 22+, install Apps, Events, Skills, Server Cards and Tasks together:
 
 ```sh
 pi install git:github.com/idosal/AgentPolyfill
 ```
 
-Start `pi` to load them. For ARD or an individual extension, install from a
+Start `pi` to load them. For graphical Apps, run `/mcp-app` for the renderer setup instructions. For ARD or an individual extension, install from a
 clone. Pi loads local extensions in place, so keep the clone. Installing the
 same extension from both sources loads it twice.
 
@@ -71,6 +83,8 @@ opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/skills/ope
 opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/server-cards/opencode/plugin'
 opencode plugin add 'github:idosal/AgentPolyfill#main::path:polyfills/ard/opencode/plugin'
 ```
+
+For Tasks, use OpenCode 2.4.1+ and [load the plugin from a clone](./tasks#opencode).
 
 ### Antigravity
 
@@ -97,11 +111,12 @@ directory, so keep it after installation. Tested with Copilot CLI 1.0.115.
 git clone https://github.com/idosal/AgentPolyfill.git
 copilot plugin marketplace add ./AgentPolyfill
 copilot plugin install mcp-events@agent-polyfill
+copilot plugin install mcp-tasks@agent-polyfill
 copilot plugin install mcp-server-cards@agent-polyfill
 copilot plugin install ard-discovery@agent-polyfill
 ```
 
-Start Copilot with `copilot --experimental` for Events. Server Cards and ARD
+Start Copilot with `copilot --experimental` for Events and Tasks. Server Cards and ARD
 run in standard mode and require Node.js 20+.
 
 ### Hermes Agent
@@ -156,6 +171,7 @@ The host handles the connection and any required sign-in.
 | [Events](./events#try-it) | Create a demo button and have the agent report what you typed when you press it. |
 | [Skills](./skills#try-it) | Load Hugging Face’s local-model skill to choose a quantization for a 7B model. |
 | [Apps](./apps#try-it) | Open a game from the arcade MCP server in the Claude Code terminal. |
+| [A2A delegation](./a2a) | Connect a named agent, review its questions, and receive its result in the originating chat. |
 | [ARD](./ard#try-it) | Look up the MCP servers Buildkite publishes through its domain. |
 
 ## Servers behind a sign-in
@@ -189,9 +205,11 @@ it, `/plugin uninstall mcp-skills@agent-polyfill` removes it
 ([Skills](./skills#claude-code)).
 
 In Codex, remove the plugin: `codex plugin remove mcp-events@agent-polyfill`,
-and the same for `mcp-skills`, `mcp-server-cards` and `ard-discovery`.
+and the same for `mcp-skills`, `mcp-server-cards`, `mcp-tasks` and `ard-discovery`.
 
-In Pi, remove all three forms installed by the one-line command, together
+**Cursor IDE.** To remove the local plugin, move the `mcp-server-cards` folder out of `~/.cursor/plugins/local/` and restart Cursor. Manage any servers you previously installed separately in **Customize → MCPs**.
+
+In Pi, remove the forms installed by the one-line command, together
 with Pi's copy of the repository:
 
 ```bash
@@ -204,9 +222,11 @@ folder you installed from:
 
 | | Off without uninstalling | Remove a local install |
 |---|---|---|
+| Apps | `MCP_APPS_OFF=1` | `pi remove ./polyfills/apps/pi` |
 | Events | `MCP_EVENTS_OFF=1` | `pi remove ./polyfills/events/pi/extension` |
 | Skills | `MCP_SKILLS_OFF=1` | `pi remove ./polyfills/skills/pi/extension` |
 | Server Cards | `MCP_SERVER_CARDS_DISABLED=1` | `pi remove ./polyfills/server-cards/pi/extension` |
+| Tasks | `MCP_TASKS_OFF=1` | `pi remove ./polyfills/tasks/pi/extension` |
 | ARD discovery | `ARD_DISCOVERY_DISABLED=1` | `pi remove ./polyfills/ard/pi/extension` |
 
 Pi has no per-skill switch for an extension's skills. To leave out a server's
@@ -281,6 +301,7 @@ disable or uninstall the plugin:
 | | Off without uninstalling | Remove |
 |---|---|---|
 | Events | `MCP_EVENTS_OFF=1`, or `copilot plugin disable mcp-events@agent-polyfill` | `copilot plugin uninstall mcp-events@agent-polyfill` |
+| Tasks | `MCP_TASKS_OFF=1`, or `copilot plugin disable mcp-tasks@agent-polyfill` | `copilot plugin uninstall mcp-tasks@agent-polyfill` |
 | Server Cards | `MCP_SERVER_CARDS_DISABLED=1`, or `copilot plugin disable mcp-server-cards@agent-polyfill` | `copilot plugin uninstall mcp-server-cards@agent-polyfill` |
 | ARD discovery | `ARD_DISCOVERY_DISABLED=1`, or `copilot plugin disable ard-discovery@agent-polyfill` | `copilot plugin uninstall ard-discovery@agent-polyfill` |
 

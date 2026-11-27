@@ -334,7 +334,7 @@ fn client_info() -> ClientConfig {
     let mut ui = serde_json::Map::new();
     ui.insert("mimeTypes".into(), json!(["text/html;profile=mcp-app"]));
     capabilities.extensions = Some(BTreeMap::from([("io.modelcontextprotocol/ui".to_string(), ui)]));
-    let mut info = ClientConfig::new(capabilities, Implementation::new("mcp-apps-cli", "0.1.5"));
+    let mut info = ClientConfig::new(capabilities, Implementation::new("mcp-apps-cli", "0.1.6"));
     info.protocol_version = ProtocolVersion::LATEST_WITH_INITIALIZE;
     info
 }

@@ -1,0 +1,8 @@
+{
+  "name": "mcp-tasks",
+  "version": "0.1.0",
+  "description": "Follow long-running MCP tools and answer their in-task questions in an interactive GitHub Copilot session.",
+  "author": {"name": "Ido Salomon", "url": "https://github.com/idosal"},
+  "license": "Apache-2.0",
+  "extensions": "extensions/"
+}

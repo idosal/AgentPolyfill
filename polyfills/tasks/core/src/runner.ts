@@ -69,6 +69,7 @@ export class TaskRunner {
 
     /** One `tasks/get` for a task, and what follows from the answer. */
     async poll(id: string): Promise<TaskRecord | undefined> {
+        if (this.#stopped) return;
         this.#timers.delete(id);
         const store = this.#o.store;
         store.reload();
@@ -81,6 +82,7 @@ export class TaskRunner {
             return this.#finish(t, 'expired');
         }
         const conn = await this.#o.connection(t.server);
+        if (this.#stopped) return;
         if (!conn) return this.#retry(t, 'the server could not be reached');
         // The task belongs to the server it started on: if that name now leads somewhere else, the task id
         // (which may be a bearer token) is not sent there.
@@ -92,12 +94,14 @@ export class TaskRunner {
         try {
             answer = await conn.getTask(t.taskId, t.status);
         } catch (e) {
+            if (this.#stopped) return;
             if (e instanceof ServerError && e.code === -32602) {
                 log('the server no longer knows this task');
                 return this.#finish(t, 'gone');
             }
             return this.#retry(t, describeError(e));
         }
+        if (this.#stopped) return;
         this.#failures.delete(id);
         if ('invalid' in answer) {
             log(`refused the server's answer: ${answer.invalid}`);

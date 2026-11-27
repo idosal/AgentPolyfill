@@ -391,7 +391,6 @@ pub fn compose_frame(img: &Image, texts: &[TextLine], opts: &Options,
                 let fit = fit_cell(&mut s, img, x, y, &candidates, true);
                 let mut index = fit.index;
                 if prev >= 0 && prev != index {
-                    s.gather(img, x, y, &candidates, PHOTO_WEIGHTS);
                     let keep = s.fit(&candidates.list()[prev as usize]);
                     let best =
                         if index >= 0 {
@@ -403,7 +402,10 @@ pub fn compose_frame(img: &Image, texts: &[TextLine], opts: &Options,
                     m.glyphs[at] = index;
                 }
                 if index < 0 { cells.push(Cell::flat(fit.mean)); continue; }
-                s.gather(img, x, y, &candidates, PHOTO_WEIGHTS);
+                if index == fit.index {
+                    cells.push(Cell::new(candidates.list()[index as usize].ch, fit.fg, fit.bg));
+                    continue;
+                }
                 let cand = &candidates.list()[index as usize];
                 s.fit(cand);
                 let (fg, bg) = s.colors(cand.nf);

@@ -47,8 +47,8 @@ codex plugin add mcp-server-cards@agent-polyfill
 
 ```bash [Cursor IDE]
 # From a clone of AgentPolyfill, with Node.js 20+ installed
-mkdir -p ~/.cursor/plugins/local
-cp -R polyfills/server-cards/codex/plugin ~/.cursor/plugins/local/mcp-server-cards
+mkdir -p ~/.cursor/plugins/local/mcp-server-cards
+cp -R polyfills/server-cards/codex/plugin/. ~/.cursor/plugins/local/mcp-server-cards/
 ```
 
 ```bash [Pi]
@@ -126,6 +126,25 @@ removes it again; in OpenCode, ask for it to be removed, which OpenCode asks
 you about too.
 
 ## Using it, step by step
+
+### In Cursor IDE
+
+1. Ask which MCP servers a domain publishes. Discovery checks its catalog and returns the server names and remote URLs.
+2. Pick a server and ask for its install link. Cursor Server Cards supports Streamable HTTP remotes without headers or secrets. If the name is already taken in your user or current workspace MCP settings, choose a different name.
+3. Open the link. Compare **Name** and the full **Server URL** with the discovery result. Choose **Install** to save it across projects, or **Cancel** to dismiss it. You can remove a saved server in **Customize → MCPs**.
+
+<Recording
+  src="/media/cursor-server-cards.mp4"
+  poster="/media/cursor-server-cards.jpg"
+  :width="960"
+  :height="800"
+  :autoplay="false"
+  :loop="false"
+  alt="The discovery result for the synthetic Atlas Docs server and the matching name and loopback URL in Cursor’s install dialog."
+  caption="Reviewing Atlas Docs in Cursor IDE 3.32.4. The clip ends at the install decision."
+/>
+
+The plugin checks for an existing name when it prepares the link. If you change your settings before opening it, request a fresh link. [Security and privacy details](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/server-cards/codex/SECURITY.md#cursor-install-link).
 
 ### In Claude Code
 

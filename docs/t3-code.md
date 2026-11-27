@@ -9,6 +9,8 @@ Checked against T3 Code 0.1.11 (the `t3` npm package, released 20 November
 2026) and its source at commit `5a156a2a` (24 November 2026), with Codex CLI
 0.172.0 and Claude Code 2.1.331 underneath.
 
+On T3 Code 0.1.12, the Pi 1.6.0 provider also ran the existing Tasks extension. The composer handled consent and typed input, and the idle thread woke to retrieve the result. A scripted ACP provider collected a required string during an active turn. [T3 Tasks setup and verification](../polyfills/tasks/t3/README.md).
+
 ## What T3 Code is
 
 T3 Code doesn't have an agent loop of its own. It drives the agents you

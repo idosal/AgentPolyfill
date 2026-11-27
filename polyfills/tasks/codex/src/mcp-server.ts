@@ -16,6 +16,8 @@
 // knows taken out first (`scrub`).
 
 import type { Readable, Writable } from 'node:stream';
+import type { AskForm, CallContext, FormAnswer, ToolAnswer, ToolSpec } from '../../core/src/host.ts';
+export type { AskForm, CallContext, FormAnswer, ToolAnswer, ToolSpec } from '../../core/src/host.ts';
 import { oneLine } from '../../core/src/untrusted.ts';
 
 type Json = Record<string, unknown>;
@@ -23,15 +25,6 @@ const REVISIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const MAX_LINE = 4 * 1024 * 1024;
 /** How long a question waits for the person. Codex waits as long for the tool (.mcp.json). */
 export const ASK_TIMEOUT_MS = 9 * 60 * 1000;
-
-export type ToolSpec = { name: string; title?: string; description: string; inputSchema: Json; annotations?: Json };
-/** A tool's answer: text of this plugin's own, then content blocks a server sent (shown as data). */
-export type ToolAnswer = { text: string; content?: Json[]; isError?: boolean };
-/** What the person did with a form, as Codex reported it, or why nobody could be asked. */
-export type FormAnswer = { action: 'accept' | 'decline' | 'cancel'; content?: Json } | { unavailable: string };
-/** Puts a form to the person through Codex. */
-export type AskForm = (message: string, requestedSchema: Json) => Promise<FormAnswer>;
-export type CallContext = { ask: AskForm; meta: Json; /** The revision Codex and this server agreed on (how a titled choice is written). */ revision: string };
 
 export type ServeOptions = {
     name: string;
