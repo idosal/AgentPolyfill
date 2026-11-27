@@ -7,7 +7,14 @@ for MCP revision 2026-07-28.
 
 Watch the opt-in fallback ask for approval, collect the requested field and confirm delivery.
 
-[![Watch the opt-in fallback ask for approval, collect the requested field and confirm delivery](../../../docs/media/demos/tasks-copilot.jpg)](../../../docs/media/demos/tasks-copilot.mp4)
+<a href="../../../docs/media/demos/tasks-copilot.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../docs/media/demos/tasks-copilot.jpg">
+    <img src="../../../docs/media/demos/tasks-copilot.gif" alt="Watch the opt-in fallback ask for approval, collect the requested field and confirm delivery">
+  </picture>
+</a>
+
+[Watch the 20-second walkthrough](../../../docs/media/demos/tasks-copilot.mp4).
 
 ## Native Tasks and fallback
 

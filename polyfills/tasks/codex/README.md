@@ -18,7 +18,14 @@ and needs no polyfill. Details are in [Spec and conformance](#spec-and-conforman
 
 Watch Codex approve the report, wake when it finishes and retrieve the result.
 
-[![Watch Codex approve the report, wake when it finishes and retrieve the result](../../../docs/media/demos/tasks-codex.jpg)](../../../docs/media/demos/tasks-codex.mp4)
+<a href="../../../docs/media/demos/tasks-codex.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../docs/media/demos/tasks-codex.jpg">
+    <img src="../../../docs/media/demos/tasks-codex.gif" alt="Watch Codex approve the report, wake when it finishes and retrieve the result">
+  </picture>
+</a>
+
+[Watch the 10-second walkthrough](../../../docs/media/demos/tasks-codex.mp4).
 
 ## Install
 

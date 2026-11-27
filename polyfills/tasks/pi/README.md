@@ -6,7 +6,14 @@ Implements the client side of `io.modelcontextprotocol/tasks` ([SEP-2663](https:
 
 Watch Pi approve a background report and retrieve it when the session wakes.
 
-[![Watch Pi approve a background report and retrieve it when the session wakes](../../../docs/media/demos/tasks-pi.jpg)](../../../docs/media/demos/tasks-pi.mp4)
+<a href="../../../docs/media/demos/tasks-pi.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../docs/media/demos/tasks-pi.jpg">
+    <img src="../../../docs/media/demos/tasks-pi.gif" alt="Watch Pi approve a background report and retrieve it when the session wakes">
+  </picture>
+</a>
+
+[Watch the 16-second walkthrough](../../../docs/media/demos/tasks-pi.mp4).
 
 ## Install
 

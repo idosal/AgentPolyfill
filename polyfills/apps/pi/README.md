@@ -13,7 +13,14 @@ Set `MCP_APPS_OFF=1` before launching Pi to disable the adapter.
 
 Watch the clock open with its original timestamp, request permission to refresh and display the new time.
 
-[![Watch the clock open with its original timestamp, request permission to refresh and display the new time](../../../docs/media/demos/apps-pi.jpg)](../../../docs/media/demos/apps-pi.mp4)
+<a href="../../../docs/media/demos/apps-pi.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../docs/media/demos/apps-pi.jpg">
+    <img src="../../../docs/media/demos/apps-pi.gif" alt="Watch the clock open with its original timestamp, request permission to refresh and display the new time">
+  </picture>
+</a>
+
+[Watch the 15-second walkthrough](../../../docs/media/demos/apps-pi.mp4).
 
 ## Compatibility
 

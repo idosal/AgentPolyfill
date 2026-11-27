@@ -6,7 +6,14 @@ session. The command needs a viewer that can answer Hermes’s choice prompt.
 
 Watch the Hermes terminal approve a job, confirm the name and retrieve the greeting.
 
-[![Watch the Hermes terminal Tasks walkthrough](../../../docs/media/demos/tasks-hermes.jpg)](../../../docs/media/demos/tasks-hermes.mp4)
+<a href="../../../docs/media/demos/tasks-hermes.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../docs/media/demos/tasks-hermes.jpg">
+    <img src="../../../docs/media/demos/tasks-hermes.gif" alt="Watch the Hermes terminal Tasks walkthrough">
+  </picture>
+</a>
+
+[Watch the 21-second walkthrough](../../../docs/media/demos/tasks-hermes.mp4).
 
 ## Local setup
 

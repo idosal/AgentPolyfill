@@ -7,11 +7,25 @@ at MCP revision 2026-07-28.
 
 Watch the terminal session approve a task and deliver an answer.
 
-[![Watch the OpenCode terminal Tasks walkthrough](../../../docs/media/demos/tasks-opencode.jpg)](../../../docs/media/demos/tasks-opencode.mp4)
+<a href="../../../docs/media/demos/tasks-opencode.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../docs/media/demos/tasks-opencode.jpg">
+    <img src="../../../docs/media/demos/tasks-opencode.gif" alt="Watch the OpenCode terminal Tasks walkthrough">
+  </picture>
+</a>
+
+[Watch the 27-second walkthrough](../../../docs/media/demos/tasks-opencode.mp4).
 
 Watch OpenCode Desktop collect a name and display the greeting in the same thread.
 
-[![Watch the OpenCode Desktop Tasks walkthrough](../../../docs/media/demos/tasks-opencode-desktop.jpg)](../../../docs/media/demos/tasks-opencode-desktop.mp4)
+<a href="../../../docs/media/demos/tasks-opencode-desktop.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../docs/media/demos/tasks-opencode-desktop.jpg">
+    <img src="../../../docs/media/demos/tasks-opencode-desktop.gif" alt="Watch the OpenCode Desktop Tasks walkthrough">
+  </picture>
+</a>
+
+[Watch the 17-second walkthrough](../../../docs/media/demos/tasks-opencode-desktop.mp4).
 
 ## Install
 

@@ -2,7 +2,14 @@
 
 Start a long-running MCP tool in a T3 thread using the Pi provider. When the job needs information, the thread wakes and the composer collects your answer. When the job finishes, the same thread can retrieve its result.
 
-[![Watch a T3 thread approve a job, submit a name and wake with the greeting](../../../docs/media/demos/tasks-t3-pi.jpg)](../../../docs/media/demos/tasks-t3-pi.mp4)
+<a href="../../../docs/media/demos/tasks-t3-pi.mp4">
+  <picture>
+    <source media="(prefers-reduced-motion: reduce)" srcset="../../../docs/media/demos/tasks-t3-pi.jpg">
+    <img src="../../../docs/media/demos/tasks-t3-pi.gif" alt="Watch a T3 thread approve a job, submit a name and wake with the greeting">
+  </picture>
+</a>
+
+[Watch the 19-second walkthrough](../../../docs/media/demos/tasks-t3-pi.mp4).
 
 ## Setup
 
