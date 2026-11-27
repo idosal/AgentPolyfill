@@ -14,7 +14,7 @@ export function originalMcpResult(result) {
     return { content: mcp.content, structuredContent: mcp.structuredContent, isError: mcp.isError };
 }
 
-export async function openRenderer({ server, config, tool, input, result, cwd, cols, rows, onFrame, onImage, onTool, allowTool, signal }) {
+export async function openRenderer({ server, config, tool, input, result, cwd, cols, rows, onFrame, onImage, onTool, allowTool, confirmOpen, signal }) {
     const child = spawn(process.execPath, [helper, '--pi', '--cwd', cwd], {
         cwd, stdio: ['pipe', 'pipe', 'pipe'],
         env: { ...process.env, MCP_APPS_CLI_TRANSPORT: 'tcp', MCP_APPS_CLI_MODE: onImage ? 'image' : 'cells', MCP_APPS_CLI_IMAGE_FILES: '0', MCP_APPS_CLI_STRIPS: '0', MCP_APPS_CLI_STORAGE_DIR: 'off', MCP_APPS_CLI_LINES: '1' }
@@ -77,11 +77,18 @@ export async function openRenderer({ server, config, tool, input, result, cwd, c
                 .then(reply => post('/reply', { id: m.id, gen: m.gen, ...reply })).catch(() => {});
         }
     });
-    const timeout = setTimeout(close, 30000);
+    let timeout = setTimeout(close, 30000);
     try {
         const discovery = await post('/discover', { server });
         definitions = discovery.definitions;
         if (!Object.hasOwn(discovery.tools, tool)) throw new Error('This tool has no MCP App.');
+        const { csp } = await post('/pi/review', { server, toolName: tool });
+        clearTimeout(timeout); // The person controls how long they spend reviewing.
+        if (!await confirmOpen?.(csp) || signal?.aborted) {
+            close();
+            return undefined;
+        }
+        timeout = setTimeout(close, 30000);
         await post('/open', { server, toolName: tool, toolInput: input, toolResult: result,
             serverTools: Boolean(onTool && allowTool), mode: onImage ? 'image' : 'cells', cols, maxRows: rows, userAgent: 'Pi (AgentPolyfill)' });
         // Preserve the order of a physical gesture across separate HTTP requests.

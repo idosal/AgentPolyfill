@@ -1088,6 +1088,26 @@ async function newViewPage(mode, cols, maxRows, cellH, theme, store, localNetwor
   return { context, page: await context.newPage() };
 }
 
+// Pi reviews one exact resource before sharing the original tool arguments or
+// result. Keep the read in this per-view process so changes on the server
+// cannot substitute a different document or policy between review and open.
+let piReview;
+async function reviewPiView({ server, toolName, viewId }) {
+  if (!args.pi) return { ok: false, error: "Pi only" };
+  const { tools } = await discover(server);
+  const entry = Object.hasOwn(tools, toolName) && tools[toolName];
+  if (!entry || !entry.resourceUri.startsWith("ui://")) throw new Error("This tool has no MCP App.");
+  const content = (await readUiResource(server, entry.resourceUri)).contents?.[0];
+  if (!content || content.uri !== entry.resourceUri ||
+      !/^text\/html;\s*profile=mcp-app$/i.test(content.mimeType ?? "")) {
+    throw new Error("The tool did not provide an MCP App resource.");
+  }
+  const { piContentSecurityPolicy, piDomainSources } = await import("../../../pi/policy.mjs");
+  const csp = cspDomains(allowedCsp(piDomainSources(content._meta?.ui?.csp), server));
+  piReview = { server, toolName, viewId, entry, content, csp, policy: piContentSecurityPolicy(csp) };
+  return { ok: true, csp };
+}
+
 async function openView(options) {
   const held = views.get(options.viewId);
   // The same open asked again gets its page; a page of another open is
@@ -1116,15 +1136,24 @@ async function openViewNow(options) {
   const scheme = themeName(options.theme);
   const made = newViewPage(mode, cols, maxRows, cellH, scheme, store, localServer(server));
   const unmade = () => made.then(({ context }) => context.close(), () => {}).catch(() => {});
-  let content, entry;
+  let content, entry, reviewed;
   try {
-    const tools = (await discover(server)).tools;
-    entry = tools[toolName];
-    if (!entry) {
-      unmade();
-      return { ok: false, error: `${server}/${toolName} has no UI resource` };
+    if (args.pi) {
+      if (!piReview || piReview.server !== server || piReview.toolName !== toolName || piReview.viewId !== viewId) {
+        throw new Error("The app access review is missing.");
+      }
+      reviewed = piReview;
+      ({ entry, content } = reviewed);
+      piReview = undefined;
+    } else {
+      const tools = (await discover(server)).tools;
+      entry = tools[toolName];
+      if (!entry) {
+        unmade();
+        return { ok: false, error: `${server}/${toolName} has no UI resource` };
+      }
+      content = (await readUiResource(server, entry.resourceUri)).contents?.[0];
     }
-    content = (await readUiResource(server, entry.resourceUri)).contents?.[0];
   } catch (error) {
     unmade();
     throw error;
@@ -1143,10 +1172,10 @@ async function openViewNow(options) {
   }
   const meta = content._meta?.ui ?? {};
   // Logged for review; the mod tells the person about domains beyond the view.
-  const declared = allowedCsp(meta.csp, server);
-  const csp = cspDomains(declared);
+  const csp = reviewed?.csp ?? cspDomains(allowedCsp(meta.csp, server));
   const external = [...new Set(Object.values(csp).flat())];
-  log(`view ${viewId}: CSP ${buildCsp(declared)}`);
+  const policy = reviewed?.policy ?? buildCsp(csp);
+  log(`view ${viewId}: CSP ${policy}`);
 
   const theme = THEMES[scheme];
   const { context, page } = await made;
@@ -1215,7 +1244,7 @@ async function openViewNow(options) {
     route.fulfill({
       status: 200,
       contentType: "text/html; charset=utf-8",
-      headers: { "Content-Security-Policy": buildCsp(declared) },
+      headers: { "Content-Security-Policy": policy },
       body: html,
     }),
   );
@@ -2907,6 +2936,7 @@ const PAGELESS_ROUTES = new Set(["/ping", "/discover", "/prewarm", "/shown", "/r
 const routes = {
   "/ping": async () => ({ ok: true, views: [...views.keys()], rowHeights: [...views.values()].map((v) => v.cellH) }),
   "/discover": async ({ server, refresh }) => ({ ok: true, ...(await discover(server, refresh)) }),
+  "/pi/review": reviewPiView,
   "/open": openView,
   "/input": async ({ viewId, event }) => {
     const view = views.get(viewId);

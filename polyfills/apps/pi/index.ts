@@ -1,11 +1,20 @@
+import { getPackageDir, VERSION } from '@earendil-works/pi-coding-agent';
 import type { ExtensionAPI, ExtensionContext, ExtensionToolContext } from '@earendil-works/pi-coding-agent';
 import { getCapabilities, parseKey, truncateToWidth } from '@earendil-works/pi-tui';
 import { parseEntry, piRunsMcp, readPiEntries } from '../../events/pi/src/pi-config.ts';
+import { protectModelCatalog } from './visibility.mjs';
+import { reviewMessage } from './policy.mjs';
 import { AppSurface } from './surface.ts';
 import { openRenderer, originalMcpResult } from './renderer.mjs';
 
 export default function apps(pi: ExtensionAPI) {
     if (process.env.MCP_APPS_OFF === '1') return;
+    try { protectModelCatalog(getPackageDir(), VERSION); }
+    catch (error) {
+        const reason = error instanceof Error ? error.message : 'Unknown Pi build.';
+        pi.on('session_start', (_event, ctx) => ctx.ui.notify('MCP Apps disabled. ' + reason, 'warning'));
+        return;
+    }
     const snapshot = (server: string, ctx: ExtensionContext) => {
         if (!piRunsMcp(pi.getCommands())) return;
         const entry = readPiEntries({ cwd: ctx.cwd, trusted: ctx.isProjectTrusted(), registered: pi.getMcpServers() }).entries.get(server);
@@ -37,7 +46,7 @@ export default function apps(pi: ExtensionAPI) {
         }
         const source = JSON.stringify({ server: item.server, tool: item.tool });
         if (source.length > 1000 || /[\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u.test(source)) return;
-        if (!await ctx.ui.confirm('Open MCP App?', 'Share this tool’s original input and result with its app? ' + source)) return;
+        if (!await ctx.ui.confirm('Inspect MCP App?', 'Connect to this server to read its app and review the access it requests? ' + source)) return;
         if (JSON.stringify(snapshot(item.server, ctx)) !== item.config || recent !== item) return;
         controller?.abort();
         const active = controller = new AbortController();
@@ -49,10 +58,16 @@ export default function apps(pi: ExtensionAPI) {
                 const protocol = getCapabilities().images;
                 const maxRows = () => Math.max(4, tui.terminal.rows - 5);
                 let cols = Math.max(20, tui.terminal.columns - 2), height = maxRows();
-                const surface = new AppSurface(protocol, event => { void renderer.then(r => r.input(event)).catch(() => {}); });
+                const surface = new AppSurface(protocol, event => { void renderer.then(r => r?.input(event)).catch(() => {}); });
                 let closed = false;
                 const finish = () => { if (!closed) { closed = true; done(); } };
                 const renderer = openRenderer({ ...item, config, cwd: ctx.cwd, cols, rows: height, signal: active.signal,
+                    confirmOpen: async (csp: Record<string, string[]>) => {
+                        if (active.signal.aborted) return false;
+                        const accepted = await ctx.ui.confirm('Open MCP App?', reviewMessage(item.server, item.tool, csp));
+                        return accepted && !active.signal.aborted && recent === item &&
+                            item.session === ctx.sessionManager.getSessionId() && JSON.stringify(snapshot(item.server, ctx)) === item.config;
+                    },
                     allowTool: nested ? async (name: string, args: Record<string, unknown>) => {
                         if (!nested || active.signal.aborted || JSON.stringify(snapshot(item.server, ctx)) !== item.config) return false;
                         const description = JSON.stringify({ server: item.server, tool: name, arguments: args }, null, 2);
@@ -76,14 +91,14 @@ export default function apps(pi: ExtensionAPI) {
                     onFrame: (frame: [string, string, string][][], frameCols: number) => {
                         surface.setCells(frame, frameCols); tui.requestRender();
                     } });
-                void renderer.then(r => r.closed.then(finish), e => { ctx.ui.notify(String(e.message), 'error'); finish(); });
+                void renderer.then(r => r ? r.closed.then(finish) : finish(), e => { ctx.ui.notify(String(e.message), 'error'); finish(); });
                 return {
                     invalidate: () => surface.invalidate(),
                     render(width) {
                         const nextCols = Math.min(240, Math.max(20, width - 2)), nextHeight = Math.min(80, maxRows());
                         if (nextCols !== cols || nextHeight !== height) {
                             cols = nextCols; height = nextHeight;
-                            void renderer.then(r => r.resize(nextCols, nextHeight)).catch(() => {});
+                            void renderer.then(r => r?.resize(nextCols, nextHeight)).catch(() => {});
                         }
                         const hint = tui.mode === 'fullscreen' ? 'Click or drag · Tab to focus · Enter to activate · Esc to close'
                             : 'Tab to focus · Enter to activate · Esc to close';
@@ -97,7 +112,7 @@ export default function apps(pi: ExtensionAPI) {
                         const parts = key.split('+');
                         const base = parts.pop() || '+';
                         const mapped = base === 'enter' ? 'return' : base === 'space' ? ' ' : base;
-                        void renderer.then(r => r.input({ kind: 'key', key: mapped,
+                        void renderer.then(r => r?.input({ kind: 'key', key: mapped,
                             shift: parts.includes('shift'), ctrl: parts.includes('ctrl'), meta: parts.includes('alt') })).catch(() => {});
                     } };
             });

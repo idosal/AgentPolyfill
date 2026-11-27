@@ -1,7 +1,10 @@
 # MCP Apps in Pi
 
 After Pi calls an MCP tool, type `/mcp-app` to open its most recent successful
-MCP result. Confirm the server and tool. Pi opens the view in the terminal.
+MCP result. Pi first asks to inspect the app on that server. Before the app
+opens, a second prompt names the tool whose input and result the app will receive,
+the server whose resources it can list and read, and any permitted external
+destinations. Declining either prompt leaves you in the conversation.
 In Pi’s fullscreen mode, click controls, drag to rotate a 3D model, or scroll
 to zoom if the app supports it. Tab moves focus, Enter activates a control,
 printable keys enter text and Esc returns to the conversation. Pi draws full-color
@@ -15,20 +18,20 @@ Set `MCP_APPS_OFF=1` before launching Pi to disable the adapter.
 
 ### Walkthroughs
 
-Open the Three.js satellite in Pi, approve sharing the result, then drag to orbit
-and scroll to zoom. The recording follows one Pi session in Kitty.
+Follow a fullscreen Pi session in Kitty from the first tool call through both
+approvals. Once the satellite appears, dragging rotates it and scrolling zooms in.
 
 <a href="../../../docs/media/demos/apps-pi-3d.mp4">
   <picture>
     <source media="(prefers-reduced-motion: reduce)" srcset="../../../docs/media/demos/apps-pi-3d.jpg">
-    <img src="../../../docs/media/demos/apps-pi-3d.gif" alt="Pi opens the satellite after approval. Dragging rotates the satellite and scrolling zooms in.">
+    <img src="../../../docs/media/demos/apps-pi-3d.gif" alt="Pi shows the inspection and access prompts, opens the satellite, then rotates and zooms it in response to mouse input.">
   </picture>
 </a>
 
-[Play the 19-second 3D walkthrough](../../../docs/media/demos/apps-pi-3d.mp4).
+[Play the 22-second 3D walkthrough](../../../docs/media/demos/apps-pi-3d.mp4).
 
-The clock walkthrough shows keyboard navigation and a separate approval before
-the app calls its server to refresh the time.
+The clock walkthrough shows both opening prompts and keyboard navigation.
+Refreshing the clock asks for a separate tool approval and displays a new server timestamp.
 
 <a href="../../../docs/media/demos/apps-pi.mp4">
   <picture>
@@ -37,44 +40,61 @@ the app calls its server to refresh the time.
   </picture>
 </a>
 
-[Watch the 15-second walkthrough](../../../docs/media/demos/apps-pi.mp4).
+[Watch the 17-second clock walkthrough](../../../docs/media/demos/apps-pi.mp4).
 
 ## Compatibility
 
 This is a partial client for the stable 2026-01-26 MCP Apps specification
-(`io.modelcontextprotocol/ui`). Pi 1.6.0 exposes the original server and tool
-in completed MCP tool details but filters App resources from its own client.
-The command reads the tool definition and its UI resource on a separate
-connection to the selected server. It never replays the original tool call.
-A stdio server starts a second process. Views requiring Pi's stored OAuth
-credentials, or a resource held only in the first process, are unavailable.
+(`io.modelcontextprotocol/ui`). The supported Node CLI builds are Pi 1.6.0 and
+1.6.1. Both expose the original server and tool in completed MCP tool details
+but filter App resources from Pi's own client. The command uses a separate
+connection to read the tool definition and app resource. The reviewed document
+and its browser policy stay together until you open or decline it. Opening an
+app never replays the original tool call. A stdio server starts a second
+process. Views requiring Pi's stored OAuth credentials, or a resource held
+only in the first process, are unavailable.
+
+**Tool visibility.** The adapter filters the native MCP catalog before Pi
+registers tools, including after a server announces a list change. Tools whose
+visibility omits `model` stay out of the model's catalog in direct, code-mode
+and deferred exposure. Pi currently has no public hook at that point. On
+startup the adapter checks the installed build's hash, then applies the
+filter in memory. On an unrecognized build or when explicitly disabled, Pi
+uses its own MCP behavior and the Apps viewer is unavailable. Restart Pi
+after installing the adapter.
+
+**Browser access.** If the app omits its policy, Pi sends the specification's
+restrictive default to Chromium. The app can run inline code and display
+embedded images. External connections and runtime JavaScript evaluation are
+blocked. The opening prompt lists the external destinations that the policy
+actually permits. The specification makes the restrictive default mandatory
+and recommends warning users about external access. [MCP Apps host behavior](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx#host-behavior)
+and [security requirements](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx#4-content-security-policy-enforcement).
 
 Only Pi's built-in MCP tool results qualify. A disabled server, a changed
 configuration or a session switch invalidates the saved result. The view
-receives the input and the content and structured content Pi exposed. Pi does
-not expose the original result’s private MCP metadata here. Apps receive that result and can handle
-keyboard input and fullscreen mouse events. When the agent opens the viewer
-with the `open_mcp_app` tool, an app can
-request an exposed tool on the same server. Pi asks you to approve its exact
-arguments and dispatches the call through Pi. Views opened via the slash
-command cannot initiate tool calls. App-only tools, sending chat messages,
-external links and downloads are unavailable.
+receives the original input, content and structured content that Pi exposes.
+Pi omits the result's private MCP metadata. When the agent opens the viewer
+with `open_mcp_app`, the app can request an exposed tool on the same server.
+Pi asks you to approve its exact arguments and dispatches the call through Pi.
+Views opened via the slash command cannot initiate tool calls. App-only tool
+calls, sending chat messages, external links and downloads are unavailable.
 Browser storage is scoped to the open view.
 
 ## Verification
 
-Pi 1.6.0 rendered the upstream vanilla clock example in a disposable terminal.
-The agent-opened view displayed the original server timestamp. After approval,
-the refresh button issued one more native tool call and the clock displayed
-the second timestamp.
+The first recording shows Pi 1.6.0 in Kitty on macOS rendering a Three.js
+fixture with the satellite scene bundled into the app. The upstream Three.js
+example builds the scene from JavaScript at runtime and requires evaluation
+that the default policy blocks. The recorded fixture omits CSP metadata and
+exercises the restrictive default, drag-to-orbit, wheel zoom and Esc.
 
-A separate Pi 1.6.0 fullscreen session in Kitty rendered the upstream Three.js
-example over loopback HTTP. The satellite stayed still until a drag rotated it,
-wheel input zoomed the view, and Esc returned to Pi. Both recordings used a
-scripted local model to select the tools. The 3D recording verifies Kitty on
-macOS. Other graphical terminals have not been tested here.
+The second recording uses Pi 1.6.1 and the unmodified upstream vanilla clock
+example. Pi displayed the original server timestamp, asked for approval when
+the app requested a refresh, then displayed the updated time. Both recordings
+used a scripted local model to select tools.
 
-The browser tests cover keyboard decline, mouse approval, absence of replay,
-and PNG output. Surface tests check scaled coordinates, dragging beyond an
-edge, wheel input and clipping. Run `npm ci` at the
-repository root, then `npm ci && npm run typecheck && npm test` here.
+Run `npm ci` at the repository root and `npm ci && npm run typecheck && npm test`
+in this directory. The regressions cover Pi's model-facing catalog and its live
+updates, Chromium's applied policy, accepting and declining access, using the
+exact reviewed resource, nested tool approval, and graphical and keyboard input.

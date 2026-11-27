@@ -15,7 +15,7 @@ test('renders the original structured result without replay and enforces nested 
     const viewer = await openRenderer({
         server:'fixture', tool:'example', input:{}, result:{content:[],structuredContent:{label:'ORIGINAL'}},
         config:{command:process.execPath,args:[fileURLToPath(new URL('app-server.mjs', import.meta.url)), log]},
-        cols:80, rows:24, cwd,
+        cols:80, rows:24, cwd, confirmOpen: () => true,
         onFrame(frame) {
             const rows = frame.map(row => row.map(cell => cell[0]).join(''));
             text = rows.join(' ');
@@ -52,7 +52,7 @@ test('an image-capable viewer receives a PNG', async t => {
     const viewer = await openRenderer({
         server:'fixture', tool:'example', input:{}, result:{content:[],structuredContent:{label:'IMAGE'}},
         config:{command:process.execPath,args:[fileURLToPath(new URL('app-server.mjs', import.meta.url)), join(cwd, 'methods')]},
-        cols:50, rows:12, cwd, onFrame() {}, onImage:frame.resolve
+        cols:50, rows:12, cwd, confirmOpen: () => true, onFrame() {}, onImage:frame.resolve
     });
     try {
         const bytes = Buffer.from(await Promise.race([frame.promise, sleep(6000, null, {ref:false})]), 'base64');
@@ -67,4 +67,59 @@ test('forwards the MCP result Pi wrapped, including its original structured cont
     const original = { content: [{ type: 'text', text: 'raw' }], structuredContent: { time: '12:30' }, isError: false };
     assert.deepEqual(originalMcpResult({ content: [{ type: 'text', text: 'preview' }], structuredContent: { ...original, _meta: { private: true } } }), original);
     assert.deepEqual(originalMcpResult(original), original);
+});
+
+
+test('reviews the filtered policy before any frame and opens only the reviewed resource', async t => {
+    const cwd = await mkdtemp(join(tmpdir(), 'pi-apps-review-'));
+    t.after(() => rm(cwd, {recursive:true, force:true}));
+    for (const accept of [false, true]) {
+        const log = join(cwd, String(accept));
+        let reviews = 0, frames = 0;
+        const drawn = Promise.withResolvers();
+        const viewer = await openRenderer({
+            server:'fixture', tool:'example', input:{}, result:{content:[],structuredContent:{label:'REVIEWED'}},
+            config:{command:process.execPath,args:[fileURLToPath(new URL('app-server.mjs', import.meta.url)), log, 'review']},
+            cwd, cols:50, rows:12,
+            async confirmOpen(csp) {
+                assert.deepEqual(csp, {connectDomains:['https://review.example']});
+                assert.equal(frames, 0);
+                reviews++;
+                return accept;
+            },
+            onFrame(frame) {
+                frames++;
+                if (frame.flat().map(cell => cell[0]).join('').includes('REVIEWED')) drawn.resolve(true);
+            }
+        });
+        assert.equal(reviews, 1);
+        if (accept) {
+            try {
+                assert.equal(await Promise.race([drawn.promise, sleep(5000, false, {ref:false})]), true);
+            } finally { viewer.close(); await viewer.closed; }
+        } else {
+            assert.equal(viewer, undefined);
+            assert.equal(frames, 0);
+        }
+        const methods = (await readFile(log, 'utf8')).split('\n');
+        assert.equal(methods.filter(m => m === 'resources/read').length, 1);
+        assert.ok(!methods.includes('tools/call'));
+    }
+});
+
+test('Chromium applies the restrictive default header to a resource without CSP metadata', async t => {
+    const cwd = await mkdtemp(join(tmpdir(), 'pi-apps-header-'));
+    t.after(() => rm(cwd, {recursive:true, force:true}));
+    const reported = Promise.withResolvers();
+    const viewer = await openRenderer({
+        server:'fixture', tool:'example', input:{}, result:{content:[],structuredContent:{label:'HEADER'}},
+        config:{command:process.execPath,args:[fileURLToPath(new URL('app-server.mjs', import.meta.url)), join(cwd,'methods'), 'check-header']},
+        cwd, cols:60, rows:16, confirmOpen: () => true,
+        onFrame(frame) {
+            if (frame.flat().map(cell => cell[0]).join('').includes('STRICT HEADER')) reported.resolve(true);
+        }
+    });
+    try {
+        assert.equal(await Promise.race([reported.promise, sleep(5000, false, {ref:false})]), true);
+    } finally { viewer.close(); await viewer.closed; }
 });
