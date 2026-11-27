@@ -64,6 +64,7 @@ jobs:
           npm run typecheck
           npm run build
           git diff --exit-code -- plugin
+          node ../../../tools/bundle-notices.mjs . --plugin plugin --entry src/helper.ts --bundle dist/helper.mjs --check
       - name: Shared Python modules
         run: python3 -m unittest discover -s tools/hermes/shared -p 'test_*.py' -v
       - name: Events

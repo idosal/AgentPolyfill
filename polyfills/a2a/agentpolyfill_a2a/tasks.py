@@ -145,7 +145,7 @@ def supported_form(schema):
     )
 
 
-def question(task):
+def question(task, structured):
     status = task.status
     message = status.message
     # Retries of one A2A question may keep its extension id while emitting a
@@ -175,6 +175,8 @@ def question(task):
     if not schemas:
         form = {"type": "object", "properties": {"reply": {"type": "string"}}, "required": ["reply"]}
         return Question(key, prompt or "What should the agent do next?", form, None, None, {})
+    if not structured:
+        return notice("The agent did not advertise Structured Input on its card. Answer at the configured agent.")
     if len(schemas) != 1 or schemas[0][0].WhichOneof("content") != "data":
         return notice("The agent sent an invalid Structured Input request. It is still waiting.")
     part, tag = schemas[0]
@@ -233,7 +235,7 @@ STATES = {
 }
 
 
-def snapshot(task, record):
+def snapshot(task, record, structured):
     if task.id != record["remote"] or task.context_id != record["context"]:
         raise AdapterError("The agent returned a different task or context.")
     state = STATES.get(task.status.state)
@@ -260,6 +262,6 @@ def snapshot(task, record):
             "message": summary or "The A2A agent failed or rejected the request.",
         }
     elif state == "input_required":
-        q = question(task)
+        q = question(task, structured)
         view["inputRequests"] = {q.key: q.request()}
     return view

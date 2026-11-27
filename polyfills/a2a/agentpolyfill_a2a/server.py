@@ -82,7 +82,7 @@ class Adapter:
         }
         with self.db:
             self.db.execute("INSERT INTO tasks VALUES (:handle,:endpoint,:remote,:context,:created)", record)
-        return {**snapshot(task, record), "resultType": "task"}
+        return {**snapshot(task, record, self.agent.structured), "resultType": "task"}
 
     async def update(self, record, responses):
         if not isinstance(responses, dict):
@@ -96,7 +96,7 @@ class Adapter:
                 raise AdapterError("The agent returned a different task or context.")
             if task.status.state not in (a2a.TASK_STATE_INPUT_REQUIRED, a2a.TASK_STATE_AUTH_REQUIRED):
                 return {}
-            q = question(task)
+            q = question(task, self.agent.structured)
             receipt = (record["handle"], q.key)
             if (
                 q.key not in responses
@@ -179,7 +179,8 @@ class Adapter:
         if not record:
             raise AdapterError("Unknown task for this agent.")
         if method == "tasks/get":
-            return snapshot(await self.agent.get(record["remote"]), record)
+            task = await self.agent.get(record["remote"])
+            return snapshot(task, record, self.agent.structured)
         if method == "tasks/update":
             return await self.update(record, params.get("inputResponses"))
         await self.agent.cancel(record["remote"])

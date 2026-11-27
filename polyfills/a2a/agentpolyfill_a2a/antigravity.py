@@ -153,7 +153,8 @@ class Foreground:
             await self.adapter.update(record, responses)
         deadline = time.monotonic() + 12
         while True:
-            view = snapshot(await self.adapter.agent.get(record["remote"]), record)
+            task = await self.adapter.agent.get(record["remote"])
+            view = snapshot(task, record, self.adapter.agent.structured)
             if view["status"] == "completed":
                 return view["result"]
             if view["status"] in {"failed", "cancelled"}:

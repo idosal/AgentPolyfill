@@ -20,6 +20,7 @@ META = {
 class Remote:
     def __init__(self):
         self.requests = []
+        self.extensions = [{"uri": STRUCTURED}]
         self.messages = []
         self.binding = URL + "/rpc"
         self.task = {"id": "remote", "contextId": "context", "status": {"state": "TASK_STATE_WORKING"}}
@@ -61,7 +62,7 @@ class Remote:
                     "supportedInterfaces": [
                         {"url": self.binding, "protocolBinding": "JSONRPC", "protocolVersion": "1.0"}
                     ],
-                    "capabilities": {"extensions": [{"uri": STRUCTURED}]},
+                    "capabilities": {"extensions": self.extensions},
                     "defaultInputModes": ["text/plain"],
                     "defaultOutputModes": ["text/plain"],
                     "skills": [],
@@ -270,4 +271,15 @@ class AdapterTest(unittest.IsolatedAsyncioTestCase):
             await self.call("tasks/update", taskId=handle, inputResponses={
                 key: {"action": "accept", "content": {"option": "once", "unused": "sample"}}
             })
+        self.assertEqual(len(self.remote.messages), 1)
+
+    async def test_schema_from_unadvertised_extension_stays_pending(self):
+        self.remote.extensions = []
+        self.remote.ask(1)
+        task = await self.start()
+        key, = task["inputRequests"]
+        self.assertIn("did not advertise", task["inputRequests"][key]["params"]["message"])
+        await self.call("tasks/update", taskId=task["taskId"], inputResponses={
+            key: {"action": "accept", "content": {}}
+        })
         self.assertEqual(len(self.remote.messages), 1)
