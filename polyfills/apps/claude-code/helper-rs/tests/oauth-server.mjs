@@ -43,29 +43,29 @@ if (process.argv[2] === "browse") {
 if (process.argv[2] === "consent") {
   // The person's browser at the consent page: reads it, then answers it, and
   // follows the redirects through the server's sign-in back to the helper.
-  //   node oauth-server.mjs consent <page url> accept|refuse|forge [keychain|encrypted|file] [passphrase]
-  const [, , , pageUrl, action, store = "file", passphrase = ""] = process.argv;
+  //   node oauth-server.mjs consent <page url> accept|refuse|forge
+  const [, , , pageUrl, action] = process.argv;
   const page = await fetch(pageUrl);
   const html = await page.text();
-  for (const needle of ["its own login", "can\u2019t see or cancel", "mcp-apps-cli-helper signout", "Accept", "Refuse", "Where to keep the login"]) {
+  for (const needle of ["separate", "mcp-apps-cli-helper signout", "Accept", "Refuse", "MCP_APPS_CLI_TOKEN_STORE"]) {
     if (!html.includes(needle)) {
       console.log(`the page lacks "${needle}"`);
       process.exit(2);
     }
   }
-  console.log(`page ${page.status} ${page.headers.get("content-security-policy")?.includes("default-src 'none'") ? "csp" : "no-csp"} ${/macOS Keychain/.test(html) ? "keychain-offered" : "no-keychain"}`);
+  console.log(`page ${page.status} ${page.headers.get("content-security-policy")?.includes("default-src 'none'") ? "csp" : "no-csp"} saved:${/Saved in the macOS Keychain/.test(html) ? "keychain" : /Saved in a file protected/.test(html) ? "encrypted" : /Saved in a plain file/.test(html) ? "file" : "unsaid"} ${/name="store"|name="passphrase"/.test(html) ? "has-store-choice" : "no-store-choice"}`);
   console.log(`about ${/Permissions the server lists/.test(html) ? "scopes" : "no-scopes"} ${/<img class="icon" src="data:image\/png;base64,/.test(html) ? "icon" : "no-icon"} ${/Acme Docs/.test(html) ? "title" : "no-title"} ${/Privacy policy/.test(html) ? "links" : "no-links"}`);
   const token = /name="t" value="([^"]+)"/.exec(html)[1];
   const t = token;
   const post = (fields, headers = {}) =>
     fetch(new URL("/decision", pageUrl), { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", ...headers }, body: new URLSearchParams(fields) });
   if (action === "forge") {
-    const wrong = await post({ t: "not-the-token", decision: "accept", store: "file" });
-    const foreign = await post({ t, decision: "accept", store: "file" }, { origin: "https://evil.example" });
+    const wrong = await post({ t: "not-the-token", decision: "accept" });
+    const foreign = await post({ t, decision: "accept" }, { origin: "https://evil.example" });
     console.log(`forged ${wrong.status} ${foreign.status}`);
     process.exit(wrong.status === 404 && foreign.status === 404 ? 0 : 1);
   }
-  const answered = await post({ t: token, decision: action, store, passphrase, again: passphrase });
+  const answered = await post({ t: token, decision: action });
   const text = await answered.text();
   console.log(`answered ${answered.status} ${text.includes("Not signed in") ? "refused" : text.includes("Signed in") ? "signed-in" : text.slice(0, 200)}`);
   process.exit(0);

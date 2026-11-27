@@ -270,14 +270,14 @@ enum Answer {
 }
 
 /// The consent page: served until the person accepts or refuses.
-async fn wait_for_consent(requests: &mut Requests, port: u16, token: &str, name: &str, url: &str, about: &crate::about::About) -> Result<Answer> {
+async fn wait_for_consent(requests: &mut Requests, port: u16, token: &str, name: &str, url: &str, about: &crate::about::About, place: &Place) -> Result<Answer> {
     let mut problem: Option<String> = None;
     loop {
         let (mut stream, request) = requests.next().await?;
         let origin_ok = request.headers.get("origin").is_none_or(|o| o == &format!("http://127.0.0.1:{port}") || o == &format!("http://localhost:{port}"));
         match (request.method.as_str(), request.path()) {
             ("GET", "/consent") if request.query("t").as_deref() == Some(token) => {
-                respond(&mut stream, "200 OK", "", &crate::consent::page(name, url, about, token, problem.as_deref())).await;
+                respond(&mut stream, "200 OK", "", &crate::consent::page(name, url, about, place.kind(), token, problem.as_deref())).await;
             }
             ("POST", "/decision") if origin_ok && request.form().get("t").map(String::as_str) == Some(token) => {
                 let form = request.form();
@@ -285,15 +285,15 @@ async fn wait_for_consent(requests: &mut Requests, port: u16, token: &str, name:
                     respond(&mut stream, "200 OK", "", &crate::consent::refused_page(name)).await;
                     return Ok(Answer::Refused);
                 }
-                match accepted(&form, name, url, port).await {
-                    Ok((session, place)) => {
+                match begin_prepared(name, url, place, port).await {
+                    Ok(session) => {
                         let location = format!("location: {}\r\n", session.auth_url);
                         respond(&mut stream, "303 See Other", &location, "").await;
-                        return Ok(Answer::Accepted(Box::new(session), place));
+                        return Ok(Answer::Accepted(Box::new(session), place.clone()));
                     }
                     Err(why) => {
                         problem = Some(format!("{why:#}"));
-                        respond(&mut stream, "200 OK", "", &crate::consent::page(name, url, about, token, problem.as_deref())).await;
+                        respond(&mut stream, "200 OK", "", &crate::consent::page(name, url, about, place.kind(), token, problem.as_deref())).await;
                     }
                 }
             }
@@ -302,30 +302,27 @@ async fn wait_for_consent(requests: &mut Requests, port: u16, token: &str, name:
     }
 }
 
-/// What the page's form chose, checked, and the flow begun with the server.
-async fn accepted(form: &HashMap<String, String>, name: &str, url: &str, port: u16) -> Result<(AuthorizationSession, Place)> {
-    let kind = Kind::parse(form.get("store").map(String::as_str).unwrap_or("keychain"))?;
-    let passphrase = if kind == Kind::Encrypted {
-        let first = form.get("passphrase").cloned().unwrap_or_default();
-        vault::check_passphrase(&first)?;
-        if form.get("again") != Some(&first) {
-            bail!("the two passphrases differ");
-        }
-        Some(first)
-    } else {
-        None
-    };
-    vault::usable(kind)?;
-    let place = Place::of(kind, name, url, passphrase).context("no folder to keep the sign-in in")?;
-    prepare(&place)?;
-    let session = begin(name, url, place.clone(), &format!("http://127.0.0.1:{port}/callback")).await?;
-    Ok((session, place))
+/// The folder made, and the flow begun with the server.
+async fn begin_prepared(name: &str, url: &str, place: &Place, port: u16) -> Result<AuthorizationSession> {
+    prepare(place)?;
+    begin(name, url, place.clone(), &format!("http://127.0.0.1:{port}/callback")).await
 }
 
 /// The browser path: consent page, then the server's own sign-in in the same
-/// tab. `ready` is given the page's address. None: the person refused.
-pub async fn signin_in_browser(name: &str, url: &str, ready: impl FnOnce(&str)) -> Result<Option<Place>> {
+/// tab. `kind` is where the login is kept (the global setting, vault.rs);
+/// `ready` is given the page's address. None: the person refused.
+pub async fn signin_in_browser(name: &str, url: &str, kind: Kind, ready: impl FnOnce(&str)) -> Result<Option<Place>> {
     check_url(name, url)?;
+    vault::usable(kind)?;
+    // A page can't take a passphrase: an encrypted file's comes from the environment.
+    let passphrase = std::env::var(PASSPHRASE_ENV).ok().filter(|p| !p.is_empty());
+    if kind == Kind::Encrypted {
+        match &passphrase {
+            Some(p) => vault::check_passphrase(p)?,
+            None => bail!("the logins are set to be kept in a file encrypted with a passphrase: set {PASSPHRASE_ENV} in the environment, or use another store (MCP_APPS_CLI_TOKEN_STORE)"),
+        }
+    }
+    let place = Place::of(kind, name, url, passphrase).context("no folder to keep the sign-in in")?;
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let port = listener.local_addr()?.port();
     let token = crate::tmp::random_hex(16)?;
@@ -333,7 +330,7 @@ pub async fn signin_in_browser(name: &str, url: &str, ready: impl FnOnce(&str)) 
     // What the server publishes about itself, for the page (what is missing is left out).
     let about = tokio::time::timeout(crate::about::BUDGET, crate::about::fetch(url)).await.unwrap_or_default();
     ready(&format!("http://127.0.0.1:{port}/consent?t={token}"));
-    let answer = tokio::time::timeout(WAIT, wait_for_consent(&mut requests, port, &token, name, url, &about)).await.map_err(|_| anyhow!("nobody answered in the browser"))??;
+    let answer = tokio::time::timeout(WAIT, wait_for_consent(&mut requests, port, &token, name, url, &about, &place)).await.map_err(|_| anyhow!("nobody answered in the browser"))??;
     match answer {
         Answer::Refused => Ok(None),
         Answer::Accepted(session, place) => {
@@ -383,13 +380,13 @@ fn signed_in(name: &str, place: &Place) {
 pub async fn cli(args: crate::Args, words: &[String]) -> Result<()> {
     let (name, url) = target(&args, words)?;
     let name = name.as_str();
-    let asked = vault::asked(words)?;
+    let kind = vault::chosen(words)?;
     // `--yes`, or `MCP_APPS_CLI_SIGNIN_YES=1` for someone who always wants it
     // (a terminal can't read /config), and `--no-browser`: no consent page.
     let assumed = flag(words, "--yes") || std::env::var("MCP_APPS_CLI_SIGNIN_YES").is_ok_and(|v| !v.is_empty() && v != "0");
     if !assumed && !flag(words, "--no-browser") {
         let interactive = std::io::stdin().is_terminal();
-        let place = signin_in_browser(name, &url, |page| {
+        let place = signin_in_browser(name, &url, kind, |page| {
             if interactive {
                 println!("Press Enter to review and approve in your browser\n(or open: {page})");
                 let page = page.to_string();
@@ -414,18 +411,7 @@ pub async fn cli(args: crate::Args, words: &[String]) -> Result<()> {
         }
         return Ok(());
     }
-    // The terminal: the same question, and the same choices.
-    let kind = match asked {
-        Some(kind) => kind,
-        None if !assumed && std::io::stdin().is_terminal() && Kind::Encrypted.available() => {
-            print!("Where to keep the login?  [1] macOS Keychain (default)  [2] file encrypted with a passphrase: ");
-            std::io::stdout().flush()?;
-            let mut choice = String::new();
-            std::io::stdin().lock().read_line(&mut choice)?;
-            if choice.trim() == "2" { Kind::Encrypted } else { Kind::Keychain }
-        }
-        None => if Kind::Keychain.available() { Kind::Keychain } else { Kind::File },
-    };
+    // The terminal: the same question; the store is the global setting.
     vault::usable(kind)?;
     let mut passphrase = std::env::var(PASSPHRASE_ENV).ok().filter(|p| !p.is_empty());
     if kind == Kind::Encrypted && passphrase.is_none() {

@@ -807,7 +807,12 @@ fn signout_says_when_the_server_cannot_revoke() {
 
 /// `signin docs` in its browser mode: the consent page's address from its output, and its process.
 fn browser_signin(w: &World, file_store: bool) -> (std::process::Child, String, std::io::Lines<BufReader<std::process::ChildStdout>>) {
-    let mut child = terminal_with(w, &["signin", "docs"], file_store).stdout(Stdio::piped()).spawn().unwrap();
+    browser_signin_with(w, file_store, &[])
+}
+
+/// The same, with more environment (the global store setting, the passphrase).
+fn browser_signin_with(w: &World, file_store: bool, env: &[(&str, &str)]) -> (std::process::Child, String, std::io::Lines<BufReader<std::process::ChildStdout>>) {
+    let mut child = terminal_with(w, &["signin", "docs"], file_store).envs(env.iter().copied()).stdout(Stdio::piped()).spawn().unwrap();
     let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
     let page = loop {
         let line = lines.next().expect("signin shows the consent page's address").unwrap();
@@ -847,8 +852,8 @@ fn the_consent_page_is_answered_in_the_browser_and_a_refusal_keeps_nothing() {
 
     // Accept, the plain file chosen in the page's advanced options.
     let (mut child, page, mut lines) = browser_signin(&w, true);
-    let (ok, said) = browser_plays(&page, &["accept", "file"]);
-    assert!(ok && said.contains("answered 200 signed-in"), "{said}");
+    let (ok, said) = browser_plays(&page, &["accept"]);
+    assert!(ok && said.contains("answered 200 signed-in") && said.contains("saved:file no-store-choice"), "{said}");
     assert!(child.wait().unwrap().success());
     let out: Vec<String> = lines.by_ref().map_while(Result::ok).collect();
     assert!(out.iter().any(|l| l.contains("Signed in to docs. The login is kept in the plain file.")), "{out:?}");
@@ -872,6 +877,19 @@ fn the_consent_page_shows_what_the_server_publishes_and_falls_back_without_it() 
     }
 }
 
+// An encrypted store set globally without the passphrase: `signin` says what
+// to set before it shows any page.
+#[cfg(target_os = "macos")]
+#[test]
+fn an_encrypted_store_without_its_passphrase_is_refused_before_the_page() {
+    let w = World::new("encrypted-no-passphrase");
+    let server = OAuthServer::start(&w, "modern");
+    w.claude_json(json!({"docs": {"type": "http", "url": server.url}}), json!({}));
+    let out = terminal_with(&w, &["signin", "docs"], false).env("MCP_APPS_CLI_TOKEN_STORE", "encrypted").output().unwrap();
+    let said = String::from_utf8_lossy(&out.stderr).to_string() + &String::from_utf8_lossy(&out.stdout);
+    assert!(!out.status.success() && said.contains("MCP_APPS_CLI_PASSPHRASE") && !said.contains("/consent"), "{said}");
+}
+
 // The encrypted file, from the page to a session's helper: the passphrase is
 // set in the page, nothing readable is on disk, a helper without the
 // passphrase says what to set, one with it discovers the app, and `signout`
@@ -882,9 +900,10 @@ fn an_encrypted_sign_in_is_made_in_the_page_and_read_with_the_passphrase() {
     let w = World::new("encrypted");
     let server = OAuthServer::start(&w, "modern");
     w.claude_json(json!({"docs": {"type": "http", "url": server.url}}), json!({}));
-    let (mut child, page, _lines) = browser_signin(&w, false);
-    let (ok, said) = browser_plays(&page, &["accept", "encrypted", "correct horse battery"]);
-    assert!(ok && said.contains("keychain-offered") && said.contains("answered 200 signed-in"), "{said}");
+    // The store is the global setting: the page only says it, and asks for no passphrase.
+    let (mut child, page, _lines) = browser_signin_with(&w, false, &[("MCP_APPS_CLI_TOKEN_STORE", "encrypted"), ("MCP_APPS_CLI_PASSPHRASE", "correct horse battery")]);
+    let (ok, said) = browser_plays(&page, &["accept"]);
+    assert!(ok && said.contains("saved:encrypted no-store-choice") && said.contains("answered 200 signed-in"), "{said}");
     assert!(child.wait().unwrap().success());
     let files: Vec<_> = std::fs::read_dir(w.root.join("tokens")).unwrap().flatten().collect();
     assert_eq!(files.len(), 1);

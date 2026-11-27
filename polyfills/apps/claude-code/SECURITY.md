@@ -106,7 +106,7 @@ person answers a consent page the helper serves on a loopback address of its
 own (a random port, a token against forged requests, a check of the `Host` and
 `Origin` headers, closed after the answer or after five minutes), or, with
 `--no-browser`, a `y/N` question in the terminal. The tokens, and the client
-the server registered, are kept where the person chose: the macOS Keychain
+the server registered, are kept where the person set (one global setting, `MCP_APPS_CLI_TOKEN_STORE`): the macOS Keychain
 (called directly through Security.framework; the default), or a file encrypted
 with a passphrase (AES-256-GCM, key from PBKDF2-HMAC-SHA256 with 600,000
 rounds, a fresh salt and nonce for each write) in a folder only they can open

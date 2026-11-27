@@ -46,6 +46,12 @@ pub fn asked(words: &[String]) -> Result<Option<Kind>> {
     flag.or_else(|| std::env::var("MCP_APPS_CLI_TOKEN_STORE").ok().filter(|v| !v.is_empty())).map(|v| Kind::parse(&v)).transpose()
 }
 
+/// Where logins are kept: the same for every server, set once with `--token-store`
+/// or `MCP_APPS_CLI_TOKEN_STORE`; else the Keychain where there is one, else a file.
+pub fn chosen(words: &[String]) -> Result<Kind> {
+    Ok(asked(words)?.unwrap_or(if Kind::Keychain.available() { Kind::Keychain } else { Kind::File }))
+}
+
 /// The folder for the files: `$MCP_APPS_CLI_OAUTH_DIR` if it is set (the
 /// tests use it), else `~/.cache/mcp-apps-cli/oauth`.
 fn folder() -> Option<PathBuf> {
@@ -63,6 +69,15 @@ pub enum Place {
 }
 
 impl Place {
+    /// How this place keeps the login.
+    pub fn kind(&self) -> Kind {
+        match self {
+            Place::Keychain(_) => Kind::Keychain,
+            Place::Encrypted(..) => Kind::Encrypted,
+            Place::File(_) => Kind::File,
+        }
+    }
+
     /// The place of `kind` for one server at one url; `passphrase` is for an encrypted file.
     pub fn of(kind: Kind, name: &str, url: &str, passphrase: Option<String>) -> Option<Place> {
         let account = crate::store::file_name(name, url);

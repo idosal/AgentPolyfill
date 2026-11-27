@@ -181,12 +181,12 @@ Or remove it with `claude plugin uninstall mcp-apps-cli@agent-polyfill`.
     `mcp-apps-cli` as a client of its own and asks for your consent again.
     Signing out of the server in `/mcp` doesn't end it, and signing out here
     doesn't touch Claude Code's.
-  - **The tokens are kept on your Mac, where you choose.** The macOS Keychain
-    (the default), or a file encrypted with a passphrase (AES-256-GCM, key
+  - **The tokens are kept on your Mac, where you set once for every server.**
+    The macOS Keychain (the default), or a file encrypted with a passphrase (AES-256-GCM, key
     from PBKDF2-HMAC-SHA256) under `~/.cache/mcp-apps-cli/oauth/`
     (`MCP_APPS_CLI_OAUTH_DIR` puts it elsewhere). A plain file, not
-    encrypted, exists only as an explicit option (`--token-store file`, or
-    "Advanced" in the page) for a machine with no Keychain. A token is sent
+    encrypted, exists only as an explicit setting (`MCP_APPS_CLI_TOKEN_STORE=file`, or
+    `--token-store file`) for a machine with no Keychain. A token is sent
     only to the address it was issued for, over `https` or to this machine
     itself, and no redirect is followed.
   - **Your organisation's controls for MCP sign-in don't see it.** With a
@@ -205,20 +205,25 @@ Or remove it with `claude plugin uninstall mcp-apps-cli@agent-polyfill`.
   description and permissions, from the MCP `serverInfo` and the OAuth
   protected resource metadata, RFC 9728, with links to its policy and terms
   when it gives them; what it does not publish is left out, and the icon is
-  downloaded by the helper, never loaded by the page). It says what the above
-  means in three lines, asks where to keep the login, and has Accept and Refuse; Accept goes on to
-  the server's own sign-in in the same tab, Refuse keeps nothing. Without a
+  downloaded by the helper, never loaded by the page). It says where the login
+  will be saved (the global setting below, not a choice made per server), has a
+  "?" that explains the rest (a separate sign-in that Claude Code doesn't list
+  or cancel, kept on this computer, removed with `signout`), and has Accept and
+  Refuse; Accept goes on to the server's own sign-in in the same tab, Refuse
+  keeps nothing. Without a
   browser, `--no-browser` asks the same in the terminal (`Continue? [y/N]`,
   no by default; without a terminal it refuses). To skip the question and the
   page, pass `--yes`, or set `MCP_APPS_CLI_SIGNIN_YES=1` in your environment
   to skip them every time (a terminal can't read `/config`); only do that for
-  servers you have already decided to sign in to. `--token-store
-  keychain|encrypted|file` (or `MCP_APPS_CLI_TOKEN_STORE`) chooses the store
-  without the page. There is no silent fall back: if the Keychain isn't
+  servers you have already decided to sign in to. Where logins are
+  kept is one setting for every server: `MCP_APPS_CLI_TOKEN_STORE`
+  (`keychain`, the default, `encrypted` or `file`), or `--token-store` for one
+  run. The page only says what is set. There is no silent fall back: if the Keychain isn't
   available, `signin` says so and what to use instead.
 
-  A file encrypted with a passphrase can't be opened by a session's helper
-  unless it has the passphrase: set `MCP_APPS_CLI_PASSPHRASE` in the
+  With `encrypted`, `signin` needs the passphrase too (the page can't take
+  one): set `MCP_APPS_CLI_PASSPHRASE`. A file encrypted with a passphrase can't
+  be opened by a session's helper unless it has the passphrase: set it in the
   environment you start Claude Code from (the helper can't ask). The Keychain
   needs nothing. It works with a server of MCP 2026-07-28 and with one of the
   2025 revisions, only for `streamable-http` servers (not the older `sse`

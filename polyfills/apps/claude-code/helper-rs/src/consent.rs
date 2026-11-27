@@ -4,6 +4,7 @@
 //! icon, when it has one, was downloaded by about.rs and is embedded).
 
 use crate::about::About;
+use crate::vault::Kind;
 
 /// Text safe to put in HTML.
 fn escape(text: &str) -> String {
@@ -20,12 +21,17 @@ input:checked + label.opt{border-color:#2563eb;background:#eff4ff}label.opt smal
 .pass{display:none;margin:0 0 8px 28px}input#enc:checked ~ .pass{display:block}\
 .pass input{display:block;width:100%;box-sizing:border-box;padding:8px;margin:4px 0;border:1px solid #c4c8cf;border-radius:8px;font-size:15px}\
 details{margin:0 0 20px}summary{cursor:pointer;color:#4b5563;font-size:14px}\
-.row{display:flex;gap:10px;margin-top:20px}button{font:600 15px inherit;border-radius:9px;padding:10px 20px;border:1px solid #c4c8cf;background:#fff;cursor:pointer}\
+.row{display:flex;gap:10px;margin-top:6px}button{font:600 15px inherit;border-radius:9px;padding:10px 20px;border:1px solid #c4c8cf;background:#fff;cursor:pointer}\
 button.ok{background:#2563eb;border-color:#2563eb;color:#fff}.err{background:#fdecea;border:1px solid #f5b5af;color:#8a1c14;border-radius:8px;padding:8px 12px;margin:0 0 16px}\
 .who{display:flex;align-items:center;gap:12px;margin:0 0 14px}.who strong{display:block;font-size:15px}.who small{color:#6b7280;font-size:13px}\
 .icon{width:44px;height:44px;border-radius:10px;object-fit:contain;background:#f4f5f7;border:1px solid #e5e7eb}.letter{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;color:#4b5563}\
 .about{margin:0 0 8px;color:#374151}.links{margin:0 0 16px;font-size:14px}.links a{color:#2563eb}.none{color:#6b7280;font-size:13px;margin:0 0 18px}.scopes code{font-size:13px;color:#4b5563}\
-.more{margin-top:18px;font-size:13px;color:#6b7280}.more a{color:#2563eb}";
+.tog{position:absolute;opacity:0;width:1px;height:1px}.extra{display:none;margin-top:16px;border-top:1px solid #e5e7eb;padding-top:14px}\
+#info:checked ~ .extra{display:block}\
+.help{margin-left:auto;align-self:center;width:34px;height:34px;box-sizing:border-box;border-radius:50%;border:1px solid #c4c8cf;color:#4b5563;display:flex;align-items:center;justify-content:center;font-weight:600;cursor:pointer}\
+#info:checked ~ .row .help{background:#eff4ff;border-color:#2563eb;color:#2563eb}\
+.tog:focus-visible ~ .row .help{outline:2px solid #2563eb}\
+.q{margin:0 0 10px}.plain{margin:0 0 16px;color:#374151}.more{margin-top:18px;font-size:13px;color:#6b7280}.more a{color:#2563eb}";
 
 fn shell(title: &str, body: &str) -> String {
     format!("<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>{}</title><style>{STYLE}</style><main>{body}</main></html>", escape(title))
@@ -65,7 +71,7 @@ fn permissions(about: &About) -> String {
             None => format!("<li><code>{}</code></li>", escape(scope)),
         })
         .collect();
-    format!("<h2>Permissions the server lists</h2><ul class=\"scopes\">{items}</ul><p class=\"none\">As the server words them; the helper can’t say more than the server does.</p>")
+    format!("<h2>Permissions the server lists</h2><ul class=\"scopes\">{items}</ul><p class=\"none\">These are the server’s own words.</p>")
 }
 
 /// The standard OpenID Connect scopes in plain words.
@@ -79,38 +85,42 @@ fn plain(scope: &str) -> Option<&'static str> {
     })
 }
 
-/// The consent page for `name` at `url`; `token` guards the form; `problem`
-/// is what went wrong with the last answer, if anything.
-pub fn page(name: &str, url: &str, about: &About, token: &str, problem: Option<&str>) -> String {
+/// The consent page for `name` at `url`; `kind` is where the login will be
+/// kept (a global setting, so the page only says it); `token` guards the
+/// form; `problem` is what went wrong with the last answer, if anything.
+/// The explanations open with a “?” (a hidden checkbox and its label, no script).
+pub fn page(name: &str, url: &str, about: &About, kind: Kind, token: &str, problem: Option<&str>) -> String {
+    render(false, name, url, about, kind, token, problem)
+}
+
+/// The page; `open` shows the explanations (the previews use it).
+pub fn render(open: bool, name: &str, url: &str, about: &About, kind: Kind, token: &str, problem: Option<&str>) -> String {
     let title = about.title.as_deref().unwrap_or(name);
     let heading = escape(title);
     let identity = identity(name, url, about);
     let asks = permissions(about);
     let (name, url, token) = (escape(name), escape(url), escape(token));
     let error = problem.map(|p| format!("<p class=\"err\">{}</p>", escape(p))).unwrap_or_default();
-    let mac = cfg!(target_os = "macos");
-    let stores = if mac {
-        "<input type=\"radio\" name=\"store\" value=\"keychain\" id=\"kc\" checked hidden>\
-         <label class=\"opt\" for=\"kc\"><b>macOS Keychain</b> (recommended)<small>Encrypted by macOS, unlocked with your session.</small></label>\
-         <input type=\"radio\" name=\"store\" value=\"encrypted\" id=\"enc\" hidden>\
-         <label class=\"opt\" for=\"enc\"><b>File encrypted with a passphrase</b><small>You set the passphrase now; the helper reads it from the environment later.</small></label>\
-         <div class=\"pass\"><input type=\"password\" name=\"passphrase\" placeholder=\"Passphrase (8 characters or more)\" autocomplete=\"new-password\"><input type=\"password\" name=\"again\" placeholder=\"Passphrase again\" autocomplete=\"new-password\"></div>\
-         <details><summary>Advanced</summary><label class=\"opt\" style=\"margin-top:8px\"><input type=\"radio\" name=\"store\" value=\"file\">Plain file, not encrypted<small>Only for a machine with no Keychain. Anyone who can read your files can read it.</small></label></details>"
-    } else {
-        "<p>Only a plain file is available on this system for now (macOS gets the Keychain and encrypted files first).</p>\
-         <label class=\"opt\"><input type=\"radio\" name=\"store\" value=\"file\" checked>Plain file, not encrypted<small>Anyone who can read your files can read it.</small></label>"
+    let checked = if open || problem.is_some() { " checked" } else { "" };
+    let (keeps, saved) = match kind {
+        Kind::Keychain => ("Saved in the macOS Keychain.", "in the macOS Keychain, the safe place where your Mac keeps passwords"),
+        Kind::Encrypted => ("Saved in a file protected by your passphrase.", "in a file protected by your passphrase"),
+        Kind::File => ("Saved in a plain file, not encrypted.", "in a plain file, which is not encrypted"),
     };
-    // The radio inputs are hidden and chosen through their labels; the checked
-    // one decides which fields show (CSS only, see `.pass`).
+    let good = format!(
+        "<h2>Good to know</h2><ul><li><b>Its own sign-in.</b> It is separate from the one Claude Code uses: Claude Code doesn’t list it and can’t cancel it.</li>\
+         <li><b>Kept on this computer</b>, {saved}.</li>\
+         <li><b>Remove it any time.</b> Type <code>mcp-apps-cli-helper signout {name}</code> in a terminal and it is gone.</li></ul>\
+         <p class=\"none\">To change where logins are saved (for every server), set <code>MCP_APPS_CLI_TOKEN_STORE</code> to <code>keychain</code>, <code>encrypted</code> or <code>file</code> before signing in.</p>"
+    );
+    let buttons = "<button class=\"ok\" name=\"decision\" value=\"accept\">Accept</button><button name=\"decision\" value=\"refuse\" formnovalidate>Refuse</button>";
+    let help = "<label for=\"info\" class=\"help\" title=\"More information\" aria-label=\"More information\">?</label>";
+    let more = format!("<p class=\"more\">More: <a href=\"{}\" rel=\"noreferrer\">README, “Own sign-in”</a></p>", crate::oauth::MORE);
     let body = format!(
         "{error}{identity}<h1>Sign in to “{heading}”?</h1><p class=\"url\">{url}</p>{asks}\
-         <h2>What this means</h2><ul><li>The helper gets <b>its own login</b> to {name}. Claude Code’s sign-in is not used.</li>\
-         <li>Claude Code’s <code>/mcp</code> and your organisation’s MCP rules <b>can’t see or cancel</b> it.</li>\
-         <li>It stays until you run <code>mcp-apps-cli-helper signout {name}</code>.</li></ul>\
-         <form method=\"post\" action=\"/decision\"><input type=\"hidden\" name=\"t\" value=\"{token}\"><h2>Where to keep the login</h2>{stores}\
-         <div class=\"row\"><button class=\"ok\" name=\"decision\" value=\"accept\">Accept</button><button name=\"decision\" value=\"refuse\" formnovalidate>Refuse</button></div></form>\
-         <p class=\"more\">More: <a href=\"{more}\" rel=\"noreferrer\">README, “Own sign-in”</a></p>",
-        more = crate::oauth::MORE
+         <p class=\"plain\">Next, you sign in on the server’s own page. {keeps}</p>\
+         <form method=\"post\" action=\"/decision\"><input type=\"hidden\" name=\"t\" value=\"{token}\"><input type=\"checkbox\" class=\"tog\" id=\"info\"{checked}>\
+         <div class=\"row\">{buttons}{help}</div><div class=\"extra\">{good}</div></form>{more}"
     );
     shell(&format!("Sign in to {title}?"), &body)
 }
@@ -127,23 +137,24 @@ pub fn done_page() -> String {
 mod tests {
     use super::*;
 
-    // What the person is shown: the server, three points, the stores, both buttons, nothing injected.
+    // What the person is shown: the server, the explanations, where the login goes, both buttons, nothing injected.
     #[test]
     fn the_consent_page_says_what_it_means_and_escapes_what_it_shows() {
-        let html = page("de\"mo<b>", "http://127.0.0.1:1/mcp?a=1&b=2", &About::default(), "tok", Some("two <i>different</i>"));
-        for needle in ["its own login", "can’t see or cancel", "signout de&quot;mo&lt;b&gt;", "name=\"t\" value=\"tok\"", "value=\"accept\"", "value=\"refuse\"", "Plain file, not encrypted", "a=1&amp;b=2"] {
+        let html = page("de\"mo<b>", "http://127.0.0.1:1/mcp?a=1&b=2", &About::default(), Kind::Keychain, "tok", Some("two <i>different</i>"));
+        for needle in ["separate", "signout de&quot;mo&lt;b&gt;", "name=\"t\" value=\"tok\"", "value=\"accept\"", "value=\"refuse\"", "MCP_APPS_CLI_TOKEN_STORE", "Saved in the macOS Keychain.", "a=1&amp;b=2"] {
             assert!(html.contains(needle), "{needle}");
         }
         assert!(!html.contains("<b>de") && !html.contains("<i>different") && !html.contains("<script"), "{html}");
-        if cfg!(target_os = "macos") {
-            assert!(html.contains("macOS Keychain") && html.contains("File encrypted with a passphrase"));
-        }
+        // The page has no choice of store: it says what is used, and the other kinds say their own.
+        assert!(!html.contains("name=\"store\"") && !html.contains("name=\"passphrase\""), "{html}");
+        assert!(page("d", "https://m.example/mcp", &About::default(), Kind::File, "t", None).contains("Saved in a plain file, not encrypted."));
+        assert!(page("d", "https://m.example/mcp", &About::default(), Kind::Encrypted, "t", None).contains("Saved in a file protected by your passphrase."));
     }
 
     // With nothing published: no icon, no links, and the page says it does not know the permissions.
     #[test]
     fn without_metadata_the_page_falls_back_to_what_the_person_configured() {
-        let html = page("docs", "https://m.example/mcp", &About::default(), "t", None);
+        let html = page("docs", "https://m.example/mcp", &About::default(), Kind::Keychain, "t", None);
         for needle in ["Sign in to “docs”?", "class=\"icon letter\">D<", "m.example", "does not say which permissions"] {
             assert!(html.contains(needle), "{needle}");
         }
@@ -163,10 +174,31 @@ mod tests {
             scopes: vec!["read".into(), "openid".into(), "x<y".into()],
             ..About::default()
         };
-        let html = page("docs", "https://m.example/mcp", &about, "t", None);
+        let html = page("docs", "https://m.example/mcp", &about, Kind::Keychain, "t", None);
         for needle in ["Sign in to “Docs &lt;Pro&gt;”?", "<img class=\"icon\" src=\"data:image/png;base64,AAAA\"", "Search &quot;docs&quot;", "href=\"https://docs.example/\"", "Privacy policy", "Terms of service", "a=1&amp;b=2", "Permissions the server lists", "<code>read</code>", "Confirm who you are.", "x&lt;y", "signout docs"] {
             assert!(html.contains(needle), "{needle}\n{html}");
         }
         assert!(!html.contains("<Pro>") && !html.contains("<script"), "{html}");
+    }
+
+    // Writes the page, closed and open, as files in $CONSENT_PREVIEW_DIR for a look in a browser.
+    #[test]
+    #[ignore]
+    fn preview_the_page() {
+        let dir = std::env::var("CONSENT_PREVIEW_DIR").expect("CONSENT_PREVIEW_DIR");
+        let about = About {
+            title: Some("Acme Docs".into()),
+            description: Some("Search the Acme documentation.".into()),
+            website: Some("https://acme.example/".into()),
+            icon: Some("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAMAAADVRocKAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAkUExURQ92bhJ4cP///1igmmSmoYO4tCOBeqfNyjSLhNHl40mXkRF3b2M41LsAAAABYktHRAJmC3xkAAAAB3RJTUUH6gsbESc7/enhzQAAACV0RVh0ZGF0ZTpjcmVhdGUAMjAyNi0xMS0yN1QxNzozOTo1OSswMDowML3eDowAAAAldEVYdGRhdGU6bW9kaWZ5ADIwMjYtMTEtMjdUMTc6Mzk6NTkrMDA6MDDMg7YwAAAAKHRFWHRkYXRlOnRpbWVzdGFtcAAyMDI2LTExLTI3VDE3OjM5OjU5KzAwOjAwm5aX7wAAAZFJREFUaN7t1tuOgzAMBFDAufP//7ssbVmwk1CSsbQP8WM8dDiqonaaxowZM2bMmOczL7NuAS2kDFh0CbQVaBJ+AaoE2gv0CC+AIoHeBVqED0CNQEeBDuEPoESgU4EG4QxQIdClAE+4AhQIxArQBA6AE0gUYAkSACZQpgBJyAGgBMoW4Ah5AJBAhQIUoQSAEahYgCGUASACVQoQhBoAQmAAgyaI3wE0gQHsZLEE/sJuclgCA/jtyCMJHBC2s4AkMEDcDyOOwAFpP004Ar/E6366wq4zB5j3uUERqPBBM4jAP8ceG4shcIA7Ng5C4AB/2nkEgQPCaRcABA6Il23sJ3BAumxTN0H8kK2XNb9szwkcYNjedBLmuze8DTwEWJGwXQTxfk5EXBeBA3wm4zsIAhAyodBB4ICYTcVmggCkbCw1E8S/0TUbE5ftW4IAmELQNBLo2+fmNoJ4zBajtokgAK4YdS0EAfCVsG8gCECohMNzggDEajw+JghAqsbTYwJ/oHDJPiMu23L/JYwZM2bMmP83Pxi2Ds5FxdiuAAAAAElFTkSuQmCC".into()),
+            docs: Some("https://docs.acme.example/mcp".into()),
+            policy: Some("https://acme.example/privacy".into()),
+            terms: Some("https://acme.example/terms".into()),
+            scopes: vec!["docs:read".into(), "docs:write".into(), "openid".into()],
+        };
+        for (open, state) in [(false, "ferme"), (true, "ouvert")] {
+            let html = render(open, "docs", "https://mcp.acme.example/mcp", &about, Kind::Keychain, "tok", None);
+            std::fs::write(format!("{dir}/{state}.html"), html).unwrap();
+        }
     }
 }
