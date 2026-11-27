@@ -5,6 +5,8 @@ set -eu
 umask 077
 cd -- "$(dirname -- "$0")"
 base=${CODEX_HOME:-"$HOME/.codex"}
+base=$(CDPATH= cd -- "$base" && pwd -P)
+export CODEX_HOME="$base"
 runtime="$base/agentpolyfill-a2a/.runtime"
 if ! command -v uv >/dev/null 2>&1; then
     echo "A2A Delegation requires uv on the Codex host's PATH." >&2

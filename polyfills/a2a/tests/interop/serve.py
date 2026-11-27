@@ -81,6 +81,7 @@ def exercise(serve, base, marketplace=None):
 
     env["CODEX_HOME"] = str(home / ".codex")
     if marketplace:
+        (home / ".codex").mkdir()
         env.update(PATH=os.environ["PATH"], GIT_TERMINAL_PROMPT="0",
                    CODEX_DISABLE_UPDATE_CHECK="1", OTEL_SDK_DISABLED="true")
         for key in ("UV_CACHE_DIR", "UV_PYTHON_INSTALL_DIR", "UV_OFFLINE"):
@@ -185,7 +186,11 @@ def exercise(serve, base, marketplace=None):
         assert remote_count() == 2
         if marketplace:
             subprocess.run(["codex", "plugin", "remove", "a2a@agent-polyfill"], env=env, cwd=home, check=True)
-            assert wire(command, env, "tools/list", {})["result"]["tools"] == []
+            metadata = {"_meta": {"io.modelcontextprotocol/protocolVersion": REV}}
+            discover = wire(command, env, "server/discover", metadata)["result"]
+            assert not discover["capabilities"]
+            assert wire(command, env, "tools/list", metadata)["result"]["tools"] == []
+            assert "error" in wire(command, env, "tasks/get", {**metadata, "taskId": "former-task"})
             assert remote_count() == 2
             print("Clean marketplace install, real delegation and uninstall passed.")
         print("Native Tasks and active-turn interop passed. Verified decline, two questions, stale reply, conversation isolation, restart and artifact.")
