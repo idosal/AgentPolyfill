@@ -14,6 +14,7 @@ How to use them:
 
 - Run `discover_mcp_servers` for the domain the person names. Use the company's own domain (`neon.com`, `buildkite.com`).
 - Tell the person what it found: each server's title, the URL it connects to, and whether the card was refused and why. A card is the publisher's claim, not a check of the server.
+- Keep each address with its own headers and sign-in requirements. A card can offer several addresses with different permissions. Only describe an address as read-only when the publisher explicitly documents that property.
 - To add one, say which server and URL, then call `add_mcp_server` with the same `domain`, the entry's `identifier`, the remote number, and as `url` the "connects to" URL where the result shows one, else the remote's URL. Don't pass a URL from anywhere else.
 - If the card asks for a non-secret input (a tenant, a region), ask the person and pass it in `values`. Never ask for a secret's value: the command names an environment variable, which the result names, and the person sets it.
 - Show the person the command exactly as the result gives it, with the host it connects to. Don't run it yourself: running it is the person's yes.

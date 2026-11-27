@@ -1,6 +1,6 @@
 # Conformance: the Server Cards client rules, for Muse Code
 
-The Muse form (0.1.0, on Muse Code 1.4.25) runs the Codex form's code
+The Muse form (0.1.1, on Muse Code 1.4.25) runs the Codex form's code
 unchanged, in a bundle of its own: the same card, discovery, cache, formatting and
 fetch code, against the same revisions: SEP-2127 Final, ext-server-card
 `28db12c9b4`, and the AI Catalog v0.9 release candidate. The shared rule

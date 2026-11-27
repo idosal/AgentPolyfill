@@ -28,13 +28,13 @@ export * from './muse'
 
 export const NAME = 'mcp-server-cards'
 /** The Muse Code form's own version. Kept equal to package.json and the plugin's .muse-plugin/plugin.json (test/bundle.test.ts checks). */
-export const VERSION = '0.1.0'
+export const VERSION = '0.1.1'
 export const DISCOVER = 'discover_mcp_servers'
 
 export const DISCOVER_DESCRIPTION =
   'Find the MCP servers a domain publishes, using the MCP Server Cards extension (SEP-2127): reads https://<domain>/.well-known/ai-catalog.json (the AI Catalog SEP-2127 names) and any rel="ai-catalog" link on the page, fetches each MCP Server Card the catalog lists, and checks it against the Server Card schema. ' +
   'Use when the person wants to connect Muse to a service by its domain or website, or a task needs a service that has no tools in this session and the person names its site. ' +
-  "Read-only: it reads public documents from that domain and from the card URLs its catalog names, and returns the publisher's description of its servers."
+  "Read-only: it reads public documents from that domain and from the card URLs its catalog names, and returns the publisher's description of its servers. The lookup itself is read-only. A published server may allow writes. Report access and sign-in details only for the exact remote that declares them."
 
 export const INSTRUCTIONS =
   'MCP Server Cards (SEP-2127): discover_mcp_servers reads the MCP servers a domain publishes; add_mcp_server checks one and gives the `muse mcp add` command that adds it, which the person runs themselves. ' +
