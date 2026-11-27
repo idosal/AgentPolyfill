@@ -1,0 +1,12 @@
+{
+  "name": "mcp-events-muse",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "dependencies": {
+    "ws": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/ws": "8.18.2"
+  }
+}

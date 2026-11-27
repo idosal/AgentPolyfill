@@ -44,6 +44,8 @@ With Server Cards installed, try this prompt.
 
 Choose **Neon Docs**, review its address and approve the addition. Your host handles the connection and any required sign-in.
 
+See the [Muse Code and Grok Bot setup guide](docs/muse-grok.md) for experimental, host-specific support.
+
 ## Polyfills
 
 Select a host adapter for its install commands, examples and limits.

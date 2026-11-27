@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "name": "mcp-event-monitor",
+  "displayName": "MCP Events monitor",
+  "version": "0.1.0",
+  "description": "Watch a configured public feed in the current terminal.",
+  "capabilities": {
+    "mcpServers": [
+      {
+        "id": "events",
+        "transport": "stdio",
+        "command": [
+          "node",
+          "dist/server.mjs"
+        ]
+      }
+    ],
+    "skills": [
+      {
+        "id": "mcp-events-guide",
+        "path": "skills/events/SKILL.md",
+        "enabledDefault": true
+      }
+    ]
+  },
+  "compat": {
+    "source": "native",
+    "manifestDir": ".muse-plugin"
+  }
+}

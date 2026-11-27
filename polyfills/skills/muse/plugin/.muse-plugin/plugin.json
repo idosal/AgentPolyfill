@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "name": "mcp-skill-reference",
+  "displayName": "MCP Skills reference",
+  "version": "0.1.0",
+  "description": "Read verified guidance from configured skill publishers.",
+  "capabilities": {
+    "mcpServers": [
+      {
+        "id": "skills",
+        "transport": "stdio",
+        "command": [
+          "node",
+          "dist/server.mjs"
+        ]
+      }
+    ],
+    "skills": [
+      {
+        "id": "mcp-skills-guide",
+        "path": "skills/skills/SKILL.md",
+        "enabledDefault": true
+      }
+    ]
+  },
+  "compat": {
+    "source": "native",
+    "manifestDir": ".muse-plugin"
+  }
+}
