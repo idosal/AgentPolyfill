@@ -349,9 +349,6 @@ fn target(args: &crate::Args, words: &[String]) -> Result<(String, String)> {
     Ok((name.clone(), url))
 }
 
-/// What the terminal says before its y/N question (the fallback to the
-/// consent page): plain words, one idea a line.
-
 fn flag(words: &[String], name: &str) -> bool {
     words.iter().any(|w| w == name)
 }

@@ -21,13 +21,10 @@ button.ok{background:#2563eb;border-color:#2563eb;color:#fff}.err{background:#fd
 .who{display:flex;align-items:center;gap:12px;margin:0 0 14px}.who strong{display:block;font-size:15px}.who small{color:#6b7280;font-size:13px}\
 .icon{width:44px;height:44px;border-radius:10px;object-fit:contain;background:#f4f5f7;border:1px solid #e5e7eb}.letter{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;color:#4b5563}\
 .about{margin:0 0 8px;color:#374151}.links{margin:0 0 16px;font-size:14px}.links a{color:#2563eb}.none{color:#6b7280;font-size:13px;margin:0 0 18px}.perms{list-style:none;padding:0;margin:0 0 6px}.perms li{padding:8px 0 8px 26px;position:relative;border-bottom:1px solid #f0f1f3}.perms li:before{content:'\\2713';position:absolute;left:4px;color:#2563eb;font-weight:700}.perms small{color:#9ca3af;font-size:12px;margin-left:6px}.also{color:#6b7280;font-size:13px;margin:0 0 6px}.lead{margin:0 0 14px;color:#374151}.status{display:flex;gap:10px;align-items:center;margin:14px 0 8px;min-height:30px}.status b{font-size:14px;font-weight:500}.dot{width:22px;height:22px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700}.dot.ok{background:#16a34a}.dot.warn{background:#d97706}\
-.edit{margin-left:4px;font-size:13px;color:#2563eb;cursor:pointer;border:1px solid #c4c8cf;border-radius:7px;padding:2px 9px;opacity:0;transition:opacity .15s}.status:hover .edit,#store:focus-visible ~ .status .edit,#store:checked ~ .status .edit{opacity:1}@media (hover:none){.edit{opacity:1}}\
-.how{display:none;margin:0 0 8px;font-size:13px;color:#6b7280}#store:checked ~ .how{display:block}.how a{color:#2563eb}.small a{color:#6b7280}\
+.tools{margin-left:auto;display:flex;gap:4px;align-self:center}.tool{position:relative;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#6b7280;cursor:pointer}.tool:hover,.tool:focus-visible{background:#f0f1f3;outline:none}.tool svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.tool.warn{color:#c2791c}\
+.tool[data-tip]:hover:after,.tool[data-tip]:focus-visible:after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);right:0;white-space:nowrap;background:#1f2937;color:#fff;font-size:12px;padding:4px 8px;border-radius:6px;pointer-events:none}#info:checked ~ .row .gear{background:#f0f1f3;color:#1f2937}.tog:focus-visible ~ .row .gear{outline:2px solid #2563eb}\
 .tog{position:absolute;opacity:0;width:1px;height:1px}.extra{display:none;margin-top:16px;border-top:1px solid #e5e7eb;padding-top:14px}\
 #info:checked ~ .extra{display:block}\
-.help{margin-left:auto;align-self:center;width:34px;height:34px;box-sizing:border-box;border-radius:50%;border:1px solid #c4c8cf;color:#4b5563;display:flex;align-items:center;justify-content:center;font-weight:600;cursor:pointer}\
-#info:checked ~ .row .help{background:#eff4ff;border-color:#2563eb;color:#2563eb}\
-.tog:focus-visible ~ .row .help{outline:2px solid #2563eb}\
 .plain{margin:0 0 16px;color:#374151}.more{margin-top:18px;font-size:13px;color:#6b7280}.more a{color:#2563eb}";
 
 fn shell(title: &str, body: &str) -> String {
@@ -38,23 +35,11 @@ fn shell(title: &str, body: &str) -> String {
 /// Claude Code add-on.
 pub const APP: &str = "mcp-apps-cli";
 
-/// The words of the page. Three candidates, until one is chosen.
-// Only one is used until the choice is made.
-#[allow(dead_code)]
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum Version {
-    /// “Authorize”-style: who wants to use what, then what it can do.
-    One,
-    /// “Connect”-style: the question first, then the list.
-    Two,
-    /// Short and calm: log in, then the list.
-    Three,
-}
-
+/// The words of the page.
 pub struct Words {
     pub heading: String,
     pub lead: String,
-    /// Above the list of permissions; empty when there is no list.
+    /// Above the list of permissions.
     pub list_heading: String,
     /// In place of the list, when the server names no permissions.
     pub no_list: String,
@@ -62,33 +47,14 @@ pub struct Words {
     pub cancel: &'static str,
 }
 
-pub fn words(version: Version, title: &str, with_list: bool) -> Words {
-    let t = title;
-    match version {
-        Version::One => Words {
-            heading: format!("{APP} wants to use your {t} account"),
-            lead: "A Claude Code add-on.".into(),
-            list_heading: "It will be able to:".into(),
-            no_list: format!("{t} lists what it can access on the next page."),
-            go: format!("Continue to {t}"),
-            cancel: "Cancel",
-        },
-        Version::Two => Words {
-            heading: format!("Connect {t}?"),
-            lead: if with_list { format!("{APP}, a Claude Code add-on, wants to:") } else { format!("{APP}, a Claude Code add-on, wants to use your account.") },
-            list_heading: String::new(),
-            no_list: format!("{t} lists what it can access on the next page."),
-            go: format!("Connect {t}"),
-            cancel: "Not now",
-        },
-        Version::Three => Words {
-            heading: format!("Log in to {t}"),
-            lead: String::new(),
-            list_heading: format!("{APP}, a Claude Code add-on, will be able to:"),
-            no_list: format!("{APP}, a Claude Code add-on, will use your account."),
-            go: format!("Log in to {t}"),
-            cancel: "Cancel",
-        },
+pub fn words(title: &str) -> Words {
+    Words {
+        heading: format!("{APP} wants to use your {title} account"),
+        lead: "A Claude Code add-on.".into(),
+        list_heading: "It will be able to:".into(),
+        no_list: format!("{title} lists what it can access on the next page."),
+        go: format!("Continue to {title}"),
+        cancel: "Cancel",
     }
 }
 
@@ -160,33 +126,42 @@ pub fn storage_status(kind: Kind) -> (bool, &'static str) {
     }
 }
 
+const LOCK: &str = "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"5\" y=\"11\" width=\"14\" height=\"9\" rx=\"2\"/><path d=\"M8 11V8a4 4 0 0 1 8 0v3\"/></svg>";
+const LOCK_OPEN: &str = "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"5\" y=\"11\" width=\"14\" height=\"9\" rx=\"2\"/><path d=\"M8 11V8a4 4 0 0 1 7.4-2\"/></svg>";
+const GEAR: &str = "<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"6.5\"/><circle cx=\"12\" cy=\"12\" r=\"2.3\"/><path d=\"M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1\"/></svg>";
+
 /// The consent page for `name` at `url`; `kind` is where the login will be
-/// kept (a global setting, so the page only says it); `token` guards the
-/// form; `problem` is what went wrong with the last answer, if anything.
-/// The technical details open with a “?” (a hidden checkbox and its label, no script).
+/// kept (a global setting, so the page only says it, with a lock); `token`
+/// guards the form; `problem` is what went wrong with the last answer, if
+/// anything. The details open with the gear (a hidden checkbox and its label,
+/// no script).
 pub fn page(name: &str, url: &str, about: &About, kind: Kind, token: &str, problem: Option<&str>) -> String {
-    render(Version::One, false, name, url, about, kind, token, problem)
+    render(false, name, url, about, kind, token, problem)
 }
 
-/// The page in `version`; `open` shows the details (the previews use it).
-// The version argument goes once one is chosen.
-#[allow(clippy::too_many_arguments)]
-pub fn render(version: Version, open: bool, name: &str, url: &str, about: &About, kind: Kind, token: &str, problem: Option<&str>) -> String {
+/// The page; `open` shows the details (the previews use it).
+pub fn render(open: bool, name: &str, url: &str, about: &About, kind: Kind, token: &str, problem: Option<&str>) -> String {
     let title = about.title.as_deref().unwrap_or(name);
-    let w = words(version, title, !about.scopes.is_empty());
+    let w = words(title);
     let identity = identity(title, url, about);
     let perms = permissions(about, title, &w);
     let (url, name_html, token) = (escape(url), escape(name), escape(token));
     let error = problem.map(|p| format!("<p class=\"err\">{}</p>", escape(p))).unwrap_or_default();
     let checked = if open || problem.is_some() { " checked" } else { "" };
-    // A passphrase-locked file is as safe as the Keychain (the same strong encryption), so it is
-    // green too; only the plain file is a warning.
+    // A closed lock for the Keychain and a passphrase-locked file (the same strong
+    // encryption); an open one, with a touch of amber, only for the plain file.
     let (good, headline) = storage_status(kind);
-    let status = format!(
-        "<div class=\"status\"><span class=\"dot {}\">{}</span><b>{headline}</b><label for=\"store\" class=\"edit\" title=\"Change where the login is saved\">\u{270E} Edit</label></div>",
-        if good { "ok" } else { "warn" },
-        if good { "\u{2713}" } else { "!" }
+    let lock = format!(
+        "<span class=\"tool{}\" tabindex=\"0\" role=\"img\" data-tip=\"{headline}\" aria-label=\"{headline}\">{}</span>",
+        if good { "" } else { " warn" },
+        if good { LOCK } else { LOCK_OPEN }
     );
+    let gear = format!("<label for=\"info\" class=\"tool gear\" data-tip=\"Settings and details\" aria-label=\"Settings and details\">{GEAR}</label>");
+    let saved = match kind {
+        Kind::Keychain => "Saved in the Keychain, the password vault of your Mac.",
+        Kind::Encrypted => "Saved in a file locked with your passphrase.",
+        Kind::File => "Saved in a plain file, not encrypted.",
+    };
     let mut links = Vec::new();
     for (label, target) in [("Website", &about.website), ("Documentation", &about.docs), ("Privacy policy", &about.policy), ("Terms of service", &about.terms)] {
         if let Some(target) = target {
@@ -194,25 +169,23 @@ pub fn render(version: Version, open: bool, name: &str, url: &str, about: &About
         }
     }
     let links = if links.is_empty() { String::new() } else { format!("<li>{}</li>", links.join(" · ")) };
-    let lead = if w.lead.is_empty() { String::new() } else { format!("<p class=\"lead\">{}</p>", escape(&w.lead)) };
+    let lead = format!("<p class=\"lead\">{}</p>", escape(&w.lead));
     let about_text = about.description.as_ref().map(|d| format!("<li>{}</li>", escape(d))).unwrap_or_default();
     let details = format!(
-        "<ul>{about_text}<li>Separate from Claude Code’s own login: it doesn’t list or cancel it.</li>\
+        "<ul>{about_text}<li>{saved} To change: set <code>MCP_APPS_CLI_TOKEN_STORE</code> · <a href=\"{more}\" rel=\"noreferrer noopener\" target=\"_blank\">README</a></li>\
+         <li>Separate from Claude Code’s own login: it doesn’t list or cancel it.</li>\
          <li>To disconnect: <code>mcp-apps-cli-helper signout {name_html}</code></li>{links}\
-         <li><code>{url}</code></li></ul>"
+         <li><code>{url}</code></li></ul>",
+        more = crate::oauth::MORE
     );
-    let help = "<label for=\"info\" class=\"help\" title=\"More details\" aria-label=\"More details\">?</label>";
     let body = format!(
         "{error}{identity}<h1>{}</h1>{lead}{perms}\
-         <form method=\"post\" action=\"/decision\"><input type=\"hidden\" name=\"t\" value=\"{token}\">\
-         <input type=\"checkbox\" class=\"tog\" id=\"store\"><input type=\"checkbox\" class=\"tog\" id=\"info\"{checked}>{status}\
-         <p class=\"how\">To change: set <code>MCP_APPS_CLI_TOKEN_STORE</code> · <a href=\"{more}\" rel=\"noreferrer noopener\" target=\"_blank\">README</a></p>\
-         <div class=\"row\"><button class=\"ok\" name=\"decision\" value=\"accept\">{}</button><button name=\"decision\" value=\"refuse\" formnovalidate>{}</button>{help}</div>\
+         <form method=\"post\" action=\"/decision\"><input type=\"hidden\" name=\"t\" value=\"{token}\"><input type=\"checkbox\" class=\"tog\" id=\"info\"{checked}>\
+         <div class=\"row\"><button class=\"ok\" name=\"decision\" value=\"accept\">{}</button><button name=\"decision\" value=\"refuse\" formnovalidate>{}</button><div class=\"tools\">{lock}{gear}</div></div>\
          <div class=\"extra\">{details}</div></form>",
         escape(&w.heading),
         escape(&w.go),
-        w.cancel,
-        more = crate::oauth::MORE
+        w.cancel
     );
     shell(&w.heading, &body)
 }
@@ -246,13 +219,13 @@ mod tests {
     #[test]
     fn the_consent_page_says_who_asks_what_for_and_escapes_what_it_shows() {
         let html = page("de\"mo<b>", "http://127.0.0.1:1/mcp?a=1&b=2", &About::default(), Kind::Keychain, "tok", Some("two <i>different</i>"));
-        for needle in ["Separate from Claude Code", "signout de&quot;mo&lt;b&gt;", "name=\"t\" value=\"tok\"", "value=\"accept\"", "value=\"refuse\"", "Continue to de&quot;mo&lt;b&gt;", "Cancel", "MCP_APPS_CLI_TOKEN_STORE", "Saved securely on this Mac", "a=1&amp;b=2"] {
+        for needle in ["Separate from Claude Code", "signout de&quot;mo&lt;b&gt;", "name=\"t\" value=\"tok\"", "value=\"accept\"", "value=\"refuse\"", "Continue to de&quot;mo&lt;b&gt;", "Cancel", "MCP_APPS_CLI_TOKEN_STORE", "Settings and details", "Saved securely on this Mac", "a=1&amp;b=2"] {
             assert!(html.contains(needle), "{needle}");
         }
         assert!(!html.contains("<b>de") && !html.contains("<i>different") && !html.contains("<script"), "{html}");
         // No choice of store, no jargon in the words that are always shown.
         assert!(!html.contains("name=\"store\"") && !html.contains("name=\"passphrase\""), "{html}");
-        assert!(page("d", "https://m.example/mcp", &About::default(), Kind::File, "t", None).contains("Not encrypted"));
+        assert!(page("d", "https://m.example/mcp", &About::default(), Kind::File, "t", None).contains("Not encrypted") && page("d", "https://m.example/mcp", &About::default(), Kind::File, "t", None).contains("tool warn"));
         assert!(page("d", "https://m.example/mcp", &About::default(), Kind::Encrypted, "t", None).contains("Locked with your passphrase"));
     }
 
@@ -287,10 +260,10 @@ mod tests {
         assert_eq!(plain("Org:Read", "A"), None);
     }
 
-    // Writes the three versions, closed and open, as files in $CONSENT_PREVIEW_DIR for a look in a browser.
+    // Writes the page, closed and open, for each store, as files in $CONSENT_PREVIEW_DIR for a look in a browser.
     #[test]
     #[ignore]
-    fn preview_the_versions() {
+    fn preview_the_page() {
         let dir = std::env::var("CONSENT_PREVIEW_DIR").expect("CONSENT_PREVIEW_DIR");
         let about = About {
             title: Some("Acme Docs".into()),
@@ -302,20 +275,13 @@ mod tests {
             terms: Some("https://acme.example/terms".into()),
             scopes: vec!["docs:read".into(), "docs:write".into(), "openid".into()],
         };
-        for (version, key) in [(Version::One, "1"), (Version::Two, "2"), (Version::Three, "3")] {
-            for (open, state) in [(false, "ferme"), (true, "ouvert")] {
-                let html = render(version, open, "docs", "https://mcp.acme.example/mcp", &about, Kind::Keychain, "tok", None);
-                std::fs::write(format!("{dir}/{key}-{state}.html"), html).unwrap();
-            }
-            let bare = About { title: Some("Acme Docs".into()), ..About::default() };
-            std::fs::write(format!("{dir}/{key}-sans.html"), render(version, false, "docs", "https://mcp.acme.example/mcp", &bare, Kind::Keychain, "tok", None)).unwrap();
+        for (open, state) in [(false, "ferme"), (true, "ouvert")] {
+            let html = render(open, "docs", "https://mcp.acme.example/mcp", &about, Kind::Keychain, "tok", None);
+            std::fs::write(format!("{dir}/{state}-trousseau.html"), html).unwrap();
         }
-        // The three states of the storage line, the hover state (the Edit button shown) and the Edit line open.
-        for (kind, key) in [(Kind::Keychain, "keychain"), (Kind::Encrypted, "phrase"), (Kind::File, "fichier")] {
-            let html = render(Version::One, false, "docs", "https://mcp.acme.example/mcp", &about, kind, "tok", None);
-            std::fs::write(format!("{dir}/etat-{key}.html"), html.replace("</style>", ".edit{opacity:1!important}</style>")).unwrap();
-        }
-        let html = render(Version::One, false, "docs", "https://mcp.acme.example/mcp", &about, Kind::Keychain, "tok", None);
-        std::fs::write(format!("{dir}/etat-edit-ouvert.html"), html.replace("id=\"store\">", "id=\"store\" checked>")).unwrap();
+        std::fs::write(format!("{dir}/ferme-fichier.html"), render(false, "docs", "https://mcp.acme.example/mcp", &about, Kind::File, "tok", None)).unwrap();
+        std::fs::write(format!("{dir}/ouvert-fichier.html"), render(true, "docs", "https://mcp.acme.example/mcp", &about, Kind::File, "tok", None)).unwrap();
+        let bare = About { title: Some("Acme Docs".into()), ..About::default() };
+        std::fs::write(format!("{dir}/ferme-sans.html"), render(false, "docs", "https://mcp.acme.example/mcp", &bare, Kind::Keychain, "tok", None)).unwrap();
     }
 }

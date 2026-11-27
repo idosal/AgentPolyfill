@@ -6,7 +6,7 @@
 use std::io::IsTerminal;
 
 use crate::about::About;
-use crate::consent::{self, APP, Version};
+use crate::consent::{self, APP};
 use crate::vault::Kind;
 
 /// Colours only on a real terminal, and never when `NO_COLOR` is set (no-color.org) or the terminal is "dumb".
@@ -38,7 +38,7 @@ impl Paint {
 pub fn screen(name: &str, url: &str, about: &About, kind: Kind, color: bool) -> String {
     let p = Paint(color);
     let title = about.title.as_deref().unwrap_or(name);
-    let w = consent::words(Version::One, title, !about.scopes.is_empty());
+    let w = consent::words(title);
     let host = url::Url::parse(url).ok().and_then(|u| u.host_str().map(str::to_string)).unwrap_or_default();
     let mut out = format!("\n  {}  {}\n\n  {}\n  {}\n\n", p.bold(title), p.dim(&host), p.bold(&w.heading), w.lead);
     if about.scopes.is_empty() {
@@ -63,7 +63,12 @@ pub fn screen(name: &str, url: &str, about: &About, kind: Kind, color: bool) -> 
         out.push('\n');
     }
     let (good, headline) = consent::storage_status(kind);
-    out.push_str(&format!("  {} {}\n", if good { p.green("\u{2713}") } else { p.amber("\u{26A0}") }, if good { headline.to_string() } else { p.amber(headline) }));
+    // A closed lock, quiet, when it is fine; an open one with a warning sign when it is not.
+    if good {
+        out.push_str(&format!("  \u{1F512} {}\n", p.dim(headline)));
+    } else {
+        out.push_str(&format!("  \u{1F513} {}\n", p.amber(&format!("\u{26A0} {headline}"))));
+    }
     out
 }
 
@@ -88,7 +93,7 @@ pub fn details(name: &str, url: &str, about: &About, color: bool) -> String {
 /// The question: the button's words, then the answers (no is the default).
 pub fn question(name: &str, about: &About) -> String {
     let title = about.title.as_deref().unwrap_or(name);
-    format!("\n  {} [y/N/?] ", consent::words(Version::One, title, !about.scopes.is_empty()).go)
+    format!("\n  {} [y/N/?] ", consent::words(title).go)
 }
 
 /// What the one-line mention of the app says when the question is skipped (`--yes`).
@@ -114,12 +119,12 @@ mod tests {
     #[test]
     fn the_screen_has_the_pages_structure_with_or_without_colour() {
         let plain = screen("docs", "https://mcp.acme.example/mcp", &about(), Kind::Keychain, false);
-        for needle in ["Acme Docs", "mcp.acme.example", "mcp-apps-cli wants to use your Acme Docs account", "A Claude Code add-on.", "It will be able to:", "\u{2713} Read your docs", "docs:read", "Confirm who you are", "And default", "\u{2713} Saved securely on this Mac"] {
+        for needle in ["Acme Docs", "mcp.acme.example", "mcp-apps-cli wants to use your Acme Docs account", "A Claude Code add-on.", "It will be able to:", "\u{2713} Read your docs", "docs:read", "Confirm who you are", "And default", "\u{1F512} Saved securely on this Mac"] {
             assert!(plain.contains(needle), "{needle}\n{plain}");
         }
         assert!(!plain.contains('\x1b'), "{plain:?}");
         let coloured = screen("docs", "https://mcp.acme.example/mcp", &about(), Kind::File, true);
-        assert!(coloured.contains("\x1b[32m\u{2713}") && coloured.contains("\x1b[33m\u{26A0}") && coloured.contains("Not encrypted"), "{coloured:?}");
+        assert!(coloured.contains("\x1b[32m\u{2713}") && coloured.contains("\x1b[33m\u{26A0} Not encrypted") && coloured.contains("\u{1F513}") && coloured.contains("Not encrypted"), "{coloured:?}");
         // Nothing published: the title is the name, and a plain line stands for the list.
         let bare = screen("docs", "https://m.example/mcp", &About::default(), Kind::Encrypted, false);
         assert!(bare.contains("wants to use your docs account") && bare.contains("lists what it can access on the next page") && bare.contains("Locked with your passphrase"), "{bare}");
@@ -133,5 +138,15 @@ mod tests {
             assert!(d.contains(needle), "{needle}\n{d}");
         }
         assert_eq!(question("docs", &about()).trim(), "Continue to Acme Docs [y/N/?]");
+    }
+
+    // Writes the Keychain summary (with colour) as a text file in $CONSENT_PREVIEW_DIR, for a capture
+    // that doesn't touch the person's Keychain (the real binary probes it).
+    #[test]
+    #[ignore]
+    fn preview_the_keychain_summary() {
+        let dir = std::env::var("CONSENT_PREVIEW_DIR").expect("CONSENT_PREVIEW_DIR");
+        let text = format!("{}{}n\n", screen("docs", "https://mcp.acme.example/mcp", &about(), Kind::Keychain, true), question("docs", &about()));
+        std::fs::write(format!("{dir}/terminal-keychain.txt"), text).unwrap();
     }
 }
