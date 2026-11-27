@@ -5,6 +5,15 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 
 const helper = fileURLToPath(new URL('../claude-code/mod/helper/helper.mjs', import.meta.url));
+
+// Pi's built-in MCP adapter exposes the original CallToolResult in the outer
+// AgentToolResult.structuredContent. Its outer content is the model-facing preview.
+export function originalMcpResult(result) {
+    const wrapped = result.structuredContent;
+    const mcp = Array.isArray(wrapped?.content) ? wrapped : result;
+    return { content: mcp.content, structuredContent: mcp.structuredContent, isError: mcp.isError };
+}
+
 export async function openRenderer({ server, config, tool, input, result, cwd, cols, rows, onFrame, onImage, onTool, allowTool, signal }) {
     const child = spawn(process.execPath, [helper, '--pi', '--cwd', cwd], {
         cwd, stdio: ['pipe', 'pipe', 'pipe'],

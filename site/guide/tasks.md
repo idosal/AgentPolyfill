@@ -34,6 +34,13 @@ pi install ./polyfills/tasks/pi/extension
 
 Requires Pi 1.6+ and Node 22+. [Pi setup and limits](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/tasks/pi).
 
+### T3 Code with Pi
+
+Install the Pi Tasks extension in the Pi profile that T3 Code uses and choose Pi
+as the thread’s provider. T3 displays start approvals and task questions in its
+composer. Keep the session open to receive the result in the same thread.
+[T3 setup and walkthrough](https://github.com/idosal/AgentPolyfill/tree/main/polyfills/tasks/t3).
+
 ### GitHub Copilot CLI
 
 Experimental CLI 1.0.115 and 1.0.116 start and poll tasks natively. The plugin

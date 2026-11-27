@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext, ExtensionToolContext } from '@earendil-works/pi-coding-agent';
 import { getCapabilities, Image, parseKey, truncateToWidth } from '@earendil-works/pi-tui';
 import { parseEntry, piRunsMcp, readPiEntries } from '../../events/pi/src/pi-config.ts';
-import { openRenderer } from './renderer.mjs';
+import { openRenderer, originalMcpResult } from './renderer.mjs';
 
 export default function apps(pi: ExtensionAPI) {
     if (process.env.MCP_APPS_OFF === '1') return;
@@ -22,7 +22,7 @@ export default function apps(pi: ExtensionAPI) {
         const { server, tool } = event.details as { server?: string; tool?: string } ?? {};
         if (!server || !tool) return;
         const config = snapshot(server, ctx);
-        recent = config ? { server, tool, input: event.input, result: { content: event.content, structuredContent: event.structuredContent },
+        recent = config ? { server, tool, input: event.input, result: originalMcpResult(event),
             config: JSON.stringify(config), session: ctx.sessionManager.getSessionId() } : undefined;
     });
     async function open(ctx: ExtensionContext, nested?: ExtensionToolContext, signal?: AbortSignal) {
@@ -65,7 +65,8 @@ export default function apps(pi: ExtensionAPI) {
                         if (!target || target.exposure === 'hidden' || !nested.tools.some(tool => tool.name === target.name)) throw Error('Pi does not expose this tool.');
                         if (JSON.stringify(snapshot(item.server, ctx)) !== item.config) throw Error('The server configuration changed.');
                         const response = await nested.executeTool(target.name, args, { signal: active.signal });
-                        return { content: response.result.content, structuredContent: response.result.structuredContent, isError: response.isError };
+                        const result = originalMcpResult(response.result);
+                        return { ...result, isError: response.isError || result.isError };
                     },
                     onImage: getCapabilities().images ? (png: string) => {
                         picture = new Image(png, 'image/png', { fallbackColor: text => text }, {

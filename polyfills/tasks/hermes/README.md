@@ -4,6 +4,10 @@ Hermes 0.23.4 gateway users can start SEP-2663 tasks, continue their conversatio
 receive a notification when input is needed, and retrieve the result in the same
 session. The command needs a viewer that can answer Hermes’s choice prompt.
 
+Watch the Hermes terminal approve a job, confirm the name and retrieve the greeting.
+
+[![Watch the Hermes terminal Tasks walkthrough](../../../docs/media/demos/tasks-hermes.jpg)](../../../docs/media/demos/tasks-hermes.mp4)
+
 ## Local setup
 
 Copy the contents of `plugin/` into `$HERMES_HOME/plugins/mcp-tasks/`, enable
@@ -42,7 +46,9 @@ before launching Hermes.
 Install dependencies with `npm ci` in `../core` first. Run `npm ci && npm run typecheck && npm run build` here and
 `python3 test/gateway.py` with the environment described in
 [the Hermes harness](../../../tools/hermes). The fixture uses a real gateway,
-two separate sessions, a scripted model, and one local MCP server.
+two separate sessions, a scripted model, and one local MCP server. The walkthrough
+uses the 0.23.4 terminal viewer and gateway on a local fixture. It shows the
+native chooser and one accepted name reaching the upstream server.
 
 This uses MCP revision 2026-07-28 and the shared [SEP-2663 Tasks
 client](../core). The isolated Hermes 0.23.4 MCP client negotiated 2025-11-25;

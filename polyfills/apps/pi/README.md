@@ -11,6 +11,10 @@ run `npm ci` at the repository root and `pi install /absolute/path/to/AgentPolyf
 Install Chrome or set `MCP_APPS_CLI_CHROME` to a Chromium executable.
 Set `MCP_APPS_OFF=1` before launching Pi to disable the adapter.
 
+Watch the clock open with its original timestamp, request permission to refresh and display the new time.
+
+[![Watch the clock open with its original timestamp, request permission to refresh and display the new time](../../../docs/media/demos/apps-pi.jpg)](../../../docs/media/demos/apps-pi.mp4)
+
 ## Compatibility
 
 This is a partial client for the stable 2026-01-26 MCP Apps specification
@@ -35,8 +39,8 @@ There is no pointer input or persisted browser storage in this version.
 ## Verification
 
 Pi 1.6.0 rendered the upstream vanilla clock example in a disposable terminal.
-The slash command displayed the original timestamp. Opening the app through
-the agent and activating its refresh button produced one additional native
-tool call after confirmation. The local browser fixture checks decline,
+The agent-opened view displayed the original server timestamp. After approval,
+the refresh button issued one more native tool call and the clock displayed
+the second timestamp. The local browser fixture checks decline,
 approved refresh, absence of replay, and PNG output. Run `npm ci` at the
 repository root, then `npm ci && npm run typecheck && npm test` here.

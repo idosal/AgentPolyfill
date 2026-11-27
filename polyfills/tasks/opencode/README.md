@@ -5,6 +5,14 @@ or asks for input. The plugin implements the client side of
 [SEP-2663](https://github.com/modelcontextprotocol/ext-tasks/blob/cc9aaac1047a9440b07486e38f37060bbebeef4c/seps/2663-tasks-extension.md)
 at MCP revision 2026-07-28.
 
+Watch the terminal session approve a task and deliver an answer.
+
+[![Watch the OpenCode terminal Tasks walkthrough](../../../docs/media/demos/tasks-opencode.jpg)](../../../docs/media/demos/tasks-opencode.mp4)
+
+Watch OpenCode Desktop collect a name and display the greeting in the same thread.
+
+[![Watch the OpenCode Desktop Tasks walkthrough](../../../docs/media/demos/tasks-opencode-desktop.jpg)](../../../docs/media/demos/tasks-opencode-desktop.mp4)
+
 ## Install
 
 Requires OpenCode 2.4.1 or newer. Clone AgentPolyfill and add the full path to

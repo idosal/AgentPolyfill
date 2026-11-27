@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { openRenderer } from '../renderer.mjs';
+import { openRenderer, originalMcpResult } from '../renderer.mjs';
 
 test('renders the original structured result without replay and enforces nested consent', async t => {
     const cwd = await mkdtemp(join(tmpdir(), 'pi-apps-test-'));
@@ -54,4 +54,10 @@ test('an image-capable viewer receives a PNG', async t => {
         viewer.close();
         await viewer.closed;
     }
+});
+
+test('forwards the MCP result Pi wrapped, including its original structured content', () => {
+    const original = { content: [{ type: 'text', text: 'raw' }], structuredContent: { time: '12:30' }, isError: false };
+    assert.deepEqual(originalMcpResult({ content: [{ type: 'text', text: 'preview' }], structuredContent: { ...original, _meta: { private: true } } }), original);
+    assert.deepEqual(originalMcpResult(original), original);
 });

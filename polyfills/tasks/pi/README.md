@@ -4,6 +4,10 @@ Run a configured MCP server's long tool call as a task. Pi asks before starting 
 
 Implements the client side of `io.modelcontextprotocol/tasks` ([SEP-2663](https://github.com/modelcontextprotocol/ext-tasks/blob/cc9aaac1047a9440b07486e38f37060bbebeef4c/seps/2663-tasks-extension.md)) for [MCP 2026-07-28](https://github.com/modelcontextprotocol/ext-tasks/blob/cc9aaac1047a9440b07486e38f37060bbebeef4c/specification/2026-07-28/tasks.md). The [client rules and checks](docs/conformance.md) cover the shared protocol and the Pi adapter.
 
+Watch Pi approve a background report and retrieve it when the session wakes.
+
+[![Watch Pi approve a background report and retrieve it when the session wakes](../../../docs/media/demos/tasks-pi.jpg)](../../../docs/media/demos/tasks-pi.mp4)
+
 ## Install
 
 Requires Pi 1.6 and Node 22 or newer. The AgentPolyfill Pi package includes
@@ -16,6 +20,8 @@ pi install ./polyfills/tasks/pi/extension
 ```
 
 For a single run, use `pi -e ./polyfills/tasks/pi/extension`. Keep the checkout while the local package is installed. Remove it from that checkout with `pi remove ./polyfills/tasks/pi/extension`.
+
+The same extension runs in T3 Code through its [Pi provider](../t3/README.md).
 
 ## Use
 
