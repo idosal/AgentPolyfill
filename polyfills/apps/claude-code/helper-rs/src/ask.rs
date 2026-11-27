@@ -45,20 +45,17 @@ pub fn screen(name: &str, url: &str, about: &About, kind: Kind, color: bool) -> 
         out.push_str(&format!("  {}\n\n", w.no_list));
     } else {
         out.push_str(&format!("  {}\n", w.list_heading));
-        let mut known = Vec::new();
-        let mut raw = Vec::new();
+        let mut lines: Vec<(Option<String>, &str)> = Vec::new();
         for scope in &about.scopes {
-            match consent::plain(scope, title) {
-                Some(sentence) => known.push((sentence, scope.as_str())),
-                None => raw.push(scope.as_str()),
+            lines.push((consent::plain(scope, title), scope.as_str()));
+        }
+        let width = lines.iter().filter_map(|(s, _)| s.as_ref()).map(|s| s.chars().count()).max().unwrap_or(0);
+        for (sentence, scope) in lines {
+            // A word that can't be put in everyday words is still a line of its own, the server's word in grey.
+            match sentence {
+                Some(sentence) => out.push_str(&format!("    {} {}{}  {}\n", p.green("\u{2713}"), sentence, " ".repeat(width - sentence.chars().count()), p.dim(scope))),
+                None => out.push_str(&format!("    {} {}\n", p.green("\u{2713}"), p.dim(scope))),
             }
-        }
-        let width = known.iter().map(|(s, _)| s.chars().count()).max().unwrap_or(0);
-        for (sentence, scope) in known {
-            out.push_str(&format!("    {} {}{}  {}\n", p.green("\u{2713}"), sentence, " ".repeat(width - sentence.chars().count()), p.dim(scope)));
-        }
-        if !raw.is_empty() {
-            out.push_str(&format!("    {}\n", p.dim(&format!("{} {}", if out.matches('\u{2713}').count() > 0 { "And" } else { "Access named" }, raw.join(", ")))));
         }
         out.push('\n');
     }
@@ -119,7 +116,7 @@ mod tests {
     #[test]
     fn the_screen_has_the_pages_structure_with_or_without_colour() {
         let plain = screen("docs", "https://mcp.acme.example/mcp", &about(), Kind::Keychain, false);
-        for needle in ["Acme Docs", "mcp.acme.example", "mcp-apps-cli wants to use your Acme Docs account", "A Claude Code add-on.", "It will be able to:", "\u{2713} Read your docs", "docs:read", "Confirm who you are", "And default", "\u{1F512} Saved securely on this Mac"] {
+        for needle in ["Acme Docs", "mcp.acme.example", "mcp-apps-cli wants to use your Acme Docs account", "A Claude Code add-on.", "It will be able to:", "\u{2713} Read your docs", "docs:read", "Confirm who you are", "\u{2713} default", "\u{1F512} Saved securely on this Mac"] {
             assert!(plain.contains(needle), "{needle}\n{plain}");
         }
         assert!(!plain.contains('\x1b'), "{plain:?}");

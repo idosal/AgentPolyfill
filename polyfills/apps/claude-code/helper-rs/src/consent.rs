@@ -20,7 +20,7 @@ ul{margin:0 0 20px;padding-left:20px}li{margin:6px 0}h2{font-size:15px;margin:0 
 button.ok{background:#2563eb;border-color:#2563eb;color:#fff}.err{background:#fdecea;border:1px solid #f5b5af;color:#8a1c14;border-radius:8px;padding:8px 12px;margin:0 0 16px}\
 .who{display:flex;align-items:center;gap:12px;margin:0 0 14px}.who strong{display:block;font-size:15px}.who small{color:#6b7280;font-size:13px}\
 .icon{width:44px;height:44px;border-radius:10px;object-fit:contain;background:#f4f5f7;border:1px solid #e5e7eb}.letter{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;color:#4b5563}\
-.about{margin:0 0 8px;color:#374151}.links{margin:0 0 16px;font-size:14px}.links a{color:#2563eb}.none{color:#6b7280;font-size:13px;margin:0 0 18px}.perms{list-style:none;padding:0;margin:0 0 6px}.perms li{padding:8px 0 8px 26px;position:relative;border-bottom:1px solid #f0f1f3}.perms li:before{content:'\\2713';position:absolute;left:4px;color:#2563eb;font-weight:700}.perms small{color:#9ca3af;font-size:12px;margin-left:6px}.also{color:#6b7280;font-size:13px;margin:0 0 6px}.lead{margin:0 0 14px;color:#374151}.status{display:flex;gap:10px;align-items:center;margin:14px 0 8px;min-height:30px}.status b{font-size:14px;font-weight:500}.dot{width:22px;height:22px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700}.dot.ok{background:#16a34a}.dot.warn{background:#d97706}\
+.about{margin:0 0 8px;color:#374151}.links{margin:0 0 16px;font-size:14px}.links a{color:#2563eb}.none{color:#6b7280;font-size:13px;margin:0 0 18px}.perms{list-style:none;padding:0;margin:0 0 6px}.perms li{padding:8px 0 8px 26px;position:relative;border-bottom:1px solid #f0f1f3}.perms li:before{content:'\\2713';position:absolute;left:4px;color:#2563eb;font-weight:700}.perms small{color:#9ca3af;font-size:12px;margin-left:6px}.perms li.raw{color:#6b7280;font-size:13px}.lead{margin:0 0 14px;color:#374151}\
 .tools{margin-left:auto;display:flex;gap:4px;align-self:center}.tool{position:relative;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#6b7280;cursor:pointer}.tool:hover,.tool:focus-visible{background:#f0f1f3;outline:none}.tool svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.tool.warn{color:#c2791c}\
 .tool[data-tip]:hover:after,.tool[data-tip]:focus-visible:after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);right:0;white-space:nowrap;background:#1f2937;color:#fff;font-size:12px;padding:4px 8px;border-radius:6px;pointer-events:none}#info:checked ~ .row .gear{background:#f0f1f3;color:#1f2937}.tog:focus-visible ~ .row .gear{outline:2px solid #2563eb}\
 .tog{position:absolute;opacity:0;width:1px;height:1px}.extra{display:none;margin-top:16px;border-top:1px solid #e5e7eb;padding-top:14px}\
@@ -101,18 +101,17 @@ fn permissions(about: &About, title: &str, w: &Words) -> String {
     if about.scopes.is_empty() {
         return format!("<p class=\"lead\">{}</p>", escape(&w.no_list));
     }
-    let mut items = String::new();
-    let mut raw = Vec::new();
-    for scope in &about.scopes {
-        match plain(scope, title) {
-            Some(sentence) => items.push_str(&format!("<li>{}<small>{}</small></li>", escape(&sentence), escape(scope))),
-            None => raw.push(format!("<code>{}</code>", escape(scope))),
-        }
-    }
+    // A word that can't be put in everyday words is still a line of its own, the server's word in grey.
+    let items: String = about
+        .scopes
+        .iter()
+        .map(|scope| match plain(scope, title) {
+            Some(sentence) => format!("<li>{}<small>{}</small></li>", escape(&sentence), escape(scope)),
+            None => format!("<li class=\"raw\">{}</li>", escape(scope)),
+        })
+        .collect();
     let heading = if w.list_heading.is_empty() { String::new() } else { format!("<p class=\"lead\">{}</p>", escape(&w.list_heading)) };
-    let list = if items.is_empty() { String::new() } else { format!("<ul class=\"perms\">{items}</ul>") };
-    let also = if raw.is_empty() { String::new() } else { format!("<p class=\"also\">{} {}</p>", if items.is_empty() { "Access named" } else { "And" }, raw.join(", ")) };
-    format!("{heading}{list}{also}")
+    format!("{heading}<ul class=\"perms\">{items}</ul>")
 }
 
 /// The storage line: whether it is fine (a green check) or a warning, and its words. A
@@ -243,7 +242,7 @@ mod tests {
     #[test]
     fn with_metadata_the_page_shows_who_it_is_and_what_it_asks() {
         let html = page("docs", "https://m.example/mcp", &full(), Kind::Keychain, "t", None);
-        for needle in ["Docs &lt;Pro&gt;", "<img class=\"icon\" src=\"data:image/png;base64,AAAA\"", "<li>Search &quot;docs&quot;</li>", "href=\"https://docs.example/\"", "Privacy policy", "Terms of service", "a=1&amp;b=2", "Read your docs<small>docs:read</small>", "Confirm who you are<small>openid</small>", "<code>default</code>, <code>x&lt;y</code>", "signout docs"] {
+        for needle in ["Docs &lt;Pro&gt;", "<img class=\"icon\" src=\"data:image/png;base64,AAAA\"", "<li>Search &quot;docs&quot;</li>", "href=\"https://docs.example/\"", "Privacy policy", "Terms of service", "a=1&amp;b=2", "Read your docs<small>docs:read</small>", "Confirm who you are<small>openid</small>", "<li class=\"raw\">default</li>", "<li class=\"raw\">x&lt;y</li>", "signout docs"] {
             assert!(html.contains(needle), "{needle}\n{html}");
         }
         assert!(!html.contains("<Pro>") && !html.contains("<script"), "{html}");
