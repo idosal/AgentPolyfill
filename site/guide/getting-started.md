@@ -41,6 +41,17 @@ codex plugin add mcp-server-cards@agent-polyfill
 codex plugin add ard-discovery@agent-polyfill
 ```
 
+### Cursor IDE
+
+Install Server Cards from a clone with Node.js 20+ available to Cursor. From the repository root on macOS or Linux, run
+
+```sh
+mkdir -p ~/.cursor/plugins/local/mcp-server-cards
+cp -R polyfills/server-cards/codex/plugin/. ~/.cursor/plugins/local/mcp-server-cards/
+```
+
+Restart the editor. Open **Customize → MCPs** and look for `mcp-server-cards`. Ask which MCP servers a domain publishes, then pick one to review. [Watch a Cursor install review](./server-cards#in-cursor-ide).
+
 ### Pi
 
 With Pi 1.6.0 and Node.js 22+, install Events, Skills and Server Cards together:
@@ -190,6 +201,8 @@ it, `/plugin uninstall mcp-skills@agent-polyfill` removes it
 
 In Codex, remove the plugin: `codex plugin remove mcp-events@agent-polyfill`,
 and the same for `mcp-skills`, `mcp-server-cards` and `ard-discovery`.
+
+**Cursor IDE.** To remove the local plugin, move the `mcp-server-cards` folder out of `~/.cursor/plugins/local/` and restart Cursor. Manage any servers you previously installed separately in **Customize → MCPs**.
 
 In Pi, remove all three forms installed by the one-line command, together
 with Pi's copy of the repository:
