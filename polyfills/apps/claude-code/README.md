@@ -169,39 +169,55 @@ Or remove it with `claude plugin uninstall mcp-apps-cli@agent-polyfill`.
   doesn't give plugins the UI metadata of a tool or of a resource. So the
   helper opens its own connection to each server, from your MCP config, and
   that connection can't sign in.
-- **Own sign-in (opt-in, one server at a time).** If you need a server's apps
-  before Claude Code shares its connection, the helper can sign in to that
-  server itself. It is off unless you list the server under **Own sign-in
-  (OAuth)** in `/config` and run `mcp-apps-cli-helper signin <server>` once
-  (the helper binary the plugin carries, in its `helper/bin/<platform>/`
-  folder, from a terminal in your project's folder). Know what that means
-  before you do:
-  - **It is a second grant, with its own life.** The server registers
+- **Own sign-in (opt-in, one server at a time, macOS only for now).** If you
+  need a server's apps before Claude Code shares its connection, the helper
+  can sign in to that server itself. It is off unless you list the server
+  under **Own sign-in (OAuth)** in `/config` and run
+  `mcp-apps-cli-helper signin <server>` once (the helper binary the plugin
+  carries, in its `helper/bin/<platform>/` folder, from a terminal in your
+  project's folder). Linux and Windows will follow if the idea is kept. Know
+  what that means before you do:
+  - **It is a separate grant, with its own life.** The server registers
     `mcp-apps-cli` as a client of its own and asks for your consent again.
     Signing out of the server in `/mcp` doesn't end it, and signing out here
     doesn't touch Claude Code's.
-  - **The tokens are on your machine, in a file.** One file per server and
-    address under `~/.cache/mcp-apps-cli/oauth/` (`MCP_APPS_CLI_OAUTH_DIR`
-    puts them elsewhere), readable only by you, not encrypted and not in the
-    system keychain. A token is sent only to the address it was issued for,
-    over `https` or to this machine itself, and no redirect is followed.
+  - **The tokens are kept on your Mac, where you choose.** The macOS Keychain
+    (the default), or a file encrypted with a passphrase (AES-256-GCM, key
+    from PBKDF2-HMAC-SHA256) under `~/.cache/mcp-apps-cli/oauth/`
+    (`MCP_APPS_CLI_OAUTH_DIR` puts it elsewhere). A plain file, not
+    encrypted, exists only as an explicit option (`--token-store file`, or
+    "Advanced" in the page) for a machine with no Keychain. A token is sent
+    only to the address it was issued for, over `https` or to this machine
+    itself, and no redirect is followed.
   - **Your organisation's controls for MCP sign-in don't see it.** With a
     managed MCP policy, or an allow or deny list for MCP servers, the helper
     uses no server at all, so this is off there too. The server's
     administrators see a client named `mcp-apps-cli`.
-  - **To end it:** `mcp-apps-cli-helper signout <server>` deletes the file and
-    asks the server to revoke the tokens where it offers that; removing the
+  - **To end it:** `mcp-apps-cli-helper signout <server>` deletes the tokens
+    and asks the server to revoke them where it offers that; removing the
     server from the setting stops their use at once.
 
-  `signin` says all this before it opens the browser and asks to continue
-  (the answer is no by default; without a terminal it refuses). To skip the
-  question, pass `--yes`, or set `MCP_APPS_CLI_SIGNIN_YES=1` in your
-  environment to skip it every time (a terminal can't read `/config`); the
-  text is still printed. Only do that for servers you have already decided to
-  sign in to: the question is the one place the second grant is spelled out
-  before a token exists. It works with a server of MCP 2026-07-28 and with one of the 2025
-  revisions, only for `streamable-http` servers (not the older `sse` ones),
-  only servers that register clients themselves (dynamic client
+  `signin` prints one line ("Press Enter to review and approve in your
+  browser"), then serves a small consent page on a loopback address of its own
+  (a random port, a token against forged requests, closed after your answer
+  or after five minutes). The page says what the above means in three lines,
+  asks where to keep the login, and has Accept and Refuse; Accept goes on to
+  the server's own sign-in in the same tab, Refuse keeps nothing. Without a
+  browser, `--no-browser` asks the same in the terminal (`Continue? [y/N]`,
+  no by default; without a terminal it refuses). To skip the question and the
+  page, pass `--yes`, or set `MCP_APPS_CLI_SIGNIN_YES=1` in your environment
+  to skip them every time (a terminal can't read `/config`); only do that for
+  servers you have already decided to sign in to. `--token-store
+  keychain|encrypted|file` (or `MCP_APPS_CLI_TOKEN_STORE`) chooses the store
+  without the page. There is no silent fall back: if the Keychain isn't
+  available, `signin` says so and what to use instead.
+
+  A file encrypted with a passphrase can't be opened by a session's helper
+  unless it has the passphrase: set `MCP_APPS_CLI_PASSPHRASE` in the
+  environment you start Claude Code from (the helper can't ask). The Keychain
+  needs nothing. It works with a server of MCP 2026-07-28 and with one of the
+  2025 revisions, only for `streamable-http` servers (not the older `sse`
+  ones), only servers that register clients themselves (dynamic client
   registration), and not a server whose config already sets an
   `Authorization` header. The helper still uses a server only while Claude
   Code itself is connected to it in the session, and never reads Claude
