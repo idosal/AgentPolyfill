@@ -42,6 +42,28 @@ Refreshing the clock asks for a separate tool approval and displays a new server
 
 [Watch the 17-second clock walkthrough](../../../docs/media/demos/apps-pi.mp4).
 
+### Play Arcade
+
+Add the hosted Arcade server, then launch Pi in fullscreen mode.
+
+```sh
+pi mcp add arcade --url https://mcp-apps-arcade.idosalomon.workers.dev/mcp
+pi
+```
+
+Ask Pi to load the shareware game `msdos_DOOM_1993` and open its view.
+You can also open the most recent result with `/mcp-app`.
+Review the server, its embedded page and the listed external destinations.
+Click the power button on the cover, choose a sound option, and start a new
+game. Use the arrow keys to move and turn, click to fire and press Tab for
+the automap. In Kitty, Pi uses graphics by default. To try the same game in
+character cells, launch `PI_IMAGE_PROTOCOL=none pi`.
+
+| Kitty graphics | Character cells |
+| --- | --- |
+| <a href="../../../docs/media/demos/apps-pi-arcade-kitty.mp4"><picture><source media="(prefers-reduced-motion: reduce)" srcset="../../../docs/media/demos/apps-pi-arcade-kitty.jpg"><img src="../../../docs/media/demos/apps-pi-arcade-kitty.gif" alt="Pi in Kitty playing the Hangar level in full color"></picture></a> | <a href="../../../docs/media/demos/apps-pi-arcade-cells.mp4"><picture><source media="(prefers-reduced-motion: reduce)" srcset="../../../docs/media/demos/apps-pi-arcade-cells.jpg"><img src="../../../docs/media/demos/apps-pi-arcade-cells.gif" alt="Pi playing the same level using colored terminal characters"></picture></a> |
+| [Play the 18-second Kitty recording](../../../docs/media/demos/apps-pi-arcade-kitty.mp4) | [Play the 18-second cell recording](../../../docs/media/demos/apps-pi-arcade-cells.mp4) |
+
 ## Compatibility
 
 This is a partial client for the stable 2026-01-26 MCP Apps specification
@@ -67,7 +89,10 @@ after installing the adapter.
 restrictive default to Chromium. The app can run inline code and display
 embedded images. External connections and runtime JavaScript evaluation are
 blocked. The opening prompt lists the external destinations that the policy
-actually permits. The specification makes the restrictive default mandatory
+actually permits. A resource that explicitly includes `blob:` in
+`_meta.ui.csp.frameDomains` may embed a page built from its own data. Pi
+discloses this separately at review. That permission applies only to frames.
+The specification makes the restrictive default mandatory
 and recommends warning users about external access. [MCP Apps host behavior](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx#host-behavior)
 and [security requirements](https://github.com/modelcontextprotocol/ext-apps/blob/main/specification/2026-01-26/apps.mdx#4-content-security-policy-enforcement).
 
@@ -93,6 +118,13 @@ The second recording uses Pi 1.6.1 and the unmodified upstream vanilla clock
 example. Pi displayed the original server timestamp, asked for approval when
 the app requested a refresh, then displayed the updated time. Both recordings
 used a scripted local model to select tools.
+
+The Arcade recordings used the hosted Arcade Server 1.0.0 and two real
+fullscreen Pi 1.6.1 sessions in Kitty 0.50.0 on macOS. A scripted local model
+selected the MCP tools. Terminal input started E1M1, walked and turned the
+player, fired the pistol and toggled the Hangar automap. One session emitted
+Kitty graphics and the other emitted ANSI-colored characters on a 136 × 48
+grid. The recorded gameplay uses the game served by Arcade.
 
 Run `npm ci` at the repository root and `npm ci && npm run typecheck && npm test`
 in this directory. The regressions cover Pi's model-facing catalog and its live

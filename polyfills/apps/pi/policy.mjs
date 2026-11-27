@@ -1,12 +1,13 @@
-// Each declaration must be a single CSP host source. Keep paths and port
-// restrictions intact when copying an accepted source to the response header.
+// Preserve each host source's path and port. The only scheme source we honor
+// is an explicitly requested blob document in an embedded frame.
 const hostSource = /^(?:(?:https?|wss?):\/\/)?(?:\*\.)?(?:[a-z0-9-]+(?:\.[a-z0-9-]+)*|\[[0-9a-f:]+\])(?::(?:[0-9]+|\*))?(?:\/[a-z0-9._~!$&()*+,=:@%/-]*)?$/i;
 export function piDomainSources(declared) {
     const result = {};
     for (const key of ['connectDomains','resourceDomains','frameDomains','baseUriDomains']) {
         if (Array.isArray(declared?.[key])) {
-            result[key] = declared[key].filter(source => typeof source === 'string' &&
-                !/\s/u.test(source) && hostSource.test(source));
+            result[key] = declared[key].filter(source =>
+                (key === 'frameDomains' && source === 'blob:') ||
+                (typeof source === 'string' && !/\s/u.test(source) && hostSource.test(source)));
         }
     }
     return result;
@@ -33,11 +34,12 @@ export function piContentSecurityPolicy(csp) {
 }
 
 export function reviewMessage(server, tool, csp) {
-    const destinations = [...new Set(Object.values(csp).flat())].sort();
+    const destinations = [...new Set(Object.values(csp).flat().filter(source => source !== 'blob:'))].sort();
     const quoted = value => JSON.stringify(value);
     const lines = [
         'Share the original input and result of ' + quoted(tool) + ' with its app?',
         'The app can list and read resources from ' + quoted(server) + '.',
+        ...(csp.frameDomains?.includes('blob:') ? ['The app can create embedded pages from its own data.'] : []),
         destinations.length ? 'External destinations: ' + destinations.map(quoted).join(', ') : 'External destinations: none.',
     ];
     const message = lines.join('\n');

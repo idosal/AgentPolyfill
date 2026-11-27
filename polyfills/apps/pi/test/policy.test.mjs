@@ -35,3 +35,17 @@ test('reviews only individual host sources and retains path restrictions', () =>
     assert.deepEqual(piDomainSources({resourceDomains:[...valid, 'https:', '*', 'a.example b.example', 'blob:'], frameDomains:'example.org'}),
         {resourceDomains: valid});
 });
+
+test('an explicit blob frame changes only frame-src and is disclosed as local content', () => {
+    const base = directives(piContentSecurityPolicy({}));
+    const requested = {frameDomains:['blob:'], resourceDomains:['blob:'], connectDomains:['blob:'], baseUriDomains:['blob:']};
+    const permitted = piDomainSources(requested);
+    assert.deepEqual(directives(piContentSecurityPolicy(permitted)), {...base, 'frame-src':['blob:']});
+    const review = reviewMessage('arcade', 'game', permitted);
+    assert.match(review, /embedded pages from its own data/);
+    assert.match(review, /External destinations: none/);
+    assert.doesNotMatch(reviewMessage('arcade', 'game', {}), /embedded pages/);
+    const withNetwork = {...permitted, connectDomains:['https://arcade.example']};
+    assert.match(reviewMessage('arcade', 'game', withNetwork), /External destinations: "https:\/\/arcade\.example"$/);
+    assert.deepEqual(directives(piContentSecurityPolicy(piDomainSources({frameDomains:['data:', '*', 'blob: ']}))), base);
+});

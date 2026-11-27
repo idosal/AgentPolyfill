@@ -123,3 +123,26 @@ test('Chromium applies the restrictive default header to a resource without CSP 
         assert.equal(await Promise.race([reported.promise, sleep(5000, false, {ref:false})]), true);
     } finally { viewer.close(); await viewer.closed; }
 });
+
+for (const [fixture, expected, policy] of [
+    ['blob-frame', 'LOCAL FRAME', {frameDomains:['blob:']}],
+    ['default-frame', 'FRAME BLOCKED', {}],
+]) {
+    test('Chromium enforces the reviewed frame policy for ' + fixture, async t => {
+        const cwd = await mkdtemp(join(tmpdir(), 'pi-apps-embedded-'));
+        t.after(() => rm(cwd, {recursive:true, force:true}));
+        const displayed = Promise.withResolvers();
+        const args = [fileURLToPath(new URL('app-server.mjs', import.meta.url)), join(cwd, 'methods'), fixture];
+        const viewer = await openRenderer({
+            server:'fixture', tool:'example', input:{}, result:{content:[],structuredContent:{label:'APP'}},
+            config:{command:process.execPath, args}, cwd, cols:60, rows:20,
+            confirmOpen(csp) { assert.deepEqual(csp, policy); return true; },
+            onFrame(frame) {
+                if (frame.some(row => row.map(cell => cell[0]).join('').includes(expected))) displayed.resolve(true);
+            }
+        });
+        try {
+            assert.equal(await Promise.race([displayed.promise, sleep(5000, false, {ref:false})]), true);
+        } finally { viewer.close(); await viewer.closed; }
+    });
+}
