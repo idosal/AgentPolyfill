@@ -1,0 +1,24 @@
+{
+  "name": "mcp-events-grok-bot-worker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "Cloudflare Worker + Durable Object MCP Events (SEP-3415) host polyfill for Grok Bot.",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "dev": "WRANGLER_WRITE_LOGS=false wrangler dev --local --log-level error",
+    "test": "node --test --no-warnings \"test/*.test.ts\"",
+    "typecheck": "tsc --noEmit -p .",
+    "deploy": "wrangler deploy",
+    "setup": "node scripts/setup.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261119.1",
+    "@types/node": "^22.10.0",
+    "typescript": "~5.9.3",
+    "wrangler": "^4.165.0"
+  }
+}

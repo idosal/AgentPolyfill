@@ -2,9 +2,31 @@
 
 Host polyfill implementing the client side of the MCP Events extension ([SEP-3415, Final](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)) for **Grok Bot**.
 
-Wake an idle Grok Bot routine only when a watched MCP server emits a matching event—with **zero scheduled model runs** and **zero idle token burn**. One always-on process (`bridge.mjs start`) watches all your MCP servers (push, poll, and signed webhooks), wakes Grok through one native webhook routine, and exposes the standard MCP Events tools to Grok over authenticated HTTPS.
+Wake an idle Grok Bot routine only when a watched MCP server emits a matching event—with **zero scheduled model runs** and **zero idle token burn**.
 
-- **[Step-by-step setup guide & Grok Bot prompts](REMOTE-SETUP.md)**
+## Recommended: Cloudflare Worker (zero Docker, zero localhost, 24/7)
+
+Deploy one Worker + SQLite Durable Object to your own Cloudflare account (just like the shared [Claude Code relay](../claude-code/mod/relay)):
+
+```sh
+cd worker
+npm install
+npx wrangler login
+npm run setup
+```
+
+Then paste the printed `https://.../mcp` URL + bearer header into Grok Bot (**Connect apps → Add a custom connector → Remote HTTPS**), create one webhook-only routine, and run `npm run setup -- routine`. Full guide: **[worker/README.md](worker/README.md)**.
+
+- Supports all remote HTTP MCP Events servers using **`webhook`** or **`poll`** delivery (including T3 Code and Ido's demo server).
+- Zero local processes, zero tunnels, zero Docker — runs 24/7 while your laptop and Grok's VM sleep.
+
+---
+
+## Alternative: Self-hosted Node bridge (for local `stdio` or `push`-only servers)
+
+If you need local `stdio` MCP servers or `push`-only (long-lived SSE) servers, use the self-hosted Node bridge below (`plugin/dist/bridge.mjs`):
+
+- **[Self-hosted Node setup guide](REMOTE-SETUP.md)**
 - **[Docker setup](docker-compose.example.yml)**
 
 ## Quickstart
