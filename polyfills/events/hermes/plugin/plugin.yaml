@@ -1,8 +1,8 @@
 name: mcp-events
-version: "0.1.0"
+version: "0.2.0"
 description: >-
-  MCP Events (SEP-3415) by poll and push: watch events on your MCP servers, and an event
-  wakes the idle session that asked for it. Webhook delivery stays with Hermes (events: true).
+  MCP Events (SEP-3415) by webhook, push and poll: watch events on your MCP servers, and an event
+  wakes the idle session that asked for it. Servers with events: true use native Hermes delivery.
 author: Ido Salomon
 provides_tools:
   - list_event_types

@@ -1,4 +1,4 @@
-"""mcp-events for Hermes: MCP Events (SEP-3415) by poll and push.
+"""mcp-events for Hermes: MCP Events (SEP-3415) by webhook, push and poll.
 
 The Hermes half of the plugin. It registers the six tools, asks Hermes's own approval before a
 watch starts or stops (a ``pre_tool_call`` approve directive), and runs the helper
@@ -77,14 +77,25 @@ class Runtime:
             if helper is None or helper.closed:
                 return False
             try:
-                if self.wanted() == self.started_with:
+                wanted = self.wanted()
+                if wanted == self.started_with:
                     return False
             except Exception as exc:  # noqa: BLE001 - an unreadable config ends nothing
                 logger.warning("mcp-events: the configuration could not be read again (%s)", exc)
                 return False
-            self.helper = None
+            previous = self.started_with[0] if self.started_with else {}
+            withdrawn = [name for name, cfg in previous.items() if wanted[0].get(name) != cfg]
+            # Retire lasting webhook subscriptions on the old connection before allowing a
+            # replacement helper to claim these sessions. Normal gateway stops keep them.
+            try:
+                if withdrawn:
+                    helper.request("suspend", {"servers": withdrawn}, timeout=8)
+            except Exception as exc:
+                logger.warning("mcp-events: could not finish retiring watches before restart (%s)", exc)
+            finally:
+                helper.close()
+                self.helper = None
         logger.info("mcp-events: the servers it may use changed; the helper starts again with the new set")
-        helper.close()
         return True
 
     def _state(self) -> Path:
@@ -125,7 +136,9 @@ class Runtime:
             except Exception as exc:  # noqa: BLE001
                 self.unavailable = f"Hermes's config.yaml could not be read ({exc})"
                 return None
-            helper = _helper.Helper(HERE / "dist" / "helper.mjs", node=node, env=_helper.helper_env(),
+            env = _helper.helper_env()
+            env.pop("MCP_EVENTS_DEV", None)  # The anonymous loopback mode is for the helper test harness.
+            helper = _helper.Helper(HERE / "dist" / "helper.mjs", node=node, env=env,
                                     on_request=self._on_request, log_path=state / "helper-stderr.log")
             try:
                 helper.request("initialize", {"state": str(state), "servers": servers, "skipped": skipped}, timeout=30)

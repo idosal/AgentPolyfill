@@ -100,7 +100,7 @@ def main() -> int:
             approvals = [p for m, p in w.answers if m == "approval"]
             assert len(approvals) == 2, approvals
             return "build.finished {branch: main} and ticket.created {priority: high}, both by push, each approved in Hermes"
-        check("watch: approved in Hermes, delivered by push (webhook stays with Hermes)", watch)
+        check("watch: approved in Hermes, delivered by push", watch)
 
         def push():
             time.sleep(2)

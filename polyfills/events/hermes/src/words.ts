@@ -13,13 +13,10 @@ export const HERMES: Partial<HostWords> = {
     other: 'Hermes gateway',
     scope: "this session's",
     signIn:
-        "it needs a sign-in this plugin cannot do (it has no access to Hermes's own sign-in, `auth: oauth` and `hermes mcp login`): give the server a header in its Hermes configuration (`headers`, which may use ${VAR} from Hermes's .env)",
-    // Hermes delivers webhook events itself; this plugin adds only poll and push.
+        "it needs a sign-in this plugin cannot do (it has no access to Hermes's own sign-in, `auth: oauth` and `hermes mcp login`): give the server a header in its Hermes configuration (`headers`)",
     noPublicUrl:
-        'This event type is delivered by webhook only. This plugin does poll and push; Hermes itself does webhook delivery. ' +
-        'For the user to choose: set `events: true` on this server in Hermes\'s config.yaml (mcp_servers.<name>.events) and give Hermes a public https address (platforms.webhook.extra.public_url), then use the server\'s own subscribe_event tool. ' +
-        'With `events: true` this plugin leaves that server to Hermes.',
-    relaySetup: "Hermes's own webhook delivery (events: true on the server) is the way to receive webhook-only event types",
+        'This event type requires a webhook. Configure a relay for the Hermes gateway or set MCP_EVENTS_PUBLIC_URL and MCP_EVENTS_RECEIVER_PORT for your HTTPS forwarder, then retry the watch. See the Hermes Events README for setup.',
+    relaySetup: 'For a private relay, configure MCP_EVENTS_RELAY_URL or MCP_EVENTS_RELAY_FILE in the Hermes gateway environment.',
     resumeWaking: 'Waking starts again when the user next writes to this session.',
     afterWatch: '',
     instructionsHead: ''

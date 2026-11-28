@@ -9,10 +9,19 @@ a deploy fails") and act when one fires, even while the session sits idle with
 nobody typing. It adds the client side of the MCP **Events** extension,
 `io.modelcontextprotocol/events`
 ([SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md),
-Final). The forms fill these gaps:
+Final).
+
+The plugins discover event types by name with `events/list`. For each watch,
+the server lists the delivery modes it offers. The plugin prefers a configured,
+authenticated webhook, then push (`events/stream`), then polling
+(`events/poll`). Push and polling work without a relay.
+
+The forms fill these gaps:
 
 - **Claude Code:** no native Events support yet; the polyfill is a mod (plugin).
 - **Codex:** no Events support for your own servers; the polyfill is a plugin.
+- **T3 Code:** the plugin delivers events to the thread that set the watch.
+  [T3 Code setup](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/t3/README.md).
 - **Pi:** no native Events support in Pi 1.6.0; the polyfill is an extension.
 - **OpenCode:** OpenCode 2.4 takes push events for its automations, but
   doesn't poll, take webhooks or watch for a session; the polyfill is a
@@ -23,8 +32,8 @@ Final). The forms fill these gaps:
   gated calls are refused.
 - **Copilot CLI:** no Events support in Copilot CLI 1.0.115; the polyfill is
   a plugin holding a Copilot extension, so it needs experimental mode.
-- **Hermes:** Hermes Agent v0.23.4 delivers webhooks itself. The plugin adds
-  poll and push, and leaves servers with `events: true` to Hermes.
+- **Hermes:** The plugin delivers webhook, push and poll events to the watching
+  session. Servers configured with `events: true` use Hermes’s native webhook delivery.
 
 <Recording
   cut="events"
@@ -449,10 +458,11 @@ setup writes. Copilot's
 [relay notes](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/copilot/README.md#webhook-delivery-the-relay)
 link to the setup.
 
-Hermes uses its own webhook delivery, with `events: true` on a server and a
-public address for its webhook listener. This form adds poll and push only;
-it uses none of these relays and leaves those servers to Hermes. A webhook-only
-event type gets a reply pointing to Hermes's `events: true` setting.
+For a Hermes session watch, configure a relay or HTTPS forwarder in the
+gateway environment. To reuse an existing relay settings file, set
+`MCP_EVENTS_RELAY_FILE` to its path. Servers with `events: true` use
+Hermes’s native webhook listener.
+[Hermes setup](https://github.com/idosal/AgentPolyfill/blob/main/polyfills/events/hermes/README.md#webhook-delivery).
 
 Some servers deliver only by webhook, and a webhook needs a public https
 address, which Claude Code on your machine does not have. A relay is that

@@ -5,12 +5,9 @@
 // talks to it over standard input and output (bridge.ts). It sends `initialize` with the MCP
 // servers this plugin may use, as Hermes's own configuration describes them, then one `call`
 // per tool call, naming the Hermes session the call is from. The Events client
-// (polyfills/events/core) connects to those servers, runs the watches by poll or push, and
+// (polyfills/events/core) connects to those servers, runs the watches by webhook, push or poll, and
 // stores every event; then the helper asks the plugin to `wake` the session, and the plugin
 // hands Hermes the message with ctx.inject_message.
-//
-// Webhook delivery is left to Hermes, which does it natively (`events: true` on a server):
-// this helper never sets up a receiver or a relay.
 //
 // It ends when the plugin closes its standard input (the gateway stopped or unloaded it).
 
@@ -33,12 +30,7 @@ const isObject = (v: unknown): v is Json => typeof v === 'object' && v !== null 
 
 configureHost(HERMES);
 
-// The settings that would let the shared client deliver webhooks are dropped: Hermes does that itself.
-// That includes the relay file the other forms' setup writes ($HOME/.mcp-events/relay.json), which the
-// shared client reads when MCP_EVENTS_RELAY_FILE is unset: it is pointed at a path that can't exist.
-const env: NodeJS.ProcessEnv = { ...process.env };
-for (const k of ['MCP_EVENTS_RELAY', 'MCP_EVENTS_RELAY_URL', 'MCP_EVENTS_RELAY_ACCESS_KEY', 'MCP_EVENTS_PUBLIC_URL', 'MCP_EVENTS_RECEIVER_PORT', 'MCP_EVENTS_PUBLIC_RELAY_URL', 'MCP_EVENTS_DEV']) delete env[k];
-env.MCP_EVENTS_RELAY_FILE = '/dev/null/no-relay-for-hermes.json';
+const env = { ...process.env };
 
 let base = '';
 let logFile = '';
@@ -114,6 +106,9 @@ const wake = async (key: string, text: string): Promise<WakeResult> => {
 };
 
 const sessions = new Map<string, HermesSession>();
+const withdrawn = new Set<string>();
+const startingWatches = new Map<Promise<unknown>, string>();
+let restoring: Promise<void> | undefined;
 const sessionFor = (key: string): HermesSession => {
     let s = sessions.get(key);
     if (!s) {
@@ -169,6 +164,8 @@ async function handle(method: string, params: Json): Promise<unknown> {
             if (base) throw new RpcError(-32600, 'already initialized');
             if (typeof params.state !== 'string' || !params.state) throw new RpcError(-32602, 'initialize needs `state`, a folder');
             base = params.state;
+            // Only a relay selected for this gateway or profile may receive its events.
+            if (!env.MCP_EVENTS_RELAY_FILE) env.MCP_EVENTS_RELAY_FILE = join(base, 'relay.json');
             mkdirSync(base, { recursive: true, mode: 0o700 });
             logFile = join(base, 'mcp-events.log');
             try {
@@ -202,7 +199,7 @@ async function handle(method: string, params: Json): Promise<unknown> {
             } catch {
                 // best effort
             }
-            void resumeSaved().catch((e) => log(`resuming saved watches failed: ${describeError(e)}`));
+            restoring = resumeSaved().catch((e) => log(`resuming saved watches failed: ${describeError(e)}`));
             return { version: VERSION };
         }
         case 'call': {
@@ -214,10 +211,18 @@ async function handle(method: string, params: Json): Promise<unknown> {
             if (!key) return { text: 'mcp-events needs to know which Hermes session this call is from, and Hermes did not say. Watches belong to a session, so none can be set from here.', isError: true };
             log(`${name} from session ${sessionId(key).slice(1, 9)}`);
             await Promise.race([discover(), new Promise((r) => setTimeout(r, timeout + 5000).unref())]);
+            const server = name === 'watch_event' && typeof args.server === 'string' ? args.server : undefined;
+            if (server !== undefined && withdrawn.has(server)) return { text: 'This server is no longer available to the plugin.', isError: true };
             const s = sessionFor(key);
             if (!s.manager.owner) s.start();
-            const answer = await s.call(name, args);
-            return { text: answer.text, isError: answer.isError === true };
+            const call = s.call(name, args);
+            if (server !== undefined) startingWatches.set(call, server);
+            try {
+                const answer = await call;
+                return { text: answer.text, isError: answer.isError === true };
+            } finally {
+                startingWatches.delete(call);
+            }
         }
         case 'spoke': {
             const key = typeof params.session === 'string' ? params.session : '';
@@ -225,6 +230,16 @@ async function handle(method: string, params: Json): Promise<unknown> {
             const s = key ? sessions.get(key) : undefined;
             if (s) s.spoke();
             return { known: !!s };
+        }
+        case 'suspend': {
+            const names = params.servers;
+            if (!Array.isArray(names) || !names.every((s) => typeof s === 'string')) throw new RpcError(-32602, 'suspend needs server names');
+            for (const name of names) withdrawn.add(name);
+            // Include watches still opening a relay or being restored from disk in the cleanup.
+            await restoring;
+            await Promise.allSettled([...startingWatches].filter(([, server]) => withdrawn.has(server)).map(([call]) => call));
+            await Promise.all([...sessions.values()].flatMap((session) => names.map((server) => session.manager.suspend(server))));
+            return {};
         }
         case 'shutdown':
             setImmediate(() => void stop());
