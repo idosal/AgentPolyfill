@@ -8,6 +8,11 @@ mod chrome;
 mod fetch_browser;
 mod config;
 mod mcp;
+mod about;
+mod ask;
+mod consent;
+mod oauth;
+mod vault;
 mod out;
 mod server;
 mod sse;
@@ -93,6 +98,14 @@ fn main() -> Result<()> {
         let pid = |i: usize| words.get(i).and_then(|w| w.parse::<i32>().ok()).unwrap_or(0);
         tmp::reap(pid(2), pid(3));
         return Ok(());
+    }
+    // `signin <server>`: the person signs in to a server that needs it (oauth.rs).
+    if words.get(1).map(String::as_str) == Some("signin") {
+        return tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(oauth::cli(parse_args(), &words));
+    }
+    // `signout <server>`: the person ends it (revoked where the server offers that).
+    if words.get(1).map(String::as_str) == Some("signout") {
+        return tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(oauth::signout(parse_args(), &words));
     }
     tokio::runtime::Builder::new_multi_thread().enable_all().build()?.block_on(run())
 }

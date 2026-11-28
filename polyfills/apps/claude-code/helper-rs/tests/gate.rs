@@ -112,8 +112,15 @@ impl World {
     }
     /// The helper, started in this world as the mod starts it, and each name discovered.
     fn discover(&self, names: &[&str]) -> Vec<(String, Value)> {
-        let helper = Helper::start(self);
-        let answers = names.iter().map(|n| (n.to_string(), helper.post("/discover", &json!({"server": n})))).collect();
+        self.discover_listed(names, false)
+    }
+    /// The same, the mod saying whether the person listed each server under "Own sign-in (OAuth)".
+    fn discover_listed(&self, names: &[&str], listed: bool) -> Vec<(String, Value)> {
+        self.discover_with(names, listed, &[("MCP_APPS_CLI_TOKEN_STORE", "file")])
+    }
+    fn discover_with(&self, names: &[&str], listed: bool, vars: &[(&str, &str)]) -> Vec<(String, Value)> {
+        let helper = Helper::start_with(self, vars);
+        let answers = names.iter().map(|n| (n.to_string(), helper.post("/discover", &json!({"server": n, "ownSignIn": listed})))).collect();
         // A started server's marker is written at once; let any that would be, be.
         std::thread::sleep(Duration::from_millis(300));
         answers
@@ -195,6 +202,10 @@ fn exchange(mut stream: impl Timed, request: &str) -> String {
 
 impl Helper {
     fn start(world: &World) -> Self {
+        Self::start_with(world, &[("MCP_APPS_CLI_TOKEN_STORE", "file")])
+    }
+    /// With these variables of its own in the environment.
+    fn start_with(world: &World, vars: &[(&str, &str)]) -> Self {
         let mut command = Command::new(env!("CARGO_BIN_EXE_mcp-apps-cli-helper"));
         command
             .args(["--cwd", world.project.to_str().unwrap(), "--socket", world.socket.to_str().unwrap()])
@@ -206,7 +217,11 @@ impl Helper {
             .env("TMPDIR", world.root.join("tmp"))
             .env("TMP", world.root.join("tmp"))
             .env("TEMP", world.root.join("tmp"))
-            .env("MCP_APPS_CLI_STORAGE_DIR", "off");
+            .env("MCP_APPS_CLI_STORAGE_DIR", "off")
+            // Where sign-ins are kept: a file, so no test touches the person's keychain.
+            .env("MCP_APPS_CLI_OAUTH_DIR", world.root.join("tokens"))
+            .env("MCP_APPS_CLI_TEST_NO_KEYCHAIN", "1")
+            .envs(vars.iter().copied());
         // What Windows itself needs to start programs and open sockets (node
         // among them), and the transport a run asks for.
         for name in ["SystemRoot", "SYSTEMROOT", "windir", "PATHEXT", "ComSpec", "MCP_APPS_CLI_TRANSPORT"] {
@@ -606,4 +621,379 @@ fn a_revoke_cancels_a_request_in_flight() {
     assert!(answer["error"].as_str().unwrap_or_default().contains("stopped using"), "{answer}");
     eventually("the helper never said it stopped waiting", || helper.said("busy").last().is_some_and(|m| m["busy"] == false));
     eventually("the server is still running after the revoke", || !alive(pid));
+}
+
+/// The stand-in server that needs sign-in (tests/oauth-server.mjs).
+struct OAuthServer {
+    child: Child,
+    url: String,
+}
+
+fn oauth_script() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests").join("oauth-server.mjs")
+}
+
+impl OAuthServer {
+    /// One that serves `serves`: `modern` (2026-07-28 only) or `legacy` (the 2025 revisions only).
+    fn start(w: &World, serves: &str) -> Self {
+        Self::start_with(w, serves, false)
+    }
+
+    /// The same; `about` makes it publish who it is (name, icon, links, scopes).
+    fn start_with(w: &World, serves: &str, about: bool) -> Self {
+        let mut command = Command::new("node");
+        command.arg(oauth_script()).arg(w.marker("oauth-requests")).args(["3600", serves]).stdout(Stdio::piped());
+        if about {
+            command.env("OAUTH_ABOUT", "1");
+        }
+        let mut child = command.spawn().unwrap();
+        let mut line = String::new();
+        BufReader::new(child.stdout.take().unwrap()).read_line(&mut line).unwrap();
+        let port = line.trim().strip_prefix("listening ").expect("the stand-in server names its port").to_string();
+        OAuthServer { child, url: format!("http://127.0.0.1:{port}/mcp") }
+    }
+}
+
+impl Drop for OAuthServer {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+/// `mcp-apps-cli-helper <word> docs …`, run as from a terminal: no plugin
+/// folder named, nothing on stdin.
+fn terminal(w: &World, args: &[&str]) -> Command {
+    terminal_with(w, args, true)
+}
+
+/// The same; `file_store` says whether the environment asks for the file store (no one's keychain is touched).
+fn terminal_with(w: &World, args: &[&str], file_store: bool) -> Command {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_mcp-apps-cli-helper"));
+    command
+        .args(args)
+        .args(["--cwd", w.project.to_str().unwrap()])
+        .current_dir(&w.project)
+        .env_clear()
+        .env("PATH", std::env::var("PATH").unwrap_or_default())
+        .env("HOME", w.root.join("home"))
+        .env("USERPROFILE", w.root.join("home"))
+        .env("MCP_APPS_CLI_OAUTH_DIR", w.root.join("tokens"))
+        .env("MCP_APPS_CLI_NO_BROWSER", "1")
+        .env("MCP_APPS_CLI_TEST_NO_KEYCHAIN", "1")
+        .stdin(Stdio::null());
+    if file_store {
+        command.env("MCP_APPS_CLI_TOKEN_STORE", "file");
+    }
+    for name in ["SystemRoot", "SYSTEMROOT", "windir", "PATHEXT", "ComSpec"] {
+        if let Some(value) = std::env::var_os(name) {
+            command.env(name, value);
+        }
+    }
+    command
+}
+
+// A server that needs sign-in (OAuth), whole, with the real binary, in each
+// form the helper's connection has (2026-07-28 and the 2025 handshake). The
+// helper's own sign-in is opt-in: a server that isn't listed under "Own
+// sign-in (OAuth)" is refused with a pointer to the README, never to `signin`;
+// `signin` asks first (and refuses without a terminal unless `--yes`), run as
+// from a terminal with the person's browser played by node; a listed server
+// is then discovered in the server's revision with the kept token, an
+// unlisted one still isn't; and `signout` asks the server to revoke the
+// tokens, deletes the file, and the listed server is refused again.
+#[test]
+fn the_own_sign_in_is_opt_in_and_a_listed_server_is_discovered_after_signin_in_each_revision() {
+    for serves in ["modern", "legacy"] {
+        let w = World::new(&format!("{serves}-oauth"));
+        let server = OAuthServer::start(&w, serves);
+        let requests = || std::fs::read_to_string(w.marker("oauth-requests")).unwrap_or_default();
+        w.claude_json(json!({"docs": {"type": "http", "url": server.url}}), json!({}));
+
+        // Not listed: the 401, with no push towards `signin`.
+        let why = refused(&w.discover(&["docs"]), "docs");
+        assert!(why.contains("Auth required") && why.contains("Servers that need sign-in") && !why.contains("mcp-apps-cli-helper signin"), "{serves}: {why}");
+        assert!(requests().contains("401 POST /mcp no server/discover 2026-07-28\n"), "{serves}: {}", requests());
+        // Listed, not signed in: what to do.
+        let why = refused(&w.discover_listed(&["docs"], true), "docs");
+        assert!(why.contains("signed out or expired: run `mcp-apps-cli-helper signin docs`"), "{serves}: {why}");
+
+        // A store that isn't one: refused before anything else.
+        let wrong = terminal(&w, &["signin", "docs", "--token-store", "usb"]).output().unwrap();
+        assert!(!wrong.status.success() && String::from_utf8_lossy(&wrong.stderr).contains("--token-store is \"keychain\", \"encrypted\" or \"file\""), "{serves}: {}", String::from_utf8_lossy(&wrong.stderr));
+        // Without a browser (`--no-browser`) and without a terminal, `signin` asks nothing and keeps nothing.
+        let silent = terminal(&w, &["signin", "docs", "--no-browser"]).output().unwrap();
+        assert!(!silent.status.success(), "{serves}: signin went on without a terminal");
+        assert!(String::from_utf8_lossy(&silent.stderr).contains("signin asks a question: run it in a terminal, or pass --yes"), "{serves}: {}", String::from_utf8_lossy(&silent.stderr));
+        assert!(!w.root.join("tokens").exists(), "{serves}: the refused signin kept something");
+
+        let mut signin = terminal(&w, &["signin", "docs", "--yes"]).stdout(Stdio::piped()).spawn().unwrap();
+        let mut lines = BufReader::new(signin.stdout.take().unwrap()).lines();
+        let mut shown = String::new();
+        let address = loop {
+            let line = lines.next().expect("signin shows an address").unwrap();
+            if line.starts_with("Open this address") {
+                break lines.next().unwrap().unwrap();
+            }
+            shown.push_str(&line);
+        };
+        assert!(shown.contains("wants to use your docs account") && shown.contains("Not encrypted") && shown.contains("signout docs") && !shown.contains('\x1b'), "{serves}: {shown}");
+        assert!(shown.lines().filter(|l| !l.trim().is_empty()).count() <= 8, "{serves}: the summary is longer than eight lines: {shown}");
+        assert!(address.starts_with(&server.url.replace("/mcp", "/authorize?")), "{serves}: {address}");
+        let browsed = Command::new("node").arg(oauth_script()).args(["browse", &address]).output().unwrap();
+        assert!(browsed.status.success(), "{serves}: {}", String::from_utf8_lossy(&browsed.stdout));
+        assert!(signin.wait().unwrap().success(), "{serves}: signin failed");
+
+        // Signed in but not listed: the token is not used.
+        let why = refused(&w.discover(&["docs"]), "docs");
+        assert!(why.contains("Servers that need sign-in"), "{serves}: {why}");
+        // Listed: used, and said so.
+        let answers = w.discover_listed(&["docs"], true);
+        let (_, docs) = answers.iter().find(|(n, _)| n == "docs").unwrap();
+        assert_eq!(docs["ok"], true, "{serves}: {docs}; {}", requests());
+        assert_eq!(docs["ownSignIn"], true, "{serves}: {docs}");
+        assert_eq!(docs["tools"]["show"]["resourceUri"], "ui://demo/view.html", "{serves}: {docs}");
+        let listed = if serves == "modern" { "200 POST /mcp yes tools/list 2026-07-28\n" } else { "200 POST /mcp yes tools/list -\n" };
+        assert!(requests().contains(listed), "{serves}: {}", requests());
+        assert_eq!(requests().contains("200 POST /mcp yes initialize -\n"), serves == "legacy", "{serves}: {}", requests());
+
+        // Signing out: revoked where the server offers it, file deleted.
+        let out = terminal(&w, &["signout", "docs"]).output().unwrap();
+        let said = String::from_utf8_lossy(&out.stdout).to_string();
+        assert!(out.status.success() && said.contains("Asked docs to revoke the tokens.") && said.contains("Deleted "), "{serves}: {said} {}", String::from_utf8_lossy(&out.stderr));
+        assert!(requests().contains("200 POST /revoke no revoke\n"), "{serves}: {}", requests());
+        assert!(std::fs::read_dir(w.root.join("tokens")).unwrap().next().is_none(), "{serves}: the file is still there");
+        let why = refused(&w.discover_listed(&["docs"], true), "docs");
+        assert!(why.contains("signed out or expired"), "{serves}: {why}");
+    }
+}
+
+// The server publishes no revocation endpoint: `signout` says so, honestly,
+// and still deletes the file.
+#[test]
+fn signout_says_when_the_server_cannot_revoke() {
+    let w = World::new("no-revoke");
+    let mut child = Command::new("node")
+        .arg(oauth_script())
+        .arg(w.marker("oauth-requests"))
+        .args(["3600", "modern"])
+        .env("OAUTH_NO_REVOKE", "1")
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut line = String::new();
+    BufReader::new(child.stdout.take().unwrap()).read_line(&mut line).unwrap();
+    let port = line.trim().strip_prefix("listening ").unwrap().to_string();
+    let url = format!("http://127.0.0.1:{port}/mcp");
+    w.claude_json(json!({"docs": {"type": "http", "url": url}}), json!({}));
+    // The persistent form of `--yes`: an environment variable, no question asked.
+    let mut signin = terminal(&w, &["signin", "docs"]).env("MCP_APPS_CLI_SIGNIN_YES", "1").stdout(Stdio::piped()).spawn().unwrap();
+    let mut lines = BufReader::new(signin.stdout.take().unwrap()).lines();
+    let address = loop {
+        if lines.next().unwrap().unwrap().starts_with("Open this address") {
+            break lines.next().unwrap().unwrap();
+        }
+    };
+    assert!(Command::new("node").arg(oauth_script()).args(["browse", &address]).output().unwrap().status.success());
+    assert!(signin.wait().unwrap().success());
+    let out = terminal(&w, &["signout", "docs"]).output().unwrap();
+    let said = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(said.contains("docs offers no way to revoke from here: remove \"mcp-apps-cli\" in its connected apps.") && said.contains("Deleted "), "{said}");
+    assert!(std::fs::read_dir(w.root.join("tokens")).unwrap().next().is_none());
+    // Nothing left to sign out of.
+    let again = String::from_utf8_lossy(&terminal(&w, &["signout", "docs"]).output().unwrap().stdout).to_string();
+    assert!(again.contains("Not signed in to docs: nothing to delete."), "{again}");
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+/// `signin docs` in its browser mode: the consent page's address from its output, and its process.
+fn browser_signin(w: &World, file_store: bool) -> (std::process::Child, String, std::io::Lines<BufReader<std::process::ChildStdout>>) {
+    browser_signin_with(w, file_store, &[])
+}
+
+/// The same, with more environment (the global store setting, the passphrase).
+fn browser_signin_with(w: &World, file_store: bool, env: &[(&str, &str)]) -> (std::process::Child, String, std::io::Lines<BufReader<std::process::ChildStdout>>) {
+    let mut child = terminal_with(w, &["signin", "docs"], file_store).envs(env.iter().copied()).stdout(Stdio::piped()).spawn().unwrap();
+    let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
+    let page = loop {
+        let line = lines.next().expect("signin shows the consent page's address").unwrap();
+        if let Some(address) = line.strip_prefix("Review and approve in your browser: ") {
+            break address.to_string();
+        }
+    };
+    (child, page, lines)
+}
+
+fn browser_plays(page: &str, args: &[&str]) -> (bool, String) {
+    let played = Command::new("node").arg(oauth_script()).args(["consent", page]).args(args).output().unwrap();
+    (played.status.success(), String::from_utf8_lossy(&played.stdout).to_string())
+}
+
+// The consent page, whole, with the real binary: it says what it means and
+// offers the stores; a forged answer (wrong token, another site's origin) is
+// not heard; Accept goes through the server's own sign-in in the same tab
+// and keeps the tokens where the person chose; Refuse keeps nothing and says so.
+#[test]
+fn the_consent_page_is_answered_in_the_browser_and_a_refusal_keeps_nothing() {
+    let w = World::new("consent");
+    let server = OAuthServer::start(&w, "modern");
+    w.claude_json(json!({"docs": {"type": "http", "url": server.url}}), json!({}));
+
+    // Forged answers first: neither is heard, and the page still works after them.
+    let (mut child, page, mut lines) = browser_signin(&w, true);
+    let (ok, said) = browser_plays(&page, &["forge"]);
+    assert!(ok && said.contains("forged 404 404") && said.contains("csp"), "{said}");
+    // Refuse: nothing kept.
+    let (ok, said) = browser_plays(&page, &["refuse"]);
+    assert!(ok && said.contains("answered 200 refused"), "{said}");
+    assert!(child.wait().unwrap().success());
+    let out: Vec<String> = lines.by_ref().map_while(Result::ok).collect();
+    assert!(out.iter().any(|l| l == "Not signed in to docs."), "{out:?}");
+    assert!(!w.root.join("tokens").exists(), "a refusal kept something");
+
+    // Accept, the plain file chosen in the page's advanced options.
+    let (mut child, page, mut lines) = browser_signin(&w, true);
+    let (ok, said) = browser_plays(&page, &["accept"]);
+    assert!(ok && said.contains("answered 200 signed-in") && said.contains("saved:file no-store-choice"), "{said}");
+    assert!(child.wait().unwrap().success());
+    let out: Vec<String> = lines.by_ref().map_while(Result::ok).collect();
+    assert!(out.iter().any(|l| l.contains("Signed in to docs. The login is kept in the plain file.")), "{out:?}");
+    assert_eq!(std::fs::read_dir(w.root.join("tokens")).unwrap().count(), 1);
+    // The page is gone with the answer.
+    assert!(Command::new("node").arg(oauth_script()).args(["consent", &page, "refuse"]).output().map_or(true, |o| !o.status.success()));
+}
+
+// The page says who the server is from what it publishes (name, icon, links,
+// permissions), and falls back to the configured name when it publishes nothing.
+#[test]
+fn the_consent_page_shows_what_the_server_publishes_and_falls_back_without_it() {
+    for (about, expected) in [(true, "about scopes icon title links"), (false, "about no-scopes no-icon no-title no-links")] {
+        let w = World::new(if about { "about" } else { "no-about" });
+        let server = OAuthServer::start_with(&w, "modern", about);
+        w.claude_json(json!({"docs": {"type": "http", "url": server.url}}), json!({}));
+        let (mut child, page, _lines) = browser_signin(&w, true);
+        let (ok, said) = browser_plays(&page, &["refuse"]);
+        assert!(ok && said.contains(expected), "{said}");
+        assert!(child.wait().unwrap().success());
+    }
+}
+
+// The terminal's version of the page (`--no-browser`), in a real terminal (a
+// pseudo-terminal from tests/pty-run.py): the summary, the question, "?" shows the
+// details and asks again, "n" keeps nothing.
+#[cfg(target_os = "macos")]
+#[test]
+fn the_terminal_shows_the_summary_and_the_details_behind_a_question_mark() {
+    let w = World::new("terminal-ask");
+    let server = OAuthServer::start(&w, "modern");
+    w.claude_json(json!({"docs": {"type": "http", "url": server.url}}), json!({}));
+    let inner = terminal(&w, &["signin", "docs", "--no-browser"]);
+    let script = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests").join("pty-run.py");
+    let mut command = Command::new("python3");
+    command.args(["-I"]).arg(script).arg("?|n").arg("--").arg(inner.get_program()).args(inner.get_args()).env_clear().current_dir(&w.project);
+    for (key, value) in inner.get_envs() {
+        if let Some(value) = value {
+            command.env(key, value);
+        }
+    }
+    let out = command.output().unwrap();
+    let said = String::from_utf8_lossy(&out.stdout).to_string();
+    let first = said.find("[y/N/?]").expect(&said);
+    let second = said[first + 7..].find("[y/N/?]").expect(&said);
+    assert!(said.contains("wants to use your docs account") && said.contains("Not encrypted"), "{said}");
+    // The details come after the first question and before the second.
+    let between = &said[first..first + 7 + second];
+    assert!(between.contains("signout docs") && between.contains("MCP_APPS_CLI_TOKEN_STORE"), "{said}");
+    assert!(said.contains("Not signed in to docs.") && !said.contains('\x1b'), "{said}");
+    assert!(!w.root.join("tokens").exists(), "a refusal kept something");
+}
+
+// An encrypted store set globally without the passphrase: `signin` says what
+// to set before it shows any page.
+#[cfg(target_os = "macos")]
+#[test]
+fn an_encrypted_store_without_its_passphrase_is_refused_before_the_page() {
+    let w = World::new("encrypted-no-passphrase");
+    let server = OAuthServer::start(&w, "modern");
+    w.claude_json(json!({"docs": {"type": "http", "url": server.url}}), json!({}));
+    let out = terminal_with(&w, &["signin", "docs"], false).env("MCP_APPS_CLI_TOKEN_STORE", "encrypted").output().unwrap();
+    let said = String::from_utf8_lossy(&out.stderr).to_string() + &String::from_utf8_lossy(&out.stdout);
+    assert!(!out.status.success() && said.contains("MCP_APPS_CLI_PASSPHRASE") && !said.contains("/consent"), "{said}");
+}
+
+// Changing the store setting after signing in: the earlier login is still used,
+// signing in again under the new setting moves it (one login left, the old one
+// revoked), and `signout` removes a login wherever it is, in every store.
+#[cfg(target_os = "macos")]
+#[test]
+fn changing_the_store_setting_keeps_one_login_and_signout_removes_every_copy() {
+    let w = World::new("store-change");
+    let server = OAuthServer::start(&w, "modern");
+    let requests = || std::fs::read_to_string(w.marker("oauth-requests")).unwrap_or_default();
+    w.claude_json(json!({"docs": {"type": "http", "url": server.url}}), json!({}));
+    let tokens = || -> Vec<String> { std::fs::read_dir(w.root.join("tokens")).map(|d| d.flatten().map(|e| e.file_name().to_string_lossy().to_string()).collect()).unwrap_or_default() };
+    let browser_signed_in = |env: &[(&str, &str)], file_store: bool| {
+        let (mut child, page, _lines) = browser_signin_with(&w, file_store, env);
+        let (ok, said) = browser_plays(&page, &["accept"]);
+        assert!(ok && said.contains("answered 200 signed-in"), "{said}");
+        assert!(child.wait().unwrap().success());
+    };
+    // 1. A plain-file login, then the setting changes to the encrypted file: the old login is still read.
+    browser_signed_in(&[], true);
+    assert_eq!(tokens().len(), 1, "{:?}", tokens());
+    let later = w.discover_with(&["docs"], true, &[("MCP_APPS_CLI_TOKEN_STORE", "encrypted"), ("MCP_APPS_CLI_PASSPHRASE", "correct horse battery")]);
+    let (_, docs) = later.iter().find(|(n, _)| n == "docs").unwrap();
+    assert_eq!(docs["ok"], true, "the earlier login is not read after the setting changed: {docs}");
+    // 2. Signing in again under the new setting: one login left, in the new store, the old one revoked.
+    let before = requests().matches("POST /revoke").count();
+    browser_signed_in(&[("MCP_APPS_CLI_TOKEN_STORE", "encrypted"), ("MCP_APPS_CLI_PASSPHRASE", "correct horse battery")], false);
+    let left = tokens();
+    assert!(left.len() == 1 && left[0].ends_with(".enc"), "{left:?}");
+    // One revoke asks twice (the refresh token, then the access token).
+    assert_eq!(requests().matches("POST /revoke").count(), before + 2, "the earlier login was not revoked: {}", requests());
+    // 3. A login in two stores (a plain copy planted beside the encrypted one): `signout` removes both.
+    let enc = w.root.join("tokens").join(&left[0]);
+    std::fs::copy(&enc, w.root.join("tokens").join(left[0].trim_end_matches(".enc"))).unwrap();
+    assert_eq!(tokens().len(), 2);
+    let out = terminal_with(&w, &["signout", "docs"], false).env("MCP_APPS_CLI_PASSPHRASE", "correct horse battery").output().unwrap();
+    let said = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(out.status.success() && said.matches("Deleted ").count() == 2, "{said}");
+    assert!(tokens().is_empty(), "{:?}", tokens());
+}
+
+// The encrypted file, from the page to a session's helper: the passphrase is
+// set in the page, nothing readable is on disk, a helper without the
+// passphrase says what to set, one with it discovers the app, and `signout`
+// revokes and deletes. macOS only, as the encrypted file is for now.
+#[cfg(target_os = "macos")]
+#[test]
+fn an_encrypted_sign_in_is_made_in_the_page_and_read_with_the_passphrase() {
+    let w = World::new("encrypted");
+    let server = OAuthServer::start(&w, "modern");
+    w.claude_json(json!({"docs": {"type": "http", "url": server.url}}), json!({}));
+    // The store is the global setting: the page only says it, and asks for no passphrase.
+    let (mut child, page, _lines) = browser_signin_with(&w, false, &[("MCP_APPS_CLI_TOKEN_STORE", "encrypted"), ("MCP_APPS_CLI_PASSPHRASE", "correct horse battery")]);
+    let (ok, said) = browser_plays(&page, &["accept"]);
+    assert!(ok && said.contains("saved:encrypted no-store-choice") && said.contains("answered 200 signed-in"), "{said}");
+    assert!(child.wait().unwrap().success());
+    let files: Vec<_> = std::fs::read_dir(w.root.join("tokens")).unwrap().flatten().collect();
+    assert_eq!(files.len(), 1);
+    let on_disk = std::fs::read_to_string(files[0].path()).unwrap();
+    assert!(files[0].file_name().to_string_lossy().ends_with(".enc") && !on_disk.contains("access_token") && !on_disk.contains("client_id"), "{on_disk}");
+
+    // Without the passphrase: said, not guessed.
+    let without = w.discover_with(&["docs"], true, &[]);
+    assert!(refused(&without, "docs").contains("MCP_APPS_CLI_PASSPHRASE"), "{without:?}");
+    let wrong = w.discover_with(&["docs"], true, &[("MCP_APPS_CLI_PASSPHRASE", "not the one")]);
+    assert!(refused(&wrong, "docs").contains("wrong passphrase"), "{wrong:?}");
+    let right = w.discover_with(&["docs"], true, &[("MCP_APPS_CLI_PASSPHRASE", "correct horse battery")]);
+    let (_, docs) = right.iter().find(|(n, _)| n == "docs").unwrap();
+    assert_eq!(docs["ok"], true, "{docs}");
+    assert_eq!(docs["tools"]["show"]["resourceUri"], "ui://demo/view.html", "{docs}");
+
+    let out = terminal_with(&w, &["signout", "docs"], false).env("MCP_APPS_CLI_PASSPHRASE", "correct horse battery").output().unwrap();
+    let said = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(said.contains("Asked docs to revoke the tokens.") && said.contains("Deleted "), "{said}");
+    assert_eq!(std::fs::read_dir(w.root.join("tokens")).unwrap().count(), 0);
 }

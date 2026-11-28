@@ -11,7 +11,7 @@
 //! flight to the server and closes the connection (model/AppsViews.tla,
 //! FixAtSend and FixRevoke).
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -20,7 +20,7 @@ use std::sync::Arc;
 use anyhow::{Context, Result, anyhow, bail};
 use rmcp::ServiceExt;
 use rmcp::model::{ClientCapabilities, ClientConfig, Implementation, ProtocolVersion};
-use rmcp::service::{ClientInitializeError, ClientLifecycleMode, ClientServiceExt, RoleClient, RunningService};
+use rmcp::service::{ClientInitializeError, ClientLifecycleMode, ClientServiceExt, RoleClient, RunningService, ServiceError};
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use rmcp::transport::{ConfigureCommandExt, StreamableHttpClientTransport, TokioChildProcess};
 use serde_json::{Map, Value, json};
@@ -48,6 +48,11 @@ pub struct Clients {
     open: Mutex<HashMap<String, (Client, &'static str)>>,
     discovered: Mutex<HashMap<String, Value>>,
     gates: std::sync::Mutex<HashMap<String, Gate>>,
+    /// The servers the person listed under "Own sign-in (OAuth)": the mod says
+    /// so with each request that names a server. Empty unless it does.
+    own_sign_in: std::sync::Mutex<HashSet<String>>,
+    /// The servers whose open connection carries the helper's own sign-in.
+    signed_in: std::sync::Mutex<HashSet<String>>,
     ask: Asker,
 }
 
@@ -84,6 +89,8 @@ impl Clients {
             open: Mutex::new(HashMap::new()),
             discovered: Mutex::new(HashMap::new()),
             gates: std::sync::Mutex::new(HashMap::new()),
+            own_sign_in: std::sync::Mutex::new(HashSet::new()),
+            signed_in: std::sync::Mutex::new(HashSet::new()),
             ask,
         }
     }
@@ -161,6 +168,28 @@ impl Clients {
         true
     }
 
+    /// Whether the person listed `server` under "Own sign-in (OAuth)", as the
+    /// mod says with each request. A change closes the connection, so the next
+    /// one is made as the setting now is: removing a name stops the use of its
+    /// token at once.
+    pub async fn set_own_sign_in(&self, server: &str, listed: bool) {
+        let changed = {
+            let mut own = self.own_sign_in.lock().unwrap();
+            if listed { own.insert(server.to_string()) } else { own.remove(server) }
+        };
+        if changed {
+            if let Some((client, _)) = self.open.lock().await.remove(server) {
+                client.cancellation_token().cancel();
+            }
+            self.signed_in.lock().unwrap().remove(server);
+        }
+    }
+
+    /// Whether the open connection to `server` carries the helper's own sign-in.
+    pub fn uses_own_sign_in(&self, server: &str) -> bool {
+        self.signed_in.lock().unwrap().contains(server)
+    }
+
     /// The entry Claude Code would use for `server`, or why none is used
     /// (see config.rs): nothing is started, sent or expanded before this.
     fn entry(&self, server: &str) -> Result<config::Entry> {
@@ -185,7 +214,14 @@ impl Clients {
             if self.revocation(server) > epoch {
                 bail!("Claude Code stopped using MCP server \"{server}\"");
             }
-            let client = Arc::new(connect(&entry.config, &self.cwd).await.with_context(|| format!("connecting to {server}"))?);
+            let own = self.own_sign_in.lock().unwrap().contains(server);
+            let (client, signed_in) = connect(&entry.config, &self.cwd, server, own).await.with_context(|| format!("connecting to {server}"))?;
+            if signed_in {
+                self.signed_in.lock().unwrap().insert(server.to_string());
+            } else {
+                self.signed_in.lock().unwrap().remove(server);
+            }
+            let client = Arc::new(client);
             open.insert(server.to_string(), (client.clone(), entry.scope));
             Ok((client, entry.scope))
         })
@@ -202,7 +238,28 @@ impl Clients {
         let mut given = given;
         let (client, scope) = self.client_and_scope(server, &mut given).await?;
         let epoch = self.admit(server, given).await?;
-        Ok((self.guarded(server, epoch, op(client)).await?, scope))
+        match self.guarded(server, epoch, op(client)).await {
+            Ok(result) => Ok((result, scope)),
+            Err(error) => Err(self.sign_in_wanted(server, error).await),
+        }
+    }
+
+    /// A request the server answered with a 401: one that asks for sign-in
+    /// only past `server/discover` (2026-07-28 has no handshake to refuse),
+    /// or a sign-in that ended and couldn't be refreshed. The error says what
+    /// to do, and the connection is closed, so the next request opens one
+    /// with the sign-in kept by then. Any other error is passed on as it is.
+    async fn sign_in_wanted(&self, server: &str, error: anyhow::Error) -> anyhow::Error {
+        if !error.downcast_ref::<ServiceError>().is_some_and(ServiceError::is_authorization_required) {
+            return error;
+        }
+        if let Some((client, _)) = self.open.lock().await.remove(server) {
+            client.cancellation_token().cancel();
+        }
+        match self.entry(server) {
+            Ok(entry) if can_sign_in(&entry.config) => anyhow!("{error:#}{}", sign_in_hint(server, self.own_sign_in.lock().unwrap().contains(server))),
+            _ => error,
+        }
     }
 
     /// The server's tools, as the mod and the views need them: those with a
@@ -214,7 +271,9 @@ impl Clients {
                 return Ok(found.clone());
             }
         }
-        let (tools, scope) = self.request(server, None, |client| async move { client.list_all_tools().await.map_err(|e| anyhow!("{e}")) }).await?;
+        // A 401 keeps its type: `sign_in_wanted` reads it.
+        let list = |client: Client| async move { client.list_all_tools().await.map_err(|e| if e.is_authorization_required() { e.into() } else { anyhow!("{e}") }) };
+        let (tools, scope) = self.request(server, None, list).await?;
         let mut with_ui = Map::new();
         let mut visibility = Map::new();
         let mut definitions = Map::new();
@@ -366,7 +425,40 @@ fn startup_error(error: ClientInitializeError) -> anyhow::Error {
     }
 }
 
-async fn connect(config: &Value, cwd: &PathBuf) -> Result<RunningService<RoleClient, ClientConfig>> {
+/// Whether `signin` (oauth.rs) can help with a server that answers 401: one
+/// over streamable HTTP, at an address the helper signs in to, with no
+/// `Authorization` header of the person's own (that one is sent instead).
+fn can_sign_in(config: &Value) -> bool {
+    config::kind(config) == "http"
+        && !headers(config).contains_key(http::header::AUTHORIZATION)
+        && config.get("url").and_then(Value::as_str).is_some_and(crate::oauth::allowed)
+}
+
+/// What to say about a server that wants sign-in, after its error: for one
+/// the person listed under "Own sign-in (OAuth)", to sign in again; for any
+/// other, that the helper doesn't share Claude Code's sign-in. It never
+/// pushes a server that isn't listed towards `signin`.
+fn sign_in_hint(name: &str, listed: bool) -> String {
+    if listed {
+        format!(" (signed out or expired: run `mcp-apps-cli-helper signin {name}`)")
+    } else {
+        " (needs sign-in, which the helper doesn't share with Claude Code: see \"Servers that need sign-in\" in the README)".to_string()
+    }
+}
+
+/// Why a connection over streamable HTTP didn't start, with what to do when
+/// the server wants sign-in: its 401 to `server/discover` or to `initialize`
+/// (whichever the connection got to), or a sign-in kept here that no longer
+/// works.
+fn sign_in_error(name: &str, config: &Value, listed: bool, error: ClientInitializeError) -> anyhow::Error {
+    let wanted = error.is_authorization_required() && can_sign_in(config);
+    let error = startup_error(error);
+    if wanted { anyhow!("{error:#}{}", sign_in_hint(name, listed)) } else { error }
+}
+
+/// A connection to `name`, and whether it carries the helper's own sign-in
+/// (`own`: the person listed the server for it).
+async fn connect(config: &Value, cwd: &PathBuf, name: &str, own: bool) -> Result<(RunningService<RoleClient, ClientConfig>, bool)> {
     let url = config.get("url").and_then(Value::as_str);
     match config::kind(config) {
         "http" => {
@@ -376,15 +468,25 @@ async fn connect(config: &Value, cwd: &PathBuf) -> Result<RunningService<RoleCli
             // rmcp's own client follows a redirect only within the server's
             // origin, and only a 307 or 308: one to another host would carry
             // the server's headers there, outside the browser's protections.
-            let transport = StreamableHttpClientTransport::from_config(transport_config);
-            client_info().serve_with_lifecycle(transport, lifecycle()).await.map_err(startup_error)
+            // For a server the person listed under "Own sign-in (OAuth)" and
+            // signed in to with `signin` (oauth.rs): the connection carries
+            // that token, refreshed as it ends, in either form of `lifecycle`
+            // (each request of 2026-07-28, and the 2025 handshake and what
+            // follows it). A header of the person's own wins.
+            let signed_in = if own && can_sign_in(config) { crate::oauth::client(name, url).await? } else { None };
+            let used = signed_in.is_some();
+            let started = match signed_in {
+                Some(auth) => client_info().serve_with_lifecycle(StreamableHttpClientTransport::with_client(auth, transport_config), lifecycle()).await,
+                None => client_info().serve_with_lifecycle(StreamableHttpClientTransport::from_config(transport_config), lifecycle()).await,
+            };
+            started.map(|service| (service, used)).map_err(|e| sign_in_error(name, config, own, e))
         }
         // The HTTP+SSE transport is the 2024-11-05 revision's (replaced in
         // 2025-03-26): a server that offers it speaks a 2025 revision, so it
         // gets the handshake, at 2025-11-25.
         "sse" => {
             let url = url.ok_or_else(|| anyhow!("an sse server needs a url"))?;
-            Ok(client_info().serve(crate::sse::connect(url, headers(config)).await?).await?)
+            Ok((client_info().serve(crate::sse::connect(url, headers(config)).await?).await?, false))
         }
         _ => {
             let command = config.get("command").and_then(Value::as_str).ok_or_else(|| anyhow!("a stdio server needs a command"))?;
@@ -409,7 +511,7 @@ async fn connect(config: &Value, cwd: &PathBuf) -> Result<RunningService<RoleCli
                 cmd.creation_flags(crate::win::NO_WINDOW);
             });
             let (transport, _stderr) = TokioChildProcess::builder(command).stderr(std::process::Stdio::null()).spawn()?;
-            client_info().serve_with_lifecycle(transport, lifecycle()).await.map_err(startup_error)
+            client_info().serve_with_lifecycle(transport, lifecycle()).await.map(|service| (service, false)).map_err(startup_error)
         }
     }
 }
@@ -483,14 +585,14 @@ mod tests {
             let target = format!("{other}/mcp");
             let (origin, _) = serve(move |_| redirect(status, &target));
             let config = json!({"type": "http", "url": format!("{origin}/mcp"), "headers": {"x-api-key": KEY}});
-            let connected = tokio::time::timeout(Duration::from_secs(20), connect(&config, &cwd)).await;
+            let connected = tokio::time::timeout(Duration::from_secs(20), connect(&config, &cwd, "docs", false)).await;
             assert!(!matches!(connected, Ok(Ok(_))), "{status}: connected through a redirect");
             assert!(sent(&elsewhere).is_empty(), "{status}: the other origin was sent {:?}", sent(&elsewhere));
         }
         // Within the server's own origin a 307 is followed, its headers with it.
         let (origin, heads) = serve(|line| if line.contains("/mcp2") { FAIL.to_string() } else { redirect(307, "/mcp2") });
         let config = json!({"type": "http", "url": format!("{origin}/mcp"), "headers": {"x-api-key": KEY}});
-        let _ = tokio::time::timeout(Duration::from_secs(20), connect(&config, &cwd)).await;
+        let _ = tokio::time::timeout(Duration::from_secs(20), connect(&config, &cwd, "docs", false)).await;
         assert!(
             sent(&heads).iter().any(|h| h.starts_with("POST /mcp2") && h.to_ascii_lowercase().contains(&format!("x-api-key: {KEY}"))),
             "the same-origin redirect wasn't followed: {:?}",
@@ -505,7 +607,7 @@ mod tests {
         const REFUSED: &str = "HTTP/1.1 400 Bad Request\r\ncontent-type: text/plain\r\ncontent-length: 7\r\nconnection: close\r\n\r\nrefused";
         let (origin, heads) = serve(|_| REFUSED.to_string());
         let config = json!({"type": "http", "url": format!("{origin}/mcp")});
-        let error = match tokio::time::timeout(Duration::from_secs(20), connect(&config, &std::env::temp_dir())).await {
+        let error = match tokio::time::timeout(Duration::from_secs(20), connect(&config, &std::env::temp_dir(), "docs", false)).await {
             Ok(Err(error)) => format!("{error:#}"),
             Ok(Ok(_)) => panic!("connected to a server that refuses everything"),
             Err(_) => panic!("timed out"),
@@ -550,5 +652,156 @@ mod tests {
         assert!(sent(&heads).iter().any(|h| h.starts_with("POST /messages")), "the message was never posted: {:?}", sent(&heads));
         tokio::time::sleep(Duration::from_millis(500)).await;
         assert!(sent(&elsewhere).is_empty(), "the other origin was sent {:?}", sent(&elsewhere));
+    }
+
+    /// The stand-in server that needs sign-in (tests/oauth-server.mjs):
+    /// its child, its url and its request log.
+    struct OAuthServer {
+        child: std::process::Child,
+        url: String,
+        log: PathBuf,
+    }
+
+    impl OAuthServer {
+        /// One whose tokens last `lasts` seconds and that serves `serves`:
+        /// `modern` (2026-07-28 only), `legacy` (the 2025 revisions only),
+        /// `dual`, or `open` (modern, asking for the token only past
+        /// `server/discover`).
+        fn start(dir: &std::path::Path, lasts: u64, serves: &str) -> Self {
+            use std::io::BufRead;
+            let log = dir.join(format!("requests-{serves}.log"));
+            let mut child = std::process::Command::new("node")
+                .arg(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests").join("oauth-server.mjs"))
+                .args([log.to_str().unwrap(), &lasts.to_string(), serves])
+                .stdout(std::process::Stdio::piped())
+                .spawn()
+                .expect("node starts the stand-in server");
+            let mut line = String::new();
+            std::io::BufReader::new(child.stdout.take().unwrap()).read_line(&mut line).unwrap();
+            let port = line.trim().strip_prefix("listening ").expect("the stand-in server names its port");
+            OAuthServer { child, url: format!("http://127.0.0.1:{port}/mcp"), log }
+        }
+        fn requests(&self) -> Vec<String> {
+            std::fs::read_to_string(&self.log).unwrap_or_default().lines().map(str::to_string).collect()
+        }
+        fn count(&self, line: &str) -> usize {
+            self.requests().iter().filter(|r| r.as_str() == line).count()
+        }
+        /// A helper that uses it as "docs", with these headers of the person's own.
+        fn clients(&self, headers: Value) -> Clients {
+            let clients = self.clients_unlisted(headers);
+            clients.own_sign_in.lock().unwrap().insert("docs".to_string());
+            clients
+        }
+        /// The same, the person not having listed it under "Own sign-in (OAuth)".
+        fn clients_unlisted(&self, headers: Value) -> Clients {
+            let config = json!({"mcpServers": {"docs": {"type": "http", "url": self.url, "headers": headers}}}).to_string();
+            let args = Args { mcp_config: vec![config], ..Args::default() };
+            Clients::with_asker(args, std::env::temp_dir(), Arc::new(|_| Box::pin(async { Some(1) })))
+        }
+        /// The person signing in: the address `signin` shows is opened as a browser would.
+        async fn sign_in(&self) -> anyhow::Result<()> {
+            crate::oauth::signin("docs", &self.url, crate::vault::Kind::File, |address| {
+                let address = address.to_string();
+                tokio::spawn(async move {
+                    let _ = reqwest::get(address).await;
+                });
+            })
+            .await
+        }
+    }
+
+    impl Drop for OAuthServer {
+        fn drop(&mut self) {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+    }
+
+    // A server that needs sign-in (OAuth), in each form the helper's
+    // connection has: 2026-07-28 (`server/discover`, then each request on
+    // its own) and the 2025 handshake (`initialize`). The helper's own
+    // connection is refused (401) until the person signs in with `signin`,
+    // and the error says to; after it, the tools (with their UI) and the
+    // `ui://` resource are read with the token the helper holds, in the
+    // server's revision, and when the token ends it is refreshed. One test:
+    // it sets the tokens' folder for the process.
+    #[tokio::test]
+    async fn a_server_that_needs_sign_in_is_read_after_signin_and_refreshed_in_each_revision() {
+        let dir = std::env::temp_dir().join(format!("mcp-apps-oauth-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        // SAFETY: the only test that sets it, and nothing else here reads it concurrently.
+        unsafe {
+            std::env::set_var("MCP_APPS_CLI_OAUTH_DIR", dir.join("tokens"));
+            std::env::set_var("MCP_APPS_CLI_TOKEN_STORE", "file");
+            std::env::set_var("MCP_APPS_CLI_TEST_NO_KEYCHAIN", "1");
+        }
+        let view = json!({"uri": "ui://demo/view.html"});
+        let modes = ["modern", "legacy", "dual", "open"];
+        for serves in modes {
+            // A token lasts 2 s, so a refresh is seen.
+            let server = OAuthServer::start(&dir, 2, serves);
+            let seen = || format!("{serves}: {:?}", server.requests());
+            // The revision each request names once the connection has started.
+            let revision = if serves == "legacy" { "-" } else { "2026-07-28" };
+
+            // Not signed in: the server's 401, said with what to do, at the
+            // first request that needs the token, and nothing after it.
+            let refused = server.clients(json!({})).discover("docs", false).await.expect_err("an unauthenticated connection was accepted");
+            assert!(format!("{refused:#}").contains("signed out or expired: run `mcp-apps-cli-helper signin docs`"), "{serves}: {refused:#}");
+            let first_refused = if serves == "open" { "401 POST /mcp no tools/list 2026-07-28" } else { "401 POST /mcp no server/discover 2026-07-28" };
+            assert_eq!(server.count(first_refused), 1, "{}", seen());
+            assert!(!server.requests().iter().any(|r| r.starts_with("200 POST /mcp") && !r.contains("server/discover")), "{}", seen());
+            // Not listed: the same 401, and no word of `signin`.
+            let unlisted = server.clients_unlisted(json!({})).discover("docs", false).await.expect_err("an unauthenticated connection was accepted");
+            assert!(format!("{unlisted:#}").contains("see \"Servers that need sign-in\" in the README") && !format!("{unlisted:#}").contains("mcp-apps-cli-helper signin"), "{serves}: {unlisted:#}");
+            // A header of the person's own is theirs to fix: `signin` isn't named.
+            let own = server.clients(json!({"Authorization": "Bearer mine"})).discover("docs", false).await.expect_err("a token of no one's was accepted");
+            assert!(!format!("{own:#}").contains("signin"), "{serves}: {own:#}");
+
+            // Signed in: the tools and the resource are read, in the server's revision.
+            server.sign_in().await.expect("signin");
+            assert_eq!((server.count("201 POST /register no register"), server.count("200 POST /token no authorization_code")), (1, 1), "{}", seen());
+            // A server not listed doesn't use the token that is kept.
+            let unlisted = server.clients_unlisted(json!({})).discover("docs", false).await.expect_err("the token was used for a server that isn't listed");
+            assert!(format!("{unlisted:#}").contains("Servers that need sign-in"), "{serves}: {unlisted:#}");
+            let clients = server.clients(json!({}));
+            let found = clients.discover("docs", false).await.unwrap_or_else(|e| panic!("discover after sign-in: {e:#}; {}", seen()));
+            assert_eq!(found["tools"]["show"]["resourceUri"], "ui://demo/view.html", "{found}");
+            let read = clients.read_resource("docs", view.clone(), None).await.unwrap_or_else(|e| panic!("resources/read after sign-in: {e:#}; {}", seen()));
+            assert!(read["contents"][0]["text"].as_str().unwrap().contains("signed-in view"), "{read}");
+            assert_eq!(server.count(&format!("200 POST /mcp yes tools/list {revision}")), 1, "{}", seen());
+            assert_eq!(server.count(&format!("200 POST /mcp yes resources/read {revision}")), 1, "{}", seen());
+            // The handshake only where the server has it, and with the token.
+            assert_eq!(server.count("200 POST /mcp yes initialize -"), usize::from(serves == "legacy"), "{}", seen());
+            assert_eq!(server.count("202 POST /mcp yes notifications/initialized -"), usize::from(serves == "legacy"), "{}", seen());
+
+            // The token ends: the next request refreshes it and goes on.
+            tokio::time::sleep(Duration::from_millis(2500)).await;
+            clients.read_resource("docs", view.clone(), None).await.unwrap_or_else(|e| panic!("resources/read after the token ended: {e:#}; {}", seen()));
+            assert!(server.count("200 POST /token no refresh_token") >= 1, "{}", seen());
+            assert_eq!(server.count(&format!("200 POST /mcp yes resources/read {revision}")), 2, "{}", seen());
+
+            // A new helper uses the kept sign-in too.
+            server.clients(json!({})).read_resource("docs", view.clone(), None).await.unwrap_or_else(|e| panic!("a new helper with the kept sign-in: {e:#}; {}", seen()));
+            // Taking the name off the list stops the use of the token at once.
+            assert!(clients.uses_own_sign_in("docs"));
+            clients.set_own_sign_in("docs", false).await;
+            assert!(!clients.uses_own_sign_in("docs"));
+            let off = clients.read_resource("docs", view.clone(), None).await.expect_err("the token was used after the name was taken off the list");
+            assert!(format!("{off:#}").contains("Servers that need sign-in"), "{serves}: {off:#}");
+        }
+        // Each sign-in is in one file only this user can read.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let files: Vec<_> = std::fs::read_dir(dir.join("tokens")).unwrap().flatten().collect();
+            assert_eq!(files.len(), modes.len());
+            for file in files {
+                assert_eq!(file.metadata().unwrap().permissions().mode() & 0o777, 0o600);
+            }
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

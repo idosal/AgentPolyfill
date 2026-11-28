@@ -64,3 +64,15 @@ export function structuredFromText(server: string): boolean {
     .map((name) => name.trim())
     .some((name) => name !== '' && name === server)
 }
+
+/**
+ * Whether the person listed `server` under "Own sign-in (OAuth)" (names
+ * separated by commas, as Claude Code names its servers): the helper uses a
+ * sign-in of its own for that server only then. Off by default.
+ */
+export function ownSignIn(server: string): boolean {
+  return String(state.settings.ownSignIn ?? '')
+    .split(',')
+    .map((name) => name.trim())
+    .some((name) => name !== '' && name === server)
+}

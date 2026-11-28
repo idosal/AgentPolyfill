@@ -3,6 +3,7 @@
 import type { EngineInterface, On } from 'claude-code'
 import type { HelperEndpoint, HelperMessage, UiTool, View } from './state'
 import { allowDownload, allowTool, appMessage, onNotify, openLink, plainText } from './consent'
+import { ownSignIn } from './settings'
 import { allowedForSession, discovered, earlyCalls, isLive, linksAllowed, messagesAllowed, modelContext, ranCalls, seenCalls, state, views } from './state'
 import { loadRowsSeen, paneId, restoreViews, saveViews, setDisplay, showPicture, sleepWhenAnswered, trimClosed } from './views'
 
@@ -159,6 +160,13 @@ export function discover($: EngineInterface, server: string) {
   if (!found) {
     found = helper($, '/discover', { server }).then((answer) => {
       if (!answer.ok) throw new Error(String(answer.error))
+      // Once a session for each server, as the relay is announced.
+      if (answer.ownSignIn === true) {
+        $.ui.log(
+          `mcp-apps-cli: ${server}: using the helper's own sign-in (not Claude Code's). Sign out: mcp-apps-cli-helper signout ${server}`,
+          { to: 'debug' },
+        )
+      }
       const tools = (answer.tools ?? {}) as Record<string, UiTool>
       state.serversWithApps.set(server, Object.keys(tools).length > 0)
       const definitions = (answer.definitions ?? {}) as Record<string, { annotations?: { readOnlyHint?: unknown } }>
@@ -224,6 +232,9 @@ async function request($: EngineInterface, route: string, body: unknown) {
     throw new Error(`Claude Code is not using an MCP server named ${JSON.stringify(plainText(server))} in this session`)
   }
   const where = await startHelper($)
+  // Whether the person listed the server under "Own sign-in (OAuth)": the
+  // helper uses its own sign-in for it only then.
+  if (typeof server === 'string') body = { ...(body as object), ownSignIn: ownSignIn(server) }
   const headers: Record<string, string> = { 'content-type': 'application/json', 'x-mcp-apps-cli-token': where.token }
   const init =
     'socketPath' in where
