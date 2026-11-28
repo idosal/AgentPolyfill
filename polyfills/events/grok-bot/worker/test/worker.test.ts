@@ -312,6 +312,10 @@ describe('Cloudflare Worker Grok Bot MCP Events polyfill', { concurrency: false 
             405
         );
 
+        const cb = await fetch(`${worker.origin}/oauth/callback`);
+        assert.equal(cb.status, 400);
+        assert.ok((await cb.text()).includes('Missing OAuth state'));
+
         const init = await mcpCall(worker.origin, readerKey, 'initialize', { protocolVersion: '2025-11-25' });
         assert.ok((init.result as { capabilities?: { tools?: object } })?.capabilities?.tools);
         const list = await mcpCall(worker.origin, readerKey, 'tools/list');

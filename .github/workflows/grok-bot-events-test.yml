@@ -39,3 +39,5 @@ jobs:
       - run: node ../../../tools/bundle-notices.mjs . --plugin plugin --entry src/bridge.mjs --bundle dist/bridge.mjs --check
       - run: npm ci && npm test
         working-directory: polyfills/events/grok-bot/probe
+      - run: npm ci && npm run typecheck && npm test
+        working-directory: polyfills/events/grok-bot/worker
