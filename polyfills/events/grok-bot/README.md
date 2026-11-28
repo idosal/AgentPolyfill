@@ -2,6 +2,8 @@
 
 Wake a Grok Bot routine when an MCP server emits an event you watch. One routine can receive wakes for several servers and watches.
 
+**Experimental.** The adapter has automated coverage for recurring delivery with a simulated routine. Verification of two real alerts from this package in a signed-in Grok Bot is pending.
+
 ## Install
 
 With Node.js 22.18 or newer, clone AgentPolyfill on the Bot's computer. Keep this folder or copy its self-contained `plugin/` folder there. The CLI is `plugin/dist/bridge.mjs` and needs no dependency install.
