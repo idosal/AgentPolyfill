@@ -47,7 +47,13 @@ export default {
             return stub.fetch(new Request(request.url, { method: 'POST', headers: request.headers, body: raw }));
         }
 
-        if (url.pathname === '/mcp') {
+        if (url.pathname === '/oauth/callback') {
+            if (request.method !== 'GET') return new Response(null, { status: 405, headers: { allow: 'GET' } });
+            const stub = env.HUB.get(env.HUB.idFromName('default'));
+            return stub.fetch(request);
+        }
+
+        if (url.pathname === '/mcp' || url.pathname === '/oauth/start' || url.pathname.startsWith('/servers/')) {
             const originHeader = request.headers.get('origin');
             const allowedOrigin = env.READER_ORIGIN?.trim();
             if (originHeader !== null && (!allowedOrigin || originHeader !== allowedOrigin)) {
@@ -64,8 +70,9 @@ export default {
                     headers: { 'www-authenticate': 'Bearer', 'cache-control': 'no-store' }
                 });
             }
-            if (request.method !== 'POST') {
-                return new Response(null, { status: 405, headers: { allow: 'POST', 'cache-control': 'no-store' } });
+            const expectedMethod = url.pathname.startsWith('/servers/') ? 'DELETE' : 'POST';
+            if (request.method !== expectedMethod) {
+                return new Response(null, { status: 405, headers: { allow: expectedMethod, 'cache-control': 'no-store' } });
             }
             const stub = env.HUB.get(env.HUB.idFromName('default'));
             return stub.fetch(request);

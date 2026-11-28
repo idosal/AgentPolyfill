@@ -2,7 +2,7 @@
 // poll/renewal alarms, event storage, and Grok routine wake delivery with backoff retry.
 
 import { DurableObject } from 'cloudflare:workers';
-import { newWebhookSecret, randomHex, verifyWebhook } from './crypto.ts';
+import { newWebhookSecret, randomBase64Url, randomHex, sha256Base64Url, verifyWebhook } from './crypto.ts';
 import {
     isAuthenticatedServer,
     preStandardPolicy,
@@ -83,6 +83,32 @@ type AttemptState = {
 type DeliveryStatus = {
     lastWakeAt: string | null;
     lastError: string | null;
+};
+
+type ServerRow = {
+    name: string;
+    url: string;
+    bearer: string | null;
+    headers_json: string | null;
+    refresh_token: string | null;
+    token_endpoint: string | null;
+    client_id: string | null;
+    expires_at_ms: number | null;
+    updated_at: string;
+};
+
+type OAuthPendingRow = {
+    state: string;
+    name: string;
+    url: string;
+    requested_scope: string | null;
+    token_endpoint: string;
+    revocation_endpoint: string | null;
+    issuer: string | null;
+    client_id: string;
+    code_verifier: string;
+    redirect_uri: string;
+    expires_at_ms: number;
 };
 
 const DEFAULT_DEMO_URL = 'https://event-feeds.idosalomon.workers.dev/mcp';
@@ -254,6 +280,30 @@ export class GrokEventsHub extends DurableObject<HubEnv> {
                 delivery_id TEXT NOT NULL,
                 signed_at INTEGER NOT NULL,
                 PRIMARY KEY (hook_id, delivery_id)
+            );
+            CREATE TABLE IF NOT EXISTS servers (
+                name TEXT PRIMARY KEY,
+                url TEXT NOT NULL,
+                bearer TEXT,
+                headers_json TEXT,
+                refresh_token TEXT,
+                token_endpoint TEXT,
+                client_id TEXT,
+                expires_at_ms INTEGER,
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS oauth_pending (
+                state TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                url TEXT NOT NULL,
+                requested_scope TEXT,
+                token_endpoint TEXT NOT NULL,
+                revocation_endpoint TEXT,
+                issuer TEXT,
+                client_id TEXT NOT NULL,
+                code_verifier TEXT NOT NULL,
+                redirect_uri TEXT NOT NULL,
+                expires_at_ms INTEGER NOT NULL
             );
         `);
         if (!this.#getMeta('inbox')) this.#setMeta('inbox', randomHex(16));
@@ -688,9 +738,27 @@ export class GrokEventsHub extends DurableObject<HubEnv> {
         this.#setMeta('last_prune_ms', String(now));
     }
 
+    #allServers(): Map<string, UpstreamServerConfig> {
+        const out = parseServers(this.env);
+        const rows = this.#sql.exec<ServerRow>('SELECT * FROM servers').toArray();
+        for (const r of rows) {
+            const cfg: UpstreamServerConfig = { url: r.url };
+            if (r.bearer) cfg.bearer = r.bearer;
+            if (r.headers_json) {
+                try {
+                    cfg.headers = JSON.parse(r.headers_json) as Record<string, string>;
+                } catch {
+                    // ignore malformed headers
+                }
+            }
+            out.set(r.name, cfg);
+        }
+        return out;
+    }
+
     override async alarm(): Promise<void> {
         if (this.env.MCP_EVENTS_OFF === '1') return;
-        const servers = parseServers(this.env);
+        const servers = this.#allServers();
         await this.#pollDueWatches(servers);
         await this.#renewDueWebhooks(servers);
         await this.#flushWake();
@@ -790,7 +858,7 @@ export class GrokEventsHub extends DurableObject<HubEnv> {
     }
 
     async #callTool(name: string, args: Record<string, unknown>, publicOrigin: string): Promise<ToolResult> {
-        const servers = parseServers(this.env);
+        const servers = this.#allServers();
         const allowPre = preStandardPolicy(this.env.MCP_EVENTS_PRE_STANDARD);
         const ok = (text: string): ToolResult => ({ text: scrubSecrets(text, this.env, servers) });
         const fail = (text: string): ToolResult => ({ isError: true, text: scrubSecrets(text, this.env, servers) });
@@ -1067,6 +1135,226 @@ export class GrokEventsHub extends DurableObject<HubEnv> {
         }
     }
 
+    // ---- Generic MCP OAuth 2.1 + PKCE sign-in for upstream servers -----------------
+
+    #html(status: number, title: string, message: string): Response {
+        const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const body = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>body{font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:60px auto;padding:0 20px;line-height:1.5;color:#111}h1{font-size:1.25rem}code{background:#f3f4f6;padding:2px 6px;border-radius:4px}</style></head><body><h1>${esc(title)}</h1><p>${esc(message)}</p></body></html>`;
+        return new Response(body, { status, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
+    }
+
+    async #handleOAuthStart(request: Request, publicOrigin: string): Promise<Response> {
+        let body: { name?: unknown; url?: unknown; scope?: unknown };
+        try {
+            body = (await request.json()) as { name?: unknown; url?: unknown; scope?: unknown };
+        } catch {
+            return Response.json({ error: 'Invalid JSON body.' }, { status: 400 });
+        }
+        const name = typeof body.name === 'string' ? body.name.trim() : '';
+        const rawUrl = typeof body.url === 'string' ? body.url.trim() : '';
+        const scope = typeof body.scope === 'string' && body.scope.trim() ? body.scope.trim() : null;
+        if (!/^[A-Za-z0-9_-]{1,64}$/.test(name)) {
+            return Response.json({ error: 'Invalid server name.' }, { status: 400 });
+        }
+        let target: URL;
+        try {
+            target = new URL(rawUrl);
+        } catch {
+            return Response.json({ error: 'Invalid server URL.' }, { status: 400 });
+        }
+        const devLoopback = this.env.MCP_EVENTS_DEV === '1' && target.protocol === 'http:' && (target.hostname === '127.0.0.1' || target.hostname === 'localhost');
+        if (target.protocol !== 'https:' && !devLoopback) {
+            return Response.json({ error: 'Server URL must use https://.' }, { status: 400 });
+        }
+
+        // Discover OAuth metadata (RFC 9728 protected resource -> RFC 8414 authorization server).
+        let authServerOrigin = target.origin;
+        try {
+            const pr = await fetch(`${target.origin}/.well-known/oauth-protected-resource`, { signal: AbortSignal.timeout(10_000) });
+            if (pr.ok) {
+                const prJson = (await pr.json()) as { authorization_servers?: unknown };
+                if (Array.isArray(prJson.authorization_servers) && typeof prJson.authorization_servers[0] === 'string') {
+                    authServerOrigin = prJson.authorization_servers[0].replace(/\/$/, '');
+                }
+            }
+        } catch {
+            // fall back to target.origin
+        }
+
+        const metaRes = await fetch(`${authServerOrigin}/.well-known/oauth-authorization-server`, { signal: AbortSignal.timeout(10_000) });
+        if (!metaRes.ok) {
+            return Response.json({ error: `Could not read OAuth metadata from ${authServerOrigin} (HTTP ${metaRes.status}).` }, { status: 502 });
+        }
+        const meta = (await metaRes.json()) as {
+            issuer?: string;
+            authorization_endpoint?: string;
+            token_endpoint?: string;
+            registration_endpoint?: string;
+            revocation_endpoint?: string;
+        };
+        if (!meta.authorization_endpoint || !meta.token_endpoint || !meta.registration_endpoint) {
+            return Response.json({ error: 'Upstream OAuth server does not advertise dynamic client registration.' }, { status: 400 });
+        }
+
+        const redirectUri = `${publicOrigin}/oauth/callback`;
+        const regRes = await fetch(meta.registration_endpoint, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+                client_name: 'MCP Events for Grok Bot',
+                redirect_uris: [redirectUri],
+                grant_types: ['authorization_code'],
+                response_types: ['code'],
+                token_endpoint_auth_method: 'none'
+            }),
+            signal: AbortSignal.timeout(10_000)
+        });
+        if (!regRes.ok) {
+            return Response.json({ error: `Dynamic OAuth client registration failed (HTTP ${regRes.status}).` }, { status: 502 });
+        }
+        const reg = (await regRes.json()) as { client_id?: string };
+        if (!reg.client_id) {
+            return Response.json({ error: 'OAuth registration returned no client_id.' }, { status: 502 });
+        }
+
+        const state = randomBase64Url(24);
+        const codeVerifier = randomBase64Url(32);
+        const codeChallenge = await sha256Base64Url(codeVerifier);
+        const expiresAtMs = Date.now() + 10 * 60_000;
+
+        this.#sql.exec('DELETE FROM oauth_pending WHERE expires_at_ms < ?', Date.now());
+        this.#sql.exec(
+            `INSERT INTO oauth_pending (state, name, url, requested_scope, token_endpoint, revocation_endpoint, issuer, client_id, code_verifier, redirect_uri, expires_at_ms)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            state,
+            name,
+            target.href,
+            scope,
+            meta.token_endpoint,
+            meta.revocation_endpoint ?? null,
+            meta.issuer ?? null,
+            reg.client_id,
+            codeVerifier,
+            redirectUri,
+            expiresAtMs
+        );
+
+        const authorize = new URL(meta.authorization_endpoint);
+        authorize.searchParams.set('response_type', 'code');
+        authorize.searchParams.set('client_id', reg.client_id);
+        authorize.searchParams.set('redirect_uri', redirectUri);
+        authorize.searchParams.set('code_challenge', codeChallenge);
+        authorize.searchParams.set('code_challenge_method', 'S256');
+        authorize.searchParams.set('state', state);
+        authorize.searchParams.set('resource', target.href);
+        if (scope) authorize.searchParams.set('scope', scope);
+
+        return Response.json({
+            name,
+            url: target.href,
+            scope,
+            authorizeUrl: authorize.href,
+            expiresAt: new Date(expiresAtMs).toISOString()
+        });
+    }
+
+    async #handleOAuthCallback(request: Request): Promise<Response> {
+        const url = new URL(request.url);
+        const errParam = url.searchParams.get('error');
+        const state = url.searchParams.get('state')?.trim() ?? '';
+        const code = url.searchParams.get('code')?.trim() ?? '';
+        const iss = url.searchParams.get('iss')?.trim() ?? null;
+
+        if (!state) return this.#html(400, 'Sign-in failed', 'Missing OAuth state parameter.');
+        const pending = this.#sql.exec<OAuthPendingRow>('SELECT * FROM oauth_pending WHERE state = ?', state).toArray()[0];
+        this.#sql.exec('DELETE FROM oauth_pending WHERE state = ?', state);
+
+        if (!pending || pending.expires_at_ms < Date.now()) {
+            return this.#html(400, 'Sign-in expired', 'This sign-in link has expired or was already used. Generate a fresh link and try again.');
+        }
+        if (errParam) {
+            return this.#html(400, 'Sign-in cancelled', `The server returned OAuth error: ${errParam}.`);
+        }
+        if (!code) {
+            return this.#html(400, 'Sign-in failed', 'Missing authorization code.');
+        }
+        if (iss && pending.issuer && iss !== pending.issuer) {
+            return this.#html(400, 'Sign-in rejected', 'Authorization server issuer mismatch.');
+        }
+
+        const form = new URLSearchParams({
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: pending.redirect_uri,
+            client_id: pending.client_id,
+            code_verifier: pending.code_verifier,
+            resource: pending.url
+        });
+        const tokRes = await fetch(pending.token_endpoint, {
+            method: 'POST',
+            headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
+            body: form.toString(),
+            signal: AbortSignal.timeout(15_000)
+        });
+        if (!tokRes.ok) {
+            return this.#html(502, 'Token exchange failed', `Upstream token endpoint returned HTTP ${tokRes.status}.`);
+        }
+        const tok = (await tokRes.json()) as {
+            access_token?: string;
+            refresh_token?: string;
+            expires_in?: number;
+            scope?: string;
+        };
+        if (!tok.access_token) {
+            return this.#html(502, 'Token exchange failed', 'Upstream returned no access_token.');
+        }
+
+        // Enforce least-privilege scope: if a specific scope was requested (e.g. orchestration:read), refuse broader grants and revoke them!
+        if (pending.requested_scope && typeof tok.scope === 'string' && tok.scope.trim()) {
+            const allowed = new Set(pending.requested_scope.split(/\s+/).filter(Boolean));
+            const granted = tok.scope.split(/\s+/).filter(Boolean);
+            const extra = granted.filter((g) => !allowed.has(g));
+            if (extra.length) {
+                if (pending.revocation_endpoint) {
+                    const rev = new URLSearchParams({ token: tok.access_token, client_id: pending.client_id });
+                    await fetch(pending.revocation_endpoint, {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+                        body: rev.toString(),
+                        signal: AbortSignal.timeout(10_000)
+                    }).catch(() => {});
+                }
+                return this.#html(
+                    403,
+                    'Grant too broad — revoked',
+                    `Requested "${pending.requested_scope}", but the server granted "${tok.scope}". The token was automatically revoked and not saved. Retry and choose Read only.`
+                );
+            }
+        }
+
+        const expiresAtMs = typeof tok.expires_in === 'number' && Number.isFinite(tok.expires_in)
+            ? Date.now() + tok.expires_in * 1000
+            : null;
+        this.#sql.exec(
+            `INSERT OR REPLACE INTO servers (name, url, bearer, refresh_token, token_endpoint, client_id, expires_at_ms, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            pending.name,
+            pending.url,
+            tok.access_token,
+            tok.refresh_token ?? null,
+            pending.token_endpoint,
+            pending.client_id,
+            expiresAtMs,
+            new Date().toISOString()
+        );
+
+        return this.#html(
+            200,
+            `Connected "${pending.name}"`,
+            `Your Grok Bot MCP Events Worker can now watch events from "${pending.name}"${tok.scope ? ` (scope: ${tok.scope})` : ''}. You can close this tab and ask Foxbot to call list_event_types.`
+        );
+    }
+
     override async fetch(request: Request): Promise<Response> {
         const url = new URL(request.url);
         const publicOrigin = this.env.PUBLIC_ORIGIN?.trim() || url.origin;
@@ -1080,6 +1368,20 @@ export class GrokEventsHub extends DurableObject<HubEnv> {
                 off: this.env.MCP_EVENTS_OFF === '1',
                 callTool: (name, args) => this.#callTool(name, args, publicOrigin)
             });
+        }
+
+        if (url.pathname === '/oauth/start') {
+            return this.#handleOAuthStart(request, publicOrigin);
+        }
+
+        if (url.pathname === '/oauth/callback') {
+            return this.#handleOAuthCallback(request);
+        }
+
+        if (url.pathname.startsWith('/servers/') && request.method === 'DELETE') {
+            const name = decodeURIComponent(url.pathname.slice('/servers/'.length));
+            this.#sql.exec('DELETE FROM servers WHERE name = ?', name);
+            return Response.json({ ok: true, removed: name });
         }
 
         if (url.pathname.startsWith('/hooks/')) {

@@ -23,6 +23,21 @@ export function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
     return out;
 }
 
+export function bytesToBase64Url(bytes: Uint8Array): string {
+    return bytesToBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+export async function sha256Base64Url(text: string): Promise<string> {
+    const digest = await crypto.subtle.digest('SHA-256', enc.encode(text));
+    return bytesToBase64Url(new Uint8Array(digest));
+}
+
+export function randomBase64Url(bytes: number): string {
+    const buf = new Uint8Array(bytes);
+    crypto.getRandomValues(buf);
+    return bytesToBase64Url(buf);
+}
+
 /** `whsec_` + base64 of 32 random bytes (SEP-3415 / Standard Webhooks). */
 export function newWebhookSecret(): string {
     const buf = new Uint8Array(32);

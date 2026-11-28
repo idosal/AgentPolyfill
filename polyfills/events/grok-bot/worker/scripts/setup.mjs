@@ -5,6 +5,7 @@
 //   npm run setup -- --rotate                    Rotate READER_KEY (old connector key stops working)
 //   npm run setup -- routine                     Set GROK_ROUTINE_URL and GROK_ROUTINE_KEY via hidden prompts
 //   npm run setup -- add-server <name> <url>     Add/update an upstream MCP server (optional hidden bearer token)
+//   npm run setup -- login <name> <url> [scope]  Connect an OAuth MCP server (e.g. T3 Code) via browser sign-in
 //   npm run setup -- remove-server <name>        Remove an upstream MCP server
 //   npm run setup -- list-servers                List configured upstream server names & URLs (never prints tokens)
 //
@@ -149,15 +150,47 @@ if (cmd === 'add-server') {
     process.exit(0);
 }
 
+if (cmd === 'login') {
+    const [name, url, scope] = rest;
+    if (!name || !url || !/^[A-Za-z0-9_-]{1,64}$/.test(name)) {
+        fail('Usage: npm run setup -- login <name> <https-mcp-url> [scope]');
+    }
+    const local = loadLocal();
+    if (!local.url || !local.readerKey) fail('Run `npm run setup` first to deploy the Worker.');
+    const res = await fetch(`${local.url}/oauth/start`, {
+        method: 'POST',
+        headers: { authorization: 'Bearer ' + local.readerKey, 'content-type': 'application/json' },
+        body: JSON.stringify({ name, url, ...(scope ? { scope } : {}) })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.authorizeUrl) {
+        fail(`Could not start OAuth sign-in (${res.status}): ${body.error || 'unknown error'}`);
+    }
+    console.log(`Open this URL in any browser to connect "${name}":\n\n  ${body.authorizeUrl}\n`);
+    console.log('Approve access there; the Worker will store the token directly (no copy-paste needed).');
+    process.exit(0);
+}
+
 if (cmd === 'remove-server') {
     const [name] = rest;
     if (!name) fail('Usage: npm run setup -- remove-server <name>');
     const local = loadLocal();
-    if (!local.servers?.[name]) fail(`Server "${name}" is not in ${stateFile}.`);
-    delete local.servers[name];
-    putSecret('UPSTREAM_SERVERS', JSON.stringify(local.servers));
-    saveLocal(local);
-    console.log(`✓ removed server "${name}" from UPSTREAM_SERVERS`);
+    let removed = false;
+    if (local.servers?.[name]) {
+        delete local.servers[name];
+        putSecret('UPSTREAM_SERVERS', JSON.stringify(local.servers));
+        saveLocal(local);
+        removed = true;
+    }
+    if (local.url && local.readerKey) {
+        const res = await fetch(`${local.url}/servers/${encodeURIComponent(name)}`, {
+            method: 'DELETE',
+            headers: { authorization: 'Bearer ' + local.readerKey }
+        }).catch(() => null);
+        if (res?.ok) removed = true;
+    }
+    if (!removed) fail(`Server "${name}" was not found.`);
+    console.log(`✓ removed server "${name}"`);
     process.exit(0);
 }
 

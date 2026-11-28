@@ -62,11 +62,21 @@ Ido's public `demo` server (`https://event-feeds.idosalomon.workers.dev/mcp`) is
 
 ## Add T3 Code or any other MCP Events server
 
+**Option 1 — OAuth sign-in (recommended for T3 Code and any OAuth 2.1 MCP server):**
+
 ```sh
-npm run setup -- add-server t3-current https://YOUR-T3-RELAY.t3coderelay.com/mcp
+npm run setup -- login t3-current https://YOUR-T3-RELAY.t3coderelay.com/mcp orchestration:read
 ```
 
-It prompts (hidden) for the server's bearer token and saves it into the encrypted `UPSTREAM_SERVERS` Wrangler secret. Then tell Foxbot in chat:
+Open the printed URL in any browser (works from any laptop or phone), select **Read only → Approve**, and the Worker stores the token directly (and automatically revokes & rejects any broader grant).
+
+**Option 2 — Static bearer token or public server:**
+
+```sh
+npm run setup -- add-server my-server https://your-mcp-server.example.com/mcp
+```
+
+Then tell Foxbot in chat:
 
 > Watch `thread.run_settled` on `t3-current` for thread `<THREAD_ID>` with note `"Read the thread using my T3 connector and report the outcome; keep follow-ups manual."`
 
