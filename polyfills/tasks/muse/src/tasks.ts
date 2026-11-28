@@ -1,10 +1,21 @@
+import { securePublisher } from '../../../../tools/muse-grok/config.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import { TasksConnection } from '../../core/src/connection.ts';
 import { TERMINAL, TOOL_NAME, type TaskState } from '../../core/src/protocol.ts';
 import type { Tool } from '../../../server-cards/codex/src/mcp.ts';
-import { launch, schema, settings, sourceUrl, stringField, text } from '../../../../tools/muse-grok/runtime.ts';
+import { launch, schema, settings, type Settings, sourceUrl, stringField, text } from '../../../../tools/muse-grok/runtime.ts';
 
-const cfg = settings({ sources: {}, tools: {} });
+// Grok's Command form supplies argv directly. Restrict this shortcut to one public
+// publisher and one explicitly enabled operation. Existing config-file installs keep their policy.
+function commandSettings(args: string[]) {
+    if (!args.includes('--publisher') && !args.includes('--allow-tool')) return settings({ sources: {}, tools: {} });
+    if (args.length !== 4 || args[0] !== '--publisher' || args[2] !== '--allow-tool' || !args[1] || !args[3] ||
+        !securePublisher(args[1]) || new URL(args[1]).protocol !== 'https:' || !TOOL_NAME.test(args[3])) {
+        throw Error('Use --publisher HTTPS_URL --allow-tool TOOL as the only four arguments, with a credential-free URL.');
+    }
+    return { sources: { publisher: args[1] }, tools: { publisher: [args[3]] } };
+}
+const cfg: Settings = commandSettings(process.argv.slice(2));
 for (const [source, names] of Object.entries(cfg.tools ?? {})) {
     sourceUrl(cfg, source);
     if (!Array.isArray(names) || !names.every(n => typeof n === 'string' && TOOL_NAME.test(n))) throw Error('Configure a list of allowed tool names for each source');

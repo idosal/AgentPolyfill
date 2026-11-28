@@ -3,15 +3,16 @@ import { join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { isDeepStrictEqual } from 'node:util';
 import { EventsConnection, fingerprintOf } from '../../core/src/events-client.ts';
-import { ProjectState } from '../../core/src/store.ts';
+import { alive, projectKey, ProjectState } from '../../core/src/store.ts';
 import { WatchManager } from '../../core/src/watcher.ts';
 import { configureHost } from '../../core/src/host.ts';
 import { describeError, secrets } from '../../core/src/untrusted.ts';
 import { securePublisher } from '../../../../tools/muse-grok/config.ts';
 import { privateFile } from './private-file.ts';
-import { RoutineInbox, readBatch } from './inbox.mjs';
+import { RoutineInbox, readBatch, inboxStatus } from './inbox.mjs';
 export { readBatch };
 import { destination, notification } from './routine.mjs';
+import { loginJob } from './login.mjs';
 import example from '../config.example.json' with { type: 'json' };
 
 const SESSION = 'agent';
@@ -30,8 +31,8 @@ const limit = (value, fallback, max) => {
     return value;
 };
 
-function privateProfile(dir) {
-    mkdirSync(dir, { recursive: true, mode: 0o700 });
+function privateProfile(dir, create = true) {
+    if (create) mkdirSync(dir, { recursive: true, mode: 0o700 });
     const mode = lstatSync(dir);
     if (!mode.isDirectory() || mode.mode & 0o077 || (process.getuid && mode.uid !== process.getuid()))
         throw Error('Use a private profile directory owned by the watcher account (chmod 700).');
@@ -318,8 +319,47 @@ export async function startBridge({
     }
 }
 
+function recordedOwner(dir) {
+    try {
+        const { pid } = json(join(dir, 'projects', projectKey(dir), 'owner.json'));
+        if (!Number.isSafeInteger(pid) || pid <= 0) throw Error('Invalid recorded owner.');
+        return { pid, processAlive: alive(pid) };
+    } catch (error) {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+    }
+}
+
 export async function runCli([command, ...args]) {
     const dir = resolve(process.env.GROK_EVENTS_HOME || join(homedir(), '.grok-events'));
+    if (command === 'status' && !args.length) {
+        if (!lstatSync(dir, { throwIfNoEntry: false })) {
+            console.log(JSON.stringify({ profile: dir, initialized: false }));
+            return;
+        }
+        privateProfile(dir, false);
+        const config = json(join(dir, 'config.json'));
+        const watches = watchPlan(config, servers(config)).map(({ server, event, note }) => ({ server, event, name: note }));
+        const owner = recordedOwner(dir);
+        const inbox = inboxStatus(dir);
+        console.log(JSON.stringify({ profile: dir, initialized: true, watches, owner, ...inbox,
+            startAtLogin: process.platform === 'darwin' ? loginJob(dir).installed() : 'unsupported',
+            ...(inbox.heldBatch && { recovery: 'After the watcher stops, check this batch in the Bot history. If accepted, use follow --accepted BATCH. Use follow --retry only if a duplicate is acceptable.' })
+        }, null, 2));
+        return;
+    }
+    if (command === 'login' && args.length === 1 && ['enable', 'disable'].includes(args[0])) {
+        if (args[0] === 'enable') {
+            privateProfile(dir, false);
+            const config = json(join(dir, 'config.json'));
+            watchPlan(config, servers(config));
+            destination({ GROK_ROUTINE_FILE: join(dir, 'routine.json') });
+            const job = loginJob(dir);
+            if (recordedOwner(dir)?.processAlive && job.installed() !== 'installed') throw Error('Stop the foreground watcher before enabling start at login.');
+        }
+        loginJob(dir).change(args[0] === 'enable');
+        return;
+    }
     privateProfile(dir);
     if (command === 'init' && !args.length) {
         initialize(dir);
@@ -374,5 +414,5 @@ export async function runCli([command, ...args]) {
             process.off('SIGTERM', signal);
             await stop?.();
         }
-    } else throw Error('Usage: watch.mjs init | list [SERVER] | once | follow [--retry | --accepted BATCH] | read BATCH');
+    } else throw Error('Usage: watch.mjs init | status | login enable|disable | list [SERVER] | once | follow [--retry | --accepted BATCH] | read BATCH');
 }

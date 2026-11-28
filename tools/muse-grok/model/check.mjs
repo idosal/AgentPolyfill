@@ -41,6 +41,22 @@ try {
                 (count ? ' (' + count[1] + ' distinct states)' : ''));
         }
     }
+    // Replay the same ordered actions asserted by the packaged watcher test. TLC must reach
+    // the final observation as well as satisfy the ordinary safety invariants on the way.
+    const trace = JSON.parse(readFileSync(new URL('lost-ack.json', import.meta.url)));
+    const next = trace.map((action, i) => {
+        if (!['Append', 'Reserve', 'Post', 'Crash', 'Restart', 'Accept', 'Read'].includes(action)) throw Error('Unknown trace action');
+        return `    \\/ /\\ step = ${i} /\\ ${action} /\\ step' = step + 1`;
+    }).join('\n');
+    const replay = ['---- MODULE LostAckReplay ----', 'EXTENDS RoutineDelivery', 'VARIABLE step',
+        'Start == Init /\\ step = 0', 'Advance ==', next,
+        `Unreached == ~(step = ${trace.length} /\\ through = 2 /\\ {1} \\in exposed)`, '===='].join('\n');
+    writeFileSync(join(cwd, 'LostAckReplay.tla'), replay);
+    writeFileSync(join(cwd, 'LostAckReplay.cfg'), 'INIT Start\nNEXT Advance\nCONSTANT Fault = "none"\nINVARIANT NoAutomaticReplay ExactRetryBody OnlyAcceptedReads UnsentRetained Unreached\nCHECK_DEADLOCK FALSE\n');
+    const reached = spawnSync(process.env.JAVA || 'java', ['-Xmx256m', '-cp', resolve(jar), 'tlc2.TLC', '-workers', '1', '-config', 'LostAckReplay.cfg', 'LostAckReplay'], { cwd, encoding: 'utf8', timeout: 60000 });
+    if (reached.status !== 12 || !reached.stdout.includes('Invariant Unreached is violated.')) throw Error('Lost-ack observation was unreachable: ' + reached.stdout.slice(-2500));
+    console.log('Lost-ack replay reached the operator-confirmed first batch and accepted second batch.');
+
 } finally {
     rmSync(cwd, { recursive: true, force: true });
 }

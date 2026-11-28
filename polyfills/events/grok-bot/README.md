@@ -58,3 +58,19 @@ The legacy `SOURCE EVENT --arm-once` command still sends its empty trigger and u
 Automated tests use independent MCP publishers, the packaged CLI and simulated routine responses. They cover push, polling, signed incoming webhooks, repeated alerts, core recovery and issued-batch reads. On November 28, 2026, a local MCP publisher sent two synthetic tickets to the packaged watcher in recurring mode. The signed-in `agentpolyfill` Bot posted two separate replies in its ordinary chat. Each named the configured `tickets` source, the `triage` watch and the matching ticket ID, first `AP-924A2B` and then `AP-66B1AB`. The routine read its webhook body. Its shared computer needed no installation.
 
 From the adapter directory run `npm ci --prefix ../core`, `npm ci`, `npm run build`, then `npm test`. The bundled CLI at `plugin/dist/bridge.mjs` supports the same commands. Existing `run` invocations select recurring delivery.
+
+### Start at login and inspect delivery
+
+Keep the extracted kit and Node at stable paths. Configure the routine file and publisher, then stop any foreground watcher. On a signed-in Mac, run the following from the kit folder.
+
+```sh
+node polyfills/events/grok-bot/dist/watch.mjs login enable
+node polyfills/events/grok-bot/dist/watch.mjs status
+node polyfills/events/grok-bot/dist/watch.mjs login disable
+```
+
+Enable installs a private per-profile LaunchAgent and starts it immediately. It starts once per login. To restart a stopped job between logins, disable and enable it again. Paths to stdio publishers must be absolute. Store routine credentials in the private profile. Variables set only in an interactive shell are unavailable to launchd.
+
+Status opens the inbox read-only. It shows the configured watches, recorded owner PID and whether that PID exists, unsent count, reserved batch and last accepted receipt. A reserved batch can be in flight while the owner is running. A process may have exited since the snapshot. Older inboxes show the numeric accepted-through position until the next acceptance records a timestamp.
+
+If the watcher stops halfway through a send, start it again and use status. It holds the uncertain batch and queues subsequent tickets. Compare the exact batch with the Bot history. If it arrived, disable the login job or stop the foreground watcher, then run `follow --accepted BATCH`. If delivery remains uncertain, retrying can produce a duplicate. The explicit `follow --retry` command resends the saved bytes. Stop the recovery watcher before enabling start at login again.

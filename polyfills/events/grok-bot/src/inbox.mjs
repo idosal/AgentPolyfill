@@ -198,7 +198,7 @@ export class RoutineInbox {
     accept(ref, now = Date.now()) {
         const a = this.state.attempt;
         if (!a || ref !== this.reference(this.state, a.first, a.last)) throw Error('Batch does not match the held delivery.');
-        const next = { ...this.state, through: a.last, wakes: [...this.state.wakes.filter((t) => t > now - 3600000), now], attempt: null };
+        const next = { ...this.state, through: a.last, lastAccepted: { batch: ref, at: new Date(now).toISOString() }, wakes: [...this.state.wakes.filter((t) => t > now - 3600000), now], attempt: null };
         transaction(this.db, () => {
             this.db.prepare('UPDATE batches SET expires=?, payload=NULL WHERE ref=?').run(now + this.retentionMs, ref);
             this.put('delivery', next);
@@ -208,6 +208,27 @@ export class RoutineInbox {
     close() {
         this.db.close();
     }
+}
+
+export function inboxStatus(dir) {
+    const empty = { pending: 0, heldBatch: null, heldEvents: 0, lastAccepted: null, acceptedThrough: 0 };
+    if (!existsSync(database(dir))) return { ...empty, legacy: existsSync(join(dir, 'delivery.json')) };
+    const db = new DatabaseSync(database(dir), { readOnly: true });
+    try {
+        db.exec('BEGIN');
+        const row = db.prepare("SELECT value FROM metadata WHERE key='delivery'").get();
+        if (!row) return empty;
+        const s = JSON.parse(row.value);
+        const a = s.attempt;
+        const count = (lower, upper) => db.prepare('SELECT count(*) AS n FROM events WHERE n > ? AND n <= ?').get(lower, upper).n;
+        return {
+            pending: count(a?.last ?? s.through, Number.MAX_SAFE_INTEGER),
+            heldBatch: a ? s.inbox + '.e' + a.first + '-e' + a.last : null,
+            heldEvents: a ? count(a.first - 1, a.last) : 0,
+            lastAccepted: s.lastAccepted ?? null,
+            acceptedThrough: s.through
+        };
+    } finally { db.close(); }
 }
 
 export function readBatch(dir, ref) {

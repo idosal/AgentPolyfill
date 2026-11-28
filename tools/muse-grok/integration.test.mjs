@@ -67,11 +67,11 @@ async function publisher(script, env) {
     jobs.push(() => { server.closeAllConnections(); return new Promise(ok => server.close(ok)); });
     return 'http://127.0.0.1:' + server.address().port + '/mcp';
 }
-async function plugin(feature, config, http = false, environment = {}) {
+async function plugin(feature, config, http = false, environment = {}, commandArgs) {
     const dir = scratch(), path = join(dir, 'config.json');
     writeFileSync(path, JSON.stringify(config));
     const secret = randomBytes(32).toString('hex');
-    const proc = child(['polyfills/' + feature + '/muse/plugin/dist/server.mjs','--config',path,...(http ? ['--http'] : [])], { AGENTPOLYFILL_TOKEN: secret, PORT:'0', ...environment });
+    const proc = child(['polyfills/' + feature + '/muse/plugin/dist/server.mjs',...(commandArgs ?? ['--config',path]),...(http ? ['--http'] : [])], { AGENTPOLYFILL_TOKEN: secret, PORT:'0', ...environment });
     let rpc;
     if (http) {
         const [line] = await once(proc.stderr, 'data');
@@ -234,6 +234,23 @@ test('Muse lists publisher metadata and reads only supporting files of the opene
     await assert.rejects(other('read_skill_file',args));
     assert.equal(reads(),1);
     assert.equal((await call('read_skill_file',args)).text,'Keep all GPU listeners in one queue.');
+    const hook = join(root, 'polyfills/skills/muse/plugin/dist/user-prompt-submit.mjs');
+    const withHook = (prompt, enabled) => {
+        writeFileSync(join(dir,'muse/settings.json'), JSON.stringify({runtime_capabilities:{'plugin:mcp-skill-reference:mcp_server:skills':{enabled}}}));
+        return spawnSync(process.execPath,[hook],{env:{...process.env,...env},input:JSON.stringify({prompt}),encoding:'utf8'}).stdout;
+    };
+    assert.match(withHook('How should I set up the queue?',true),/consult_queue_guide_/);
+    assert.equal(withHook('Tell me the time',true),'');
+    assert.equal(withHook('How should I set up the queue?',false),'');
+    const named = call.tools.find(tool => tool.name.startsWith('consult_queue_guide_'));
+    assert.deepEqual(named.inputSchema.properties.reference.enum, [path]);
+    const before = reads();
+    await assert.rejects(call(named.name, { reference: '../other.md' }));
+    assert.equal(reads(), before);
+    const combined = await call(named.name, { reference: path });
+    assert.equal(combined.uri, guide.uri);
+    assert.deepEqual(combined.reference, { uri: guide.root + '/' + path, text: 'Keep all GPU listeners in one queue.' });
+    assert.equal(reads(), before + 2);
     scenario.files[guide.root+'/'+path].text = 'Unverified bytes';
     writeFileSync(src,JSON.stringify(scenario));
     await assert.rejects(call('read_skill_file',args));
@@ -328,6 +345,38 @@ test('the packaged Tasks adapters finish a job on FastMCP over both transports',
         }
         assert.equal(state.status, 'completed');
         assert.match(JSON.stringify(state.result), /37 \+ 48 = 85/);
+    }
+});
+
+test('Command uses one allowlisted job and keeps its handle', {skip: !fastMcpUrl, timeout: 25000}, async () => {
+    const endpoint = 'https://public.example/mcp', shim = join(scratch(), 'fixture.mjs');
+    writeFileSync(shim, `const send = globalThis.fetch; globalThis.fetch = (url, opts) => {
+        if (String(url) !== ${JSON.stringify(endpoint)}) throw Error('Unexpected destination');
+        return send(${JSON.stringify(fastMcpUrl)}, opts);
+    };`);
+    const args = ['--publisher', endpoint, '--allow-tool', 'slow_add'];
+    const call = await plugin('tasks', {}, false, { NODE_OPTIONS: '--import=' + shim }, args);
+    const jobs = call.tools.filter(t => t.name.startsWith('job_'));
+    assert.equal(jobs.length, 1);
+    await assert.rejects(call('run_task', {source:'publisher', tool:'greet', arguments:{}}));
+    let state = await call(jobs[0].name, {a:37,b:48,seconds:0.5});
+    assert.ok(state.handle);
+    while (state.status === 'working') {
+        await delay(Math.max(250, state.retryAfterMs));
+        state = await call('check_task', {handle: state.handle});
+    }
+    assert.match(JSON.stringify(state.result), /37 \+ 48 = 85/);
+});
+test('Command rejects credential URLs and mixed transport arguments', () => {
+    for (const args of [
+        ['--publisher','http://example.org','--allow-tool','add'],
+        ['--publisher','https://user@public.example/mcp','--allow-tool','add'],
+        ['--publisher','https://public.example/mcp?key=test','--allow-tool','add'],
+        ['--publisher','https://public.example/mcp','--allow-tool','add','--http'],
+        ['--publisher','https://public.example/mcp','--config','fixture']
+    ]) {
+        const run = spawnSync(process.execPath, ['polyfills/tasks/muse/plugin/dist/server.mjs',...args], { cwd:root, encoding:'utf8' });
+        assert.equal(run.status,1); assert.match(run.stderr,/credential-free URL/);
     }
 });
 

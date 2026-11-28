@@ -24,7 +24,7 @@ def kit_files():
         DISCOVERY / "package.json", *(DISCOVERY / path for path in GROK_FILES),
     ]
     model = Path("tools/muse-grok/model")
-    paths.extend(model / name for name in ("README.md", "check.mjs", "RoutineDelivery.tla", "SkillApproval.tla",
+    paths.extend(model / name for name in ("README.md", "check.mjs", "lost-ack.json", "RoutineDelivery.tla", "SkillApproval.tla",
                                          "WatchConfirmation.tla", "TaskHandles.tla", "DiscoveryHandoff.tla"))
     for feature in ("server-cards", "ard", "skills", "events", "tasks"):
         shared = feature in ("server-cards", "ard")

@@ -18,6 +18,9 @@ test('init creates private templates and preserves a configured profile', (t) =>
     t.after(() => rmSync(base, { recursive: true, force: true }));
     const dir = join(base, 'profile');
     const init = () => spawnSync(process.execPath, [cli, 'init'], { env: { ...process.env, GROK_EVENTS_HOME: dir }, encoding: 'utf8' });
+    const absent = spawnSync(process.execPath, [cli, 'status'], {env:{...process.env, GROK_EVENTS_HOME:dir}, encoding:'utf8'});
+    assert.equal(JSON.parse(absent.stdout).initialized, false);
+    assert.equal(existsSync(dir), false);
     const result = init();
     assert.equal(result.status, 0, result.stderr);
     assert.equal(statSync(dir).mode & 0o777, 0o700);
@@ -93,11 +96,12 @@ test(
         writeFileSync(credential, JSON.stringify({ url: target, key: 'fixture-routine-key' }), { mode: 0o600 });
         writeFileSync(feed, '');
         const posts = [];
+        let withholdAck = false;
         const receiver = createServer(async (req, res) => {
             const chunks = [];
             for await (const chunk of req) chunks.push(chunk);
             posts.push({ body: JSON.parse(Buffer.concat(chunks)), auth: req.headers.authorization });
-            res.writeHead(200).end();
+            if (!withholdAck) res.writeHead(200).end();
         });
         receiver.listen(0, '127.0.0.1');
         await once(receiver, 'listening');
@@ -196,5 +200,61 @@ test(
         assert.equal(await read.done, 0, read.err);
         assert.equal(JSON.parse(read.out).untrustedEvents[0].data.id, 'T-102');
         assert.equal(await command('read', posts[1].body.batch.replace(/\.e2-e2$/, '.e1-e3')).done, 1);
+
+        // The receiver records the wake. Kill the actual sender before the response passes back.
+        const status = async () => {
+            const run = command('status');
+            assert.equal(await run.done, 0, run.err);
+            assert.doesNotMatch(run.out, /Private title|fixture-routine-key|External detail/);
+            return JSON.parse(run.out);
+        };
+        const prior = await status();
+        assert.equal(prior.lastAccepted.batch, posts[2].body.batch);
+        const trace = [];
+        withholdAck = true;
+        const crash = command('follow');
+        await waitFor(() => crash.proc.pid > 0, 'watcher did not start');
+        emit('T-104');
+        await waitFor(() => posts.length === 4, 'receiver never accepted the fourth ticket');
+        trace.push('Append', 'Reserve', 'Post');
+        crash.proc.kill('SIGKILL');
+        await crash.done;
+        const batch = posts[3].body.batch;
+        const down = await status();
+        trace.push('Crash');
+        assert.equal(down.owner.processAlive, false);
+        assert.equal(down.heldBatch, batch);
+        assert.equal(down.lastAccepted.batch, prior.lastAccepted.batch);
+        const resumed = command('follow');
+        await waitFor(() => resumed.err.includes('Held batch ' + batch), 'restarted sender did not hold the delivery');
+        const active = await status();
+        trace.push('Restart');
+        assert.equal(active.owner.pid, resumed.proc.pid);
+        assert.equal(active.heldEvents, 1);
+        emit('T-105');
+        let observed;
+        for (let i = 0; i < 30; i++) {
+            observed = await status();
+            if (observed.pending === 1) break;
+            await sleep(80);
+        }
+        trace.push('Append');
+        assert.equal(observed.pending, 1);
+        assert.equal(posts.length, 4);
+        assert.equal(await command('read', batch).done, 1);
+        resumed.proc.kill();
+        await resumed.done;
+        withholdAck = false;
+        const recovery = command('follow', '--accepted', batch);
+        await waitFor(() => posts.length === 5 && recovery.err.includes('Accepted batch'), 'next ticket did not get a new wake');
+        assert.equal(posts[4].body.events[0].ticketId, 'T-105');
+        recovery.proc.kill();
+        await recovery.done;
+        assert.equal((await status()).heldBatch, null);
+        assert.equal((await status()).lastAccepted.batch, posts[4].body.batch);
+        assert.equal(await command('read', batch).done, 0);
+        trace.push('Accept', 'Reserve', 'Post', 'Accept', 'Read');
+        assert.deepEqual(trace, JSON.parse(readFileSync(new URL('../../../../tools/muse-grok/model/lost-ack.json', import.meta.url))));
+        t.diagnostic('Receiver accepted T-104; SIGKILL before local ACK; restart held T-104 with one T-105 pending; operator confirmation released T-105. Five distinct wakes.');
     }
 );

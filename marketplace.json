@@ -32,13 +32,13 @@
     },
     {
       "name": "mcp-skill-reference",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "install": {
         "transport": "local-path",
         "source": "polyfills/skills/muse/plugin"
       },
       "integrity": {
-        "digest": "sha256:187040c3f14da872b58abb436c1515e75fcff821f07e60867019ca7995c9d077"
+        "digest": "sha256:f124ad0ff8572cc4885bd0c5ed25663dbd75cfd0716cead373fcf004bd689d69"
       },
       "availability": {
         "status": "available"
@@ -60,13 +60,13 @@
     },
     {
       "name": "mcp-task-monitor",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "install": {
         "transport": "local-path",
         "source": "polyfills/tasks/muse/plugin"
       },
       "integrity": {
-        "digest": "sha256:d422c9f7dac345d5c34803144824798a7f543d5be24f9c537b71d8dc8f478e33"
+        "digest": "sha256:b19a6012b634e472609a8d90798947a38849b6689d8d03e3d5c2e786ccda5899"
       },
       "availability": {
         "status": "available"

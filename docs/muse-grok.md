@@ -1,6 +1,6 @@
 # Muse Code and Grok Bot
 
-This kit adds five features. In Muse, install the plugins you want and open a new trusted session. Muse starts their helpers. Grok Bot uses a different setup for each feature. One discovery helper on your Mac handles both Server Cards and ARD. Skills and Tasks need a private online connector. Events uses a watcher on your machine and a webhook-only routine.
+This kit adds five features. In Muse, install the plugins you want and open a new trusted session. Muse starts their helpers. Grok Bot uses a different setup for each feature. One discovery helper on your Mac handles both Server Cards and ARD. Skills uses a private online connector. Tasks can use that transport or run as a Command connector on the Bot computer. Events uses a watcher on your machine and a webhook-only routine.
 
 | Feature | What you can ask | Muse Code | Grok Bot |
 | --- | --- | --- | --- |
@@ -128,6 +128,8 @@ A fresh session exposes each enabled job with its publisher’s input schema whe
 
 Handles last for this process, subject to the publisher’s TTL, a one-hour local limit, and at most ten minutes of terminal-result retention. Polling honors the publisher’s suggested interval. A publisher can return an immediate result or require input. The adapter reports the latter and offers cancellation. It does not answer embedded input requests, resume after a restart, or wake the conversation when a task finishes. [Tasks extension](https://tasks.extensions.modelcontextprotocol.io/seps/2663-tasks-extension)
 
+**Read a specific reference in Muse.** Connect the publisher once and select it as your Skills source. Approve the Skills plugin and its prompt hook. In a fresh trusted session ask your normal question. When a distinctive word in the question matches one guide, the hook shows a suggestion using its locally cached name. Each of the first 32 fingerprinted catalog entries can supply a named `consult_…` tool. Its optional reference menu comes from the publisher’s manifest. For example, the Hugging Face ZeroGPU guide lists `references/concurrency.md`. If the model selects that file, the Mac prompt names both the guide and file. Accepting reads and verifies both. Declining returns neither. An opened guide can still supply other verified files during this session. A slow or larger catalog remains available through `discover_skills` and `read_skill`. The model chooses which tool and reference to request.
+
 ## Set up Grok Bot
 
 **Server Cards and ARD.** From the repository root run the standalone helper. It sends read-only discovery requests and prints the destination, header fields and OAuth information. Use `--server` to choose between multiple entries. Add `--ard` for an ARD lookup. There is no registry search.
@@ -146,6 +148,18 @@ PORT=8788 node polyfills/tasks/muse/plugin/dist/server.mjs --http --config /abso
 ```
 
 Run each process separately. Both require `AGENTPOLYFILL_TOKEN` in their environment. Put HTTPS in front of their loopback listeners. In Grok choose **Connect apps → Add a custom connector → Remote HTTPS**, enter the published HTTPS URL ending in `/mcp`, and add the `Authorization` header with value `Bearer <your service token>`. Each service is one account-wide connection. A separate token and process per account keeps task handles and access separate. Stop the service and remove the connector to uninstall. This checkout provides the server software. Hosting and TLS are the operator’s responsibility. [Grok connectors](https://docs.x.ai/grok-bot/computer-and-apps)
+
+**Run Tasks on the Grok computer.** For a public publisher that requires no credentials, extract the release ZIP once on the Bot’s computer, in a stable folder readable by the connector. Use Node 22.18 or later there. Open **Connect apps → Add a custom connector → Command**. Use the absolute path to Node as the command. Supply these five arguments separately, substituting the real path, publisher URL and tool name.
+
+```text
+/absolute/path/agentpolyfill-hosts/polyfills/tasks/muse/plugin/dist/server.mjs
+--publisher
+https://your-publisher.example/mcp
+--allow-tool
+your_read_only_tool
+```
+
+Choose a tool whose operation you have reviewed. The allowlist limits which job can start. Its publisher still determines what that job does. The connector can check or cancel jobs it started. Each connector is available account-wide. Open a fresh conversation after saving and ask for a job and its receipt. An outstanding handle belongs to the running process and expires if Grok replaces that process. Remove the connector before removing the extracted folder. This setup requires Grok to retain the folder and reuse the process across job calls. The earlier Grok receipt documented above used Remote HTTPS.
 
 **Events.** Set up one webhook-only routine and a private watcher profile from the [Grok Events setup guide](../polyfills/events/grok-bot/README.md). Run the watcher on your machine. Use the same profile for a single alert and for recurring alerts.
 

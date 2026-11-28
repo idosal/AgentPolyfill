@@ -7,7 +7,7 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const require = createRequire(resolve(root, 'polyfills/skills/codex/package.json'));
 const { build } = require('esbuild');
 const entries = [
-    ['skills', 'reference', 'server'], ['tasks', 'tasks', 'server'],
+    ['skills', 'reference', 'server'], ['skills', 'suggest', 'user-prompt-submit'], ['tasks', 'tasks', 'server'],
     ['events', 'monitor', 'server'], ['events', 'helper', 'inbox'],
     ['events', 'muse-prompt-hook', 'user-prompt-submit'], ['routine', 'watch', 'watch']
 ];

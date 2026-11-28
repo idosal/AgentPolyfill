@@ -19,3 +19,5 @@ TLA2TOOLS=/absolute/path/to/tla2tools.jar node tools/muse-grok/model/check.mjs
 ```
 
 The runner exits unsuccessfully on a parsing error, timeout, unexpected violation, missing counterexample or incorrect tool version.
+
+The lost-acknowledgment trace in `lost-ack.json` is shared with the packaged watcher test. TLC checks that this sequence can reach an accepted second batch with the first batch readable. The CLI test runs the real watcher process, accepts a request on a loopback receiver, withholds its response, kills the sender, and compares the observable ownership, held batch, queue, reads and POSTs through restart and operator confirmation. It covers that concrete schedule.

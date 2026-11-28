@@ -39,7 +39,7 @@ export function syncNativeList(root: string, listed: Listed[], keep: Set<string>
             const description = '[MCP publisher ' + label + '] ' + plain(entry.frontmatter.description, 900);
             const body = ['---', 'name: ' + JSON.stringify(names.get(item)), 'description: ' + JSON.stringify(description), '---', '', marker,
                 'Published name: ' + plain(entry.frontmatter.name, 100), 'Publisher URI: ' + JSON.stringify(entry.uri),
-                'For a catalog question, report the name and URI above. For its contents, use the reader.',
+                'For a catalog question, report the name and URI above. For a how-to question, use the consult tool named for this guide and select its relevant reference.',
                 'Read this guide with the read_skill tool of mcp-skill-reference using ' + JSON.stringify({ source: label, uri: entry.uri }) + '.',
                 'Use read_skill_file for a listed reference after the guide opens. If the person declines, stop.', ''].join('\n');
             const stat = lstatSync(file, { throwIfNoEntry: false });
