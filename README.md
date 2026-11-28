@@ -80,6 +80,8 @@ codex mcp add huggingface --url https://huggingface.co/mcp
 Approve the `huggingface-local-models` skill when prompted. Codex loads it
 from Hugging Face and uses its reference files to answer.
 
+See the [Muse Code and Grok Bot setup guide](docs/muse-grok.md) for experimental, host-specific support.
+
 ## Polyfills
 
 Select a host adapter for its install commands, examples and limits.

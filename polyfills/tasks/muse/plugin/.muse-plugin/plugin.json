@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "name": "mcp-task-monitor",
+  "displayName": "MCP Tasks",
+  "version": "0.1.1",
+  "description": "Run explicitly configured task tools and check their status.",
+  "capabilities": {
+    "mcpServers": [
+      {
+        "id": "tasks",
+        "transport": "stdio",
+        "command": [
+          "node",
+          "dist/server.mjs"
+        ]
+      }
+    ],
+    "skills": [
+      {
+        "id": "mcp-tasks-guide",
+        "path": "skills/tasks/SKILL.md",
+        "enabledDefault": true
+      }
+    ]
+  },
+  "compat": {
+    "source": "native",
+    "manifestDir": ".muse-plugin"
+  }
+}

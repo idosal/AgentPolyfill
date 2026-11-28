@@ -1,0 +1,26 @@
+{
+  "name": "ard-discovery-muse",
+  "private": true,
+  "version": "0.1.1",
+  "type": "module",
+  "description": "Agentic Resource Discovery (ARD v0.91 draft) for Muse Code: find the MCP servers a domain lists in its ard.json, check their cards, and get the `muse mcp add` command for the one you pick; no registry search. Built from ../codex's sources, into the Codex plugin folder beside the Codex bundle.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check",
+    "typecheck": "../codex/node_modules/.bin/tsc --noEmit -p .",
+    "test": "node build.mjs --tests && node --test --test-reporter=spec \"test/.build/*.test.mjs\""
+  },
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idosal/AgentPolyfill.git",
+    "directory": "polyfills/ard/muse"
+  }
+}

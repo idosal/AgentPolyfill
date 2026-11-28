@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "name": "ard-discovery",
+  "displayName": "ARD Discovery",
+  "version": "0.1.1",
+  "description": "Agentic Resource Discovery (ARD v0.91 draft) for Muse Code: find the MCP servers a domain lists in its ard.json, check their Server Cards, and get the muse mcp add command for the one you pick.",
+  "compat": {
+    "source": "native",
+    "manifestDir": ".muse-plugin"
+  },
+  "capabilities": {
+    "skills": [
+      {
+        "id": "ard-discovery",
+        "path": "muse/skills/ard-discovery/SKILL.md",
+        "enabledDefault": true
+      }
+    ],
+    "mcpServers": [
+      {
+        "id": "ard-discovery",
+        "transport": "stdio",
+        "command": ["node", "muse/dist/server.mjs"]
+      }
+    ]
+  }
+}

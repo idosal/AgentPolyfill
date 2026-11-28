@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "typeRoots": [
+      "../../polyfills/skills/codex/node_modules/@types"
+    ]
+  },
+  "include": [
+    "runtime.ts",
+    "../../polyfills/skills/muse/src/*.ts",
+    "../../polyfills/events/muse/src/*.ts",
+    "../../polyfills/tasks/muse/src/*.ts",
+    "../../polyfills/events/grok-bot/src/*.ts"
+  ]
+}
