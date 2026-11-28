@@ -1,3 +1,4 @@
+import { buildGrok } from '../../polyfills/events/grok-bot/build.mjs';
 import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -14,8 +15,12 @@ const selected = process.argv.slice(2).find(arg => !arg.startsWith('--'));
 if (selected && !entries.some(([feature]) => feature === selected)) throw Error('Unknown feature');
 for (const [feature, name, output] of entries) {
     if (selected && selected !== feature) continue;
-    const dir = feature === 'routine' ? resolve(root, 'polyfills/events/grok-bot') : resolve(root, 'polyfills', feature, 'muse');
-    const out = resolve(dir, feature === 'routine' ? 'dist' : 'plugin/dist', output + '.mjs');
+    if (feature === 'routine') {
+        await buildGrok(build, process.argv.includes('--check'));
+        continue;
+    }
+    const dir = resolve(root, 'polyfills', feature, 'muse');
+    const out = resolve(dir, 'plugin/dist', output + '.mjs');
     const built = await build({ absWorkingDir: dir, entryPoints: ['src/' + name + '.ts'], platform: 'node', target: 'node22',
         format: 'esm', bundle: true, minify: true, write: false, preserveSymlinks: true,
         banner: { js: 'import {createRequire} from "node:module";const require=createRequire(import.meta.url);' } });

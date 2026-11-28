@@ -14,10 +14,12 @@ GROK_FILES = [
 
 def kit_files():
     paths = [
-        Path("LICENSE"), Path("docs/muse-grok.md"),
+        Path("LICENSE"), Path("SECURITY.md"), Path("docs/muse-grok.md"),
         Path("tools/muse-grok/install-muse.mjs"), Path("tools/muse-grok/package.py"), Path("tools/muse-grok/select-muse-sources.mjs"),
         Path("polyfills/tasks/codex/test/fixture-tasks-server.mjs"),
         Path("polyfills/events/grok-bot/dist/watch.mjs"),
+        Path("polyfills/events/grok-bot/config.example.json"), Path("polyfills/events/grok-bot/README.md"),
+        Path("polyfills/events/grok-bot/SECURITY.md"),
         Path("polyfills/events/grok-bot/THIRD_PARTY_LICENSES.txt"),
         DISCOVERY / "package.json", *(DISCOVERY / path for path in GROK_FILES),
     ]

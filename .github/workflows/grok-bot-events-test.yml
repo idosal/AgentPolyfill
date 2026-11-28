@@ -1,0 +1,46 @@
+name: "mcp-events for Grok Bot"
+
+on:
+  push:
+    paths:
+      - "polyfills/events/grok-bot/**"
+      - "polyfills/events/core/**"
+      - "polyfills/events/muse/src/poll.ts"
+      - "tools/muse-grok/runtime.ts"
+      - "polyfills/server-cards/codex/src/mcp.ts"
+      - "polyfills/events/claude-code/test/fixture-events-server.ts"
+      - "tools/bundle-notices.mjs"
+      - ".github/workflows/grok-bot-events-test.yml"
+  pull_request:
+    paths:
+      - "polyfills/events/grok-bot/**"
+      - "polyfills/events/core/**"
+      - "polyfills/events/muse/src/poll.ts"
+      - "tools/muse-grok/runtime.ts"
+      - "polyfills/server-cards/codex/src/mcp.ts"
+      - "polyfills/events/claude-code/test/fixture-events-server.ts"
+      - "tools/bundle-notices.mjs"
+      - ".github/workflows/grok-bot-events-test.yml"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: polyfills/events/grok-bot
+
+jobs:
+  adapter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: polyfills/events/core
+      - run: npm ci
+      - run: npm test
+      - run: node build.mjs --check
+      - run: node ../../../tools/bundle-notices.mjs . --plugin plugin --entry src/cli.mjs --bundle dist/bridge.mjs --check
+      - run: node ../../../tools/bundle-notices.mjs . --plugin . --entry src/cli.mjs --bundle dist/watch.mjs --check
