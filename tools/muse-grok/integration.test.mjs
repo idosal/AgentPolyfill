@@ -13,6 +13,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { skill, scenarioOf } from '../../polyfills/skills/core/test-fixtures/harness.ts';
 import { deliverOnce, destination } from '../../polyfills/events/grok-bot/src/deliver.ts';
 
+import { actions as approvalActions } from './skill-trace.mjs';
 import { readDecision } from '../../polyfills/skills/muse/src/approval.ts';
 
 test('skill approval policy names who decides before a file may be fetched', () => {
@@ -71,7 +72,8 @@ async function plugin(feature, config, http = false, environment = {}, commandAr
     const dir = scratch(), path = join(dir, 'config.json');
     writeFileSync(path, JSON.stringify(config));
     const secret = randomBytes(32).toString('hex');
-    const proc = child(['polyfills/' + feature + '/muse/plugin/dist/server.mjs',...(commandArgs ?? ['--config',path]),...(http ? ['--http'] : [])], { AGENTPOLYFILL_TOKEN: secret, PORT:'0', ...environment });
+    const bundle = join(process.env.MUSE_GROK_TEST_KIT || root, 'polyfills', feature, 'muse/plugin/dist/server.mjs');
+    const proc = child([bundle,...(commandArgs ?? ['--config',path]),...(http ? ['--http'] : [])], { AGENTPOLYFILL_TOKEN: secret, PORT:'0', ...environment });
     let rpc;
     if (http) {
         const [line] = await once(proc.stderr, 'data');
@@ -327,6 +329,39 @@ test('foreground wait receives a new event, times out, and releases its single w
     assert.equal(notice.status, 'received');
     assert.deepEqual(notice.event.data, event.data);
     assert.match(await call('read_notice'), /No active watch/);
+});
+
+test('packaged reader replays the scoped approval and changed-manifest trace', async () => {
+    const dir = scratch(), scenario = join(dir, 'catalog'), log = join(dir, 'wire');
+    const path = 'references/queue.md';
+    const publish = body => {
+        const guide = skill('queue-guide', { [path]: body });
+        writeFileSync(scenario,JSON.stringify(scenarioOf([guide])));
+        return guide.uri;
+    };
+    const uri = publish('first version');
+    const url = await publisher('polyfills/skills/core/test-fixtures/fixture-skills-server.ts', {FIXTURE_SCENARIO:scenario, FIXTURE_LOG:log});
+    const denied = await plugin('skills',{sources:{public:url}},true);
+    const second = await plugin('skills',{sources:{public:url},askBeforeReading:false});
+    const guide = {source:'public',uri}, file = {...guide,path};
+    const trace = ['Ask'];
+    await assert.rejects(denied('read_skill',guide),/declined/);
+    assert.ok(!readFileSync(log,'utf8').includes('"resources/read"'));
+    trace.push('Decline','Ask');
+    await second('read_skill',guide);
+    trace.push('Allow');
+    assert.equal((await second('read_skill_file',file)).text,'first version');
+    trace.push('ReadFile');
+    publish('second version');
+    trace.push('Change');
+    await assert.rejects(second('read_skill_file',file),/changed/);
+    await assert.rejects(second('read_skill_file',file),/first/);
+    trace.push('Reopen','Ask');
+    await second('read_skill',guide);
+    trace.push('Allow');
+    assert.equal((await second('read_skill_file',file)).text,'second version');
+    trace.push('ReadFile');
+    assert.deepEqual(trace,approvalActions);
 });
 
 const fastMcpUrl = process.env.MUSE_GROK_FASTMCP_URL;

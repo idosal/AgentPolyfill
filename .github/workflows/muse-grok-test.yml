@@ -35,6 +35,7 @@ jobs:
         run: |
           curl --fail --location --retry 2 --output "$TLA2TOOLS" https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
           node tools/muse-grok/model/check.mjs
+          node tools/muse-grok/skill-trace.mjs
   packages:
     runs-on: ubuntu-latest
     steps:
