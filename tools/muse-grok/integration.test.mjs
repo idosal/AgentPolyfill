@@ -157,11 +157,11 @@ test('Muse uses only selected connections and binds a guide approval to its publ
     mkdirSync(join(dir, 'muse'));
     const config = join(dir, 'muse/settings.json');
     const save = connection => writeFileSync(config, JSON.stringify({ mcpServers: {
-        chosen: connection, other: { url: other }
+        'team.docs': connection, other: { url: other }
     } }));
     save({ url: uri });
     writeFileSync(join(dir,'native-config-home.json'), JSON.stringify(dir));
-    writeFileSync(join(dir,'muse-servers.json'), JSON.stringify(['chosen']));
+    writeFileSync(join(dir,'muse-servers.json'), JSON.stringify(['team.docs']));
     copyFileSync(join(root, 'polyfills/events/muse/test/fake-muse.mjs'), join(dir,'muse-cli'));
     mkdirSync(join(dir,'bin'));
     symlinkSync(join(dir,'muse-cli'), join(dir,'bin/muse'));
@@ -171,10 +171,15 @@ test('Muse uses only selected connections and binds a guide approval to its publ
     const call = await plugin('skills',configFile,false,env);
     const query = () => call('discover_skills', { query:'queue' });
     const [found] = await query();
-    assert.equal(found.source,'chosen');
+    assert.equal(found.source,'team.docs');
+    const nativeList = join(dir,'muse','skills');
+    const owned = () => readdirSync(nativeList).filter(name => name.startsWith('mcp-skill-reference--team.docs-'));
+    assert.ok(owned().length);
+    await assert.rejects(call('discover_skills', { source:'unconfigured' }), /configured source/);
+    assert.ok(owned().length);
     assert.equal(found.skills[0].uri,guide.uri);
     assert(!existsSync(join(dir,'ignored')));
-    const args = { source:'chosen', uri:guide.uri };
+    const args = { source:'team.docs', uri:guide.uri };
     await call('read_skill',args);
     save({url:other});
     await assert.rejects(call('read_skill_file',{...args,path:'ref.txt'}), /Open the guide again/);
@@ -187,8 +192,9 @@ test('Muse uses only selected connections and binds a guide approval to its publ
     save({url:uri});
     writeFileSync(join(dir,'muse-servers.json'), '[]');
     assert.ok((await query())[0].error);
+    assert.deepEqual(owned(), []);
     await assert.rejects(call('read_skill',args), /no longer selected/);
-    writeFileSync(join(dir,'muse-servers.json'), JSON.stringify(['chosen']));
+    writeFileSync(join(dir,'muse-servers.json'), JSON.stringify(['team.docs']));
     const managed = await plugin('skills',configFile,false,{...env,FAKE_MUSE_POLICY:'present'});
     assert.ok((await managed('discover_skills'))[0].error);
     const remote = await plugin('skills',configFile,true,env);
@@ -338,4 +344,30 @@ test('a Grok routine gets one empty POST across concurrent senders and ambiguous
     chmodSync(dir, 0o700);
     await Promise.all([assert.rejects(attempt()),assert.rejects(attempt())]); await assert.rejects(attempt());
     assert.equal(sent,1);
+});
+
+test('private config diagnostics withhold settings text and connections require safe transport', async () => {
+    const { readMuseSettings, parseMuseServer } = await import('../../polyfills/events/muse/src/muse-config.ts');
+    const dir = scratch(), file = join(dir,'settings.json'), marker = 'PRIVATE_FIXTURE_VALUE';
+    writeFileSync(file, marker);
+    const logs = [];
+    const result = readMuseSettings({}, { file, only: ['chosen'], log: entry => logs.push(entry) });
+    assert.deepEqual(Object.keys(result.servers), []);
+    assert.ok(logs.length);
+    assert.ok(!JSON.stringify([result.skipped,logs]).includes(marker));
+    assert.deepEqual(Object.keys(readMuseSettings({}, { file, only: [] }).skipped), []);
+    const configRoot = join(dir, 'muse');
+    mkdirSync(configRoot);
+    writeFileSync(join(configRoot,'settings.json'), marker);
+    const args = [join(root,'tools/muse-grok/select-muse-sources.mjs'), 'skills'];
+    const env = { ...process.env, HOME:dir, XDG_CONFIG_HOME:dir, XDG_DATA_HOME:dir };
+    const choose = spawnSync(process.execPath, [...args,'chosen'], { env, encoding:'utf8' });
+    assert.equal(choose.status, 1);
+    assert.ok(!choose.stderr.includes(marker));
+    assert.equal(spawnSync(process.execPath, [...args,'--clear'], { env, encoding:'utf8' }).status, 0);
+    for (const url of ['http://source.example/mcp','https://source.example/mcp?inline=value','invalid']) {
+        assert.ok('skip' in parseMuseServer({ url, headers: { 'X-Test': 'fixture' } }, dir));
+    }
+    assert.equal(parseMuseServer({ url:'https://source.example/mcp' }, dir).url, 'https://source.example/mcp');
+    assert.equal(parseMuseServer({ url:'http://127.0.0.1/mcp' }, dir).url, 'http://127.0.0.1/mcp');
 });

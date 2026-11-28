@@ -1,7 +1,8 @@
 // Choose existing Muse connections without importing their credentials into the kit.
+import { readConfig } from './config.ts';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -17,7 +18,7 @@ const selected = names[0] === '--clear' ? [] : [...new Set(names)];
 const config = isAbsolute(process.env.XDG_CONFIG_HOME ?? '') ? process.env.XDG_CONFIG_HOME : join(homedir(), '.config');
 const data = isAbsolute(process.env.XDG_DATA_HOME ?? '') ? process.env.XDG_DATA_HOME : join(homedir(), '.local', 'share');
 const settingsPath = join(config, 'muse/settings.json');
-const settings = existsSync(settingsPath) ? JSON.parse(readFileSync(settingsPath, 'utf8')) : {};
+const settings = selected.length && existsSync(settingsPath) ? readConfig(settingsPath) : {};
 if (selected.length) {
     const servers = settings.mcpServers ?? {};
     for (const name of selected) {
@@ -34,12 +35,16 @@ for (const [filename, value] of [['native-config-home.json', config], ['muse-ser
     renameSync(tmp, join(dir, filename));
 }
 // Populate the native inventory before Muse builds the first conversation's skill list.
-if (feature === 'skills' && settings.runtime_capabilities?.['plugin:mcp-skill-reference:mcp_server:skills']?.enabled === true) {
+if (feature === 'skills' && (!selected.length || settings.runtime_capabilities?.['plugin:mcp-skill-reference:mcp_server:skills']?.enabled === true)) {
     const reader = fileURLToPath(new URL('../../polyfills/skills/muse/plugin/dist/server.mjs', import.meta.url));
-    const result = spawnSync(process.execPath, [reader, '--refresh-native-list'], {
+    const action = selected.length ? '--refresh-native-list' : '--clear-native-list';
+    const result = spawnSync(process.execPath, [reader, action], {
         env: { HOME: homedir(), PATH: process.env.PATH, TMPDIR: process.env.TMPDIR, MUSE_PLUGIN_DATA_DIR: dir },
         stdio: 'inherit', timeout: 30000
     });
-    if (result.status !== 0) console.warn('The selection was saved. Catalog refresh will retry in Muse.');
+    if (result.status !== 0) {
+        if (!selected.length) throw Error('Selection cleared. Native inventory cleanup failed. Close Muse and rerun with --clear.');
+        console.warn('The selection was saved. Catalog refresh will retry in Muse.');
+    }
 }
 console.log('Selected Muse connections for ' + feature + ': ' + (selected.join(', ') || '(none)') + '. Open a fresh trusted session.');

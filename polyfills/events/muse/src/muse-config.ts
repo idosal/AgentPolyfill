@@ -1,5 +1,6 @@
 // Reuse user-selected stdio and HTTP connections from Muse settings. Managed credentials
 // and environment substitutions require host support and stay unavailable here.
+import { readConfig, securePublisher } from '../../../../tools/muse-grok/config.ts';
 import { spawnSync } from 'node:child_process';
 import { lstatSync, accessSync, constants, existsSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -14,7 +15,7 @@ const home = (env: NodeJS.ProcessEnv) => env.HOME || homedir();
 export function museConfigDir(env: NodeJS.ProcessEnv = process.env): string {
     const hint = env.MUSE_PLUGIN_DATA_DIR && join(env.MUSE_PLUGIN_DATA_DIR, 'native-config-home.json');
     const base = hint && lstatSync(hint, { throwIfNoEntry: false })?.isFile()
-        ? JSON.parse(readFileSync(hint, 'utf8')) : env.XDG_CONFIG_HOME;
+        ? readConfig(hint) : env.XDG_CONFIG_HOME;
     if (base !== undefined && typeof base !== 'string') throw Error('Invalid Muse config home.');
     return join(base && isAbsolute(base) ? base : join(home(env), '.config'), 'muse');
 }
@@ -24,7 +25,7 @@ export function selectedServers(env: NodeJS.ProcessEnv = process.env): string[] 
     if (!env.MUSE_PLUGIN_DATA_DIR) return [];
     const file = join(env.MUSE_PLUGIN_DATA_DIR, 'muse-servers.json');
     if (!existsSync(file)) return [];
-    const names: unknown = JSON.parse(readFileSync(file, 'utf8'));
+    const names: unknown = readConfig(file);
     if (!Array.isArray(names) || !names.every(n => typeof n === 'string' && SERVER_NAME.test(n))) throw Error('Invalid selected Muse server names.');
     return [...new Set<string>(names)];
 }
@@ -58,6 +59,7 @@ export function parseMuseServer(v: Json, base: string, isSelf: (arg: string) => 
         if (v.headers !== undefined && (!isTable(v.headers) || !Object.values(v.headers).every(x => typeof x === 'string'))) return { skip: 'invalid HTTP headers' };
         const headers = v.headers as Record<string,string> | undefined;
         if ([v.url, ...Object.values(headers ?? {})].some(unresolved)) return needsEnv;
+        if (!securePublisher(v.url)) return { skip: 'use HTTPS or loopback HTTP without inline credentials, query or fragment' };
         return { url: v.url, headers };
     }
     return { skip: `its transport (${type || 'none'}) is not supported (only stdio and streamable HTTP are)` };
@@ -77,11 +79,12 @@ export function readMuseSettings(env: NodeJS.ProcessEnv, o: { file?: string; onl
         log(o.managed);
         return out;
     }
+    if (!o.only?.length) return out;
     let config: unknown = {};
     try {
-        if (existsSync(file)) config = JSON.parse(readFileSync(file, 'utf8'));
-    } catch (e) {
-        out.skipped['(all servers)'] = `${file} could not be read (${e instanceof Error ? e.message.split('\n')[0] : 'not JSON'}), so this plugin connects to no server`;
+        if (existsSync(file)) config = readConfig(file);
+    } catch {
+        out.skipped['(all servers)'] = 'Muse settings could not be read. No selected server was connected.';
         log(out.skipped['(all servers)']!);
         return out;
     }

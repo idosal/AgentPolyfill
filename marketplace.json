@@ -38,7 +38,7 @@
         "source": "polyfills/skills/muse/plugin"
       },
       "integrity": {
-        "digest": "sha256:9036917cc0a88f812b6040081e4a13a3e2b379148df5281e049b756d3c18761d"
+        "digest": "sha256:187040c3f14da872b58abb436c1515e75fcff821f07e60867019ca7995c9d077"
       },
       "availability": {
         "status": "available"
@@ -52,7 +52,7 @@
         "source": "polyfills/events/muse/plugin"
       },
       "integrity": {
-        "digest": "sha256:61bea442b16591a57a980183d5b1d18dfdf07f1ad06f97738c9e135f817ecf0e"
+        "digest": "sha256:1e968cfd7ac675ebb1abb6171a8a2a12570f9d9ab8343fded4dcd643a79d5048"
       },
       "availability": {
         "status": "available"
@@ -66,7 +66,7 @@
         "source": "polyfills/tasks/muse/plugin"
       },
       "integrity": {
-        "digest": "sha256:952ee1ffb11b76e1f2f77c74d045fe2298ddf6b8d30602464041de6397f1ca7f"
+        "digest": "sha256:d422c9f7dac345d5c34803144824798a7f543d5be24f9c537b71d8dc8f478e33"
       },
       "availability": {
         "status": "available"

@@ -1,6 +1,6 @@
 # Grok Events data and permissions
 
-The operator selects the MCP publishers, exact watch filters and destination routine. A stdio publisher runs on the watcher’s machine with the permissions of that account. Keep the profile private (mode 700) and the routine credential file owner-readable only (mode 600). The webhook client sends credentials only to the supported Grok routine URL and refuses redirects.
+The operator selects the MCP publishers, exact watch filters and destination routine. A stdio publisher runs on the watcher’s machine with the permissions of that account. Keep the profile private (mode 700) and the routine credential file owner-readable only (mode 600). The watcher checks the profile owner and permissions before loading configuration, including during event discovery. Configuration and credential paths must be regular files owned by the operator. Remote publisher connections require HTTPS. The webhook client sends credentials only to the supported Grok routine URL and refuses redirects.
 
 A summary shares source and watch labels, event handles and short identifiers with Grok. Each watch can explicitly enable a bounded title. The publisher controls its data. The routine should quote titles and use its ordinary approvals for actions. A reference-only configuration keeps publisher values on the watcher machine.
 

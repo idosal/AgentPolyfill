@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { readConfig, securePublisher } from './config.ts';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { serve, PROTOCOL_VERSIONS, type Tool, type ToolResult } from '../../polyfills/server-cards/codex/src/mcp';
 
@@ -9,15 +10,13 @@ export function settings(defaults: Settings): Settings {
     const configAt = process.argv.indexOf('--config');
     const path = configAt !== -1 ? process.argv[configAt + 1] : process.env.MUSE_PLUGIN_DATA_DIR && resolve(process.env.MUSE_PLUGIN_DATA_DIR, 'sources.json');
     if (configAt !== -1 && !path) throw Error('--config needs a configuration file');
-    const cfg = path && (configAt !== -1 || existsSync(path)) ? JSON.parse(readFileSync(path, 'utf8')) : defaults;
+    const cfg = path && (configAt !== -1 || existsSync(path)) ? readConfig(path) : defaults;
     if (!cfg || !cfg.sources || Array.isArray(cfg.sources) || typeof cfg.sources !== 'object') throw Error('Configure a sources object');
     if (cfg.tools !== undefined && (!cfg.tools || typeof cfg.tools !== 'object' || Array.isArray(cfg.tools))) throw Error('Configure tools as an object keyed by source');
     if (cfg.askBeforeReading !== undefined && typeof cfg.askBeforeReading !== 'boolean') throw Error('askBeforeReading must be a boolean');
     for (const [label, value] of Object.entries(cfg.sources)) {
         if (!/^[A-Za-z0-9_-]{1,64}$/.test(label) || typeof value !== 'string') throw Error('Invalid source');
-        const u = new URL(value);
-        const local = ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
-        if (u.username || u.password || u.hash || u.search || (u.protocol !== 'https:' && !(local && u.protocol === 'http:'))) {
+        if (!securePublisher(value)) {
             throw Error('Use an HTTPS endpoint or a loopback HTTP fixture, without credentials, query or fragment');
         }
     }

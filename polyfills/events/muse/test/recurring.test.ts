@@ -270,13 +270,17 @@ describe('the helper in Muse', () => {
 test('a typed watch confirmation is scoped, expires and can be consumed only once', () => {
     const w = museWorld();
     try {
-        const ask = (when: number, question = 'Watch red tickets?') =>
-            askTyped(w.data, w.session, 'watch', question, when, ['tickets','created']);
+        const ask = (when: number, question = 'Watch red tickets?', endpoint = 'original') =>
+            askTyped(w.data, w.session, 'watch', question, when, ['tickets','created'], endpoint);
         const first = ask(100);
         assert.ok('pending' in first);
         assert.equal(confirmFromPrompt(w.data, randomUUID(), first.pending, 101), undefined);
         assert.equal(confirmFromPrompt(w.data, w.session, first.pending, 102)?.verb, 'watch');
-        assert.deepEqual(ask(103), { approved: true });
+        const replacement = ask(103, undefined, 'changed');
+        assert.ok('pending' in replacement);
+        assert.equal(confirmFromPrompt(w.data, w.session, first.pending, 103), undefined);
+        assert.equal(confirmFromPrompt(w.data, w.session, replacement.pending, 103)?.verb, 'watch');
+        assert.deepEqual(ask(103, undefined, 'changed'), { approved: true });
         const next = ask(104);
         assert.ok('pending' in next);
         assert.equal(confirmFromPrompt(w.data, w.session, next.pending, 104 + 16 * 60000), undefined);

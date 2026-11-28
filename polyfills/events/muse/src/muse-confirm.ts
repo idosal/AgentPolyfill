@@ -15,12 +15,12 @@ function read(file: string): Pending | undefined {
 }
 
 // Each watch or stop is approved by an exact message in the session that requested it.
-export function askTyped(base: string, session: string | undefined, verb: Verb, question: string, now = Date.now(), subject: readonly string[] = []): Typed {
+export function askTyped(base: string, session: string | undefined, verb: Verb, question: string, now = Date.now(), subject: readonly string[] = [], endpoint = ''): Typed {
     if (!session) return { unavailable: 'Muse did not identify this session.' };
     if (subject.some(word => !TYPEABLE.test(word))) return { unavailable: 'A server or event name cannot be represented in a confirmation phrase.' };
     return withSessionLock<Typed>(base, session, dir => {
         const file = join(dir, verb + '-confirmation.json');
-        const key = createHash('sha256').update(question).digest('hex');
+        const key = createHash('sha256').update(JSON.stringify([question, endpoint])).digest('hex');
         const previous = read(file);
         if (previous?.key === key && now - (previous.approvedAt ?? previous.at) <= CONFIRM_TTL_MS) {
             if (previous.approvedAt === undefined) return { pending: previous.phrase, code: previous.code };

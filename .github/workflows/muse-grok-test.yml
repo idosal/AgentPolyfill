@@ -18,6 +18,23 @@ on:
 permissions:
   contents: read
 jobs:
+  safety-models:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 22
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Check host safety properties and their negative controls
+        env:
+          TLA2TOOLS: ${{ runner.temp }}/tla2tools.jar
+        run: |
+          curl --fail --location --retry 2 --output "$TLA2TOOLS" https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
+          node tools/muse-grok/model/check.mjs
   packages:
     runs-on: ubuntu-latest
     steps:
@@ -33,6 +50,8 @@ jobs:
       - name: Verify bundles, types and discovery tests
         run: |
           node tools/muse-grok/build.mjs --check
+          node tools/bundle-notices.mjs polyfills/skills/muse --esbuild-from polyfills/skills/codex --plugin plugin --entry src/reference.ts --bundle dist/server.mjs --check
+          node tools/bundle-notices.mjs polyfills/tasks/muse --esbuild-from polyfills/skills/codex --plugin plugin --entry src/tasks.ts --bundle dist/server.mjs --check
           node tools/bundle-notices.mjs polyfills/events/muse --esbuild-from polyfills/skills/codex --plugin plugin --entry src/monitor.ts --entry src/helper.ts --entry src/muse-prompt-hook.ts --bundle 'dist/{server,inbox,user-prompt-submit}.mjs' --check
           node --test polyfills/events/muse/test/recurring.test.ts
           polyfills/skills/codex/node_modules/.bin/tsc -p tools/muse-grok
@@ -72,3 +91,4 @@ jobs:
           unzip -q "$RUNNER_TEMP/kit.zip" -d "$RUNNER_TEMP/extracted"
           python3 "$RUNNER_TEMP/extracted/agentpolyfill-hosts/tools/muse-grok/package.py" "$RUNNER_TEMP/team.zip"
           unzip -t "$RUNNER_TEMP/team.zip"
+          GROK_TEST_CLI="$RUNNER_TEMP/extracted/agentpolyfill-hosts/polyfills/events/grok-bot/dist/watch.mjs" node --test polyfills/events/grok-bot/test/cli.test.mjs

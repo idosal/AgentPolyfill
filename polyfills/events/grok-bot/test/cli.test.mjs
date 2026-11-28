@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { appendFileSync, chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -29,6 +29,29 @@ test('init creates private templates and preserves a configured profile', (t) =>
     }
     assert.equal(init().status, 0);
     for (const name of ['config.json', 'routine.json']) assert.equal(readFileSync(join(dir, name), 'utf8'), 'existing settings');
+});
+
+test('all operator commands check profile ownership and file permissions before opening any publisher', (t) => {
+    const base = mkdtempSync(join(tmpdir(), 'grok-files-'));
+    t.after(() => rmSync(base, { recursive: true, force: true }));
+    const run = (command) => spawnSync(process.execPath, [cli, command], { env: { ...process.env, GROK_EVENTS_HOME: base }, encoding: 'utf8' });
+    assert.equal(run('init').status, 0);
+    chmodSync(base, 0o755);
+    assert.match(run('list').stderr, /private profile/);
+    chmodSync(base, 0o700);
+    const credential = join(base, 'routine.json');
+    chmodSync(credential, 0o644);
+    assert.match(run('init').stderr, /owner-only/);
+    chmodSync(credential, 0o600);
+    const config = join(base,'config.json');
+    chmodSync(config, 0o666);
+    assert.match(run('list').stderr, /group or other writes/);
+    chmodSync(config, 0o600);
+    writeFileSync(config, JSON.stringify({servers:{desk:{upstream:{url:'http://source.example/mcp'}}}}));
+    assert.match(run('list').stderr, /Use HTTPS/);
+    unlinkSync(credential);
+    symlinkSync(config, credential);
+    assert.equal(run('init').status, 1);
 });
 
 async function waitFor(predicate, message) {

@@ -15,7 +15,7 @@ GROK_FILES = [
 def kit_files():
     paths = [
         Path("LICENSE"), Path("SECURITY.md"), Path("docs/muse-grok.md"),
-        Path("tools/muse-grok/install-muse.mjs"), Path("tools/muse-grok/package.py"), Path("tools/muse-grok/select-muse-sources.mjs"),
+        Path("tools/muse-grok/config.ts"), Path("tools/muse-grok/install-muse.mjs"), Path("tools/muse-grok/package.py"), Path("tools/muse-grok/select-muse-sources.mjs"),
         Path("polyfills/tasks/codex/test/fixture-tasks-server.mjs"),
         Path("polyfills/events/grok-bot/dist/watch.mjs"),
         Path("polyfills/events/grok-bot/config.example.json"), Path("polyfills/events/grok-bot/README.md"),
@@ -23,6 +23,9 @@ def kit_files():
         Path("polyfills/events/grok-bot/THIRD_PARTY_LICENSES.txt"),
         DISCOVERY / "package.json", *(DISCOVERY / path for path in GROK_FILES),
     ]
+    model = Path("tools/muse-grok/model")
+    paths.extend(model / name for name in ("README.md", "check.mjs", "RoutineDelivery.tla", "SkillApproval.tla",
+                                         "WatchConfirmation.tla", "TaskHandles.tla", "DiscoveryHandoff.tla"))
     for feature in ("server-cards", "ard", "skills", "events", "tasks"):
         shared = feature in ("server-cards", "ard")
         plugin = Path("polyfills") / feature / ("codex" if shared else "muse") / "plugin"

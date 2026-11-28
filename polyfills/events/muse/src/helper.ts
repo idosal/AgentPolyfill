@@ -208,7 +208,7 @@ const server = serve({
             const question = museWatchQuestion(asked);
             // The question shows what is sent, or there is no watch.
             if (secrets.scrub(question) !== question) return { text: 'The watch is not started: its filters or note hold a value your MCP configuration keeps secret, which the question to the user would have to hide.', isError: true };
-            const typed = askTyped(base, thread, 'watch', question, Date.now(), [asked.server, asked.event]);
+            const typed = askTyped(base, thread, 'watch', question, Date.now(), [asked.server, asked.event], conn.fingerprint);
             if ('unavailable' in typed) return { text: `The watch is not started: ${typed.unavailable}.`, isError: true };
             if ('pending' in typed) return { text: watchPendingText(question, typed.pending), isError: true };
             log(`[${thread.slice(0, 8)}] the user typed the yes to this watch`);

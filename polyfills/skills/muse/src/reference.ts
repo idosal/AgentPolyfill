@@ -44,12 +44,6 @@ function publisher(label: string): { target: UpstreamConfig; display: string } {
     const target = table.servers[label];
     if (!target) throw Error(table.skipped[label] ?? managed ?? 'This selected Muse connection is unavailable.');
     if ('url' in target) {
-        // Apply the same address rules as explicitly configured publishers. Never put headers in the dialog.
-        const url = new URL(target.url);
-        if (url.search || url.hash || url.username || url.password ||
-            !(url.protocol === 'https:' || (url.protocol === 'http:' && ['127.0.0.1','localhost','[::1]'].includes(url.hostname)))) {
-            throw Error('Use a secure Muse publisher address without inline credentials.');
-        }
         return { target, display: target.url };
     }
     return { target, display: 'Muse connection ' + label };
@@ -77,6 +71,7 @@ const sources = [...new Set([...Object.keys(cfg.sources), ...named])];
 const source = { type: 'string', enum: sources };
 const native = !remote && Boolean(process.env.MUSE_PLUGIN_DATA_DIR);
 async function catalog(labels: string[], query?: string) {
+    if (labels.some(label => !sources.includes(label))) throw Error('Choose a configured source.');
     const results = await Promise.all(labels.map(async label => {
         try {
             const items = await withSource(label, async host => (await host.list(label)).skills);

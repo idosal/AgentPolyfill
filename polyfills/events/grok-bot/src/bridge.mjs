@@ -1,4 +1,4 @@
-import { lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { isDeepStrictEqual } from 'node:util';
@@ -7,6 +7,8 @@ import { ProjectState } from '../../core/src/store.ts';
 import { WatchManager } from '../../core/src/watcher.ts';
 import { configureHost } from '../../core/src/host.ts';
 import { describeError, secrets } from '../../core/src/untrusted.ts';
+import { securePublisher } from '../../../../tools/muse-grok/config.ts';
+import { privateFile } from './private-file.ts';
 import { RoutineInbox, readBatch } from './inbox.mjs';
 export { readBatch };
 import { destination, notification } from './routine.mjs';
@@ -15,7 +17,7 @@ import example from '../config.example.json' with { type: 'json' };
 const SESSION = 'agent';
 const HOUR = 3600000;
 function json(file) {
-    const contents = readFileSync(file, 'utf8');
+    const contents = privateFile(file);
     try {
         return JSON.parse(contents);
     } catch {
@@ -36,7 +38,6 @@ function privateProfile(dir) {
 }
 
 function initialize(dir) {
-    privateProfile(dir);
     for (const [file, template] of [
         ['config.json', example],
         ['routine.json', { url: '', key: '' }]
@@ -45,6 +46,7 @@ function initialize(dir) {
             writeFileSync(join(dir, file), JSON.stringify(template, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
         } catch (error) {
             if (error.code !== 'EEXIST') throw error;
+            privateFile(join(dir, file), { secret: file === 'routine.json', checkOnly: true });
         }
     }
     console.log(
@@ -59,6 +61,9 @@ function servers(config) {
     if (!entries.length) throw Error('Configure at least one server.');
     for (const [name, value] of entries) {
         if (!/^[A-Za-z0-9_-]{1,64}$/.test(name) || !value?.upstream) throw Error('Each server needs a short name and an upstream.');
+    }
+    for (const [, source] of entries) {
+        if (source.upstream.url && !securePublisher(source.upstream.url)) throw Error('Use HTTPS or loopback HTTP without inline credentials, query or fragment.');
     }
     return new Map(entries);
 }
@@ -100,6 +105,7 @@ function sameWatch(a, b) {
 function connection(config, env, name) {
     if (!config.upstream?.url && !config.upstream?.command) throw Error('Configure an upstream URL or stdio command.');
     const cfg = { ...config.upstream };
+    if (!cfg.url) secrets.add(...Object.values(cfg.env ?? {}));
     if (config.upstreamBearerEnv) {
         const token = env[config.upstreamBearerEnv];
         if (!cfg.url || !token) throw Error('Missing HTTP source or upstream bearer credential.');
@@ -127,6 +133,7 @@ export async function startBridge({
     onDone = () => {},
     log = console.error
 }) {
+    privateProfile(dir);
     const sources = servers(config);
     const wanted = watchPlan(config, sources);
     const activeServers = [...new Set(wanted.map((w) => w.server))];
@@ -149,7 +156,6 @@ export async function startBridge({
     const retentionMs = limit(config.retentionHours, 24, 24 * 30) * HOUR;
     if (config.payload !== undefined && !['summary', 'reference'].includes(config.payload))
         throw Error('Choose summary or reference for payload.');
-    privateProfile(dir);
     configureHost({
         name: 'Grok Bot',
         kind: 'grok-bot',
@@ -314,6 +320,7 @@ export async function startBridge({
 
 export async function runCli([command, ...args]) {
     const dir = resolve(process.env.GROK_EVENTS_HOME || join(homedir(), '.grok-events'));
+    privateProfile(dir);
     if (command === 'init' && !args.length) {
         initialize(dir);
     } else if (command === 'list' && args.length <= 1) {

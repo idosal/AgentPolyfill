@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { privateFile } from './private-file.ts';
+import { existsSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { nextOccurrence } from '../../muse/src/poll.ts';
 import { settings, sourceUrl } from '../../../../tools/muse-grok/runtime.ts';
@@ -11,9 +12,7 @@ async function main() {
     const endpoint = sourceUrl(cfg, source);
     const file = process.env.GROK_ROUTINE_FILE, state = process.env.GROK_RECEIPT_DIR;
     if (!file || !state || !isAbsolute(file) || !isAbsolute(state)) throw Error('Set absolute GROK_ROUTINE_FILE and GROK_RECEIPT_DIR paths.');
-    const mode = statSync(file);
-    if (!mode.isFile() || (mode.mode & 0o077)) throw Error('Restrict the routine credential file to its owner.');
-    const secret = JSON.parse(readFileSync(file, 'utf8'));
+    const secret = JSON.parse(privateFile(file, { secret: true }));
     const url = destination(secret.url);
     if (existsSync(receiptFor(url, state))) throw Error('This routine has already consumed its one attempt.');
     const signal = AbortSignal.timeout(600000);

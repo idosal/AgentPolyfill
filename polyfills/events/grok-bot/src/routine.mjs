@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs';
+import { privateFile } from './private-file.ts';
 import { isAbsolute } from 'node:path';
 import { destination as routineUrl } from './deliver.ts';
 
@@ -8,19 +8,11 @@ export function destination(env, post = fetch) {
         key = env.GROK_ROUTINE_KEY;
     if (env.GROK_ROUTINE_FILE) {
         if (!isAbsolute(env.GROK_ROUTINE_FILE)) throw Error('Use an absolute routine credential file path.');
-        const fd = openSync(env.GROK_ROUTINE_FILE, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+        const contents = privateFile(env.GROK_ROUTINE_FILE, { secret: true });
         try {
-            const stat = fstatSync(fd);
-            if (!stat.isFile() || stat.size > 8192 || stat.mode & 0o077 || (process.getuid && stat.uid !== process.getuid()))
-                throw Error('Use a private routine credential file owned by this account (chmod 600).');
-            const contents = readFileSync(fd, 'utf8');
-            try {
-                ({ url: urlValue, key } = JSON.parse(contents));
-            } catch {
-                throw Error('Invalid JSON in the private routine credential file.');
-            }
-        } finally {
-            closeSync(fd);
+            ({ url: urlValue, key } = JSON.parse(contents));
+        } catch {
+            throw Error('Invalid JSON in the private routine credential file.');
         }
     }
     if (!urlValue) throw Error('Set the URL and key for the configured routine.');
