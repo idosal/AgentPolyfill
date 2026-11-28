@@ -1,0 +1,20 @@
+services:
+  mcp-events-grok-bot:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - ./data:/data
+    environment:
+      GROK_EVENTS_HOME: /data
+      GROK_EVENTS_READER_HOST: 0.0.0.0
+      GROK_EVENTS_READER_PORT: 8787
+      # Optional: restrict browser Origin header if proxied behind a known HTTPS domain
+      # GROK_EVENTS_READER_ORIGIN: https://mcp-events.example.com
+      GROK_ROUTINE_URL: ${GROK_ROUTINE_URL}
+      GROK_ROUTINE_KEY: ${GROK_ROUTINE_KEY}
+      # Optional: reader key (otherwise read from /data/reader.key created by `bridge.mjs init`)
+      # GROK_EVENTS_READER_KEY: ${GROK_EVENTS_READER_KEY}
+      # Add any upstream bearer token env vars referenced in /data/config.json:
+      # T3_MCP_TOKEN: ${T3_MCP_TOKEN}

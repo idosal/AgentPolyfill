@@ -1,0 +1,36 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Single Cloudflare Worker + SQLite Durable Object host polyfill for Grok Bot.
+  // Run `npm run setup` to deploy, configure secrets, and get your Grok connector URL.
+  "name": "mcp-events-grok-bot",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-19",
+  "durable_objects": {
+    "bindings": [
+      { "name": "HUB", "class_name": "GrokEventsHub" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["GrokEventsHub"] }
+  ],
+  "vars": {
+    // Set "1" to stand down cleanly (no watches, zero MCP tools) once Grok adds native support.
+    "MCP_EVENTS_OFF": "",
+    // Set "off" for strict SEP-3415 only, or a comma-separated list of pre-standard server names.
+    "MCP_EVENTS_PRE_STANDARD": "",
+    // Optional public https:// origin allowed in browser Origin headers; unset rejects all browser Origin headers.
+    "READER_ORIGIN": ""
+  },
+  // Keep request logs off so webhook URLs and bearer headers are never logged.
+  "observability": { "enabled": false },
+  "send_metrics": false,
+  "workers_dev": true,
+  "preview_urls": false,
+  "dev": { "ip": "127.0.0.1", "port": 8798 }
+
+  // Secrets (set via `npm run setup` or `wrangler secret put`, never committed here):
+  //   READER_KEY        32+ char bearer token for Grok Bot's Remote HTTPS MCP connector
+  //   GROK_ROUTINE_URL  Grok Bot webhook-only routine "POST to" HTTPS URL
+  //   GROK_ROUTINE_KEY  Grok Bot webhook-only routine bearer key
+  //   UPSTREAM_SERVERS  JSON map of named upstream MCP servers: {"demo":{"url":"..."},"t3":{"url":"...","bearer":"..."}}
+}
