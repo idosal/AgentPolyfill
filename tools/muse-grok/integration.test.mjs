@@ -5,7 +5,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { once } from 'node:events';
 import { randomBytes } from 'node:crypto';
-import { chmodSync, mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { chmodSync, mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -67,11 +67,11 @@ async function publisher(script, env) {
     jobs.push(() => { server.closeAllConnections(); return new Promise(ok => server.close(ok)); });
     return 'http://127.0.0.1:' + server.address().port + '/mcp';
 }
-async function plugin(feature, config, http = false) {
+async function plugin(feature, config, http = false, environment = {}) {
     const dir = scratch(), path = join(dir, 'config.json');
     writeFileSync(path, JSON.stringify(config));
     const secret = randomBytes(32).toString('hex');
-    const proc = child(['polyfills/' + feature + '/muse/plugin/dist/server.mjs','--config',path,...(http ? ['--http'] : [])], { AGENTPOLYFILL_TOKEN: secret, PORT:'0' });
+    const proc = child(['polyfills/' + feature + '/muse/plugin/dist/server.mjs','--config',path,...(http ? ['--http'] : [])], { AGENTPOLYFILL_TOKEN: secret, PORT:'0', ...environment });
     let rpc;
     if (http) {
         const [line] = await once(proc.stderr, 'data');
@@ -146,6 +146,54 @@ test('catalogs preserve identity and only read the selected verified root', { ti
     scenario.files[b.uri].text += '!'; writeFileSync(src,JSON.stringify(scenario));
     await assert.rejects(call('read_skill',{source:'local',uri:b.uri}));
     await assert.rejects(call('read_skill',{source:'unconfigured',uri:a.uri}));
+});
+test('Muse lists publisher metadata and reads only supporting files of the opened manifest in this session', { timeout:30000 }, async () => {
+    const dir = scratch(), src = join(dir, 'catalog'), log = join(dir, 'reads');
+    const path = 'references/queues.md';
+    const guide = skill('queue-guide', { [path]: 'Keep all GPU listeners in one queue.' });
+    const scenario = scenarioOf([guide]);
+    writeFileSync(src, JSON.stringify(scenario));
+    const url = await publisher('polyfills/skills/core/test-fixtures/fixture-skills-server.ts', { FIXTURE_SCENARIO:src, FIXTURE_LOG:log });
+    const cfg = { sources:{ public:url }, askBeforeReading:false };
+    // Muse strips XDG_CONFIG_HOME from its child. The installer records the caller's config home.
+    writeFileSync(join(dir,'native-config-home.json'), JSON.stringify(dir));
+    const env = { XDG_CONFIG_HOME:'', HOME:dir, MUSE_PLUGIN_DATA_DIR:dir };
+    const call = await plugin('skills', cfg, false, env);
+    const args = { source:'public', uri:guide.uri, path };
+    await call('discover_skills');
+    const list = join(dir,'muse','skills');
+    const [folder] = readdirSync(list).filter(n => n.startsWith('mcp-skill-reference--'));
+    const stub = readFileSync(join(list,folder,'SKILL.md'),'utf8');
+    assert.match(stub,/mcp-skills:public:queue-guide/);
+    assert.match(stub,/read_skill/);
+    assert.ok(!stub.includes('Keep all GPU listeners'));
+    const reads = () => readFileSync(log,'utf8').split('\n').filter(l => l && JSON.parse(l).method === 'resources/read').length;
+    await assert.rejects(call('read_skill_file',args));
+    assert.equal(reads(),0);
+    const opened = await call('read_skill',{source:'public',uri:guide.uri});
+    assert.deepEqual(opened.files,[guide.root+'/'+path]);
+    assert.equal(reads(),1);
+    await assert.rejects(call('read_skill_file',{...args,path:'../other.txt'}));
+    await assert.rejects(call('read_skill_file',{...args,path:'SKILL.md'}));
+    await assert.rejects(call('read_skill_file',{...args,path:'unlisted.md'}));
+    const other = await plugin('skills',cfg);
+    await assert.rejects(other('read_skill_file',args));
+    assert.equal(reads(),1);
+    assert.equal((await call('read_skill_file',args)).text,'Keep all GPU listeners in one queue.');
+    scenario.files[guide.root+'/'+path].text = 'Unverified bytes';
+    writeFileSync(src,JSON.stringify(scenario));
+    await assert.rejects(call('read_skill_file',args));
+    const changed = skill('queue-guide',{[path]:'A changed reference.'});
+    writeFileSync(src,JSON.stringify(scenarioOf([changed])));
+    await assert.rejects(call('read_skill_file',args));
+    writeFileSync(src,JSON.stringify(scenarioOf([guide])));
+    await assert.rejects(call('read_skill_file',args));
+    const remote = await plugin('skills',cfg,true);
+    assert.equal(remote.tools.some(t => t.name==='read_skill_file'),false);
+    writeFileSync(src,JSON.stringify(scenarioOf([])));
+    await call('discover_skills');
+    assert.equal(existsSync(join(list,folder,'SKILL.md')),false);
+    assert.equal(existsSync(join(dir,'.config','muse','skills')),false);
 });
 test('Tasks supports allowlisted calls, polling, results and cancellation through both transports', { timeout:30000 }, async () => {
     const dir = scratch(), port = join(dir,'port');

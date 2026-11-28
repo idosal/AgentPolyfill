@@ -1,5 +1,7 @@
-import { realpathSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdirSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { randomUUID } from 'node:crypto';
+import { isAbsolute, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -44,10 +46,29 @@ const plan = selected.map(name => {
     }
     return { id, plugin, update: Boolean(record) };
 });
+function configureSkills(plugin) {
+    const dataHome = process.env.XDG_DATA_HOME;
+    const data = join(dataHome && isAbsolute(dataHome) ? dataHome : join(homedir(), '.local', 'share'), 'muse', 'plugins', 'data', 'mcp-skill-reference');
+    const configHome = process.env.XDG_CONFIG_HOME;
+    const hint = join(data, 'native-config-home.json');
+    if (configHome && isAbsolute(configHome)) {
+        mkdirSync(data, { recursive: true, mode: 0o700 });
+        const tmp = hint + '.' + randomUUID();
+        writeFileSync(tmp, JSON.stringify(configHome), { flag: 'wx', mode: 0o600 });
+        renameSync(tmp, hint);
+    } else if (existsSync(hint)) unlinkSync(hint);
+    if (approve) {
+        const sync = spawnSync(process.execPath, [join(plugin, 'dist', 'server.mjs'), '--refresh-native-list'], {
+            env: { ...process.env, MUSE_PLUGIN_DATA_DIR: data }, stdio: 'inherit', timeout: 30000
+        });
+        if (sync.status !== 0) console.warn('The publisher list will refresh in your next trusted Muse session.');
+    }
+}
 for (const { id, plugin, update } of plan) {
     if (update) muse('plugins', 'update', id);
     else muse('plugins', 'install', plugin);
     if (approve) muse('plugins', 'approve', id);
     else console.log('After reviewing the plugin, run: muse plugins approve ' + id);
+    if (id === 'mcp-skill-reference') configureSkills(plugin);
 }
 console.log('Start a new trusted Muse session to use the approved plugins.');

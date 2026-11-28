@@ -3,7 +3,7 @@
   "name": "mcp-skill-reference",
   "displayName": "MCP Skills reference",
   "version": "0.1.1",
-  "description": "Read verified guidance from configured skill publishers.",
+  "description": "List publisher skills in Muse and read their verified guides and supporting files.",
   "capabilities": {
     "mcpServers": [
       {
