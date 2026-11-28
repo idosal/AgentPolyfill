@@ -221,9 +221,15 @@ export function inboxStatus(dir) {
         const s = JSON.parse(row.value);
         const a = s.attempt;
         const count = (lower, upper) => db.prepare('SELECT count(*) AS n FROM events WHERE n > ? AND n <= ?').get(lower, upper).n;
+        const heldBatch = a ? s.inbox + '.e' + a.first + '-e' + a.last : null;
+        // Display only identifiers actually sent to the Bot. A reference-only wake carries the batch ID.
+        const saved = heldBatch && db.prepare('SELECT payload FROM batches WHERE ref=?').get(heldBatch);
+        const sent = saved?.payload ? JSON.parse(saved.payload).events : [];
+        const heldIdentifiers = Array.isArray(sent) ? [...new Set(sent.map(e=>e.ticketId || e.eventId).filter(id =>
+            typeof id==='string' && /^[A-Za-z0-9][A-Za-z0-9._:@/+~-]{0,127}$/.test(id)))].slice(0,20) : [];
         return {
             pending: count(a?.last ?? s.through, Number.MAX_SAFE_INTEGER),
-            heldBatch: a ? s.inbox + '.e' + a.first + '-e' + a.last : null,
+            heldBatch, heldIdentifiers,
             heldEvents: a ? count(a.first - 1, a.last) : 0,
             lastAccepted: s.lastAccepted ?? null,
             acceptedThrough: s.through

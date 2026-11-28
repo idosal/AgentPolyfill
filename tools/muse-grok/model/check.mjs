@@ -18,6 +18,7 @@ const models = [
     ['SkillApproval', ['ScopedVerifiedFile'], {
         'other-session': 'ScopedVerifiedFile', 'wrong-source': 'ScopedVerifiedFile',
         'unlisted-file': 'ScopedVerifiedFile', 'unchecked-bytes': 'ScopedVerifiedFile' }],
+    ['NativeSkillRead', ['SingleRequest','ApprovedBytes'], { 'reuse':'SingleRequest','other-file':'ApprovedBytes','stale':'ApprovedBytes' }],
     ['WatchConfirmation', ['OneUseAtNamedEndpoint'], {
         'ignore-endpoint': 'OneUseAtNamedEndpoint', 'keep-confirmation': 'OneUseAtNamedEndpoint' }]
 ];

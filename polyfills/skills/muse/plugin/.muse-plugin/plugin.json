@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "name": "mcp-skill-reference",
   "displayName": "MCP Skills reference",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "List publisher skills in Muse and read their verified guides and supporting files.",
   "capabilities": {
     "mcpServers": [
@@ -11,7 +11,8 @@
         "transport": "stdio",
         "command": [
           "node",
-          "dist/server.mjs"
+          "dist/server.mjs",
+          "--native-catalog"
         ]
       }
     ],
@@ -29,6 +30,15 @@
         "command": [
           "node",
           "dist/user-prompt-submit.mjs"
+        ],
+        "timeoutMs": 2000
+      },
+      {
+        "id": "native-skill-read",
+        "event": "PostToolUse",
+        "command": [
+          "node",
+          "dist/native-open.mjs"
         ],
         "timeoutMs": 2000
       }

@@ -45,6 +45,7 @@ if (feature === 'skills' && (!selected.length || settings.runtime_capabilities?.
     if (result.status !== 0) {
         if (!selected.length) throw Error('Selection cleared. Native inventory cleanup failed. Close Muse and rerun with --clear.');
         console.warn('The selection was saved. Catalog refresh will retry in Muse.');
+        process.exitCode = 1;
     }
 }
 console.log('Selected Muse connections for ' + feature + ': ' + (selected.join(', ') || '(none)') + '. Open a fresh trusted session.');

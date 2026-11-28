@@ -332,9 +332,10 @@ function recordedOwner(dir) {
 
 export async function runCli([command, ...args]) {
     const dir = resolve(process.env.GROK_EVENTS_HOME || join(homedir(), '.grok-events'));
-    if (command === 'status' && !args.length) {
+    if (command === 'status' && (!args.length || args.length===1 && args[0]==='--human')) {
+        const human = args[0] === '--human';
         if (!lstatSync(dir, { throwIfNoEntry: false })) {
-            console.log(JSON.stringify({ profile: dir, initialized: false }));
+            console.log(human ? 'No watcher profile at '+dir : JSON.stringify({ profile: dir, initialized: false }));
             return;
         }
         privateProfile(dir, false);
@@ -342,10 +343,23 @@ export async function runCli([command, ...args]) {
         const watches = watchPlan(config, servers(config)).map(({ server, event, note }) => ({ server, event, name: note }));
         const owner = recordedOwner(dir);
         const inbox = inboxStatus(dir);
-        console.log(JSON.stringify({ profile: dir, initialized: true, watches, owner, ...inbox,
-            startAtLogin: process.platform === 'darwin' ? loginJob(dir).installed() : 'unsupported',
-            ...(inbox.heldBatch && { recovery: 'After the watcher stops, check this batch in the Bot history. If accepted, use follow --accepted BATCH. Use follow --retry only if a duplicate is acceptable.' })
-        }, null, 2));
+        const startAtLogin = process.platform === 'darwin' ? loginJob(dir).installed() : 'unsupported';
+        const recovery = [];
+        if (inbox.heldBatch) {
+            const quote = value => "'"+String(value).replaceAll("'", "'\\''")+"'";
+            const cli = 'GROK_EVENTS_HOME='+quote(dir)+' '+quote(process.execPath)+' '+quote(process.argv[1]);
+            const ids = inbox.heldIdentifiers?.join(', ');
+            recovery.push('Check the Grok routine history for '+(ids ? 'ticket or event '+ids+' and batch ' : 'batch ')+inbox.heldBatch+'.');
+            if (owner?.processAlive) recovery.push('A watcher process is running. An active delivery can still finish. Refresh status first.');
+            if (startAtLogin === 'installed') recovery.push('Before manual recovery, stop the login watcher with '+cli+' login disable');
+            else if (owner?.processAlive) recovery.push('If the batch remains held, stop its foreground watcher with Ctrl-C in its own terminal.');
+            recovery.push('Only after confirming this batch arrived, run '+cli+' follow --accepted '+inbox.heldBatch);
+            if (startAtLogin === 'installed') recovery.push('After the queue drains, press Ctrl-C and restore start at login with '+cli+' login enable');
+            recovery.push('If delivery is uncertain, leave the batch held. An explicit retry can send a duplicate.');
+        }
+        const state = {profile:dir,initialized:true,watches,owner,...inbox,startAtLogin,...(recovery.length && {recovery:recovery.join(' '),recoverySteps:recovery})};
+        console.log(human ? ['Watcher profile: '+dir,'Queued: '+inbox.pending+'   Held: '+(inbox.heldBatch ?? 'none'),
+            'Last accepted: '+(inbox.lastAccepted?.batch ?? 'none recorded'),'Start at login: '+startAtLogin,...recovery].join('\n') : JSON.stringify(state,null,2));
         return;
     }
     if (command === 'login' && args.length === 1 && ['enable', 'disable'].includes(args[0])) {
@@ -414,5 +428,5 @@ export async function runCli([command, ...args]) {
             process.off('SIGTERM', signal);
             await stop?.();
         }
-    } else throw Error('Usage: watch.mjs init | status | login enable|disable | list [SERVER] | once | follow [--retry | --accepted BATCH] | read BATCH');
+    } else throw Error('Usage: watch.mjs init | status [--human] | login enable|disable | list [SERVER] | once | follow [--retry | --accepted BATCH] | read BATCH');
 }

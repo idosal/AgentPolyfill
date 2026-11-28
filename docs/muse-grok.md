@@ -1,12 +1,12 @@
 # Muse Code and Grok Bot
 
-This kit adds five features. In Muse, install the plugins you want and open a new trusted session. Muse starts their helpers. Grok Bot uses a different setup for each feature. One discovery helper on your Mac handles both Server Cards and ARD. Skills uses a private online connector. Tasks can use that transport or run as a Command connector on the Bot computer. Events uses a watcher on your machine and a webhook-only routine.
+This kit adds five features. In Muse, install the plugins you want and open a new trusted session. Muse starts their helpers. Grok Bot uses a different setup for each feature. One discovery helper handles both Server Cards and ARD. Publisher skills can be installed as native Grok skills from a team ZIP. Live reads require an owner-operated connector. Tasks can use that transport or run as a Command connector on the Bot computer. Events uses a watcher on your machine and a webhook-only routine.
 
 | Feature | What you can ask | Muse Code | Grok Bot |
 | --- | --- | --- | --- |
 | Directory lookup (ARD) | “What services does Buildkite publish?” | The agent reads the directory on the website you name. Verified with Buildkite. | The helper finds the services and prints the connection fields. The operator completes the form. |
-| Server Cards | “How do I connect to that service?” | The agent shows the address and a command you can review and run. An earlier Neon test connected and listed five tools. | The helper prepares the name, address and sign-in fields. Saving and using a discovered service in Grok needs a host check. |
-| Skills over MCP | “How do I give my Hugging Face app GPU time?” | Connect the publisher once. Its guides appear in Muse’s skill list. One Mac approval opens a guide and its verified supporting files for this conversation. | Connect the publisher once for the account. Grok can find its guides. Start the connector with `--owner-approval` and the person at that Mac can approve one guide. Grok then receives the text in chat. The default remote setup only lists guides. |
+| Server Cards | “How do I connect to that service?” | The agent shows the address and a command you can review and run. An earlier Neon test connected and listed five tools. | The helper prepares the name, address and sign-in fields. A signed-in Bot saved a discovered endpoint and returned its publisher receipt. Credential-free services can also produce a reviewed setup draft. |
+| Skills over MCP | “Two users sometimes get each other’s output file. What should I change?” | Publisher guides appear by name in the native skill list. Opening one enables a single approved read of its current guide and one optional text reference. | A native team ZIP can contain the actual selected guide and reference, or native entries that request their current files through the owner’s connector. Uploading a catalog is an operator step. |
 | Events | “Tell me when a ticket comes in.” | A short wait returns one ticket. A native monitor can interrupt the open terminal once. For repeated notices, confirm a subscription and receive updates with your next messages. | A matching event starts the configured routine with the watch name and ticket or event ID. Try one alert or keep watching. Each wake uses the routine’s permissions and quota. |
 | Tasks | “Use the addition service and tell me its result.” | The agent starts an enabled job, checks it by number and returns the answer. Verified with FastMCP. | A private connector exposes the jobs the operator enables to every Bot on the account. A signed-in test Bot started one job and returned its result and receipt. |
 
@@ -66,30 +66,41 @@ In the November 28 local marketplace check, Muse Code 1.4.25 installed all five 
 
 ### Publishers and skill approval
 
-If Hugging Face is already in your Muse user settings, run just the second command with its existing name. Otherwise register the publisher, then select it for Skills. An approved plugin reads the catalog immediately so the guides are ready for the first question.
+From the extracted kit, install Skills and connect a publisher in one command.
 
 ```sh
-muse mcp add hf-publisher --user --url https://huggingface.co/mcp
-node tools/muse-grok/select-muse-sources.mjs skills hf-publisher
-muse skills list --source user
+node tools/muse-grok/install-muse.mjs skills --approve --publisher https://huggingface.co/mcp
 ```
 
-Open a new trusted session and ask “I’m deploying a Gradio app on Hugging Face ZeroGPU. Which publisher guide should I use? Just the name and link.” A catalog lookup returns the published name and its `skill://` URI. Asking for instructions opens the **Read once** dialog on macOS. A remote publisher sees normal MCP discovery requests. A selected stdio publisher starts a separate instance of the configured command. The plugin stores selected names and the location of the Muse profile. It reuses supported literal settings and declines Muse-managed OAuth, environment substitutions, and connections subject to enterprise policy it cannot evaluate. Select additional names on the same command line, or pass `--clear` to remove the selection. Reopen the session after changing it. A separately configured `sources.json` still applies.
+Use an existing Muse connection name in place of the URL for an existing private or stdio publisher. The installer reuses a matching HTTP connection, preserves other selected publishers and checks the number of enabled entries through `muse skills list --source user`. Open a fresh trusted conversation after installation. The macOS desktop must be available for **Read once**. Review the plugin before passing `--approve`.
 
-Skills defaults to the public Hugging Face publisher. Installing with `node tools/muse-grok/install-muse.mjs skills --approve` adds the catalog to Muse’s native list. Run `muse skills list --source user` and look for `mcp-skills:huggingface:huggingface-zerogpu`. The local entries contain the publisher’s description and instructions for contacting the reader. Muse fetches the actual guide only when it is opened. Trusted sessions refresh the catalog. Up to 100 guides are written to the native list. The discovery tool can list the rest.
+Muse selects a `SKILL.md` entry with its built-in skill reader. The entry lists the publisher URI and available supporting files. A hook recognizes the successful native read and gives that selection a two-minute, single-use receipt. The shared file reader accepts that receipt and one optional reference. It asks before fetching file contents, rechecks the manifest and verifies the bytes. Publisher instructions enter through a tool result. The hook sends only a locally generated selection receipt. A receipt alone grants no access to file contents. A declined request reads zero files. When the user explicitly asks to use already-open material, the prompt hook can close the live reader for that turn. A matching reference filename can suggest which file to request. The dialog names the actual files. Selecting another file later requires another read.
 
-Try “According to Hugging Face’s ZeroGPU concurrency reference, how should I configure two Gradio listeners that share a GPU queue?” **Read once** names the publisher, guide and number of supporting files. In Muse it covers that version of the guide for this conversation. The model can request a listed reference by path. The reader checks its digest and size before returning text. It reports metadata for a binary attachment. Loading a nested guide separately requires its own approval. To clear the local list before uninstalling, run `node polyfills/skills/muse/plugin/dist/server.mjs --clear-native-list` from the kit in the same profile, with Muse sessions closed.
+Try “Two users of my Hugging Face ZeroGPU app sometimes get each other’s output image. Both requests write output.png. How should I fix this?” The concurrency reference describes unique output paths. A different question about sharing a Gradio queue requires the same `concurrency_id` on the two listeners. The ZeroGPU concurrency reference omits this setting. A chat answer alone cannot establish which files were used. [Gradio queueing](https://github.com/gradio-app/gradio/blob/main/guides/04_additional-features/01_queuing.md)
 
-To replace the source list, create `sources.json` in the plugin’s data directory, `plugins/data/mcp-skill-reference` under Muse’s data store. Use labels you recognize. The example enables the Mac prompt when opening a guide.
+A native list entry contains catalog metadata until selected. The helper supports at most 100 entries and refreshes in trusted sessions. The operator chooses any compatible publisher. Selected stdio publishers start a separate instance of their configured command. Unsupported managed OAuth, unresolved environment substitutions and enterprise policy are reported as unavailable. To clear generated entries, run `node tools/muse-grok/select-muse-sources.mjs skills --clear` before removing the plugin. The lower-level selection command replaces the selected names. Separately configured publishers in `sources.json` still apply.
+
+### Native Grok skills
+
+Use the source label and endpoint from the owner connector configuration. For example, save this as `skills.json`:
 
 ```json
-{
-  "sources": { "huggingface": "https://huggingface.co/mcp" },
-  "askBeforeReading": true
-}
+{"sources":{"huggingface":"https://huggingface.co/mcp"},"askBeforeReading":true}
 ```
 
-Add another compatible publisher as another label. Discovery fetches metadata only. Reading selects a source plus an exact URI, checks the current manifest, and verifies the root’s byte count, SHA-256 and frontmatter. The publisher’s text enters the conversation as reference material. Only catalog-listed, fingerprinted roots can be read. Muse can read supporting files listed in the approved manifest. After the manifest changes, open the guide again. The remote Grok connector only reads the main guide. Both adapters require a static manifest and refuse unlisted files. The host’s existing tools keep their normal permissions. Top-level consent is optional in the Skills spec. Set `askBeforeReading` to false to skip the Mac dialog for top-level reads. Identified nested entries require approval. The remote connector declines reads that require a dialog unless the operator runs it on a signed-in Mac with `--owner-approval`. With that flag it requests approval for every top-level read, including when `askBeforeReading` is false. One dialog can be open at a time. The dialog identifies the publisher URL and guide. Nested remote reads are always refused. [Skills specification](https://skills.extensions.modelcontextprotocol.io/specification/beta/skills)
+**To distribute the actual skill**, explicitly choose the guide and any one supporting reference. The command fetches and verifies these files and writes a private team ZIP. Review it before uploading. The snapshot contains the guide body with native name and description fields, and at most the one selected text reference. Check that the skill works with those files alone. A guide that depends on additional files, scripts, or its publisher’s services needs those dependencies separately. The included files become available to the people who install the skill. This mode requires the publisher’s permission to redistribute its material. Once installed, Grok uses the native skill without a connector or a Mac. Updating it requires another export and upload. Approval occurs at export.
+
+```sh
+python3 tools/muse-grok/package.py zerogpu.zip --grok-skills-config skills.json --source huggingface --snapshot-skill skill://huggingface-zerogpu/SKILL.md --reference references/concurrency.md
+```
+
+**Use the same downloaded skill in Muse with no plugin.** Unzip the snapshot into a permanent folder you own. Run `muse skills install /absolute/path/to/unpacked/skills/SKILL_FOLDER --scope user` and start a new session. Muse opens the installed `SKILL.md` itself. The selected supporting file sits alongside it. The authorization decision happens when you choose to download and install the snapshot. Update it by inspecting and installing a fresh export. Use the live publisher plugin if you want approval at read time.
+
+**For current files and approval on each read**, build the native catalog and upload it as a private team plugin. Each publisher guide gets one native skill entry. This ZIP contains only catalog descriptions, file names and instructions for reaching the reader. Add the owner-approved HTTPS connector once as described below. A new publisher guide needs a catalog refresh and re-upload. Existing entries request the current guide and optional named reference together. The owner sees both names on the connector Mac. Each request has its own approval across the account’s Bots. The release tests check the archive contents and wire requests. A signed-in installation of the new catalog and its supporting-file path remains a host check.
+
+```sh
+python3 tools/muse-grok/package.py publisher-catalog.zip --grok-skills-config skills.json --source huggingface
+```
 
 ### Watch an event
 
@@ -128,7 +139,7 @@ A fresh session exposes each enabled job with its publisher’s input schema whe
 
 Handles last for this process, subject to the publisher’s TTL, a one-hour local limit, and at most ten minutes of terminal-result retention. Polling honors the publisher’s suggested interval. A publisher can return an immediate result or require input. The adapter reports the latter and offers cancellation. It does not answer embedded input requests, resume after a restart, or wake the conversation when a task finishes. [Tasks extension](https://tasks.extensions.modelcontextprotocol.io/seps/2663-tasks-extension)
 
-**Read a specific reference in Muse.** Connect the publisher once and select it as your Skills source. Approve the Skills plugin and its prompt hook. In a fresh trusted session ask your normal question. When a distinctive word in the question matches one guide, the hook shows a suggestion using its locally cached name. Each of the first 32 fingerprinted catalog entries can supply a named `consult_…` tool. Its optional reference menu comes from the publisher’s manifest. For example, the Hugging Face ZeroGPU guide lists `references/concurrency.md`. If the model selects that file, the Mac prompt names both the guide and file. Accepting reads and verifies both. Declining returns neither. An opened guide can still supply other verified files during this session. A slow or larger catalog remains available through `discover_skills` and `read_skill`. The model chooses which tool and reference to request.
+**Read a specific reference in Muse.** Ask a normal question in a fresh trusted session. Muse sees the selected publishers’ native skills. A local hint can point the model to a matching name. When Muse opens that entry, it sees the available filenames. One shared reader accepts the native selection and a file number. Zero requests the main guide alone. Choosing a supporting file requests it together with the guide in a single Mac dialog. Accepting reads and verifies the selected files. Declining reads neither. The same skill can prompt once per turn. On follow-ups the agent can use files already in the conversation. The model decides whether to open a skill and which file to request.
 
 ## Set up Grok Bot
 
@@ -148,6 +159,14 @@ PORT=8788 node polyfills/tasks/muse/plugin/dist/server.mjs --http --config /abso
 ```
 
 Run each process separately. Both require `AGENTPOLYFILL_TOKEN` in their environment. Put HTTPS in front of their loopback listeners. In Grok choose **Connect apps → Add a custom connector → Remote HTTPS**, enter the published HTTPS URL ending in `/mcp`, and add the `Authorization` header with value `Bearer <your service token>`. Each service is one account-wide connection. A separate token and process per account keeps task handles and access separate. Stop the service and remove the connector to uninstall. This checkout provides the server software. Hosting and TLS are the operator’s responsibility. [Grok connectors](https://docs.x.ai/grok-bot/computer-and-apps)
+
+**Draft a credential-free connector installation.** For a Server Card or ARD discovery, add `--draft-for BOT_UUID` to the discovery command. The helper prints the exact proposed message and a link that opens it in the named Bot. Review the endpoint and choose Send. For Tasks, stage the verified kit on the Bot computer first, then prepare its command with:
+
+```sh
+node tools/muse-grok/grok-draft.ts tasks BOT_UUID /usr/local/bin/node /absolute/path/agentpolyfill-hosts/polyfills/tasks/muse/plugin/dist/server.mjs https://publisher.example/mcp add_numbers
+```
+
+Sending the draft asks the Bot to install an account-wide connector. It contains only the intended configuration. The owner reviews it before sending. The helper declines draft generation for cards with headers, OAuth or URL secrets. Enter those directly in the connector form. Manual installation produced signed-in receipts in RC1. Draft generation is covered by automated checks; sending a draft and obtaining a new signed-in receipt is a separate host check. [Grok draft links](https://docs.x.ai/grok-bot/deep-links) · [Grok connector setup](https://docs.x.ai/grok-bot/computer-and-apps)
 
 **Run Tasks on the Grok computer.** For a public publisher that requires no credentials, extract the release ZIP once on the Bot’s computer, in a stable folder readable by the connector. Use Node 22.18 or later there. Open **Connect apps → Add a custom connector → Command**. Use the absolute path to Node as the command. Supply these five arguments separately, substituting the real path, publisher URL and tool name.
 
@@ -174,7 +193,7 @@ Run `once` first, trigger an event, and verify the reply in the Bot. Choose `fol
 
 The ZIP includes the bundled software for five host integrations. Use a dedicated operating-system account for a watcher or hosted connector that handles private publisher data. The approved operator selects the publishers, any local commands and the allowed Tasks tools. Each Grok HTTP connector uses one operator identity across the Bots that can access it. Treat the routine URL and key as credentials. For publisher HTTP connections, these adapters accept HTTPS and local loopback HTTP; inline credentials, queries and fragments are rejected. Publisher guidance and event text remain external content even when their origin or digest has been verified.
 
-Five bounded TLA+ models cover skill-file consent, recurring watch confirmation, routine delivery, task handles and discovery handoffs. The CI runner also requires the expected invariant to fail when each modeled safeguard is removed. See [the model assumptions, implementation checks and reproduction command](../tools/muse-grok/model/README.md).
+Six bounded TLA+ models cover native skill selection and one-use reads, skill-file consent, recurring watch confirmation, routine delivery, task handles and discovery handoffs. The CI runner also requires the expected invariant to fail when each modeled safeguard is removed. See [the model assumptions, implementation checks and reproduction command](../tools/muse-grok/model/README.md).
 
 ## Verify the checkout
 

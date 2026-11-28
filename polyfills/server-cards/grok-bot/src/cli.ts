@@ -11,6 +11,7 @@ import { plainText, type ServerCard } from '../../claude-code/mod/hooks/card'
 import { isCompatible } from '../../claude-code/mod/hooks/configure'
 import type { Store } from '../../claude-code/mod/hooks/http'
 import { nodeFetch } from '../../codex/src/fetch'
+import { cardDraft } from '../../../../tools/muse-grok/grok-draft.ts'
 import { connectorFor, oauthHint, pasteText } from './connector'
 
 const memoryStore = (): Store => {
@@ -18,13 +19,14 @@ const memoryStore = (): Store => {
   return { get: async k => m.get(k), set: async (k, v) => void m.set(k, v), delete: async k => void m.delete(k), keys: async () => [...m.keys()] }
 }
 
-type Args = { target?: string; server?: string; remote?: number; values: Record<string, string>; json: boolean; ard: boolean }
+type Args = { target?: string; bot?: string; server?: string; remote?: number; values: Record<string, string>; json: boolean; ard: boolean }
 
 export function parseArgs(argv: string[]): Args | { error: string } {
   const a: Args = { values: {}, json: false, ard: false }
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i]!
-    if (x === '--ard') a.ard = true
+    if (x === '--draft-for') { a.bot=argv[++i]; if (!a.bot || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(a.bot)) return { error:'--draft-for needs a Bot UUID' } }
+    else if (x === '--ard') a.ard = true
     else if (x === '--json') a.json = true
     else if (x === '--server') {
       a.server = argv[++i]
@@ -39,7 +41,7 @@ export function parseArgs(argv: string[]): Args | { error: string } {
     else if (a.target === undefined) a.target = x
     else return { error: 'give one domain or URL' }
   }
-  if (!a.target) return { error: 'usage: card-to-connector <domain | URL> [--server <identifier>] [--remote <n>] [--set NAME=value] [--json] [--ard]' }
+  if (!a.target) return { error: 'usage: card-to-connector <domain | URL> [--server <identifier>] [--remote <n>] [--set NAME=value] [--json] [--ard] [--draft-for BOT_UUID]' }
   if (a.remote !== undefined && !(Number.isInteger(a.remote) && a.remote >= 0)) return { error: '--remote takes a number (0 for the first remote)' }
   return a
 }
@@ -96,6 +98,13 @@ export async function run(argv: string[], fetchImpl: typeof fetch = globalThis.f
     return { code: 1, out: ['The card leaves inputs open that are not secrets. Run again with --set for each:', ...(c.missing ?? []).map(m => `  --set ${m.input}=<value>${m.description ? `   (${plainText(m.description)})` : ''}${m.choices ? `   one of: ${m.choices.map(plainText).join(', ')}` : ''}`)].join('\n') }
   }
   const oauth = await oauthHint(fetch, c.url.replace(/\$\{[A-Z0-9_]+\}/g, 'x'))
+  if (a.bot) {
+    try {
+      if (c.transport !== 'http') return {code:1,out:'The setup draft supports Streamable HTTP. Review this transport in the connector form.'}
+      const draft = cardDraft(a.bot,c,oauth)
+      return { code:0, out:a.json ? JSON.stringify(draft,null,2) : draft.text+'\n\nReview the draft and choose Send in Grok.\n'+draft.link }
+    } catch (error) { return {code:1,out:error instanceof Error ? error.message : 'Cannot draft this connector.'} }
+  }
   if (a.json) return { code: 0, out: JSON.stringify({ card: { name: card.name, version: card.version, title: card.title }, from: s.cardFrom, connector: { name: c.name, url: c.url, transport: c.transport, headers: c.headers, urlSecrets: c.urlSecrets }, oauth, notes: c.notes }, null, 2) }
   return { code: 0, out: pasteText(card, c, oauth, s.cardFrom) }
 }

@@ -13,6 +13,9 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { skill, scenarioOf } from '../../polyfills/skills/core/test-fixtures/harness.ts';
 import { deliverOnce, destination } from '../../polyfills/events/grok-bot/src/deliver.ts';
 
+import { promisify } from 'node:util';
+import { execFile } from 'node:child_process';
+import { cardDraft, taskDraft } from './grok-draft.ts';
 import { actions as approvalActions } from './skill-trace.mjs';
 import { readDecision } from '../../polyfills/skills/muse/src/approval.ts';
 
@@ -221,7 +224,7 @@ test('Muse lists publisher metadata and reads only supporting files of the opene
     const [folder] = readdirSync(list).filter(n => n.startsWith('mcp-skill-reference--'));
     const stub = readFileSync(join(list,folder,'SKILL.md'),'utf8');
     assert.match(stub,/mcp-skills:public:queue-guide/);
-    assert.match(stub,/read_skill/);
+    assert.ok(stub.includes('Reference 1: '+path));
     assert.ok(!stub.includes('Keep all GPU listeners'));
     const reads = () => readFileSync(log,'utf8').split('\n').filter(l => l && JSON.parse(l).method === 'resources/read').length;
     await assert.rejects(call('read_skill_file',args));
@@ -241,15 +244,15 @@ test('Muse lists publisher metadata and reads only supporting files of the opene
         writeFileSync(join(dir,'muse/settings.json'), JSON.stringify({runtime_capabilities:{'plugin:mcp-skill-reference:mcp_server:skills':{enabled}}}));
         return spawnSync(process.execPath,[hook],{env:{...process.env,...env},input:JSON.stringify({prompt}),encoding:'utf8'}).stdout;
     };
-    assert.match(withHook('How should I set up the queue?',true),/consult_queue_guide_/);
+    assert.match(withHook('How should I set up the queue?',true),/mcp-skills:public:queue-guide/);
     assert.equal(withHook('Tell me the time',true),'');
     assert.equal(withHook('How should I set up the queue?',false),'');
-    const named = call.tools.find(tool => tool.name.startsWith('consult_queue_guide_'));
-    assert.deepEqual(named.inputSchema.properties.reference.enum, [path]);
+    assert.ok(!call.tools.some(t=>t.name.startsWith('consult_')));
+    assert.equal(withHook('Use what we already opened about the queue.',true),'');
     const before = reads();
-    await assert.rejects(call(named.name, { reference: '../other.md' }));
+    await assert.rejects(call('read_skill',{...args, reference:'../other.md'}));
     assert.equal(reads(), before);
-    const combined = await call(named.name, { reference: path });
+    const combined = await call('read_skill',{...args,reference:path});
     assert.equal(combined.uri, guide.uri);
     assert.deepEqual(combined.reference, { uri: guide.root + '/' + path, text: 'Keep all GPU listeners in one queue.' });
     assert.equal(reads(), before + 2);
@@ -454,4 +457,125 @@ test('private config diagnostics withhold settings text and connections require 
     }
     assert.equal(parseMuseServer({ url:'https://source.example/mcp' }, dir).url, 'https://source.example/mcp');
     assert.equal(parseMuseServer({ url:'http://127.0.0.1/mcp' }, dir).url, 'http://127.0.0.1/mcp');
+});
+
+test('native skill activation and remote approvals disclose only the chosen verified files', { timeout:30000 }, async () => {
+    const dir=scratch(), file=join(dir,'catalog'), wire=join(dir,'wire'), config=join(dir,'sources.json');
+    const path='references/output.md', guide=skill('output-guide',{[path]:'Use a different file for each request.'});
+    writeFileSync(file,JSON.stringify(scenarioOf([guide])));
+    const url=await publisher('polyfills/skills/core/test-fixtures/fixture-skills-server.ts',{FIXTURE_SCENARIO:file,FIXTURE_LOG:wire});
+    writeFileSync(config,JSON.stringify({sources:{fixture:url},askBeforeReading:false}));
+    mkdirSync(join(dir,'muse'),{recursive:true});
+    writeFileSync(join(dir,'native-config-home.json'),JSON.stringify(dir));
+    writeFileSync(join(dir,'muse/settings.json'),JSON.stringify({runtime_capabilities:{'plugin:mcp-skill-reference:mcp_server:skills':{enabled:true}}}));
+    const mock=join(dir,'dialog.mjs'), decision=join(dir,'decision');
+    // Run the Linux CI bundle with a mock of the macOS dialog for only the loopback fixture.
+    writeFileSync(mock,`import cp from 'node:child_process'; import fs from 'node:fs'; import {promisify} from 'node:util'; import {syncBuiltinESMExports} from 'node:module';
+        Object.defineProperty(process,'platform',{value:'darwin'});
+        const original=cp.execFile.bind(cp),custom=cp.execFile[promisify.custom];
+        cp.execFile=(...args)=>original(...args);
+        cp.execFile[promisify.custom]=async(...args)=>{
+            if(args[0]!=='/usr/bin/osascript')return custom.apply(cp,args);
+            const msg=args[1].at(-1);
+            if(!msg.includes(${JSON.stringify(' from '+url+' (')}) || !msg.includes(${JSON.stringify(path)})) throw Error('Unexpected dialog');
+            return {stdout:fs.readFileSync(${JSON.stringify(decision)},'utf8'),stderr:''};
+        };syncBuiltinESMExports();`);
+    const env={MUSE_PLUGIN_DATA_DIR:dir,HOME:dir,XDG_CONFIG_HOME:'',NODE_OPTIONS:'--import='+mock};
+    const reader=await plugin('skills',{},false,env,['--native-catalog','--config',config]);
+    assert.deepEqual(reader.tools.map(t=>t.name),['read_publisher_files']);
+    const list=join(dir,'muse/skills');
+    for(let i=0;i<80 && !existsSync(join(dir,'guide-routes.json'));i++) await delay(50);
+    const route=JSON.parse(readFileSync(join(dir,'guide-routes.json')))[0];
+    const filename=join(list,route.folder,'SKILL.md');
+    const hook=join(process.env.MUSE_GROK_TEST_KIT || root,'polyfills/skills/muse/plugin/dist/native-open.mjs');
+    let turn=0;
+    function select(name=filename,turnId='turn-'+(++turn)) {
+        const payload={session_id:'test-session',turn_id:turnId,hook_event_name:'PostToolUse',tool_name:'read_skill',tool_response:'<read-skill-result name="output-guide" status="ok">\n<metadata>\npath: '+name+'\nlocator: file://'+name+'\nsource: user\n'};
+        return spawnSync(process.execPath,[hook],{input:JSON.stringify(payload),encoding:'utf8',env:{...process.env,...env}}).stdout;
+    }
+    assert.equal(select(join(dir,'other/SKILL.md')),'');
+    const selection=(turnId)=>{const msg=select(filename,turnId);assert.ok(!msg.includes('different file'));return msg.match(/selection ([a-f0-9]{48})/)[1]};
+    const reads=()=>readFileSync(wire,'utf8').split('\n').filter(l=>l&&JSON.parse(l).method==='resources/read').map(l=>JSON.parse(l).params.uri);
+    const suggest=join(process.env.MUSE_GROK_TEST_KIT || root,'polyfills/skills/muse/plugin/dist/user-prompt-submit.mjs');
+    const event={hook_event_name:'UserPromptSubmit',session_id:'test-session',turn_id:'existing',prompt:'Use what we already opened.'};
+    const previous=selection('previous-turn');
+    spawnSync(process.execPath,[suggest],{input:JSON.stringify(event),env:{...process.env,...env}});
+    assert.ok(select(filename,'existing').includes('already-open material'));
+    await assert.rejects(reader('read_publisher_files',{selection:previous,reference:1}),/already in this conversation/);
+    assert.deepEqual(reads(),[]);
+    function begin(turn_id) {
+        spawnSync(process.execPath,[suggest],{input:JSON.stringify({...event,turn_id,prompt:'Consult the selected skill.'}),env:{...process.env,...env}});
+    }
+    begin('declined-turn');
+    writeFileSync(decision,'Decline');
+    const first=selection('declined-turn');
+    await assert.rejects(reader('read_publisher_files',{selection:first,reference:1}),/declined/);
+    assert.deepEqual(reads(),[]);
+    await assert.rejects(reader('read_publisher_files',{selection:first,reference:1}),/expired or was used/);
+    writeFileSync(decision,'Read once');
+    await assert.rejects(reader('read_publisher_files',{selection:selection('declined-turn'),reference:1}),/already requested/);
+    assert.deepEqual(reads(),[]);
+    begin('approved-turn');
+    const second=selection('approved-turn'), calls=await Promise.allSettled([1,2].map(()=>reader('read_publisher_files',{selection:second,reference:1})));
+    assert.equal(calls.filter(r=>r.status==='fulfilled').length,1);
+    assert.deepEqual(reads(),[guide.uri,guide.root+'/'+path]);
+    const remote=await plugin('skills',{},true,env,['--config',config,'--owner-approval']);
+    await assert.rejects(remote('read_skill',{source:'fixture',uri:guide.uri,reference:'references/missing.md'}));
+    assert.equal(reads().length,2);
+    assert.equal((await remote('read_skill',{source:'fixture',uri:guide.uri,reference:path})).reference.text,'Use a different file for each request.');
+    writeFileSync(decision,'Decline');
+    await assert.rejects(remote('read_skill',{source:'fixture',uri:guide.uri,reference:path}),/declined/);
+    assert.equal(reads().length,4);
+    const unattended=await plugin('skills',{},true,{},['--config',config]);
+    await assert.rejects(unattended('read_skill',{source:'fixture',uri:guide.uri,reference:path}),/requires owner approval/);
+    assert.equal(reads().length,4);
+});
+
+test('Grok native skill ZIP supports a live catalog or one verified portable skill', async () => {
+    const dir=scratch(), config=join(dir,'config'), scenario=join(dir,'catalog'), wire=join(dir,'wire');
+    const path='references/output.md', first=skill('output-guide',{[path]:'A unique temporary path.'}), second=skill('other-guide');
+    writeFileSync(scenario,JSON.stringify(scenarioOf([first,second])));
+    const url=await publisher('polyfills/skills/core/test-fixtures/fixture-skills-server.ts',{FIXTURE_SCENARIO:scenario,FIXTURE_LOG:wire});
+    writeFileSync(config,JSON.stringify({sources:{fixture:url}}));
+    const pack=async (name,...extra)=>{
+        const dest=join(dir,name+'.zip');
+        await promisify(execFile)('python3',[join(process.env.MUSE_GROK_TEST_KIT||root,'tools/muse-grok/package.py'),dest,'--grok-skills-config',config,'--source','fixture',...extra]);
+        const script="import json,sys,zipfile;z=zipfile.ZipFile(sys.argv[1]);print(json.dumps({n:z.read(n).decode() for n in z.namelist()}))";
+        return JSON.parse((await promisify(execFile)('python3',['-c',script,dest])).stdout);
+    };
+    const live=await pack('live');
+    assert.equal(Object.keys(live).filter(path=>path.endsWith('/SKILL.md')).length,2);
+    assert.ok(!JSON.stringify(live).includes('A unique temporary path.'));
+    assert.ok(!readFileSync(wire,'utf8').includes('"resources/read"'));
+    const archived=await pack('snapshot','--snapshot-skill',first.uri,'--reference',path);
+    assert.equal(Object.keys(archived).length,3);
+    const body=Object.entries(archived).find(([n])=>n.endsWith('/SKILL.md'))[1];
+    assert.ok(!body.includes('read_skill'));
+    assert.ok(body.endsWith(first.files[first.uri].text.split('---\n').at(-1).trimEnd()) || body.trimEnd().endsWith(first.files[first.uri].text.split('---\n').at(-1).trim()));
+    assert.equal(Object.entries(archived).find(([n])=>n.endsWith('/'+path))[1],'A unique temporary path.');
+    assert.ok(!JSON.stringify(archived).includes(url));
+});
+
+test('publisher reference hints use general topics and leave ties unresolved', async () => {
+    const {suggestedReference} = await import('../../polyfills/skills/muse/src/routes.ts');
+    const refs = ['references/parallelism.md','references/billing.md'];
+    assert.equal(suggestedReference('My workers share the same queue',refs),refs[0]);
+    assert.equal(suggestedReference('How does billing work?',refs),refs[1]);
+    assert.equal(suggestedReference('In Foobar both users get each other’s files', ['references/how-foobar-works.md',...refs],['foobar']),refs[0]);
+    assert.equal(suggestedReference('How can I get started?',refs),undefined);
+    assert.equal(suggestedReference('Configure parallel workers',[...refs,'references/concurrency.md']),undefined);
+});
+
+test('Grok installation drafts contain only reviewed parameters and wait for Send', () => {
+    const id='00000000-0000-4000-8000-000000000001', url='https://publisher.example/mcp', c={url,headers:[],urlSecrets:[]};
+    const draft=cardDraft(id,c,{kind:'none'});const parsed=new URL(draft.link);
+    assert.equal(parsed.protocol,'grokbot:');assert.equal(parsed.pathname,'/v1/prompt');assert.equal(parsed.searchParams.get('text'),draft.text);
+    assert.equal(parsed.searchParams.get('id'),id);assert.ok(draft.text.includes(url));
+    assert.throws(()=>cardDraft(id,{...c,headers:[{}]},{kind:'none'}));
+    assert.throws(()=>cardDraft(id,{...c,url:url+'?key=private'},{kind:'none'}));
+    assert.throws(()=>cardDraft(id,c,{kind:'dynamic'}));
+    const module='/opt/ap/polyfills/tasks/muse/plugin/dist/server.mjs';
+    assert.ok(taskDraft(id,'/usr/bin/node',module,url,'add_numbers').text.includes(JSON.stringify([module,'--publisher',url,'--allow-tool','add_numbers'])));
+    assert.throws(()=>taskDraft(id,'/usr/bin/sh',module,url,'add_numbers'));
+    assert.throws(()=>taskDraft(id,'/usr/bin/node',module,url,'add numbers'));
 });

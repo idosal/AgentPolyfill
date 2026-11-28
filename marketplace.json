@@ -32,13 +32,13 @@
     },
     {
       "name": "mcp-skill-reference",
-      "version": "0.2.1",
+      "version": "0.3.0",
       "install": {
         "transport": "local-path",
         "source": "polyfills/skills/muse/plugin"
       },
       "integrity": {
-        "digest": "sha256:f124ad0ff8572cc4885bd0c5ed25663dbd75cfd0716cead373fcf004bd689d69"
+        "digest": "sha256:a685bf3029c45ea5e98775be9ca7428456a83d572860f48a1a585fb08d55fa25"
       },
       "availability": {
         "status": "available"

@@ -1,6 +1,7 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { museConfigDir } from '../../../events/muse/src/muse-config.ts';
+import { nativeFolder, inlineReferences } from './routes.ts';
 import { join } from 'node:path';
 import { labelDir, MAX_STUBS, plain, stubNames } from '../../codex/src/stubs.ts';
 import type { Listed } from '../../core/src/skills.ts';
@@ -29,8 +30,7 @@ export function syncNativeList(root: string, listed: Listed[], keep: Set<string>
         const wanted = new Set<string>();
         for (const item of shown) {
             const { label, entry } = item;
-            const tag = createHash('sha256').update(entry.uri).digest('hex').slice(0, 16);
-            const name = prefix + labelDir(label) + '--' + tag;
+            const name = nativeFolder(item);
             wanted.add(name);
             const dir = join(root, name);
             const file = join(dir, 'SKILL.md');
@@ -39,9 +39,10 @@ export function syncNativeList(root: string, listed: Listed[], keep: Set<string>
             const description = '[MCP publisher ' + label + '] ' + plain(entry.frontmatter.description, 900);
             const body = ['---', 'name: ' + JSON.stringify(names.get(item)), 'description: ' + JSON.stringify(description), '---', '', marker,
                 'Published name: ' + plain(entry.frontmatter.name, 100), 'Publisher URI: ' + JSON.stringify(entry.uri),
-                'For a catalog question, report the name and URI above. For a how-to question, use the consult tool named for this guide and select its relevant reference.',
-                'Read this guide with the read_skill tool of mcp-skill-reference using ' + JSON.stringify({ source: label, uri: entry.uri }) + '.',
-                'Use read_skill_file for a listed reference after the guide opens. If the person declines, stop.', ''].join('\n');
+                'Use the native activation receipt to read the publisher files. For a how-to question choose the relevant listed reference in the same request. If the reader is unavailable or the person declines, the publisher guide has not been read.',
+                'Choose one reference number for this question, or 0 for the main guide alone.',
+                ...inlineReferences(entry).map((path,index) => 'Reference '+(index+1)+': '+path),
+                'Use files already present in this conversation for follow-up questions. Say which requested details the source does not cover.', ''].join('\n');
             const stat = lstatSync(file, { throwIfNoEntry: false });
             if (stat) {
                 if (!stat.isFile()) continue;

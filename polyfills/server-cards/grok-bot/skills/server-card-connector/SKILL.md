@@ -53,3 +53,5 @@ public and https).
 
 If the user asks you to add it, you can add a connector by its URL; give them the headers to enter
 when Grok Bot asks for them.
+
+For a public credential-free endpoint, the helper accepts `--draft-for BOT_UUID`. Give the owner the proposed configuration and its Grok draft link. The owner reviews the message and chooses Send. Use the connector form for credentials or OAuth.

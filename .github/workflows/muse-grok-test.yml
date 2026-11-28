@@ -51,7 +51,7 @@ jobs:
       - name: Verify bundles, types and discovery tests
         run: |
           node tools/muse-grok/build.mjs --check
-          node tools/bundle-notices.mjs polyfills/skills/muse --esbuild-from polyfills/skills/codex --plugin plugin --entry src/reference.ts --bundle dist/server.mjs --check
+          node tools/bundle-notices.mjs polyfills/skills/muse --esbuild-from polyfills/skills/codex --plugin plugin --entry src/reference.ts --entry src/suggest.ts --entry src/native-open.ts --bundle 'dist/{server,user-prompt-submit,native-open}.mjs' --check
           node tools/bundle-notices.mjs polyfills/tasks/muse --esbuild-from polyfills/skills/codex --plugin plugin --entry src/tasks.ts --bundle dist/server.mjs --check
           node tools/bundle-notices.mjs polyfills/events/muse --esbuild-from polyfills/skills/codex --plugin plugin --entry src/monitor.ts --entry src/helper.ts --entry src/muse-prompt-hook.ts --bundle 'dist/{server,inbox,user-prompt-submit}.mjs' --check
           node --test polyfills/events/muse/test/recurring.test.ts
@@ -74,7 +74,9 @@ jobs:
             if curl -s -o /dev/null --max-time 1 http://127.0.0.1:48763/mcp; then break; fi
             sleep 1
           done
-          MUSE_GROK_FASTMCP_URL=http://127.0.0.1:48763/mcp node --test tools/muse-grok/integration.test.mjs
+          python3 tools/muse-grok/package.py --kit "$RUNNER_TEMP/transport-kit.zip"
+          unzip -q "$RUNNER_TEMP/transport-kit.zip" -d "$RUNNER_TEMP/transport"
+          MUSE_GROK_TEST_KIT="$RUNNER_TEMP/transport/agentpolyfill-hosts" MUSE_GROK_FASTMCP_URL=http://127.0.0.1:48763/mcp node --test tools/muse-grok/integration.test.mjs
       - name: Install the five packages with Muse and verify the shared plugins in Codex
         run: |
           mkdir "$RUNNER_TEMP/muse-bin"

@@ -224,6 +224,12 @@ test(
         trace.push('Crash');
         assert.equal(down.owner.processAlive, false);
         assert.equal(down.heldBatch, batch);
+        assert.deepEqual(down.heldIdentifiers, ['T-104']);
+        assert.ok(down.recoverySteps.some(line=>line.includes('follow --accepted '+batch)));
+        assert.ok(down.recoverySteps.some(line=>line.includes('T-104')));
+        const humanStatus = command('status','--human');
+        await humanStatus.done;
+        assert.match(humanStatus.out,/T-104/);
         assert.equal(down.lastAccepted.batch, prior.lastAccepted.batch);
         const resumed = command('follow');
         await waitFor(() => resumed.err.includes('Held batch ' + batch), 'restarted sender did not hold the delivery');
