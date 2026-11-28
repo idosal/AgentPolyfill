@@ -29,7 +29,16 @@ pub fn image_capable() -> bool {
         let (major, minor) = (version.first().copied().unwrap_or(0), version.get(1).copied().unwrap_or(0));
         return major > 3 || (major == 3 && minor >= 5);
     }
-    ghostty() || kitty()
+    (ghostty() || kitty()) && indexed_color(std::env::var("FORCE_COLOR").ok().as_deref(), !var("NO_COLOR").is_empty())
+}
+
+// Claude Code allocates Kitty placeholder IDs only at indexed or true colour.
+fn indexed_color(force: Option<&str>, no_color: bool) -> bool {
+    match force {
+        Some("2" | "3") => true,
+        Some("0" | "1" | "true" | "false" | "") => false,
+        _ => !no_color,
+    }
 }
 
 /// iTerm2 shows a picture only after a swap, each time it is drawn anew.
@@ -77,3 +86,15 @@ fn measure_aspect() -> Option<f64> {
 
 #[cfg(not(unix))]
 fn measure_aspect() -> Option<f64> { None }
+
+#[cfg(test)]
+mod image_color_tests {
+    use super::indexed_color;
+    #[test]
+    fn kitty_images_require_indexed_color() {
+        assert!(indexed_color(None, false));
+        assert!(!indexed_color(None, true));
+        for force in ["0", "1", "", "true", "false"] { assert!(!indexed_color(Some(force), false)); }
+        for force in ["2", "3"] { assert!(indexed_color(Some(force), true)); }
+    }
+}

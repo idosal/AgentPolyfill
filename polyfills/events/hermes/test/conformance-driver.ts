@@ -14,9 +14,7 @@
 //
 // `node test/conformance-driver.ts --suite` runs the suite's four Events client scenarios from a
 // checkout named in MCP_CONFORMANCE_SUITE_DIR (modelcontextprotocol/conformance#541, which has
-// them). That checkout is code this repository does not hold: read it before you run it. The
-// webhook scenario is expected not to pass: in Hermes, webhook delivery is Hermes's own
-// (`events: true`), and this form never subscribes by webhook.
+// them). That checkout is code this repository does not hold: read it before you run it.
 
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -24,6 +22,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
+import { localWebhookEnv } from './harness.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const HELPER = join(ROOT, 'plugin', 'dist', 'helper.mjs');
@@ -55,7 +54,7 @@ function suite(): number {
         rmSync(home, { recursive: true, force: true });
     }
     say(failed.length ? `did not pass: ${failed.join(', ')}` : 'all 4 scenarios passed');
-    return failed.filter((s) => s !== 'events-client-webhook').length ? 1 : 0;
+    return failed.length ? 1 : 0;
 }
 if (process.argv[2] === '--suite') process.exit(suite());
 
@@ -75,7 +74,9 @@ if (!/^https?:\/\//.test(url)) {
 
 const dir = mkdtempSync(join(tmpdir(), 'mcp-events-hermes-conformance-'));
 const state = join(dir, 'state');
-const child = spawn(process.execPath, [HELPER], { env: { PATH: process.env.PATH ?? '', HOME: dir, TMPDIR: process.env.TMPDIR ?? '', MCP_EVENTS_BATCH_MS: '200' }, stdio: ['pipe', 'pipe', 'pipe'] });
+// The suite's webhook server is anonymous and uses HTTP on loopback. Only this scenario needs test mode.
+const webhookEnv = scenario === 'events-client-webhook' ? await localWebhookEnv() : {};
+const child = spawn(process.execPath, [HELPER], { env: { PATH: process.env.PATH ?? '', HOME: dir, TMPDIR: process.env.TMPDIR ?? '', MCP_EVENTS_BATCH_MS: '200', ...webhookEnv }, stdio: ['pipe', 'pipe', 'pipe'] });
 let stderr = '';
 child.stderr.on('data', (d) => (stderr += d));
 const exited = new Promise<number | null>((r) => child.on('close', (c) => r(c)));
@@ -120,7 +121,8 @@ try {
     for (const s of json.servers) {
         for (const t of s.eventTypes) {
             const r = await call('watch_event', { server: s.server, event: t.name, note: 'conformance run' });
-            say(`watch_event ${JSON.stringify(t.name)}: ${r.isError ? 'ERROR ' : ''}${r.text.split('. New events')[0]}`);
+            if (r.isError) throw new Error(`watch_event ${JSON.stringify(t.name)}: ${r.text}`);
+            say(`watch_event ${JSON.stringify(t.name)}: ${r.text.split('. New events')[0]}`);
         }
     }
     await sleep(durationMs);
@@ -133,7 +135,10 @@ try {
     const kill = setTimeout(() => child.kill('SIGKILL'), 10000);
     const exit = await exited;
     clearTimeout(kill);
-    if (exit !== 0) say(`helper exited with ${exit}${stderr ? `: ${stderr.slice(0, 500)}` : ''}`);
+    if (exit !== 0) {
+        code = 1;
+        say(`helper exited with ${exit}${stderr ? `: ${stderr.slice(0, 500)}` : ''}`);
+    }
     try {
         for (const l of readFileSync(join(state, 'mcp-events.log'), 'utf8').split('\n').filter(Boolean)) say(`helper log: ${l.replace(/^\S+ \[\d+\] /, '')}`);
     } catch {

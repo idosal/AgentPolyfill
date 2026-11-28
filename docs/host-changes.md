@@ -330,9 +330,11 @@ the live server.
   accepted for the session, or none when its MCP support is off, would
   replace both. With change 1 neither is needed.
 - **Keep `ui://` resources and tool `_meta` for extensions.** Pi leaves out
-  MCP Apps resources because it doesn't render them. An extension that
-  renders them needs them, and the tool's `_meta.ui`; with change 1 it can
-  read both itself.
+  MCP Apps resources from its public extension API. The Apps adapter can
+  now negotiate on the originating connection and retrieve the original tool
+  metadata on two verified Node builds. Public hooks for negotiation, catalog
+  filtering and the originating connection would remove that version
+  dependency. [Pi Apps coverage](../polyfills/apps/pi/COMPLIANCE.md)
 - **Pi reads `~/.agents/skills` from `HOME`, whatever its agent directory.**
   Worth a line in Pi's docs: running Pi with its own agent directory
   (`PI_CODING_AGENT_DIR`) still lists the user's own skills.
@@ -452,13 +454,14 @@ T3 Code passes MCP through to the agent it runs, so the four changes are the
 agents' to make. These are T3 Code's own, and [T3 Code](t3-code.md) has the
 details:
 
-- **Show an MCP elicitation form as the server wrote it.** T3 Code shows a
-  form only when it can answer it with Approve or Decline, and cancels any
-  other without showing it (`CodexMcpElicitation.ts`). The confirmations of
+- **Show arbitrary MCP forms in Codex and Claude Code threads.** These providers show a
+  form only when they can answer it with Approve or Decline. They cancel
+  other forms without showing them (`CodexMcpElicitation.ts`). The confirmations of
   the Codex Skills, Server Cards and ARD forms ("Load it", "Add it", "Send the
-  search") are cancelled that way, so those steps never happen in T3 Code.
+  search") are cancelled that way in those threads.
   Showing a form's fields and returning what the person picks would fix it;
-  at the least, a form it can't show should leave a notice in the thread.
+  at the least, a form it can't show should leave a notice in the thread. T3
+  0.1.12 already accepts fields through the [Pi and ACP providers](../polyfills/tasks/t3/README.md).
 - **Document `T3CODE_THREAD_ID`, and set it for every provider's MCP
   servers.** Codex's stdio servers get it; Claude Code's don't. It's how a
   server knows which thread it serves, which the T3 Events form needs; with

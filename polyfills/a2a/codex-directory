@@ -1,0 +1,13 @@
+#!/bin/sh
+# Codex sets cwd to the installed plugin copy. Keep registered agents independent
+# of that versioned cache path when a later plugin version replaces this one.
+set -eu
+umask 077
+cd -- "$(dirname -- "$0")"
+base=${CODEX_HOME:-"$HOME/.codex"}
+base=$(CDPATH= cd -- "$base" && pwd -P)
+export CODEX_HOME="$base"
+runtime="$base/agentpolyfill-a2a/.runtime"
+. ./codex/runtime
+UV_PROJECT_ENVIRONMENT="$runtime" "$uv_bin" sync --project . --locked --no-editable --extra setup --no-dev --quiet
+exec "$node_bin" ./codex/host.mjs

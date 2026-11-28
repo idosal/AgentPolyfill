@@ -21,8 +21,8 @@
       "description": "Unofficial MCP Apps client for the Claude Code terminal: app UIs render inline, with clicks and keys forwarded to the app",
       "source": {
         "source": "archive",
-        "url": "https://github.com/idosal/AgentPolyfill/releases/download/mcp-apps-cli-v0.1.5/mcp-apps-cli-0.1.5.zip",
-        "sha256": "7c0b33f8837906b222c83d29eae0c71aeaaf76efa1697c3256d167e4f182bd75"
+        "url": "https://github.com/idosal/AgentPolyfill/releases/download/mcp-apps-cli-v0.1.6/mcp-apps-cli-0.1.6.zip",
+        "sha256": "5eb157328728d30710aef275c073a649e8713839cb41d63c8a78c5b8f6c0ce78"
       }
     },
     {

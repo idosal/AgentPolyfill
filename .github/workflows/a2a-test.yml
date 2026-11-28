@@ -1,0 +1,87 @@
+name: A2A delegation
+on:
+  push:
+    paths:
+      - '.agents/plugins/marketplace.json'
+      - 'polyfills/a2a/**'
+      - 'polyfills/tasks/**'
+      - 'polyfills/server-cards/antigravity/src/gate.ts'
+      - '.github/workflows/a2a-test.yml'
+  pull_request:
+    paths:
+      - '.agents/plugins/marketplace.json'
+      - 'polyfills/a2a/**'
+      - 'polyfills/tasks/**'
+      - 'polyfills/server-cards/antigravity/src/gate.ts'
+      - '.github/workflows/a2a-test.yml'
+permissions:
+  contents: read
+jobs:
+  client:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: polyfills/a2a
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22
+      - run: pipx install uv==0.11.16
+      - run: uv sync --locked --python 3.12 --extra setup
+      - run: .venv/bin/python -m unittest discover -s tests -v
+      - name: Provision private runtimes without user-installed Node or uv
+        run: |
+          base="$RUNNER_TEMP/runtime-profile"
+          mkdir -p "$base/path"
+          for tool in uname mkdir mktemp dirname curl sha256sum tar gzip chmod mv rm; do
+            ln -s "$(command -v "$tool")" "$base/path/$tool"
+          done
+          export PATH="$base/path"
+          . ./codex/runtime
+          "$uv_bin" --version
+          "$node_bin" --version
+      - name: Verify the packaged Codex Tasks client
+        working-directory: .
+        run: |
+          npm ci --prefix polyfills/tasks/core --no-audit --no-fund
+          npm ci --prefix polyfills/tasks/codex --no-audit --no-fund
+          node polyfills/a2a/codex/build.mjs
+          git diff --exit-code -- polyfills/a2a/codex/host.mjs
+      - name: Install once and manage connections in a fresh profile
+        run: |
+          export CODEX_HOME="$RUNNER_TEMP/a2a-codex"
+          ./install codex
+          ./agents codex add research --url https://research.example.org
+          ./agents codex add design --url https://design.example.org
+          ./agents codex edit design --url https://new.example.org
+          ./agents codex list
+          ./agents codex remove design
+          ./install codex --name demo --url https://agent.example.org
+          ./install codex --name demo --remove
+      - name: Verify the directory through a signed-out Codex app-server
+        run: |
+          npm install --global --no-audit --no-fund @openai/codex@0.172.0
+          .venv/bin/python tests/interop/codex_settings.py
+      - name: Verify the two-question replay with official A2A Serve
+        run: |
+          mkdir -p "$RUNNER_TEMP/serve"
+          cd "$RUNNER_TEMP/serve"
+          curl --fail --silent --show-error --location --retry 3 -o serve.tgz \
+            https://github.com/a2aproject/a2a-serve/releases/download/v0.1.0/a2a-serve_0.1.0_linux_amd64.tar.gz
+          echo 'b2a07326990f89027cb00337e8976e035e0b6c740c6e8557ece94a21ac1ebcb4  serve.tgz' | sha256sum --check
+          tar -xzf serve.tgz
+          cd "$GITHUB_WORKSPACE/polyfills/a2a"
+          .venv/bin/python tests/interop/serve.py "$RUNNER_TEMP/serve/a2a-serve"
+      - name: Verify clean marketplace installation and delegation
+        working-directory: .
+        run: |
+          mkdir "$RUNNER_TEMP/a2a-marketplace"
+          git archive HEAD .agents/plugins/marketplace.json polyfills/a2a polyfills/tasks/codex/plugin | tar -x -C "$RUNNER_TEMP/a2a-marketplace"
+          polyfills/a2a/.venv/bin/python polyfills/a2a/tests/interop/serve.py "$RUNNER_TEMP/serve/a2a-serve" --marketplace "$RUNNER_TEMP/a2a-marketplace"
+      - name: Verify the public AgentPolyfill Codex marketplace on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: .venv/bin/python tests/interop/serve.py "$RUNNER_TEMP/serve/a2a-serve" --marketplace idosal/AgentPolyfill
+      - run: uv build --wheel --out-dir "$RUNNER_TEMP/dist"

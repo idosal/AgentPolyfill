@@ -20,9 +20,9 @@ Also available for [Claude Code](../claude-code/README.md),
 
 This plugin implements the client side of the MCP Events extension,
 [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/3415-events-extension.md)
-(the Final text, as of 24 November 2026), for **poll and push** delivery.
-Hermes already does the third mode, webhook delivery, itself (`events: true`
-on a server), and this plugin leaves those servers to Hermes. Details are in
+(the Final text, as of 24 November 2026), for **webhook, push and poll** delivery. Each watch uses a mode the server
+advertises for that event type. Servers configured with `events: true` use
+Hermes’s native webhook subscriptions. Details are in
 [Spec and conformance](#spec-and-conformance).
 
 ## Install
@@ -120,7 +120,7 @@ To stop: "Stop watching the demo button."
 ### How the parts fit together
 
 ```
-your MCP server ◄── events/list · events/poll · events/stream ── helper (Node: plugin/dist/helper.mjs)
+your MCP server ◄── events/list · poll · stream · subscribe ── helper (Node: plugin/dist/helper.mjs)
                                                                     │  ▲
                                   wake {session, text}              │  │ initialize {servers} · call {tool, session} · spoke
                                                                     ▼  │
@@ -164,18 +164,30 @@ plugin may use change (one named or removed, its entry edited, or switched to
 resume on the servers still in it, and a watch on a server now left to Hermes
 stays saved but doesn't run, so no server is watched twice.
 
-### Webhook delivery stays with Hermes
+### Webhook delivery
 
-Hermes implements webhook delivery natively: with `events: true` and a
-public address for its webhook listener (`platforms.webhook.extra.public_url`),
-each event starts an unattended agent run, with Hermes's own
-`subscribe_event` tool and approval. This plugin adds the two modes Hermes
-doesn't have, poll and push, and never subscribes by webhook. An event type a
-server delivers only by webhook gets an answer that points to `events: true`.
-The relay the Claude Code and Codex forms can use isn't used here: the helper
-drops the relay settings from its environment and doesn't read the relay
-file their setup writes (`~/.mcp-events/relay.json`), so a relay set up for
-them changes nothing here.
+Push and poll work as soon as a server is connected. To receive signed
+webhooks in the watching session, give the MCP server a credential header
+in its configuration and set up a public HTTPS callback for the gateway.
+For a type offering several modes, the plugin chooses webhook when configured
+and authenticated, then push, then poll.
+
+- **Private relay.** Set `MCP_EVENTS_RELAY_URL` and, if required by your
+  relay, `MCP_EVENTS_RELAY_ACCESS_KEY` in the gateway environment. The
+  gateway can also read a relay settings file at
+  `$HERMES_HOME/mcp-events/relay.json`. Set `MCP_EVENTS_RELAY_FILE` to
+  select an existing file, including one created by another Events plugin.
+- **Public relay.** Set `MCP_EVENTS_RELAY=public` to opt in. Its operator
+  can read event payloads. Both relay options need Node 22 or newer.
+  See the [shared relay setup](../codex/README.md#webhook-delivery-the-relay).
+- **Your HTTPS forwarder.** Set `MCP_EVENTS_PUBLIC_URL` to its public base
+  URL and `MCP_EVENTS_RECEIVER_PORT` to the loopback port it forwards to.
+  One session can own a given receiver port at a time. A relay supports
+  concurrent sessions.
+
+For native Hermes webhook runs, configure `events: true` on the server and
+`platforms.webhook.extra.public_url` for Hermes. That server then uses
+Hermes’s own `subscribe_event` tool.
 
 ### Where it keeps things
 
@@ -195,7 +207,7 @@ announced once.
 
 ### Settings
 
-There's nothing to set beyond the two grants above. The shared client's
+The shared client's
 environment variables work as in the other forms (`MCP_EVENTS_WAKES_PER_HOUR`,
 `MCP_EVENTS_WAKE_GAP_S`, `MCP_EVENTS_PRE_STANDARD`), set in the gateway's
 environment.
@@ -302,7 +314,7 @@ In short, details in [`SECURITY.md`](SECURITY.md):
   of it, and a kept approval covers that exact watch only.
 - The plugin reads no Hermes credentials, connects only to servers you
   granted, and stays in the profile it was loaded for.
-- Webhook delivery, which needs a public address, isn't done by this plugin.
+- The plugin verifies webhook signatures before recording a delivery. A relay operator can read the payload.
 
 ## Spec and conformance
 
@@ -313,11 +325,11 @@ of the shared client is the Claude Code form's.
 
 | Test | What it covers |
 |---|---|
-| `test/spec-test.ts` | LIST-1, DM-1, CAP-2, CAP-4, PUSH-1, PUSH-2, PUSH-11, POLL-1, POLL-2, POLL-5, STATE-1, DEDUP-1, SEC-1, SEC-2, the wake gate, refused and unanswered wakes, sessions kept apart, webhook left to Hermes (a relay set up for the other forms included), no server text in a wake |
+| `test/spec-test.ts` | LIST-1, DM-1, CAP-2, CAP-4, PUSH-1, PUSH-2, PUSH-11, POLL-1, POLL-2, POLL-5, STATE-1, DEDUP-1, SEC-1, SEC-2, the wake gate, refused and unanswered wakes, sessions kept apart, webhook setup, signed delivery and unsubscribe, no server text in a wake |
 | `test/e2e_test.py` | In Hermes: Hermes's approval for a watch (and a declined one), no watch with `approvals.mode: off` or in `hermes -z`, push and poll waking an idle session, `events: true` and servers not named left alone, a server switched to `events: true` mid-run no longer watched after the next turn, no injection grant, Tool Search |
 | `test/test_plugin.py`, `tools/hermes/shared/test_servers.py` | The Python half: approvals keyed by the whole watch and the server's entry, only the call asked about run, questions shown in full, no watch where Hermes approves without asking, a delegated child's turn not counted as the person, the grant read with `ctx.get_config`, the helper started again when the servers change; which servers it may use, no `${VAR}` filled in, its own profile only, a stuck helper ended, telling that Hermes approves without asking |
 | `test/plugin-test.ts` | The installed folder matches a fresh build |
-| The upstream conformance suite's Events client scenarios (`modelcontextprotocol/conformance#541` at `c8625de`), through the bundled helper: `test/conformance-driver.ts --suite` | The 14 checks that apply pass. The webhook scenario's three are "unverified, not violated": webhook is Hermes's own here |
+| The upstream conformance suite's Events client scenarios (`modelcontextprotocol/conformance#541` at `c8625de`), through the bundled helper: `test/conformance-driver.ts --suite` | Discovery, poll, push and webhook scenarios against the installed helper |
 | [`WakeHermes.tla`](../claude-code/model/README.md#wakehermestla-how-often-events-wake-a-hermes-session), TLC | The wake budget and hand-over, with the gateway stopping between any two steps: holds, with five documented limits |
 | `test/interop_hookbench.py` | [NHTanvir/hookbench](https://github.com/NHTanvir/hookbench)'s reference server, through Hermes: discovery, push, routing headers, filtering, payload as data, termination |
 | `test/e2e_shared_gateway.py` | In Hermes's shared gateway, which the TUI and Desktop attach to: a watch, then an event waking the idle session |

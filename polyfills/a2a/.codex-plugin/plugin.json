@@ -1,0 +1,25 @@
+{
+  "name": "a2a",
+  "version": "0.2.0",
+  "description": "Manage named A2A connections and delegate from chat with built-in Tasks support and local approval.",
+  "author": {
+    "name": "Ido Salomon",
+    "url": "https://github.com/idosal"
+  },
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/idosal/AgentPolyfill/tree/main/polyfills/a2a",
+  "repository": "https://github.com/idosal/AgentPolyfill",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "A2A Delegation",
+    "shortDescription": "Connect named A2A agents to your Codex chats",
+    "developerName": "Ido Salomon",
+    "category": "Developer Tools",
+    "defaultPrompt": [
+      "Connect an A2A agent",
+      "Show my A2A agents"
+    ]
+  },
+  "skills": "./skills/",
+  "onboardingSkill": "./skills/connect-agents/SKILL.md"
+}

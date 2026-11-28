@@ -32,6 +32,23 @@ MCP specification. Its `/.well-known/ard.json` and its registry search are in
 a separate plugin, [`ard-discovery`](../../ard/codex/README.md), because a
 search sends your words to a third party.
 
+## Cursor IDE
+
+Cursor and Codex install the same `plugin/` directory. From a clone of AgentPolyfill, with Node.js 20+ on your PATH, copy it into Cursor's local plugins and restart the editor. On macOS or Linux, run this from the repository root for a first install:
+
+```sh
+mkdir -p ~/.cursor/plugins/local/mcp-server-cards
+cp -R polyfills/server-cards/codex/plugin/. ~/.cursor/plugins/local/mcp-server-cards/
+```
+
+Ask “What MCP servers does neon.com publish?” Choose a remote and ask to add it. Open the returned Cursor link, or paste it into your browser's address bar. Compare the name and full URL in the dialog. **Install** saves the entry to your user MCP settings across projects. **Cancel** dismisses the dialog. Remove an installed server through Cursor’s MCP settings.
+
+The plugin offers links for Streamable HTTP remotes without headers or secrets. Discovery also shows other remotes. The plugin checks the user and current workspace MCP files for a name collision when preparing a link. Cursor may replace a same-name entry if your settings change before you open the link. Generate a fresh link after editing your configuration. Disable the plugin or set `MCP_SERVER_CARDS_DISABLED=1` for its process to turn off both tools.
+
+[Watch the Cursor install review](../../../docs/media/demos/cursor-server-cards.mp4) · [What the plugin reads and sends](SECURITY.md#cursor-install-link)
+
+[Cursor local plugins](https://cursor.com/docs/plugins#test-plugins-locally) · [Cursor install links](https://cursor.com/docs/mcp/install-links)
+
 ## Install
 
 In a terminal:

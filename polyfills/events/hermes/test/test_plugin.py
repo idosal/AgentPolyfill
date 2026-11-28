@@ -82,6 +82,9 @@ class Plugin(unittest.TestCase):
         class Helper:
             closed = False
 
+            def request(self, method, params, timeout):
+                self.requested = (method, params)
+
             def close(self):
                 self.closed = True
         h = Helper()
@@ -93,6 +96,7 @@ class Plugin(unittest.TestCase):
         self.rt.wanted = lambda: ({}, {"t": "Hermes handles this server's events itself (events: true)"})
         self.ctx.hooks["pre_llm_call"](user_message="hello again", session_id="s1")
         self.assertTrue(h.closed)
+        self.assertEqual(h.requested, ("suspend", {"servers": ["t"]}))
         self.assertIsNone(self.rt.helper)
 
     def test_the_grant_is_the_plugins_own_setting(self):

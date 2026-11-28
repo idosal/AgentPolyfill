@@ -18,4 +18,4 @@ Each plugin can also be installed or disabled individually.
 Claude Code supports MCP Skills natively from 2.1.332 (beta). Version 0.3.0
 removed `mcp-skills` from the bundle. Check `/plugin` after updating. If the old
 plugin is still installed, run `/plugin uninstall mcp-skills@agent-polyfill`.
-See [migration and local data cleanup](../../polyfills/claude-code/skills/README.md).
+See [migration and local data cleanup](../../site/guide/skills.md#migrate-from-the-retired-plugin).

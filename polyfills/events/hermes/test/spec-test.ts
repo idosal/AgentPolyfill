@@ -10,7 +10,7 @@ import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
 import { plainWake } from '../src/session.ts';
-import { eventIdsIn, newSession, sleep, startHelper, untilActive, waitFor, world } from './harness.ts';
+import { eventIdsIn, localWebhookEnv, newSession, sleep, startHelper, untilActive, waitFor, world } from './harness.ts';
 
 const watchIdOf = (text: string) => /as (w-[0-9a-f]{6})/.exec(text)?.[1];
 const WAKE_HEAD = '[mcp-events] (Sent by the mcp-events plugin, not typed by the user.)';
@@ -142,8 +142,8 @@ describe('push and poll', () => {
     });
 });
 
-describe('webhook stays with Hermes', () => {
-    test('a relay set up for the other forms ($HOME/.mcp-events/relay.json) is not used: push, not webhook', async () => {
+describe('webhook', () => {
+    test('a profile without a relay uses push even when another host has configured a relay', async () => {
         const w = world({ FIXTURE_ALLOW_HTTP: '1' });
         mkdirSync(join(w.dir, '.mcp-events'), { recursive: true });
         writeFileSync(join(w.dir, '.mcp-events', 'relay.json'), JSON.stringify({ url: 'https://relay.example', accessKey: 'k'.repeat(32) }), { mode: 0o600 });
@@ -159,16 +159,59 @@ describe('webhook stays with Hermes', () => {
         }
     });
 
-    test('a webhook-only event type is not subscribed by this plugin, and the answer points to events: true', async () => {
+    test('a webhook-only watch reports a missing HTTPS callback or credentials', async () => {
+        const w = world();
+        for (const [env, reason] of [
+            [{ MCP_EVENTS_DEV: '1' }, /MCP_EVENTS_PUBLIC_URL/],
+            [{ MCP_EVENTS_DEV: '', MCP_EVENTS_PUBLIC_URL: 'https://example.test' }, /credentials/]
+        ] as const) {
+            const h = await startHelper(w, env);
+            try {
+                const r = await h.call('watch_event', { server: 'tickets', event: 'deploy.finished' }, newSession());
+                assert.equal(r.isError, true);
+                assert.match(r.text, reason);
+                assert.ok(!w.fixtureMethods().includes('events/subscribe'));
+            } finally {
+                await h.stop();
+            }
+        }
+    });
+
+    test('a mixed-mode watch uses the configured webhook and releases it when the server is withdrawn', async () => {
         const w = world({ FIXTURE_ALLOW_HTTP: '1' });
-        // Settings that would make the shared client receive webhooks are ignored here.
-        const h = await startHelper(w, { MCP_EVENTS_PUBLIC_URL: 'http://127.0.0.1:1', MCP_EVENTS_RELAY: 'public' });
+        const h = await startHelper(w, await localWebhookEnv());
         const session = newSession();
         try {
-            const r = await h.call('watch_event', { server: 'tickets', event: 'deploy.finished' }, session);
-            assert.equal(r.isError, true, r.text);
-            assert.match(r.text, /events: true/);
-            assert.ok(!w.fixtureMethods().includes('events/subscribe'));
+            const watch = await h.call('watch_event', { server: 'tickets', event: 'ticket.created' }, session);
+            assert.match(watch.text, /by webhook/);
+            await untilActive(h, session);
+            await h.request('suspend', { servers: ['tickets'] });
+            assert.ok(w.fixtureMethods().includes('events/unsubscribe'));
+            assert.match((await h.call('list_watches', {}, session)).text, /not available/);
+            const next = await h.call('watch_event', { server: 'tickets', event: 'ticket.created' }, newSession());
+            assert.equal(next.isError, true, next.text);
+        } finally {
+            await h.stop();
+        }
+    });
+
+    test('a signed webhook wakes the watching session and unwatch ends the subscription', async () => {
+        const event = 'custom.release.ready';
+        const w = world({ FIXTURE_ALLOW_HTTP: '1', FIXTURE_EXTRA_TYPES: JSON.stringify([{ name: event, delivery: ['webhook'] }]) });
+        const h = await startHelper(w, await localWebhookEnv());
+        const session = newSession();
+        try {
+            const watch = await h.call('watch_event', { server: 'tickets', event }, session);
+            assert.equal(watch.isError, false, watch.text);
+            assert.match(watch.text, /by webhook/);
+            await untilActive(h, session); // the fixture challenges the receiver before accepting the subscription
+            w.emit(event, { release: 'v3' });
+            await waitFor(() => h.wakes.length > 0, 10000, 'webhook wake');
+            assert.equal(h.wakes[0]!.session, session);
+            assert.doesNotMatch(h.wakes[0]!.text, /v3|custom\.release/);
+            assert.match((await h.call('get_event', { id: 'e1' }, session)).text, /"release": "v3"/);
+            assert.equal((await h.call('unwatch_event', { watch: watchIdOf(watch.text) }, session)).isError, false);
+            assert.ok(w.fixtureMethods().includes('events/unsubscribe'));
         } finally {
             await h.stop();
         }

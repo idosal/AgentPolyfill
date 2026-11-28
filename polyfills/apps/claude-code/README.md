@@ -17,7 +17,11 @@ type into it. Existing MCP servers work unmodified.
 - **Real pixels** in terminals that show images: iTerm2 3.5+, kitty and
   Ghostty.
 - **Character cells** everywhere else: Terminal.app, VS Code, tmux and so on.
-  Text, including chart labels, stays real characters.
+  Text, including chart labels, stays real characters. Animated graphics use
+  fast cell updates and regain full detail when they settle.
+
+The [gameplay benchmark](bench/README.md#gameplay-frame-timing) measured
+22.5 fps in cells and 29.6 fps in Kitty graphics on a recorded DOOM replay.
 
 Codex: not yet. What Codex would need is in
 [What hosts would need to change](../../../docs/host-changes.md).

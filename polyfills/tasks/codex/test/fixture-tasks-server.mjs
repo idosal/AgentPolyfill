@@ -74,7 +74,14 @@ function create(tool, args) {
     if (tool === 'slow' || tool === 'relapse') later(() => set(t, 'completed', { result: { content: [{ type: 'text', text: `done: ${args.text ?? ''}` }], isError: false } }));
     if (tool === 'fail') later(() => set(t, 'failed', { error: { code: -32603, message: 'the fixture failed on purpose' }, statusMessage: 'it failed' }));
     if (tool === 'ask2') later(() => set(t, 'input_required', { inputRequests: { k1: { method: 'elicitation/create', params: { mode: 'form', message: 'First name?', requestedSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } } } } }));
-    if (tool === 'ask') later(() => set(t, 'input_required', { inputRequests: { [`k${++t.keyN}`]: { method: 'elicitation/create', params: { mode: 'form', message: 'What is your name?', requestedSchema: { type: 'object', properties: { name: { type: 'string', title: 'Your name' } }, required: ['name'] } } } } }));
+    if (tool === 'ask') later(() => {
+        const field = { type: 'string', title: 'Your name' };
+        if (process.env.FIXTURE_PATTERN_FORM === '1') field.pattern = '^[A-Z]+$';
+        const requestedSchema = { type: 'object', properties: { name: field }, required: ['name'] };
+        set(t, 'input_required', { inputRequests: { [`k${++t.keyN}`]: {
+            method: 'elicitation/create', params: { mode: 'form', message: 'What is your name?', requestedSchema }
+        } } });
+    });
     if (tool === 'confirm') later(() => set(t, 'input_required', { inputRequests: { c1: { method: 'elicitation/create', params: { mode: 'form', message: 'Go ahead?', requestedSchema: { type: 'object', properties: {} } } } } }));
     if (tool === 'sample') later(() => set(t, 'input_required', { inputRequests: { s1: { method: 'sampling/createMessage', params: { messages: [{ role: 'user', content: { type: 'text', text: 'hi' } }], maxTokens: 10 } } } }));
     return t;

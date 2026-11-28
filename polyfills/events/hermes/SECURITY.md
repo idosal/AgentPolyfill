@@ -86,10 +86,11 @@ tool result from the same server could. How often is bounded, not prevented.
   frame a message. The only request the helper may make of the Python half is
   `wake`. Writes have one deadline with the answer; a helper that stops
   reading is ended, and the tools say so.
-- **No webhook.** Webhook delivery needs a public address; this plugin never
-  sets one up, and ignores the relay the other forms can use (its settings
-  and its file, `~/.mcp-events/relay.json`). Hermes does webhooks itself for
-  `events: true` servers.
+- **Webhooks.** The plugin verifies signed deliveries and stores events
+  before acknowledging them. Relay mailboxes and signing secrets belong
+  to the watching session. A relay operator can read payloads. The gateway
+  uses the relay configured for its profile or selected in its environment.
+  See [webhook delivery](README.md#webhook-delivery).
 
 ## Limits
 

@@ -152,7 +152,7 @@ impl View {
         if !self.alive.load(Ordering::SeqCst) { return Ok(()); }
         // Wait for Chrome to restore hit-testing after a screenshot (View::shoot).
         let _gate = match string(event, "kind") {
-            "pointer" | "wheel" => Some(self.pointer_gate.lock().await),
+            "pointer" | "wheel" => Some(self.pointer_gate.write().await),
             _ => None,
         };
         match string(event,"kind") {
