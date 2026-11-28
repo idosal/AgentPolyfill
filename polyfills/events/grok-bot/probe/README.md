@@ -1,0 +1,12 @@
+# Test a remote connector from a Grok Bot routine
+
+This experiment checks whether a webhook-only turn can use a remote MCP tool with the Bot's normal approval settings. The server holds one synthetic batch in memory. Its receipt is generated independently of the webhook body and changes each time the probe starts. No upstream MCP credential or live inbox is needed.
+
+1. On a machine reachable from Grok, run `npm ci` in this directory using Node 22.18 or later. Provide a random `GROK_PROBE_KEY` (32 random bytes encoded as hex) and set `GROK_PROBE_ORIGIN` to the public HTTPS origin. Start `node probe.mjs serve`. It prints the batch reference and listens on loopback port 8787, configurable with `PORT`. Route only HTTPS `/mcp` from that origin to the probe. Keep the process running through the test.
+2. In Grok, add a **Remote HTTPS** connector pointing at `https://YOUR-HOST/mcp` with the custom header `Authorization: Bearer <GROK_PROBE_KEY>`. Use the secure setup flow. Confirm Grok lists the read-only `read_batch` tool. Keep the receipt unknown to the bot until the routine runs.
+3. Create a temporary webhook-only routine owned by the intended bot. Give it this instruction: “When a webhook with source mcp-events arrives, call the probe connector's read_batch with its exact batch value. Report the batch and receipt returned. If a tool is unavailable or approval is required, report that outcome.”
+4. Let the bot go idle. From the sender shell with the temporary routine's own `GROK_ROUTINE_URL` and `GROK_ROUTINE_KEY`, run `node probe.mjs wake BATCH`, substituting the printed reference. This sends one real wake and can start a billable turn. The existing bridge and production watches are independent of this test.
+5. Record the HTTP acceptance, the server's timestamped `read_batch` entry, and the receiving bot's routine history. A pass requires a webhook-triggered turn that reports the matching receipt without interactive approval. A successful manual chat call or an HTTP 200 alone is insufficient. A failure can distinguish connector setup, a turn waiting on approval, a tool that was never called, or a tool result that did not reach the report.
+6. Remove the temporary connector and routine, stop the probe, and remove its HTTPS route and test credentials.
+
+Run `npm test` here for a local check of MCP initialization, authentication, discovery, rejected batch references, and receipt correlation. The test uses an SDK client and a simulated webhook destination.

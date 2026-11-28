@@ -5,10 +5,12 @@ import { homedir } from 'node:os';
 import { isDeepStrictEqual } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { EventsConnection, fingerprintOf } from '../../core/src/events-client.ts';
-import { ProjectState, Spool, sessionDir, writeAtomic } from '../../core/src/store.ts';
+import { ProjectState, Spool, writeAtomic } from '../../core/src/store.ts';
 import { WatchManager } from '../../core/src/watcher.ts';
 import { configureHost } from '../../core/src/host.ts';
 import { describeError, secrets } from '../../core/src/untrusted.ts';
+import { InboxReader, maxWakeEvents } from './inbox.mjs';
+import { serveInbox } from './connector.mjs';
 import { destination } from './routine.mjs';
 
 const SESSION = 'agent';
@@ -62,6 +64,7 @@ function sameWatch(a, b) {
 function connection(config, env, name) {
     if (!config.upstream?.url && !config.upstream?.command) throw Error('Configure an upstream URL or stdio command.');
     const cfg = {...config.upstream};
+    secrets.add(...Object.values(cfg.env ?? {}));
     if (config.upstreamBearerEnv) {
         const token = env[config.upstreamBearerEnv];
         if (!cfg.url || !token) throw Error('Missing HTTP source or upstream bearer credential.');
@@ -77,17 +80,7 @@ async function discover(conn) {
 }
 
 export function readBatch(dir, batch) {
-    const match = /^([0-9a-f]{32})\.e([1-9]\d*)-e([1-9]\d*)$/.exec(batch);
-    if (!match) throw Error('Expected an inbox-qualified batch reference.');
-    if (match[1] !== json(join(dir, 'delivery.json')).inbox)
-        throw Error('Batch belongs to another inbox.');
-    const [first, last] = match.slice(2).map(Number);
-    if (!Number.isSafeInteger(last) || last < first) throw Error('Invalid batch range.');
-    const records = readFileSync(join(sessionDir(dir, SESSION), 'events.jsonl'), 'utf8')
-        .split('\n').slice(0, -1).filter(Boolean).map(line => JSON.parse(line))
-        .filter(r => r.kind === 'event' && Number(r.id.slice(1)) >= first && Number(r.id.slice(1)) <= last);
-    if (records.at(0)?.id !== 'e' + first || records.at(-1)?.id !== 'e' + last) throw Error('Batch is missing from this profile.');
-    return records.map(({id, server, watch, note, eventId, event, timestamp, data}) => ({id, server, watch, watchName: note, eventId, event, timestamp, data}));
+    return new InboxReader(dir).read(batch);
 }
 
 // The actor that holds the project claim is the only writer to the delivery ledger.
@@ -99,6 +92,7 @@ export async function startBridge({dir, config, env = process.env, post, retry =
     const gap = limit(config.minGapSeconds, 60, 86400) * 1000;
     const cap = limit(config.maxWakesPerHour, 6, 3600);
     const batchMs = limit(config.batchMs, 1000, 60000);
+    secrets.add(env.GROK_ROUTINE_KEY, env.GROK_ROUTINE_URL, env.GROK_EVENTS_READER_KEY);
     const dest = destination(env, post);
     const bindings = new Map();
     for (const name of activeServers) {
@@ -177,7 +171,7 @@ export async function startBridge({dir, config, env = process.env, post, retry =
                 return;
             }
             // Reuse the exact batch on an explicit retry.
-            const attempt = state.attempt ?? {first: waiting[0], last: waiting[Math.min(waiting.length, 20) - 1]};
+            const attempt = state.attempt ?? {first: waiting[0], last: waiting[Math.min(waiting.length, maxWakeEvents) - 1]};
             const batch = batchRef(attempt);
             state.attempt = attempt;
             save();
@@ -245,7 +239,9 @@ export async function startBridge({dir, config, env = process.env, post, retry =
 async function main() {
     const [command, ...args] = process.argv.slice(2);
     const dir = resolve(process.env.GROK_EVENTS_HOME || join(homedir(), '.grok-events'));
-    if (command === 'list' && args.length <= 1) {
+    if (command === 'serve' && !args.length) {
+        await serveInbox(dir, process.env);
+    } else if (command === 'list' && args.length <= 1) {
         const config = json(join(dir, 'config.json'));
         const sources = servers(config);
         if (args.length && !sources.has(args[0])) throw Error('Unknown server name.');
@@ -266,7 +262,7 @@ async function main() {
         const close = () => { if (!stopping) { stopping = true; void stop().catch(() => { process.exitCode = 1; }); } };
         process.on('SIGINT', close);
         process.on('SIGTERM', close);
-    } else throw Error('Usage: node bridge.mjs list [SERVER] | run [--retry | --accepted BATCH] | read INBOX.eFIRST-eLAST');
+    } else throw Error('Usage: node bridge.mjs serve | list [SERVER] | run [--retry | --accepted BATCH] | read INBOX.eFIRST-eLAST');
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href)
     main().catch(e => { console.error(secrets.scrub(e instanceof Error ? e.message : describeError(e))); process.exitCode = 1; });

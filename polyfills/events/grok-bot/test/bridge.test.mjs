@@ -8,6 +8,11 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { startBridge, readBatch } from '../src/bridge.mjs';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { randomBytes } from 'node:crypto';
+import { once } from 'node:events';
+import { inboxServer } from '../src/connector.mjs';
 import { destination } from '../src/routine.mjs';
 
 const fixture = fileURLToPath(new URL('../../claude-code/test/fixture-events-server.ts', import.meta.url));
@@ -50,13 +55,40 @@ function world(t, mode = 'push') {
     };
 }
 
+async function connectReader(t, dir) {
+    const token = randomBytes(32).toString('hex');
+    const receipts = [];
+    const srv = inboxServer(dir, { token, origin: 'https://inbox.example', log: line => receipts.push(JSON.parse(line)) });
+    srv.listen(0, '127.0.0.1');
+    await once(srv, 'listening');
+    const url = new URL('http://127.0.0.1:' + srv.address().port + '/mcp');
+    const headers = { authorization: 'Bearer ' + token };
+    const client = new Client({ name: 'routine-fixture', version: '1' });
+    t.after(async () => {
+        await client.close();
+        await new Promise(resolve => srv.close(resolve));
+    });
+    assert.equal((await fetch(url, { method: 'POST' })).status, 401);
+    assert.equal((await fetch(url, { method: 'POST', headers: { ...headers, origin: 'https://other.example' } })).status, 403);
+    await client.connect(new StreamableHTTPClientTransport(url, { requestInit: { headers } }));
+    assert.deepEqual((await client.listTools()).tools.map(x => x.name), ['read_batch']);
+    const call = (batch, offset) => client.callTool({ name: 'read_batch', arguments: { batch, offset } });
+    return { call, receipts, async read(batch, offset) {
+        const result = await call(batch, offset);
+        assert.ok(!result.isError);
+        return JSON.parse(result.content[0].text);
+    } };
+}
+
 for (const mode of ['push', 'poll']) {
     test(mode + ': idle, filter, replay, batch, read, restart', async t => {
         const w = world(t, mode);
+        const reader = await connectReader(t, w.dir);
         await w.start();
         w.emit('irrelevant', 'low');
         await sleep(450);
         assert.equal(w.calls.length, 0);
+        assert.equal(reader.receipts.length, 0);
         w.emit('one'); w.emit('one'); w.emit('two');
         await until(() => w.acknowledged() === 2);
         assert.equal(w.calls.length, 1);
@@ -68,7 +100,11 @@ for (const mode of ['push', 'poll']) {
         assert.deepEqual(body, {source: 'mcp-events', batch: w.ref('e1-e2')});
         assert.equal(opts.headers.authorization, 'Bearer test-bot-key');
         assert.deepEqual(readBatch(w.dir, w.ref('e1-e2')).map(r => r.eventId), ['one', 'two']);
+        assert.deepEqual((await reader.read(body.batch)).untrustedEvents.map(r => r.eventId), ['one', 'two']);
+        assert.equal((await reader.call(w.ref('e1-e3'))).isError, true);
+        assert.equal((await reader.call('0'.repeat(32) + '.e1-e1')).isError, true);
         await w.close();
+        assert.equal((await reader.read(body.batch)).untrustedEvents[0].eventId, 'one');
         await w.start();
         await sleep(450);
         assert.equal(w.calls.length, 1);
@@ -127,6 +163,7 @@ test('webhook-only subscription verifies the callback and delivers an event', as
     const port = probe.address().port;
     await new Promise(ok => probe.close(ok));
     const w = world(t, 'webhook');
+    const reader = await connectReader(t, w.dir);
     w.config.servers.source.upstream.env.FIXTURE_ALLOW_HTTP = '1';
     await w.start({env: {HOME: w.dir, MCP_EVENTS_DEV: '1',
         MCP_EVENTS_PUBLIC_URL: 'http://127.0.0.1:' + port, MCP_EVENTS_RECEIVER_PORT: String(port),
@@ -134,7 +171,9 @@ test('webhook-only subscription verifies the callback and delivers an event', as
     w.emit('signed-one');
     await until(() => w.acknowledged() === 1);
     assert.equal(w.calls.length, 1);
-    assert.equal(readBatch(w.dir, w.ref('e1-e1'))[0].eventId, 'signed-one');
+    const delivered = await reader.read(w.calls[0].body.batch);
+    assert.equal(delivered.untrustedEvents[0].eventId, 'signed-one');
+    assert.equal(delivered.nextOffset, null);
 });
 
 test('shared Grok routine routes identical event IDs across two servers, shares the wake limit and resumes on configuration changes', async t => {
@@ -198,4 +237,33 @@ test('installable CLI discovers a configured server and reads the stored batch',
     const {untrustedEvents} = await run('read', w.calls[0].body.batch);
     assert.equal(untrustedEvents[0].server, 'source');
     assert.equal(untrustedEvents[0].eventId, 'cli-event');
+});
+
+test('remote reader paginates a pending wake before HTTP acceptance and picks up later appends', async t => {
+    const w = world(t);
+    const reader = await connectReader(t, w.dir);
+    const reads = [];
+    await w.start({post: async (_url, opts) => {
+        const {batch} = JSON.parse(opts.body);
+        const pages = [];
+        let offset;
+        do {
+            const p = await reader.read(batch, offset);
+            pages.push(p);
+            offset = p.nextOffset;
+        } while (offset !== null);
+        reads.push(pages);
+        return new Response(null, {status: 200});
+    }});
+    for (const id of ['a','b']) appendFileSync(join(w.dir, 'source.jsonl'), JSON.stringify({
+        eventId: id, name: 'ticket.created', timestamp: new Date().toISOString(),
+        data: {priority: 'high', title: 'x'.repeat(35000)}
+    }) + '\n');
+    await until(() => w.acknowledged() === 2);
+    assert.equal(reads.length, 1);
+    assert.deepEqual(reads[0].map(p => p.nextOffset), [1, null]);
+    assert.deepEqual(reads[0].flatMap(p => p.untrustedEvents.map(r => r.eventId)), ['a', 'b']);
+    w.emit('c');
+    await until(() => w.acknowledged() === 3);
+    assert.equal(reads[1][0].untrustedEvents[0].eventId, 'c');
 });
