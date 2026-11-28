@@ -5,7 +5,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { once } from 'node:events';
 import { randomBytes } from 'node:crypto';
-import { chmodSync, mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
+import { chmodSync, copyFileSync, mkdirSync, symlinkSync, mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -147,6 +147,54 @@ test('catalogs preserve identity and only read the selected verified root', { ti
     await assert.rejects(call('read_skill',{source:'local',uri:b.uri}));
     await assert.rejects(call('read_skill',{source:'unconfigured',uri:a.uri}));
 });
+test('Muse uses only selected connections and binds a guide approval to its publisher', { timeout: 30000 }, async () => {
+    const dir = scratch(), src = join(dir, 'catalog'), log = join(dir, 'reads');
+    const guide = skill('queue-guide', { 'ref.txt': 'shared queue' });
+    writeFileSync(src, JSON.stringify(scenarioOf([skill('other'), guide])));
+    const fixture = 'polyfills/skills/core/test-fixtures/fixture-skills-server.ts';
+    const uri = await publisher(fixture, { FIXTURE_SCENARIO:src, FIXTURE_LOG:log });
+    const other = await publisher(fixture, { FIXTURE_SCENARIO:src, FIXTURE_LOG:join(dir,'ignored') });
+    mkdirSync(join(dir, 'muse'));
+    const config = join(dir, 'muse/settings.json');
+    const save = connection => writeFileSync(config, JSON.stringify({ mcpServers: {
+        chosen: connection, other: { url: other }
+    } }));
+    save({ url: uri });
+    writeFileSync(join(dir,'native-config-home.json'), JSON.stringify(dir));
+    writeFileSync(join(dir,'muse-servers.json'), JSON.stringify(['chosen']));
+    copyFileSync(join(root, 'polyfills/events/muse/test/fake-muse.mjs'), join(dir,'muse-cli'));
+    mkdirSync(join(dir,'bin'));
+    symlinkSync(join(dir,'muse-cli'), join(dir,'bin/muse'));
+    chmodSync(join(dir,'muse-cli'),0o700);
+    const env = { HOME:dir, MUSE_PLUGIN_DATA_DIR:dir, PATH:join(dir,'bin') + ':' + process.env.PATH };
+    const configFile = { sources:{}, askBeforeReading:false };
+    const call = await plugin('skills',configFile,false,env);
+    const query = () => call('discover_skills', { query:'queue' });
+    const [found] = await query();
+    assert.equal(found.source,'chosen');
+    assert.equal(found.skills[0].uri,guide.uri);
+    assert(!existsSync(join(dir,'ignored')));
+    const args = { source:'chosen', uri:guide.uri };
+    await call('read_skill',args);
+    save({url:other});
+    await assert.rejects(call('read_skill_file',{...args,path:'ref.txt'}), /Open the guide again/);
+    save({url:uri});
+    await assert.rejects(call('read_skill_file',{...args,path:'ref.txt'}), /first/);
+    for (const unsupported of [{ disabled:true }, { oauth:true }, { headers:{ Authorization:'Bearer ${AUTH}' } }]) {
+        save({url:uri, ...unsupported});
+        assert.ok((await query())[0].error);
+    }
+    save({url:uri});
+    writeFileSync(join(dir,'muse-servers.json'), '[]');
+    assert.ok((await query())[0].error);
+    await assert.rejects(call('read_skill',args), /no longer selected/);
+    writeFileSync(join(dir,'muse-servers.json'), JSON.stringify(['chosen']));
+    const managed = await plugin('skills',configFile,false,{...env,FAKE_MUSE_POLICY:'present'});
+    assert.ok((await managed('discover_skills'))[0].error);
+    const remote = await plugin('skills',configFile,true,env);
+    assert.deepEqual(await remote('discover_skills'),[]);
+});
+
 test('Muse lists publisher metadata and reads only supporting files of the opened manifest in this session', { timeout:30000 }, async () => {
     const dir = scratch(), src = join(dir, 'catalog'), log = join(dir, 'reads');
     const path = 'references/queues.md';

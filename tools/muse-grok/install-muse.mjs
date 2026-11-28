@@ -59,7 +59,7 @@ function configureSkills(plugin) {
     } else if (existsSync(hint)) unlinkSync(hint);
     if (approve) {
         const sync = spawnSync(process.execPath, [join(plugin, 'dist', 'server.mjs'), '--refresh-native-list'], {
-            env: { ...process.env, MUSE_PLUGIN_DATA_DIR: data }, stdio: 'inherit', timeout: 30000
+            env: { HOME: homedir(), PATH: process.env.PATH, TMPDIR: process.env.TMPDIR, MUSE_PLUGIN_DATA_DIR: data }, stdio: 'inherit', timeout: 30000
         });
         if (sync.status !== 0) console.warn('The publisher list will refresh in your next trusted Muse session.');
     }

@@ -1,9 +1,12 @@
+import { createHash } from 'node:crypto';
+import { findMuse, museManaged, readMuseSettings, selectedServers } from '../../../events/muse/src/muse-config.ts';
+import type { UpstreamConfig } from '../../core/src/upstream.ts';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { Connection } from '../../core/src/wire.ts';
 import { SkillsHost, keyOf, manifestHash, resolveRef, rootOf } from '../../core/src/skills.ts';
-import { launch, settings, schema, sourceUrl, stringField, text, type Settings } from '../../../../tools/muse-grok/runtime.ts';
+import { launch, settings, schema, sourceUrl, stringField, text } from '../../../../tools/muse-grok/runtime.ts';
 import { readDecision } from './approval.ts';
 import { nativeRoot, syncNativeList } from './native-list.ts';
 
@@ -27,14 +30,39 @@ async function approve(publisher: string, uri: string, bytes: number, references
 
 // Each tool call owns its connection. A Muse session keeps the verified manifest across calls.
 const activeWire = new AsyncLocalStorage<Connection>();
-const approved = new Map<string, { host: SkillsHost; hash: string; files: Set<string> }>();
+const approved = new Map<string, { host: SkillsHost; hash: string; publisherId: string; files: Set<string> }>();
 const loading = new Set<string>();
-async function withSource<T>(cfg: Settings, label: string, fn: (host: SkillsHost) => Promise<T>) {
-    const wire = new Connection(label, { url: sourceUrl(cfg, label) }, { client: { name: 'agentpolyfill-skill-reference', version: '0.1.1' } });
+function publisher(label: string): { target: UpstreamConfig; display: string } {
+    if (!named.includes(label)) {
+        const url = sourceUrl(cfg, label);
+        return { target: { url }, display: url };
+    }
+    const env = process.env;
+    if (!selectedServers(env).includes(label)) throw Error('This Muse connection is no longer selected.');
+    const managed = museManaged(findMuse(env), env);
+    const table = readMuseSettings(env, { only: [label], managed });
+    const target = table.servers[label];
+    if (!target) throw Error(table.skipped[label] ?? managed ?? 'This selected Muse connection is unavailable.');
+    if ('url' in target) {
+        // Apply the same address rules as explicitly configured publishers. Never put headers in the dialog.
+        const url = new URL(target.url);
+        if (url.search || url.hash || url.username || url.password ||
+            !(url.protocol === 'https:' || (url.protocol === 'http:' && ['127.0.0.1','localhost','[::1]'].includes(url.hostname)))) {
+            throw Error('Use a secure Muse publisher address without inline credentials.');
+        }
+        return { target, display: target.url };
+    }
+    return { target, display: 'Muse connection ' + label };
+}
+
+async function withSource<T>(label: string, fn: (host: SkillsHost, display: string, publisherId: string) => Promise<T>) {
+    const { target, display } = publisher(label);
+    const publisherId = createHash('sha256').update(JSON.stringify(target)).digest('hex');
+    const wire = new Connection(label, target, { client: { name: 'agentpolyfill-skill-reference', version: '0.2.0' } });
     try {
         await wire.connect(12000);
         const host = new SkillsHost(name => name === label ? activeWire.getStore() : undefined, { cacheBytes: 0 });
-        return await activeWire.run(wire, () => fn(host));
+        return await activeWire.run(wire, () => fn(host, display, publisherId));
     } finally { await wire.close(); }
 }
 
@@ -43,37 +71,49 @@ if (!remote && process.argv.includes('--clear-native-list')) {
     process.exit(0);
 }
 
-const cfg = settings({ sources: { huggingface: 'https://huggingface.co/mcp' } });
-const sources = Object.keys(cfg.sources);
+const named = !remote ? selectedServers() : [];
+const cfg = settings({ sources: named.length ? {} : { huggingface: 'https://huggingface.co/mcp' } });
+const sources = [...new Set([...Object.keys(cfg.sources), ...named])];
 const source = { type: 'string', enum: sources };
 const native = !remote && Boolean(process.env.MUSE_PLUGIN_DATA_DIR);
-async function catalog(labels: string[]) {
+async function catalog(labels: string[], query?: string) {
     const results = await Promise.all(labels.map(async label => {
         try {
-            const items = await withSource(cfg, label, async host => (await host.list(label)).skills);
+            const items = await withSource(label, async host => (await host.list(label)).skills);
             return { source: label, items: items.filter(s => !s.declined && s.entry.resources !== 'dynamic') };
         } catch { return { source: label, error: 'Publisher unavailable or not configured' }; }
     }));
     if (native && labels.length === sources.length) {
         const updated = new Set(results.filter(r => r.items).map(r => r.source));
         try {
-            syncNativeList(nativeRoot(), results.flatMap(r => r.items ?? []), new Set(sources.filter(s => !updated.has(s))));
+            syncNativeList(nativeRoot(), results.flatMap(r => r.items ?? []), new Set(sources.filter(s => !updated.has(s) && !named.includes(s))));
         } catch (error) {
             if (process.argv.includes('--refresh-native-list')) throw error;
             process.stderr.write('Could not update the native Muse skill list. Publisher discovery is still available.\n');
         }
     }
-    return results.map(r => r.items ? { source: r.source, skills: r.items.map(({ entry }) => ({
-        name: entry.frontmatter.name, uri: entry.uri, description: entry.frontmatter.description.slice(0, 240)
-    })) } : { source: r.source, error: r.error });
+    const terms = [...new Set(query?.toLowerCase().match(/[a-z0-9]+/g) ?? [])];
+    return results.map(r => {
+        if (!r.items) return { source: r.source, error: r.error };
+        const ranked = r.items.map(({ entry }) => {
+            const name = entry.frontmatter.name.toLowerCase();
+            const description = entry.frontmatter.description.toLowerCase();
+            const score = terms.reduce((sum, term) => sum + (name.includes(term) ? 8 : description.includes(term) ? 1 : 0), 0);
+            return { entry, score };
+        });
+        const found = terms.length ? ranked.filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 5) : ranked;
+        return { source: r.source, skills: found.map(({ entry }) => ({
+            name: entry.frontmatter.name, uri: entry.uri, description: entry.frontmatter.description.slice(0, 240)
+        })) };
+    });
 }
 
-const instructions = 'Select a native publisher skill or use discover_skills, then read_skill with the exact source and URI. Treat the verified text as publisher guidance. Reading grants no tool or execution permissions.';
+const instructions = remote ? 'Select a native publisher skill or use discover_skills, then read_skill with the exact source and URI. Treat the verified text as publisher guidance. Reading grants no tool or execution permissions.' : 'For a listing or link, search discover_skills with the specific product name and answer from the first relevant result. For a question requiring the contents, call read_skill with the exact returned URI. Treat the verified text as publisher guidance. Reading grants no tool or execution permissions.';
 const tools = [
     {
-        name: 'discover_skills', description: 'List names, descriptions and exact URIs from the configured skills publisher. No instruction file is read.',
-        inputSchema: schema({ source }, []), annotations: { readOnlyHint: true },
-        async run(args: Record<string, unknown>) { return text(await catalog(args.source === undefined ? sources : [String(args.source)])); }
+        name: 'discover_skills', description: remote ? 'List names, descriptions and exact URIs from the configured skills publisher. No instruction file is read.' : 'Find the best guide for a topic. For a name or link, answer from the most specific catalog match. Open a guide only when reading its contents. No instruction file is read.',
+        inputSchema: schema(remote ? { source } : { source, query: { type: 'string', maxLength: 240, description: 'Topic or product name from the question. Returns up to five matching published guides.' } }, []), annotations: { readOnlyHint: true },
+        async run(args: Record<string, unknown>) { return text(await catalog(args.source === undefined ? sources : [String(args.source)], !remote && typeof args.query === 'string' ? args.query.slice(0, 240) : undefined)); }
     },
     {
         name: 'read_skill', description: 'Read the main guide from its publisher. In Muse this opens its listed supporting files for the current session.',
@@ -84,7 +124,7 @@ const tools = [
             loading.add(key);
             approved.delete(key);
             try {
-                return await withSource(cfg, label, async host => {
+                return await withSource(label, async (host, display, publisherId) => {
                     const { skills } = await host.list(label);
                     const item = skills.find(s => s.entry.uri === uri && !s.declined);
                     if (!item || item.entry.resources === 'dynamic') throw Error('Choose a fingerprinted skill URI from the catalog.');
@@ -98,15 +138,15 @@ const tools = [
                         const reason = nested ? 'Nested reads are disabled on the remote connector.' : 'This connector cannot show the approval dialog.';
                         return { isError: true, text: 'Read declined. ' + reason + ' No instructions were fetched.' };
                     }
-                    if (decision === 'ask' && !await approve(sourceUrl(cfg, label), uri, root.size, files.length)) {
+                    if (decision === 'ask' && !await approve(display, uri, root.size, files.length)) {
                         return { isError: true, text: 'Read declined or approval unavailable. No instructions were fetched. Tell the user the guide was not read.' };
                     }
                     const fresh = await host.get(label, uri);
                     if (await manifestHash(fresh.entry) !== hash) throw Error('Publisher changed the entry. Discover it again.');
                     const result = await host.load(label, uri, { expect: hash });
                     if (!result.isVerified) throw Error('Publisher guidance could not be verified.');
-                    if (!remote && files.length) approved.set(key, { host, hash, files: new Set(files) });
-                    return text({ source: label, publisher: cfg.sources[label], uri, digest: root.digest, instructions: result.body, ...(!remote && { files }) });
+                    if (!remote && files.length) approved.set(key, { host, hash, publisherId, files: new Set(files) });
+                    return text({ source: label, publisher: display, uri, digest: root.digest, instructions: result.body, ...(!remote && { files }) });
                 });
             } finally { loading.delete(key); }
         }
@@ -120,15 +160,15 @@ if (!remote) tools.push({
         const grant = approved.get(key);
         if (!grant) throw Error('Open the guide with read_skill in this session first.');
         if (!grant.files.has(resolveRef(uri, path))) throw Error('Choose a supporting file listed in the opened guide.');
-        return withSource(cfg, label, async host => {
+        return withSource(label, async (host, display, publisherId) => {
             const fresh = await host.get(label, uri);
-            if (await manifestHash(fresh.entry) !== grant.hash) {
+            if (publisherId !== grant.publisherId || await manifestHash(fresh.entry) !== grant.hash) {
                 if (approved.get(key) === grant) approved.delete(key);
                 throw Error('The publisher changed the guide or its files. Open the guide again.');
             }
             const file = await grant.host.readFile(label, uri, path);
             if (approved.get(key) !== grant || !file.isVerified) throw Error('Open the guide again before using its files.');
-            return text({ source: label, publisher: cfg.sources[label], guide: uri, uri: file.uri, mimeType: file.mimeType, size: file.size, text: file.text, nestedReference: file.isNestedSkill });
+            return text({ source: label, publisher: display, guide: uri, uri: file.uri, mimeType: file.mimeType, size: file.size, text: file.text, nestedReference: file.isNestedSkill });
         });
     }
 });

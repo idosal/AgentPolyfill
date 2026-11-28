@@ -5,13 +5,17 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const require = createRequire(resolve(root, 'polyfills/skills/codex/package.json'));
 const { build } = require('esbuild');
-const entries = { skills: 'reference', tasks: 'tasks', events: 'monitor', routine: 'watch' };
+const entries = [
+    ['skills', 'reference', 'server'], ['tasks', 'tasks', 'server'],
+    ['events', 'monitor', 'server'], ['events', 'helper', 'inbox'],
+    ['events', 'muse-prompt-hook', 'user-prompt-submit'], ['routine', 'watch', 'watch']
+];
 const selected = process.argv.slice(2).find(arg => !arg.startsWith('--'));
-if (selected && !Object.hasOwn(entries, selected)) throw Error('Unknown feature');
-for (const [feature, name] of Object.entries(entries)) {
+if (selected && !entries.some(([feature]) => feature === selected)) throw Error('Unknown feature');
+for (const [feature, name, output] of entries) {
     if (selected && selected !== feature) continue;
     const dir = feature === 'routine' ? resolve(root, 'polyfills/events/grok-bot') : resolve(root, 'polyfills', feature, 'muse');
-    const out = resolve(dir, feature === 'routine' ? 'dist/watch.mjs' : 'plugin/dist/server.mjs');
+    const out = resolve(dir, feature === 'routine' ? 'dist' : 'plugin/dist', output + '.mjs');
     const built = await build({ absWorkingDir: dir, entryPoints: ['src/' + name + '.ts'], platform: 'node', target: 'node22',
         format: 'esm', bundle: true, minify: true, write: false, preserveSymlinks: true,
         banner: { js: 'import {createRequire} from "node:module";const require=createRequire(import.meta.url);' } });

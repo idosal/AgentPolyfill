@@ -15,7 +15,7 @@ GROK_FILES = [
 def kit_files():
     paths = [
         Path("LICENSE"), Path("docs/muse-grok.md"),
-        Path("tools/muse-grok/install-muse.mjs"), Path("tools/muse-grok/package.py"),
+        Path("tools/muse-grok/install-muse.mjs"), Path("tools/muse-grok/package.py"), Path("tools/muse-grok/select-muse-sources.mjs"),
         Path("polyfills/tasks/codex/test/fixture-tasks-server.mjs"),
         Path("polyfills/events/grok-bot/dist/watch.mjs"),
         Path("polyfills/events/grok-bot/THIRD_PARTY_LICENSES.txt"),
@@ -27,7 +27,7 @@ def kit_files():
         manifest_path = plugin / ".muse-plugin/plugin.json"
         manifest = json.loads((ROOT / manifest_path).read_text())
         paths.append(manifest_path)
-        for server in manifest["capabilities"]["mcpServers"]:
+        for server in manifest["capabilities"]["mcpServers"] + manifest["capabilities"].get("hooks", []):
             command, entry = server["command"]
             if command != "node":
                 raise ValueError(f"Unsupported launcher in {manifest_path}")

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "name": "mcp-skill-reference",
   "displayName": "MCP Skills reference",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "List publisher skills in Muse and read their verified guides and supporting files.",
   "capabilities": {
     "mcpServers": [

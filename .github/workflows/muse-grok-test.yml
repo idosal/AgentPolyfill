@@ -7,6 +7,9 @@ on:
       - 'polyfills/server-cards/**'
       - 'polyfills/skills/**'
       - 'polyfills/tasks/**'
+      - 'marketplace.json'
+      - '.agents/plugins/marketplace.json'
+      - 'tools/bundle-notices.mjs'
       - 'tools/muse-grok/**'
       - 'docs/muse-grok.md'
       - '.github/workflows/muse-grok-test.yml'
@@ -24,12 +27,14 @@ jobs:
           node-version: 22
       - name: Install locked dependencies
         run: |
-          for dir in skills/codex skills/core tasks/core events/core events/muse ard/codex server-cards/codex server-cards/grok-bot; do
+          for dir in skills/codex skills/core tasks/core events/core events/codex events/muse ard/codex server-cards/codex server-cards/grok-bot; do
             npm ci --prefix "polyfills/$dir"
           done
       - name: Verify bundles, types and discovery tests
         run: |
           node tools/muse-grok/build.mjs --check
+          node tools/bundle-notices.mjs polyfills/events/muse --esbuild-from polyfills/skills/codex --plugin plugin --entry src/monitor.ts --entry src/helper.ts --entry src/muse-prompt-hook.ts --bundle 'dist/{server,inbox,user-prompt-submit}.mjs' --check
+          node --test polyfills/events/muse/test/recurring.test.ts
           polyfills/skills/codex/node_modules/.bin/tsc -p tools/muse-grok
           for dir in ard/muse server-cards/muse server-cards/grok-bot; do
             npm --prefix "polyfills/$dir" run typecheck
@@ -50,6 +55,15 @@ jobs:
             sleep 1
           done
           MUSE_GROK_FASTMCP_URL=http://127.0.0.1:48763/mcp node --test tools/muse-grok/integration.test.mjs
+      - name: Install the five packages with Muse and verify the shared plugins in Codex
+        run: |
+          mkdir "$RUNNER_TEMP/muse-bin"
+          curl --fail --location --retry 2 'https://lookaside.facebook.com/lookaside/muse/download/?channel=muse&version=1.4.25-R9361.1&file=muse-x86-linux' -o "$RUNNER_TEMP/muse-bin/muse"
+          echo "c1b728fb9732503c5e1869e3ad2f2c9bdb5b2638fb4cf398d6e2c46aa6d8f94a  $RUNNER_TEMP/muse-bin/muse" | sha256sum --check
+          chmod +x "$RUNNER_TEMP/muse-bin/muse"
+          PATH="$RUNNER_TEMP/muse-bin:$PATH" node tools/muse-grok/marketplace.mjs --check
+          npm install --prefix "$RUNNER_TEMP/codex" --no-audit --no-fund @openai/codex@0.172.0
+          node tools/muse-grok/codex-ignores-muse.mjs --codex "$RUNNER_TEMP/codex/node_modules/.bin/codex"
       - name: Verify the install archive and private team upload
         run: |
           python3 tools/muse-grok/package.py --kit "$RUNNER_TEMP/kit.zip"

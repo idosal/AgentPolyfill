@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "source": "local",
+  "plugins": [
+    {
+      "name": "ard-discovery",
+      "version": "0.1.1",
+      "install": {
+        "transport": "local-path",
+        "source": "polyfills/ard/codex/plugin"
+      },
+      "integrity": {
+        "digest": "sha256:bc34052dbfb9a7d62e7274d020f20732783ed9d25087e34c458ffa51a0df287a"
+      },
+      "availability": {
+        "status": "available"
+      }
+    },
+    {
+      "name": "mcp-server-cards",
+      "version": "0.1.1",
+      "install": {
+        "transport": "local-path",
+        "source": "polyfills/server-cards/codex/plugin"
+      },
+      "integrity": {
+        "digest": "sha256:fde0f6adc01c800bed6620b66740c9d27c2e9e50a3632e28a2f216d7768601dd"
+      },
+      "availability": {
+        "status": "available"
+      }
+    },
+    {
+      "name": "mcp-skill-reference",
+      "version": "0.2.0",
+      "install": {
+        "transport": "local-path",
+        "source": "polyfills/skills/muse/plugin"
+      },
+      "integrity": {
+        "digest": "sha256:9036917cc0a88f812b6040081e4a13a3e2b379148df5281e049b756d3c18761d"
+      },
+      "availability": {
+        "status": "available"
+      }
+    },
+    {
+      "name": "mcp-event-monitor",
+      "version": "0.2.0",
+      "install": {
+        "transport": "local-path",
+        "source": "polyfills/events/muse/plugin"
+      },
+      "integrity": {
+        "digest": "sha256:61bea442b16591a57a980183d5b1d18dfdf07f1ad06f97738c9e135f817ecf0e"
+      },
+      "availability": {
+        "status": "available"
+      }
+    },
+    {
+      "name": "mcp-task-monitor",
+      "version": "0.1.1",
+      "install": {
+        "transport": "local-path",
+        "source": "polyfills/tasks/muse/plugin"
+      },
+      "integrity": {
+        "digest": "sha256:952ee1ffb11b76e1f2f77c74d045fe2298ddf6b8d30602464041de6397f1ca7f"
+      },
+      "availability": {
+        "status": "available"
+      }
+    }
+  ]
+}

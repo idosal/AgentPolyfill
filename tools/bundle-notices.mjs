@@ -16,6 +16,8 @@
 //   node tools/bundle-notices.mjs polyfills/events/opencode --plugin plugin --entry src/plugin.ts --bundle server.js
 //   node tools/bundle-notices.mjs polyfills/events/copilot --plugin plugin --entry src/extension.ts --bundle extensions/mcp-events/extension.mjs
 //
+// Repeat --entry to cover every bundle shipped in one plugin. --esbuild-from selects
+// the package providing the pinned bundler when several plugins share one build.
 // --check fails if the file on disk differs from what it would write.
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -23,8 +25,6 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const folder = resolve(process.argv[2] ?? '.');
-// The polyfill's own pinned esbuild, so the inputs match its build.mjs.
-const { build } = await import(pathToFileURL(createRequire(join(folder, 'package.json')).resolve('esbuild')).href);
 const check = process.argv.includes('--check');
 const pluginAt = process.argv.indexOf('--plugin');
 const plugin = pluginAt > 0 && process.argv[pluginAt + 1] ? process.argv[pluginAt + 1] : 'mod';
@@ -32,14 +32,19 @@ const option = (name) => {
     const at = process.argv.indexOf(name);
     return at > 0 && process.argv[at + 1] ? process.argv[at + 1] : undefined;
 };
-const entry = option('--entry') ?? 'src/helper.ts';
+const toolsDir = option('--esbuild-from') ? resolve(option('--esbuild-from')) : folder;
+const { build } = await import(pathToFileURL(createRequire(join(toolsDir, 'package.json')).resolve('esbuild')).href);
+const entriesToBuild = process.argv.flatMap((arg, i) => arg === '--entry' ? [process.argv[i + 1]] : []);
+if (!entriesToBuild.length) entriesToBuild.push('src/helper.ts');
+const entry = entriesToBuild[0];
 const bundled = option('--bundle') ?? `${entry.replace(/^src\//, 'dist/').replace(/\.ts$/, '.js')}`;
 const LICENSE_FILE = /^(licen[cs]e|copying|notice|unlicense|copyright)/i;
 
 // The same entry and resolution as the polyfill's build.mjs, without writing a bundle.
 const { metafile } = await build({
     absWorkingDir: folder,
-    entryPoints: [entry],
+    entryPoints: entriesToBuild,
+    outdir: 'dist',
     // A Pi extension leaves Pi's own packages to Pi, as its build.mjs does.
     // Packages a host gives its extensions stay out, as each polyfill's build.mjs leaves them:
     // Pi's own, and the SDKs Copilot and OpenCode provide.
@@ -86,16 +91,18 @@ for (const e of entries) {
     for (const t of e.texts) out.push(`${t.f}:`, '', t.text, '');
 }
 const text = out.join('\n').trimEnd() + '\n';
+const trimLineEnds = (s) => s.replace(/[ \t]+$/gm, '');
 const target = join(folder, plugin, 'THIRD_PARTY_LICENSES.txt');
 
+const current = existsSync(target) ? readFileSync(target, 'utf8') : '';
+const changed = trimLineEnds(current) !== trimLineEnds(text);
 if (check) {
-    const current = existsSync(target) ? readFileSync(target, 'utf8') : '';
-    if (current !== text) {
+    if (changed) {
         console.error(`${target} is out of date: run node tools/bundle-notices.mjs ${process.argv.slice(2).filter((a) => a !== '--check').join(' ')}`);
         process.exit(1);
     }
     console.log(`${target}: up to date (${seen.size} packages)`);
 } else {
-    writeFileSync(target, text);
+    if (changed) writeFileSync(target, trimLineEnds(text));
     console.log(`wrote ${target}: ${seen.size} packages`);
 }

@@ -7,7 +7,7 @@ This kit adds five features. In Muse, install the plugins you want and open a ne
 | Directory lookup (ARD) | “What services does Buildkite publish?” | The agent reads the directory on the website you name. Verified with Buildkite. | The helper finds the services and prints the connection fields. The operator completes the form. |
 | Server Cards | “How do I connect to that service?” | The agent shows the address and a command you can review and run. An earlier Neon test connected and listed five tools. | The helper prepares the name, address and sign-in fields. Saving and using a discovered service in Grok needs a host check. |
 | Skills over MCP | “How do I give my Hugging Face app GPU time?” | Connect the publisher once. Its guides appear in Muse’s skill list. One Mac approval opens a guide and its verified supporting files for this conversation. | Connect the publisher once for the account. Grok can find its guides. Start the connector with `--owner-approval` and the person at that Mac can approve one guide. Grok then receives the text in chat. The default remote setup only lists guides. |
-| Events | “Tell me when a ticket comes in.” | A short wait returns the next ticket in this conversation. For an alert later, keep the terminal open and attach the native monitor. | A matching event can start a new routine. The routine receives an empty trigger and uses its own permissions and quota. |
+| Events | “Tell me when a ticket comes in.” | A short wait returns one ticket. A native monitor can interrupt the open terminal once. For repeated notices, confirm a subscription and receive updates with your next messages. | A matching event can start a new routine. The routine receives an empty trigger and uses its own permissions and quota. |
 | Tasks | “Use the addition service and tell me its result.” | The agent starts an enabled job, checks it by number and returns the answer. Verified with FastMCP. | A private connector exposes the jobs the operator enables to every Bot on the account. A signed-in test Bot started one job and returned its result and receipt. |
 
 ### What passed on November 27, 2026
@@ -21,6 +21,22 @@ This kit adds five features. In Muse, install the plugins you want and open a ne
 The Muse recordings used local Qwen 3.5 2B, a standing instruction to use the relevant service, disabled shell and writes, and preapproved test tools. The Skills reader separately asked for permission to load the selected guide. The Grok Skills and Tasks tests ran in the signed-in Bot’s ordinary chat. The tests demonstrate the listed flows with those settings. The Cards and ARD conformance reports document their supported rules and omissions. Each other integration covers the subset described below.
 
 ## Install in Muse
+
+### Install by name from a checkout
+
+From the repository root, add the catalog once. For example, to add Skills and Events:
+
+```sh
+muse plugins marketplace add agent-polyfill "$PWD"
+muse plugins install mcp-skill-reference@agent-polyfill
+muse plugins approve mcp-skill-reference
+muse plugins install mcp-event-monitor@agent-polyfill
+muse plugins approve mcp-event-monitor
+```
+
+The other three install names are `ard-discovery`, `mcp-server-cards`, and `mcp-task-monitor`. Each entry pins its package digest. The local ZIP kit uses the installer below.
+
+### Install from the ZIP kit
 
 Use Node 22.18 or newer and Muse Code. To install and approve all five reviewed local plugins in one command, run
 
@@ -46,7 +62,19 @@ Muse starts the bundled processes with the session. Disable a plugin with `muse 
 
 On November 28, a fresh install in Muse Code 1.4.25 listed 20 Hugging Face guides, including ZeroGPU, through Muse’s own skill inventory. Packaged reader tests verified that a new session cannot reuse a previous session’s approval and that unlisted or changed files are refused.
 
+In the November 28 local marketplace check, Muse Code 1.4.25 installed all five plugins by name. With a selected Hugging Face connection and the catalog populated before the first turn, local Qwen 3.5 2B used the discovery tool and returned `huggingface-zerogpu` and `skill://huggingface-zerogpu/SKILL.md` on a listing-only question. An earlier run used the publisher’s repository search and gave the wrong answer. Use the tool trace to check which lookup occurred. The listing-only run did not open the guide. In a separate official Muse session with a scripted model and a local ticket publisher, two successive messages received distinct recurring notices and the third received none.
+
 ### Publishers and skill approval
+
+If Hugging Face is already in your Muse user settings, run just the second command with its existing name. Otherwise register the publisher, then select it for Skills. An approved plugin reads the catalog immediately so the guides are ready for the first question.
+
+```sh
+muse mcp add hf-publisher --user --url https://huggingface.co/mcp
+node tools/muse-grok/select-muse-sources.mjs skills hf-publisher
+muse skills list --source user
+```
+
+Open a new trusted session and ask “I’m deploying a Gradio app on Hugging Face ZeroGPU. Which publisher guide should I use? Just the name and link.” A catalog lookup returns the published name and its `skill://` URI. Asking for instructions opens the **Read once** dialog on macOS. A remote publisher sees normal MCP discovery requests. A selected stdio publisher starts a separate instance of the configured command. The plugin stores selected names and the location of the Muse profile. It reuses supported literal settings and declines Muse-managed OAuth, environment substitutions, and connections subject to enterprise policy it cannot evaluate. Select additional names on the same command line, or pass `--clear` to remove the selection. Reopen the session after changing it. A separately configured `sources.json` still applies.
 
 Skills defaults to the public Hugging Face publisher. Installing with `node tools/muse-grok/install-muse.mjs skills --approve` adds the catalog to Muse’s native list. Run `muse skills list --source user` and look for `mcp-skills:huggingface:huggingface-zerogpu`. The local entries contain the publisher’s description and instructions for contacting the reader. Muse fetches the actual guide only when it is opened. Trusted sessions refresh the catalog. Up to 100 guides are written to the native list. The discovery tool can list the rest.
 
@@ -65,7 +93,15 @@ Add another compatible publisher as another label. Discovery fetches metadata on
 
 ### Watch an event
 
-Events defaults to the public AgentPolyfill feed. Ask “Watch the publicFeed source for the next hn.story and tell me when it arrives.” To use another source, put the same `sources` object in `plugins/data/mcp-event-monitor/sources.json`. Sources must advertise the Events extension and polling. This release supports event types that can be polled with empty arguments.
+**Recurring notices.** Choose a Muse user connection that publishes MCP Events. For example, if yours is called `tickets`, run:
+
+```sh
+node tools/muse-grok/select-muse-sources.mjs events tickets
+```
+
+Approve the Events plugin, including its prompt hook, then open a new trusted session. Ask “Keep watching tickets for new tickets and tell me when I next message you.” Muse shows the server, event type and filters, then gives you a short phrase such as `watch tickets ticket.created 4821`. Type the phrase shown in your session. One confirmation starts the subscription. Later messages in that session carry a notice with the number of arrivals and handles for reading details. Closing Muse stops the helper. Reopening that session resumes its saved watch. Catch-up depends on the publisher’s event history. Ask Muse to stop the watch and confirm the stop. A watch runs only for a selected compatible connection.
+
+**Immediate alert or short wait.** Events defaults to the public AgentPolyfill feed. Ask “Watch the publicFeed source for the next hn.story and tell me when it arrives.” To use another source, put the same `sources` object in `plugins/data/mcp-event-monitor/sources.json`. Sources must advertise the Events extension and polling. This release supports event types that can be polled with empty arguments.
 
 The plugin prepares a private loopback WebSocket address. The agent opens it with Muse’s native `monitor` tool. A local connection to this address starts polling. A fixed wake message tells the agent to read the inbox. Publisher text is delivered only by the inbox tool. One watch can deliver one event within ten minutes. Stopping the watch or closing the session releases it. For a short wait, ask “Wait here for the next hn.story from publicFeed.” The wait_for_event tool makes one call, waits up to 30 seconds and returns the event, a timeout, or a stop receipt. A timeout ends the watch. Only one wait or background watch can be active. For a background alert use an interactive Muse session with its native monitor available. A preset that omits the monitor can prepare a watch but cannot attach it. [Muse plugin commands and approvals](https://meta-models.github.io/muse-code-sdk/1.4/guides/plugins/concepts/mcp-servers/) · [Events authorization](https://modelcontextprotocol.io/seps/3415-events-extension#authorization)
 
@@ -122,7 +158,7 @@ To watch another operator-configured publisher, supply `--config /absolute/path/
 
 ## Verify the checkout
 
-Bundled executables run without dependency installation. For development, install the pinned dependencies with `npm ci` in `polyfills/skills/codex`, `polyfills/{skills,tasks,events}/core` (each separately), and `polyfills/events/muse`. Rebuild with `node tools/muse-grok/build.mjs` and check with `node tools/muse-grok/build.mjs --check`. Type-check the adapters with `polyfills/skills/codex/node_modules/.bin/tsc -p tools/muse-grok`. Run `node --test tools/muse-grok/integration.test.mjs` for source identity, content integrity, nested-read refusal, Tasks lifecycle, event wake and duplicate delivery. Discovery has three additional package suites under `polyfills/server-cards/muse`, `polyfills/ard/muse` and `polyfills/server-cards/grok-bot`.
+Bundled executables run without dependency installation. For development, install the pinned dependencies with `npm ci` in `polyfills/skills/codex`, `polyfills/{skills,tasks,events}/core` (each separately), and both `polyfills/events/codex` and `polyfills/events/muse`. Rebuild with `node tools/muse-grok/build.mjs` and check with `node tools/muse-grok/build.mjs --check`. Type-check the adapters with `polyfills/skills/codex/node_modules/.bin/tsc -p tools/muse-grok`. Run `node --test tools/muse-grok/integration.test.mjs` for source identity, content integrity, nested-read refusal, Tasks lifecycle, event wake and duplicate delivery. Run `node --test polyfills/events/muse/test/recurring.test.ts` for recurring delivery and watch confirmation. With Muse installed, `node tools/muse-grok/marketplace.mjs` regenerates the catalog after a package change. Add `--check` to verify all five hashes and names in a disposable profile. Run `node tools/muse-grok/codex-ignores-muse.mjs` with Codex installed to check the two shared plugin packages. Discovery has three additional package suites under `polyfills/server-cards/muse`, `polyfills/ard/muse` and `polyfills/server-cards/grok-bot`.
 
 
 ### Build an install kit
