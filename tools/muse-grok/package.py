@@ -69,7 +69,11 @@ def grok_skills(args):
     entries = json.loads(subprocess.check_output(cmd))
     if not entries:
         raise ValueError("No fingerprinted native skills to package")
-    manifest = {"name": "publisher-skills", "version": "0.3.0", "description": "Native publisher skills from " + args.source}
+    # Independent publisher catalogs and snapshots must coexist in the team library.
+    identity = json.dumps([args.source, args.snapshot_skill], ensure_ascii=True).encode()
+    source_slug = re.sub("[^a-z0-9]+", "-", args.source.lower()).strip("-")[:30] or "source"
+    package_name = "publisher-skills-" + source_slug + "-" + hashlib.sha256(identity).hexdigest()[:12]
+    manifest = {"name": package_name, "version": "0.3.0", "description": "Native publisher skills from " + args.source}
     files = [(".claude-plugin/plugin.json", json.dumps(manifest).encode())]
     for entry in entries:
         suffix = hashlib.sha256((args.source + "\0" + entry["uri"]).encode()).hexdigest()[:12]

@@ -548,6 +548,10 @@ test('Grok native skill ZIP supports a live catalog or one verified portable ski
     assert.ok(!JSON.stringify(live).includes('A unique temporary path.'));
     assert.ok(!readFileSync(wire,'utf8').includes('"resources/read"'));
     const archived=await pack('snapshot','--snapshot-skill',first.uri,'--reference',path);
+    const manifestName = files => JSON.parse(files['.claude-plugin/plugin.json']).name;
+    const other = await pack('other','--snapshot-skill',second.uri);
+    assert.equal(new Set([live,archived,other].map(manifestName)).size,3);
+    assert.equal(manifestName(await pack('same-guide','--snapshot-skill',first.uri)),manifestName(archived));
     assert.equal(Object.keys(archived).length,3);
     const body=Object.entries(archived).find(([n])=>n.endsWith('/SKILL.md'))[1];
     assert.ok(!body.includes('read_skill'));
