@@ -38,10 +38,17 @@ export type Occurrence = {
 };
 
 export type SessionInfo = {
+    mode: 'v2026' | 'v2025';
     sessionId?: string;
     protocolVersion: string;
     declaration?: 'extensions' | 'pre-standard';
     outsideTheSpec?: string;
+};
+
+const V2026_META = {
+    'io.modelcontextprotocol/protocolVersion': FIRST_REVISION,
+    'io.modelcontextprotocol/clientCapabilities': { extensions: { [EVENTS_EXTENSION]: {} } },
+    'io.modelcontextprotocol/clientInfo': CLIENT_INFO
 };
 
 export class RpcError extends Error {
@@ -255,8 +262,50 @@ export class UpstreamMcpClient {
         return { res, raw };
     }
 
+    #inspectCapabilities(protocolVersion: string, caps: Record<string, unknown>): Pick<SessionInfo, 'declaration' | 'outsideTheSpec'> {
+        const ext = (caps.extensions as Record<string, unknown> | undefined)?.[EVENTS_EXTENSION];
+        const hasExt = typeof ext === 'object' && ext !== null && protocolVersion >= FIRST_REVISION;
+        const hasSketch = typeof caps.events === 'object' && caps.events !== null;
+        if (hasExt) return { declaration: 'extensions' };
+        if (hasSketch && this.allowPreStandard) return { declaration: 'pre-standard' };
+        if (typeof ext === 'object' && ext !== null) {
+            return { outsideTheSpec: `advertises Events on protocol ${protocolVersion}, older than ${FIRST_REVISION}` };
+        }
+        if (hasSketch) {
+            return { outsideTheSpec: 'advertises pre-standard top-level events capability and MCP_EVENTS_PRE_STANDARD disabled it' };
+        }
+        return {};
+    }
+
     async initialize(): Promise<SessionInfo> {
         if (this.session) return this.session;
+
+        // Try MCP 2026-07-28 (`server/discover` + per-request _meta envelope + Mcp-Method header) first.
+        try {
+            const id = this.#nextId++;
+            const { res, raw } = await this.#post(
+                { jsonrpc: '2.0', id, method: 'server/discover', params: { _meta: V2026_META } },
+                { 'mcp-protocol-version': FIRST_REVISION, 'mcp-method': 'server/discover' }
+            );
+            const result = parseJsonRpcResponse(res.headers.get('content-type') ?? 'application/json', raw, id) as {
+                protocolVersion?: string;
+                capabilities?: Record<string, unknown>;
+            };
+            const protocolVersion = typeof result?.protocolVersion === 'string' ? result.protocolVersion : FIRST_REVISION;
+            const caps = (result?.capabilities ?? {}) as Record<string, unknown>;
+            const { declaration, outsideTheSpec } = this.#inspectCapabilities(protocolVersion, caps);
+            this.session = {
+                mode: 'v2026',
+                sessionId: res.headers.get('mcp-session-id') ?? undefined,
+                protocolVersion,
+                declaration,
+                outsideTheSpec
+            };
+            return this.session;
+        } catch {
+            // Older servers (2025-11-25 or pre-standard) use `initialize`; fall back below.
+        }
+
         const id = this.#nextId++;
         const { res, raw } = await this.#post({
             jsonrpc: '2.0',
@@ -274,19 +323,9 @@ export class UpstreamMcpClient {
         };
         const protocolVersion = typeof result?.protocolVersion === 'string' ? result.protocolVersion : FIRST_REVISION;
         const caps = (result?.capabilities ?? {}) as Record<string, unknown>;
-        const ext = (caps.extensions as Record<string, unknown> | undefined)?.[EVENTS_EXTENSION];
-        const hasExt = typeof ext === 'object' && ext !== null && protocolVersion >= FIRST_REVISION;
-        const hasSketch = typeof caps.events === 'object' && caps.events !== null;
-        let declaration: 'extensions' | 'pre-standard' | undefined;
-        let outsideTheSpec: string | undefined;
-        if (hasExt) declaration = 'extensions';
-        else if (hasSketch && this.allowPreStandard) declaration = 'pre-standard';
-        else if (typeof ext === 'object' && ext !== null) {
-            outsideTheSpec = `advertises Events on protocol ${protocolVersion}, older than ${FIRST_REVISION}`;
-        } else if (hasSketch) {
-            outsideTheSpec = 'advertises pre-standard top-level events capability and MCP_EVENTS_PRE_STANDARD disabled it';
-        }
+        const { declaration, outsideTheSpec } = this.#inspectCapabilities(protocolVersion, caps);
         this.session = {
+            mode: 'v2025',
             sessionId: res.headers.get('mcp-session-id') ?? undefined,
             protocolVersion,
             declaration,
@@ -303,8 +342,10 @@ export class UpstreamMcpClient {
             throw new Error(s.outsideTheSpec || 'Server does not advertise MCP Events.');
         }
         const id = this.#nextId++;
+        const wireParams = s.mode === 'v2026' ? { ...params, _meta: V2026_META } : params;
+        const wireHeaders = s.mode === 'v2026' ? { 'mcp-method': method, ...extraHeaders } : extraHeaders;
         try {
-            const { res, raw } = await this.#post({ jsonrpc: '2.0', id, method, params }, extraHeaders);
+            const { res, raw } = await this.#post({ jsonrpc: '2.0', id, method, params: wireParams }, wireHeaders);
             return parseJsonRpcResponse(res.headers.get('content-type') ?? 'application/json', raw, id);
         } catch (err) {
             if (err instanceof RpcError && s.declaration === 'pre-standard' && err.code <= -32011 && err.code >= -32015) {
